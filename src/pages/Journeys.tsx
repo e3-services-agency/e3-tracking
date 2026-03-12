@@ -152,8 +152,38 @@ const JourneyStepNode = ({ id, data }: NodeProps) => {
     }
   };
 
+  // Smart Paste Handler
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const resultUrl = event.target?.result as string;
+            if (isQAMode) {
+              setNodes(nds => nds.map(n => n.id === id ? { ...n, data: { ...n.data, tempProofUrl: resultUrl } } : n));
+            } else {
+              setNodes((nds) => nds.map(n => n.id === id ? { ...n, data: { ...n.data, imageUrl: resultUrl } } : n));
+            }
+          };
+          reader.readAsDataURL(file);
+          e.preventDefault(); // Stop default paste behavior
+          break;
+        }
+      }
+    }
+  }, [id, isQAMode, setNodes]);
+
   return (
-    <div className={`bg-white border-2 ${isQAMode && qaStatus === 'Failed' ? 'border-red-400' : isQAMode && qaStatus === 'Passed' ? 'border-emerald-400' : 'border-gray-200'} rounded-lg shadow-sm min-w-[250px] max-w-[400px] overflow-visible group relative`}>
+    <div 
+      className={`bg-white border-2 ${isQAMode && qaStatus === 'Failed' ? 'border-red-400' : isQAMode && qaStatus === 'Passed' ? 'border-emerald-400' : 'border-gray-200'} rounded-lg shadow-sm min-w-[250px] max-w-[400px] overflow-visible group relative focus:outline-none`}
+      onPaste={handlePaste}
+      tabIndex={0}
+    >
       {isQAMode && <QAStatusBadge status={qaStatus} />}
       <StrictHandles color="bg-gray-400" isQAMode={isQAMode} />
       {!isQAMode && <QuickAddMenu nodeId={id} position="right" />}
@@ -193,7 +223,8 @@ const JourneyStepNode = ({ id, data }: NodeProps) => {
         ) : (
           <label className="h-32 flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed rounded text-gray-400 text-sm cursor-pointer hover:bg-gray-100 transition-colors">
             <UploadCloud className="w-6 h-6 mb-2" />
-            <span>Upload Image</span>
+            <span className="font-medium">Upload Image</span>
+            <span className="text-[10px] mt-1 text-gray-400">or click & paste (Ctrl+V)</span>
             <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isQAMode} />
           </label>
         )}
@@ -204,7 +235,7 @@ const JourneyStepNode = ({ id, data }: NodeProps) => {
           <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-300 rounded bg-white text-blue-600 text-xs cursor-pointer hover:bg-blue-50 transition-colors">
             <UploadCloud className="w-4 h-4 mb-1" />
             <span className="font-semibold">Upload Proof</span>
-            <span className="text-gray-500 text-[10px] mt-1 text-center">Screenshot or JSON</span>
+            <span className="text-gray-500 text-[10px] mt-1 text-center">Screenshot or Paste (Ctrl+V)</span>
             <input type="file" className="hidden" onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) {
@@ -269,8 +300,35 @@ const TriggerNode = ({ id, data }: NodeProps) => {
     setSearchQuery('');
   };
 
+  // Smart Paste Handler (Only active in QA mode for Triggers)
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    if (!isQAMode) return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const proofUrl = event.target?.result as string;
+            setNodes(nds => nds.map(n => n.id === id ? { ...n, data: { ...n.data, tempProofUrl: proofUrl } } : n));
+          };
+          reader.readAsDataURL(file);
+          e.preventDefault();
+          break;
+        }
+      }
+    }
+  }, [id, isQAMode, setNodes]);
+
   return (
-    <div className={`bg-white border-2 ${isQAMode && qaStatus === 'Failed' ? 'border-red-400' : isQAMode && qaStatus === 'Passed' ? 'border-emerald-400' : 'border-amber-400'} rounded-lg shadow-sm min-w-[280px] max-w-[320px] overflow-visible group relative`}>
+    <div 
+      className={`bg-white border-2 ${isQAMode && qaStatus === 'Failed' ? 'border-red-400' : isQAMode && qaStatus === 'Passed' ? 'border-emerald-400' : 'border-amber-400'} rounded-lg shadow-sm min-w-[280px] max-w-[320px] overflow-visible group relative focus:outline-none`}
+      onPaste={handlePaste}
+      tabIndex={0}
+    >
       {isQAMode && <QAStatusBadge status={qaStatus} />}
       <StrictHandles color="bg-amber-400" isQAMode={isQAMode} />
       {!isQAMode && <QuickAddMenu nodeId={id} position="right" />}
@@ -379,8 +437,8 @@ const TriggerNode = ({ id, data }: NodeProps) => {
           <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-300 rounded bg-white text-blue-600 text-xs cursor-pointer hover:bg-blue-50 transition-colors">
             <UploadCloud className="w-4 h-4 mb-1" />
             <span className="font-semibold">Upload Proof</span>
-            <span className="text-gray-500 text-[10px] mt-1 text-center">Network Payload JSON</span>
-            <input type="file" accept=".json" className="hidden" onChange={(e) => {
+            <span className="text-gray-500 text-[10px] mt-1 text-center">Network Payload JSON or Paste (Ctrl+V)</span>
+            <input type="file" accept=".json,image/*" className="hidden" onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) {
                 const reader = new FileReader();
@@ -393,7 +451,11 @@ const TriggerNode = ({ id, data }: NodeProps) => {
                     return n;
                   }));
                 };
-                reader.readAsText(file);
+                if (file.type.startsWith('image/')) {
+                  reader.readAsDataURL(file);
+                } else {
+                  reader.readAsText(file);
+                }
               }
             }} />
           </label>

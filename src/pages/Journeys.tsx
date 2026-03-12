@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useStore, useActiveData } from '@/src/store';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -425,11 +425,11 @@ const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) => {
             <UploadCloud className="w-4 h-4 mb-1" />
             <span className="font-semibold">Upload Proofs</span>
             <span className="text-gray-500 text-[10px] mt-1 text-center">
-              Multiple screenshots / JSON files / Paste (Ctrl+V)
+              Multiple screenshots Paste (Ctrl+V)
             </span>
             <input
               type="file"
-              accept="image/*,.json,application/json,text/json"
+              accept="image/*"
               multiple
               className="hidden"
               onChange={async (e) => {
@@ -649,11 +649,11 @@ const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
             <UploadCloud className="w-4 h-4 mb-1" />
             <span className="font-semibold">Upload Proofs</span>
             <span className="text-gray-500 text-[10px] mt-1 text-center">
-              Multiple JSON files, images, or Paste screenshot
+              Screenshots and supporting files for this trigger
             </span>
             <input
               type="file"
-              accept=".json,application/json,text/json,image/*"
+              accept="image/*"
               multiple
               className="hidden"
               onChange={async (e) => {
@@ -1485,55 +1485,24 @@ function JourneyCanvas({
       );
     }
   };
+  const handleTriggerPayloadPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+  if (!selectedNode || !isTriggerNode(selectedNode)) return;
 
-  const prettyFormatJson = () => {
-    if (!selectedNode || !isTriggerNode(selectedNode)) return;
+  const pastedText = e.clipboardData.getData('text/plain')?.trim();
+  if (!pastedText) return;
 
-    const current = currentVerification?.proofText || '';
-    if (!current.trim()) return;
-
-    try {
-      const parsed = JSON.parse(current);
-      updateQAVerification(selectedNode.id, {
-        proofText: JSON.stringify(parsed, null, 2),
-      });
-    } catch {
-      alert('Invalid JSON. Fix the payload before formatting.');
-    }
-  };
-
-  const sampleTriggerPayload = useMemo(
-    () => `{
-  "event_type": "double_opt_in",
-  "customer_ids": {
-    "email_id": "jan.pan@e3-services.com"
-  },
-  "properties": {
-    "email": "<value>",
-    "first_name": "<value>",
-    "is_changemaker": <value>,
-    "action": "<value>",
-    "country_code": "<value>",
-    "language_code": "<value>",
-    "language_tag": "<value>",
-    "placement": "<value>",
-    "message": "<value>",
-    "newsletter_interest": "<value>",
-    "voucher_code": "<value>",
-    "birth_date": <value>,
-    "location": "<value>"
-  }
-}`,
-    []
-  );
-
-  const insertSamplePayload = () => {
-    if (!selectedNode || !isTriggerNode(selectedNode)) return;
+  try {
+    const parsed = JSON.parse(pastedText);
 
     updateQAVerification(selectedNode.id, {
-      proofText: sampleTriggerPayload,
+      proofText: JSON.stringify(parsed, null, 2),
     });
-  };
+
+    e.preventDefault();
+  } catch {
+    // ignore invalid JSON paste
+  }
+};
 
   const activeVerifications = activeQARun?.verifications || {};
   const runProfiles = activeQARun?.testingProfiles || [];
@@ -2039,7 +2008,7 @@ function JourneyCanvas({
                   <label className="inline-flex">
                     <input
                       type="file"
-                      accept=".json,application/json,text/json,image/*"
+                      accept="image/*"
                       multiple
                       className="hidden"
                       onChange={async (e) => {
@@ -2162,20 +2131,41 @@ function JourneyCanvas({
                     <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                       Trigger Proof Payload
                     </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={insertSamplePayload}>
-                        Insert Sample
+
+                    <label className="inline-flex">
+                      <input
+                        type="file"
+                        accept=".json,application/json,text/json"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file || !selectedNode || !isTriggerNode(selectedNode)) return;
+
+                          try {
+                            const content = await readFileAsContent(file);
+                            const parsed = JSON.parse(content);
+
+                            updateQAVerification(selectedNode.id, {
+                              proofText: JSON.stringify(parsed, null, 2),
+                            });
+                          } catch {
+                            alert('Uploaded file is not a valid JSON.');
+                          }
+
+                          e.target.value = '';
+                        }}
+                      />
+                      <Button size="sm" variant="outline" type="button">
+                        <UploadCloud className="w-4 h-4 mr-2" /> Upload JSON
                       </Button>
-                      <Button size="sm" variant="outline" onClick={prettyFormatJson}>
-                        Format JSON
-                      </Button>
-                    </div>
+                    </label>
                   </div>
 
                   <textarea
                     className="w-full h-72 rounded-md border border-input bg-background px-3 py-2 text-xs font-mono"
                     placeholder="Paste your payload JSON here..."
                     value={currentVerification?.proofText || ''}
+                    onPaste={handleTriggerPayloadPaste}
                     onChange={(e) =>
                       updateQAVerification(selectedNode.id, {
                         proofText: e.target.value,
@@ -2184,7 +2174,8 @@ function JourneyCanvas({
                   />
 
                   <div className="text-[11px] text-gray-500">
-                    Paste raw JSON manually here, or upload one or more JSON files in the Proof Files section above.
+                    Paste valid JSON here or use Upload JSON.
+                    Screenshots and other visual evidence belong in Proof Files.
                     Everything is stored on the QA run, not on the base journey.
                   </div>
                 </div>

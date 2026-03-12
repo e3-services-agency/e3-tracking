@@ -88,11 +88,8 @@ const initialData: TrackingPlanData = {
   journeys: [
     {
       id: 'j1',
-      name: 'Onboarding Flow',
-      nodes: [
-        { id: 'n1', type: 'eventNode', position: { x: 100, y: 100 }, data: { label: 'User Signed Up', eventId: 'e1' } },
-        { id: 'n2', type: 'eventNode', position: { x: 300, y: 100 }, data: { label: 'Subscription Upgraded', eventId: 'e2' } },
-      ],
+      name: 'Customer Journey Flow',
+      nodes: [],
       edges: [
         { id: 'e1-2', source: 'n1', target: 'n2', animated: true },
       ]

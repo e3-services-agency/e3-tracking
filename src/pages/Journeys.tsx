@@ -24,15 +24,82 @@ import '@xyflow/react/dist/style.css';
 import { v4 as uuidv4 } from 'uuid';
 import { QARun, QAStatus } from '@/src/types';
 
-// Strict 4-way handles
-const StrictHandles = ({ color }: { color: string }) => (
+
+// Strict 4-way handles with larger hit areas
+const StrictHandles = ({ color, isQAMode }: { color: string, isQAMode?: boolean }) => (
   <>
-    <Handle type="target" position={Position.Top} id="top" className={`w-3 h-3 ${color}`} />
-    <Handle type="source" position={Position.Right} id="right" className={`w-3 h-3 ${color}`} />
-    <Handle type="source" position={Position.Bottom} id="bottom" className={`w-3 h-3 ${color}`} />
-    <Handle type="target" position={Position.Left} id="left" className={`w-3 h-3 ${color}`} />
+    <Handle type="target" position={Position.Top} id="top" className={`w-4 h-4 transition-transform hover:scale-125 ${color} ${isQAMode ? 'opacity-0 pointer-events-none' : ''}`} />
+    <Handle type="source" position={Position.Right} id="right" className={`w-4 h-4 transition-transform hover:scale-125 ${color} ${isQAMode ? 'opacity-0 pointer-events-none' : ''}`} />
+    <Handle type="source" position={Position.Bottom} id="bottom" className={`w-4 h-4 transition-transform hover:scale-125 ${color} ${isQAMode ? 'opacity-0 pointer-events-none' : ''}`} />
+    <Handle type="target" position={Position.Left} id="left" className={`w-4 h-4 transition-transform hover:scale-125 ${color} ${isQAMode ? 'opacity-0 pointer-events-none' : ''}`} />
   </>
 );
+
+const QuickAddMenu = ({ nodeId, position }: { nodeId: string, position: 'right' | 'bottom' }) => {
+  const { getNode, setNodes, setEdges } = useReactFlow();
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleAdd = (type: 'journeyStepNode' | 'triggerNode') => {
+    const node = getNode(nodeId);
+    if (!node) return;
+
+    const newNodeId = `${type}-${Date.now()}`;
+    const offsetX = position === 'right' ? 350 : 0;
+    const offsetY = position === 'bottom' ? 250 : 0;
+
+    const newNode: Node = {
+      id: newNodeId,
+      type,
+      position: { x: node.position.x + offsetX, y: node.position.y + offsetY },
+      data: type === 'journeyStepNode' 
+        ? { label: `Step ${Date.now().toString().slice(-3)}`, rectangles: [] } 
+        : { description: '', connectedEvent: null },
+    };
+
+    const newEdge: Edge = {
+      id: `e-${nodeId}-${newNodeId}`,
+      source: nodeId,
+      sourceHandle: position,
+      target: newNodeId,
+      targetHandle: position === 'right' ? 'left' : 'top',
+      animated: true,
+      style: { stroke: '#9CA3AF', strokeWidth: 2 },
+      type: 'smoothstep'
+    };
+
+    setNodes(nds => nds.concat(newNode));
+    setEdges(eds => eds.concat(newEdge));
+    setIsOpen(false);
+  };
+
+  const posClass = position === 'right' 
+    ? 'top-1/2 -right-8 -translate-y-1/2' 
+    : 'left-1/2 -bottom-8 -translate-x-1/2';
+
+  return (
+    <div className={`absolute ${posClass} z-50 flex flex-col items-center nodrag`}>
+      <button 
+        onBlur={() => setTimeout(() => setIsOpen(false), 200)}
+        onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
+        className="w-6 h-6 bg-white border border-gray-300 text-gray-500 rounded-full flex items-center justify-center hover:bg-blue-50 hover:text-blue-600 hover:border-blue-400 shadow-sm transition-all"
+        title="Quick Add Node"
+      >
+        <Plus className="w-4 h-4" />
+      </button>
+      
+      {isOpen && (
+        <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 bg-white border border-gray-200 shadow-xl rounded-lg flex flex-col py-1 w-36">
+          <button onClick={(e) => { e.stopPropagation(); handleAdd('journeyStepNode'); }} className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-gray-50 text-left text-gray-700">
+            <ImageIcon className="w-3 h-3 text-gray-500" /> Add Step
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); handleAdd('triggerNode'); }} className="flex items-center gap-2 px-3 py-2 text-xs hover:bg-amber-50 text-left text-gray-700">
+            <Zap className="w-3 h-3 text-amber-500" /> Add Trigger
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const QAStatusBadge = ({ status }: { status?: QAStatus }) => {
   if (!status || status === 'Pending') {
@@ -160,7 +227,8 @@ const JourneyStepNode = ({ id, data }: NodeProps) => {
   return (
     <div className={`bg-white border-2 ${isQAMode && qaStatus === 'Failed' ? 'border-red-400' : isQAMode && qaStatus === 'Passed' ? 'border-emerald-400' : 'border-gray-200'} rounded-lg shadow-sm min-w-[250px] max-w-[400px] overflow-visible group relative`}>
       {isQAMode && <QAStatusBadge status={qaStatus} />}
-      <StrictHandles color="bg-gray-400" />
+      <StrictHandles color="bg-gray-400" isQAMode={isQAMode} />
+      {!isQAMode && <QuickAddMenu nodeId={id} position="right" />}
       <div className="bg-gray-50 px-3 py-2 border-b flex flex-col gap-2 rounded-t-lg">
         <div className="flex items-center justify-between gap-2 text-sm font-semibold text-gray-700">
           <div className="flex items-center gap-2 flex-1">
@@ -313,9 +381,10 @@ const TriggerNode = ({ id, data }: NodeProps) => {
   };
 
   return (
-    <div className={`bg-white border-2 ${isQAMode && qaStatus === 'Failed' ? 'border-red-400' : isQAMode && qaStatus === 'Passed' ? 'border-emerald-400' : 'border-amber-400'} rounded-lg shadow-sm min-w-[280px] max-w-[320px] relative`}>
+    <div className={`bg-white border-2 ${isQAMode && qaStatus === 'Failed' ? 'border-red-400' : isQAMode && qaStatus === 'Passed' ? 'border-emerald-400' : 'border-amber-400'} rounded-lg shadow-sm min-w-[280px] max-w-[320px] overflow-visible group relative`}>
       {isQAMode && <QAStatusBadge status={qaStatus} />}
-      <StrictHandles color="bg-amber-400" />
+      <StrictHandles color="bg-amber-400" isQAMode={isQAMode} />
+      {!isQAMode && <QuickAddMenu nodeId={id} position="right" />}
       <div className="bg-amber-50 px-3 py-2 border-b border-amber-200 flex items-center gap-2 rounded-t-lg">
         <Zap className="w-4 h-4 text-amber-600" />
         <span className="text-sm font-bold text-amber-900">Trigger</span>

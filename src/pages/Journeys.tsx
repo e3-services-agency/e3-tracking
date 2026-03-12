@@ -1374,7 +1374,7 @@ function JourneyCanvas({
     const width = Number(draftNode?.style?.width || 0);
     const height = Number(draftNode?.style?.height || 0);
 
-    if (width < 20 || height < 20) {
+    if (width < 1 || height < 1) {
       setNodes((existingNodes) => existingNodes.filter((node) => node.id !== draftAnnotationId));
     }
 

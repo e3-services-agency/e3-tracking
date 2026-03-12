@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useStore, useActiveData } from '@/src/store';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
-import { Plus, Trash2, Save, Image as ImageIcon, Zap, X, CheckSquare, AlertTriangle, CheckCircle2, UploadCloud, Search, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Save, Image as ImageIcon, Zap, X, CheckSquare, AlertTriangle, CheckCircle2, UploadCloud, Search, ChevronDown, StickyNote, SquareDashed } from 'lucide-react';
 import {
   ReactFlow,
   MiniMap,
@@ -18,14 +18,14 @@ import {
   Position,
   ReactFlowProvider,
   useReactFlow,
-  NodeProps
+  NodeProps,
+  NodeResizer
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { v4 as uuidv4 } from 'uuid';
 import { QARun, QAStatus } from '@/src/types';
 
-
-// Strict 4-way handles with larger hit areas
+// Strict 4-way handles
 const StrictHandles = ({ color, isQAMode }: { color: string, isQAMode?: boolean }) => (
   <>
     <Handle type="target" position={Position.Top} id="top" className={`w-4 h-4 transition-transform hover:scale-125 ${color} ${isQAMode ? 'opacity-0 pointer-events-none' : ''}`} />
@@ -35,6 +35,32 @@ const StrictHandles = ({ color, isQAMode }: { color: string, isQAMode?: boolean 
   </>
 );
 
+const QAStatusBadge = ({ status }: { status?: QAStatus }) => {
+  if (!status || status === 'Pending') {
+    return (
+      <div className="absolute -top-3 -right-3 bg-amber-100 text-amber-700 border border-amber-300 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm flex items-center gap-1 z-20">
+        <AlertTriangle className="w-3 h-3" /> Pending
+      </div>
+    );
+  }
+  if (status === 'Passed') {
+    return (
+      <div className="absolute -top-3 -right-3 bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm flex items-center gap-1 z-20">
+        <CheckCircle2 className="w-3 h-3" /> Passed
+      </div>
+    );
+  }
+  if (status === 'Failed') {
+    return (
+      <div className="absolute -top-3 -right-3 bg-red-100 text-red-700 border border-red-300 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm flex items-center gap-1 z-20">
+        <X className="w-3 h-3" /> Failed
+      </div>
+    );
+  }
+  return null;
+};
+
+// Quick Add Menu for Nodes
 const QuickAddMenu = ({ nodeId, position }: { nodeId: string, position: 'right' | 'bottom' }) => {
   const { getNode, setNodes, setEdges } = useReactFlow();
   const [isOpen, setIsOpen] = useState(false);
@@ -52,7 +78,7 @@ const QuickAddMenu = ({ nodeId, position }: { nodeId: string, position: 'right' 
       type,
       position: { x: node.position.x + offsetX, y: node.position.y + offsetY },
       data: type === 'journeyStepNode' 
-        ? { label: `Step ${Date.now().toString().slice(-3)}`, rectangles: [] } 
+        ? { label: `Step ${Date.now().toString().slice(-3)}` } 
         : { description: '', connectedEvent: null },
     };
 
@@ -101,115 +127,14 @@ const QuickAddMenu = ({ nodeId, position }: { nodeId: string, position: 'right' 
   );
 };
 
-const QAStatusBadge = ({ status }: { status?: QAStatus }) => {
-  if (!status || status === 'Pending') {
-    return (
-      <div className="absolute -top-3 -right-3 bg-amber-100 text-amber-700 border border-amber-300 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm flex items-center gap-1 z-20">
-        <AlertTriangle className="w-3 h-3" /> Pending
-      </div>
-    );
-  }
-  if (status === 'Passed') {
-    return (
-      <div className="absolute -top-3 -right-3 bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm flex items-center gap-1 z-20">
-        <CheckCircle2 className="w-3 h-3" /> Passed
-      </div>
-    );
-  }
-  if (status === 'Failed') {
-    return (
-      <div className="absolute -top-3 -right-3 bg-red-100 text-red-700 border border-red-300 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm flex items-center gap-1 z-20">
-        <X className="w-3 h-3" /> Failed
-      </div>
-    );
-  }
-  return null;
-};
-
 // 1. Journey Step Node
 const JourneyStepNode = ({ id, data }: NodeProps) => {
   const { setNodes } = useReactFlow();
   const imageRef = useRef<HTMLImageElement>(null);
-  const [isDrawingMode, setIsDrawingMode] = useState(false);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [startPos, setStartPos] = useState({ x: 0, y: 0 });
-  const [currentPos, setCurrentPos] = useState({ x: 0, y: 0 });
 
   const isQAMode = !!data.activeQARunId;
   const qaVerification = isQAMode ? data.qaVerifications?.[data.activeQARunId as string]?.[id] : null;
   const qaStatus = qaVerification?.status || 'Pending';
-
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (isQAMode || !imageRef.current || !data.imageUrl || !isDrawingMode) return;
-    const rect = imageRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
-    setStartPos({ x, y });
-    setCurrentPos({ x, y });
-    setIsDrawing(true);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isDrawing || isQAMode || !imageRef.current) return;
-    const rect = imageRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
-    setCurrentPos({ x, y });
-  };
-
-  const handleMouseUp = () => {
-    if (!isDrawing || isQAMode) return;
-    setIsDrawing(false);
-    
-    const width = Math.abs(currentPos.x - startPos.x);
-    const height = Math.abs(currentPos.y - startPos.y);
-    
-    if (width > 2 && height > 2) {
-      const newRect = {
-        id: uuidv4(),
-        x: Math.min(startPos.x, currentPos.x),
-        y: Math.min(startPos.y, currentPos.y),
-        width,
-        height,
-        color: '#3B82F6',
-        createdAt: new Date().toISOString()
-      };
-      
-      setNodes((nds) =>
-        nds.map((node) => {
-          if (node.id === id) {
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                rectangles: [...((node.data.rectangles as any[]) || []), newRect],
-              },
-            };
-          }
-          return node;
-        })
-      );
-    }
-  };
-
-  const removeRectangle = (e: React.MouseEvent, rectId: string) => {
-    e.stopPropagation();
-    if (isQAMode) return;
-    setNodes((nds) =>
-      nds.map((node) => {
-        if (node.id === id) {
-          return {
-            ...node,
-            data: {
-              ...node.data,
-              rectangles: ((node.data.rectangles as any[]) || []).filter((r: any) => r.id !== rectId),
-            },
-          };
-        }
-        return node;
-      })
-    );
-  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isQAMode) return;
@@ -229,6 +154,7 @@ const JourneyStepNode = ({ id, data }: NodeProps) => {
       {isQAMode && <QAStatusBadge status={qaStatus} />}
       <StrictHandles color="bg-gray-400" isQAMode={isQAMode} />
       {!isQAMode && <QuickAddMenu nodeId={id} position="right" />}
+      
       <div className="bg-gray-50 px-3 py-2 border-b flex flex-col gap-2 rounded-t-lg">
         <div className="flex items-center justify-between gap-2 text-sm font-semibold text-gray-700">
           <div className="flex items-center gap-2 flex-1">
@@ -244,14 +170,6 @@ const JourneyStepNode = ({ id, data }: NodeProps) => {
               className="bg-transparent border-none focus:ring-0 p-0 font-semibold text-gray-700 w-full"
             />
           </div>
-          {!isQAMode && data.imageUrl && (
-            <button 
-              onClick={() => setIsDrawingMode(!isDrawingMode)}
-              className={`px-2 py-0.5 text-[10px] rounded border ${isDrawingMode ? 'bg-blue-100 border-blue-300 text-blue-700' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}
-            >
-              {isDrawingMode ? 'Exit Drawing' : 'Draw Annotation'}
-            </button>
-          )}
         </div>
         <textarea
           placeholder="Step Description..."
@@ -261,45 +179,13 @@ const JourneyStepNode = ({ id, data }: NodeProps) => {
             setNodes(nds => nds.map(n => n.id === id ? { ...n, data: { ...n.data, description: e.target.value } } : n));
           }}
           disabled={isQAMode}
-          className="w-full text-xs text-gray-600 bg-white border rounded p-1 resize-none h-16 disabled:bg-gray-50"
+          className="w-full text-xs text-gray-600 bg-white border rounded p-1 resize-none h-16 disabled:bg-gray-50 nodrag"
         />
       </div>
       <div className="relative p-2">
         {data.imageUrl ? (
           <div className="relative inline-block w-full select-none">
             <img ref={imageRef} src={data.imageUrl as string} alt="Step" className="w-full h-auto rounded border pointer-events-none" draggable={false} />
-            
-            {/* Dedicated Drawing Overlay */}
-            {isDrawingMode && (
-              <div 
-                className="absolute inset-0 z-20 nodrag nopan cursor-crosshair"
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-              />
-            )}
-
-            {((data.rectangles as any[]) || []).map((rect: any) => (
-              <div
-                key={rect.id}
-                className={`absolute border-2 border-blue-500 bg-blue-500/20 transition-colors z-10 ${!isQAMode && !isDrawingMode ? 'cursor-pointer hover:bg-red-500/40 hover:border-red-500' : ''}`}
-                style={{ left: `${rect.x}%`, top: `${rect.y}%`, width: `${rect.width}%`, height: `${rect.height}%` }}
-                onClick={(e) => !isDrawingMode && removeRectangle(e, rect.id)}
-                title={isQAMode ? "Highlight" : isDrawingMode ? "" : "Click to remove"}
-              />
-            ))}
-            {isDrawing && (
-              <div
-                className="absolute border-2 border-blue-500 bg-blue-500/20 z-10 pointer-events-none"
-                style={{
-                  left: `${Math.min(startPos.x, currentPos.x)}%`,
-                  top: `${Math.min(startPos.y, currentPos.y)}%`,
-                  width: `${Math.abs(currentPos.x - startPos.x)}%`,
-                  height: `${Math.abs(currentPos.y - startPos.y)}%`
-                }}
-              />
-            )}
           </div>
         ) : (
           <label className="h-32 flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed rounded text-gray-400 text-sm cursor-pointer hover:bg-gray-100 transition-colors">
@@ -385,6 +271,7 @@ const TriggerNode = ({ id, data }: NodeProps) => {
       {isQAMode && <QAStatusBadge status={qaStatus} />}
       <StrictHandles color="bg-amber-400" isQAMode={isQAMode} />
       {!isQAMode && <QuickAddMenu nodeId={id} position="right" />}
+      
       <div className="bg-amber-50 px-3 py-2 border-b border-amber-200 flex items-center gap-2 rounded-t-lg">
         <Zap className="w-4 h-4 text-amber-600" />
         <span className="text-sm font-bold text-amber-900">Trigger</span>
@@ -398,7 +285,7 @@ const TriggerNode = ({ id, data }: NodeProps) => {
             setNodes(nds => nds.map(n => n.id === id ? { ...n, data: { ...n.data, description: e.target.value } } : n));
           }}
           disabled={isQAMode}
-          className="w-full text-xs text-gray-600 bg-white border rounded p-2 resize-none h-16 disabled:bg-gray-50"
+          className="w-full text-xs text-gray-600 bg-white border rounded p-2 resize-none h-16 disabled:bg-gray-50 nodrag"
         />
 
         {!data.connectedEvent ? (
@@ -421,7 +308,7 @@ const TriggerNode = ({ id, data }: NodeProps) => {
                     <input 
                       type="text" 
                       placeholder="Search events..." 
-                      className="w-full pl-8 pr-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      className="w-full pl-8 pr-2 py-1.5 text-sm border rounded focus:outline-none focus:ring-1 focus:ring-amber-400 nodrag"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -518,9 +405,54 @@ const TriggerNode = ({ id, data }: NodeProps) => {
   );
 };
 
+// 3. Note Node (Sticky Note Annotation)
+const NoteNode = ({ id, data, selected }: NodeProps) => {
+  const { setNodes } = useReactFlow();
+  const isQAMode = !!data.activeQARunId;
+  
+  return (
+    <div className={`bg-yellow-100 border ${selected ? 'border-yellow-500 shadow-lg ring-1 ring-yellow-400' : 'border-yellow-300 shadow-md'} w-[220px] h-[220px] flex flex-col relative rounded-sm transition-all`}>
+      <div className="bg-yellow-200/60 h-7 w-full flex items-center px-3 cursor-grab drag-handle">
+         <StickyNote className="w-3 h-3 text-yellow-600 mr-2" />
+         <span className="text-[10px] text-yellow-700 font-bold uppercase tracking-wider">Note</span>
+      </div>
+      <textarea
+        className="flex-1 w-full bg-transparent p-3 resize-none outline-none text-sm text-gray-800 placeholder-yellow-600/50 nodrag"
+        placeholder="Write a note..."
+        value={data.text as string || ''}
+        onChange={(e) => !isQAMode && setNodes(nds => nds.map(n => n.id === id ? { ...n, data: { ...n.data, text: e.target.value } } : n))}
+        disabled={isQAMode}
+      />
+    </div>
+  );
+};
+
+// 4. Highlight Box Node
+const HighlightNode = ({ id, selected, data }: NodeProps) => {
+  const isQAMode = !!data.activeQARunId;
+  return (
+    <>
+      {!isQAMode && (
+        <NodeResizer 
+          color="#3b82f6" 
+          isVisible={selected} 
+          minWidth={50} 
+          minHeight={50} 
+        />
+      )}
+      <div 
+        className={`w-full h-full bg-yellow-300/30 border-2 border-yellow-400 border-dashed rounded-sm transition-colors ${selected ? 'border-blue-500 bg-yellow-300/40' : ''}`}
+        style={{ pointerEvents: isQAMode ? 'none' : 'auto' }}
+      />
+    </>
+  );
+};
+
 const nodeTypes = {
   journeyStepNode: JourneyStepNode,
   triggerNode: TriggerNode,
+  noteNode: NoteNode,
+  highlightNode: HighlightNode,
 };
 
 export function Journeys({ selectedJourneyId: initialJourneyId, onBack }: { selectedJourneyId: string | null, onBack: () => void }) {
@@ -804,7 +736,7 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any, activeQARunId
       type,
       position,
       data: type === 'journeyStepNode' 
-        ? { label: `Step ${nodes.filter(n => n.type === 'journeyStepNode').length + 1}`, rectangles: [] }
+        ? { label: `Step ${Date.now().toString().slice(-3)}` }
         : { description: '', connectedEvent: null },
     };
     
@@ -842,7 +774,7 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any, activeQARunId
       id: `step-${Date.now()}`,
       type: 'journeyStepNode',
       position: { x: 100, y: 100 },
-      data: { label: `Step ${nodes.filter(n => n.type === 'journeyStepNode').length + 1}`, rectangles: [] },
+      data: { label: `Step ${Date.now().toString().slice(-3)}` },
     };
     setNodes((nds) => nds.concat(newNode));
   };
@@ -857,8 +789,29 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any, activeQARunId
     setNodes((nds) => nds.concat(newNode));
   };
 
+  const addNoteNode = () => {
+    const newNode: Node = {
+      id: `note-${Date.now()}`,
+      type: 'noteNode',
+      position: { x: 200, y: 50 },
+      data: { text: '' },
+    };
+    setNodes((nds) => nds.concat(newNode));
+  };
+
+  const addHighlightNode = () => {
+    const newNode: Node = {
+      id: `highlight-${Date.now()}`,
+      type: 'highlightNode',
+      position: { x: 200, y: 50 },
+      style: { width: 250, height: 150 },
+      data: {},
+    };
+    setNodes((nds) => nds.concat(newNode));
+  };
+
   const onNodeClick = (e: React.MouseEvent, node: Node) => {
-    if (activeQARunId) {
+    if (activeQARunId && (node.type === 'journeyStepNode' || node.type === 'triggerNode')) {
       setSelectedNodeId(node.id);
     }
   };
@@ -902,26 +855,42 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any, activeQARunId
     <div className="flex h-full w-full">
       {/* Sidebar for adding nodes to canvas (Hidden in QA Mode) */}
       {!activeQARunId && (
-        <div className="w-64 border-r bg-gray-50 flex flex-col p-4 space-y-4">
+        <div className="w-64 border-r bg-gray-50 flex flex-col p-4 space-y-6">
           <div>
             <h3 className="font-semibold text-sm text-gray-900">Journey Nodes</h3>
             <p className="text-xs text-gray-500 mt-1 mb-3">Add nodes to build your tracking journey.</p>
             <div className="flex flex-col gap-2">
-              <button onClick={addStepNode} className="flex items-center gap-2 px-3 py-2 text-sm bg-white border rounded shadow-sm hover:border-gray-400 transition-colors text-left">
+              <button onClick={addStepNode} className="flex items-center gap-2 px-3 py-2 text-sm bg-white border rounded shadow-sm hover:border-gray-400 transition-colors text-left text-gray-700">
                 <ImageIcon className="w-4 h-4 text-gray-500" />
                 <span className="font-medium">Add Step Node</span>
               </button>
-              <button onClick={addTriggerNode} className="flex items-center gap-2 px-3 py-2 text-sm bg-white border rounded shadow-sm hover:border-amber-400 transition-colors text-left">
+              <button onClick={addTriggerNode} className="flex items-center gap-2 px-3 py-2 text-sm bg-white border rounded shadow-sm hover:border-amber-400 transition-colors text-left text-gray-700">
                 <Zap className="w-4 h-4 text-amber-500" />
                 <span className="font-medium">Add Trigger Node</span>
               </button>
             </div>
           </div>
-          <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-100">
+
+          <div>
+            <h3 className="font-semibold text-sm text-gray-900">Annotations</h3>
+            <p className="text-xs text-gray-500 mt-1 mb-3">Add global notes and highlights.</p>
+            <div className="flex flex-col gap-2">
+              <button onClick={addNoteNode} className="flex items-center gap-2 px-3 py-2 text-sm bg-yellow-50 border border-yellow-200 rounded shadow-sm hover:border-yellow-400 transition-colors text-left text-yellow-900">
+                <StickyNote className="w-4 h-4 text-yellow-600" />
+                <span className="font-medium">Add Sticky Note</span>
+              </button>
+              <button onClick={addHighlightNode} className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-50 border border-blue-200 rounded shadow-sm hover:border-blue-400 transition-colors text-left text-blue-900">
+                <SquareDashed className="w-4 h-4 text-blue-600" />
+                <span className="font-medium">Add Highlight Box</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-auto p-4 bg-blue-50 rounded-lg border border-blue-100">
             <h4 className="text-sm font-semibold text-blue-900 mb-1">Tips</h4>
             <ul className="text-xs text-blue-800 space-y-2 list-disc pl-4">
-              <li>Select a node or edge and press <strong>Backspace</strong> or <strong>Delete</strong> to remove it.</li>
-              <li>Connect nodes by dragging between handles.</li>
+              <li>Use the <strong>+</strong> button next to node handles to instantly build flows.</li>
+              <li>Select a node and press <strong>Backspace</strong> to delete.</li>
               <li>Click <strong>Save Layout</strong> to persist your changes.</li>
             </ul>
           </div>
@@ -941,7 +910,7 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any, activeQARunId
             </div>
             <div className="flex items-center gap-3 text-xs mt-1">
               <div className="flex items-center gap-1 text-gray-500">
-                <span className="font-semibold">{nodes.length}</span> Nodes
+                <span className="font-semibold">{nodes.filter(n => n.type === 'journeyStepNode' || n.type === 'triggerNode').length}</span> Nodes
               </div>
               <div className="flex items-center gap-1 text-emerald-600">
                 <CheckCircle2 className="w-3 h-3" />
@@ -950,10 +919,6 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any, activeQARunId
               <div className="flex items-center gap-1 text-red-600">
                 <X className="w-3 h-3" />
                 <span className="font-semibold">{Object.values(journey.qaRuns?.find((r: any) => r.id === activeQARunId)?.verifications || {}).filter((v: any) => v.status === 'Failed').length}</span>
-              </div>
-              <div className="flex items-center gap-1 text-amber-600">
-                <AlertTriangle className="w-3 h-3" />
-                <span className="font-semibold">{nodes.length - Object.values(journey.qaRuns?.find((r: any) => r.id === activeQARunId)?.verifications || {}).filter((v: any) => v.status !== 'Pending').length}</span>
               </div>
             </div>
           </div>
@@ -1023,7 +988,7 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any, activeQARunId
       </div>
 
       {/* QA Verification Panel */}
-      {activeQARunId && selectedNode && (
+      {activeQARunId && selectedNode && (selectedNode.type === 'journeyStepNode' || selectedNode.type === 'triggerNode') && (
         <div className="w-80 border-l bg-white flex flex-col shadow-xl z-20 absolute right-0 top-0 bottom-0">
           <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
             <h3 className="font-bold text-gray-900 flex items-center gap-2">

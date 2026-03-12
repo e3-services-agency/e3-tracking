@@ -518,6 +518,7 @@ const nodeTypes = {
   triggerNode: TriggerNode,
   noteNode: NoteNode,
   highlightNode: HighlightNode,
+  badgeNode: BadgeNode,
 };
 
 export function Journeys({ selectedJourneyId: initialJourneyId, onBack }: { selectedJourneyId: string | null, onBack: () => void }) {
@@ -716,7 +717,10 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any, activeQARunId
   const [menuPos, setMenuPos] = useState<{ x: number, y: number } | null>(null);
   const [pendingConnection, setPendingConnection] = useState<{ nodeId: string; handleId: string | null; handleType: 'source' | 'target' | null } | null>(null);
   const [connectStartParams, setConnectStartParams] = useState<{ nodeId: string; handleId: string | null; handleType: 'source' | 'target' | null } | null>(null);
-
+  const [tool, setTool] = useState<'select' | 'highlight' | 'badge' | 'note'>('select');
+  const [drawStart, setDrawStart] = useState<{ x: number, y: number } | null>(null);
+  const [tempNodeId, setTempNodeId] = useState<string | null>(null);
+  
   // Sync state when journey changes
   useEffect(() => {
     if (!activeQARunId) {
@@ -759,6 +763,46 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any, activeQARunId
       setEdges(journey.edges || []);
     }
   }, [activeQARunId, journey.qaRuns, journey.nodes, journey.edges]);
+
+
+  const onPaneMouseDown = useCallback((event: React.MouseEvent) => {
+    if (tool === 'select' || activeQARunId) return;
+
+    const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    setDrawStart(position);
+
+    const newNodeId = `drawn-${Date.now()}`;
+    const newNode: Node = {
+      id: newNodeId,
+      type: tool === 'highlight' ? 'highlightNode' : tool === 'note' ? 'noteNode' : 'badgeNode',
+      position,
+      data: { 
+        label: tool === 'badge' ? (nodes.filter(n => n.type === 'badgeNode').length + 1).toString() : '',
+        text: '' 
+      },
+      // Give highlight a tiny starting size so it can grow
+      ...(tool === 'highlight' && { style: { width: 10, height: 10 } })
+    };
+
+    setNodes(nds => nds.concat(newNode));
+    setTempNodeId(newNodeId);
+  }, [tool, screenToFlowPosition, nodes, setNodes, activeQARunId]);
+
+  const onPaneMouseMove = useCallback((event: React.MouseEvent) => {
+    if (!drawStart || !tempNodeId || tool !== 'highlight') return;
+
+    const currentPos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    const width = Math.max(20, currentPos.x - drawStart.x);
+    const height = Math.max(20, currentPos.y - drawStart.y);
+
+    setNodes(nds => nds.map(n => n.id === tempNodeId ? { ...n, style: { ...n.style, width, height } } : n));
+  }, [drawStart, tempNodeId, tool, screenToFlowPosition, setNodes]);
+
+  const onPaneMouseUp = useCallback(() => {
+    setDrawStart(null);
+    setTempNodeId(null);
+    if (tool !== 'select') setTool('select'); // Reset to pointer after drawing
+  }, [tool]);
 
   const onConnect = useCallback(
     (params: Connection | Edge) => {
@@ -1006,7 +1050,7 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any, activeQARunId
           onNodeClick={onNodeClick}
           nodeTypes={nodeTypes}
           fitView
-          className={`bg-[#F9FAFB] ${activeQARunId ? 'cursor-crosshair' : ''}`}
+          className={`bg-[#F9FAFB] ${tool !== 'select' ? 'cursor-crosshair' : ''}`}
           nodesDraggable={!activeQARunId}
           nodesConnectable={!activeQARunId}
           elementsSelectable={true}

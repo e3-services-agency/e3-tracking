@@ -1,9 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Activity, Database, GitMerge, LayoutDashboard, GitBranch, Plus, Check, Settings, BookOpen, AlertCircle } from 'lucide-react';
+import { Activity, Database, GitMerge, LayoutDashboard, GitBranch, Plus, Check, Settings, BookOpen, AlertCircle, Download } from 'lucide-react';
 import { useStore, useActiveData } from '@/src/store';
 import { Button } from '@/src/components/ui/Button';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { runAudit, AuditViolation } from '@/src/lib/audit';
+import { downloadHandoffFile } from '@/src/lib/handoff/downloadHandoffFile';
+import { generateHandoffHtml } from '@/src/lib/handoff/generateHandoff';
 
 interface SidebarProps {
   activeTab: string;
@@ -37,6 +39,11 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       setNewBranchName('');
       setIsCreatingBranch(false);
     }
+  };
+
+  const handleDownloadHandoff = () => {
+    const htmlString = generateHandoffHtml(activeData, auditConfig, violations);
+    downloadHandoffFile(htmlString, 'Bloomreach_Tracking_Plan');
   };
 
   return (
@@ -134,6 +141,17 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             </button>
           );
         })}
+      </div>
+
+      {/* New Quick Access Download Handoff Button */}
+      <div className="p-4 border-t mt-auto">
+        <Button 
+          variant="outline" 
+          className="w-full gap-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+          onClick={handleDownloadHandoff}
+        >
+          <Download className="w-4 h-4" /> Download Handoff
+        </Button>
       </div>
 
       <Sheet isOpen={isAuditOpen} onClose={() => setIsAuditOpen(false)} title="Audit Report">

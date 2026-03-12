@@ -5,10 +5,13 @@ import { Input } from '@/src/components/ui/Input';
 import { Settings as SettingsType, CustomFieldDef } from '@/src/types';
 import { Plus, Trash2, Download, Upload } from 'lucide-react';
 import Papa from 'papaparse';
+import { runAudit } from '@/src/lib/audit';
+import { downloadHandoffFile } from '@/src/lib/handoff/downloadHandoffFile';
+import { generateHandoffHtml } from '@/src/lib/handoff/generateHandoff';
 
 export function Settings() {
   const data = useActiveData();
-  const { updateSettings, addEvent, addProperty } = useStore();
+  const { updateSettings, addEvent, addProperty, auditConfig } = useStore();
   const settings = data.settings;
 
   const handleUpdate = (updates: Partial<SettingsType>) => {
@@ -148,6 +151,12 @@ export function Settings() {
     });
   };
 
+  const handleExportHTML = () => {
+    const violations = runAudit(data, auditConfig);
+    const htmlString = generateHandoffHtml(data, auditConfig, violations);
+    downloadHandoffFile(htmlString, 'Bloomreach_Tracking_Plan');
+  };
+
   return (
     <div className="flex-1 overflow-auto bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto space-y-8">
@@ -233,9 +242,14 @@ export function Settings() {
         <div className="bg-white p-6 rounded-lg border shadow-sm space-y-6">
           <h2 className="text-lg font-semibold text-gray-900 border-b pb-2">Import / Export</h2>
           <div className="flex gap-4">
-            <Button onClick={handleExportCSV} className="flex items-center gap-2">
+            <Button onClick={handleExportCSV} variant="outline" className="flex items-center gap-2">
               <Download className="w-4 h-4" /> Export CSV
             </Button>
+            
+            <Button onClick={handleExportHTML} variant="default" className="flex items-center gap-2">
+              <Download className="w-4 h-4" /> Export HTML Handoff
+            </Button>
+
             <div className="relative">
               <input
                 type="file"

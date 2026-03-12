@@ -80,21 +80,76 @@ export interface Event {
 
 export type QAStatus = 'Pending' | 'Passed' | 'Failed';
 
+export interface TestingProfile {
+  id: string;
+  label: string;
+  url: string;
+  note?: string;
+}
+
+export interface QAProof {
+  id: string;
+  name: string;
+  type: 'image' | 'json';
+  content: string;
+  createdAt: string;
+}
+
 export interface QAVerification {
   nodeId: string;
   status: QAStatus;
-  proofUrl?: string;
-  payloadJson?: string;
   notes?: string;
+
+  /**
+   * Manual JSON payload pasted by tester in sidebar.
+   * Kept separately from uploaded JSON proof files.
+   */
+  proofText?: string;
+
+  /**
+   * Persisted uploaded proofs for this node verification.
+   * Supports multiple images and JSON files.
+   */
+  proofs?: QAProof[];
+
+  /**
+   * Run-level testing profiles linked to this node.
+   */
+  testingProfileIds?: string[];
+
+  /**
+   * Node-specific extra testing profiles.
+   */
+  extraTestingProfiles?: TestingProfile[];
 }
 
 export interface QARun {
   id: string;
   name: string;
   createdAt: string;
+
+  /**
+   * Optional QA metadata
+   */
+  testerName?: string;
+  environment?: string;
+  overallNotes?: string;
+
+  /**
+   * Shared testing profiles for the run
+   */
+  testingProfiles?: TestingProfile[];
+
+  /**
+   * Snapshot of journey layout for this run
+   */
   nodes?: any[];
   edges?: any[];
-  verifications: Record<string, QAVerification>; // Keyed by nodeId
+
+  /**
+   * Node-level QA verification data
+   */
+  verifications: Record<string, QAVerification>;
 }
 
 export interface Journey {
@@ -123,4 +178,3 @@ export interface Branch {
   draftData: TrackingPlanData;
   approvals: string[]; // Team IDs that have approved
 }
-

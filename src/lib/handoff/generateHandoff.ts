@@ -1,581 +1,597 @@
-import { TrackingPlanData, Journey, QARun, TestingProfile, QAVerification } from '@/src/types';
 import { AuditViolation } from '@/src/lib/audit';
+import {
+  serializeHandoffData,
+  HandoffAuditConfigSnapshot,
+  SerializedHandoffData,
+  SerializedHandoffEvent,
+  SerializedHandoffProperty,
+  SerializedJourney,
+  SerializedQARun,
+  SerializedQAVerification,
+  SerializedJourneyNodeSummary,
+} from '@/src/lib/serializeHandoffData';
+import { TrackingPlanData } from '@/src/types';
 
-export interface HandoffAuditConfig {
-  eventNaming: string;
-  propertyNaming: string;
-  requireEventDescription: boolean;
-  requirePropertyDescription: boolean;
-  requireAuditPassForMerge: boolean;
-}
+const escapeHtml = (value: unknown): string => {
+  const str = typeof value === 'string' ? value : String(value ?? '');
 
-const escapeHtml = (unsafe: string | null | undefined) => {
-  if (!unsafe) return '';
-  return String(unsafe)
+  return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+    .replace(/'/g, '&#39;');
 };
 
-const renderLink = (url?: string, label?: string) => {
-  if (!url) return '';
-  const safeUrl = escapeHtml(url);
-  const safeLabel = escapeHtml(label || url);
-  return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeLabel}</a>`;
+const formatDateTime = (isoString: string): string => {
+  if (!isoString) return 'Unknown';
+
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return escapeHtml(isoString);
+
+  return date.toLocaleString();
 };
 
-const isImageDataUrl = (value?: string) => !!value && value.startsWith('data:image/');
-const looksLikeJson = (value?: string) => {
-  if (!value) return false;
-  const trimmed = value.trim();
-  return trimmed.startsWith('{') || trimmed.startsWith('[');
-};
-
-const groupViolations = (violations: AuditViolation[]) => {
-  const grouped: Record<string, AuditViolation[]> = {};
-  for (const violation of violations) {
-    const key = violation.type || 'Other';
-    if (!grouped[key]) grouped[key] = [];
-    grouped[key].push(violation);
-  }
-  return grouped;
-};
-
-export function generateHandoffHtml(
-  data: TrackingPlanData,
-  auditConfig: HandoffAuditConfig,
-  violations: AuditViolation[] = []
-): string {
-  const today = new Date().toLocaleDateString();
-  const totalQARuns = data.journeys.reduce((acc, j) => acc + (j.qaRuns?.length || 0), 0);
-  const groupedViolations = groupViolations(violations);
+const renderBadge = (label: string, tone: 'neutral' | 'green' | 'red' | 'yellow' | 'blue' = 'neutral') => {
+  const toneClassMap = {
+    neutral: 'background:#f3f4f6;color:#374151;',
+    green: 'background:#dcfce7;color:#166534;',
+    red: 'background:#fee2e2;color:#991b1b;',
+    yellow: 'background:#fef3c7;color:#92400e;',
+    blue: 'background:#dbeafe;color:#1d4ed8;',
+  };
 
   return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tracking Plan Handoff</title>
-  <style>
-    :root {
-      --bg: #F9FAFB;
-      --surface: #FFFFFF;
-      --border: #E5E7EB;
-      --text-main: #111827;
-      --text-muted: #6B7280;
-      --primary: #3E52FF;
-      --primary-light: #EEF0FF;
-      --success: #10B981;
-      --danger: #EF4444;
-      --warning: #F59E0B;
-    }
+    <span style="
+      display:inline-block;
+      padding:4px 8px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:600;
+      line-height:1;
+      ${toneClassMap[tone]}
+    ">
+      ${escapeHtml(label)}
+    </span>
+  `;
+};
 
-    * { box-sizing: border-box; }
+const renderList = (items: string[], emptyLabel = '—'): string => {
+  if (!items || items.length === 0) {
+    return `<span style="color:#6b7280;">${escapeHtml(emptyLabel)}</span>`;
+  }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: var(--bg);
-      color: var(--text-main);
-      line-height: 1.5;
-      margin: 0;
-      padding: 40px 20px;
-    }
+  return items.map((item) => renderBadge(item, 'neutral')).join(' ');
+};
 
-    .container {
-      max-width: 1080px;
-      margin: 0 auto;
-    }
+const renderMetricCards = (data: SerializedHandoffData): string => {
+  return `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:24px 0;">
+      ${data.metrics
+        .map(
+          (metric) => `
+            <div style="border:1px solid #e5e7eb;border-radius:12px;padding:16px;background:#ffffff;">
+              <div style="font-size:13px;color:#6b7280;margin-bottom:8px;">${escapeHtml(metric.label)}</div>
+              <div style="font-size:28px;font-weight:700;color:#111827;">${metric.value}</div>
+            </div>
+          `
+        )
+        .join('')}
+    </div>
+  `;
+};
 
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 24px;
-      margin-bottom: 24px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
+const renderAuditSummary = (data: SerializedHandoffData): string => {
+  const { auditSummary, auditConfig } = data;
 
-    h1, h2, h3, h4 {
-      margin-top: 0;
-    }
+  return `
+    <section style="margin:32px 0;">
+      <h2 style="font-size:22px;line-height:1.2;font-weight:700;margin:0 0 16px;color:#111827;">Audit Summary</h2>
 
-    h1 {
-      font-size: 32px;
-      margin-bottom: 8px;
-    }
-
-    h2 {
-      margin-top: 32px;
-      margin-bottom: 16px;
-      font-size: 22px;
-    }
-
-    h3 {
-      margin-bottom: 12px;
-      font-size: 18px;
-    }
-
-    .muted {
-      color: var(--text-muted);
-    }
-
-    .header-metrics {
-      display: flex;
-      gap: 16px;
-      margin-top: 20px;
-      flex-wrap: wrap;
-    }
-
-    .metric {
-      padding: 12px 16px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      min-width: 180px;
-      flex: 1;
-    }
-
-    .metric-value {
-      font-size: 24px;
-      font-weight: bold;
-      color: var(--primary);
-    }
-
-    .metric-label {
-      font-size: 12px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 12px;
-      font-size: 14px;
-    }
-
-    th, td {
-      text-align: left;
-      padding: 12px;
-      border-bottom: 1px solid var(--border);
-      vertical-align: top;
-    }
-
-    th {
-      background: #F3F4F6;
-      color: var(--text-muted);
-      font-weight: 600;
-      text-transform: uppercase;
-      font-size: 12px;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 500;
-      background: #E5E7EB;
-      color: #374151;
-      margin-right: 6px;
-      margin-bottom: 4px;
-    }
-
-    .status-Passed { background: #D1FAE5; color: #065F46; }
-    .status-Failed { background: #FEE2E2; color: #991B1B; }
-    .status-Pending { background: #FEF3C7; color: #92400E; }
-
-    .code-block {
-      background: #111827;
-      color: #F9FAFB;
-      padding: 12px;
-      border-radius: 8px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 12px;
-      white-space: pre-wrap;
-      overflow-x: auto;
-      max-height: 260px;
-    }
-
-    .proof-img {
-      max-width: 100%;
-      height: auto;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      margin-top: 8px;
-      max-height: 220px;
-    }
-
-    .sub-table {
-      margin-left: 24px;
-      border-left: 2px solid var(--border);
-      padding-left: 16px;
-      margin-bottom: 24px;
-    }
-
-    .section-stack > * + * {
-      margin-top: 12px;
-    }
-
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .summary-item {
-      background: #F9FAFB;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px;
-    }
-
-    .kv {
-      margin: 0;
-    }
-
-    .kv strong {
-      display: inline-block;
-      min-width: 140px;
-    }
-
-    a {
-      color: var(--primary);
-      text-decoration: none;
-      word-break: break-all;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-
-    ul {
-      margin: 8px 0 0 20px;
-      padding: 0;
-    }
-
-    .small {
-      font-size: 12px;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-
-    <div class="card">
-      <h1>Tracking Plan Handoff</h1>
-      <p class="muted">Generated on ${escapeHtml(today)}</p>
-
-      <div class="header-metrics">
-        <div class="metric">
-          <div class="metric-value">${data.events.length}</div>
-          <div class="metric-label">Events</div>
+      <div style="border:1px solid #e5e7eb;border-radius:16px;padding:20px;background:#ffffff;">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:16px;">
+          ${renderBadge(auditSummary.passed ? 'Audit Passed' : 'Audit Has Issues', auditSummary.passed ? 'green' : 'red')}
+          ${renderBadge(`Total Violations: ${auditSummary.totalViolations}`, auditSummary.totalViolations === 0 ? 'green' : 'yellow')}
         </div>
-        <div class="metric">
-          <div class="metric-value">${data.properties.length}</div>
-          <div class="metric-label">Properties</div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:20px;">
+          <div style="padding:12px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">Event naming</div>
+            <div style="font-weight:600;color:#111827;">${escapeHtml(auditConfig.eventNaming)}</div>
+          </div>
+          <div style="padding:12px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">Property naming</div>
+            <div style="font-weight:600;color:#111827;">${escapeHtml(auditConfig.propertyNaming)}</div>
+          </div>
+          <div style="padding:12px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">Require event description</div>
+            <div style="font-weight:600;color:#111827;">${auditConfig.requireEventDescription ? 'Yes' : 'No'}</div>
+          </div>
+          <div style="padding:12px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">Require property description</div>
+            <div style="font-weight:600;color:#111827;">${auditConfig.requirePropertyDescription ? 'Yes' : 'No'}</div>
+          </div>
+          <div style="padding:12px;border:1px solid #e5e7eb;border-radius:12px;">
+            <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">Require audit pass for merge</div>
+            <div style="font-weight:600;color:#111827;">${auditConfig.requireAuditPassForMerge ? 'Yes' : 'No'}</div>
+          </div>
         </div>
-        <div class="metric">
-          <div class="metric-value">${data.journeys.length}</div>
-          <div class="metric-label">Journeys</div>
+
+        ${
+          auditSummary.groups.length === 0
+            ? `
+              <div style="padding:16px;border-radius:12px;background:#f0fdf4;color:#166534;font-weight:600;">
+                No audit violations found.
+              </div>
+            `
+            : `
+              <div>
+                <h3 style="font-size:16px;font-weight:700;margin:0 0 12px;color:#111827;">Violation Groups</h3>
+                <div style="display:grid;gap:12px;">
+                  ${auditSummary.groups
+                    .map(
+                      (group) => `
+                        <div style="border:1px solid #fde68a;background:#fffbeb;border-radius:12px;padding:16px;">
+                          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:8px;">
+                            <div style="font-weight:700;color:#111827;">${escapeHtml(group.type)}</div>
+                            ${renderBadge(`${group.count} issue${group.count === 1 ? '' : 's'}`, 'yellow')}
+                          </div>
+                          <ul style="margin:0;padding-left:18px;color:#374151;">
+                            ${group.items.map((item) => `<li style="margin:6px 0;">${escapeHtml(item)}</li>`).join('')}
+                          </ul>
+                        </div>
+                      `
+                    )
+                    .join('')}
+                </div>
+              </div>
+            `
+        }
+      </div>
+    </section>
+  `;
+};
+
+const renderEvent = (event: SerializedHandoffEvent): string => {
+  return `
+    <article style="border:1px solid #e5e7eb;border-radius:16px;padding:20px;background:#ffffff;">
+      <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+        <div>
+          <h3 style="font-size:18px;font-weight:700;margin:0 0 8px;color:#111827;">${escapeHtml(event.name)}</h3>
+          <div style="font-size:14px;color:#6b7280;margin-bottom:10px;">Owner: <strong style="color:#111827;">${escapeHtml(event.owner)}</strong></div>
         </div>
-        <div class="metric">
-          <div class="metric-value">${totalQARuns}</div>
-          <div class="metric-label">QA Runs</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${renderList(event.categories, 'No categories')}
         </div>
       </div>
-    </div>
 
-    <div class="card">
-      <h2>Audit & Governance Summary</h2>
-      <div class="summary-grid">
-        <div class="summary-item"><p class="kv"><strong>Event Naming:</strong> ${escapeHtml(auditConfig.eventNaming)}</p></div>
-        <div class="summary-item"><p class="kv"><strong>Property Naming:</strong> ${escapeHtml(auditConfig.propertyNaming)}</p></div>
-        <div class="summary-item"><p class="kv"><strong>Event Descriptions Required:</strong> ${auditConfig.requireEventDescription ? 'Yes' : 'No'}</p></div>
-        <div class="summary-item"><p class="kv"><strong>Property Descriptions Required:</strong> ${auditConfig.requirePropertyDescription ? 'Yes' : 'No'}</p></div>
+      <p style="margin:0 0 16px;color:#374151;line-height:1.6;">
+        ${event.description ? escapeHtml(event.description) : '<span style="color:#9ca3af;">No description</span>'}
+      </p>
+
+      <div style="margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:8px;">Tags</div>
+        <div>${renderList(event.tags, 'No tags')}</div>
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:8px;">Variants</div>
+        ${
+          event.variants.length === 0
+            ? `<div style="color:#6b7280;">No variants</div>`
+            : `
+              <div style="display:grid;gap:10px;">
+                ${event.variants
+                  .map(
+                    (variant) => `
+                      <div style="border:1px solid #e5e7eb;border-radius:12px;padding:12px;">
+                        <div style="font-weight:600;color:#111827;">${escapeHtml(variant.name)}</div>
+                        ${
+                          variant.description
+                            ? `<div style="margin-top:4px;color:#4b5563;">${escapeHtml(variant.description)}</div>`
+                            : `<div style="margin-top:4px;color:#9ca3af;">No description</div>`
+                        }
+                      </div>
+                    `
+                  )
+                  .join('')}
+              </div>
+            `
+        }
+      </div>
+
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:8px;">Attached Properties</div>
+        ${
+          event.properties.length === 0
+            ? `<div style="color:#6b7280;">No properties attached</div>`
+            : `
+              <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                  <thead>
+                    <tr>
+                      <th style="text-align:left;padding:10px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Name</th>
+                      <th style="text-align:left;padding:10px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Type</th>
+                      <th style="text-align:left;padding:10px;border-bottom:1px solid #e5e7eb;color:#6b7280;">List</th>
+                      <th style="text-align:left;padding:10px;border-bottom:1px solid #e5e7eb;color:#6b7280;">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${event.properties
+                      .map(
+                        (property) => `
+                          <tr>
+                            <td style="padding:10px;border-bottom:1px solid #f3f4f6;font-weight:600;color:#111827;">${escapeHtml(property.name)}</td>
+                            <td style="padding:10px;border-bottom:1px solid #f3f4f6;color:#374151;">${escapeHtml(property.type)}</td>
+                            <td style="padding:10px;border-bottom:1px solid #f3f4f6;color:#374151;">${property.isList ? 'Yes' : 'No'}</td>
+                            <td style="padding:10px;border-bottom:1px solid #f3f4f6;color:#374151;">${
+                              property.description
+                                ? escapeHtml(property.description)
+                                : '<span style="color:#9ca3af;">No description</span>'
+                            }</td>
+                          </tr>
+                        `
+                      )
+                      .join('')}
+                  </tbody>
+                </table>
+              </div>
+            `
+        }
+      </div>
+    </article>
+  `;
+};
+
+const renderProperty = (property: SerializedHandoffProperty): string => {
+  return `
+    <article style="border:1px solid #e5e7eb;border-radius:16px;padding:20px;background:#ffffff;">
+      <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <h3 style="font-size:18px;font-weight:700;margin:0 0 8px;color:#111827;">${escapeHtml(property.name)}</h3>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            ${renderBadge(property.type, 'blue')}
+            ${renderBadge(property.isList ? 'List' : 'Single value', 'neutral')}
+          </div>
+        </div>
+      </div>
+
+      <p style="margin:16px 0;color:#374151;line-height:1.6;">
+        ${property.description ? escapeHtml(property.description) : '<span style="color:#9ca3af;">No description</span>'}
+      </p>
+
+      <div style="margin-bottom:12px;">
+        <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:8px;">Categories</div>
+        <div>${renderList(property.categories, 'No categories')}</div>
+      </div>
+
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:8px;">Tags</div>
+        <div>${renderList(property.tags, 'No tags')}</div>
+      </div>
+    </article>
+  `;
+};
+
+const renderNodeSummary = (node: SerializedJourneyNodeSummary): string => {
+  return `
+    <div style="border:1px solid #e5e7eb;border-radius:12px;padding:12px;background:#ffffff;">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+        <div style="font-weight:600;color:#111827;">${escapeHtml(node.label)}</div>
+        ${renderBadge(node.type || 'Unknown', 'neutral')}
       </div>
 
       ${
-        violations.length === 0
-          ? '<p style="color: var(--success); font-weight: bold; margin-top: 16px;">✓ All governance checks passed.</p>'
-          : `<p style="color: var(--danger); font-weight: bold; margin-top: 16px;">⚠ ${violations.length} unresolved governance violations found.</p>`
+        node.description
+          ? `<div style="margin-top:8px;color:#374151;">${escapeHtml(node.description)}</div>`
+          : ''
       }
 
       ${
-        violations.length > 0
+        node.connectedEventName
           ? `
-            <div class="section-stack" style="margin-top: 20px;">
-              ${Object.entries(groupedViolations)
-                .map(
-                  ([type, items]) => `
-                    <div>
-                      <h4>${escapeHtml(type)} (${items.length})</h4>
-                      <ul>
-                        ${items
-                          .map((v) => `<li>${escapeHtml(v.message || '')}</li>`)
-                          .join('')}
-                      </ul>
-                    </div>
-                  `
-                )
-                .join('')}
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid #f3f4f6;">
+              <div style="font-size:12px;color:#6b7280;">Connected event</div>
+              <div style="font-weight:600;color:#111827;">${escapeHtml(node.connectedEventName)}</div>
+              ${
+                node.connectedEventDescription
+                  ? `<div style="margin-top:4px;color:#4b5563;">${escapeHtml(node.connectedEventDescription)}</div>`
+                  : ''
+              }
             </div>
           `
           : ''
       }
     </div>
-
-    <h2>Data Dictionary</h2>
-    ${data.events
-      .map((event) => {
-        const owner = data.teams.find((t) => t.id === event.ownerTeamId)?.name || 'Unassigned';
-        const attachedPropIds = Array.from(
-          new Set(event.actions.flatMap((a) => [...a.eventProperties, ...a.systemProperties]))
-        );
-        const eventProps = attachedPropIds
-          .map((id) => data.properties.find((p) => p.id === id))
-          .filter(Boolean);
-
-        return `
-          <div class="card">
-            <h3 style="color: var(--primary); font-family: monospace;">${escapeHtml(event.name)}</h3>
-            <p>${escapeHtml(event.description) || '<em>No description provided</em>'}</p>
-            <p><strong>Owner:</strong> ${escapeHtml(owner)}</p>
-
-            ${
-              event.categories?.length
-                ? `<p><strong>Categories:</strong> ${event.categories
-                    .map((c) => `<span class="badge">${escapeHtml(c)}</span>`)
-                    .join(' ')}</p>`
-                : ''
-            }
-
-            ${
-              event.tags?.length
-                ? `<p><strong>Tags:</strong> ${event.tags
-                    .map((t) => `<span class="badge">${escapeHtml(t)}</span>`)
-                    .join(' ')}</p>`
-                : ''
-            }
-
-            <div class="sub-table">
-              <h4>Expected Properties</h4>
-              ${
-                eventProps.length > 0
-                  ? `
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Property Name</th>
-                          <th>Type</th>
-                          <th>List</th>
-                          <th>Description</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${eventProps
-                          .map(
-                            (p) => `
-                              <tr>
-                                <td style="font-family: monospace;">${escapeHtml(p!.name)}</td>
-                                <td><span class="badge">${escapeHtml(p!.property_value_type)}</span></td>
-                                <td>${p!.is_list ? 'Yes' : 'No'}</td>
-                                <td>${escapeHtml(p!.description)}</td>
-                              </tr>
-                            `
-                          )
-                          .join('')}
-                      </tbody>
-                    </table>
-                  `
-                  : '<p class="muted small">No properties specifically attached.</p>'
-              }
-            </div>
-          </div>
-        `;
-      })
-      .join('')}
-
-    <h2>Journeys & QA Protocols</h2>
-    ${data.journeys
-      .map((journey: Journey) => {
-        const stepNodes = (journey.nodes || []).filter((n) => n.type === 'journeyStepNode');
-        const triggerNodes = (journey.nodes || []).filter((n) => n.type === 'triggerNode');
-        const noteNodes = (journey.nodes || []).filter((n) => n.type === 'noteNode');
-        const annotationNodes = (journey.nodes || []).filter((n) => n.type === 'annotationNode');
-
-        return `
-          <div class="card">
-            <h3>🗺️ ${escapeHtml(journey.name)}</h3>
-
-            <div class="summary-grid" style="margin-bottom: 16px;">
-              <div class="summary-item"><strong>Total Nodes:</strong> ${journey.nodes?.length || 0}</div>
-              <div class="summary-item"><strong>Steps:</strong> ${stepNodes.length}</div>
-              <div class="summary-item"><strong>Triggers:</strong> ${triggerNodes.length}</div>
-              <div class="summary-item"><strong>Annotations / Notes:</strong> ${annotationNodes.length + noteNodes.length}</div>
-            </div>
-
-            ${
-              triggerNodes.length > 0
-                ? `
-                  <div class="sub-table">
-                    <h4>Trigger → Event Mapping</h4>
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Trigger Description</th>
-                          <th>Connected Event</th>
-                          <th>Event Description</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${triggerNodes
-                          .map((node: any) => {
-                            const connected = node?.data?.connectedEvent;
-                            return `
-                              <tr>
-                                <td>${escapeHtml(node?.data?.description || '-')}</td>
-                                <td>${escapeHtml(connected?.name || '-')}</td>
-                                <td>${escapeHtml(connected?.description || '-')}</td>
-                              </tr>
-                            `;
-                          })
-                          .join('')}
-                      </tbody>
-                    </table>
-                  </div>
-                `
-                : ''
-            }
-
-            ${(journey.qaRuns || [])
-              .map((qaRun: QARun) => {
-                const runProfiles = qaRun.testingProfiles || [];
-
-                return `
-                  <div class="sub-table" style="border-left-color: var(--primary);">
-                    <h4>QA Run: ${escapeHtml(qaRun.name)}</h4>
-
-                    <div class="summary-grid">
-                      <div class="summary-item"><strong>Created:</strong> ${escapeHtml(qaRun.createdAt)}</div>
-                      <div class="summary-item"><strong>Tester:</strong> ${escapeHtml(qaRun.testerName || '-')}</div>
-                      <div class="summary-item"><strong>Environment:</strong> ${escapeHtml(qaRun.environment || '-')}</div>
-                      <div class="summary-item"><strong>Verifications:</strong> ${Object.keys(qaRun.verifications || {}).length}</div>
-                    </div>
-
-                    ${
-                      qaRun.overallNotes
-                        ? `
-                          <div style="margin-top: 16px;">
-                            <h4>Overall QA Notes</h4>
-                            <p>${escapeHtml(qaRun.overallNotes)}</p>
-                          </div>
-                        `
-                        : ''
-                    }
-
-                    ${
-                      runProfiles.length > 0
-                        ? `
-                          <div style="margin-top: 16px;">
-                            <h4>Testing Profiles</h4>
-                            <ul>
-                              ${runProfiles
-                                .map(
-                                  (profile: TestingProfile) => `
-                                    <li>
-                                      <strong>${escapeHtml(profile.label || 'Untitled profile')}</strong>
-                                      — ${renderLink(profile.url, profile.url)}
-                                      ${profile.note ? `<br><span class="muted small">${escapeHtml(profile.note)}</span>` : ''}
-                                    </li>
-                                  `
-                                )
-                                .join('')}
-                            </ul>
-                          </div>
-                        `
-                        : ''
-                    }
-
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Node / Trigger</th>
-                          <th>Status</th>
-                          <th>Notes</th>
-                          <th>Testing Profiles</th>
-                          <th>Proof</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${Object.entries(qaRun.verifications || {})
-                          .map(([nodeId, verif]) => {
-                            const verification = verif as QAVerification;
-                            const node = journey.nodes.find((n) => n.id === nodeId);
-                            const nodeName =
-                              node?.data?.label ||
-                              node?.data?.connectedEvent?.name ||
-                              'Unknown Trigger';
-
-                            const linkedProfiles = (verification.testingProfileIds || [])
-                              .map((id) => runProfiles.find((p: TestingProfile) => p.id === id))
-                              .filter(Boolean);
-
-                            let proofHtml = '<span class="muted">None</span>';
-
-                            if (verification.proofUrl) {
-                              if (isImageDataUrl(verification.proofUrl)) {
-                                proofHtml = `<img src="${verification.proofUrl}" class="proof-img" alt="Proof"/>`;
-                              } else if (looksLikeJson(verification.proofUrl)) {
-                                proofHtml = `<div class="code-block">${escapeHtml(verification.proofUrl)}</div>`;
-                              } else {
-                                proofHtml = `<span class="badge">Proof attached</span>`;
-                              }
-                            }
-
-                            if (verification.proofText) {
-                              proofHtml += `<div style="margin-top: 8px;" class="code-block">${escapeHtml(verification.proofText)}</div>`;
-                            }
-
-                            const testingProfilesHtml = [
-                              ...linkedProfiles.map(
-                                (profile: any) =>
-                                  `<div><strong>${escapeHtml(profile.label || 'Untitled profile')}</strong><br>${renderLink(profile.url, profile.url)}</div>`
-                              ),
-                              ...(verification.extraTestingProfiles || []).map(
-                                (profile: TestingProfile) =>
-                                  `<div><strong>${escapeHtml(profile.label || 'Untitled profile')}</strong><br>${renderLink(profile.url, profile.url)}${profile.note ? `<br><span class="muted small">${escapeHtml(profile.note)}</span>` : ''}</div>`
-                              ),
-                            ].join('<hr style="border:none;border-top:1px solid var(--border);margin:8px 0;">');
-
-                            return `
-                              <tr>
-                                <td><strong>${escapeHtml(nodeName)}</strong></td>
-                                <td><span class="badge status-${verification.status}">${escapeHtml(verification.status)}</span></td>
-                                <td>${escapeHtml(verification.notes) || '-'}</td>
-                                <td>${testingProfilesHtml || '<span class="muted">None</span>'}</td>
-                                <td>${proofHtml}</td>
-                              </tr>
-                            `;
-                          })
-                          .join('')}
-                      </tbody>
-                    </table>
-                  </div>
-                `;
-              })
-              .join('') || '<p class="muted small" style="margin-left: 24px;">No QA Runs recorded for this journey.</p>'}
-          </div>
-        `;
-      })
-      .join('')}
-
-  </div>
-</body>
-</html>
   `;
+};
+
+const renderVerification = (verification: SerializedQAVerification): string => {
+  const statusTone =
+    verification.status === 'Passed'
+      ? 'green'
+      : verification.status === 'Failed'
+      ? 'red'
+      : verification.status === 'Pending'
+      ? 'yellow'
+      : 'neutral';
+
+  return `
+    <div style="border:1px solid #e5e7eb;border-radius:12px;padding:16px;background:#ffffff;">
+      <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;">
+        <div>
+          <div style="font-weight:700;color:#111827;">${escapeHtml(verification.nodeName)}</div>
+          <div style="font-size:13px;color:#6b7280;margin-top:4px;">Type: ${escapeHtml(verification.nodeType)}</div>
+        </div>
+        ${renderBadge(verification.status || 'Unknown', statusTone)}
+      </div>
+
+      ${
+        verification.notes
+          ? `<div style="margin-top:12px;"><strong>Notes:</strong> ${escapeHtml(verification.notes)}</div>`
+          : ''
+      }
+
+      ${
+        verification.proofText
+          ? `<div style="margin-top:8px;"><strong>Proof:</strong> ${escapeHtml(verification.proofText)}</div>`
+          : ''
+      }
+
+      ${
+        verification.proofUrl
+          ? `<div style="margin-top:8px;"><strong>Proof URL:</strong> <a href="${escapeHtml(
+              verification.proofUrl
+            )}" target="_blank" rel="noopener noreferrer">${escapeHtml(verification.proofUrl)}</a></div>`
+          : ''
+      }
+
+      <div style="margin-top:12px;">
+        <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:6px;">Linked run profiles</div>
+        <div>
+          ${
+            verification.linkedRunProfiles.length === 0
+              ? `<span style="color:#6b7280;">None</span>`
+              : verification.linkedRunProfiles
+                  .map((profile) => renderBadge(profile.label || profile.url || profile.id, 'blue'))
+                  .join(' ')
+          }
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:6px;">Extra testing profiles</div>
+        <div>
+          ${
+            verification.extraTestingProfiles.length === 0
+              ? `<span style="color:#6b7280;">None</span>`
+              : verification.extraTestingProfiles
+                  .map((profile) => renderBadge(profile.label || profile.url || profile.id, 'neutral'))
+                  .join(' ')
+          }
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+const renderQaRun = (qaRun: SerializedQARun): string => {
+  return `
+    <div style="border:1px solid #dbeafe;border-radius:16px;padding:20px;background:#f8fbff;">
+      <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+        <div>
+          <h4 style="font-size:17px;font-weight:700;margin:0 0 8px;color:#111827;">${escapeHtml(qaRun.name)}</h4>
+          <div style="font-size:14px;color:#6b7280;">Created: ${escapeHtml(formatDateTime(qaRun.createdAt))}</div>
+          ${
+            qaRun.testerName
+              ? `<div style="font-size:14px;color:#6b7280;">Tester: ${escapeHtml(qaRun.testerName)}</div>`
+              : ''
+          }
+          ${
+            qaRun.environment
+              ? `<div style="font-size:14px;color:#6b7280;">Environment: ${escapeHtml(qaRun.environment)}</div>`
+              : ''
+          }
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${renderBadge(`Total: ${qaRun.stats.total}`, 'neutral')}
+          ${renderBadge(`Passed: ${qaRun.stats.passed}`, 'green')}
+          ${renderBadge(`Failed: ${qaRun.stats.failed}`, 'red')}
+          ${renderBadge(`Pending: ${qaRun.stats.pending}`, 'yellow')}
+        </div>
+      </div>
+
+      ${
+        qaRun.overallNotes
+          ? `<div style="margin-top:12px;color:#374151;"><strong>Overall notes:</strong> ${escapeHtml(
+              qaRun.overallNotes
+            )}</div>`
+          : ''
+      }
+
+      <div style="margin-top:16px;">
+        <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:8px;">Testing profiles</div>
+        <div>
+          ${
+            qaRun.testingProfiles.length === 0
+              ? `<span style="color:#6b7280;">No testing profiles</span>`
+              : qaRun.testingProfiles
+                  .map((profile) => renderBadge(profile.label || profile.url || profile.id, 'blue'))
+                  .join(' ')
+          }
+        </div>
+      </div>
+
+      <div style="margin-top:16px;display:grid;gap:12px;">
+        ${
+          qaRun.verifications.length === 0
+            ? `<div style="color:#6b7280;">No verifications</div>`
+            : qaRun.verifications.map(renderVerification).join('')
+        }
+      </div>
+    </div>
+  `;
+};
+
+const renderJourney = (journey: SerializedJourney): string => {
+  return `
+    <article style="border:1px solid #e5e7eb;border-radius:16px;padding:20px;background:#ffffff;">
+      <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+        <div>
+          <h3 style="font-size:18px;font-weight:700;margin:0 0 8px;color:#111827;">${escapeHtml(journey.name)}</h3>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${renderBadge(`Nodes: ${journey.totalNodes}`, 'neutral')}
+          ${renderBadge(`Edges: ${journey.totalEdges}`, 'neutral')}
+          ${renderBadge(`Triggers: ${journey.triggerCount}`, 'blue')}
+          ${renderBadge(`Steps: ${journey.stepCount}`, 'blue')}
+          ${renderBadge(`Notes: ${journey.noteCount}`, 'neutral')}
+          ${renderBadge(`Annotations: ${journey.annotationCount}`, 'neutral')}
+          ${renderBadge(`QA Runs: ${journey.qaRuns.length}`, 'green')}
+        </div>
+      </div>
+
+      <div style="margin-top:20px;">
+        <h4 style="font-size:15px;font-weight:700;margin:0 0 10px;color:#111827;">Triggers</h4>
+        ${
+          journey.triggers.length === 0
+            ? `<div style="color:#6b7280;">No triggers</div>`
+            : `<div style="display:grid;gap:10px;">${journey.triggers.map(renderNodeSummary).join('')}</div>`
+        }
+      </div>
+
+      <div style="margin-top:20px;">
+        <h4 style="font-size:15px;font-weight:700;margin:0 0 10px;color:#111827;">All Nodes</h4>
+        ${
+          journey.nodes.length === 0
+            ? `<div style="color:#6b7280;">No nodes</div>`
+            : `<div style="display:grid;gap:10px;">${journey.nodes.map(renderNodeSummary).join('')}</div>`
+        }
+      </div>
+
+      <div style="margin-top:20px;">
+        <h4 style="font-size:15px;font-weight:700;margin:0 0 10px;color:#111827;">QA Runs</h4>
+        ${
+          journey.qaRuns.length === 0
+            ? `<div style="color:#6b7280;">No QA runs</div>`
+            : `<div style="display:grid;gap:16px;">${journey.qaRuns.map(renderQaRun).join('')}</div>`
+        }
+      </div>
+    </article>
+  `;
+};
+
+export function generateHandoffHtml(
+  data: TrackingPlanData,
+  auditConfig: HandoffAuditConfigSnapshot,
+  violations: AuditViolation[] = []
+): string {
+  const serialized = serializeHandoffData(data, auditConfig, violations);
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tracking Plan Handoff</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #f9fafb;
+        color: #111827;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      body {
+        padding: 40px 24px;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      a {
+        color: #2563eb;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      @media print {
+        body {
+          padding: 0;
+          background: #ffffff;
+        }
+        .container {
+          max-width: 100%;
+        }
+        article, section, div {
+          break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header style="margin-bottom:32px;">
+        <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+          <div>
+            <h1 style="font-size:34px;line-height:1.1;margin:0 0 8px;font-weight:800;color:#111827;">
+              Tracking Plan Handoff
+            </h1>
+            <p style="margin:0;color:#6b7280;font-size:15px;">
+              Generated at ${escapeHtml(formatDateTime(serialized.generatedAt))}
+            </p>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            ${
+              serialized.auditSummary.passed
+                ? renderBadge('Audit Passed', 'green')
+                : renderBadge('Audit Needs Attention', 'red')
+            }
+          </div>
+        </div>
+      </header>
+
+      ${renderMetricCards(serialized)}
+      ${renderAuditSummary(serialized)}
+
+      <section style="margin:40px 0;">
+        <h2 style="font-size:22px;line-height:1.2;font-weight:700;margin:0 0 16px;color:#111827;">
+          Events
+        </h2>
+        ${
+          serialized.events.length === 0
+            ? `<div style="color:#6b7280;">No events found.</div>`
+            : `<div style="display:grid;gap:16px;">${serialized.events.map(renderEvent).join('')}</div>`
+        }
+      </section>
+
+      <section style="margin:40px 0;">
+        <h2 style="font-size:22px;line-height:1.2;font-weight:700;margin:0 0 16px;color:#111827;">
+          Properties
+        </h2>
+        ${
+          serialized.properties.length === 0
+            ? `<div style="color:#6b7280;">No properties found.</div>`
+            : `<div style="display:grid;gap:16px;">${serialized.properties.map(renderProperty).join('')}</div>`
+        }
+      </section>
+
+      <section style="margin:40px 0;">
+        <h2 style="font-size:22px;line-height:1.2;font-weight:700;margin:0 0 16px;color:#111827;">
+          Journeys
+        </h2>
+        ${
+          serialized.journeys.length === 0
+            ? `<div style="color:#6b7280;">No journeys found.</div>`
+            : `<div style="display:grid;gap:16px;">${serialized.journeys.map(renderJourney).join('')}</div>`
+        }
+      </section>
+    </div>
+  </body>
+</html>
+  `.trim();
 }

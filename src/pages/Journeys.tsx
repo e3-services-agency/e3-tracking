@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useStore, useActiveData } from '@/src/store';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -16,12 +16,8 @@ import {
   Search,
   ChevronDown,
   StickyNote,
-  SquareDashed,
   Pencil,
   FileText,
-  User,
-  Globe,
-  Link as LinkIcon,
 } from 'lucide-react';
 import {
   ReactFlow,
@@ -42,7 +38,7 @@ import {
   NodeResizer,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { QARun, QAStatus, QAVerification, TestingProfile } from '@/src/types';
+import { QARun, QAStatus } from '@/src/types';
 
 type TestingProfile = {
   id: string;
@@ -51,10 +47,63 @@ type TestingProfile = {
   note?: string;
 };
 
+type QAProof = {
+  id: string;
+  name: string;
+  type: 'image' | 'json';
+  content: string;
+  createdAt: string;
+};
+
+type LocalQAVerification = {
+  nodeId: string;
+  status: QAStatus;
+  notes?: string;
+  proofText?: string;
+  testingProfileIds?: string[];
+  extraTestingProfiles?: TestingProfile[];
+  proofs?: QAProof[];
+};
+
+type ExtendedQARun = QARun & {
+  testerName?: string;
+  environment?: string;
+  overallNotes?: string;
+  testingProfiles?: TestingProfile[];
+  nodes?: Node[];
+  edges?: Edge[];
+  verifications?: Record<string, LocalQAVerification>;
+};
+
 type PendingConnection = {
   nodeId: string;
   handleId: string | null;
   handleType: 'source' | 'target' | null;
+};
+
+const readFileAsContent = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => resolve((event.target?.result as string) || '');
+    reader.onerror = reject;
+
+    if (file.type.startsWith('image/')) {
+      reader.readAsDataURL(file);
+    } else {
+      reader.readAsText(file);
+    }
+  });
+
+const buildProofFromFile = async (file: File): Promise<QAProof> => {
+  const content = await readFileAsContent(file);
+
+  return {
+    id: `proof-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: file.name || `proof-${Date.now()}`,
+    type: file.type.startsWith('image/') ? 'image' : 'json',
+    content,
+    createdAt: new Date().toISOString(),
+  };
 };
 
 const StrictHandles = ({ color, isQAMode }: { color: string; isQAMode?: boolean }) => (
@@ -225,7 +274,7 @@ const JourneyStepNode = ({ id, data }: NodeProps) => {
   };
 
   const handlePaste = useCallback(
-    (e: React.ClipboardEvent) => {
+    async (e: React.ClipboardEvent) => {
       const items = e.clipboardData?.items;
       if (!items) return;
 
@@ -234,23 +283,28 @@ const JourneyStepNode = ({ id, data }: NodeProps) => {
           const file = items[i].getAsFile();
           if (!file) continue;
 
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            const resultUrl = event.target?.result as string;
-            if (isQAMode) {
-              updateNodeData({ tempProofUrl: resultUrl });
-            } else {
+          if (isQAMode) {
+            const proof = await buildProofFromFile(file);
+            const existing = (data.pendingProofs as QAProof[] | undefined) || [];
+            updateNodeData({ pendingProofs: [...existing, proof] });
+          } else {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              const resultUrl = event.target?.result as string;
               updateNodeData({ imageUrl: resultUrl });
-            }
-          };
-          reader.readAsDataURL(file);
+            };
+            reader.readAsDataURL(file);
+          }
+
           e.preventDefault();
           break;
         }
       }
     },
-    [isQAMode, updateNodeData]
+    [isQAMode, updateNodeData, data.pendingProofs]
   );
+
+  const pendingProofs = ((data.pendingProofs as QAProof[] | undefined) || []);
 
   return (
     <div
@@ -321,33 +375,31 @@ const JourneyStepNode = ({ id, data }: NodeProps) => {
         <div className="p-2 border-t bg-blue-50/50">
           <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-300 rounded bg-white text-blue-600 text-xs cursor-pointer hover:bg-blue-50 transition-colors">
             <UploadCloud className="w-4 h-4 mb-1" />
-            <span className="font-semibold">Upload Proof</span>
-            <span className="text-gray-500 text-[10px] mt-1 text-center">Screenshot or Paste (Ctrl+V)</span>
+            <span className="font-semibold">Upload Proofs</span>
+            <span className="text-gray-500 text-[10px] mt-1 text-center">
+              Multiple screenshots / JSON files / Paste (Ctrl+V)
+            </span>
             <input
               type="file"
-              accept="image/*,.json"
+              accept="image/*,.json,application/json,text/json"
+              multiple
               className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
+              onChange={async (e) => {
+                const files = Array.from(e.target.files || []);
+                if (!files.length) return;
 
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                  const proof = event.target?.result as string;
-                  updateNodeData({ tempProofUrl: proof });
-                };
-
-                if (file.type.startsWith('image/')) {
-                  reader.readAsDataURL(file);
-                } else {
-                  reader.readAsText(file);
-                }
+                const newProofs = await Promise.all(files.map(buildProofFromFile));
+                const existing = (data.pendingProofs as QAProof[] | undefined) || [];
+                updateNodeData({ pendingProofs: [...existing, ...newProofs] });
+                e.target.value = '';
               }}
             />
           </label>
-          {data.tempProofUrl && (
+
+          {pendingProofs.length > 0 && (
             <div className="mt-2 text-xs text-emerald-600 flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" /> Proof uploaded
+              <CheckCircle2 className="w-3 h-3" />
+              {pendingProofs.length} proof(s) ready to save
             </div>
           )}
         </div>
@@ -391,7 +443,7 @@ const TriggerNode = ({ id, data }: NodeProps) => {
   };
 
   const handlePaste = useCallback(
-    (e: React.ClipboardEvent) => {
+    async (e: React.ClipboardEvent) => {
       if (!isQAMode) return;
 
       const items = e.clipboardData?.items;
@@ -402,19 +454,19 @@ const TriggerNode = ({ id, data }: NodeProps) => {
           const file = items[i].getAsFile();
           if (!file) continue;
 
-          const reader = new FileReader();
-          reader.onload = (event) => {
-            const proofUrl = event.target?.result as string;
-            updateNodeData({ tempProofUrl: proofUrl });
-          };
-          reader.readAsDataURL(file);
+          const proof = await buildProofFromFile(file);
+          const existing = (data.pendingProofs as QAProof[] | undefined) || [];
+          updateNodeData({ pendingProofs: [...existing, proof] });
+
           e.preventDefault();
           break;
         }
       }
     },
-    [isQAMode]
+    [isQAMode, data.pendingProofs]
   );
+
+  const pendingProofs = ((data.pendingProofs as QAProof[] | undefined) || []);
 
   return (
     <div
@@ -546,34 +598,31 @@ const TriggerNode = ({ id, data }: NodeProps) => {
         <div className="p-2 border-t bg-blue-50/50">
           <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-300 rounded bg-white text-blue-600 text-xs cursor-pointer hover:bg-blue-50 transition-colors">
             <UploadCloud className="w-4 h-4 mb-1" />
-            <span className="font-semibold">Upload Proof</span>
-            <span className="text-gray-500 text-[10px] mt-1 text-center">JSON, image, or Paste screenshot</span>
+            <span className="font-semibold">Upload Proofs</span>
+            <span className="text-gray-500 text-[10px] mt-1 text-center">
+              Multiple JSON files, images, or Paste screenshot
+            </span>
             <input
               type="file"
-              accept=".json,image/*"
+              accept=".json,application/json,text/json,image/*"
+              multiple
               className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
+              onChange={async (e) => {
+                const files = Array.from(e.target.files || []);
+                if (!files.length) return;
 
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                  const proof = event.target?.result as string;
-                  updateNodeData({ tempProofUrl: proof });
-                };
-
-                if (file.type.startsWith('image/')) {
-                  reader.readAsDataURL(file);
-                } else {
-                  reader.readAsText(file);
-                }
+                const newProofs = await Promise.all(files.map(buildProofFromFile));
+                const existing = (data.pendingProofs as QAProof[] | undefined) || [];
+                updateNodeData({ pendingProofs: [...existing, ...newProofs] });
+                e.target.value = '';
               }}
             />
           </label>
 
-          {data.tempProofUrl && (
+          {pendingProofs.length > 0 && (
             <div className="mt-2 text-xs text-emerald-600 flex items-center gap-1">
-              <CheckCircle2 className="w-3 h-3" /> Proof uploaded
+              <CheckCircle2 className="w-3 h-3" />
+              {pendingProofs.length} proof(s) ready to save
             </div>
           )}
         </div>
@@ -612,7 +661,7 @@ const NoteNode = ({ id, data, selected }: NodeProps) => {
   );
 };
 
-const AnnotationNode = ({ id, data, selected }: NodeProps) => {
+const AnnotationNode = ({ data, selected }: NodeProps) => {
   const isQAMode = !!data.activeQARunId;
   const color = (data.color as string) || '#FACC15';
 
@@ -627,7 +676,7 @@ const AnnotationNode = ({ id, data, selected }: NodeProps) => {
         }`}
         style={{
           borderColor: color,
-          backgroundColor: 'rgba(250, 204, 21, 0.14)',
+          backgroundColor: `${color}22`,
           pointerEvents: isQAMode ? 'none' : 'auto',
         }}
       />
@@ -1000,6 +1049,7 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
   const [pendingConnection, setPendingConnection] = useState<PendingConnection | null>(null);
 
   const [tool, setTool] = useState<'select' | 'annotation'>('select');
+  const [annotationColor, setAnnotationColor] = useState('#FACC15');
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
   const [tempNodeId, setTempNodeId] = useState<string | null>(null);
 
@@ -1202,13 +1252,13 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
         type: 'annotationNode',
         position: pos,
         style: { width: 10, height: 10 },
-        data: { color: '#FACC15' },
+        data: { color: annotationColor },
       };
 
       setNodes((nds) => nds.concat(newNode));
       setTempNodeId(newNodeId);
     },
-    [tool, activeQARunId, screenToFlowPosition, setNodes]
+    [tool, activeQARunId, screenToFlowPosition, setNodes, annotationColor]
   );
 
   const onPaneMouseMove = useCallback(
@@ -1270,12 +1320,18 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
     if (!activeQARunId) return;
 
     const node = nodes.find((n) => n.id === nodeId);
-    const tempProofUrl = node?.data?.tempProofUrl;
+    const pendingProofs = (node?.data?.pendingProofs as QAProof[] | undefined) || [];
 
     const updatedRuns = (journey.qaRuns || []).map((run: any) => {
       if (run.id !== activeQARunId) return run;
 
-      const existingVerif = (run.verifications || {})[nodeId] || { nodeId, status: 'Pending' };
+      const existingVerif: LocalQAVerification =
+        (run.verifications || {})[nodeId] || { nodeId, status: 'Pending', proofs: [] };
+
+      const nextProofs =
+        updates.proofs !== undefined
+          ? updates.proofs
+          : [...(existingVerif.proofs || []), ...pendingProofs];
 
       return {
         ...run,
@@ -1284,7 +1340,7 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
           [nodeId]: {
             ...existingVerif,
             ...updates,
-            ...(tempProofUrl ? { proofUrl: tempProofUrl } : {}),
+            proofs: nextProofs,
           },
         },
       };
@@ -1292,10 +1348,12 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
 
     updateJourney(journey.id, { qaRuns: updatedRuns });
 
-    if (tempProofUrl) {
+    if (pendingProofs.length > 0 && updates.proofs === undefined) {
       setNodes((nds) =>
         nds.map((n) =>
-          n.id === nodeId ? { ...n, data: { ...n.data, tempProofUrl: undefined } } : n
+          n.id === nodeId
+            ? { ...n, data: { ...n.data, pendingProofs: [] } }
+            : n
         )
       );
     }
@@ -1348,6 +1406,8 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
   const runProfiles = activeQARun?.testingProfiles || [];
   const nodeLinkedProfileIds = currentVerification?.testingProfileIds || [];
   const nodeExtraProfiles = currentVerification?.extraTestingProfiles || [];
+  const verificationProofs = currentVerification?.proofs || [];
+  const pendingNodeProofs = ((selectedNode?.data?.pendingProofs as QAProof[] | undefined) || []);
 
   const updateNodeLinkedProfiles = (profileId: string, checked: boolean) => {
     if (!selectedNode) return;
@@ -1419,17 +1479,36 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
                 <span className="font-medium">Add Sticky Note</span>
               </button>
 
-              <button
-                onClick={() => setTool(tool === 'annotation' ? 'select' : 'annotation')}
-                className={`flex items-center gap-2 px-3 py-2 text-sm rounded shadow-sm transition-colors text-left ${
-                  tool === 'annotation'
-                    ? 'bg-blue-600 text-white border border-blue-600'
-                    : 'bg-blue-50 border border-blue-200 hover:border-blue-400 text-blue-900'
-                }`}
-              >
-                <Pencil className="w-4 h-4" />
-                <span className="font-medium">{tool === 'annotation' ? 'Drawing Active' : 'Draw Annotation'}</span>
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={() => setTool(tool === 'annotation' ? 'select' : 'annotation')}
+                  className={`flex items-center gap-2 px-3 py-2 text-sm rounded shadow-sm transition-colors text-left w-full ${
+                    tool === 'annotation'
+                      ? 'bg-blue-600 text-white border border-blue-600'
+                      : 'bg-blue-50 border border-blue-200 hover:border-blue-400 text-blue-900'
+                  }`}
+                >
+                  <Pencil className="w-4 h-4" />
+                  <span className="font-medium">
+                    {tool === 'annotation' ? 'Rectangle Annotation Active' : 'Draw Annotation'}
+                  </span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  {['#FACC15', '#60A5FA', '#F87171', '#34D399', '#C084FC'].map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setAnnotationColor(color)}
+                      className={`w-6 h-6 rounded-full border-2 ${
+                        annotationColor === color ? 'border-gray-900 scale-110' : 'border-white'
+                      }`}
+                      style={{ backgroundColor: color }}
+                      title={color}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1438,7 +1517,7 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
             <ul className="text-xs text-blue-800 space-y-2 list-disc pl-4">
               <li>Use the <strong>+</strong> button next to node handles to instantly build flows.</li>
               <li>Select a node or edge and press <strong>Backspace</strong> to delete.</li>
-              <li>Use <strong>Draw Annotation</strong>, then drag on canvas to create a movable box.</li>
+              <li>Use <strong>Draw Annotation</strong>, choose a color, then drag on canvas to create a movable rectangle.</li>
             </ul>
           </div>
         </div>
@@ -1519,7 +1598,7 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
           onNodeClick={onNodeClick}
           nodeTypes={nodeTypes}
           fitView
-          className={`bg-[#F9FAFB] ${tool === 'annotation' ? 'cursor-crosshair' : ''}`}
+          className={`bg-[#F9FAFB] ${tool === 'annotation' ? 'cursor-crosshair rf-annotation-mode' : ''}`}
           nodesDraggable={!activeQARunId}
           nodesConnectable={!activeQARunId}
           elementsSelectable={true}
@@ -1796,6 +1875,125 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
                 </div>
               </div>
 
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Proof Files
+                  </div>
+
+                  <label className="inline-flex">
+                    <input
+                      type="file"
+                      accept=".json,application/json,text/json,image/*"
+                      multiple
+                      className="hidden"
+                      onChange={async (e) => {
+                        const files = Array.from(e.target.files || []);
+                        if (!files.length || !selectedNode) return;
+
+                        const newProofs = await Promise.all(files.map(buildProofFromFile));
+                        const existing = (selectedNode.data.pendingProofs as QAProof[] | undefined) || [];
+
+                        setNodes((nds) =>
+                          nds.map((n) =>
+                            n.id === selectedNode.id
+                              ? { ...n, data: { ...n.data, pendingProofs: [...existing, ...newProofs] } }
+                              : n
+                          )
+                        );
+
+                        e.target.value = '';
+                      }}
+                    />
+                    <Button size="sm" variant="outline" type="button">
+                      <UploadCloud className="w-4 h-4 mr-2" /> Upload
+                    </Button>
+                  </label>
+                </div>
+
+                {pendingNodeProofs.length > 0 && (
+                  <div className="border border-blue-200 bg-blue-50 rounded p-3 space-y-2">
+                    <div className="text-xs font-medium text-blue-900">
+                      Pending uploads ({pendingNodeProofs.length})
+                    </div>
+
+                    {pendingNodeProofs.map((proof) => (
+                      <div key={proof.id} className="flex items-center justify-between text-xs bg-white border rounded p-2">
+                        <div className="min-w-0">
+                          <div className="font-medium text-gray-900 truncate">{proof.name}</div>
+                          <div className="text-gray-500">{proof.type.toUpperCase()}</div>
+                        </div>
+                        <button
+                          className="text-red-500 hover:text-red-700"
+                          onClick={() =>
+                            setNodes((nds) =>
+                              nds.map((n) =>
+                                n.id === selectedNode.id
+                                  ? {
+                                      ...n,
+                                      data: {
+                                        ...n.data,
+                                        pendingProofs: (((n.data.pendingProofs as QAProof[] | undefined) || []).filter(
+                                          (p) => p.id !== proof.id
+                                        )),
+                                      },
+                                    }
+                                  : n
+                              )
+                            )
+                          }
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+
+                    <Button
+                      className="w-full bg-[#3E52FF] hover:bg-blue-600 text-white"
+                      onClick={() => updateQAVerification(selectedNode.id, {})}
+                    >
+                      Save Pending Proofs
+                    </Button>
+                  </div>
+                )}
+
+                {verificationProofs.length > 0 && (
+                  <div className="space-y-2">
+                    {verificationProofs.map((proof) => (
+                      <div key={proof.id} className="border rounded p-3 bg-gray-50 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium text-gray-900 break-all">{proof.name}</div>
+                            <div className="text-xs text-gray-500">
+                              {proof.type.toUpperCase()} • {new Date(proof.createdAt).toLocaleString()}
+                            </div>
+                          </div>
+
+                          <button
+                            className="text-red-500 hover:text-red-700"
+                            onClick={() =>
+                              updateQAVerification(selectedNode.id, {
+                                proofs: verificationProofs.filter((p) => p.id !== proof.id),
+                              })
+                            }
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {proof.type === 'image' ? (
+                          <img src={proof.content} alt={proof.name} className="w-full rounded border" />
+                        ) : (
+                          <pre className="text-xs bg-white border rounded p-2 overflow-auto max-h-64 whitespace-pre-wrap">
+                            {proof.content}
+                          </pre>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {selectedNode.type === 'triggerNode' && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
@@ -1824,24 +2022,9 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
                   />
 
                   <div className="text-[11px] text-gray-500">
-                    Paste raw JSON here directly for tester confirmation. This is stored on the QA run,
-                    not on the base journey.
+                    Paste raw JSON manually here, or upload one or more JSON files in the Proof Files section above.
+                    Everything is stored on the QA run, not on the base journey.
                   </div>
-                </div>
-              )}
-
-              {selectedNode.data.tempProofUrl && (
-                <Button
-                  className="w-full bg-[#3E52FF] hover:bg-blue-600 text-white"
-                  onClick={() => updateQAVerification(selectedNode.id, {})}
-                >
-                  Save Uploaded Proof
-                </Button>
-              )}
-
-              {currentVerification?.proofUrl && (
-                <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded p-3">
-                  Saved proof attached to this QA verification.
                 </div>
               )}
             </div>

@@ -1,5 +1,14 @@
 import { create } from 'zustand';
-import { TrackingPlanData, Event, Property, Source, Journey, Branch, Team, Destination, PropertyBundle, Settings } from './types';
+import {
+  TrackingPlanData,
+  Event,
+  Property,
+  Source,
+  Journey,
+  Branch,
+  PropertyBundle,
+  Settings,
+} from './types';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface AuditConfig {
@@ -16,13 +25,58 @@ const initialData: TrackingPlanData = {
     customPropertyFields: [],
   },
   properties: [
-    { id: 'p1', name: 'user_id', property_value_type: 'string', is_list: false, categories: ['User Profile'], tags: ['Core'], description: 'Unique identifier for the user', attached_events: [{ eventId: 'e1', presence: 'Always sent' }], value_constraints: '' },
-    { id: 'p2', name: 'plan_type', property_value_type: 'string', is_list: false, categories: ['User Profile'], tags: [], description: 'Subscription plan type', attached_events: [{ eventId: 'e1', presence: 'Always sent' }], value_constraints: ['Free', 'Pro', 'Enterprise'] },
-    { id: 'p3', name: 'is_trial', property_value_type: 'boolean', is_list: false, categories: ['User Profile'], tags: [], description: 'Whether the user is on a trial', attached_events: [{ eventId: 'e1', presence: 'Always sent' }], value_constraints: '' },
-    { id: 'p4', name: 'payment_method', property_value_type: 'string', is_list: false, categories: ['E-commerce'], tags: [], description: 'Method of payment', attached_events: [], value_constraints: '' },
+    {
+      id: 'p1',
+      name: 'user_id',
+      property_value_type: 'string',
+      is_list: false,
+      categories: ['User Profile'],
+      tags: ['Core'],
+      description: 'Unique identifier for the user',
+      attached_events: [{ eventId: 'e1', presence: 'Always sent' }],
+      value_constraints: '',
+    },
+    {
+      id: 'p2',
+      name: 'plan_type',
+      property_value_type: 'string',
+      is_list: false,
+      categories: ['User Profile'],
+      tags: [],
+      description: 'Subscription plan type',
+      attached_events: [{ eventId: 'e1', presence: 'Always sent' }],
+      value_constraints: ['Free', 'Pro', 'Enterprise'],
+    },
+    {
+      id: 'p3',
+      name: 'is_trial',
+      property_value_type: 'boolean',
+      is_list: false,
+      categories: ['User Profile'],
+      tags: [],
+      description: 'Whether the user is on a trial',
+      attached_events: [{ eventId: 'e1', presence: 'Always sent' }],
+      value_constraints: '',
+    },
+    {
+      id: 'p4',
+      name: 'payment_method',
+      property_value_type: 'string',
+      is_list: false,
+      categories: ['E-commerce'],
+      tags: [],
+      description: 'Method of payment',
+      attached_events: [],
+      value_constraints: '',
+    },
   ],
   propertyBundles: [
-    { id: 'b1', name: 'User Identity', description: 'Core user identity properties', propertyIds: ['p1', 'p2', 'p3'] }
+    {
+      id: 'b1',
+      name: 'User Identity',
+      description: 'Core user identity properties',
+      propertyIds: ['p1', 'p2', 'p3'],
+    },
   ],
   sources: [
     { id: 's1', name: 'iOS', color: 'bg-blue-100 text-blue-800' },
@@ -49,15 +103,15 @@ const initialData: TrackingPlanData = {
       sources: [
         { id: 's1', name: 'iOS' },
         { id: 's2', name: 'Android' },
-        { id: 's3', name: 'Web' }
+        { id: 's3', name: 'Web' },
       ],
       actions: [
         {
           id: 'a1',
           type: 'Log Event',
           eventProperties: ['p1', 'p2'],
-          systemProperties: []
-        }
+          systemProperties: [],
+        },
       ],
       variants: [],
       ownerTeamId: 't3',
@@ -69,16 +123,14 @@ const initialData: TrackingPlanData = {
       description: 'Fired when a user upgrades their plan.',
       categories: ['Revenue'],
       tags: [],
-      sources: [
-        { id: 's3', name: 'Web' }
-      ],
+      sources: [{ id: 's3', name: 'Web' }],
       actions: [
         {
           id: 'a2',
           type: 'Log Event',
           eventProperties: ['p1', 'p2', 'p3'],
-          systemProperties: []
-        }
+          systemProperties: [],
+        },
       ],
       variants: [],
       ownerTeamId: 't3',
@@ -91,9 +143,9 @@ const initialData: TrackingPlanData = {
       name: 'Customer Journey Flow',
       nodes: [],
       edges: [],
-      qaRuns: []
-    }
-  ]
+      qaRuns: [],
+    },
+  ],
 };
 
 interface StoreState {
@@ -102,34 +154,32 @@ interface StoreState {
   activeBranchId: string | 'main';
   selectedItemIdToEdit: string | null;
   auditConfig: AuditConfig;
-  
-  // Actions
+
   setActiveBranch: (id: string | 'main') => void;
   createBranch: (name: string) => void;
   mergeBranch: (id: string) => void;
   approveBranch: (branchId: string, teamId: string) => void;
   setSelectedItemIdToEdit: (id: string | null) => void;
   updateAuditConfig: (config: Partial<AuditConfig>) => void;
-  
-  // Data actions (apply to active branch or main)
+
   updateSettings: (settings: Partial<Settings>) => void;
-  
+
   addEvent: (event: Omit<Event, 'id'>) => void;
   updateEvent: (id: string, event: Partial<Event>) => void;
   deleteEvent: (id: string) => void;
-  
+
   addProperty: (property: Omit<Property, 'id'>) => void;
   updateProperty: (id: string, property: Partial<Property>) => void;
   deleteProperty: (id: string) => void;
-  
+
   addPropertyBundle: (bundle: Omit<PropertyBundle, 'id'>) => void;
   updatePropertyBundle: (id: string, bundle: Partial<PropertyBundle>) => void;
   deletePropertyBundle: (id: string) => void;
-  
+
   addSource: (source: Omit<Source, 'id'>) => void;
   updateSource: (id: string, source: Partial<Source>) => void;
   deleteSource: (id: string) => void;
-  
+
   addJourney: (journey: Omit<Journey, 'id'>) => string;
   updateJourney: (id: string, journey: Partial<Journey>) => void;
   deleteJourney: (id: string) => void;
@@ -140,15 +190,15 @@ export const useStore = create<StoreState>((set, get) => {
     set((state) => {
       if (state.activeBranchId === 'main') {
         return { mainData: updater(state.mainData) };
-      } else {
-        return {
-          branches: state.branches.map(b => 
-            b.id === state.activeBranchId 
-              ? { ...b, draftData: updater(b.draftData) } 
-              : b
-          )
-        };
       }
+
+      return {
+        branches: state.branches.map((branch) =>
+          branch.id === state.activeBranchId
+            ? { ...branch, draftData: updater(branch.draftData) }
+            : branch
+        ),
+      };
     });
   };
 
@@ -157,6 +207,7 @@ export const useStore = create<StoreState>((set, get) => {
     branches: [],
     activeBranchId: 'main',
     selectedItemIdToEdit: null,
+
     auditConfig: {
       eventNaming: 'Title Case',
       propertyNaming: 'snake_case',
@@ -166,117 +217,191 @@ export const useStore = create<StoreState>((set, get) => {
     },
 
     setSelectedItemIdToEdit: (id) => set({ selectedItemIdToEdit: id }),
+
     setActiveBranch: (id) => set({ activeBranchId: id }),
-    updateAuditConfig: (config) => set((state) => ({
-      auditConfig: { ...state.auditConfig, ...config }
-    })),
-    createBranch: (name) => set((state) => {
-      const newBranch: Branch = {
-        id: uuidv4(),
-        name,
-        baseData: JSON.parse(JSON.stringify(state.mainData)),
-        draftData: JSON.parse(JSON.stringify(state.mainData)),
-        approvals: []
-      };
-      return {
-        branches: [...state.branches, newBranch],
-        activeBranchId: newBranch.id
-      };
-    }),
-    mergeBranch: (id) => set((state) => {
-      const branch = state.branches.find(b => b.id === id);
-      if (!branch) return state;
-      return {
-        mainData: branch.draftData,
-        branches: state.branches.filter(b => b.id !== id),
-        activeBranchId: 'main'
-      };
-    }),
-    approveBranch: (branchId, teamId) => set((state) => ({
-      branches: state.branches.map(b => 
-        b.id === branchId && !b.approvals.includes(teamId)
-          ? { ...b, approvals: [...b.approvals, teamId] }
-          : b
-      )
-    })),
 
-    updateSettings: (settingsUpdate) => updateActiveData(data => ({
-      ...data, settings: { ...data.settings, ...settingsUpdate }
-    })),
+    updateAuditConfig: (config) =>
+      set((state) => ({
+        auditConfig: {
+          ...state.auditConfig,
+          ...config,
+        },
+      })),
 
-    addEvent: (event) => updateActiveData(data => ({
-      ...data, events: [...data.events, { ...event, id: uuidv4() }]
-    })),
-    updateEvent: (id, eventUpdate) => updateActiveData(data => ({
-      ...data, events: data.events.map(e => e.id === id ? { ...e, ...eventUpdate } : e)
-    })),
-    deleteEvent: (id) => updateActiveData(data => ({
-      ...data, events: data.events.filter(e => e.id !== id)
-    })),
+    createBranch: (name) =>
+      set((state) => {
+        const snapshot = JSON.parse(JSON.stringify(state.mainData)) as TrackingPlanData;
 
-    addProperty: (property) => updateActiveData(data => ({
-      ...data, properties: [...data.properties, { ...property, id: uuidv4() }]
-    })),
-    updateProperty: (id, propertyUpdate) => updateActiveData(data => ({
-      ...data, properties: data.properties.map(p => p.id === id ? { ...p, ...propertyUpdate } : p)
-    })),
-    deleteProperty: (id) => updateActiveData(data => ({
-      ...data, 
-      properties: data.properties.filter(p => p.id !== id),
-      events: data.events.map(e => ({
-        ...e,
-        actions: e.actions.map(a => ({
-          ...a,
-          eventProperties: a.eventProperties.filter(pid => pid !== id),
-          systemProperties: a.systemProperties.filter(pid => pid !== id)
-        }))
-      }))
-    })),
+        const newBranch: Branch = {
+          id: uuidv4(),
+          name,
+          baseData: snapshot,
+          draftData: JSON.parse(JSON.stringify(snapshot)) as TrackingPlanData,
+          approvals: [],
+        };
 
-    addPropertyBundle: (bundle) => updateActiveData(data => ({
-      ...data, propertyBundles: [...data.propertyBundles, { ...bundle, id: uuidv4() }]
-    })),
-    updatePropertyBundle: (id, bundleUpdate) => updateActiveData(data => ({
-      ...data, propertyBundles: data.propertyBundles.map(b => b.id === id ? { ...b, ...bundleUpdate } : b)
-    })),
-    deletePropertyBundle: (id) => updateActiveData(data => ({
-      ...data, propertyBundles: data.propertyBundles.filter(b => b.id !== id)
-    })),
+        return {
+          branches: [...state.branches, newBranch],
+          activeBranchId: newBranch.id,
+        };
+      }),
 
-    addSource: (source) => updateActiveData(data => ({
-      ...data, sources: [...data.sources, { ...source, id: uuidv4() }]
-    })),
-    updateSource: (id, sourceUpdate) => updateActiveData(data => ({
-      ...data, sources: data.sources.map(s => s.id === id ? { ...s, ...sourceUpdate } : s)
-    })),
-    deleteSource: (id) => updateActiveData(data => ({
-      ...data, 
-      sources: data.sources.filter(s => s.id !== id),
-      events: data.events.map(e => ({
-        ...e,
-        sources: e.sources.filter(s => s.id !== id)
-      }))
-    })),
+    mergeBranch: (id) =>
+      set((state) => {
+        const branch = state.branches.find((item) => item.id === id);
+        if (!branch) return state;
+
+        return {
+          mainData: branch.draftData,
+          branches: state.branches.filter((item) => item.id !== id),
+          activeBranchId: 'main',
+        };
+      }),
+
+    approveBranch: (branchId, teamId) =>
+      set((state) => ({
+        branches: state.branches.map((branch) =>
+          branch.id === branchId && !branch.approvals.includes(teamId)
+            ? { ...branch, approvals: [...branch.approvals, teamId] }
+            : branch
+        ),
+      })),
+
+    updateSettings: (settingsUpdate) =>
+      updateActiveData((data) => ({
+        ...data,
+        settings: {
+          ...data.settings,
+          ...settingsUpdate,
+        },
+      })),
+
+    addEvent: (event) =>
+      updateActiveData((data) => ({
+        ...data,
+        events: [...data.events, { ...event, id: uuidv4() }],
+      })),
+
+    updateEvent: (id, eventUpdate) =>
+      updateActiveData((data) => ({
+        ...data,
+        events: data.events.map((event) =>
+          event.id === id ? { ...event, ...eventUpdate } : event
+        ),
+      })),
+
+    deleteEvent: (id) =>
+      updateActiveData((data) => ({
+        ...data,
+        events: data.events.filter((event) => event.id !== id),
+      })),
+
+    addProperty: (property) =>
+      updateActiveData((data) => ({
+        ...data,
+        properties: [...data.properties, { ...property, id: uuidv4() }],
+      })),
+
+    updateProperty: (id, propertyUpdate) =>
+      updateActiveData((data) => ({
+        ...data,
+        properties: data.properties.map((property) =>
+          property.id === id ? { ...property, ...propertyUpdate } : property
+        ),
+      })),
+
+    deleteProperty: (id) =>
+      updateActiveData((data) => ({
+        ...data,
+        properties: data.properties.filter((property) => property.id !== id),
+        events: data.events.map((event) => ({
+          ...event,
+          actions: event.actions.map((action) => ({
+            ...action,
+            eventProperties: action.eventProperties.filter((propertyId) => propertyId !== id),
+            systemProperties: action.systemProperties.filter((propertyId) => propertyId !== id),
+          })),
+        })),
+      })),
+
+    addPropertyBundle: (bundle) =>
+      updateActiveData((data) => ({
+        ...data,
+        propertyBundles: [...data.propertyBundles, { ...bundle, id: uuidv4() }],
+      })),
+
+    updatePropertyBundle: (id, bundleUpdate) =>
+      updateActiveData((data) => ({
+        ...data,
+        propertyBundles: data.propertyBundles.map((bundle) =>
+          bundle.id === id ? { ...bundle, ...bundleUpdate } : bundle
+        ),
+      })),
+
+    deletePropertyBundle: (id) =>
+      updateActiveData((data) => ({
+        ...data,
+        propertyBundles: data.propertyBundles.filter((bundle) => bundle.id !== id),
+      })),
+
+    addSource: (source) =>
+      updateActiveData((data) => ({
+        ...data,
+        sources: [...data.sources, { ...source, id: uuidv4() }],
+      })),
+
+    updateSource: (id, sourceUpdate) =>
+      updateActiveData((data) => ({
+        ...data,
+        sources: data.sources.map((source) =>
+          source.id === id ? { ...source, ...sourceUpdate } : source
+        ),
+      })),
+
+    deleteSource: (id) =>
+      updateActiveData((data) => ({
+        ...data,
+        sources: data.sources.filter((source) => source.id !== id),
+        events: data.events.map((event) => ({
+          ...event,
+          sources: event.sources.filter((source) => source.id !== id),
+        })),
+      })),
 
     addJourney: (journey) => {
       const id = uuidv4();
-      updateActiveData(data => ({
-        ...data, journeys: [...data.journeys, { ...journey, id }]
+
+      updateActiveData((data) => ({
+        ...data,
+        journeys: [...data.journeys, { ...journey, id }],
       }));
+
       return id;
     },
-    updateJourney: (id, journeyUpdate) => updateActiveData(data => ({
-      ...data, journeys: data.journeys.map(j => j.id === id ? { ...j, ...journeyUpdate } : j)
-    })),
-    deleteJourney: (id) => updateActiveData(data => ({
-      ...data, journeys: data.journeys.filter(j => j.id !== id)
-    })),
+
+    updateJourney: (id, journeyUpdate) =>
+      updateActiveData((data) => ({
+        ...data,
+        journeys: data.journeys.map((journey) =>
+          journey.id === id ? { ...journey, ...journeyUpdate } : journey
+        ),
+      })),
+
+    deleteJourney: (id) =>
+      updateActiveData((data) => ({
+        ...data,
+        journeys: data.journeys.filter((journey) => journey.id !== id),
+      })),
   };
 });
 
 export const useActiveData = () => {
   const { mainData, branches, activeBranchId } = useStore();
-  if (activeBranchId === 'main') return mainData;
-  const branch = branches.find(b => b.id === activeBranchId);
+
+  if (activeBranchId === 'main') {
+    return mainData;
+  }
+
+  const branch = branches.find((item) => item.id === activeBranchId);
   return branch ? branch.draftData : mainData;
 };

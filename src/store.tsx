@@ -90,7 +90,8 @@ const initialData: TrackingPlanData = {
       id: 'j1',
       name: 'Customer Journey Flow',
       nodes: [],
-      edges: []
+      edges: [],
+      qaRuns: []
     }
   ]
 };

@@ -18,6 +18,10 @@ import {
   StickyNote,
   SquareDashed,
   Pencil,
+  FileText,
+  User,
+  Globe,
+  Link as LinkIcon,
 } from 'lucide-react';
 import {
   ReactFlow,
@@ -38,16 +42,13 @@ import {
   NodeResizer,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { QARun, QAStatus } from '@/src/types';
+import { QARun, QAStatus, QAVerification, TestingProfile } from '@/src/types';
 
-type AnnotationRect = {
+type TestingProfile = {
   id: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  color?: string;
-  createdAt?: string;
+  label: string;
+  url: string;
+  note?: string;
 };
 
 type PendingConnection = {
@@ -129,7 +130,7 @@ const QuickAddMenu = ({ nodeId, position }: { nodeId: string; position: 'right' 
       position: { x: node.position.x + offsetX, y: node.position.y + offsetY },
       data:
         type === 'journeyStepNode'
-          ? { label: `Step ${stepCount + 1}`, description: '', rectangles: [] }
+          ? { label: `Step ${stepCount + 1}`, description: '' }
           : { description: '', connectedEvent: null },
     };
 
@@ -196,17 +197,10 @@ const QuickAddMenu = ({ nodeId, position }: { nodeId: string; position: 'right' 
 
 const JourneyStepNode = ({ id, data }: NodeProps) => {
   const { setNodes } = useReactFlow();
-  const imageRef = useRef<HTMLImageElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
 
   const isQAMode = !!data.activeQARunId;
   const qaVerification = isQAMode ? data.qaVerifications?.[data.activeQARunId as string]?.[id] : null;
   const qaStatus = qaVerification?.status || 'Pending';
-
-  const rectangles: AnnotationRect[] = Array.isArray(data.rectangles) ? data.rectangles : [];
-  const [isDrawingMode, setIsDrawingMode] = useState(false);
-  const [draftRect, setDraftRect] = useState<AnnotationRect | null>(null);
-  const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
 
   const updateNodeData = useCallback(
     (patch: Record<string, unknown>) => {
@@ -258,89 +252,6 @@ const JourneyStepNode = ({ id, data }: NodeProps) => {
     [isQAMode, updateNodeData]
   );
 
-  const getRelativePoint = (clientX: number, clientY: number) => {
-    const rect = overlayRef.current?.getBoundingClientRect();
-    if (!rect) return null;
-
-    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
-    const y = Math.max(0, Math.min(clientY - rect.top, rect.height));
-
-    return { x, y, width: rect.width, height: rect.height };
-  };
-
-  const handleOverlayMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isDrawingMode || isQAMode) return;
-    const point = getRelativePoint(e.clientX, e.clientY);
-    if (!point) return;
-
-    setStartPoint({ x: point.x, y: point.y });
-    setDraftRect({
-      id: `draft-${Date.now()}`,
-      x: point.x,
-      y: point.y,
-      width: 0,
-      height: 0,
-      color: '#FACC15',
-      createdAt: new Date().toISOString(),
-    });
-  };
-
-  const handleOverlayMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isDrawingMode || !startPoint || isQAMode) return;
-    const point = getRelativePoint(e.clientX, e.clientY);
-    if (!point) return;
-
-    const x = Math.min(startPoint.x, point.x);
-    const y = Math.min(startPoint.y, point.y);
-    const width = Math.abs(point.x - startPoint.x);
-    const height = Math.abs(point.y - startPoint.y);
-
-    setDraftRect((prev) =>
-      prev
-        ? {
-            ...prev,
-            x,
-            y,
-            width,
-            height,
-          }
-        : null
-    );
-  };
-
-  const commitDraftRect = () => {
-    if (!draftRect || draftRect.width < 8 || draftRect.height < 8) {
-      setDraftRect(null);
-      setStartPoint(null);
-      return;
-    }
-
-    updateNodeData({
-      rectangles: [
-        ...rectangles,
-        {
-          ...draftRect,
-          id: `rect-${Date.now()}`,
-          color: '#FACC15',
-          createdAt: new Date().toISOString(),
-        },
-      ],
-    });
-
-    setDraftRect(null);
-    setStartPoint(null);
-  };
-
-  const handleOverlayMouseUp = () => {
-    if (!isDrawingMode || isQAMode) return;
-    commitDraftRect();
-  };
-
-  const handleOverlayMouseLeave = () => {
-    if (!isDrawingMode || isQAMode) return;
-    commitDraftRect();
-  };
-
   return (
     <div
       className={`bg-white border-2 ${
@@ -372,18 +283,6 @@ const JourneyStepNode = ({ id, data }: NodeProps) => {
               className="bg-transparent border-none focus:ring-0 p-0 font-semibold text-gray-700 w-full"
             />
           </div>
-
-          {!isQAMode && data.imageUrl && (
-            <Button
-              variant="outline"
-              size="sm"
-              className={`gap-2 h-8 ${isDrawingMode ? 'border-blue-500 text-blue-700 bg-blue-50' : ''}`}
-              onClick={() => setIsDrawingMode((prev) => !prev)}
-            >
-              <Pencil className="w-3 h-3" />
-              {isDrawingMode ? 'Exit Drawing' : 'Draw Annotation'}
-            </Button>
-          )}
         </div>
 
         <textarea
@@ -402,50 +301,11 @@ const JourneyStepNode = ({ id, data }: NodeProps) => {
         {data.imageUrl ? (
           <div className="relative inline-block w-full select-none">
             <img
-              ref={imageRef}
               src={data.imageUrl as string}
               alt="Step"
-              className="w-full h-auto rounded border pointer-events-none"
+              className="w-full h-auto rounded border"
               draggable={false}
             />
-
-            <div
-              ref={overlayRef}
-              className={`absolute inset-0 rounded ${isDrawingMode ? 'nodrag nopan cursor-crosshair' : 'pointer-events-none'}`}
-              onMouseDown={handleOverlayMouseDown}
-              onMouseMove={handleOverlayMouseMove}
-              onMouseUp={handleOverlayMouseUp}
-              onMouseLeave={handleOverlayMouseLeave}
-            />
-
-            {rectangles.map((rect) => (
-              <div
-                key={rect.id}
-                className="absolute rounded-sm border-2 pointer-events-none"
-                style={{
-                  left: rect.x,
-                  top: rect.y,
-                  width: rect.width,
-                  height: rect.height,
-                  borderColor: rect.color || '#FACC15',
-                  backgroundColor: 'rgba(250, 204, 21, 0.12)',
-                }}
-              />
-            ))}
-
-            {draftRect && (
-              <div
-                className="absolute rounded-sm border-2 pointer-events-none"
-                style={{
-                  left: draftRect.x,
-                  top: draftRect.y,
-                  width: draftRect.width,
-                  height: draftRect.height,
-                  borderColor: '#FACC15',
-                  backgroundColor: 'rgba(250, 204, 21, 0.12)',
-                }}
-              />
-            )}
           </div>
         ) : (
           <label className="h-32 flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed rounded text-gray-400 text-sm cursor-pointer hover:bg-gray-100 transition-colors">
@@ -752,18 +612,24 @@ const NoteNode = ({ id, data, selected }: NodeProps) => {
   );
 };
 
-const HighlightNode = ({ selected, data }: NodeProps) => {
+const AnnotationNode = ({ id, data, selected }: NodeProps) => {
   const isQAMode = !!data.activeQARunId;
+  const color = (data.color as string) || '#FACC15';
+
   return (
     <>
       {!isQAMode && (
-        <NodeResizer color="#3b82f6" isVisible={selected} minWidth={50} minHeight={50} />
+        <NodeResizer color="#3b82f6" isVisible={selected} minWidth={40} minHeight={40} />
       )}
       <div
-        className={`w-full h-full bg-yellow-300/30 border-2 border-yellow-400 border-dashed rounded-sm transition-colors ${
-          selected ? 'border-blue-500 bg-yellow-300/40' : ''
+        className={`w-full h-full rounded-sm border-2 border-dashed transition-colors ${
+          selected ? 'ring-2 ring-blue-400' : ''
         }`}
-        style={{ pointerEvents: isQAMode ? 'none' : 'auto' }}
+        style={{
+          borderColor: color,
+          backgroundColor: 'rgba(250, 204, 21, 0.14)',
+          pointerEvents: isQAMode ? 'none' : 'auto',
+        }}
       />
     </>
   );
@@ -773,8 +639,76 @@ const nodeTypes = {
   journeyStepNode: JourneyStepNode,
   triggerNode: TriggerNode,
   noteNode: NoteNode,
-  highlightNode: HighlightNode,
+  annotationNode: AnnotationNode,
 };
+
+function TestingProfilesEditor({
+  profiles,
+  onChange,
+}: {
+  profiles: TestingProfile[];
+  onChange: (profiles: TestingProfile[]) => void;
+}) {
+  const addProfile = () => {
+    onChange([
+      ...profiles,
+      {
+        id: `profile-${Date.now()}`,
+        label: '',
+        url: '',
+        note: '',
+      },
+    ]);
+  };
+
+  const updateProfile = (id: string, patch: Partial<TestingProfile>) => {
+    onChange(profiles.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  };
+
+  const removeProfile = (id: string) => {
+    onChange(profiles.filter((p) => p.id !== id));
+  };
+
+  return (
+    <div className="space-y-3">
+      {profiles.map((profile) => (
+        <div key={profile.id} className="border rounded-lg p-3 bg-gray-50 space-y-2">
+          <div className="flex justify-between items-center">
+            <div className="text-xs font-semibold text-gray-600 uppercase">Testing Profile</div>
+            <button
+              onClick={() => removeProfile(profile.id)}
+              className="text-gray-400 hover:text-red-500"
+              type="button"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <Input
+            value={profile.label}
+            onChange={(e) => updateProfile(profile.id, { label: e.target.value })}
+            placeholder="Profile label (e.g. QA Test User 1)"
+          />
+          <Input
+            value={profile.url}
+            onChange={(e) => updateProfile(profile.id, { url: e.target.value })}
+            placeholder="Bloomreach profile URL"
+          />
+          <textarea
+            value={profile.note || ''}
+            onChange={(e) => updateProfile(profile.id, { note: e.target.value })}
+            placeholder="Optional note"
+            className="w-full h-20 rounded-md border border-input bg-background px-3 py-2 text-sm"
+          />
+        </div>
+      ))}
+
+      <Button variant="outline" size="sm" className="gap-2" onClick={addProfile}>
+        <Plus className="w-4 h-4" /> Add Testing Profile
+      </Button>
+    </div>
+  );
+}
 
 export function Journeys({
   selectedJourneyId: initialJourneyId,
@@ -792,6 +726,8 @@ export function Journeys({
   const [activeQARunId, setActiveQARunId] = useState<string | null>(null);
   const [isQAModalOpen, setIsQAModalOpen] = useState(false);
   const [newQARunName, setNewQARunName] = useState('');
+  const [newQATesterName, setNewQATesterName] = useState('');
+  const [newQAEnvironment, setNewQAEnvironment] = useState('');
 
   const selectedJourney = data.journeys.find((j) => j.id === selectedJourneyId);
 
@@ -821,20 +757,26 @@ export function Journeys({
   const handleStartQARun = () => {
     if (!selectedJourney || !newQARunName.trim()) return;
 
-    const newRun: QARun = {
+    const newRun = {
       id: `qa-${Date.now()}`,
       name: newQARunName.trim(),
       createdAt: new Date().toISOString(),
+      testerName: newQATesterName.trim(),
+      environment: newQAEnvironment.trim(),
+      overallNotes: '',
+      testingProfiles: [],
       nodes: JSON.parse(JSON.stringify(selectedJourney.nodes || [])),
       edges: JSON.parse(JSON.stringify(selectedJourney.edges || [])),
       verifications: {},
-    };
+    } as ExtendedQARun;
 
-    const updatedQaRuns = [...(selectedJourney.qaRuns || []), newRun];
+    const updatedQaRuns = [...(selectedJourney.qaRuns || []), newRun] as any[];
     updateJourney(selectedJourney.id, { qaRuns: updatedQaRuns });
     setActiveQARunId(newRun.id);
     setIsQAModalOpen(false);
     setNewQARunName('');
+    setNewQATesterName('');
+    setNewQAEnvironment('');
   };
 
   return (
@@ -995,7 +937,7 @@ export function Journeys({
 
       {isQAModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-96">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-[440px]">
             <h2 className="text-lg font-bold text-gray-900 mb-4">Start New QA Run</h2>
             <div className="space-y-4">
               <div>
@@ -1007,6 +949,25 @@ export function Journeys({
                   autoFocus
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tester Name</label>
+                <Input
+                  value={newQATesterName}
+                  onChange={(e) => setNewQATesterName(e.target.value)}
+                  placeholder="e.g. Jan Pan"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Environment</label>
+                <Input
+                  value={newQAEnvironment}
+                  onChange={(e) => setNewQAEnvironment(e.target.value)}
+                  placeholder="e.g. Staging / Production-like"
+                />
+              </div>
+
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setIsQAModalOpen(false)}>
                   Cancel
@@ -1030,21 +991,29 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
   const [nodes, setNodes, onNodesChange] = useNodesState(journey.nodes || []);
   const [edges, setEdges, onEdgesChange] = useEdgesState(journey.edges || []);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedPanel, setSelectedPanel] = useState<'summary' | 'node'>('summary');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isSavingQA, setIsSavingQA] = useState(false);
+  const [saveQASuccess, setSaveQASuccess] = useState(false);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [pendingConnection, setPendingConnection] = useState<PendingConnection | null>(null);
+
+  const [tool, setTool] = useState<'select' | 'annotation'>('select');
+  const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
+  const [tempNodeId, setTempNodeId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!activeQARunId) {
       setNodes(journey.nodes || []);
       setEdges(journey.edges || []);
       setSelectedNodeId(null);
+      setSelectedPanel('summary');
     }
   }, [journey.id, activeQARunId, journey.nodes, journey.edges, setNodes, setEdges]);
 
   useEffect(() => {
-    const activeQARun = (journey.qaRuns || []).find((r: QARun) => r.id === activeQARunId);
+    const activeQARun = (journey.qaRuns || []).find((r: any) => r.id === activeQARunId) as ExtendedQARun | undefined;
 
     if (activeQARunId && activeQARun) {
       const runNodes = activeQARun.nodes || journey.nodes || [];
@@ -1136,7 +1105,7 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
       position,
       data:
         type === 'journeyStepNode'
-          ? { label: `Step ${stepCount + 1}`, description: '', rectangles: [] }
+          ? { label: `Step ${stepCount + 1}`, description: '' }
           : { description: '', connectedEvent: null },
     };
 
@@ -1174,13 +1143,25 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
     }, 300);
   };
 
+  const handleSaveQA = () => {
+    if (!activeQARunId) return;
+    setIsSavingQA(true);
+
+    setTimeout(() => {
+      updateJourney(journey.id, { qaRuns: [...(journey.qaRuns || [])] });
+      setIsSavingQA(false);
+      setSaveQASuccess(true);
+      setTimeout(() => setSaveQASuccess(false), 2000);
+    }, 300);
+  };
+
   const addStepNode = () => {
     const stepCount = nodes.filter((n) => n.type === 'journeyStepNode').length;
     const newNode: Node = {
       id: `step-${Date.now()}`,
       type: 'journeyStepNode',
       position: { x: 100, y: 100 },
-      data: { label: `Step ${stepCount + 1}`, description: '', rectangles: [] },
+      data: { label: `Step ${stepCount + 1}`, description: '' },
     };
     setNodes((nds) => nds.concat(newNode));
   };
@@ -1205,35 +1186,93 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
     setNodes((nds) => nds.concat(newNode));
   };
 
-  const addHighlightNode = () => {
-    const newNode: Node = {
-      id: `highlight-${Date.now()}`,
-      type: 'highlightNode',
-      position: { x: 200, y: 50 },
-      style: { width: 250, height: 150 },
-      data: {},
-    };
-    setNodes((nds) => nds.concat(newNode));
-  };
+  const onPaneMouseDown = useCallback(
+    (event: React.MouseEvent) => {
+      if (tool !== 'annotation' || activeQARunId) return;
+
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest('.react-flow__pane')) return;
+
+      const pos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      setDrawStart(pos);
+
+      const newNodeId = `annotation-${Date.now()}`;
+      const newNode: Node = {
+        id: newNodeId,
+        type: 'annotationNode',
+        position: pos,
+        style: { width: 10, height: 10 },
+        data: { color: '#FACC15' },
+      };
+
+      setNodes((nds) => nds.concat(newNode));
+      setTempNodeId(newNodeId);
+    },
+    [tool, activeQARunId, screenToFlowPosition, setNodes]
+  );
+
+  const onPaneMouseMove = useCallback(
+    (event: React.MouseEvent) => {
+      if (!drawStart || !tempNodeId || tool !== 'annotation') return;
+
+      const currentPos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+
+      const x = Math.min(drawStart.x, currentPos.x);
+      const y = Math.min(drawStart.y, currentPos.y);
+      const width = Math.max(20, Math.abs(currentPos.x - drawStart.x));
+      const height = Math.max(20, Math.abs(currentPos.y - drawStart.y));
+
+      setNodes((nds) =>
+        nds.map((n) =>
+          n.id === tempNodeId
+            ? {
+                ...n,
+                position: { x, y },
+                style: { ...n.style, width, height },
+              }
+            : n
+        )
+      );
+    },
+    [drawStart, tempNodeId, tool, screenToFlowPosition, setNodes]
+  );
+
+  const onPaneMouseUp = useCallback(() => {
+    if (tool === 'annotation') {
+      setDrawStart(null);
+      setTempNodeId(null);
+      setTool('select');
+    }
+  }, [tool]);
 
   const onNodeClick = (_e: React.MouseEvent, node: Node) => {
     if (activeQARunId && (node.type === 'journeyStepNode' || node.type === 'triggerNode')) {
       setSelectedNodeId(node.id);
+      setSelectedPanel('node');
     }
   };
 
-  const activeQARun = (journey.qaRuns || []).find((r: QARun) => r.id === activeQARunId);
+  const activeQARun = (journey.qaRuns || []).find((r: any) => r.id === activeQARunId) as ExtendedQARun | undefined;
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
   const currentVerification =
     activeQARun && selectedNode ? (activeQARun.verifications || {})[selectedNode.id] : null;
 
-  const updateQAVerification = (nodeId: string, updates: Partial<any>) => {
+  const updateQARun = (patch: Partial<ExtendedQARun>) => {
+    if (!activeQARunId) return;
+
+    const updatedRuns = (journey.qaRuns || []).map((run: any) =>
+      run.id === activeQARunId ? { ...run, ...patch } : run
+    );
+    updateJourney(journey.id, { qaRuns: updatedRuns });
+  };
+
+  const updateQAVerification = (nodeId: string, updates: Partial<LocalQAVerification>) => {
     if (!activeQARunId) return;
 
     const node = nodes.find((n) => n.id === nodeId);
     const tempProofUrl = node?.data?.tempProofUrl;
 
-    const updatedRuns = (journey.qaRuns || []).map((run: QARun) => {
+    const updatedRuns = (journey.qaRuns || []).map((run: any) => {
       if (run.id !== activeQARunId) return run;
 
       const existingVerif = (run.verifications || {})[nodeId] || { nodeId, status: 'Pending' };
@@ -1275,14 +1314,17 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
     }
   };
 
+  const insertSamplePayload = () => {
+    if (!selectedNode || selectedNode.type !== 'triggerNode') return;
+    updateQAVerification(selectedNode.id, { proofText: sampleTriggerPayload });
+  };
+
   const sampleTriggerPayload = useMemo(
     () => `{
   "event_type": "double_opt_in",
-
   "customer_ids": {
     "email_id": "jan.pan@e3-services.com"
   },
-
   "properties": {
     "email": "<value>",
     "first_name": "<value>",
@@ -1302,8 +1344,43 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
     []
   );
 
-  const activeVerifications = (journey.qaRuns?.find((r: any) => r.id === activeQARunId)?.verifications ||
-    {}) as Record<string, any>;
+  const activeVerifications = (activeQARun?.verifications || {}) as Record<string, LocalQAVerification>;
+  const runProfiles = activeQARun?.testingProfiles || [];
+  const nodeLinkedProfileIds = currentVerification?.testingProfileIds || [];
+  const nodeExtraProfiles = currentVerification?.extraTestingProfiles || [];
+
+  const updateNodeLinkedProfiles = (profileId: string, checked: boolean) => {
+    if (!selectedNode) return;
+    const next = checked
+      ? Array.from(new Set([...nodeLinkedProfileIds, profileId]))
+      : nodeLinkedProfileIds.filter((id) => id !== profileId);
+
+    updateQAVerification(selectedNode.id, { testingProfileIds: next });
+  };
+
+  const addExtraNodeProfile = () => {
+    if (!selectedNode) return;
+    updateQAVerification(selectedNode.id, {
+      extraTestingProfiles: [
+        ...nodeExtraProfiles,
+        { id: `extra-profile-${Date.now()}`, label: '', url: '', note: '' },
+      ],
+    });
+  };
+
+  const updateExtraNodeProfile = (profileId: string, patch: Partial<TestingProfile>) => {
+    if (!selectedNode) return;
+    updateQAVerification(selectedNode.id, {
+      extraTestingProfiles: nodeExtraProfiles.map((p) => (p.id === profileId ? { ...p, ...patch } : p)),
+    });
+  };
+
+  const removeExtraNodeProfile = (profileId: string) => {
+    if (!selectedNode) return;
+    updateQAVerification(selectedNode.id, {
+      extraTestingProfiles: nodeExtraProfiles.filter((p) => p.id !== profileId),
+    });
+  };
 
   return (
     <div className="flex h-full w-full">
@@ -1332,7 +1409,7 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
 
           <div>
             <h3 className="font-semibold text-sm text-gray-900">Annotations</h3>
-            <p className="text-xs text-gray-500 mt-1 mb-3">Add global notes and highlights.</p>
+            <p className="text-xs text-gray-500 mt-1 mb-3">Add global notes and draw highlight annotations.</p>
             <div className="flex flex-col gap-2">
               <button
                 onClick={addNoteNode}
@@ -1341,12 +1418,17 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
                 <StickyNote className="w-4 h-4 text-yellow-600" />
                 <span className="font-medium">Add Sticky Note</span>
               </button>
+
               <button
-                onClick={addHighlightNode}
-                className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-50 border border-blue-200 rounded shadow-sm hover:border-blue-400 transition-colors text-left text-blue-900"
+                onClick={() => setTool(tool === 'annotation' ? 'select' : 'annotation')}
+                className={`flex items-center gap-2 px-3 py-2 text-sm rounded shadow-sm transition-colors text-left ${
+                  tool === 'annotation'
+                    ? 'bg-blue-600 text-white border border-blue-600'
+                    : 'bg-blue-50 border border-blue-200 hover:border-blue-400 text-blue-900'
+                }`}
               >
-                <SquareDashed className="w-4 h-4 text-blue-600" />
-                <span className="font-medium">Add Highlight Box</span>
+                <Pencil className="w-4 h-4" />
+                <span className="font-medium">{tool === 'annotation' ? 'Drawing Active' : 'Draw Annotation'}</span>
               </button>
             </div>
           </div>
@@ -1356,7 +1438,7 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
             <ul className="text-xs text-blue-800 space-y-2 list-disc pl-4">
               <li>Use the <strong>+</strong> button next to node handles to instantly build flows.</li>
               <li>Select a node or edge and press <strong>Backspace</strong> to delete.</li>
-              <li>Use <strong>Draw Annotation</strong> inside step nodes to highlight UI elements.</li>
+              <li>Use <strong>Draw Annotation</strong>, then drag on canvas to create a movable box.</li>
             </ul>
           </div>
         </div>
@@ -1364,13 +1446,13 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
 
       <div className="flex-1 relative">
         {activeQARunId && (
-          <div className="absolute top-4 left-4 z-10 bg-white border-2 border-blue-400 rounded-lg shadow-md p-3 flex flex-col gap-2 pointer-events-none">
+          <div className="absolute top-4 left-4 z-10 bg-white border-2 border-blue-400 rounded-lg shadow-md p-3 flex flex-col gap-2">
             <div className="flex items-center gap-2 text-blue-700 font-bold">
               <CheckSquare className="w-5 h-5" />
               QA Mode Active
             </div>
             <div className="text-xs text-gray-600">
-              Run: {journey.qaRuns?.find((r: any) => r.id === activeQARunId)?.name}
+              Run: {activeQARun?.name}
             </div>
             <div className="flex items-center gap-3 text-xs mt-1">
               <div className="flex items-center gap-1 text-gray-500">
@@ -1382,15 +1464,36 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
               <div className="flex items-center gap-1 text-emerald-600">
                 <CheckCircle2 className="w-3 h-3" />
                 <span className="font-semibold">
-                  {Object.values(activeVerifications).filter((v: any) => v.status === 'Passed').length}
+                  {Object.values(activeVerifications).filter((v) => v.status === 'Passed').length}
                 </span>
               </div>
               <div className="flex items-center gap-1 text-red-600">
                 <X className="w-3 h-3" />
                 <span className="font-semibold">
-                  {Object.values(activeVerifications).filter((v: any) => v.status === 'Failed').length}
+                  {Object.values(activeVerifications).filter((v) => v.status === 'Failed').length}
                 </span>
               </div>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2"
+                onClick={() => setSelectedPanel('summary')}
+              >
+                <FileText className="w-4 h-4" /> QA Summary
+              </Button>
+
+              <Button
+                size="sm"
+                className="gap-2 bg-[#3E52FF] hover:bg-blue-600 text-white"
+                onClick={handleSaveQA}
+                disabled={isSavingQA}
+              >
+                <Save className="w-4 h-4" />
+                {isSavingQA ? 'Saving QA...' : saveQASuccess ? 'QA Saved!' : 'Save QA'}
+              </Button>
             </div>
           </div>
         )}
@@ -1403,14 +1506,20 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
           onConnect={onConnect}
           onConnectStart={onConnectStart}
           onConnectEnd={onConnectEnd}
+          onPaneMouseDown={onPaneMouseDown}
+          onPaneMouseMove={onPaneMouseMove}
+          onPaneMouseUp={onPaneMouseUp}
           onPaneClick={() => {
             setMenuPos(null);
             setPendingConnection(null);
+            if (activeQARunId) {
+              setSelectedPanel('summary');
+            }
           }}
           onNodeClick={onNodeClick}
           nodeTypes={nodeTypes}
           fitView
-          className="bg-[#F9FAFB]"
+          className={`bg-[#F9FAFB] ${tool === 'annotation' ? 'cursor-crosshair' : ''}`}
           nodesDraggable={!activeQARunId}
           nodesConnectable={!activeQARunId}
           elementsSelectable={true}
@@ -1463,15 +1572,87 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
         )}
       </div>
 
+      {activeQARunId && selectedPanel === 'summary' && (
+        <div className="w-[420px] border-l bg-white flex flex-col shadow-xl z-20 absolute right-0 top-0 bottom-0">
+          <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
+            <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-[#3E52FF]" /> QA Run Details
+            </h3>
+            <button onClick={() => setSelectedPanel('summary')} className="text-gray-400 hover:text-gray-600">
+              <CheckSquare className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="p-4 flex-1 overflow-y-auto space-y-6">
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Run Name</div>
+                <Input
+                  value={activeQARun?.name || ''}
+                  onChange={(e) => updateQARun({ name: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Tester</div>
+                <Input
+                  value={activeQARun?.testerName || ''}
+                  onChange={(e) => updateQARun({ testerName: e.target.value } as any)}
+                  placeholder="Who performed the QA?"
+                />
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Environment</div>
+                <Input
+                  value={activeQARun?.environment || ''}
+                  onChange={(e) => updateQARun({ environment: e.target.value } as any)}
+                  placeholder="e.g. Staging / Production-like"
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                Overall QA Notes
+              </div>
+              <textarea
+                className="w-full h-32 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={activeQARun?.overallNotes || ''}
+                onChange={(e) => updateQARun({ overallNotes: e.target.value } as any)}
+                placeholder="Add overall run notes, blockers, conclusions, or final recommendation..."
+              />
+            </div>
+
+            <div>
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                Testing Profiles
+              </div>
+              <TestingProfilesEditor
+                profiles={runProfiles}
+                onChange={(profiles) => updateQARun({ testingProfiles: profiles } as any)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeQARunId &&
+        selectedPanel === 'node' &&
         selectedNode &&
         (selectedNode.type === 'journeyStepNode' || selectedNode.type === 'triggerNode') && (
-          <div className="w-[380px] border-l bg-white flex flex-col shadow-xl z-20 absolute right-0 top-0 bottom-0">
+          <div className="w-[420px] border-l bg-white flex flex-col shadow-xl z-20 absolute right-0 top-0 bottom-0">
             <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
                 <CheckSquare className="w-5 h-5 text-[#3E52FF]" /> QA Verification
               </h3>
-              <button onClick={() => setSelectedNodeId(null)} className="text-gray-400 hover:text-gray-600">
+              <button
+                onClick={() => {
+                  setSelectedNodeId(null);
+                  setSelectedPanel('summary');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1526,11 +1707,93 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
               <div>
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">QA Notes</div>
                 <textarea
-                  className="w-full h-28 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full h-28 rounded-md border border-input bg-background px-3 py-2 text-sm"
                   placeholder="Add notes about the test execution..."
                   value={currentVerification?.notes || ''}
                   onChange={(e) => updateQAVerification(selectedNode.id, { notes: e.target.value })}
                 />
+              </div>
+
+              <div>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  Linked Testing Profiles
+                </div>
+                <div className="space-y-2">
+                  {runProfiles.length === 0 && (
+                    <div className="text-xs text-gray-500 bg-gray-50 border rounded p-3">
+                      No run-level testing profiles added yet. Add them in QA Run Details.
+                    </div>
+                  )}
+
+                  {runProfiles.map((profile) => (
+                    <label
+                      key={profile.id}
+                      className="flex items-start gap-3 border rounded p-3 bg-gray-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={nodeLinkedProfileIds.includes(profile.id)}
+                        onChange={(e) => updateNodeLinkedProfiles(profile.id, e.target.checked)}
+                        className="mt-1"
+                      />
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-gray-900">{profile.label || 'Untitled profile'}</div>
+                        <div className="text-xs text-blue-700 break-all">{profile.url}</div>
+                        {profile.note && <div className="text-xs text-gray-500 mt-1">{profile.note}</div>}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Step-Specific Extra Testing Profiles
+                  </div>
+                  <Button size="sm" variant="outline" onClick={addExtraNodeProfile}>
+                    <Plus className="w-4 h-4 mr-1" /> Add
+                  </Button>
+                </div>
+
+                <div className="space-y-3">
+                  {nodeExtraProfiles.map((profile) => (
+                    <div key={profile.id} className="border rounded-lg p-3 bg-gray-50 space-y-2">
+                      <div className="flex justify-end">
+                        <button
+                          onClick={() => removeExtraNodeProfile(profile.id)}
+                          className="text-gray-400 hover:text-red-500"
+                          type="button"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <Input
+                        value={profile.label}
+                        onChange={(e) =>
+                          updateExtraNodeProfile(profile.id, { label: e.target.value })
+                        }
+                        placeholder="Profile label"
+                      />
+                      <Input
+                        value={profile.url}
+                        onChange={(e) =>
+                          updateExtraNodeProfile(profile.id, { url: e.target.value })
+                        }
+                        placeholder="Bloomreach profile URL"
+                      />
+                      <textarea
+                        value={profile.note || ''}
+                        onChange={(e) =>
+                          updateExtraNodeProfile(profile.id, { note: e.target.value })
+                        }
+                        placeholder="Optional note"
+                        className="w-full h-20 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {selectedNode.type === 'triggerNode' && (
@@ -1540,15 +1803,7 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
                       Trigger Proof Payload
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          updateQAVerification(selectedNode.id, {
-                            proofText: currentVerification?.proofText || sampleTriggerPayload,
-                          })
-                        }
-                      >
+                      <Button size="sm" variant="outline" onClick={insertSamplePayload}>
                         Insert Sample
                       </Button>
                       <Button size="sm" variant="outline" onClick={prettyFormatJson}>
@@ -1558,7 +1813,7 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
                   </div>
 
                   <textarea
-                    className="w-full h-72 rounded-md border border-input bg-background px-3 py-2 text-xs font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="w-full h-72 rounded-md border border-input bg-background px-3 py-2 text-xs font-mono"
                     placeholder="Paste your payload JSON here..."
                     value={currentVerification?.proofText || ''}
                     onChange={(e) =>
@@ -1569,7 +1824,7 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any; activeQARunId
                   />
 
                   <div className="text-[11px] text-gray-500">
-                    You can paste raw JSON here directly for tester confirmation. This is stored on the QA run,
+                    Paste raw JSON here directly for tester confirmation. This is stored on the QA run,
                     not on the base journey.
                   </div>
                 </div>

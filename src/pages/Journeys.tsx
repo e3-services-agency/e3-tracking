@@ -62,7 +62,7 @@ const QAStatusBadge = ({ status }: { status?: QAStatus }) => {
 
 // Quick Add Menu for Nodes
 const QuickAddMenu = ({ nodeId, position }: { nodeId: string, position: 'right' | 'bottom' }) => {
-  const { getNode, setNodes, setEdges } = useReactFlow();
+  const { getNode, getNodes, setNodes, setEdges } = useReactFlow(); // <-- Added getNodes
   const [isOpen, setIsOpen] = useState(false);
 
   const handleAdd = (type: 'journeyStepNode' | 'triggerNode') => {
@@ -73,12 +73,15 @@ const QuickAddMenu = ({ nodeId, position }: { nodeId: string, position: 'right' 
     const offsetX = position === 'right' ? 350 : 0;
     const offsetY = position === 'bottom' ? 250 : 0;
 
+    // Count existing steps
+    const stepCount = getNodes().filter(n => n.type === 'journeyStepNode').length;
+
     const newNode: Node = {
       id: newNodeId,
       type,
       position: { x: node.position.x + offsetX, y: node.position.y + offsetY },
       data: type === 'journeyStepNode' 
-        ? { label: `Step ${Date.now().toString().slice(-3)}` } 
+        ? { label: `Step ${stepCount + 1}` } // <-- Fixed numbering
         : { description: '', connectedEvent: null },
     };
 
@@ -731,12 +734,14 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any, activeQARunId
     const position = screenToFlowPosition({ x: menuPos.x, y: menuPos.y });
     const newNodeId = `${type}-${Date.now()}`;
     
+    const stepCount = nodes.filter(n => n.type === 'journeyStepNode').length;
+    
     const newNode: Node = {
       id: newNodeId,
       type,
       position,
       data: type === 'journeyStepNode' 
-        ? { label: `Step ${Date.now().toString().slice(-3)}` }
+        ? { label: `Step ${stepCount + 1}` } // <-- Fixed numbering
         : { description: '', connectedEvent: null },
     };
     
@@ -770,11 +775,12 @@ function JourneyCanvas({ journey, activeQARunId }: { journey: any, activeQARunId
   };
 
   const addStepNode = () => {
+    const stepCount = nodes.filter(n => n.type === 'journeyStepNode').length;
     const newNode: Node = {
       id: `step-${Date.now()}`,
       type: 'journeyStepNode',
       position: { x: 100, y: 100 },
-      data: { label: `Step ${Date.now().toString().slice(-3)}` },
+      data: { label: `Step ${stepCount + 1}` }, // <-- Fixed numbering
     };
     setNodes((nds) => nds.concat(newNode));
   };

@@ -90,9 +90,7 @@ const initialData: TrackingPlanData = {
       id: 'j1',
       name: 'Customer Journey Flow',
       nodes: [],
-      edges: [
-        { id: 'e1-2', source: 'n1', target: 'n2', animated: true },
-      ]
+      edges: []
     }
   ]
 };
@@ -281,4 +279,3 @@ export const useActiveData = () => {
   const branch = branches.find(b => b.id === activeBranchId);
   return branch ? branch.draftData : mainData;
 };
-

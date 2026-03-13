@@ -154,11 +154,8 @@ const groupViolations = (violations: AuditViolation[]): SerializedAuditViolation
   const grouped = new Map<string, string[]>();
 
   for (const violation of safeArray(violations)) {
-    const type = safeString((violation as any).type) || 'Other';
-    const message =
-      safeString((violation as any).message) ||
-      safeString((violation as any).title) ||
-      'Unknown violation';
+    const type = violation.type === 'event' ? 'Event' : violation.type === 'property' ? 'Property' : 'Other';
+    const message = safeString(violation.message) || 'Unknown violation';
 
     if (!grouped.has(type)) grouped.set(type, []);
     grouped.get(type)!.push(message);

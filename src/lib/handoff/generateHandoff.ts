@@ -11,63 +11,16 @@ import {
   SerializedJourneyNodeSummary,
 } from '@/src/lib/serializeHandoffData';
 import { TrackingPlanData } from '@/src/types';
+import { escapeHtml, formatDateTime, renderBadge, renderList } from './htmlUtils';
 
-const escapeHtml = (value: unknown): string => {
-  const str = typeof value === 'string' ? value : String(value ?? '');
-
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-};
-
-const formatDateTime = (isoString: string): string => {
-  if (!isoString) return 'Unknown';
-
-  const date = new Date(isoString);
-  if (Number.isNaN(date.getTime())) return escapeHtml(isoString);
-
-  return date.toLocaleString();
-};
-
-const renderBadge = (label: string, tone: 'neutral' | 'green' | 'red' | 'yellow' | 'blue' = 'neutral') => {
-  const toneClassMap = {
-    neutral: 'background:#f3f4f6;color:#374151;',
-    green: 'background:#dcfce7;color:#166534;',
-    red: 'background:#fee2e2;color:#991b1b;',
-    yellow: 'background:#fef3c7;color:#92400e;',
-    blue: 'background:#dbeafe;color:#1d4ed8;',
-  };
-
-  return `
-    <span style="
-      display:inline-block;
-      padding:4px 8px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:600;
-      line-height:1;
-      ${toneClassMap[tone]}
-    ">
-      ${escapeHtml(label)}
-    </span>
-  `;
-};
-
-const renderList = (items: string[], emptyLabel = '—'): string => {
-  if (!items || items.length === 0) {
-    return `<span style="color:#6b7280;">${escapeHtml(emptyLabel)}</span>`;
-  }
-
-  return items.map((item) => renderBadge(item, 'neutral')).join(' ');
-};
+const safeArray = <T>(value: T[] | undefined | null): T[] =>
+  Array.isArray(value) ? value : [];
 
 const renderMetricCards = (data: SerializedHandoffData): string => {
+  const metrics = safeArray(data.metrics);
   return `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:24px 0;">
-      ${data.metrics
+      ${metrics
         .map(
           (metric) => `
             <div style="border:1px solid #e5e7eb;border-radius:12px;padding:16px;background:#ffffff;">
@@ -128,7 +81,7 @@ const renderAuditSummary = (data: SerializedHandoffData): string => {
               <div>
                 <h3 style="font-size:16px;font-weight:700;margin:0 0 12px;color:#111827;">Violation Groups</h3>
                 <div style="display:grid;gap:12px;">
-                  ${auditSummary.groups
+                  ${safeArray(auditSummary.groups)
                     .map(
                       (group) => `
                         <div style="border:1px solid #fde68a;background:#fffbeb;border-radius:12px;padding:16px;">
@@ -177,11 +130,11 @@ const renderEvent = (event: SerializedHandoffEvent): string => {
       <div style="margin-bottom:16px;">
         <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:8px;">Variants</div>
         ${
-          event.variants.length === 0
+          safeArray(event.variants).length === 0
             ? `<div style="color:#6b7280;">No variants</div>`
             : `
               <div style="display:grid;gap:10px;">
-                ${event.variants
+                ${safeArray(event.variants)
                   .map(
                     (variant) => `
                       <div style="border:1px solid #e5e7eb;border-radius:12px;padding:12px;">
@@ -203,7 +156,7 @@ const renderEvent = (event: SerializedHandoffEvent): string => {
       <div>
         <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:8px;">Attached Properties</div>
         ${
-          event.properties.length === 0
+          safeArray(event.properties).length === 0
             ? `<div style="color:#6b7280;">No properties attached</div>`
             : `
               <div style="overflow-x:auto;">
@@ -217,7 +170,7 @@ const renderEvent = (event: SerializedHandoffEvent): string => {
                     </tr>
                   </thead>
                   <tbody>
-                    ${event.properties
+                    ${safeArray(event.properties)
                       .map(
                         (property) => `
                           <tr>
@@ -350,9 +303,9 @@ const renderVerification = (verification: SerializedQAVerification): string => {
         <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:6px;">Linked run profiles</div>
         <div>
           ${
-            verification.linkedRunProfiles.length === 0
+            safeArray(verification.linkedRunProfiles).length === 0
               ? `<span style="color:#6b7280;">None</span>`
-              : verification.linkedRunProfiles
+              : safeArray(verification.linkedRunProfiles)
                   .map((profile) => renderBadge(profile.label || profile.url || profile.id, 'blue'))
                   .join(' ')
           }
@@ -363,9 +316,9 @@ const renderVerification = (verification: SerializedQAVerification): string => {
         <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:6px;">Extra testing profiles</div>
         <div>
           ${
-            verification.extraTestingProfiles.length === 0
+            safeArray(verification.extraTestingProfiles).length === 0
               ? `<span style="color:#6b7280;">None</span>`
-              : verification.extraTestingProfiles
+              : safeArray(verification.extraTestingProfiles)
                   .map((profile) => renderBadge(profile.label || profile.url || profile.id, 'neutral'))
                   .join(' ')
           }
@@ -414,9 +367,9 @@ const renderQaRun = (qaRun: SerializedQARun): string => {
         <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:8px;">Testing profiles</div>
         <div>
           ${
-            qaRun.testingProfiles.length === 0
+            safeArray(qaRun.testingProfiles).length === 0
               ? `<span style="color:#6b7280;">No testing profiles</span>`
-              : qaRun.testingProfiles
+              : safeArray(qaRun.testingProfiles)
                   .map((profile) => renderBadge(profile.label || profile.url || profile.id, 'blue'))
                   .join(' ')
           }
@@ -425,9 +378,9 @@ const renderQaRun = (qaRun: SerializedQARun): string => {
 
       <div style="margin-top:16px;display:grid;gap:12px;">
         ${
-          qaRun.verifications.length === 0
+          safeArray(qaRun.verifications).length === 0
             ? `<div style="color:#6b7280;">No verifications</div>`
-            : qaRun.verifications.map(renderVerification).join('')
+            : safeArray(qaRun.verifications).map(renderVerification).join('')
         }
       </div>
     </div>
@@ -448,34 +401,34 @@ const renderJourney = (journey: SerializedJourney): string => {
           ${renderBadge(`Steps: ${journey.stepCount}`, 'blue')}
           ${renderBadge(`Notes: ${journey.noteCount}`, 'neutral')}
           ${renderBadge(`Annotations: ${journey.annotationCount}`, 'neutral')}
-          ${renderBadge(`QA Runs: ${journey.qaRuns.length}`, 'green')}
+          ${renderBadge(`QA Runs: ${safeArray(journey.qaRuns).length}`, 'green')}
         </div>
       </div>
 
       <div style="margin-top:20px;">
         <h4 style="font-size:15px;font-weight:700;margin:0 0 10px;color:#111827;">Triggers</h4>
         ${
-          journey.triggers.length === 0
+          safeArray(journey.triggers).length === 0
             ? `<div style="color:#6b7280;">No triggers</div>`
-            : `<div style="display:grid;gap:10px;">${journey.triggers.map(renderNodeSummary).join('')}</div>`
+            : `<div style="display:grid;gap:10px;">${safeArray(journey.triggers).map(renderNodeSummary).join('')}</div>`
         }
       </div>
 
       <div style="margin-top:20px;">
         <h4 style="font-size:15px;font-weight:700;margin:0 0 10px;color:#111827;">All Nodes</h4>
         ${
-          journey.nodes.length === 0
+          safeArray(journey.nodes).length === 0
             ? `<div style="color:#6b7280;">No nodes</div>`
-            : `<div style="display:grid;gap:10px;">${journey.nodes.map(renderNodeSummary).join('')}</div>`
+            : `<div style="display:grid;gap:10px;">${safeArray(journey.nodes).map(renderNodeSummary).join('')}</div>`
         }
       </div>
 
       <div style="margin-top:20px;">
         <h4 style="font-size:15px;font-weight:700;margin:0 0 10px;color:#111827;">QA Runs</h4>
         ${
-          journey.qaRuns.length === 0
+          safeArray(journey.qaRuns).length === 0
             ? `<div style="color:#6b7280;">No QA runs</div>`
-            : `<div style="display:grid;gap:16px;">${journey.qaRuns.map(renderQaRun).join('')}</div>`
+            : `<div style="display:grid;gap:16px;">${safeArray(journey.qaRuns).map(renderQaRun).join('')}</div>`
         }
       </div>
     </article>
@@ -563,9 +516,9 @@ export function generateHandoffHtml(
           Events
         </h2>
         ${
-          serialized.events.length === 0
+          safeArray(serialized.events).length === 0
             ? `<div style="color:#6b7280;">No events found.</div>`
-            : `<div style="display:grid;gap:16px;">${serialized.events.map(renderEvent).join('')}</div>`
+            : `<div style="display:grid;gap:16px;">${safeArray(serialized.events).map(renderEvent).join('')}</div>`
         }
       </section>
 
@@ -574,9 +527,9 @@ export function generateHandoffHtml(
           Properties
         </h2>
         ${
-          serialized.properties.length === 0
+          safeArray(serialized.properties).length === 0
             ? `<div style="color:#6b7280;">No properties found.</div>`
-            : `<div style="display:grid;gap:16px;">${serialized.properties.map(renderProperty).join('')}</div>`
+            : `<div style="display:grid;gap:16px;">${safeArray(serialized.properties).map(renderProperty).join('')}</div>`
         }
       </section>
 
@@ -585,9 +538,9 @@ export function generateHandoffHtml(
           Journeys
         </h2>
         ${
-          serialized.journeys.length === 0
+          safeArray(serialized.journeys).length === 0
             ? `<div style="color:#6b7280;">No journeys found.</div>`
-            : `<div style="display:grid;gap:16px;">${serialized.journeys.map(renderJourney).join('')}</div>`
+            : `<div style="display:grid;gap:16px;">${safeArray(serialized.journeys).map(renderJourney).join('')}</div>`
         }
       </section>
     </div>

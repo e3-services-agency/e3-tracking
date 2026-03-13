@@ -288,15 +288,6 @@ export function Journeys({
     </div>
   );
 }
-
-function JourneyCanvas({
-  journey,
-  activeQARunId,
-}: {
-  journey: Journey;
-  activeQARunId: string | null;
-}) { }
-  const { updateJourney } = useStore();
   const { screenToFlowPosition } = useReactFlow<JourneyFlowNode, JourneyFlowEdge>();
 
   const [nodes, setNodes, onNodesChange] = useNodesState<JourneyFlowNode>(

@@ -137,7 +137,12 @@ const buildProofFromFile = async (file: File): Promise<QAProof> => {
   return {
     id: `proof-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name: file.name || `proof-${Date.now()}`,
-    type: file.type.startsWith('image/') ? 'image' : 'json',
+    type:
+      file.type.startsWith('image/')
+        ? 'image'
+        : file.name.toLowerCase().endsWith('.json')
+          ? 'json'
+          : 'text',
     content,
     createdAt: new Date().toISOString(),
   };
@@ -2136,36 +2141,35 @@ function JourneyCanvas({
                       Trigger Proof Payload
                     </div>
 
-                    <label className="inline-flex">
+                    <label className="inline-flex items-center rounded-md border px-3 py-2 text-sm cursor-pointer hover:bg-gray-50">
                       <input
                         type="file"
                         accept=".json,.txt,text/plain,application/json"
                         className="hidden"
                         onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file || !selectedNode || !isTriggerNode(selectedNode)) return;
+                          const file = e.target.files?.[0];
+                          if (!file || !selectedNode || !isTriggerNode(selectedNode)) return;
 
-                        const content = await readFileAsContent(file);
+                          const content = await readFileAsContent(file);
 
-                        let nextProofText = content;
+                          let nextProofText = content;
 
-                        try {
-                          const parsed = JSON.parse(content);
-                          nextProofText = JSON.stringify(parsed, null, 2);
-                        } catch {
-                          // not valid JSON, keep raw text as-is
-                        }
+                          try {
+                            const parsed = JSON.parse(content);
+                            nextProofText = JSON.stringify(parsed, null, 2);
+                          } catch {
+                            // not valid JSON, keep raw text as-is
+                          }
 
-                        updateQAVerification(selectedNode.id, {
-                          proofText: nextProofText,
-                        });
+                          updateQAVerification(selectedNode.id, {
+                            proofText: nextProofText,
+                          });
 
-                        e.target.value = '';
-                      }}
+                          e.target.value = '';
+                        }}
                       />
-                      <Button size="sm" variant="outline" type="button">
-                        <UploadCloud className="w-4 h-4 mr-2" /> Upload Payload
-                      </Button>
+                      <UploadCloud className="w-4 h-4 mr-2" />
+                      Upload Payload
                     </label>
                   </div>
 

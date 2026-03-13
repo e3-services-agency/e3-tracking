@@ -90,7 +90,7 @@ export interface TestingProfile {
 export interface QAProof {
   id: string;
   name: string;
-  type: 'image' | 'json';
+  type: 'image' | 'text' | 'json';
   content: string;
   createdAt: string;
 }

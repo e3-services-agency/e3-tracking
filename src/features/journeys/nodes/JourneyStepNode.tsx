@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react';
 import { useReactFlow, NodeProps } from '@xyflow/react';
-import { Image as ImageIcon, UploadCloud, CheckCircle2 } from 'lucide-react';
+import { Image as ImageIcon, UploadCloud, CheckCircle2, ExternalLink } from 'lucide-react';
 
 import {
   JourneyStepFlowNode,
@@ -116,6 +116,30 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
           disabled={isQAMode}
           className="w-full text-xs text-gray-600 bg-white border rounded p-1 resize-none h-16 disabled:bg-gray-50 nodrag"
         />
+
+        <div className="flex items-center gap-2 mt-1">
+          <input
+            type="url"
+            placeholder="Step URL (for testing)"
+            value={data.url ?? ''}
+            onChange={(e) =>
+              !isQAMode && updateNodeData({ url: e.target.value || undefined })
+            }
+            disabled={isQAMode}
+            className="flex-1 min-w-0 text-xs text-gray-600 bg-white border rounded px-2 py-1.5 disabled:bg-gray-50 nodrag"
+          />
+          {data.url?.trim() && (
+            <a
+              href={data.url.trim()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 p-1.5 rounded text-blue-600 hover:bg-blue-50 transition-colors nodrag"
+              title="Open step URL"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          )}
+        </div>
       </div>
 
       <div className="relative p-2">

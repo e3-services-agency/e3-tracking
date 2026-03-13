@@ -73,6 +73,14 @@ export function useEventEditor({
     { user: string; text: string; date: string }[]
   >(event?.customFields?.activityLog || []);
 
+  const [trackingStatus, setTrackingStatus] = useState<TrackingStatus>(() => {
+    if (variantId && event) {
+      const v = event.variants?.find((x) => x.id === variantId);
+      return (v?.trackingStatus as TrackingStatus) || 'Draft';
+    }
+    return (event?.customFields?.trackingStatus as TrackingStatus) || 'Draft';
+  });
+
   const [newCategory, setNewCategory] = useState('');
   const [newTag, setNewTag] = useState('');
   const [newComment, setNewComment] = useState('');

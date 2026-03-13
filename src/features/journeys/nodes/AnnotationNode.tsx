@@ -15,8 +15,8 @@ export const AnnotationNode = ({ data, selected }: NodeProps<AnnotationFlowNode>
         <NodeResizer
           color="#3b82f6"
           isVisible={selected}
-          minWidth={40}
-          minHeight={40}
+          minWidth={1}
+          minHeight={1}
         />
       )}
       <div

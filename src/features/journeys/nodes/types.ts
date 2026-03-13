@@ -19,6 +19,8 @@ export type JourneyStepNodeData = BaseJourneyNodeData & {
   label: string;
   description: string;
   imageUrl?: string;
+  /** URL for this step (e.g. screen or flow) to open during QA testing. */
+  url?: string;
 };
 
 export type TriggerNodeData = BaseJourneyNodeData & {

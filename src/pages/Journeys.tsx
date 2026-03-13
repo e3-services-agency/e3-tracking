@@ -1485,23 +1485,27 @@ function JourneyCanvas({
       );
     }
   };
+
   const handleTriggerPayloadPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
   if (!selectedNode || !isTriggerNode(selectedNode)) return;
 
-  const pastedText = e.clipboardData.getData('text/plain')?.trim();
+  const pastedText = e.clipboardData.getData('text/plain');
   if (!pastedText) return;
+
+  let nextProofText = pastedText;
 
   try {
     const parsed = JSON.parse(pastedText);
-
-    updateQAVerification(selectedNode.id, {
-      proofText: JSON.stringify(parsed, null, 2),
-    });
-
-    e.preventDefault();
+    nextProofText = JSON.stringify(parsed, null, 2);
   } catch {
-    // ignore invalid JSON paste
+    // not valid JSON, keep raw text as-is
   }
+
+  updateQAVerification(selectedNode.id, {
+    proofText: nextProofText,
+  });
+
+  e.preventDefault();
 };
 
   const activeVerifications = activeQARun?.verifications || {};
@@ -2135,28 +2139,32 @@ function JourneyCanvas({
                     <label className="inline-flex">
                       <input
                         type="file"
-                        accept=".json,application/json,text/json"
+                        accept=".json,.txt"
                         className="hidden"
                         onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (!file || !selectedNode || !isTriggerNode(selectedNode)) return;
+                        const file = e.target.files?.[0];
+                        if (!file || !selectedNode || !isTriggerNode(selectedNode)) return;
 
-                          try {
-                            const content = await readFileAsContent(file);
-                            const parsed = JSON.parse(content);
+                        const content = await readFileAsContent(file);
 
-                            updateQAVerification(selectedNode.id, {
-                              proofText: JSON.stringify(parsed, null, 2),
-                            });
-                          } catch {
-                            alert('Uploaded file is not a valid JSON.');
-                          }
+                        let nextProofText = content;
 
-                          e.target.value = '';
-                        }}
+                        try {
+                          const parsed = JSON.parse(content);
+                          nextProofText = JSON.stringify(parsed, null, 2);
+                        } catch {
+                          // not valid JSON, keep raw text as-is
+                        }
+
+                        updateQAVerification(selectedNode.id, {
+                          proofText: nextProofText,
+                        });
+
+                        e.target.value = '';
+                      }}
                       />
                       <Button size="sm" variant="outline" type="button">
-                        <UploadCloud className="w-4 h-4 mr-2" /> Upload JSON
+                        <UploadCloud className="w-4 h-4 mr-2" /> Upload Payload
                       </Button>
                     </label>
                   </div>

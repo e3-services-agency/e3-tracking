@@ -6,12 +6,15 @@ type GroupRowsByCategoryParams = {
   rows: Row<EventRow>[];
   events: Event[];
   showEmptyCategories: boolean;
+  /** Extra category names to show as empty groups (e.g. from "New Category"). */
+  customCategories?: string[];
 };
 
 export function groupRowsByCategory({
   rows,
   events,
   showEmptyCategories,
+  customCategories = [],
 }: GroupRowsByCategoryParams): Record<string, Row<EventRow>[]> {
   const groups: Record<string, Row<EventRow>[]> = {};
 
@@ -23,6 +26,7 @@ export function groupRowsByCategory({
         allCategories.add(category);
       });
     });
+    customCategories.forEach((c) => allCategories.add(c));
 
     allCategories.forEach((category) => {
       groups[category] = [];

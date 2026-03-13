@@ -12,12 +12,14 @@ type EventTrigger = {
 type EventTriggersSectionProps = {
   triggers: EventTrigger[];
   onOpenTriggerModal: () => void;
+  onEditTrigger?: (trigger: EventTrigger) => void;
   onRemoveTrigger: (id: string) => void;
 };
 
 export function EventTriggersSection({
   triggers,
   onOpenTriggerModal,
+  onEditTrigger,
   onRemoveTrigger,
 }: EventTriggersSectionProps) {
   return (
@@ -38,10 +40,23 @@ export function EventTriggersSection({
           triggers.map((t) => (
             <div
               key={t.id}
-              className="border border-gray-200 rounded-lg p-4 w-48 bg-white flex flex-col gap-2 shrink-0 shadow-sm cursor-pointer hover:border-gray-300 transition-colors relative group"
+              role="button"
+              tabIndex={0}
+              onClick={() => onEditTrigger?.(t)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onEditTrigger?.(t);
+                }
+              }}
+              className="border border-gray-200 rounded-lg p-4 w-48 bg-white flex flex-col gap-2 shrink-0 shadow-sm cursor-pointer hover:border-[#3E52FF] hover:border-2 hover:shadow-md transition-all relative group"
             >
               <button
-                onClick={() => onRemoveTrigger(t.id)}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveTrigger(t.id);
+                }}
                 className="absolute top-2 right-2 text-white bg-black/50 p-1 rounded opacity-0 group-hover:opacity-100 z-10 hover:bg-red-500"
               >
                 <X className="w-3 h-3" />

@@ -1,6 +1,13 @@
 import React from 'react';
 import { Trash2 } from 'lucide-react';
-import { EventVariant } from '@/src/types';
+import { EventVariant, TrackingStatus } from '@/src/types';
+
+const STATUS_COLORS: Record<TrackingStatus, string> = {
+  Draft: 'bg-gray-100 text-gray-600',
+  Ready: 'bg-blue-100 text-blue-700',
+  Implementing: 'bg-yellow-100 text-yellow-700',
+  Implemented: 'bg-emerald-100 text-emerald-700',
+};
 
 type EventVariantsSectionProps = {
   variants: EventVariant[];
@@ -49,8 +56,8 @@ export function EventVariantsSection({
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className="text-[11px] bg-gray-100 text-gray-500 px-3 py-1 rounded-full border border-gray-200 font-medium">
-                    Website
+                  <span className={`text-[11px] px-3 py-1 rounded-full border font-medium ${STATUS_COLORS[v.trackingStatus ?? 'Draft']}`}>
+                    {v.trackingStatus ?? 'Draft'}
                   </span>
                   <button
                     onClick={() => onRemoveVariant(v)}

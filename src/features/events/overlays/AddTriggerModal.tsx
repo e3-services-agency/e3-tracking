@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Source } from '@/src/types';
@@ -8,11 +8,15 @@ type AddTriggerModalProps = {
   triggerImgBase64: string | null;
   triggerSource: string;
   triggerDesc: string;
+  triggerName?: string;
   sources: Source[];
   onUploadImage: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  /** Called when user pastes an image (e.g. Ctrl+V). Pass the data URL. */
+  onImagePaste?: (dataUrl: string) => void;
   onClearImage: () => void;
   onChangeTriggerSource: (value: string) => void;
   onChangeTriggerDesc: (value: string) => void;
+  onChangeTriggerName?: (value: string) => void;
   onSave: () => void;
   onClose: () => void;
 };
@@ -22,14 +26,43 @@ export function AddTriggerModal({
   triggerImgBase64,
   triggerSource,
   triggerDesc,
+  triggerName = '',
   sources,
   onUploadImage,
+  onImagePaste,
   onClearImage,
   onChangeTriggerSource,
   onChangeTriggerDesc,
+  onChangeTriggerName,
   onSave,
   onClose,
 }: AddTriggerModalProps) {
+  useEffect(() => {
+    if (!isOpen || !onImagePaste) return;
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.startsWith('image/')) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              const dataUrl = (ev.target as FileReader)?.result as string;
+              if (dataUrl) onImagePaste(dataUrl);
+            };
+            reader.readAsDataURL(file);
+          }
+          return;
+        }
+      }
+    };
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [isOpen, onImagePaste]);
+
   if (!isOpen) return null;
 
   return (
@@ -46,6 +79,11 @@ export function AddTriggerModal({
               <div className="text-[13px] text-gray-500 mt-1">
                 or drag and drop it here
               </div>
+              {onImagePaste && (
+                <div className="text-[12px] text-gray-400 mt-1">
+                  or paste from clipboard (Ctrl+V)
+                </div>
+              )}
               <input
                 type="file"
                 accept="image/*"
@@ -73,10 +111,24 @@ export function AddTriggerModal({
         <div className="w-[300px] bg-white flex flex-col">
           <div className="flex justify-center p-3 border-b border-gray-100 bg-gray-50">
             <div className="text-xs bg-gray-200 text-gray-600 font-bold px-3 py-1 rounded-full">
-              New Trigger
+              {triggerName ? 'Edit Trigger' : 'New Trigger'}
             </div>
           </div>
           <div className="p-6 space-y-6 flex-1">
+            {onChangeTriggerName && (
+              <div>
+                <div className="text-[13px] font-bold text-gray-700 mb-2">
+                  Trigger name
+                </div>
+                <input
+                  type="text"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#3E52FF] focus:border-transparent"
+                  placeholder="e.g. Add to cart button tap"
+                  value={triggerName}
+                  onChange={(e) => onChangeTriggerName(e.target.value)}
+                />
+              </div>
+            )}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[13px] font-bold text-gray-700">

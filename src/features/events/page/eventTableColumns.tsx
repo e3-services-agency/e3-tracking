@@ -1,6 +1,6 @@
 import React from 'react';
 import { ColumnDef } from '@tanstack/react-table';
-import { Event, Team, Property, PropertyBundle, Source } from '@/src/types';
+import { Event, Team, Property, PropertyBundle, Source, TrackingStatus } from '@/src/types';
 import { EventRow } from '@/src/features/events/types';
 import { getSourceColor } from '@/src/features/events/lib/sourcePresentation';
 
@@ -63,32 +63,45 @@ export function getEventTableColumns({
       id: 'trackingStatus',
       header: 'Status',
       cell: ({ row }) => {
-        if (row.original.label === 'Variant') return null; // Status managed on Base
+        const event = row.original.originalEvent;
+        const isVariant = row.original.label === 'Variant';
+        const variantId = row.original.variantId;
 
-        const status =
-          row.original.originalEvent.customFields?.trackingStatus || 'Draft';
+        const status: TrackingStatus = isVariant && variantId
+          ? (event.variants?.find((v) => v.id === variantId)?.trackingStatus ?? 'Draft')
+          : (event.customFields?.trackingStatus || 'Draft');
 
-        const colors = {
+        const colors: Record<TrackingStatus, string> = {
           Draft: 'bg-gray-100 text-gray-600',
           Ready: 'bg-blue-100 text-blue-700',
           Implementing: 'bg-yellow-100 text-yellow-700',
           Implemented: 'bg-emerald-100 text-emerald-700',
-        } as const;
+        };
+
+        const handleChange = (value: string) => {
+          if (isVariant && variantId) {
+            updateEvent(event.id, {
+              variants: (event.variants ?? []).map((v) =>
+                v.id === variantId ? { ...v, trackingStatus: value as TrackingStatus } : v,
+              ),
+            });
+          } else {
+            updateEvent(event.id, {
+              customFields: {
+                ...event.customFields,
+                trackingStatus: value,
+              },
+            });
+          }
+        };
 
         return (
           <select
             value={status}
-            onChange={(e) =>
-              updateEvent(row.original.originalEvent.id, {
-                customFields: {
-                  ...row.original.originalEvent.customFields,
-                  trackingStatus: e.target.value,
-                },
-              })
-            }
+            onChange={(e) => handleChange(e.target.value)}
             onClick={(e) => e.stopPropagation()}
             className={`text-[11px] font-bold px-2 py-1 rounded-full border-none focus:ring-0 cursor-pointer ${
-              colors[status as keyof typeof colors] || colors.Draft
+              colors[status] || colors.Draft
             }`}
           >
             <option value="Draft">Draft</option>

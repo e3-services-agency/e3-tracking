@@ -9,6 +9,7 @@ import {
   EventVariant,
   Property,
   Team,
+  TrackingStatus,
 } from '@/src/types';
 import { toSnakeCase, toPascalCase } from '@/src/lib/utils';
 
@@ -86,10 +87,12 @@ export function useEventEditor({
 
   // Trigger state
   const [isTriggerModalOpen, setIsTriggerModalOpen] = useState(false);
+  const [editingTriggerId, setEditingTriggerId] = useState<string | null>(null);
   const [triggerImgBase64, setTriggerImgBase64] = useState<string | null>(null);
   const [triggerSource, setTriggerSource] =
     useState<string>('Source Independent');
   const [triggerDesc, setTriggerDesc] = useState<string>('');
+  const [triggerName, setTriggerName] = useState<string>('');
 
   // Property Add Modals
   const [isAddEventPropertyModalOpen, setIsAddEventPropertyModalOpen] =
@@ -100,6 +103,15 @@ export function useEventEditor({
   const [propSearch, setPropSearch] = useState('');
 
   const activeVariant = variants.find((v) => v.id === variantId);
+
+  useEffect(() => {
+    if (variantId && event) {
+      const v = event.variants?.find((x) => x.id === variantId);
+      setTrackingStatus((v?.trackingStatus as TrackingStatus) || 'Draft');
+    } else {
+      setTrackingStatus((event?.customFields?.trackingStatus as TrackingStatus) || 'Draft');
+    }
+  }, [variantId, event?.customFields?.trackingStatus, event?.variants]);
 
   const addCategory = () => {
     const trimmed = newCategory.trim();
@@ -191,6 +203,10 @@ export function useEventEditor({
     }
   };
 
+  const handleImagePaste = (dataUrl: string) => {
+    setTriggerImgBase64(dataUrl);
+  };
+
   const handleSave = () => {
     if (!name.trim()) return;
     let finalName = name;
@@ -217,10 +233,20 @@ export function useEventEditor({
       tags,
       sources,
       actions,
-      variants,
+      variants:
+        variantId && activeVariant
+          ? variants.map((v) =>
+              v.id === variantId ? { ...v, trackingStatus } : v,
+            )
+          : variants,
       ownerTeamId,
       stakeholderTeamIds,
-      customFields: { ...event?.customFields, triggers, activityLog },
+      customFields: {
+        ...event?.customFields,
+        triggers,
+        activityLog,
+        ...(variantId ? {} : { trackingStatus }),
+      },
     };
 
     if (isCreating) addEvent(eventData as Event);
@@ -409,6 +435,7 @@ ${props
       triggers,
       activityLog,
       activeVariant,
+      trackingStatus,
     },
     ui: {
       newCategory,
@@ -423,6 +450,7 @@ ${props
       triggerImgBase64,
       triggerSource,
       triggerDesc,
+      triggerName,
       isPropertyModalOpen,
       propertyModalMode,
       hoveredPropId,
@@ -432,6 +460,7 @@ ${props
       // text inputs / simple controlled fields
       setName,
       setDescription,
+      setTrackingStatus,
       setNewCategory,
       setNewTag,
       setNewComment,
@@ -450,8 +479,16 @@ ${props
         setIsAddSourceModalOpen((open) => !open),
       toggleAddStakeholderPopover: () =>
         setIsAddStakeholderOpen((open) => !open),
-      openTriggerModal: () => setIsTriggerModalOpen(true),
-      closeTriggerModal: () => setIsTriggerModalOpen(false),
+      openTriggerModal: openTriggerModalForNew,
+      openTriggerModalForEdit: openTriggerModalForEdit,
+      closeTriggerModal: () => {
+        setIsTriggerModalOpen(false);
+        setEditingTriggerId(null);
+        setTriggerImgBase64(null);
+        setTriggerSource('Source Independent');
+        setTriggerDesc('');
+        setTriggerName('');
+      },
       openAddEventPropertyModal: (actionId: string) => {
         setIsAddEventPropertyModalOpen(actionId);
         setPropSearch('');
@@ -465,6 +502,7 @@ ${props
       // trigger-specific
       setTriggerSource,
       setTriggerDesc,
+      setTriggerName,
       clearTriggerImage: () => setTriggerImgBase64(null),
 
       // domain mutations / logs
@@ -485,6 +523,7 @@ ${props
       handleAddComment,
       handleSelectProperty,
       handleImageUpload,
+      handleImagePaste,
       handleSave,
       handleArchive,
       saveTrigger,

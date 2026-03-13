@@ -56,12 +56,16 @@ export interface EventAction {
   pinnedProperties?: Record<string, string>; // Property ID -> Pinned Value
 }
 
+export type TrackingStatus = 'Draft' | 'Ready' | 'Implementing' | 'Implemented';
+
 export interface EventVariant {
   id: string;
   name: string;
   description?: string;
   propertyOverrides: Record<string, { presence?: PresenceRule; constraints?: string | string[] }>;
   triggerOverrides?: string;
+  /** Same status options as event (customFields.trackingStatus). */
+  trackingStatus?: TrackingStatus;
 }
 
 export interface Event {
@@ -169,6 +173,8 @@ export interface TrackingPlanData {
   teams: Team[];
   events: Event[];
   journeys: Journey[];
+  /** Category names created via "New Category" (shown even with no events). */
+  customCategories?: string[];
 }
 
 export interface Branch {

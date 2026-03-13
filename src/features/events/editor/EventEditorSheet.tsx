@@ -53,6 +53,7 @@ export function EventEditorSheet({
     triggers,
     activityLog,
     activeVariant,
+    trackingStatus,
   } = form;
   const {
     newCategory,
@@ -67,6 +68,7 @@ export function EventEditorSheet({
     triggerImgBase64,
     triggerSource,
     triggerDesc,
+    triggerName,
     isPropertyModalOpen,
     propertyModalMode,
     hoveredPropId,
@@ -75,6 +77,7 @@ export function EventEditorSheet({
   const {
     setName,
     setDescription,
+    setTrackingStatus,
     setNewCategory,
     setNewTag,
     setNewComment,
@@ -89,12 +92,14 @@ export function EventEditorSheet({
     toggleAddSourceModal,
     toggleAddStakeholderPopover,
     openTriggerModal,
+    openTriggerModalForEdit,
     closeTriggerModal,
     openAddEventPropertyModal,
     openAddSystemPropertyModal,
     closePropertyModal,
     setTriggerSource,
     setTriggerDesc,
+    setTriggerName,
     clearTriggerImage,
     addCategory,
     addTag,
@@ -113,6 +118,7 @@ export function EventEditorSheet({
     handleAddComment,
     handleSelectProperty,
     handleImageUpload,
+    handleImagePaste,
     handleSave,
     handleArchive,
     saveTrigger,
@@ -126,10 +132,12 @@ export function EventEditorSheet({
         variantId={variantId}
         name={name}
         activeVariantName={activeVariant?.name}
+        trackingStatus={trackingStatus}
         onChangeName={setName}
         onChangeVariantName={(value) => {
           changeVariantName(variantId, value);
         }}
+        onChangeTrackingStatus={setTrackingStatus}
         onClose={onClose}
       />
 
@@ -173,6 +181,7 @@ export function EventEditorSheet({
         <EventTriggersSection
           triggers={triggers}
           onOpenTriggerModal={openTriggerModal}
+          onEditTrigger={openTriggerModalForEdit}
           onRemoveTrigger={removeTrigger}
         />
 
@@ -262,11 +271,14 @@ export function EventEditorSheet({
         triggerImgBase64={triggerImgBase64}
         triggerSource={triggerSource}
         triggerDesc={triggerDesc}
+        triggerName={triggerName}
         sources={sources}
         onUploadImage={handleImageUpload}
+        onImagePaste={handleImagePaste}
         onClearImage={clearTriggerImage}
         onChangeTriggerSource={setTriggerSource}
         onChangeTriggerDesc={setTriggerDesc}
+        onChangeTriggerName={setTriggerName}
         onSave={saveTrigger}
         onClose={closeTriggerModal}
       />

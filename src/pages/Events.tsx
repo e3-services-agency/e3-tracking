@@ -30,7 +30,7 @@ import {
 
 export function Events() {
   const data = useActiveData();
-  const { activeBranchId, branches, mergeBranch, approveBranch, selectedItemIdToEdit, setSelectedItemIdToEdit, updateEvent } = useStore();
+  const { activeBranchId, branches, mergeBranch, approveBranch, selectedItemIdToEdit, setSelectedItemIdToEdit, updateEvent, addCustomCategory } = useStore();
   
   const [globalFilter, setGlobalFilter] = useState('');
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -49,6 +49,7 @@ export function Events() {
 
   // Popover / Modal states
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
@@ -131,8 +132,9 @@ export function Events() {
       rows: table.getRowModel().rows,
       events: data.events,
       showEmptyCategories,
+      customCategories: data.customCategories ?? [],
     });
-  }, [table.getRowModel().rows, showEmptyCategories, data.events]);
+  }, [table.getRowModel().rows, showEmptyCategories, data.events, data.customCategories]);
 
   const toggleSourceFilter = (source: string) => {
     setSourceFilters(prev => prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source]);
@@ -145,7 +147,7 @@ export function Events() {
   return (
     <div className="flex-1 flex flex-col h-full bg-[#F9FAFB] relative">
       
-      <div className="px-6 py-4 border-b bg-white flex flex-col gap-4 relative z-20">
+      <div className={`px-6 py-4 border-b bg-white flex flex-col gap-4 relative ${(isCustomizeOpen || isFilterOpen) ? 'z-50' : 'z-20'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-gray-900">Events <span className="text-gray-400 font-normal text-lg">({flatTableData.length})</span></h1>
@@ -294,19 +296,37 @@ export function Events() {
           <div className="bg-white rounded-lg shadow-2xl w-[500px] overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                <h2 className="text-xl font-bold text-gray-900">New Category</h2>
-               <button onClick={() => setIsCategoryModalOpen(false)} className="text-gray-400 hover:text-gray-700"><X className="w-5 h-5"/></button>
+               <button onClick={() => { setIsCategoryModalOpen(false); setNewCategoryName(''); }} className="text-gray-400 hover:text-gray-700"><X className="w-5 h-5"/></button>
             </div>
             <div className="p-6">
                <label className="block text-sm font-semibold text-gray-600 mb-2">Name</label>
-               <Input className="mb-6 focus-visible:ring-[#3E52FF]" />
+               <Input
+                 value={newCategoryName}
+                 onChange={(e) => setNewCategoryName(e.target.value)}
+                 className="mb-6 focus-visible:ring-[#3E52FF]"
+                 placeholder="e.g. Checkout, Search"
+               />
                <p className="text-sm text-gray-500 leading-relaxed mb-1">
                  <strong className="text-gray-700">Categories</strong> are a way to create a organized structure for events and metrics. It is useful to create categories for important features and/or important flows in the product.
                </p>
                <a href="#" className="text-sm font-bold text-[#3E52FF] hover:underline">Docs ↗</a>
             </div>
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
-               <Button variant="ghost" onClick={() => setIsCategoryModalOpen(false)} className="text-gray-600">Cancel</Button>
-               <Button disabled className="bg-gray-300 text-white cursor-not-allowed">Create</Button>
+               <Button variant="ghost" onClick={() => { setIsCategoryModalOpen(false); setNewCategoryName(''); }} className="text-gray-600">Cancel</Button>
+               <Button
+                 disabled={!newCategoryName.trim()}
+                 onClick={() => {
+                   const name = newCategoryName.trim();
+                   if (name) {
+                     addCustomCategory(name);
+                     setNewCategoryName('');
+                     setIsCategoryModalOpen(false);
+                   }
+                 }}
+                 className={newCategoryName.trim() ? 'bg-[#3E52FF] hover:bg-blue-600 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}
+               >
+                 Create
+               </Button>
             </div>
           </div>
         </div>

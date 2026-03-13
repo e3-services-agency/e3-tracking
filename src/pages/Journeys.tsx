@@ -208,6 +208,7 @@ const QAStatusBadge = ({ status }: { status?: QAStatus }) => {
 const QuickAddMenu = ({ nodeId, position }: { nodeId: string; position: 'right' | 'bottom' }) => {
   const { getNode, getNodes, setNodes, setEdges } = useReactFlow<JourneyFlowNode, JourneyFlowEdge>();
   const [isOpen, setIsOpen] = useState(false);
+  
 
   const handleAdd = (type: JourneyFlowNode['type']) => {
     const node = getNode(nodeId);
@@ -1123,6 +1124,7 @@ function JourneyCanvas({
   const [annotationColor, setAnnotationColor] = useState('#FACC15');
   const [annotationStart, setAnnotationStart] = useState<Point | null>(null);
   const [draftAnnotationId, setDraftAnnotationId] = useState<string | null>(null);
+  const [payloadDraft, setPayloadDraft] = useState('');
 
   useEffect(() => {
     if (!activeQARunId) {
@@ -1491,27 +1493,54 @@ function JourneyCanvas({
     }
   };
 
-  const handleTriggerPayloadPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-  if (!selectedNode || !isTriggerNode(selectedNode)) return;
-
-  const pastedText = e.clipboardData.getData('text/plain');
-  if (!pastedText) return;
-
-  let nextProofText = pastedText;
-
-  try {
-    const parsed = JSON.parse(pastedText);
-    nextProofText = JSON.stringify(parsed, null, 2);
-  } catch {
-    // not valid JSON, keep raw text as-is
-  }
-
-  updateQAVerification(selectedNode.id, {
-    proofText: nextProofText,
+  const buildTextProof = (content: string, name = 'Payload'): QAProof => ({
+    id: `proof-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name,
+    type: 'text',
+    content,
+    createdAt: new Date().toISOString(),
   });
 
-  e.preventDefault();
-};
+  const handleAddPayload = () => {
+    if (!selectedNode || !isTriggerNode(selectedNode)) return;
+    if (!payloadDraft.trim()) return;
+
+    let normalizedContent = payloadDraft;
+
+    try {
+      const parsed = JSON.parse(payloadDraft);
+      normalizedContent = JSON.stringify(parsed, null, 2);
+    } catch {
+      // keep raw text
+    }
+
+    const newProof = buildTextProof(normalizedContent, 'Payload');
+
+    updateQAVerification(selectedNode.id, {
+      proofs: [...verificationProofs, newProof],
+    });
+
+    setPayloadDraft('');
+  };
+
+  const handleTriggerPayloadPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!selectedNode || !isTriggerNode(selectedNode)) return;
+
+    const pastedText = e.clipboardData.getData('text/plain');
+    if (!pastedText) return;
+
+    let normalizedText = pastedText;
+
+    try {
+      const parsed = JSON.parse(pastedText);
+      normalizedText = JSON.stringify(parsed, null, 2);
+    } catch {
+      // not valid JSON, keep raw text as-is
+    }
+
+    setPayloadDraft(normalizedText);
+    e.preventDefault();
+  };
 
   const activeVerifications = activeQARun?.verifications || {};
   const runProfiles = activeQARun?.testingProfiles || [];
@@ -2146,23 +2175,25 @@ function JourneyCanvas({
                         type="file"
                         accept=".json,.txt,text/plain,application/json"
                         className="hidden"
-                        onChange={async (e) => {
+                                                onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (!file || !selectedNode || !isTriggerNode(selectedNode)) return;
 
                           const content = await readFileAsContent(file);
 
-                          let nextProofText = content;
+                          let normalizedContent = content;
 
                           try {
                             const parsed = JSON.parse(content);
-                            nextProofText = JSON.stringify(parsed, null, 2);
+                            normalizedContent = JSON.stringify(parsed, null, 2);
                           } catch {
                             // not valid JSON, keep raw text as-is
                           }
 
+                          const newProof = buildTextProof(normalizedContent, file.name || 'Payload');
+
                           updateQAVerification(selectedNode.id, {
-                            proofText: nextProofText,
+                            proofs: [...verificationProofs, newProof],
                           });
 
                           e.target.value = '';
@@ -2176,19 +2207,35 @@ function JourneyCanvas({
                   <textarea
                     className="w-full h-72 rounded-md border border-input bg-background px-3 py-2 text-xs font-mono"
                     placeholder="Paste text or JSON payload here..."
-                    value={currentVerification?.proofText || ''}
+                    value={payloadDraft}
                     onPaste={handleTriggerPayloadPaste}
-                    onChange={(e) =>
-                      updateQAVerification(selectedNode.id, {
-                        proofText: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setPayloadDraft(e.target.value)}
                   />
 
+                                    <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="bg-[#3E52FF] hover:bg-blue-600 text-white"
+                      onClick={handleAddPayload}
+                      disabled={!payloadDraft.trim()}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Payload
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setPayloadDraft('')}
+                      disabled={!payloadDraft.trim()}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+
                   <div className="text-[11px] text-gray-500">
-                    Paste text or JSON here, or use Upload Payload.
-                    Screenshots and other visual evidence belong in Proof Files.
-                    Everything is stored on the QA run, not on the base journey.
+                    Paste text or JSON here, then click Add Payload.
+                    Uploaded or added payloads appear below in Proof Files and can be removed later.
                   </div>
                 </div>
               )}

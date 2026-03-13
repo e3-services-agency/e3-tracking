@@ -1,13 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useStore, useActiveData } from '@/src/store';
-import { Event, Source, EventAction, EventVariant } from '@/src/types';
+import { Event, Source, EventAction, EventVariant, Property } from '@/src/types';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { 
   Search, Plus, Trash2, AlertCircle, GitMerge, CheckCircle2, 
   X, Columns, Code, MessageSquare, Filter, Image as ImageIcon, ChevronRight,
-  UserPlus
+  UserPlus, Users, UserCheck, UserMinus, DollarSign, AppWindow, MonitorSmartphone,
+  Server, Smartphone
 } from 'lucide-react';
 import { toSnakeCase, toPascalCase } from '@/src/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
@@ -48,13 +49,26 @@ const getSourceColor = (name: string) => {
   return 'bg-gray-400';
 };
 
+const getSourceIcon = (name: string) => {
+  const lower = name.toLowerCase();
+  if (lower.includes('web')) return <AppWindow className="w-4 h-4 text-gray-500" />;
+  if (lower.includes('backend')) return <Server className="w-4 h-4 text-gray-500" />;
+  if (lower.includes('ios') || lower.includes('android')) return <Smartphone className="w-4 h-4 text-gray-500" />;
+  return <MonitorSmartphone className="w-4 h-4 text-gray-500" />;
+};
+
 export function Events() {
   const data = useActiveData();
   const { activeBranchId, branches, mergeBranch, approveBranch, selectedItemIdToEdit, setSelectedItemIdToEdit } = useStore();
   
   const [globalFilter, setGlobalFilter] = useState('');
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
+    propertyBundles: false,
+    groupProperties: false,
+    destinations: false,
+    metrics: false,
+  });
   
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(undefined);
@@ -66,6 +80,12 @@ export function Events() {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isCustomizeOpen, setIsCustomizeOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  // Customize & Filter states
+  const [showEmptyCategories, setShowEmptyCategories] = useState(false);
+  const [showEventVariants, setShowEventVariants] = useState(true);
+  const [sourceFilters, setSourceFilters] = useState<string[]>([]);
+  const [stakeholderFilters, setStakeholderFilters] = useState<string[]>([]);
 
   useEffect(() => {
     if (selectedItemIdToEdit) {
@@ -97,7 +117,6 @@ export function Events() {
   const selectedEvent = selectedEventId ? data.events.find(e => e.id === selectedEventId) : null;
   const activeBranch = branches.find(b => b.id === activeBranchId);
 
-  // Diff logic for workbench summary
   const diff = useMemo(() => {
     if (activeBranchId === 'main' || !activeBranch) return null;
     const baseEvents = activeBranch.baseData.events;
@@ -115,56 +134,67 @@ export function Events() {
 
   const canMerge = activeBranch && activeBranch.approvals.length > 0;
 
-  // Flatten events and variants into a single ordered list
+  // Flatten and Filter events
   const flatTableData = useMemo<EventRow[]>(() => {
     const rows: EventRow[] = [];
     data.events.forEach(event => {
-      // 1. Base Event
-      rows.push({
-        id: event.id,
-        name: event.name,
-        label: 'Base',
-        description: event.description,
-        categories: event.categories,
-        sources: event.sources,
-        ownerTeamId: event.ownerTeamId,
-        stakeholderTeamIds: event.stakeholderTeamIds,
-        actions: event.actions,
-        tags: event.tags,
-        originalEvent: event,
+      // Apply filters to base event
+      const matchesSource = sourceFilters.length === 0 || event.sources.some(s => sourceFilters.includes(s.name));
+      const matchesStakeholder = stakeholderFilters.length === 0 || event.stakeholderTeamIds.some(id => {
+        const t = data.teams.find(tm => tm.id === id);
+        return t && stakeholderFilters.includes(t.name);
       });
 
-      // 2. Variants
-      event.variants.forEach(variant => {
+      if (matchesSource && matchesStakeholder) {
         rows.push({
-          id: `${event.id}-${variant.id}`,
-          name: variant.name,
-          label: 'Variant',
-          baseEventName: event.name,
-          description: variant.description || event.description,
+          id: event.id,
+          name: event.name,
+          label: 'Base',
+          description: event.description,
           categories: event.categories,
-          sources: event.sources, 
+          sources: event.sources,
           ownerTeamId: event.ownerTeamId,
           stakeholderTeamIds: event.stakeholderTeamIds,
           actions: event.actions,
           tags: event.tags,
           originalEvent: event,
-          variantId: variant.id,
         });
-      });
+      }
+
+      if (showEventVariants) {
+        event.variants.forEach(variant => {
+          if (matchesSource && matchesStakeholder) {
+            rows.push({
+              id: `${event.id}-${variant.id}`,
+              name: variant.name,
+              label: 'Variant',
+              baseEventName: event.name,
+              description: variant.description || event.description,
+              categories: event.categories,
+              sources: event.sources, 
+              ownerTeamId: event.ownerTeamId,
+              stakeholderTeamIds: event.stakeholderTeamIds,
+              actions: event.actions,
+              tags: event.tags,
+              originalEvent: event,
+              variantId: variant.id,
+            });
+          }
+        });
+      }
     });
     return rows;
-  }, [data.events]);
+  }, [data.events, data.teams, showEventVariants, sourceFilters, stakeholderFilters]);
 
   const columns = useMemo<ColumnDef<EventRow>[]>(() => {
-    const baseCols: ColumnDef<EventRow>[] = [
+    return [
       {
         accessorKey: 'name',
         header: 'Name',
         cell: ({ row }) => {
           const isVariant = row.original.label === 'Variant';
           return (
-            <div className="flex flex-col -my-2 py-2 group">
+            <div className="flex flex-col py-1 group">
               {isVariant ? (
                 <div className="pl-6 relative">
                   <div className="absolute left-2 top-2 border-l-2 border-b-2 border-gray-300 w-3 h-3 rounded-bl"></div>
@@ -190,7 +220,7 @@ export function Events() {
       {
         accessorKey: 'description',
         header: 'Description',
-        cell: ({ row }) => <span className="text-xs text-gray-500 whitespace-normal break-words block">{row.original.description || '-'}</span>,
+        cell: ({ row }) => <span className="text-xs text-gray-500 whitespace-normal break-words block min-w-[200px]">{row.original.description || '-'}</span>,
       },
       {
         accessorKey: 'ownerTeamId',
@@ -275,10 +305,18 @@ export function Events() {
         accessorKey: 'tags',
         header: 'Tags',
         cell: ({ row }) => <span className="text-xs text-gray-600 truncate max-w-[120px] block">{row.original.tags.join(', ') || '-'}</span>,
+      },
+      {
+        id: 'destinations',
+        header: 'Destinations',
+        cell: () => <span className="text-xs text-gray-400 italic">-</span>,
+      },
+      {
+        id: 'metrics',
+        header: 'Metrics',
+        cell: () => <span className="text-xs text-gray-400 italic">-</span>,
       }
     ];
-
-    return baseCols;
   }, [data.teams, data.properties, data.propertyBundles]);
 
   const table = useReactTable({
@@ -297,16 +335,28 @@ export function Events() {
     getPaginationRowModel: getPaginationRowModel(),
   });
 
-  // Group the visible rows by category for rendering
+  // Group by category, including empty categories if setting is enabled
   const groupedRows = useMemo(() => {
     const groups: Record<string, Row<EventRow>[]> = {};
+    
+    // Initialize all existing workspace categories if showEmptyCategories is true
+    if (showEmptyCategories) {
+      const allCats = new Set<string>();
+      data.events.forEach(e => e.categories.forEach(c => allCats.add(c)));
+      allCats.forEach(c => groups[c] = []);
+    }
+
     table.getRowModel().rows.forEach(row => {
-      const cat = row.original.categories[0] || 'Uncategorized';
-      if (!groups[cat]) groups[cat] = [];
-      groups[cat].push(row);
+      const cats = row.original.categories.length ? row.original.categories : ['Uncategorized'];
+      cats.forEach(cat => {
+        if (!groups[cat]) groups[cat] = [];
+        // prevent duplicate row in same category if processing multiple
+        if (!groups[cat].find(r => r.id === row.id)) {
+          groups[cat].push(row);
+        }
+      });
     });
     
-    // Sort so Uncategorized is at the bottom, others alphabetically
     return Object.fromEntries(
       Object.entries(groups).sort(([a], [b]) => {
         if (a === 'Uncategorized') return 1;
@@ -314,7 +364,15 @@ export function Events() {
         return a.localeCompare(b);
       })
     );
-  }, [table.getRowModel().rows]);
+  }, [table.getRowModel().rows, showEmptyCategories, data.events]);
+
+  const toggleSourceFilter = (source: string) => {
+    setSourceFilters(prev => prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source]);
+  };
+
+  const toggleStakeholderFilter = (team: string) => {
+    setStakeholderFilters(prev => prev.includes(team) ? prev.filter(t => t !== team) : [...prev, team]);
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#F9FAFB] relative">
@@ -323,7 +381,7 @@ export function Events() {
       <div className="px-6 py-4 border-b bg-white flex flex-col gap-4 relative z-20">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-gray-900">Events <span className="text-gray-400 font-normal text-lg">({data.events.length})</span></h1>
+            <h1 className="text-2xl font-bold text-gray-900">Events <span className="text-gray-400 font-normal text-lg">({flatTableData.length})</span></h1>
             <Button onClick={handleCreateNew} className="h-8 gap-2 bg-[#F11578] hover:bg-[#D10F65] text-white border-none shadow-sm rounded-md px-3">
               <Plus className="w-4 h-4" /> New Event
             </Button>
@@ -359,22 +417,31 @@ export function Events() {
                   <div className="space-y-3 mb-4 pb-4 border-b border-gray-100">
                      <label className="flex items-center justify-between cursor-pointer">
                        <span className="text-sm text-gray-600">Show empty categories</span>
-                       <div className="w-8 h-4 bg-gray-200 rounded-full relative"><div className="w-4 h-4 bg-white border border-gray-200 rounded-full absolute left-0"></div></div>
+                       <div className={`w-8 h-4 rounded-full relative transition-colors ${showEmptyCategories ? 'bg-green-500' : 'bg-gray-200'}`}>
+                         <input type="checkbox" checked={showEmptyCategories} onChange={e => setShowEmptyCategories(e.target.checked)} className="hidden" />
+                         <div className={`w-4 h-4 bg-white rounded-full absolute top-0 shadow-sm transition-all ${showEmptyCategories ? 'right-0' : 'left-0 border border-gray-200'}`}></div>
+                       </div>
                      </label>
                      <label className="flex items-center justify-between cursor-pointer">
                        <span className="text-sm text-gray-600">Show event variants</span>
-                       <div className="w-8 h-4 bg-green-500 rounded-full relative"><div className="w-4 h-4 bg-white rounded-full absolute right-0 shadow-sm"></div></div>
+                       <div className={`w-8 h-4 rounded-full relative transition-colors ${showEventVariants ? 'bg-green-500' : 'bg-gray-200'}`}>
+                         <input type="checkbox" checked={showEventVariants} onChange={e => setShowEventVariants(e.target.checked)} className="hidden" />
+                         <div className={`w-4 h-4 bg-white rounded-full absolute top-0 shadow-sm transition-all ${showEventVariants ? 'right-0' : 'left-0 border border-gray-200'}`}></div>
+                       </div>
                      </label>
                   </div>
                   <h4 className="font-bold text-sm text-gray-900 mb-3">Column order and visibility</h4>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                      {table.getAllLeafColumns().map(column => (
                         <label key={column.id} className="flex items-center justify-between cursor-pointer group">
                            <div className="flex items-center gap-2">
-                             <div className="w-3 h-3 flex flex-col gap-0.5 opacity-30 group-hover:opacity-100"><div className="w-full h-0.5 bg-gray-600"></div><div className="w-full h-0.5 bg-gray-600"></div><div className="w-full h-0.5 bg-gray-600"></div></div>
+                             <div className="w-3 h-3 flex flex-col gap-[2px] opacity-30 group-hover:opacity-100"><div className="w-full h-0.5 bg-gray-600"></div><div className="w-full h-0.5 bg-gray-600"></div><div className="w-full h-0.5 bg-gray-600"></div></div>
                              <span className="text-sm text-gray-600">{column.columnDef.header as string}</span>
                            </div>
-                           <input type="checkbox" checked={column.getIsVisible()} onChange={column.getToggleVisibilityHandler()} className="w-4 h-4 rounded text-green-500 focus:ring-green-500 border-gray-300" />
+                           <div className={`w-8 h-4 rounded-full relative transition-colors ${column.getIsVisible() ? 'bg-green-500' : 'bg-gray-200'}`}>
+                             <input type="checkbox" checked={column.getIsVisible()} onChange={column.getToggleVisibilityHandler()} className="hidden" />
+                             <div className={`w-4 h-4 bg-white rounded-full absolute top-0 shadow-sm transition-all ${column.getIsVisible() ? 'right-0' : 'left-0 border border-gray-200'}`}></div>
+                           </div>
                         </label>
                      ))}
                   </div>
@@ -385,31 +452,44 @@ export function Events() {
             <div className="relative">
               <Button onClick={() => { setIsFilterOpen(!isFilterOpen); setIsCustomizeOpen(false); }} variant="ghost" className="h-8 gap-2 text-gray-500 hover:text-gray-700 px-3">
                 <Filter className="w-4 h-4" /> Filter
+                {(sourceFilters.length > 0 || stakeholderFilters.length > 0) && (
+                  <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[10px] ml-1">{sourceFilters.length + stakeholderFilters.length}</span>
+                )}
               </Button>
               {isFilterOpen && (
                 <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 flex flex-col">
                   <div className="p-3 border-b border-gray-100">
                     <Input placeholder="Filter by..." className="h-8 text-sm bg-gray-50 border-none focus-visible:ring-0" />
                   </div>
-                  <div className="p-3 max-h-64 overflow-y-auto space-y-4">
+                  <div className="p-4 max-h-64 overflow-y-auto space-y-5">
                     <div>
                       <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Sources</div>
-                      <div className="space-y-2">
+                      <div className="space-y-2.5">
                         {['Website', 'Backend', 'iOS', 'Android'].map(s => (
-                          <label key={s} className="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" className="rounded border-gray-300 text-[#3E52FF]" />
-                            <span className="text-sm text-gray-700">{s}</span>
+                          <label key={s} className="flex items-center gap-3 cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              checked={sourceFilters.includes(s)}
+                              onChange={() => toggleSourceFilter(s)}
+                              className="rounded border-gray-300 w-4 h-4 text-gray-500 focus:ring-0 cursor-pointer" 
+                            />
+                            <span className="text-sm font-medium text-gray-700">{s}</span>
                           </label>
                         ))}
                       </div>
                     </div>
                     <div>
                       <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Stakeholders</div>
-                      <div className="space-y-2">
-                        {['Central data team', 'Checkout team', 'Search team'].map(s => (
-                          <label key={s} className="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" className="rounded border-gray-300 text-[#3E52FF]" />
-                            <span className="text-sm text-gray-700">{s}</span>
+                      <div className="space-y-2.5">
+                        {['Central data team', 'Checkout team', 'Search team', 'Marketing', 'Core Product'].map(s => (
+                          <label key={s} className="flex items-center gap-3 cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              checked={stakeholderFilters.includes(s)}
+                              onChange={() => toggleStakeholderFilter(s)}
+                              className="rounded border-gray-300 w-4 h-4 text-gray-500 focus:ring-0 cursor-pointer" 
+                            />
+                            <span className="text-sm font-medium text-gray-700">{s}</span>
                           </label>
                         ))}
                       </div>
@@ -466,44 +546,6 @@ export function Events() {
       )}
 
       <div className="flex-1 overflow-hidden flex flex-col relative z-10">
-        {diff && (diff.newEvents.length > 0 || diff.modifiedEvents.length > 0) && (
-          <div className="m-6 mb-2 p-4 bg-white border rounded-lg shadow-sm shrink-0">
-            <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-              <GitMerge className="w-4 h-4 text-[#3E52FF]" /> Workbench Summary
-            </h3>
-            <div className="flex gap-4">
-              {diff.newEvents.length > 0 && (
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="w-3 h-3 rounded-full bg-emerald-400"></span>
-                  {diff.newEvents.length} New
-                </div>
-              )}
-              {diff.modifiedEvents.length > 0 && (
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="w-3 h-3 rounded-full bg-purple-400"></span>
-                  {diff.modifiedEvents.length} Modified
-                </div>
-              )}
-            </div>
-            
-            <div className="mt-4 pt-4 border-t flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                Review changes before merging.
-              </div>
-              {activeBranch && activeBranch.approvals.length === 0 && (
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  onClick={() => approveBranch(activeBranchId, 't1')}
-                  className="gap-2"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Approve Changes
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-
         <div className="bg-white flex-1 overflow-auto">
           <table className="w-full text-left border-collapse min-w-max">
             <thead className="bg-white sticky top-0 z-10 shadow-sm border-b">
@@ -526,7 +568,7 @@ export function Events() {
                     <tr className="bg-[#F8F9F9] border-y border-gray-200">
                       <td colSpan={columns.length} className="px-4 py-3">
                         <div className="flex items-start gap-3">
-                          <input type="checkbox" className="mt-1 rounded border-gray-300 w-4 h-4" />
+                          <input type="checkbox" className="mt-1 rounded border-gray-300 w-4 h-4 text-gray-500 focus:ring-0" />
                           <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider leading-tight">Category</span>
                             <div className="flex items-center gap-3 mt-0.5">
@@ -546,7 +588,7 @@ export function Events() {
                         className="hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 cursor-pointer"
                       >
                         {row.getVisibleCells().map(cell => (
-                          <td key={cell.id} className="px-4 py-3 text-sm text-gray-900 align-middle">
+                          <td key={cell.id} className="px-4 py-3 text-sm text-gray-900 align-top">
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                           </td>
                         ))}
@@ -562,7 +604,7 @@ export function Events() {
                     className="hover:bg-gray-50 transition-colors border-b border-gray-100 cursor-pointer"
                   >
                     {row.getVisibleCells().map(cell => (
-                      <td key={cell.id} className="px-4 py-3 text-sm text-gray-900 align-middle">
+                      <td key={cell.id} className="px-4 py-3 text-sm text-gray-900 align-top">
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     ))}
@@ -572,7 +614,7 @@ export function Events() {
               {table.getRowModel().rows.length === 0 && (
                 <tr>
                   <td colSpan={columns.length} className="px-6 py-12 text-center text-gray-500">
-                    No events found. Create one to get started.
+                    No events found matching your filters.
                   </td>
                 </tr>
               )}
@@ -585,7 +627,7 @@ export function Events() {
         isOpen={isSheetOpen}
         onClose={() => setIsSheetOpen(false)}
         hideHeader={true}
-        className="w-[700px]"
+        className="w-[900px]" // Wider side panel
       >
         {isSheetOpen && (
           <AvoEventEditor
@@ -618,16 +660,35 @@ function AvoEventEditor({ event, variantId, isCreating, onClose, onSwitchVariant
   const [sources, setSources] = useState<Source[]>(event?.sources || []);
   const [actions, setActions] = useState<EventAction[]>(event?.actions || [{ id: uuidv4(), type: 'Log Event', eventProperties: [], systemProperties: [], pinnedProperties: {} }]);
   const [variants, setVariants] = useState<EventVariant[]>(event?.variants || []);
+  const [triggers, setTriggers] = useState<any[]>(event?.customFields?.triggers || []);
 
   const [newCategory, setNewCategory] = useState('');
   const [newTag, setNewTag] = useState('');
+  const [comments, setComments] = useState<{initials: string, text: string, date: string}[]>([]);
+  const [newComment, setNewComment] = useState('');
 
   // Modals inside Panel
   const [isVariantModalOpen, setIsVariantModalOpen] = useState(false);
   const [newVariantName, setNewVariantName] = useState('');
+  
   const [isAddActionPopoverOpen, setIsAddActionPopoverOpen] = useState(false);
+  const [isAddSourceModalOpen, setIsAddSourceModalOpen] = useState(false);
+  
+  const [isTriggerModalOpen, setIsTriggerModalOpen] = useState(false);
+  
+  // Property Add Modals
+  const [isAddEventPropertyModalOpen, setIsAddEventPropertyModalOpen] = useState<string | null>(null); // holds actionId
+  const [isAddSystemPropertyModalOpen, setIsAddSystemPropertyModalOpen] = useState<string | null>(null); // holds actionId
+  const [hoveredPropId, setHoveredPropId] = useState<string | null>(null);
 
   const activeVariant = variants.find(v => v.id === variantId);
+
+  const handleAddComment = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && newComment.trim()) {
+      setComments([...comments, { initials: 'JA', text: newComment.trim(), date: 'Just now' }]);
+      setNewComment('');
+    }
+  };
 
   const handleCreateVariant = () => {
     if (!newVariantName.trim()) return;
@@ -645,7 +706,6 @@ function AvoEventEditor({ event, variantId, isCreating, onClose, onSwitchVariant
 
   const handleSave = () => {
     if (!name.trim()) return;
-    
     let finalName = name;
     if (auditConfig.eventNaming === 'snake_case') finalName = toSnakeCase(name);
     else if (auditConfig.eventNaming === 'Title Case') finalName = toPascalCase(name).replace(/([A-Z])/g, ' $1').trim();
@@ -658,7 +718,7 @@ function AvoEventEditor({ event, variantId, isCreating, onClose, onSwitchVariant
 
     const eventData = { 
       name: finalName, description, categories, tags, sources, actions, variants,
-      ownerTeamId, stakeholderTeamIds
+      ownerTeamId, stakeholderTeamIds, customFields: { ...event?.customFields, triggers }
     };
 
     if (isCreating) addEvent(eventData as Event);
@@ -667,7 +727,6 @@ function AvoEventEditor({ event, variantId, isCreating, onClose, onSwitchVariant
     onClose();
   };
 
-  // Pseudo Codegen Builder
   const generateCodegen = () => {
     const fnName = toPascalCase(name).replace(/^./, str => str.toLowerCase());
     const variantSuffix = activeVariant ? toPascalCase(activeVariant.name) : '';
@@ -683,52 +742,55 @@ ${props.map(pid => {
 });`;
   };
 
+  const availableEventProps = data.properties.filter(p => !actions.flatMap(a => a.eventProperties).includes(p.id));
+  const availableSystemProps = data.properties.filter(p => !actions.flatMap(a => a.systemProperties).includes(p.id));
+
   return (
     <div className="flex flex-col h-full bg-white relative font-sans -mx-6 -my-6">
       
-      {/* Header matching Avo explicitly */}
-      <div className="px-8 py-5 flex justify-between items-start border-b border-gray-100 sticky top-0 bg-white z-20">
+      {/* Header fixing variant layout */}
+      <div className="px-8 py-6 flex justify-between items-start border-b border-gray-100 sticky top-0 bg-white z-20">
         <div className="flex-1 pr-4">
-          <div className="text-[11px] font-semibold text-gray-500 tracking-wider mb-1 uppercase">
+          <div className="text-[11px] font-semibold text-gray-500 tracking-wider mb-2 uppercase">
              Event {variantId ? 'Variant' : ''}
           </div>
-          <div className="flex items-center gap-2">
-            {variantId && <span className="text-[22px] font-bold text-gray-400">{name} - </span>}
+          <div className="flex items-center w-full max-w-[800px]">
+            {variantId && <span className="text-3xl font-bold text-gray-400 mr-2 whitespace-nowrap">{name} -</span>}
             <input 
               value={variantId ? activeVariant?.name : name}
               onChange={e => variantId 
                 ? setVariants(variants.map(v => v.id === variantId ? { ...v, name: e.target.value } : v))
                 : setName(e.target.value)
               }
-              className={`text-[22px] font-bold border-none px-0 h-auto focus-visible:ring-0 w-full shadow-none outline-none ${variantId ? 'text-gray-900' : 'text-gray-900'}`}
+              className={`text-3xl font-bold border-none px-0 h-auto focus-visible:ring-0 flex-1 min-w-0 shadow-none outline-none ${variantId ? 'text-gray-900' : 'text-gray-900'}`}
               placeholder="Event Name"
             />
           </div>
           {variantId && (
-            <div className="text-xs text-gray-500 mt-1">
+            <div className="text-sm text-gray-500 mt-2">
               Variation of <span className="text-[#3E52FF] font-semibold cursor-pointer hover:underline" onClick={() => onSwitchVariant?.('')}>{name}</span>
-              <div className="mt-0.5">When a user views a web page within the website</div>
+              <div className="mt-1">{description || 'No base description'}</div>
             </div>
           )}
         </div>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-700 bg-gray-50 rounded-full p-2">
-          <X className="w-4 h-4" />
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-700 bg-gray-50 rounded-full p-2 mt-2 shrink-0">
+          <X className="w-5 h-5" />
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-8 py-8 space-y-10 pb-32">
+      <div className="flex-1 overflow-y-auto px-8 py-8 space-y-12 pb-32">
         
         {/* Stakeholders & Ownership */}
         <div>
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex items-center gap-3 mb-4">
             <h3 className="text-[15px] font-bold text-gray-900">Stakeholders & Ownership</h3>
             <button className="text-[13px] font-semibold text-[#3E52FF] hover:underline">+ Add stakeholder</button>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
             <select
               value={ownerTeamId}
               onChange={(e) => setOwnerTeamId(e.target.value)}
-              className="text-[13px] font-medium border border-gray-200 rounded-md px-3 py-1.5 bg-white text-gray-700 shadow-sm"
+              className="text-[13px] font-medium border border-gray-200 rounded-md px-3 py-2 bg-white text-gray-700 shadow-sm min-w-[160px]"
             >
               {data.teams.map(t => <option key={t.id} value={t.id}>{t.name} (Owner)</option>)}
             </select>
@@ -736,7 +798,7 @@ ${props.map(pid => {
               const team = data.teams.find(t => t.id === id);
               if (!team) return null;
               return (
-                <span key={id} className="text-[13px] font-medium border border-gray-200 rounded-md px-3 py-1.5 bg-white text-gray-700 shadow-sm flex items-center gap-2">
+                <span key={id} className="text-[13px] font-medium border border-gray-200 rounded-md px-3 py-2 bg-white text-gray-700 shadow-sm flex items-center gap-2">
                   {team.name}
                   <button onClick={() => setStakeholderTeamIds(stakeholderTeamIds.filter(tid => tid !== id))} className="text-gray-400 hover:text-red-500"><X className="w-3 h-3"/></button>
                 </span>
@@ -747,7 +809,7 @@ ${props.map(pid => {
 
         {/* Description */}
         <div>
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex items-center gap-3 mb-4">
             <h3 className="text-[15px] font-bold text-gray-900">Description</h3>
           </div>
           <textarea
@@ -756,7 +818,7 @@ ${props.map(pid => {
               ? setVariants(variants.map(v => v.id === variantId ? { ...v, description: e.target.value } : v))
               : setDescription(e.target.value)
             }
-            className="w-full text-[14px] text-gray-700 bg-white border border-gray-200 rounded-md p-4 min-h-[100px] resize-y focus:outline-none focus:ring-1 focus:ring-[#3E52FF] shadow-sm"
+            className="w-full text-[14px] text-gray-800 bg-white border border-gray-200 rounded-lg p-4 min-h-[120px] resize-y focus:outline-none focus:ring-1 focus:ring-[#3E52FF] shadow-sm leading-relaxed"
             placeholder={variantId ? "Describe this variant's specific context..." : "Describe the user action..."}
           />
         </div>
@@ -764,7 +826,7 @@ ${props.map(pid => {
         {/* Variants Section (Only show on Base Event) */}
         {!variantId && (
           <div>
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-3 mb-4">
               <h3 className="text-[15px] font-bold text-gray-900">Variants</h3>
               <button 
                 className="text-[13px] font-semibold text-[#3E52FF] hover:underline"
@@ -774,217 +836,297 @@ ${props.map(pid => {
               </button>
             </div>
             <div className="border border-gray-200 rounded-lg shadow-sm bg-white overflow-hidden">
-              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 text-[13px] font-bold text-gray-600">
+              <div className="bg-gray-50 px-5 py-4 border-b border-gray-200 text-[13px] font-bold text-gray-700">
                 {variants.length} Variant{variants.length !== 1 && 's'}
               </div>
               {variants.length > 0 ? (
                 <div className="divide-y divide-gray-100">
                   {variants.map(v => (
-                    <div key={v.id} className="p-4 flex items-center justify-between group hover:bg-gray-50 transition-colors">
+                    <div key={v.id} className="p-5 flex items-center justify-between group hover:bg-gray-50 transition-colors">
                       <div className="cursor-pointer" onClick={() => onSwitchVariant?.(v.id)}>
                         <div className="text-[15px] font-bold text-gray-900 group-hover:text-[#3E52FF]">{v.name}</div>
-                        <div className="text-[13px] font-semibold text-[#3E52FF] mt-1">{Object.keys(v.propertyOverrides).length} Overrides</div>
+                        <div className="text-[13px] font-semibold text-[#3E52FF] mt-1.5">{Object.keys(v.propertyOverrides).length} Overrides</div>
                       </div>
                       <div className="flex items-center gap-4">
-                        <span className="text-[11px] bg-gray-100 text-gray-500 px-2.5 py-1 rounded-full border border-gray-200 font-medium">Website</span>
+                        <span className="text-[11px] bg-gray-100 text-gray-500 px-3 py-1 rounded-full border border-gray-200 font-medium">Website</span>
                         <button onClick={() => setVariants(variants.filter(x => x.id !== v.id))} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-5 h-5" />
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-[13px] text-gray-500 bg-white p-5 text-center italic">No variants created.</div>
+                <div className="text-[14px] text-gray-500 bg-white p-6 text-center italic">No variants created.</div>
               )}
             </div>
           </div>
         )}
 
-        {/* Mock Triggers Section */}
+        {/* Triggers Section */}
         <div>
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex items-center gap-3 mb-4">
             <h3 className="text-[15px] font-bold text-gray-900">Triggered when</h3>
-            <button className="text-[13px] font-semibold text-[#3E52FF] hover:underline">+ New Trigger</button>
+            <button onClick={() => setIsTriggerModalOpen(true)} className="text-[13px] font-semibold text-[#3E52FF] hover:underline">+ New Trigger</button>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-2">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="border border-gray-200 rounded-lg p-3 w-40 bg-white flex flex-col gap-2 shrink-0 shadow-sm cursor-pointer hover:border-gray-300 transition-colors">
-                <div className="w-full h-24 bg-gray-50 rounded-md flex items-center justify-center border border-gray-100">
-                  <ImageIcon className="w-6 h-6 text-gray-300" />
+            {triggers.length > 0 ? triggers.map(t => (
+              <div key={t.id} className="border border-gray-200 rounded-lg p-4 w-48 bg-white flex flex-col gap-2 shrink-0 shadow-sm cursor-pointer hover:border-gray-300 transition-colors">
+                <div className="w-full h-28 bg-gray-50 rounded-md flex items-center justify-center border border-gray-100 overflow-hidden relative">
+                   {t.image ? <img src={t.image} className="object-cover w-full h-full" alt="Trigger" /> : <ImageIcon className="w-8 h-8 text-gray-300" />}
                 </div>
-                <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mt-1">Source Independ...</div>
-                <div className="text-[13px] font-bold text-gray-900 leading-tight line-clamp-2">Lands on {variantId ? 'product' : 'home'} page</div>
-                <div className="text-[11px] text-gray-500 line-clamp-1">User lands on...</div>
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-2">{t.source || 'Source Independent'}</div>
+                <div className="text-[14px] font-bold text-gray-900 leading-tight line-clamp-2">{t.name || 'Unnamed trigger'}</div>
+                <div className="text-[12px] text-gray-500 line-clamp-1">{t.desc || 'No description...'}</div>
               </div>
-            ))}
+            )) : (
+              <div className="text-[13px] text-gray-500 italic p-2">No triggers defined. Add a trigger to show exactly when this event fires.</div>
+            )}
           </div>
         </div>
 
         {/* Compact Sources */}
         <div>
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex items-center gap-3 mb-4 relative">
             <h3 className="text-[15px] font-bold text-gray-900">Sources</h3>
             {variantId && <button className="text-[#3E52FF] text-[13px] font-semibold hover:underline">Edit on variant</button>}
           </div>
-          <div className="flex flex-wrap gap-2">
-            {data.sources.map(source => {
-              const isSelected = sources.find(s => s.id === source.id);
-              if (!isSelected && variantId) return null; // Don't show unselected sources on variant mode
-              
-              return (
-                <div 
-                  key={source.id} 
-                  className={`border rounded-lg px-3 py-2 flex items-center gap-2 shadow-sm cursor-pointer transition-colors ${isSelected ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200 text-gray-500'}`}
-                  onClick={() => {
-                    if (!variantId) {
-                      if (isSelected) setSources(sources.filter(s => s.id !== source.id));
-                      else setSources([...sources, source]);
-                    }
-                  }}
-                >
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                  <span className={`text-[13px] font-bold ${isSelected ? 'text-gray-900' : 'text-gray-500'}`}>{source.name}</span>
-                  {isSelected && (
-                    <div className="w-[14px] h-[14px] rounded-full bg-emerald-500 text-white flex items-center justify-center text-[8px] font-bold ml-1">P</div>
-                  )}
-                </div>
-              );
-            })}
+          
+          {sources.length === 0 ? (
+             <div className="border border-orange-300 bg-orange-50 text-orange-600 p-4 rounded-lg text-[14px] font-medium mb-3">
+               This event is not sent from any source yet
+             </div>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              {data.sources.map(source => {
+                const isSelected = sources.find(s => s.id === source.id);
+                if (!isSelected && variantId) return null; // Don't show unselected sources on variant mode
+                
+                return (
+                  <div 
+                    key={source.id} 
+                    className={`border rounded-lg px-4 py-2.5 flex items-center gap-3 shadow-sm cursor-pointer transition-colors ${isSelected ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200 text-gray-500'}`}
+                    onClick={() => {
+                      if (!variantId) {
+                        if (isSelected) setSources(sources.filter(s => s.id !== source.id));
+                        else setSources([...sources, source]);
+                      }
+                    }}
+                  >
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                    <span className={`text-[14px] font-bold ${isSelected ? 'text-gray-900' : 'text-gray-500'}`}>{source.name}</span>
+                    {isSelected && (
+                      <div className="w-[16px] h-[16px] rounded-full bg-emerald-500 text-white flex items-center justify-center text-[9px] font-bold ml-2 shadow-sm">P</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          
+          <div className="relative mt-3">
             {!variantId && (
-              <button className="text-[#3E52FF] text-[13px] font-semibold hover:underline ml-2">+ Add Source</button>
+              <button onClick={() => setIsAddSourceModalOpen(!isAddSourceModalOpen)} className="text-[#3E52FF] text-[14px] font-semibold hover:underline">+ Add Source</button>
+            )}
+            {isAddSourceModalOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsAddSourceModalOpen(false)}></div>
+                <div className="absolute top-full left-0 mt-2 w-[220px] bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-2">
+                   {data.sources.map(s => (
+                     <button key={s.id} onClick={() => { if(!sources.find(x => x.id === s.id)) setSources([...sources, s]); setIsAddSourceModalOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 text-left text-[14px] font-medium text-gray-700">
+                       {getSourceIcon(s.name)}
+                       {s.name}
+                     </button>
+                   ))}
+                   <div className="border-t border-gray-100 mt-1 pt-1">
+                     <button className="w-full flex items-center px-4 py-2.5 text-left text-[14px] font-semibold text-[#3E52FF] hover:underline">
+                       + Set Up New Source
+                     </button>
+                   </div>
+                </div>
+              </>
             )}
           </div>
         </div>
 
         {/* Actions & Properties */}
         <div>
-          <div className="flex items-center justify-between mb-3 relative">
+          <div className="flex items-center justify-between mb-4">
             <h3 className="text-[15px] font-bold text-gray-900">Actions</h3>
           </div>
 
-          <div className="space-y-4">
-            {actions.map((action, idx) => (
-              <div key={action.id} className="border border-gray-200 rounded-xl bg-white shadow-sm overflow-hidden">
-                <div className="bg-white px-5 py-4 border-b border-gray-100 flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 w-7 h-7 rounded border border-gray-200 bg-white flex items-center justify-center text-gray-400 shadow-sm">
-                      <MessageSquare className="w-4 h-4" />
-                    </div>
-                    <div>
-                      {!variantId ? (
-                        <select
-                          value={action.type}
-                          onChange={(e) => setActions(actions.map(a => a.id === action.id ? { ...a, type: e.target.value } : a))}
-                          className="font-bold text-[15px] text-gray-900 bg-transparent border-none focus:ring-0 p-0 hover:bg-gray-50 rounded transition-colors -ml-1 cursor-pointer"
-                        >
-                          <option value="Log Event">Log Event</option>
-                          <option value="Log Page View">Log Page View</option>
-                          <option value="Identify User">Identify User</option>
-                          <option value="Update Group">Update Group</option>
-                        </select>
-                      ) : (
-                        <div className="font-bold text-[15px] text-gray-900">{action.type}</div>
-                      )}
-                      <div className="text-[12px] text-gray-500 mt-1">Track page view in your analytics tool to be able use their automatic page tracking capabilities.</div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="p-5 space-y-6">
-                  {/* Event Properties */}
-                  <div>
-                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Event Properties</div>
-                    
-                    {/* Mock Property Bundle block */}
-                    <div className="border border-gray-200 rounded-lg p-3 flex items-start justify-between mb-4 bg-white shadow-sm hover:border-gray-300 cursor-pointer transition-colors">
-                       <div className="flex items-start gap-2">
-                         <ChevronRight className="w-4 h-4 text-gray-400 mt-0.5" />
-                         <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-[13px] text-gray-900">product_properties</span>
-                              <span className="text-[11px] text-gray-500 font-medium">Bundle of 5 Properties</span>
-                            </div>
-                            <div className="text-xs text-gray-500 mt-0.5">Properties relating to products</div>
-                         </div>
-                       </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      {action.eventProperties.map(propId => {
-                        const prop = data.properties.find(p => p.id === propId);
-                        if (!prop) return null;
-                        const override = variantId ? activeVariant?.propertyOverrides[propId] : undefined;
-                        const presence = override?.presence || prop.attached_events.find(e => e.eventId === event?.id)?.presence || 'Always sent';
-                        const isPinned = !!override?.constraints;
-                        
-                        return (
-                          <div key={propId} className="flex flex-col group border-b border-gray-100 pb-4 last:border-0 last:pb-0">
-                            <div className="flex items-center gap-3">
-                              <span className="font-bold text-[13px] text-gray-900">{prop.name}</span>
-                              <span className="font-mono text-[11px] text-gray-500">{prop.property_value_type}</span>
-                              <span className="text-[11px] text-gray-500 font-medium">{presence}</span>
-                              {isPinned && <span className="text-[11px] font-semibold text-emerald-600 ml-auto bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">Pinned to "{override.constraints}" (on this event variant)</span>}
-                            </div>
-                            <div className="text-[12px] text-gray-500 mt-1.5">{prop.description}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {!variantId && (
-                      <button className="text-[#3E52FF] text-[13px] font-semibold hover:underline mt-4">+ Add Event Property</button>
-                    )}
-                    {variantId && (
-                      <button className="text-[#3E52FF] text-[13px] font-semibold hover:underline mt-4">+ Add Event Property to Variant</button>
-                    )}
-                  </div>
-
-                  {/* System Properties */}
-                  <div>
-                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">System Properties</div>
-                    <div className="space-y-4">
-                      {action.systemProperties.map(propId => {
-                        const prop = data.properties.find(p => p.id === propId);
-                        if (!prop) return null;
-                        return (
-                          <div key={propId} className="flex flex-col group border-b border-gray-100 pb-4 last:border-0 last:pb-0">
-                            <div className="flex items-center gap-3">
-                              <span className="font-bold text-[13px] text-gray-900">{prop.name}</span>
-                              <span className="font-mono text-[11px] text-gray-500">{prop.property_value_type}</span>
-                              <span className="text-[11px] text-gray-500 font-medium">Always sent</span>
-                            </div>
-                            <div className="text-[12px] text-gray-500 mt-1.5">{prop.description}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {!variantId && (
-                      <button className="text-[#3E52FF] text-[13px] font-semibold hover:underline mt-4">+ Add System Property</button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-            
-            <div className="relative">
-              {!variantId && (
-                <button onClick={() => setIsAddActionPopoverOpen(!isAddActionPopoverOpen)} className="text-[#3E52FF] text-[14px] font-semibold hover:underline mt-2">+ Add Action</button>
-              )}
-              {isAddActionPopoverOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setIsAddActionPopoverOpen(false)}></div>
-                  <div className="absolute top-full left-0 mt-2 w-[450px] bg-white border border-gray-200 rounded-xl shadow-xl z-50 p-2">
-                    <button onClick={() => handleAddAction('Update User Properties')} className="w-full flex items-start gap-3 p-3 hover:bg-gray-50 rounded-lg text-left transition-colors">
-                      <UserPlus className="w-5 h-5 text-gray-400 mt-0.5 shrink-0" />
-                      <div>
-                         <div className="font-bold text-[14px] text-gray-900">Update User Properties</div>
-                         <div className="text-[12px] text-gray-500 mt-1 leading-relaxed">Add one or more user properties that should be attached to the user's profile in your analytics tool.</div>
+          {actions.length === 0 ? (
+             <div className="border border-red-300 bg-red-50 p-5 rounded-lg mb-4">
+               <div className="font-bold text-[14px] text-red-600">No Actions</div>
+               <div className="text-[13px] text-red-500 mt-1">Nothing will happen when this Avo function is called since no actions have been defined.</div>
+             </div>
+          ) : (
+            <div className="space-y-6">
+              {actions.map((action, idx) => (
+                <div key={action.id} className="border border-gray-200 rounded-xl bg-white shadow-sm overflow-hidden">
+                  <div className="bg-white px-6 py-5 border-b border-gray-100 flex items-start justify-between">
+                    <div className="flex items-start gap-4">
+                      <div className="mt-0.5 w-8 h-8 rounded border border-gray-200 bg-white flex items-center justify-center text-gray-400 shadow-sm shrink-0">
+                        <MessageSquare className="w-4 h-4" />
                       </div>
-                    </button>
+                      <div>
+                        {!variantId ? (
+                          <select
+                            value={action.type}
+                            onChange={(e) => setActions(actions.map(a => a.id === action.id ? { ...a, type: e.target.value } : a))}
+                            className="font-bold text-[16px] text-gray-900 bg-transparent border-none focus:ring-0 p-0 hover:bg-gray-50 rounded transition-colors -ml-1 cursor-pointer"
+                          >
+                            <option value="Log Event">Log Event</option>
+                            <option value="Log Page View">Log Page View</option>
+                            <option value="Identify User">Identify User</option>
+                            <option value="Update User Properties">Update User Properties</option>
+                            <option value="Update Group">Update Group</option>
+                            <option value="Log Revenue">Log Revenue</option>
+                          </select>
+                        ) : (
+                          <div className="font-bold text-[16px] text-gray-900">{action.type}</div>
+                        )}
+                        <div className="text-[13px] text-gray-500 mt-1.5 leading-relaxed">Send an event to your analytics tool by calling the corresponding tracking method in your analytics SDK or API.</div>
+                      </div>
+                    </div>
                   </div>
-                </>
-              )}
+                  
+                  <div className="p-6 space-y-8">
+                    {/* Event Properties */}
+                    <div>
+                      <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-4">Event Properties</div>
+                      
+                      {/* Event Properties List */}
+                      <div className="space-y-5">
+                        {action.eventProperties.map(propId => {
+                          const prop = data.properties.find(p => p.id === propId);
+                          if (!prop) return null;
+                          const override = variantId ? activeVariant?.propertyOverrides[propId] : undefined;
+                          const presence = override?.presence || prop.attached_events.find(e => e.eventId === event?.id)?.presence || 'Always sent';
+                          const isPinned = !!override?.constraints;
+                          
+                          return (
+                            <div key={propId} className="flex flex-col group border-b border-gray-100 pb-5 last:border-0 last:pb-0">
+                              <div className="flex items-center gap-3">
+                                <span className="font-bold text-[14px] text-gray-900">{prop.name}</span>
+                                <span className="font-mono text-[11px] text-gray-500 font-medium">{prop.property_value_type}</span>
+                                <span className="text-[12px] text-gray-600 font-medium">{presence}</span>
+                                {isPinned && <span className="text-[11px] font-bold text-emerald-700 ml-auto bg-emerald-50 px-2.5 py-1 rounded border border-emerald-100">Pinned to "{override.constraints}" (on this event variant)</span>}
+                              </div>
+                              <div className="text-[13px] text-gray-500 mt-2">{prop.description}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      
+                      {/* Add Event Property Trigger */}
+                      <div className="relative mt-5">
+                        {!variantId ? (
+                          <button onClick={() => setIsAddEventPropertyModalOpen(action.id)} className="text-[#3E52FF] text-[14px] font-semibold hover:underline">+ Add Event Property</button>
+                        ) : (
+                          <button onClick={() => setIsAddEventPropertyModalOpen(action.id)} className="text-[#3E52FF] text-[14px] font-semibold hover:underline">+ Add Event Property to Variant</button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* System Properties */}
+                    <div>
+                      <div className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-4">System Properties</div>
+                      <div className="space-y-5">
+                        {action.systemProperties.map(propId => {
+                          const prop = data.properties.find(p => p.id === propId);
+                          if (!prop) return null;
+                          return (
+                            <div key={propId} className="flex flex-col group border-b border-gray-100 pb-5 last:border-0 last:pb-0">
+                              <div className="flex items-center gap-3">
+                                <span className="font-bold text-[14px] text-gray-900">{prop.name}</span>
+                                <span className="font-mono text-[11px] text-gray-500 font-medium">{prop.property_value_type}</span>
+                                <span className="text-[12px] text-gray-600 font-medium">Always sent</span>
+                              </div>
+                              <div className="text-[13px] text-gray-500 mt-2">{prop.description}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="relative mt-5">
+                        {!variantId && (
+                          <button onClick={() => setIsAddSystemPropertyModalOpen(action.id)} className="text-[#3E52FF] text-[14px] font-semibold hover:underline">+ Add System Property</button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
+          )}
+
+          <div className="relative mt-4">
+            {!variantId && (
+              <button onClick={() => setIsAddActionPopoverOpen(!isAddActionPopoverOpen)} className="text-[#3E52FF] text-[15px] font-bold hover:underline border border-blue-200 bg-blue-50 px-3 py-1.5 rounded-lg">+ Add Action</button>
+            )}
+            {isAddActionPopoverOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setIsAddActionPopoverOpen(false)}></div>
+                <div className="absolute top-full left-0 mt-2 w-[480px] bg-white border border-gray-200 rounded-xl shadow-xl z-50 p-2 max-h-[400px] overflow-y-auto">
+                  
+                  <button onClick={() => handleAddAction('Log Event')} className="w-full flex items-start gap-4 p-4 hover:bg-gray-50 rounded-lg text-left transition-colors">
+                    <MessageSquare className="w-5 h-5 text-gray-400 mt-0.5 shrink-0" />
+                    <div>
+                       <div className="font-bold text-[14px] text-gray-900">Log Event</div>
+                       <div className="text-[12px] text-gray-500 mt-1 leading-relaxed">Send an event to your analytics tool by calling the corresponding tracking method in your analytics SDK or API.</div>
+                    </div>
+                  </button>
+
+                  <button onClick={() => handleAddAction('Update User Properties')} className="w-full flex items-start gap-4 p-4 hover:bg-gray-50 rounded-lg text-left transition-colors">
+                    <UserPlus className="w-5 h-5 text-gray-400 mt-0.5 shrink-0" />
+                    <div>
+                       <div className="font-bold text-[14px] text-gray-900">Update User Properties</div>
+                       <div className="text-[12px] text-gray-500 mt-1 leading-relaxed">Add one or more user properties that should be attached to the user's profile in your analytics tool.</div>
+                    </div>
+                  </button>
+
+                  <button onClick={() => handleAddAction('Update Group')} className="w-full flex items-start gap-4 p-4 hover:bg-gray-50 rounded-lg text-left transition-colors">
+                    <Users className="w-5 h-5 text-gray-400 mt-0.5 shrink-0" />
+                    <div>
+                       <div className="font-bold text-[14px] text-gray-900">Update group</div>
+                       <div className="text-[12px] text-gray-500 mt-1 leading-relaxed">Associate users with groups and/or update group properties. All events sent after this event will tie the user to the identified group.</div>
+                    </div>
+                  </button>
+
+                  <button onClick={() => handleAddAction('Identify User')} className="w-full flex items-start gap-4 p-4 hover:bg-gray-50 rounded-lg text-left transition-colors">
+                    <UserCheck className="w-5 h-5 text-gray-400 mt-0.5 shrink-0" />
+                    <div>
+                       <div className="font-bold text-[14px] text-gray-900">Identify User</div>
+                       <div className="text-[12px] text-gray-500 mt-1 leading-relaxed">Identify the user in your analytics tool such that they go from anonymous to a user with a user id.</div>
+                    </div>
+                  </button>
+
+                  <button onClick={() => handleAddAction('Unidentify User')} className="w-full flex items-start gap-4 p-4 hover:bg-gray-50 rounded-lg text-left transition-colors">
+                    <UserMinus className="w-5 h-5 text-gray-400 mt-0.5 shrink-0" />
+                    <div>
+                       <div className="font-bold text-[14px] text-gray-900">Unidentify User</div>
+                       <div className="text-[12px] text-gray-500 mt-1 leading-relaxed">Unidentify the user in your analytics tool such that they go from an identified user with a user id to an anonymous user</div>
+                    </div>
+                  </button>
+
+                  <button onClick={() => handleAddAction('Log Revenue')} className="w-full flex items-start gap-4 p-4 hover:bg-gray-50 rounded-lg text-left transition-colors">
+                    <DollarSign className="w-5 h-5 text-gray-400 mt-0.5 shrink-0" />
+                    <div>
+                       <div className="font-bold text-[14px] text-gray-900">Log Revenue</div>
+                       <div className="text-[12px] text-gray-500 mt-1 leading-relaxed">Track revenue in your analytics tool to be able to use its revenue analysis.</div>
+                    </div>
+                  </button>
+
+                  <button onClick={() => handleAddAction('Log Page View')} className="w-full flex items-start gap-4 p-4 hover:bg-gray-50 rounded-lg text-left transition-colors">
+                    <AppWindow className="w-5 h-5 text-gray-400 mt-0.5 shrink-0" />
+                    <div>
+                       <div className="font-bold text-[14px] text-gray-900">Log Page View</div>
+                       <div className="text-[12px] text-gray-500 mt-1 leading-relaxed">Track page view in your analytics tool to be able use their automatic page tracking capabilities.</div>
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -996,13 +1138,13 @@ ${props.map(pid => {
             </div>
             <div className="flex flex-wrap gap-2">
               {categories.map(cat => (
-                <span key={cat} className="flex items-center gap-1 text-[12px] font-medium bg-blue-50 text-blue-700 px-3 py-1.5 rounded border border-blue-100">
+                <span key={cat} className="flex items-center gap-1 text-[13px] font-medium bg-blue-50 text-blue-700 px-3 py-1.5 rounded border border-blue-100">
                   {cat}
                   <button onClick={() => setCategories(categories.filter(c => c !== cat))}><X className="w-3 h-3" /></button>
                 </span>
               ))}
               {!variantId && (
-                <button className="text-[#3E52FF] text-[13px] font-semibold hover:underline flex items-center gap-1">
+                <button className="text-[#3E52FF] text-[14px] font-semibold hover:underline flex items-center gap-1">
                   + Add Category
                 </button>
               )}
@@ -1015,14 +1157,14 @@ ${props.map(pid => {
             </div>
             <div className="flex flex-wrap gap-2">
               {tags.map(tag => (
-                <span key={tag} className="flex items-center gap-1 text-[12px] font-medium bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded border border-emerald-100">
+                <span key={tag} className="flex items-center gap-1 text-[13px] font-medium bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded border border-emerald-100">
                   {tag}
                   <button onClick={() => setTags(tags.filter(t => t !== tag))}><X className="w-3 h-3" /></button>
                 </span>
               ))}
               {!variantId && (
                 <div className="flex items-center">
-                   <Input value={newTag} onChange={(e) => setNewTag(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addTag(); }} placeholder="Add tag..." className="h-8 text-[12px] border-dashed w-32 border-gray-300" />
+                   <Input value={newTag} onChange={(e) => setNewTag(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addTag(); }} placeholder="Add tag..." className="h-9 text-[13px] border-dashed w-40 border-gray-300" />
                 </div>
               )}
             </div>
@@ -1031,65 +1173,69 @@ ${props.map(pid => {
 
         {/* Tracking Code Snippet */}
         <div>
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-4">
             <h3 className="text-[15px] font-bold text-gray-800 flex items-center gap-2">
               <Code className="w-4 h-4 text-gray-400" /> Tracking Code
             </h3>
           </div>
           <div className="bg-[#2A2A2A] rounded-xl overflow-hidden shadow-sm">
-            <div className="px-4 py-3 bg-[#333333] text-[11px] font-bold text-gray-300 border-b border-[#444] flex justify-between">
+            <div className="px-5 py-3 bg-[#333333] text-[12px] font-bold text-gray-300 border-b border-[#444] flex justify-between">
               <span>Website - Javascript (Codegen)</span>
             </div>
-            <pre className="p-4 text-[12px] font-mono text-[#E0E0E0] overflow-x-auto whitespace-pre-wrap leading-relaxed">
+            <pre className="p-5 text-[13px] font-mono text-[#E0E0E0] overflow-x-auto whitespace-pre-wrap leading-relaxed">
               {generateCodegen()}
             </pre>
-            <div className="px-4 py-2.5 bg-[#222222] text-[11px] text-gray-400 font-mono flex items-center gap-3 border-t border-[#111]">
+            <div className="px-5 py-3 bg-[#222222] text-[12px] text-gray-400 font-mono flex items-center gap-3 border-t border-[#111]">
               <span className="text-gray-500">Codegen using Avo CLI:</span>
               <span className="text-white font-semibold">$ avo pull --branch main "Website"</span>
             </div>
           </div>
         </div>
 
-        {/* Mock History Log matching screenshot */}
-        <div className="mt-8 border-t border-gray-200 pt-6">
-          <div className="text-[#3E52FF] font-semibold text-[13px] text-center mb-4 cursor-pointer hover:underline">Load older activity...</div>
-          <div className="text-[12px] text-gray-600 space-y-1.5 font-medium">
-            <p><strong className="text-gray-800">Avo Cado</strong> added the property bundle <strong className="text-gray-800">product_properties</strong> <span className="text-gray-400 font-normal">4 months ago</span></p>
-            <p><strong className="text-gray-800">Avo Cado</strong> cleared the property bundle override for <strong className="text-gray-800">product_properties</strong> <span className="text-gray-400 font-normal">4 months ago</span></p>
-            <p><strong className="text-gray-800">Avo Cado</strong> added the property <strong className="text-gray-800">product_category</strong> <span className="text-gray-400 font-normal">4 months ago</span></p>
-            <p><strong className="text-gray-800">Avo Cado</strong> set the absence of the property <strong className="text-gray-800">product_category</strong> to <strong className="text-gray-800">always sent</strong> <span className="text-gray-400 font-normal">4 months ago</span></p>
-            <p><strong className="text-gray-800">Avo Cado</strong> added the property bundle <strong className="text-gray-800">product_properties</strong> <span className="text-gray-400 font-normal">4 months ago</span></p>
-            <p><strong className="text-gray-800">Avo Cado</strong> set the absence of the property <strong className="text-gray-800">product_price_usd</strong> to <strong className="text-gray-800">sometimes sent</strong> <span className="text-gray-400 font-normal">4 months ago</span></p>
-            <p><strong className="text-gray-800">Avo Cado</strong> connected variant <strong className="text-gray-800">page_viewed - product</strong> to trigger <span className="text-gray-400 font-normal">4 months ago</span></p>
-            <p><strong className="text-gray-800">Avo Cado</strong> pinned the property <strong className="text-gray-800">page_category</strong> to "Product" <span className="text-gray-400 font-normal">4 months ago</span></p>
-            <p><strong className="text-gray-800">Ján Pan</strong> connected variant <strong className="text-gray-800">page_viewed - product</strong> to trigger <span className="text-gray-400 font-normal">about 19 hours ago on</span> <span className="text-gray-400">main</span></p>
+        {/* Functional History Log */}
+        <div className="mt-10 border-t border-gray-200 pt-8">
+          <div className="text-[#3E52FF] font-semibold text-[13px] text-center mb-6 cursor-pointer hover:underline">Load older activity...</div>
+          <div className="text-[13px] text-gray-600 space-y-3 font-medium">
+            {comments.map((c, i) => (
+              <p key={i} className="flex items-start gap-2">
+                 <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">{c.initials}</div>
+                 <span><strong className="text-gray-800">You</strong> commented: "{c.text}" <span className="text-gray-400 font-normal ml-1">{c.date}</span></span>
+              </p>
+            ))}
+            {comments.length === 0 && (
+              <p className="text-center text-gray-400 italic">No recent activity.</p>
+            )}
           </div>
         </div>
 
       </div>
 
       {/* Footer Activity Log / Comment mock */}
-      <div className="absolute bottom-0 w-full bg-white border-t border-gray-200 p-4 flex gap-3 items-center shadow-[0_-4px_15px_-1px_rgba(0,0,0,0.05)] z-40 px-6">
+      <div className="absolute bottom-0 w-full bg-white border-t border-gray-200 p-4 flex gap-4 items-center shadow-[0_-4px_15px_-1px_rgba(0,0,0,0.05)] z-40 px-8">
          <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0">JA</div>
          <input 
-           placeholder="Write a comment on this event..." 
-           className="flex-1 text-[13px] bg-transparent border-none focus:ring-0 outline-none text-gray-600 placeholder:text-gray-400"
+           placeholder="Write a comment on this event... (Press Enter to post)" 
+           className="flex-1 text-[14px] bg-transparent border-none focus:ring-0 outline-none text-gray-800 placeholder:text-gray-400"
+           value={newComment}
+           onChange={(e) => setNewComment(e.target.value)}
+           onKeyDown={handleAddComment}
          />
-         <div className="flex gap-2">
+         <div className="flex gap-3">
             {!isCreating && event && !variantId && (
-              <Button variant="outline" onClick={() => { deleteEvent(event.id); onClose(); }} className="h-9 text-[13px] text-red-600 border-red-200 hover:bg-red-50 px-4">
-                Archive Event
+              <Button variant="outline" onClick={() => { deleteEvent(event.id); onClose(); }} className="h-10 text-[14px] font-bold text-red-600 border-red-200 hover:bg-red-50 px-5">
+                Archive
               </Button>
             )}
-            <Button variant="outline" onClick={onClose} className="h-9 text-[13px] px-4 text-gray-600 border-gray-300">Cancel</Button>
-            <Button onClick={handleSave} className="h-9 text-[13px] bg-[#3E52FF] hover:bg-blue-600 shadow-sm rounded-md px-6">Save</Button>
+            <Button onClick={handleSave} className="h-10 text-[14px] font-bold bg-[#3E52FF] hover:bg-blue-600 shadow-sm rounded-lg px-8">Save</Button>
          </div>
       </div>
+
+      {/* Modals placed inside to overlay properly */}
 
       {/* Create Event Variant Modal */}
       {isVariantModalOpen && (
         <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-2xl shadow-2xl w-[450px] overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-[500px] overflow-hidden">
             <div className="p-8">
                <h2 className="text-2xl font-bold text-gray-900 mb-2">Create event variant</h2>
                <p className="text-[15px] text-gray-700 leading-relaxed mb-6">
@@ -1097,7 +1243,7 @@ ${props.map(pid => {
                </p>
                
                <div className="flex items-center gap-2">
-                 <span className="text-[15px] font-bold text-gray-900">{name} -</span>
+                 <span className="text-[15px] font-bold text-gray-900 whitespace-nowrap">{name} -</span>
                  <Input 
                    value={newVariantName} 
                    onChange={e => setNewVariantName(e.target.value)} 
@@ -1108,11 +1254,107 @@ ${props.map(pid => {
                  />
                </div>
             </div>
-            <div className="px-8 py-5 bg-white flex justify-end gap-3">
+            <div className="px-8 py-5 bg-white flex justify-end gap-3 border-t border-gray-100">
                <Button variant="outline" onClick={() => setIsVariantModalOpen(false)} className="h-10 px-6 text-[15px] text-gray-600 border-gray-300 rounded-lg">Cancel</Button>
                <Button onClick={handleCreateVariant} disabled={!newVariantName.trim()} className="h-10 px-6 text-[15px] bg-[#C1C3C8] text-white disabled:opacity-100 rounded-lg border-none shadow-none font-bold data-[valid=true]:bg-[#3E52FF]" data-valid={!!newVariantName.trim()}>Create variant</Button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Add Trigger Modal */}
+      {isTriggerModalOpen && (
+        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-xl shadow-2xl w-[900px] h-[600px] flex overflow-hidden">
+             {/* Left Upload Area */}
+             <div className="flex-1 p-8 flex flex-col items-center justify-center border-r border-gray-200 bg-gray-50/50">
+               <div className="w-[500px] h-[400px] border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center bg-white">
+                  <ImageIcon className="w-12 h-12 text-gray-400 mb-4" />
+                  <div className="text-[15px] font-bold text-gray-600">Select an image to upload</div>
+                  <div className="text-[13px] text-gray-500 mt-1">or drag and drop it here</div>
+               </div>
+             </div>
+             {/* Right Form Area */}
+             <div className="w-[300px] bg-white flex flex-col">
+               <div className="flex justify-center p-3 border-b border-gray-100 bg-gray-50">
+                 <div className="text-xs bg-gray-200 text-gray-600 font-bold px-3 py-1 rounded-full">New Trigger</div>
+               </div>
+               <div className="p-6 space-y-6 flex-1">
+                 <div>
+                   <div className="flex items-center justify-between mb-2">
+                     <span className="text-[13px] font-bold text-gray-700">Sources</span>
+                     <span className="text-[12px] font-bold text-[#3E52FF] cursor-pointer">Edit</span>
+                   </div>
+                   <div className="inline-block border border-gray-200 rounded-full px-3 py-1 text-[12px] text-gray-500 font-medium">Source Independent</div>
+                 </div>
+                 <div>
+                   <div className="text-[13px] font-bold text-gray-700 mb-2">Trigger Description</div>
+                   <textarea className="w-full text-[13px] border-none focus:ring-0 resize-none h-32 italic text-gray-500 p-0" placeholder="Trigger description..." />
+                 </div>
+               </div>
+               <div className="p-4 border-t border-gray-100 flex justify-end gap-2">
+                 <Button variant="outline" onClick={() => setIsTriggerModalOpen(false)}>Cancel</Button>
+                 <Button onClick={() => setIsTriggerModalOpen(false)}>Save</Button>
+               </div>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Property Modal */}
+      {(isAddEventPropertyModalOpen || isAddSystemPropertyModalOpen) && (
+        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-[60]">
+           <div className="bg-white rounded-xl shadow-2xl w-[800px] h-[500px] flex overflow-hidden flex-col">
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h2 className="text-lg font-bold text-gray-900">Add {isAddEventPropertyModalOpen ? 'Event' : 'System'} Property</h2>
+                <button onClick={() => {setIsAddEventPropertyModalOpen(null); setIsAddSystemPropertyModalOpen(null);}} className="text-gray-400 hover:text-gray-700"><X className="w-5 h-5"/></button>
+              </div>
+              <div className="flex-1 flex overflow-hidden">
+                {/* Property List */}
+                <div className="w-1/2 border-r border-gray-100 overflow-y-auto p-4">
+                  <Input placeholder="Search properties..." className="mb-4" />
+                  <div className="space-y-1">
+                    {(isAddEventPropertyModalOpen ? availableEventProps : availableSystemProps).map(p => (
+                      <div 
+                        key={p.id} 
+                        onMouseEnter={() => setHoveredPropId(p.id)}
+                        onClick={() => {
+                          const actionId = isAddEventPropertyModalOpen || isAddSystemPropertyModalOpen;
+                          const listType = isAddEventPropertyModalOpen ? 'eventProperties' : 'systemProperties';
+                          if(actionId) {
+                            setActions(actions.map(a => a.id === actionId && !a[listType].includes(p.id) ? { ...a, [listType]: [...a[listType], p.id] } : a));
+                          }
+                          setIsAddEventPropertyModalOpen(null);
+                          setIsAddSystemPropertyModalOpen(null);
+                        }}
+                        className={`p-3 rounded-lg cursor-pointer flex items-center justify-between transition-colors ${hoveredPropId === p.id ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                      >
+                        <span className="font-bold text-sm text-gray-800">{p.name}</span>
+                        <span className="font-mono text-[10px] text-gray-500">{p.property_value_type}</span>
+                      </div>
+                    ))}
+                    {(isAddEventPropertyModalOpen ? availableEventProps : availableSystemProps).length === 0 && (
+                      <div className="text-sm text-gray-500 text-center p-4">No available properties to add.</div>
+                    )}
+                  </div>
+                </div>
+                {/* Hover Details */}
+                <div className="w-1/2 bg-gray-50 p-6 flex flex-col">
+                  {hoveredPropId ? (() => {
+                    const hp = data.properties.find(p => p.id === hoveredPropId);
+                    return hp ? (
+                      <>
+                        <h3 className="text-xl font-bold text-gray-900 mb-1">{hp.name}</h3>
+                        <div className="font-mono text-xs text-[#3E52FF] mb-4 bg-blue-100 inline-block self-start px-2 py-1 rounded">{hp.property_value_type}</div>
+                        <p className="text-sm text-gray-700 leading-relaxed">{hp.description || 'No description provided.'}</p>
+                      </>
+                    ) : null;
+                  })() : (
+                    <div className="m-auto text-sm text-gray-400 italic">Hover over a property to see details</div>
+                  )}
+                </div>
+              </div>
+           </div>
         </div>
       )}
     </div>

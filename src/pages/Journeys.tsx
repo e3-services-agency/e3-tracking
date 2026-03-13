@@ -1125,6 +1125,7 @@ function JourneyCanvas({
   const [annotationStart, setAnnotationStart] = useState<Point | null>(null);
   const [draftAnnotationId, setDraftAnnotationId] = useState<string | null>(null);
   const [payloadDraft, setPayloadDraft] = useState('');
+  const [viewerProof, setViewerProof] = useState<QAProof | null>(null);
 
   useEffect(() => {
     if (!activeQARunId) {
@@ -1143,6 +1144,22 @@ function JourneyCanvas({
       setSelectedPanel('summary');
     }
   }, [activeQARunId, journey.id, journey.nodes, journey.edges, setNodes, setEdges]);
+
+  useEffect(() => {
+    if (!viewerProof) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setViewerProof(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [viewerProof]);
 
   useEffect(() => {
     if (!activeQARunId) return;
@@ -1174,6 +1191,8 @@ function JourneyCanvas({
     }
   }, [activeQARunId, journey.qaRuns, journey.nodes, journey.edges, selectedNodeId, setNodes, setEdges]);
 
+  
+
   const onConnect = useCallback(
     (params: Connection | Edge) => {
       if (activeQARunId || tool === 'annotation') return;
@@ -1192,6 +1211,10 @@ function JourneyCanvas({
     },
     [activeQARunId, tool, setEdges]
   );
+
+  useEffect(() => {
+    setPayloadDraft('');
+  }, [selectedNodeId, activeQARunId]);
 
   const onConnectStart = useCallback(
     (
@@ -1261,7 +1284,7 @@ function JourneyCanvas({
           source: pendingConnection.nodeId,
           sourceHandle: pendingConnection.handleId || null,
           target: newNodeId,
-          targetHandle: type === 'journeyStepNode' ? 'left' : 'left',
+          targetHandle: 'left',
           animated: true,
           style: { stroke: '#9CA3AF', strokeWidth: 2 },
           type: 'smoothstep',
@@ -1514,7 +1537,10 @@ function JourneyCanvas({
       // keep raw text
     }
 
-    const newProof = buildTextProof(normalizedContent, 'Payload');
+    const newProof = buildTextProof(
+      normalizedContent,
+      `Payload ${new Date().toLocaleTimeString()}`
+    );
 
     updateQAVerification(selectedNode.id, {
       proofs: [...verificationProofs, newProof],
@@ -2151,11 +2177,47 @@ function JourneyCanvas({
                         </div>
 
                         {proof.type === 'image' ? (
-                          <img src={proof.content} alt={proof.name} className="w-full rounded border" />
+                          <div className="space-y-2">
+                            <button
+                              type="button"
+                              className="block w-full text-left"
+                              onClick={() => setViewerProof(proof)}
+                            >
+                              <img
+                                src={proof.content}
+                                alt={proof.name}
+                                className="w-full rounded border cursor-zoom-in hover:opacity-95 transition"
+                              />
+                            </button>
+
+                            <div className="flex justify-end">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                type="button"
+                                onClick={() => setViewerProof(proof)}
+                              >
+                                View Full Screen
+                              </Button>
+                            </div>
+                          </div>
                         ) : (
-                          <pre className="text-xs bg-white border rounded p-2 overflow-auto max-h-64 whitespace-pre-wrap">
-                            {proof.content}
-                          </pre>
+                          <div className="space-y-2">
+                            <pre className="text-xs bg-white border rounded p-2 overflow-auto max-h-64 whitespace-pre-wrap">
+                              {proof.content}
+                            </pre>
+
+                            <div className="flex justify-end">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                type="button"
+                                onClick={() => setViewerProof(proof)}
+                              >
+                                View Full Screen
+                              </Button>
+                            </div>
+                          </div>
                         )}
                       </div>
                     ))}
@@ -2238,7 +2300,47 @@ function JourneyCanvas({
                     Uploaded or added payloads appear below in Proof Files and can be removed later.
                   </div>
                 </div>
-              )}
+              )}              
+            </div>
+          </div>
+        )}
+        {viewerProof && (
+          <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-6" onClick={() => setViewerProof(null)}>
+            <div className="relative w-full h-full max-w-6xl max-h-[95vh] bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-gray-900 truncate">
+                    {viewerProof.name}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {viewerProof.type.toUpperCase()} • {new Date(viewerProof.createdAt).toLocaleString()}
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  type="button"
+                  onClick={() => setViewerProof(null)}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Close
+                </Button>
+              </div>
+
+              <div className="flex-1 overflow-auto bg-gray-100 p-4">
+                {viewerProof.type === 'image' ? (
+                  <img
+                    src={viewerProof.content}
+                    alt={viewerProof.name}
+                    className="max-w-full max-h-full mx-auto rounded border bg-white"
+                  />
+                ) : (
+                  <pre className="text-sm bg-white border rounded p-4 whitespace-pre-wrap break-words min-h-full">
+                    {viewerProof.content}
+                  </pre>
+                )}
+              </div>
             </div>
           </div>
         )}

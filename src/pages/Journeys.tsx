@@ -425,7 +425,7 @@ const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) => {
             <UploadCloud className="w-4 h-4 mb-1" />
             <span className="font-semibold">Upload Proofs</span>
             <span className="text-gray-500 text-[10px] mt-1 text-center">
-              Multiple screenshots Paste (Ctrl+V)
+              Multiple screenshots or Paste (Ctrl+V)
             </span>
             <input
               type="file"
@@ -2139,7 +2139,7 @@ function JourneyCanvas({
                     <label className="inline-flex">
                       <input
                         type="file"
-                        accept=".json,.txt"
+                        accept=".json,.txt,text/plain,application/json"
                         className="hidden"
                         onChange={async (e) => {
                         const file = e.target.files?.[0];
@@ -2171,7 +2171,7 @@ function JourneyCanvas({
 
                   <textarea
                     className="w-full h-72 rounded-md border border-input bg-background px-3 py-2 text-xs font-mono"
-                    placeholder="Paste your payload JSON here..."
+                    placeholder="Paste text or JSON payload here..."
                     value={currentVerification?.proofText || ''}
                     onPaste={handleTriggerPayloadPaste}
                     onChange={(e) =>
@@ -2182,7 +2182,7 @@ function JourneyCanvas({
                   />
 
                   <div className="text-[11px] text-gray-500">
-                    Paste valid JSON here or use Upload JSON.
+                    Paste text or JSON here, or use Upload Payload.
                     Screenshots and other visual evidence belong in Proof Files.
                     Everything is stored on the QA run, not on the base journey.
                   </div>

@@ -100,7 +100,12 @@ export function Journeys({
     <div className="flex-1 flex flex-col h-full bg-white">
       <div className="p-4 border-b bg-white flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={onBack} className="text-gray-500 hover:text-gray-900">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBack}
+            className="text-gray-500 hover:text-gray-900"
+          >
             &larr; Back
           </Button>
           <h1 className="text-xl font-bold text-gray-900">Journeys</h1>
@@ -147,7 +152,9 @@ export function Journeys({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setNewQARunName(`QA Run - ${new Date().toLocaleDateString()}`);
+                  setNewQARunName(
+                    `QA Run - ${new Date().toLocaleDateString()}`,
+                  );
                   setIsQAModalOpen(true);
                 }}
                 className="gap-2"
@@ -165,12 +172,15 @@ export function Journeys({
                 onClick={() => {
                   const dataStr =
                     'data:text/json;charset=utf-8,' +
-                    encodeURIComponent(JSON.stringify(selectedJourney, null, 2));
-                  const downloadAnchorNode = document.createElement('a');
+                    encodeURIComponent(
+                      JSON.stringify(selectedJourney, null, 2),
+                    );
+                  const downloadAnchorNode =
+                    document.createElement('a');
                   downloadAnchorNode.setAttribute('href', dataStr);
                   downloadAnchorNode.setAttribute(
                     'download',
-                    `${selectedJourney.name.replace(/\s+/g, '_')}.json`
+                    `${selectedJourney.name.replace(/\s+/g, '_')}.json`,
                   );
                   document.body.appendChild(downloadAnchorNode);
                   downloadAnchorNode.click();
@@ -194,11 +204,19 @@ export function Journeys({
                     const reader = new FileReader();
                     reader.onload = (event) => {
                       try {
-                        const importedJourney = JSON.parse(event.target?.result as string) as Journey;
-                        if (importedJourney && importedJourney.nodes && importedJourney.edges) {
+                        const importedJourney = JSON.parse(
+                          event.target?.result as string,
+                        ) as Journey;
+                        if (
+                          importedJourney &&
+                          importedJourney.nodes &&
+                          importedJourney.edges
+                        ) {
                           const createdId = addJourney({
                             ...importedJourney,
-                            name: `${importedJourney.name || 'Journey'} (Imported)`,
+                            name: `${
+                              importedJourney.name || 'Journey'
+                            } (Imported)`,
                             qaRuns: importedJourney.qaRuns || [],
                           });
                           setSelectedJourneyId(createdId);
@@ -244,7 +262,10 @@ export function Journeys({
       <div className="flex-1 relative">
         {selectedJourney ? (
           <ReactFlowProvider>
-            <JourneyCanvas journey={selectedJourney} activeQARunId={activeQARunId} />
+            <JourneyCanvas
+              journey={selectedJourney}
+              activeQARunId={activeQARunId}
+            />
           </ReactFlowProvider>
         ) : (
           <div className="flex items-center justify-center h-full text-gray-500">
@@ -274,7 +295,7 @@ function JourneyCanvas({
 }: {
   journey: Journey;
   activeQARunId: string | null;
-}) {
+}) { }
   const { updateJourney } = useStore();
   const { screenToFlowPosition } = useReactFlow<JourneyFlowNode, JourneyFlowEdge>();
 

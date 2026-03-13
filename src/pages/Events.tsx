@@ -3,11 +3,10 @@ import { useStore, useActiveData } from '@/src/store';
 import { Event, Source, EventAction, EventVariant } from '@/src/types';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
-import { Badge } from '@/src/components/ui/Badge';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { 
   Search, Plus, Trash2, AlertCircle, GitMerge, CheckCircle2, 
-  X, Columns, ChevronDown, ChevronRight, Code, MessageSquare 
+  X, Columns, Code, MessageSquare, Filter
 } from 'lucide-react';
 import { toSnakeCase, toPascalCase } from '@/src/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
@@ -16,12 +15,10 @@ import {
   getCoreRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
-  getExpandedRowModel,
   flexRender,
   ColumnDef,
   ColumnFiltersState,
   VisibilityState,
-  ExpandedState,
 } from '@tanstack/react-table';
 
 // Unified row type for Base Events and Variants
@@ -29,6 +26,7 @@ type EventRow = {
   id: string;
   name: string;
   label: 'Base' | 'Variant';
+  baseEventName?: string; // Used for formatting variant display
   description: string;
   categories: string[];
   sources: Source[];
@@ -37,8 +35,15 @@ type EventRow = {
   actions: EventAction[];
   tags: string[];
   originalEvent: Event;
-  variantId?: string; // If this is a variant row
-  subRows?: EventRow[];
+  variantId?: string;
+};
+
+// Helper for source icon colors
+const getSourceColor = (name: string) => {
+  const lower = name.toLowerCase();
+  if (lower.includes('ios')) return 'bg-amber-400';
+  if (lower.includes('android')) return 'bg-emerald-500';
+  return 'bg-gray-400';
 };
 
 export function Events() {
@@ -48,12 +53,12 @@ export function Events() {
   const [globalFilter, setGlobalFilter] = useState('');
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-  const [expanded, setExpanded] = useState<ExpandedState>(true); // Expand all by default
   
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(undefined);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [viewMode, setViewMode] = useState<'Category' | 'List'>('Category');
 
   useEffect(() => {
     if (selectedItemIdToEdit) {
@@ -85,7 +90,7 @@ export function Events() {
   const selectedEvent = selectedEventId ? data.events.find(e => e.id === selectedEventId) : null;
   const activeBranch = branches.find(b => b.id === activeBranchId);
 
-  // Diff logic
+  // Diff logic for workbench summary
   const diff = useMemo(() => {
     if (activeBranchId === 'main' || !activeBranch) return null;
     const baseEvents = activeBranch.baseData.events;
@@ -103,35 +108,45 @@ export function Events() {
 
   const canMerge = activeBranch && activeBranch.approvals.length > 0;
 
-  // Map Data to hierarchical Table Rows
-  const tableData = useMemo<EventRow[]>(() => {
-    return data.events.map(event => ({
-      id: event.id,
-      name: event.name,
-      label: 'Base',
-      description: event.description,
-      categories: event.categories,
-      sources: event.sources,
-      ownerTeamId: event.ownerTeamId,
-      stakeholderTeamIds: event.stakeholderTeamIds,
-      actions: event.actions,
-      tags: event.tags,
-      originalEvent: event,
-      subRows: event.variants.map(variant => ({
-        id: `${event.id}-${variant.id}`,
-        name: variant.name,
-        label: 'Variant',
-        description: variant.description || event.description,
+  // Flatten events and variants into a single ordered list
+  const flatTableData = useMemo<EventRow[]>(() => {
+    const rows: EventRow[] = [];
+    data.events.forEach(event => {
+      // 1. Base Event
+      rows.push({
+        id: event.id,
+        name: event.name,
+        label: 'Base',
+        description: event.description,
         categories: event.categories,
-        sources: event.sources, 
+        sources: event.sources,
         ownerTeamId: event.ownerTeamId,
         stakeholderTeamIds: event.stakeholderTeamIds,
         actions: event.actions,
         tags: event.tags,
         originalEvent: event,
-        variantId: variant.id,
-      }))
-    }));
+      });
+
+      // 2. Variants
+      event.variants.forEach(variant => {
+        rows.push({
+          id: `${event.id}-${variant.id}`,
+          name: variant.name,
+          label: 'Variant',
+          baseEventName: event.name,
+          description: variant.description || event.description,
+          categories: event.categories,
+          sources: event.sources, 
+          ownerTeamId: event.ownerTeamId,
+          stakeholderTeamIds: event.stakeholderTeamIds,
+          actions: event.actions,
+          tags: event.tags,
+          originalEvent: event,
+          variantId: variant.id,
+        });
+      });
+    });
+    return rows;
   }, [data.events]);
 
   const columns = useMemo<ColumnDef<EventRow>[]>(() => {
@@ -140,27 +155,20 @@ export function Events() {
         accessorKey: 'name',
         header: 'Name',
         cell: ({ row }) => {
-          const isBase = row.original.label === 'Base';
-          const isNew = isBase && diff?.newEvents.some(e => e.id === row.original.originalEvent.id);
-          const isModified = isBase && diff?.modifiedEvents.some(e => e.id === row.original.originalEvent.id);
-
+          const isVariant = row.original.label === 'Variant';
           return (
-            <div className="flex items-center gap-2" style={{ paddingLeft: `${row.depth * 2}rem` }}>
-              {isBase && row.getCanExpand() ? (
-                <button onClick={row.getToggleExpandedHandler()} className="cursor-pointer text-gray-400 hover:text-gray-600">
-                  {row.getIsExpanded() ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                </button>
+            <div 
+              className="flex flex-col cursor-pointer hover:bg-gray-50 -my-2 py-2" 
+              onClick={() => handleOpenEvent(row.original.originalEvent.id, row.original.variantId)}
+            >
+              {isVariant ? (
+                <>
+                  <span className="text-[11px] text-gray-500 font-medium leading-none">{row.original.baseEventName} -</span>
+                  <span className="text-sm font-bold text-gray-900 leading-tight mt-0.5">{row.original.name}</span>
+                </>
               ) : (
-                <div className="w-4" />
+                <span className="text-sm font-semibold text-gray-900 leading-tight">{row.original.name}</span>
               )}
-              {isNew && <span className="w-2 h-2 rounded-full bg-emerald-400"></span>}
-              {isModified && <span className="w-2 h-2 rounded-full bg-purple-400"></span>}
-              <span 
-                className={`font-mono text-sm cursor-pointer hover:underline ${isBase ? 'font-semibold text-gray-900' : 'text-gray-600'}`} 
-                onClick={() => handleOpenEvent(row.original.originalEvent.id, row.original.variantId)}
-              >
-                {row.original.name}
-              </span>
             </div>
           );
         },
@@ -169,7 +177,7 @@ export function Events() {
         accessorKey: 'label',
         header: 'Event Label',
         cell: ({ row }) => (
-          <span className={`text-[10px] px-2 py-1 rounded-md border font-medium ${row.original.label === 'Base' ? 'bg-gray-100 text-gray-600 border-gray-200' : 'bg-purple-50 text-purple-700 border-purple-200'}`}>
+          <span className={`text-[11px] px-3 py-1 rounded-full border font-medium ${row.original.label === 'Base' ? 'bg-white text-gray-600 border-gray-200' : 'bg-white text-gray-600 border-gray-200'}`}>
             {row.original.label}
           </span>
         ),
@@ -177,7 +185,7 @@ export function Events() {
       {
         accessorKey: 'description',
         header: 'Description',
-        cell: ({ row }) => <span className="text-xs text-gray-500 truncate max-w-[200px] block">{row.original.description}</span>,
+        cell: ({ row }) => <span className="text-xs text-gray-500 truncate max-w-[250px] block">{row.original.description || '-'}</span>,
       },
       {
         accessorKey: 'ownerTeamId',
@@ -188,88 +196,177 @@ export function Events() {
         },
       },
       {
+        accessorKey: 'stakeholderTeamIds',
+        header: 'Stakeholders',
+        cell: ({ row }) => {
+          const names = row.original.stakeholderTeamIds.map(id => data.teams.find(t => t.id === id)?.name).filter(Boolean);
+          if (!names.length) return <span className="text-xs text-gray-400 italic">-</span>;
+          return <span className="text-xs text-gray-600 truncate max-w-[150px] block">{names.length}: {names.join(', ')}</span>;
+        },
+      },
+      {
         accessorKey: 'categories',
         header: 'Category',
-        cell: ({ row }) => <div className="text-xs text-gray-600">{row.original.categories.join(', ')}</div>,
+        cell: ({ row }) => <div className="text-xs text-gray-600">{row.original.categories.join(', ') || '-'}</div>,
         filterFn: 'arrIncludesSome',
+      },
+      {
+        id: 'propertyBundles',
+        header: 'Property Bundles',
+        cell: ({ row }) => {
+          const propIds = new Set(row.original.actions.flatMap(a => [...a.eventProperties, ...a.systemProperties]));
+          const bundles = data.propertyBundles.filter(b => b.propertyIds.every(id => propIds.has(id)) && b.propertyIds.length > 0);
+          if (!bundles.length) return <span className="text-xs text-gray-400 italic">-</span>;
+          return <span className="text-xs text-gray-600 truncate max-w-[150px] block">{bundles.map(b => b.name).join(', ')}</span>;
+        },
+      },
+      {
+        id: 'eventProperties',
+        header: 'Event Properties',
+        cell: ({ row }) => {
+          const propIds = Array.from(new Set(row.original.actions.flatMap(a => a.eventProperties)));
+          if (!propIds.length) return <span className="text-xs text-orange-500 font-medium">No event properties</span>;
+          const names = propIds.map(id => data.properties.find(p => p.id === id)?.name).filter(Boolean);
+          return <span className="text-xs text-gray-600 truncate max-w-[200px] block">{names.length}: {names.join(', ')}</span>;
+        },
+      },
+      {
+        id: 'groupProperties',
+        header: 'Group Properties',
+        cell: () => <span className="text-xs text-gray-400 italic">-</span>,
       },
       {
         accessorKey: 'sources',
         header: 'Sources',
-        cell: ({ row }) => (
-          <div className="flex gap-1 flex-wrap">
-            {row.original.sources.map(s => <span key={s.id} className="text-[10px] bg-gray-100 border text-gray-600 px-1.5 py-0.5 rounded-full">{s.name}</span>)}
-          </div>
-        ),
+        cell: ({ row }) => {
+          if (!row.original.sources.length) return <span className="text-xs text-gray-400 italic">-</span>;
+          return (
+            <div className="flex flex-wrap gap-1 items-center text-xs text-gray-600">
+              <span className="font-medium mr-1">{row.original.sources.length}:</span>
+              {row.original.sources.map(s => (
+                <span key={s.id} className="flex items-center gap-1 bg-gray-100 px-1.5 py-0.5 rounded-full border">
+                  <span className={`w-[14px] h-[14px] rounded-full ${getSourceColor(s.name)} text-white flex items-center justify-center text-[8px] font-bold`}>P</span>
+                  {s.name}
+                </span>
+              ))}
+            </div>
+          );
+        },
         filterFn: (row, columnId, filterValue) => {
           const sources = row.getValue(columnId) as Source[];
           return sources.some(s => filterValue.includes(s.id));
         }
+      },
+      {
+        accessorKey: 'actions',
+        header: 'Actions',
+        cell: ({ row }) => {
+          const actionTypes = Array.from(new Set(row.original.actions.map(a => a.type)));
+          if (!actionTypes.length) return <span className="text-xs text-gray-400 italic">-</span>;
+          return <span className="text-xs text-gray-600">{actionTypes.map(t => t === 'Log Event' ? 'Logs event' : t === 'Log Page View' ? 'Logs page view' : t).join(', ')}</span>;
+        },
+      },
+      {
+        accessorKey: 'tags',
+        header: 'Tags',
+        cell: ({ row }) => <span className="text-xs text-gray-600 truncate max-w-[120px] block">{row.original.tags.join(', ') || '-'}</span>,
       }
     ];
 
-    const customCols: ColumnDef<EventRow>[] = data.settings.customEventFields.map(cf => ({
-      id: `custom_${cf.id}`,
-      accessorFn: row => row.originalEvent.customFields?.[cf.id],
-      header: cf.name,
-      cell: info => {
-        const val = info.getValue();
-        if (cf.type === 'url' && val) {
-          return <a href={val as string} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">Link</a>;
-        }
-        return <span className="text-xs text-gray-600">{val !== undefined ? String(val) : '-'}</span>;
-      }
-    }));
-
-    return [...baseCols, ...customCols];
-  }, [data.teams, diff, data.settings.customEventFields]);
+    return baseCols;
+  }, [data.teams, data.properties, data.propertyBundles]);
 
   const table = useReactTable({
-    data: tableData,
+    data: flatTableData,
     columns,
     state: {
       globalFilter,
       columnFilters,
       columnVisibility,
-      expanded,
     },
-    onExpandedChange: setExpanded,
-    getSubRows: row => row.subRows,
     onGlobalFilterChange: setGlobalFilter,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    getExpandedRowModel: getExpandedRowModel(),
   });
+
+  // Group the visible rows by category for rendering
+  const groupedRows = useMemo(() => {
+    const groups: Record<string, typeof table.getRowModel().rows> = {};
+    table.getRowModel().rows.forEach(row => {
+      const cat = row.original.categories[0] || 'Uncategorized';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(row);
+    });
+    
+    // Sort so Uncategorized is at the bottom, others alphabetically
+    return Object.fromEntries(
+      Object.entries(groups).sort(([a], [b]) => {
+        if (a === 'Uncategorized') return 1;
+        if (b === 'Uncategorized') return -1;
+        return a.localeCompare(b);
+      })
+    );
+  }, [table.getRowModel().rows]);
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#F9FAFB]">
-      <div className="p-6 border-b bg-white flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Events ({data.events.length})</h1>
-        </div>
-        <div className="flex gap-3">
-          {activeBranchId !== 'main' && (
-            <Button 
-              variant={canMerge ? "default" : "secondary"}
-              onClick={() => canMerge && mergeBranch(activeBranchId)}
-              disabled={!canMerge}
-              className="gap-2"
-            >
-              <GitMerge className="w-4 h-4" /> Merge Branch
+      
+      {/* Top Header matching Avo UI */}
+      <div className="px-6 py-4 border-b bg-white flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold text-gray-900">Events <span className="text-gray-400 font-normal text-lg">({data.events.length})</span></h1>
+            <Button onClick={handleCreateNew} className="h-8 gap-2 bg-[#F11578] hover:bg-[#D10F65] text-white border-none shadow-sm rounded-md px-3">
+              <Plus className="w-4 h-4" /> New Event
             </Button>
-          )}
-          <Button onClick={handleCreateNew} className="gap-2 bg-[#F11578] hover:bg-[#D10F65] text-white border-none">
-            <Plus className="w-4 h-4" /> New Event
-          </Button>
+            <Button variant="outline" className="h-8 gap-2 bg-white text-gray-600 border-gray-200 shadow-sm rounded-md px-3">
+              <Plus className="w-4 h-4" /> New Category
+            </Button>
+
+            <div className="flex bg-gray-100 p-0.5 rounded-md ml-4 border border-gray-200 shadow-inner">
+              <button 
+                onClick={() => setViewMode('Category')}
+                className={`px-3 py-1 text-xs font-medium rounded ${viewMode === 'Category' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Category
+              </button>
+              <button 
+                onClick={() => setViewMode('List')}
+                className={`px-3 py-1 text-xs font-medium rounded ${viewMode === 'List' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                List
+              </button>
+            </div>
+
+            <Button variant="ghost" className="h-8 gap-2 text-gray-500 hover:text-gray-700 px-3">
+              <Columns className="w-4 h-4" /> Customize
+            </Button>
+            <Button variant="ghost" className="h-8 gap-2 text-gray-500 hover:text-gray-700 px-3">
+              <Filter className="w-4 h-4" /> Filter
+            </Button>
+          </div>
+          
+          <div className="flex gap-3">
+            {activeBranchId !== 'main' && (
+              <Button 
+                variant={canMerge ? "default" : "secondary"}
+                onClick={() => canMerge && mergeBranch(activeBranchId)}
+                disabled={!canMerge}
+                className="h-8 gap-2"
+              >
+                <GitMerge className="w-4 h-4" /> Merge Branch
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="p-6 flex-1 overflow-hidden flex flex-col">
+      <div className="flex-1 overflow-hidden flex flex-col relative">
         {diff && (diff.newEvents.length > 0 || diff.modifiedEvents.length > 0) && (
-          <div className="mb-8 p-4 bg-white border rounded-lg shadow-sm shrink-0">
+          <div className="m-6 mb-2 p-4 bg-white border rounded-lg shadow-sm shrink-0">
             <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
               <GitMerge className="w-4 h-4 text-[#3E52FF]" /> Workbench Summary
             </h3>
@@ -290,13 +387,7 @@ export function Events() {
             
             <div className="mt-4 pt-4 border-t flex items-center justify-between">
               <div className="text-sm text-gray-600">
-                Impacted Stakeholders:{' '}
-                <span className="font-medium">
-                  {Array.from(new Set([...diff.newEvents, ...diff.modifiedEvents].flatMap(e => e.stakeholderTeamIds)))
-                    .map(id => data.teams.find(t => t.id === id)?.name)
-                    .filter(Boolean)
-                    .join(', ') || 'None'}
-                </span>
+                Review changes before merging.
               </div>
               {activeBranch && activeBranch.approvals.length === 0 && (
                 <Button 
@@ -312,107 +403,79 @@ export function Events() {
           </div>
         )}
 
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-4 shrink-0">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="Search events, descriptions, tags..."
-              value={globalFilter ?? ''}
-              onChange={e => setGlobalFilter(e.target.value)}
-              className="pl-9 bg-white"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="relative group">
-              <Button variant="outline" className="bg-white gap-2">
-                <Columns className="w-4 h-4" /> Customize Columns
-              </Button>
-              <div className="absolute right-0 mt-2 w-48 bg-white border rounded-md shadow-lg p-2 hidden group-hover:block z-50">
-                {table.getAllLeafColumns().map(column => {
-                  return (
-                    <div key={column.id} className="px-1 py-1">
-                      <label className="flex items-center gap-2 text-sm cursor-pointer">
-                        <input
-                          {...{
-                            type: 'checkbox',
-                            checked: column.getIsVisible(),
-                            onChange: column.getToggleVisibilityHandler(),
-                          }}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        {column.columnDef.header as string}
-                      </label>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white border rounded-lg shadow-sm flex-1 overflow-auto">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
+        <div className="bg-white flex-1 overflow-auto">
+          <table className="w-full text-left border-collapse min-w-max">
+            <thead className="bg-white sticky top-0 z-10 shadow-sm border-b">
               {table.getHeaderGroups().map(headerGroup => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map(header => (
-                    <th key={header.id} className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">
+                    <th key={header.id} className="px-4 py-4 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
                       {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                     </th>
                   ))}
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y border-t">
-              {table.getRowModel().rows.map(row => (
-                <tr key={row.id} className="hover:bg-gray-50 transition-colors">
-                  {row.getVisibleCells().map(cell => (
-                    <td key={cell.id} className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  ))}
-                </tr>
-              ))}
+            
+            <tbody className="bg-white">
+              {viewMode === 'Category' ? (
+                Object.entries(groupedRows).map(([category, rows]) => (
+                  <React.Fragment key={category}>
+                    {/* Category Group Header */}
+                    <tr className="bg-[#F8F9F9] border-y border-gray-200">
+                      <td colSpan={columns.length} className="px-4 py-3">
+                        <div className="flex items-start gap-3">
+                          <input type="checkbox" className="mt-1 rounded border-gray-300 w-4 h-4" />
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider leading-tight">Category</span>
+                            <div className="flex items-center gap-3 mt-0.5">
+                              <span className="font-bold text-gray-700 text-[15px] leading-tight">{category}</span>
+                              <span className="bg-[#BFC4D0] text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full">{rows.length} events</span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                    
+                    {/* Category Rows */}
+                    {rows.map(row => (
+                      <tr key={row.id} className="hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0">
+                        {row.getVisibleCells().map(cell => (
+                          <td key={cell.id} className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap align-middle">
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                ))
+              ) : (
+                table.getRowModel().rows.map(row => (
+                  <tr key={row.id} className="hover:bg-gray-50 transition-colors border-b border-gray-100">
+                    {row.getVisibleCells().map(cell => (
+                      <td key={cell.id} className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap align-middle">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              )}
               {table.getRowModel().rows.length === 0 && (
                 <tr>
-                  <td colSpan={columns.length} className="px-6 py-8 text-center text-gray-500">
-                    No events found.
+                  <td colSpan={columns.length} className="px-6 py-12 text-center text-gray-500">
+                    No events found. Create one to get started.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-        
-        <div className="mt-4 flex items-center justify-between shrink-0">
-          <div className="text-sm text-gray-500">
-            Showing {table.getRowModel().rows.length} of {tableData.length} events
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              Next
-            </Button>
-          </div>
-        </div>
       </div>
 
       <Sheet
         isOpen={isSheetOpen}
         onClose={() => setIsSheetOpen(false)}
-        title={isCreating ? "Create Event" : selectedVariantId ? `Event Variant` : "Event Details"}
+        title={isCreating ? "Create Event" : selectedVariantId ? `Event Variant` : "Event"}
       >
         {isSheetOpen && (
           <AvoEventEditor

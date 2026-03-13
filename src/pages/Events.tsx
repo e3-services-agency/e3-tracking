@@ -6,7 +6,7 @@ import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { 
   Search, Plus, Trash2, AlertCircle, GitMerge, CheckCircle2, 
-  X, Columns, Code, MessageSquare, Filter
+  X, Columns, Code, MessageSquare, Filter, Image as ImageIcon, ChevronRight
 } from 'lucide-react';
 import { toSnakeCase, toPascalCase } from '@/src/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
@@ -19,6 +19,7 @@ import {
   ColumnDef,
   ColumnFiltersState,
   VisibilityState,
+  Row,
 } from '@tanstack/react-table';
 
 // Unified row type for Base Events and Variants
@@ -158,16 +159,17 @@ export function Events() {
           const isVariant = row.original.label === 'Variant';
           return (
             <div 
-              className="flex flex-col cursor-pointer hover:bg-gray-50 -my-2 py-2" 
+              className="flex flex-col cursor-pointer hover:bg-gray-50 -my-2 py-2 group" 
               onClick={() => handleOpenEvent(row.original.originalEvent.id, row.original.variantId)}
             >
               {isVariant ? (
-                <>
+                <div className="pl-6 relative">
+                  <div className="absolute left-2 top-2 border-l-2 border-b-2 border-gray-300 w-3 h-3 rounded-bl"></div>
                   <span className="text-[11px] text-gray-500 font-medium leading-none">{row.original.baseEventName} -</span>
-                  <span className="text-sm font-bold text-gray-900 leading-tight mt-0.5">{row.original.name}</span>
-                </>
+                  <div className="text-sm font-bold text-gray-900 leading-tight mt-0.5 group-hover:text-[#3E52FF]">{row.original.name}</div>
+                </div>
               ) : (
-                <span className="text-sm font-semibold text-gray-900 leading-tight">{row.original.name}</span>
+                <span className="text-sm font-semibold text-gray-900 leading-tight group-hover:text-[#3E52FF]">{row.original.name}</span>
               )}
             </div>
           );
@@ -294,7 +296,7 @@ export function Events() {
 
   // Group the visible rows by category for rendering
   const groupedRows = useMemo(() => {
-    const groups: Record<string, typeof table.getRowModel().rows> = {};
+    const groups: Record<string, Row<EventRow>[]> = {};
     table.getRowModel().rows.forEach(row => {
       const cat = row.original.categories[0] || 'Uncategorized';
       if (!groups[cat]) groups[cat] = [];
@@ -475,7 +477,7 @@ export function Events() {
       <Sheet
         isOpen={isSheetOpen}
         onClose={() => setIsSheetOpen(false)}
-        title={isCreating ? "Create Event" : selectedVariantId ? `Event Variant` : "Event"}
+        title="" // Controlled inside the component header to match Avo
       >
         {isSheetOpen && (
           <AvoEventEditor
@@ -491,7 +493,7 @@ export function Events() {
 }
 
 /**
- * Refined Editor mimicking the full Avo.app right-sidebar specification
+ * Refined Editor mimicking the exact Avo.app right-sidebar specification
  */
 function AvoEventEditor({ event, variantId, isCreating, onClose }: { event: Event | null | undefined, variantId?: string, isCreating: boolean, onClose: () => void }) {
   const data = useActiveData();
@@ -511,19 +513,7 @@ function AvoEventEditor({ event, variantId, isCreating, onClose }: { event: Even
   const [newCategory, setNewCategory] = useState('');
   const [newTag, setNewTag] = useState('');
 
-  let suggestedName = null;
-  if (name.trim().length > 0) {
-    if (auditConfig.eventNaming === 'snake_case') suggestedName = toSnakeCase(name);
-    else if (auditConfig.eventNaming === 'Title Case') suggestedName = toPascalCase(name).replace(/([A-Z])/g, ' $1').trim();
-    else if (auditConfig.eventNaming === 'camelCase') suggestedName = toPascalCase(name).replace(/^./, str => str.toLowerCase());
-    else if (auditConfig.eventNaming === 'PascalCase') suggestedName = toPascalCase(name);
-    else if (auditConfig.eventNaming === 'Sentence case') {
-      const spaced = name.replace(/[-_]+/g, ' ').trim();
-      suggestedName = spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase();
-    }
-  }
-  
-  if (suggestedName === name) suggestedName = null;
+  const activeVariant = variants.find(v => v.id === variantId);
 
   const addCategory = () => {
     if (newCategory.trim() && !categories.includes(newCategory.trim())) {
@@ -563,16 +553,13 @@ function AvoEventEditor({ event, variantId, isCreating, onClose }: { event: Even
     onClose();
   };
 
-  const activeVariant = variants.find(v => v.id === variantId);
-
   // Pseudo Codegen Builder
   const generateCodegen = () => {
     const fnName = toPascalCase(name).replace(/^./, str => str.toLowerCase());
     const variantSuffix = activeVariant ? toPascalCase(activeVariant.name) : '';
     const props = Array.from(new Set(actions.flatMap(a => [...a.eventProperties, ...a.systemProperties])));
     
-    return `// Javascript (Codegen)
-Avo.${fnName}${variantSuffix}({
+    return `Avo.${fnName}${variantSuffix}({
 ${props.map(pid => {
   const p = data.properties.find(prop => prop.id === pid);
   if (!p) return '';
@@ -583,158 +570,87 @@ ${props.map(pid => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white relative">
-      {/* Header */}
-      <div className="px-6 pt-4 pb-2">
-        {variantId ? (
-          <div className="text-xs text-gray-500 mb-1">Variation of <span className="text-[#3E52FF] font-semibold cursor-pointer">{name}</span></div>
-        ) : null}
-        <Input 
-          value={variantId ? activeVariant?.name : name}
-          onChange={e => variantId 
-            ? setVariants(variants.map(v => v.id === variantId ? { ...v, name: e.target.value } : v))
-            : setName(e.target.value)
-          }
-          className="text-2xl font-bold border-none px-0 shadow-none focus-visible:ring-0 text-gray-900 h-auto"
-          placeholder="Event Name"
-        />
-        {suggestedName && name.trim().length > 0 && !variantId && (
-          <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 p-2 mt-2 rounded-md border border-gray-200">
-            <AlertCircle className="w-4 h-4" />
-            <span>Format:</span>
-            <button onClick={() => setName(suggestedName!)} className="text-xs font-mono bg-white border px-1.5 py-0.5 rounded hover:bg-gray-100">
-              {suggestedName}
-            </button>
+    <div className="flex flex-col h-full bg-white relative font-sans -mx-6 -my-6">
+      
+      {/* Header matching Avo explicitly */}
+      <div className="px-6 py-4 flex justify-between items-start border-b border-gray-100">
+        <div className="flex-1 pr-4">
+          <div className="text-[11px] font-semibold text-gray-500 tracking-wider mb-1 uppercase">
+             Event {variantId ? 'Variant' : ''}
           </div>
-        )}
+          <div className="flex items-center gap-2">
+            {variantId && <span className="text-xl font-bold text-gray-400">{name} - </span>}
+            <input 
+              value={variantId ? activeVariant?.name : name}
+              onChange={e => variantId 
+                ? setVariants(variants.map(v => v.id === variantId ? { ...v, name: e.target.value } : v))
+                : setName(e.target.value)
+              }
+              className={`text-xl font-bold border-none px-0 h-auto focus-visible:ring-0 w-full shadow-none outline-none ${variantId ? 'text-gray-900' : 'text-gray-900'}`}
+              placeholder="Event Name"
+            />
+          </div>
+          {variantId && (
+            <div className="text-[11px] text-gray-500 mt-1">
+              Variation of <span className="text-[#3E52FF] font-semibold cursor-pointer hover:underline">{name}</span>
+            </div>
+          )}
+        </div>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-700 bg-gray-50 rounded-full p-1">
+          <X className="w-4 h-4" />
+        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-6 pb-24 space-y-8">
+      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-10 pb-32">
         
         {/* Stakeholders & Ownership */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">Stakeholders & Ownership</h3>
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <h3 className="text-sm font-bold text-gray-800">Stakeholders & Ownership</h3>
+            <button className="text-xs font-semibold text-[#3E52FF] hover:underline">+ Add stakeholder</button>
           </div>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <select
               value={ownerTeamId}
               onChange={(e) => setOwnerTeamId(e.target.value)}
-              className="text-xs border rounded px-2 py-1.5 bg-white text-gray-700 max-w-[200px]"
+              className="text-xs font-medium border border-gray-200 rounded-md px-3 py-1.5 bg-white text-gray-700 shadow-sm"
             >
               {data.teams.map(t => <option key={t.id} value={t.id}>{t.name} (Owner)</option>)}
             </select>
-
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Stakeholder Teams</label>
-              <div className="flex flex-wrap gap-2 p-2 border rounded-md bg-gray-50 min-h-[42px]">
-                {data.teams.map(t => (
-                  <label key={t.id} className="flex items-center gap-1 text-xs bg-white px-2 py-1 rounded border cursor-pointer hover:bg-gray-100">
-                    <input
-                      type="checkbox"
-                      checked={stakeholderTeamIds.includes(t.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) setStakeholderTeamIds([...stakeholderTeamIds, t.id]);
-                        else setStakeholderTeamIds(stakeholderTeamIds.filter(id => id !== t.id));
-                      }}
-                      className="rounded border-gray-300 text-[#3E52FF]"
-                    />
-                    {t.name}
-                  </label>
-                ))}
-              </div>
-            </div>
+            {stakeholderTeamIds.map(id => {
+              const team = data.teams.find(t => t.id === id);
+              if (!team) return null;
+              return (
+                <span key={id} className="text-xs font-medium border border-gray-200 rounded-md px-3 py-1.5 bg-white text-gray-700 shadow-sm flex items-center gap-2">
+                  {team.name}
+                  <button onClick={() => setStakeholderTeamIds(stakeholderTeamIds.filter(tid => tid !== id))} className="text-gray-400 hover:text-red-500"><X className="w-3 h-3"/></button>
+                </span>
+              );
+            })}
           </div>
         </div>
 
         {/* Description */}
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-gray-900">Description</h3>
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <h3 className="text-sm font-bold text-gray-800">Description</h3>
+          </div>
           <textarea
             value={variantId ? activeVariant?.description || '' : description}
             onChange={(e) => variantId 
               ? setVariants(variants.map(v => v.id === variantId ? { ...v, description: e.target.value } : v))
               : setDescription(e.target.value)
             }
-            className="w-full text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded p-3 min-h-[80px] resize-none focus:bg-white focus:ring-1 focus:ring-[#3E52FF] outline-none"
-            placeholder="Add description..."
+            className="w-full text-[13px] text-gray-700 bg-white border border-gray-200 rounded-md p-4 min-h-[100px] resize-y focus:outline-none focus:ring-1 focus:ring-[#3E52FF] shadow-sm"
+            placeholder={variantId ? "Describe this variant's specific context..." : "Describe the user action..."}
           />
         </div>
 
-        {/* Custom Fields, Categories, Tags (Base Only) */}
-        {!variantId && (
-          <div className="grid grid-cols-1 gap-6">
-            {data.settings.customEventFields.length > 0 && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-gray-900">Custom Fields</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {data.settings.customEventFields.map(cf => (
-                    <div key={cf.id}>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">{cf.name}</label>
-                      {cf.type === 'boolean' ? (
-                        <select
-                          value={customFields[cf.id] !== undefined ? String(customFields[cf.id]) : ''}
-                          onChange={e => setCustomFields({ ...customFields, [cf.id]: e.target.value === 'true' })}
-                          className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-xs"
-                        >
-                          <option value="">Select...</option>
-                          <option value="true">True</option>
-                          <option value="false">False</option>
-                        </select>
-                      ) : (
-                        <Input
-                          type={cf.type === 'number' ? 'number' : 'text'}
-                          value={customFields[cf.id] || ''}
-                          onChange={e => setCustomFields({ ...customFields, [cf.id]: cf.type === 'number' ? Number(e.target.value) : e.target.value })}
-                          placeholder={cf.type === 'url' ? 'https://...' : ''}
-                          className="h-8 text-xs"
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-900">Categories</label>
-              <div className="flex gap-2">
-                <Input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addCategory()} placeholder="Add category..." className="h-8 text-xs" />
-                <Button type="button" onClick={addCategory} variant="outline" className="h-8 text-xs">Add</Button>
-              </div>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {categories.map(cat => (
-                  <span key={cat} className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-md border border-blue-200">
-                    {cat}
-                    <button onClick={() => setCategories(categories.filter(c => c !== cat))}><X className="w-3 h-3" /></button>
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-900">Tags</label>
-              <div className="flex gap-2">
-                <Input value={newTag} onChange={(e) => setNewTag(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addTag()} placeholder="Add tag..." className="h-8 text-xs" />
-                <Button type="button" onClick={addTag} variant="outline" className="h-8 text-xs">Add</Button>
-              </div>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {tags.map(tag => (
-                  <span key={tag} className="flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-md border border-gray-200">
-                    {tag}
-                    <button onClick={() => setTags(tags.filter(t => t !== tag))}><X className="w-3 h-3" /></button>
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Variants Section (Only show on Base Event) */}
         {!variantId && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-900">Variants</h3>
+          <div>
+            <div className="flex items-center gap-3 mb-3">
+              <h3 className="text-sm font-bold text-gray-800">Variants</h3>
               <button 
                 className="text-xs font-semibold text-[#3E52FF] hover:underline"
                 onClick={() => setVariants([...variants, { id: uuidv4(), name: 'New Variant', propertyOverrides: {} }])}
@@ -742,343 +658,296 @@ ${props.map(pid => {
                 + New Variant
               </button>
             </div>
-            {variants.length > 0 ? (
-              <div className="border rounded-md divide-y bg-white">
-                {variants.map(v => (
-                  <div key={v.id} className="p-3 flex items-center justify-between group hover:bg-gray-50 transition-colors">
-                    <div>
-                      <div className="text-sm font-bold text-gray-900">{v.name}</div>
-                      <div className="text-xs text-[#3E52FF] mt-0.5">{Object.keys(v.propertyOverrides).length} Overrides</div>
-                    </div>
-                    <button onClick={() => setVariants(variants.filter(x => x.id !== v.id))} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+            <div className="border border-gray-200 rounded-lg shadow-sm bg-white overflow-hidden">
+              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 text-xs font-bold text-gray-600">
+                {variants.length} Variant{variants.length !== 1 && 's'}
               </div>
-            ) : (
-              <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded border border-dashed">No variants created.</div>
-            )}
-          </div>
-        )}
-
-        {/* Variant Overrides Section (Only show in Variant Mode) */}
-        {variantId && activeVariant && (
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-gray-900">Trigger Overrides</h3>
-              <Input
-                value={activeVariant.triggerOverrides || ''}
-                onChange={e => {
-                  setVariants(variants.map(v => v.id === variantId ? { ...v, triggerOverrides: e.target.value } : v));
-                }}
-                placeholder="e.g. Only triggers when product_category = 'shoes'"
-                className="text-sm h-10"
-              />
-            </div>
-            
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-gray-900">Property Overrides</h3>
-              <div className="bg-white border rounded-md divide-y">
-                {Array.from(new Set(actions.flatMap(a => [...a.eventProperties, ...a.systemProperties]))).map(propId => {
-                  const prop = data.properties.find(p => p.id === propId);
-                  if (!prop) return null;
-                  const override = activeVariant.propertyOverrides[propId] || {};
-                  
-                  return (
-                    <div key={propId} className="p-3 flex items-center justify-between">
-                      <span className="font-mono text-xs font-medium text-gray-900">{prop.name}</span>
-                      <div className="flex gap-2">
-                        <select
-                          className="text-xs border rounded p-1.5 bg-gray-50 focus:ring-[#3E52FF]"
-                          value={override.presence || ''}
-                          onChange={e => {
-                            const val = e.target.value;
-                            setVariants(variants.map(v => {
-                              if (v.id === variantId) {
-                                const newOverrides = { ...v.propertyOverrides };
-                                if (val) newOverrides[propId] = { ...newOverrides[propId], presence: val as any };
-                                else {
-                                  delete newOverrides[propId]?.presence;
-                                  if (Object.keys(newOverrides[propId] || {}).length === 0) delete newOverrides[propId];
-                                }
-                                return { ...v, propertyOverrides: newOverrides };
-                              }
-                              return v;
-                            }));
-                          }}
-                        >
-                          <option value="">Inherit Presence</option>
-                          <option value="Always sent">Always sent</option>
-                          <option value="Sometimes sent">Sometimes sent</option>
-                          <option value="Never sent">Never sent</option>
-                        </select>
-                        <Input
-                          className="h-7 text-xs w-48"
-                          placeholder="Override Constraints"
-                          value={Array.isArray(override.constraints) ? override.constraints.join(', ') : override.constraints || ''}
-                          onChange={e => {
-                            const val = e.target.value;
-                            setVariants(variants.map(v => {
-                              if (v.id === variantId) {
-                                const newOverrides = { ...v.propertyOverrides };
-                                if (val) newOverrides[propId] = { ...newOverrides[propId], constraints: val };
-                                else {
-                                  delete newOverrides[propId]?.constraints;
-                                  if (Object.keys(newOverrides[propId] || {}).length === 0) delete newOverrides[propId];
-                                }
-                                return { ...v, propertyOverrides: newOverrides };
-                              }
-                              return v;
-                            }));
-                          }}
-                        />
+              {variants.length > 0 ? (
+                <div className="divide-y divide-gray-100">
+                  {variants.map(v => (
+                    <div key={v.id} className="p-4 flex items-center justify-between group hover:bg-gray-50 transition-colors">
+                      <div>
+                        <div className="text-sm font-bold text-gray-900">{v.name}</div>
+                        <div className="text-xs font-semibold text-[#3E52FF] mt-1 cursor-pointer hover:underline">{Object.keys(v.propertyOverrides).length} Overrides</div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded-full border border-gray-200 font-medium">Website</span>
+                        <button onClick={() => setVariants(variants.filter(x => x.id !== v.id))} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
-                  );
-                })}
-                {Array.from(new Set(actions.flatMap(a => [...a.eventProperties, ...a.systemProperties]))).length === 0 && (
-                  <div className="p-4 text-xs text-gray-500 italic text-center">No properties connected to override.</div>
-                )}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-gray-500 bg-white p-4 text-center italic">No variants created.</div>
+              )}
             </div>
           </div>
         )}
 
-        {/* Sources */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">Sources</h3>
+        {/* Mock Triggers Section */}
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <h3 className="text-sm font-bold text-gray-800">Triggered when</h3>
+            <button className="text-xs font-semibold text-[#3E52FF] hover:underline">+ New Trigger</button>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {data.sources.map(source => (
-              <button
-                key={source.id}
-                onClick={() => {
-                  if (sources.find(s => s.id === source.id)) setSources(sources.filter(s => s.id !== source.id));
-                  else setSources([...sources, source]);
-                }}
-                className={`px-3 py-1.5 text-xs rounded-md border font-medium transition-colors ${
-                  sources.find(s => s.id === source.id)
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                    : 'bg-white border-gray-200 text-gray-500'
-                }`}
-              >
-                {source.name}
-              </button>
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="border border-gray-200 rounded-lg p-3 w-40 bg-white flex flex-col gap-2 shrink-0 shadow-sm cursor-pointer hover:border-gray-300 transition-colors">
+                <div className="w-full h-24 bg-gray-100 rounded-md flex items-center justify-center border border-gray-200">
+                  <ImageIcon className="w-8 h-8 text-gray-300" />
+                </div>
+                <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mt-1">Source Independ...</div>
+                <div className="text-xs font-bold text-gray-900 leading-tight line-clamp-2">Lands on {variantId ? 'product' : 'home'} page</div>
+                <div className="text-[10px] text-gray-500 line-clamp-1">User lands on...</div>
+              </div>
             ))}
           </div>
         </div>
 
-        {/* Actions & Properties */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">Actions</h3>
+        {/* Sources */}
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <h3 className="text-sm font-bold text-gray-800">Sources</h3>
+            {variantId && <button className="text-[#3E52FF] text-xs font-semibold hover:underline">Edit on variant</button>}
+          </div>
+          <div className="space-y-2">
+            {data.sources.map(source => {
+              const isSelected = sources.find(s => s.id === source.id);
+              if (!isSelected && variantId) return null; // Don't show unselected sources on variant mode to match clean look
+              
+              return (
+                <div key={source.id} className="border border-gray-200 rounded-lg bg-white p-4 flex items-center justify-between shadow-sm cursor-pointer hover:bg-gray-50"
+                  onClick={() => {
+                    if (!variantId) {
+                      if (isSelected) setSources(sources.filter(s => s.id !== source.id));
+                      else setSources([...sources, source]);
+                    }
+                  }}>
+                  <div className="flex items-center gap-3">
+                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                    <span className="font-bold text-sm text-gray-800">{source.name}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-400">Disabled destinations:</span>
+                    <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded border border-gray-200 font-medium">Braze</span>
+                    <div className={`w-[18px] h-[18px] rounded-full ${isSelected ? 'bg-emerald-500' : 'bg-gray-200'} text-white flex items-center justify-center text-[10px] font-bold ml-2`}>
+                      {isSelected ? 'P' : ''}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
             {!variantId && (
-              <Button variant="outline" size="sm" onClick={() => setActions([...actions, { id: uuidv4(), type: 'Log Event', eventProperties: [], systemProperties: [], pinnedProperties: {} }])} className="h-7 text-xs">
-                <Plus className="w-3 h-3 mr-1" /> Add Action
-              </Button>
+              <button className="text-[#3E52FF] text-sm font-semibold hover:underline mt-2">+ Add Source</button>
             )}
           </div>
+        </div>
 
-          {actions.map((action, idx) => (
-            <div key={action.id} className="border rounded-lg bg-white overflow-hidden shadow-sm">
-              <div className="bg-gray-50 px-4 py-3 border-b flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded bg-purple-100 flex items-center justify-center text-purple-600">
-                    <MessageSquare className="w-3 h-3" />
+        {/* Actions & Properties */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-gray-800">Actions</h3>
+          </div>
+
+          <div className="space-y-4">
+            {actions.map((action, idx) => (
+              <div key={action.id} className="border border-gray-200 rounded-xl bg-white shadow-sm overflow-hidden">
+                <div className="bg-white px-5 py-4 border-b border-gray-100 flex items-start justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 w-7 h-7 rounded border border-gray-200 bg-white flex items-center justify-center text-gray-400 shadow-sm">
+                      <MessageSquare className="w-4 h-4" />
+                    </div>
+                    <div>
+                      {!variantId ? (
+                        <select
+                          value={action.type}
+                          onChange={(e) => setActions(actions.map(a => a.id === action.id ? { ...a, type: e.target.value } : a))}
+                          className="font-bold text-sm text-gray-900 bg-transparent border-none focus:ring-0 p-0 hover:bg-gray-50 rounded transition-colors -ml-1"
+                        >
+                          <option value="Log Event">Log Event</option>
+                          <option value="Log Page View">Log Page View</option>
+                          <option value="Identify User">Identify User</option>
+                          <option value="Update Group">Update Group</option>
+                        </select>
+                      ) : (
+                        <div className="font-bold text-sm text-gray-900">{action.type}</div>
+                      )}
+                      <div className="text-[11px] text-gray-500 mt-1">Track page view in your analytics tool to be able use their automatic page tracking capabilities.</div>
+                    </div>
                   </div>
-                  {!variantId ? (
-                    <select
-                      value={action.type}
-                      onChange={(e) => setActions(actions.map(a => a.id === action.id ? { ...a, type: e.target.value } : a))}
-                      className="font-semibold text-sm text-gray-900 bg-transparent border-none focus:ring-0 p-0 hover:bg-gray-200 rounded px-1 transition-colors"
-                    >
-                      <option value="Log Event">Log Event</option>
-                      <option value="Log Page View">Log Page View</option>
-                      <option value="Identify User">Identify User</option>
-                      <option value="Update Group">Update Group</option>
-                    </select>
-                  ) : (
-                    <span className="font-semibold text-sm text-gray-900">{action.type}</span>
-                  )}
                 </div>
-                {!variantId && (
-                  <button onClick={() => setActions(actions.filter(a => a.id !== action.id))} className="text-gray-400 hover:text-red-500">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-              
-              <div className="p-4 space-y-6">
-                {/* Event Properties */}
-                <div>
-                  <div className="flex items-center justify-between mb-3 border-b pb-2">
-                    <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">Event Properties</div>
-                    {!variantId && (
-                      <div className="flex gap-2">
-                        <select 
-                          className="text-[10px] border rounded px-1 py-0.5 bg-gray-50"
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              const bundle = data.propertyBundles.find(b => b.id === e.target.value);
-                              if (bundle) {
-                                setActions(actions.map(a => a.id === action.id ? { ...a, eventProperties: Array.from(new Set([...a.eventProperties, ...bundle.propertyIds])) } : a));
-                              }
-                              e.target.value = '';
-                            }
-                          }}
-                          value=""
-                        >
-                          <option value="">+ Add Bundle</option>
-                          {data.propertyBundles.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                        </select>
-                        <select 
-                          className="text-[10px] border rounded px-1 py-0.5 bg-gray-50"
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              setActions(actions.map(a => a.id === action.id && !a.eventProperties.includes(e.target.value) ? { ...a, eventProperties: [...a.eventProperties, e.target.value] } : a));
-                              e.target.value = '';
-                            }
-                          }}
-                          value=""
-                        >
-                          <option value="">+ Add Property</option>
-                          {data.properties.filter(p => !action.eventProperties.includes(p.id)).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-3">
-                    {action.eventProperties.map(propId => {
-                      const prop = data.properties.find(p => p.id === propId);
-                      if (!prop) return null;
-                      const override = variantId ? activeVariant?.propertyOverrides[propId] : undefined;
-                      const presence = override?.presence || prop.attached_events.find(e => e.eventId === event?.id)?.presence || 'Always sent';
-                      
-                      return (
-                        <div key={propId} className="flex items-start justify-between group">
-                          <div className="flex-1">
+                
+                <div className="p-5 space-y-6">
+                  {/* Event Properties */}
+                  <div>
+                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Event Properties</div>
+                    
+                    {/* Mock Property Bundle block based on screenshot */}
+                    <div className="border border-gray-200 rounded-lg p-3 flex items-start justify-between mb-3 bg-white shadow-sm">
+                       <div className="flex items-start gap-2">
+                         <ChevronRight className="w-4 h-4 text-gray-400 mt-0.5" />
+                         <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-mono text-sm font-semibold text-gray-900">{prop.name}</span>
-                              <span className="font-mono text-[10px] text-gray-500">{prop.property_value_type}</span>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${presence === 'Always sent' ? 'bg-gray-100 text-gray-600' : 'bg-amber-100 text-amber-700'}`}>
-                                {presence}
-                              </span>
+                              <span className="font-bold text-sm text-gray-900">product_properties</span>
+                              <span className="text-[11px] text-gray-500 font-medium">Bundle of 5 Properties</span>
                             </div>
-                            <div className="text-xs text-gray-500 mt-1 line-clamp-1">{prop.description}</div>
-                          </div>
-                          {!variantId && (
-                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Input
-                                className="h-7 text-xs w-28 px-2"
-                                placeholder="Pin Value..."
-                                value={action.pinnedProperties?.[propId] || ''}
-                                onChange={(e) => {
-                                  const newActions = [...actions];
-                                  const aIdx = newActions.findIndex(a => a.id === action.id);
-                                  newActions[aIdx] = {
-                                    ...action,
-                                    pinnedProperties: { ...(action.pinnedProperties || {}), [propId]: e.target.value }
-                                  };
-                                  setActions(newActions);
-                                }}
-                              />
-                              <button onClick={() => setActions(actions.map(a => a.id === action.id ? { ...a, eventProperties: a.eventProperties.filter(id => id !== propId) } : a))} className="text-gray-400 hover:text-red-500 p-1">
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {action.eventProperties.length === 0 && <div className="text-xs text-gray-400 italic">No event properties attached.</div>}
-                  </div>
-                </div>
+                            <div className="text-xs text-gray-500 mt-0.5">Properties relating to products</div>
+                         </div>
+                       </div>
+                    </div>
 
-                {/* System Properties */}
-                <div>
-                  <div className="flex items-center justify-between mb-3 border-b pb-2">
-                    <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">System Properties</div>
+                    <div className="space-y-4">
+                      {action.eventProperties.map(propId => {
+                        const prop = data.properties.find(p => p.id === propId);
+                        if (!prop) return null;
+                        const override = variantId ? activeVariant?.propertyOverrides[propId] : undefined;
+                        const presence = override?.presence || prop.attached_events.find(e => e.eventId === event?.id)?.presence || 'Always sent';
+                        const isPinned = !!override?.constraints;
+                        
+                        return (
+                          <div key={propId} className="flex flex-col group border-b border-gray-50 pb-4 last:border-0 last:pb-0">
+                            <div className="flex items-center gap-3">
+                              <span className="font-bold text-[13px] text-gray-900">{prop.name}</span>
+                              <span className="font-mono text-[10px] text-gray-500">{prop.property_value_type}</span>
+                              <span className="text-[11px] text-gray-500">{presence}</span>
+                              {isPinned && <span className="text-[11px] font-semibold text-emerald-600 ml-auto">Pinned to "{override.constraints}" (on this event variant)</span>}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">{prop.description}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
                     {!variantId && (
-                      <select 
-                        className="text-[10px] border rounded px-1 py-0.5 bg-gray-50"
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            setActions(actions.map(a => a.id === action.id && !a.systemProperties.includes(e.target.value) ? { ...a, systemProperties: [...a.systemProperties, e.target.value] } : a));
-                            e.target.value = '';
-                          }
-                        }}
-                        value=""
-                      >
-                        <option value="">+ Add Property</option>
-                        {data.properties.filter(p => !action.systemProperties.includes(p.id)).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </select>
+                      <button className="text-[#3E52FF] text-xs font-semibold hover:underline mt-4">+ Add Event Property</button>
+                    )}
+                    {variantId && (
+                      <button className="text-[#3E52FF] text-xs font-semibold hover:underline mt-4">+ Add Event Property to Variant</button>
                     )}
                   </div>
-                  <div className="space-y-3">
-                    {action.systemProperties.map(propId => {
-                      const prop = data.properties.find(p => p.id === propId);
-                      if (!prop) return null;
-                      return (
-                        <div key={propId} className="flex items-center justify-between group">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-sm font-semibold text-gray-900">{prop.name}</span>
-                            <span className="font-mono text-[10px] text-gray-500">{prop.property_value_type}</span>
+
+                  {/* System Properties */}
+                  <div>
+                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">System Properties</div>
+                    <div className="space-y-4">
+                      {action.systemProperties.map(propId => {
+                        const prop = data.properties.find(p => p.id === propId);
+                        if (!prop) return null;
+                        return (
+                          <div key={propId} className="flex flex-col group border-b border-gray-50 pb-4 last:border-0 last:pb-0">
+                            <div className="flex items-center gap-3">
+                              <span className="font-bold text-[13px] text-gray-900">{prop.name}</span>
+                              <span className="font-mono text-[10px] text-gray-500">{prop.property_value_type}</span>
+                              <span className="text-[11px] text-gray-500">Always sent</span>
+                            </div>
+                            <div className="text-xs text-gray-500 mt-1">{prop.description}</div>
                           </div>
-                          {!variantId && (
-                            <button onClick={() => setActions(actions.map(a => a.id === action.id ? { ...a, systemProperties: a.systemProperties.filter(id => id !== propId) } : a))} className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1">
-                              <X className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {action.systemProperties.length === 0 && <div className="text-xs text-gray-400 italic">No system properties attached.</div>}
+                        );
+                      })}
+                    </div>
+                    {!variantId && (
+                      <button className="text-[#3E52FF] text-xs font-semibold hover:underline mt-4">+ Add System Property</button>
+                    )}
                   </div>
                 </div>
               </div>
+            ))}
+            {!variantId && (
+              <button className="text-[#3E52FF] text-sm font-semibold hover:underline mt-2">+ Add Action</button>
+            )}
+          </div>
+        </div>
+
+        {/* Categories & Tags */}
+        <div className="grid grid-cols-1 gap-6">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h3 className="text-sm font-bold text-gray-800">Categories</h3>
             </div>
-          ))}
+            <div className="flex flex-wrap gap-2">
+              {categories.map(cat => (
+                <span key={cat} className="flex items-center gap-1 text-[11px] font-medium bg-blue-50 text-blue-700 px-3 py-1.5 rounded border border-blue-100">
+                  {cat}
+                  <button onClick={() => setCategories(categories.filter(c => c !== cat))}><X className="w-3 h-3" /></button>
+                </span>
+              ))}
+              {!variantId && (
+                <button className="text-[#3E52FF] text-xs font-semibold hover:underline flex items-center gap-1">
+                  + Add Category
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <h3 className="text-sm font-bold text-gray-800">Tags</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {tags.map(tag => (
+                <span key={tag} className="flex items-center gap-1 text-[11px] font-medium bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded border border-emerald-100">
+                  {tag}
+                  <button onClick={() => setTags(tags.filter(t => t !== tag))}><X className="w-3 h-3" /></button>
+                </span>
+              ))}
+              {!variantId && (
+                <div className="flex items-center">
+                   <Input value={newTag} onChange={(e) => setNewTag(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addTag(); }} placeholder="Add tag..." className="h-7 text-xs border-dashed w-32 border-gray-300" />
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Tracking Code Snippet */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-            <Code className="w-4 h-4" /> Tracking Code
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+              <Code className="w-4 h-4 text-gray-400" /> Tracking Code
+            </h3>
           </div>
-          <div className="bg-[#1E1E1E] rounded-lg border border-gray-800 overflow-hidden shadow-sm">
-            <div className="px-4 py-2 bg-[#2D2D2D] text-xs font-mono text-gray-300 border-b border-gray-700 flex justify-between">
-              <span>Javascript (Codegen)</span>
+          <div className="bg-[#2A2A2A] rounded-xl overflow-hidden shadow-sm">
+            <div className="px-4 py-3 bg-[#333333] text-[11px] font-bold text-gray-300 border-b border-[#444] flex justify-between">
+              <span>Website - Javascript (Codegen)</span>
             </div>
-            <pre className="p-4 text-xs font-mono text-[#D4D4D4] overflow-x-auto whitespace-pre-wrap leading-relaxed">
+            <pre className="p-4 text-[11px] font-mono text-[#E0E0E0] overflow-x-auto whitespace-pre-wrap leading-relaxed">
               {generateCodegen()}
             </pre>
+            <div className="px-4 py-2 bg-[#222222] text-[10px] text-gray-400 font-mono flex items-center gap-3 border-t border-[#111]">
+              <span className="text-gray-500">Codegen using Avo CLI:</span>
+              <span className="text-white">$ avo pull --branch main "Website"</span>
+            </div>
           </div>
         </div>
 
       </div>
 
-      {/* Footer */}
-      <div className="absolute bottom-0 w-full bg-white border-t p-4 flex justify-between items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-10">
-        {!isCreating && event && !variantId && (
-          <Button variant="destructive" onClick={() => { deleteEvent(event.id); onClose(); }} className="h-8 text-xs bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-none shadow-none">
-            Archive Event
-          </Button>
-        )}
-        {variantId && (
-           <Button variant="destructive" onClick={() => { 
-             setVariants(variants.filter(v => v.id !== variantId));
-             onClose(); 
-           }} className="h-8 text-xs bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 border-none shadow-none">
-             Delete Variant
-           </Button>
-        )}
-        {!(!isCreating && event) && !variantId && <div />}
-        <div className="flex gap-2 ml-auto">
-          <Button variant="outline" onClick={onClose} className="h-8 text-xs">Cancel</Button>
-          <Button onClick={handleSave} className="h-8 text-xs bg-[#3E52FF] hover:bg-blue-600">Save</Button>
-        </div>
+      {/* Floating Mock Action Buttons (Visual Match to bottom right of screenshot) */}
+      <div className="absolute bottom-6 right-6 flex gap-3 z-50">
+        <button className="w-10 h-10 rounded-full bg-[#3E52FF] text-white flex items-center justify-center shadow-lg hover:bg-blue-600 transition-transform hover:scale-105">
+           <span className="font-bold text-lg">?</span>
+        </button>
+        <button className="w-10 h-10 rounded-full bg-[#F11578] text-white flex items-center justify-center shadow-lg hover:bg-[#D10F65] transition-transform hover:scale-105">
+           <MessageSquare className="w-5 h-5 fill-current" />
+        </button>
+      </div>
+
+      {/* Footer Activity Log / Comment mock */}
+      <div className="absolute bottom-0 w-full bg-white border-t border-gray-200 p-3 flex gap-3 items-center shadow-[0_-4px_10px_-1px_rgba(0,0,0,0.05)] z-40 px-6">
+         <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0">JA</div>
+         <input 
+           placeholder="Write a comment on this event..." 
+           className="flex-1 text-sm bg-transparent border-none focus:ring-0 outline-none text-gray-600 placeholder:text-gray-400"
+         />
+         <div className="flex gap-2">
+            {!isCreating && event && !variantId && (
+              <Button variant="outline" onClick={() => { deleteEvent(event.id); onClose(); }} className="h-8 text-xs text-red-600 border-red-200 hover:bg-red-50">
+                Archive
+              </Button>
+            )}
+            <Button onClick={handleSave} className="h-8 text-xs bg-[#3E52FF] hover:bg-blue-600 shadow-sm rounded-md px-6">Save</Button>
+         </div>
       </div>
     </div>
   );

@@ -6,10 +6,8 @@ import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 const SPACE_BLUE = '#1A1E38';
 const E3_WHITE = '#EEEEE3';
 
-const LOGO_SRC =
-  typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL != null
-    ? `${String(import.meta.env.BASE_URL).replace(/\/$/, '')}/branding/agency-logo.png`.replace(/\/+/g, '/')
-    : '/branding/agency-logo.png';
+// Root-relative so static file is served from deployment root (Vercel serves dist/ at /)
+const LOGO_SRC = '/branding/agency-logo.png';
 
 export function Header() {
   const { settings } = useActiveData();

@@ -129,3 +129,30 @@ No separate build step is needed for the API; Vercel builds the `api/` serverles
    - [ ] Open **`/docs/user-manual/getting-started.md`** (or the Docs page) and confirm the Living Documentation loads.
 
 If the API were on a **different** host, you would set **`VITE_API_BASE_URL`** to that host and add that origin to **Supabase Redirect URLs** and to **`CORS_ORIGIN`** on the API server to avoid CORS and auth issues.
+
+---
+
+## Troubleshooting: “Unable to sync” / Sign-in or data not working
+
+If you’ve added the right credentials (e.g. email/password) but still can’t sign in or data doesn’t load (“sync”):
+
+### 1. Sign-in fails or redirects away
+
+- **Redirect URL not allowed:** Supabase only allows sign-in redirects to URLs in **Authentication → URL Configuration → Redirect URLs**. Add the **exact** URL where the app runs, including path if you use one, e.g.:
+  - `https://your-app.vercel.app/**`
+  - `https://your-app.vercel.app/tracking-plan/**` (if `base` is `/tracking-plan/`)
+  - `https://your-domain.com/**`
+- **Site URL:** Set **Authentication → URL Configuration → Site URL** to that same base (e.g. `https://your-app.vercel.app` or `https://your-app.vercel.app/tracking-plan`).
+- **Wrong project:** Ensure **VITE_SUPABASE_URL** and **VITE_SUPABASE_ANON_KEY** in Vercel are from the **same** Supabase project you’re using (production), and that you’re not mixing staging and production keys.
+- **Email confirmation:** If **Authentication → Providers → Email → Confirm email** is enabled in Supabase, users must confirm their email before sign-in succeeds. Check the inbox (and spam) or temporarily disable confirm email for testing.
+
+### 2. Sign-in works but workspaces / data don’t load
+
+- **401 on API calls:** The app sends the Supabase JWT in `Authorization: Bearer`. If the backend returns 401, the token might not be sent (e.g. session not ready) or the **backend** might be using the wrong Supabase project. Confirm **SUPABASE_URL**, **SUPABASE_ANON_KEY**, and **SUPABASE_SERVICE_ROLE_KEY** in Vercel match the same project and that the API is actually receiving the request (same-origin: leave **VITE_API_BASE_URL** unset).
+- **Empty workspace list:** Workspaces are loaded via Supabase with RLS. The user must be in **`workspace_members`** for a workspace to appear. If you just created the workspace, ensure the signed-in user was added as a member (e.g. via Workspace Settings → invite, or by the backend when creating the workspace).
+
+### 3. Quick checks
+
+- Open the browser **Network** tab: on sign-in, look for the Supabase Auth request and the redirect; then for `/api/workspaces` or Supabase `workspaces` requests. Note any failed (red) requests and their status (401, 403, 404, CORS).
+- In **Supabase Dashboard → Authentication → Users**, confirm the user exists and is confirmed (if confirm email is on).
+- In **Supabase → Table Editor → workspace_members**, confirm the user’s `user_id` appears for the workspace they expect to see.

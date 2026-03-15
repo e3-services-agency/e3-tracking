@@ -1,7 +1,8 @@
 /**
  * E3-branded login: Space Blue background, white card, Emerald primary button.
+ * On success, redirects to app root so the user enters the dashboard.
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mail, Lock } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Button } from '@/src/components/ui/Button';
@@ -14,13 +15,26 @@ const EMERALD = '#0DCC96';
 
 const LOGO_SRC = `${import.meta.env.BASE_URL || '/'}branding/logo-light.png`.replace(/\/+/g, '/');
 
+/** App root URL for redirect after login (respects base path e.g. /tracking-plan/). */
+const APP_ROOT =
+  typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL != null
+    ? `${String(import.meta.env.BASE_URL).replace(/\/$/, '')}/`.replace(/\/+/g, '/')
+    : '/';
+
 export function Login() {
-  const { signIn } = useAuth();
+  const { user, signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [logoError, setLogoError] = useState(false);
+
+  // If already logged in (e.g. session restored), go to app
+  useEffect(() => {
+    if (user) {
+      window.location.href = APP_ROOT;
+    }
+  }, [user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +51,8 @@ export function Login() {
       setError(err);
       return;
     }
+    // Success: onAuthStateChange will set user; redirect so we leave /login and show dashboard
+    window.location.href = APP_ROOT;
   };
 
   return (

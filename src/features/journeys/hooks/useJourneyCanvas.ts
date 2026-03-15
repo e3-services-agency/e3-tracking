@@ -19,6 +19,12 @@ import type {
   TestingProfile,
 } from '@/src/types';
 import {
+  saveJourneyCanvasApi,
+  validatePayloadApi,
+  useActiveWorkspaceId,
+  type ValidatePayloadResult,
+} from '@/src/features/journeys/hooks/useJourneysApi';
+import {
   JourneyStepFlowNode,
   TriggerFlowNode,
   NoteFlowNode,
@@ -36,13 +42,17 @@ import { readFileAsContent, buildProofFromFile } from '@/src/features/journeys/l
 type UseJourneyCanvasArgs = {
   journey: Journey;
   activeQARunId: string | null;
+  readOnly?: boolean;
 };
 
 export function useJourneyCanvas({
   journey,
   activeQARunId,
+  readOnly = false,
 }: UseJourneyCanvasArgs) {
   const { updateJourney } = useStore();
+  const { getAccessToken } = useAuth();
+  const activeWorkspaceId = useActiveWorkspaceId();
   const { screenToFlowPosition } =
     useReactFlow<JourneyFlowNode, JourneyFlowEdge>();
 
@@ -75,6 +85,9 @@ export function useJourneyCanvas({
   );
   const [payloadDraft, setPayloadDraft] = useState('');
   const [viewerProof, setViewerProof] = useState<QAProof | null>(null);
+  const [payloadValidationResult, setPayloadValidationResult] =
+    useState<ValidatePayloadResult | null>(null);
+  const [isValidatingPayload, setIsValidatingPayload] = useState(false);
 
   useEffect(() => {
     if (!activeQARunId) {
@@ -85,6 +98,7 @@ export function useJourneyCanvas({
             ...node.data,
             activeQARunId: null,
             qaVerification: undefined,
+            readOnly: readOnly || undefined,
           },
         }),
       );
@@ -94,7 +108,7 @@ export function useJourneyCanvas({
       setSelectedNodeId(null);
       setSelectedPanel('summary');
     }
-  }, [activeQARunId, journey.id, journey.nodes, journey.edges, setNodes, setEdges]);
+  }, [activeQARunId, journey.id, journey.nodes, journey.edges, readOnly, setNodes, setEdges]);
 
   useEffect(() => {
     if (!viewerProof) return;
@@ -232,7 +246,7 @@ export function useJourneyCanvas({
             id: newNodeId,
             type,
             position,
-            data: { label: `Step ${stepCount + 1}`, description: '' },
+            data: { label: `Step ${stepCount + 1}`, description: '', implementationType: 'new' },
           }
         : {
             id: newNodeId,
@@ -263,15 +277,25 @@ export function useJourneyCanvas({
     setPendingConnection(null);
   };
 
-  const handleSaveLayout = () => {
+  const handleSaveLayout = async () => {
     setIsSaving(true);
-
-    setTimeout(() => {
-      updateJourney(journey.id, { nodes, edges });
-      setIsSaving(false);
+    const result = await saveJourneyCanvasApi(journey.id, nodes, edges, activeWorkspaceId);
+    setIsSaving(false);
+    if (result.success) {
+      const type_counts = (() => {
+        const counts = { new: 0, enrichment: 0, fix: 0 };
+        for (const n of nodes) {
+          if (n?.type !== 'journeyStepNode') continue;
+          const t = (n.data as { implementationType?: string })?.implementationType;
+          if (t === 'new' || t === 'enrichment' || t === 'fix') counts[t] += 1;
+        }
+        return counts;
+      })();
+      updateJourney(journey.id, { nodes, edges, type_counts });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
-    }, 300);
+    }
+    // On failure, leave isSaving false; caller can show error if needed
   };
 
   const handleSaveQA = () => {
@@ -296,7 +320,12 @@ export function useJourneyCanvas({
       id: `step-${Date.now()}`,
       type: 'journeyStepNode',
       position: { x: 100, y: 100 },
-      data: { label: `Step ${stepCount + 1}`, description: '' },
+      data: {
+        label: `Step ${stepCount + 1}`,
+        description: '',
+        implementationType: 'new',
+        actionType: 'click',
+      },
     };
 
     setNodes((existingNodes) => existingNodes.concat(newNode));
@@ -386,7 +415,7 @@ export function useJourneyCanvas({
     if (tool === 'annotation') return;
 
     if (
-      activeQARunId &&
+      (activeQARunId || readOnly) &&
       (node.type === 'journeyStepNode' || node.type === 'triggerNode')
     ) {
       setSelectedNodeId(node.id);
@@ -549,6 +578,35 @@ export function useJourneyCanvas({
     e.preventDefault();
   };
 
+  const handleValidatePayload = async () => {
+    if (!selectedNode || !isTriggerNode(selectedNode)) return;
+    const eventId = selectedNode.data.connectedEvent?.eventId;
+    if (!eventId) {
+      setPayloadValidationResult({
+        valid: false,
+        missing_keys: ['Connect an event to this trigger to validate payload.'],
+      });
+      return;
+    }
+    const jsonToValidate =
+      payloadDraft.trim() || (verificationProofs[0]?.content ?? '{}');
+    setIsValidatingPayload(true);
+    setPayloadValidationResult(null);
+    const result = await validatePayloadApi(
+      journey.id,
+      eventId,
+      jsonToValidate,
+      activeWorkspaceId,
+    );
+    setIsValidatingPayload(false);
+    if (result.success) {
+      setPayloadValidationResult(result.result);
+    } else {
+      const msg = 'error' in result ? result.error : 'Validation failed';
+      setPayloadValidationResult({ valid: false, missing_keys: [msg] });
+    }
+  };
+
   const activeVerifications = activeQARun?.verifications || {};
   const runProfiles = activeQARun?.testingProfiles || [];
   const nodeLinkedProfileIds = currentVerification?.testingProfileIds || [];
@@ -628,6 +686,7 @@ export function useJourneyCanvas({
     updateQAVerification,
     handleAddPayload,
     handleTriggerPayloadPaste,
+    handleValidatePayload,
     updateNodeLinkedProfiles,
     addExtraNodeProfile,
     updateExtraNodeProfile,
@@ -641,6 +700,8 @@ export function useJourneyCanvas({
     setPayloadDraft,
     setViewerProof,
     closeViewerProof,
+    setNodes,
+    buildTextProof,
     // exposed state
     selectedPanel,
     selectedNodeId,
@@ -656,6 +717,8 @@ export function useJourneyCanvas({
     draftAnnotationId,
     payloadDraft,
     viewerProof,
+    payloadValidationResult,
+    isValidatingPayload,
     activeQARun,
     selectedNode,
     currentVerification,
@@ -665,6 +728,7 @@ export function useJourneyCanvas({
     nodeExtraProfiles,
     verificationProofs,
     pendingNodeProofs,
+    readOnly,
   };
 }
 

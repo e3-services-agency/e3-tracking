@@ -15,12 +15,39 @@ export type BaseJourneyNodeData = {
   pendingProofs?: QAProof[];
 };
 
+/** AI Agent step action type. */
+export type JourneyStepActionType = 'click' | 'type' | 'hover' | 'verify';
+
+export const JOURNEY_STEP_ACTION_TYPES: JourneyStepActionType[] = [
+  'click',
+  'type',
+  'hover',
+  'verify',
+];
+
+/** Implementation scope / type for the step. */
+export type ImplementationType = 'new' | 'enrichment' | 'fix';
+
+export const IMPLEMENTATION_TYPES: ImplementationType[] = [
+  'new',
+  'enrichment',
+  'fix',
+];
+
 export type JourneyStepNodeData = BaseJourneyNodeData & {
   label: string;
   description: string;
   imageUrl?: string;
   /** URL for this step (e.g. screen or flow) to open during QA testing. */
   url?: string;
+  /** Implementation scope: new implementation, enrichment, or fix. */
+  implementationType?: ImplementationType;
+  /** AI Agent: action to perform at this step. */
+  actionType?: JourneyStepActionType;
+  /** AI Agent: HTML snippet or CSS selector for the target element. */
+  targetElement?: string;
+  /** AI Agent: optional JSON string for test data (e.g. input values, expected text). */
+  testDataJson?: string;
 };
 
 export type TriggerNodeData = BaseJourneyNodeData & {

@@ -1,0 +1,45 @@
+---
+description: E3 tracking project stack, structure, engineering philosophy, and reference guide
+alwaysApply: true
+---
+
+# E3 Tracking – Project Context & Engineering Rules
+
+## 1. Engineering Philosophy (The "gstack" Mindset)
+When writing, planning, or reviewing code, adopt a **Paranoid Staff Engineer** and **Founder** mindset: ship minimal, robust, maintainable code.
+
+- **Challenge the scope**: Before writing complex code, ask: "Is there a simpler way? What is the absolute minimum diff?"
+- **Zero silent failures**: Never swallow errors. Every `try/catch` must handle the error explicitly—log full context (what was attempted, with what arguments) and degrade gracefully or show an actionable user message.
+- **Shadow paths**: For every data flow (especially React ↔ Zustand ↔ Express), account for: `undefined`/`null` input, empty arrays/strings, and network/upstream errors.
+- **Trust boundaries**: Treat frontend input to Express/SQLite as hostile. Validate shapes and types; sanitize before DB execution.
+
+## 2. Stack
+- **React 19** + **Vite 6** + **TypeScript 5.8**
+- **Tailwind 4**, **Zustand** (store), **TanStack Table**, **@xyflow/react** (React Flow)
+- **Express** + **better-sqlite3** (backend/API), **PapaParse**, **lucide-react**, **motion**
+
+## 3. Paranoid Review Checklist (Stack-Specific)
+- **React/Zustand**: Stale closures in hooks; missing dependency array items; race conditions in async state updates.
+- **Express/SQLite**: N+1 queries in nested data; missing DB indexes; TOCTOU (time-of-check to time-of-use) race conditions.
+- **React Flow (@xyflow)**: Node/edge state stays in sync with Zustand. Edge cases: e.g. deleting a node that has active edges.
+
+## 4. Structure
+- `src/features/` – events, journeys, properties (each: editor, overlays, hooks, lib, page)
+- `src/components/` – layout (Layout, Sidebar), ui (Button, Badge, Input, Sheet), ErrorBoundary
+- `src/pages/` – Events, Journeys, JourneysList, Properties, Sources, Settings, Docs, TrackingPlanAuditConfig
+- `src/lib/` – handoff (generateHandoff, downloadHandoffFile, htmlUtils, serializeHandoffData), audit, utils
+- `src/store.tsx` – global state
+- `src/App.tsx`, `src/main.tsx`, `src/types.ts`
+
+## 5. Constraints
+- Use TypeScript strictly; run `npm run lint` (`tsc --noEmit`) before considering changes done.
+- Prefer existing UI primitives in `src/components/ui/` and the existing feature structure (editor, overlays, hooks, lib).
+- **Explicit > clever**: Prefer readable code over premature abstractions.
+
+## 6. What to @ when asking (paste into chat)
+- **Events** – `src/features/events/` (e.g. `EventEditorSheet.tsx`, `eventTableColumns.tsx`, `types.ts`, `useEventEditor.ts`)
+- **Journeys / canvas** – `src/features/journeys/` (e.g. `JourneyCanvas.tsx`, `useJourneyCanvas.ts`, nodes, overlays)
+- **Properties / bundles** – `src/features/properties/` (e.g. `PropertyEditor.tsx`, `BundleEditor.tsx`, `usePropertyEditor.ts`)
+- **Handoff / export** – `src/lib/handoff/`
+- **Global state** – `src/store.tsx`, `src/types.ts`
+- **Layout / nav** – `src/components/layout/`, `src/App.tsx`

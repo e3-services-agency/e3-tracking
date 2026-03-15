@@ -4,6 +4,7 @@ import { EventEditorHeader } from '@/src/features/events/editor/EventEditorHeade
 import { EventEditorFooter } from '@/src/features/events/editor/EventEditorFooter';
 import { EventDescriptionSection } from '@/src/features/events/editor/EventDescriptionSection';
 import { EventTrackingCodeSection } from '@/src/features/events/editor/EventTrackingCodeSection';
+import { EventCodeGen } from '@/src/features/events/components/EventCodeGen';
 import { EventActivityLogSection } from '@/src/features/events/editor/EventActivityLogSection';
 import { EventStakeholdersSection } from '@/src/features/events/editor/EventStakeholdersSection';
 import { EventSourcesSection } from '@/src/features/events/editor/EventSourcesSection';
@@ -242,6 +243,8 @@ export function EventEditorSheet({
         />
 
         <EventTrackingCodeSection codegen={generateCodegen()} />
+
+        <EventCodeGen eventId={event?.id} title="Code Snippets" />
 
         <EventActivityLogSection activityLog={activityLog} />
       </div>

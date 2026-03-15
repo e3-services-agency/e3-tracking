@@ -6,6 +6,9 @@ import { buildEventRows } from '@/src/features/events/lib/eventRows';
 import { groupRowsByCategory } from '@/src/features/events/lib/eventGrouping';
 import { getEventTableColumns } from '@/src/features/events/page/eventTableColumns';
 import { EventEditorSheet } from '@/src/features/events/editor/EventEditorSheet';
+import { EventsList } from '@/src/features/events/EventsList';
+import { EventEditorSheet as ApiEventEditorSheet } from '@/src/features/events/EventEditorSheet';
+import { useEvents } from '@/src/features/events/hooks/useEvents';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
@@ -45,7 +48,10 @@ export function Events() {
   const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(undefined);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [viewMode, setViewMode] = useState<'Category' | 'List'>('Category');
+  const [viewMode, setViewMode] = useState<'Category' | 'List'>('List');
+  const [apiEventSheetEventId, setApiEventSheetEventId] = useState<string | null>(null);
+  const [isApiEventSheetOpen, setIsApiEventSheetOpen] = useState(false);
+  const eventsApi = useEvents();
 
   // Popover / Modal states
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -151,7 +157,17 @@ export function Events() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-gray-900">Events <span className="text-gray-400 font-normal text-lg">({flatTableData.length})</span></h1>
-            <Button onClick={handleCreateNew} className="h-8 gap-2 bg-[#F11578] hover:bg-[#D10F65] text-white border-none shadow-sm rounded-md px-3">
+            <Button
+              onClick={() => {
+                if (viewMode === 'List') {
+                  setApiEventSheetEventId(null);
+                  setIsApiEventSheetOpen(true);
+                } else {
+                  handleCreateNew();
+                }
+              }}
+              className="h-8 gap-2 bg-[#F11578] hover:bg-[#D10F65] text-white border-none shadow-sm rounded-md px-3"
+            >
               <Plus className="w-4 h-4" /> New Event
             </Button>
             <Button onClick={() => setIsCategoryModalOpen(true)} variant="outline" className="h-8 gap-2 bg-white text-gray-600 border-gray-200 shadow-sm rounded-md px-3">
@@ -333,6 +349,20 @@ export function Events() {
       )}
 
       <div className="flex-1 overflow-hidden flex flex-col relative z-10">
+        {viewMode === 'List' ? (
+          <div className="flex-1 overflow-hidden flex flex-col p-6 bg-[#F9FAFB]">
+            <EventsList
+              onOpenCreate={() => {
+                setApiEventSheetEventId(null);
+                setIsApiEventSheetOpen(true);
+              }}
+              onOpenEvent={(id) => {
+                setApiEventSheetEventId(id);
+                setIsApiEventSheetOpen(true);
+              }}
+            />
+          </div>
+        ) : (
         <div className="bg-white flex-1 overflow-auto">
           <table className="w-full text-left border-collapse min-w-max">
             <thead className="bg-white sticky top-0 z-10 shadow-sm border-b">
@@ -406,7 +436,24 @@ export function Events() {
             </tbody>
           </table>
         </div>
+        )}
       </div>
+
+      <ApiEventEditorSheet
+        isOpen={isApiEventSheetOpen}
+        onClose={() => setIsApiEventSheetOpen(false)}
+        eventId={apiEventSheetEventId}
+        createEvent={eventsApi.createEvent}
+        attachProperty={eventsApi.attachProperty}
+        updatePresence={eventsApi.updatePresence}
+        getEventWithProperties={eventsApi.getEventWithProperties}
+        mutationError={eventsApi.mutationError}
+        clearMutationError={eventsApi.clearMutationError}
+        onEventCreated={(id) => {
+          setApiEventSheetEventId(id);
+          eventsApi.refetch();
+        }}
+      />
 
       <Sheet
         isOpen={isSheetOpen}

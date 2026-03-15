@@ -8,6 +8,7 @@ import Papa from 'papaparse';
 import { runAudit } from '@/src/lib/audit';
 import { downloadHandoffFile } from '@/src/lib/handoff/downloadHandoffFile';
 import { generateHandoffHtml } from '@/src/lib/handoff/generateHandoff';
+import { WorkspaceSettings } from '@/src/features/workspaces/pages/WorkspaceSettings';
 
 export function Settings() {
   const data = useActiveData();
@@ -161,9 +162,11 @@ export function Settings() {
     <div className="flex-1 overflow-auto bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto space-y-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Workspace Settings</h1>
-          <p className="text-gray-500 mt-1">Configure custom fields and import/export data.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+          <p className="text-gray-500 mt-1">Workspace admin, custom fields, and import/export.</p>
         </div>
+
+        <WorkspaceSettings />
 
         <div className="bg-white p-6 rounded-lg border shadow-sm space-y-6">
           <div className="flex items-center justify-between border-b pb-2">

@@ -4,13 +4,17 @@ import {
   Database,
   GitMerge,
   LayoutDashboard,
+  LayoutList,
   Check,
   Settings,
   BookOpen,
+  Bookmark,
   AlertCircle,
   Download,
+  LogOut,
 } from 'lucide-react';
 import { useStore, useActiveData } from '@/src/store';
+import { useAuth } from '@/src/contexts/AuthContext';
 import { Button } from '@/src/components/ui/Button';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { runAudit } from '@/src/lib/audit';
@@ -23,6 +27,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
+  const { signOut } = useAuth();
   const {
     branches,
     activeBranchId,
@@ -31,7 +36,6 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     setSelectedItemIdToEdit,
     auditConfig,
   } = useStore();
-
   const activeData = useActiveData();
 
   const [isCreatingBranch, setIsCreatingBranch] = useState(false);
@@ -43,6 +47,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const navItems = [
     { id: 'events', label: 'Events', icon: Activity },
     { id: 'properties', label: 'Properties', icon: Database },
+    { id: 'catalogs', label: 'Catalogs', icon: LayoutList },
     { id: 'sources', label: 'Sources', icon: LayoutDashboard },
     { id: 'journeysList', label: 'Journeys', icon: GitMerge },
   ];
@@ -50,7 +55,9 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const bottomNavItems = [
     { id: 'settings', label: 'Settings', icon: Settings },
     { id: 'docs', label: 'Docs', icon: BookOpen },
+    { id: 'documentation', label: 'Documentation', icon: Bookmark },
   ];
+  const BASE = (typeof import.meta !== 'undefined' && (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL) ? String((import.meta as { env: { BASE_URL: string } }).env.BASE_URL).replace(/\/$/, '') : '';
 
   const handleCreateBranch = () => {
     if (!newBranchName.trim()) return;
@@ -181,7 +188,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         })}
       </div>
 
-      <div className="p-4 border-t mt-auto">
+      <div className="p-4 border-t space-y-2 mt-auto">
         <Button
           variant="outline"
           className="w-full gap-2 border-gray-300 text-gray-700 hover:bg-gray-50"
@@ -189,6 +196,14 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         >
           <Download className="w-4 h-4" />
           Download Handoff
+        </Button>
+        <Button
+          variant="ghost"
+          className="w-full gap-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+          onClick={() => signOut().then(() => { window.location.href = `${BASE}/login`; })}
+        >
+          <LogOut className="w-4 h-4" />
+          Log out
         </Button>
       </div>
 

@@ -20,6 +20,9 @@ import { computePropertyDiff } from '@/src/features/properties/lib/propertyDiff'
 import { getPropertyTableColumns } from '@/src/features/properties/page/propertyTableColumns';
 import { PropertyEditor } from '@/src/features/properties/editor/PropertyEditor';
 import { BundleEditor } from '@/src/features/properties/editor/BundleEditor';
+import { PropertiesList } from '@/src/features/properties/PropertiesList';
+import { PropertyEditorSheet } from '@/src/features/properties/PropertyEditorSheet';
+import { useProperties } from '@/src/features/properties/hooks/useProperties';
 
 export function Properties() {
   const data = useActiveData();
@@ -27,12 +30,23 @@ export function Properties() {
   
   const [activeTab, setActiveTab] = useState<'properties' | 'bundles'>('properties');
   
-  // Table state
+  // API-powered properties (new)
+  const {
+    properties: apiProperties,
+    createProperty,
+    updateProperty,
+    mutationError,
+    clearMutationError,
+  } = useProperties();
+  const [isNewPropertySheetOpen, setIsNewPropertySheetOpen] = useState(false);
+  const [apiPropertyEditId, setApiPropertyEditId] = useState<string | null>(null);
+
+  // Table state (legacy, for bundles and branch diff)
   const [globalFilter, setGlobalFilter] = useState('');
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
 
-  // Property state
+  // Property state (legacy Zustand-backed edit sheet)
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [isPropertySheetOpen, setIsPropertySheetOpen] = useState(false);
   const [isCreatingProperty, setIsCreatingProperty] = useState(false);
@@ -65,6 +79,21 @@ export function Properties() {
     setSelectedPropertyId(null);
     setIsCreatingProperty(true);
     setIsPropertySheetOpen(true);
+  };
+
+  const handleCreateNewApiProperty = () => {
+    setApiPropertyEditId(null);
+    setIsNewPropertySheetOpen(true);
+  };
+
+  const handleOpenApiProperty = (id: string) => {
+    setApiPropertyEditId(id);
+    setIsNewPropertySheetOpen(true);
+  };
+
+  const handleCloseApiPropertySheet = () => {
+    setIsNewPropertySheetOpen(false);
+    setApiPropertyEditId(null);
   };
 
   const handleOpenBundle = (id: string) => {
@@ -141,8 +170,8 @@ export function Properties() {
             </Button>
           )}
           {activeTab === 'properties' ? (
-            <Button onClick={handleCreateNewProperty} className="gap-2">
-              <Plus className="w-4 h-4" /> Add Property
+            <Button onClick={() => setIsNewPropertySheetOpen(true)} className="gap-2">
+              <Plus className="w-4 h-4" /> New property
             </Button>
           ) : (
             <Button onClick={handleCreateNewBundle} className="gap-2">
@@ -216,110 +245,25 @@ export function Properties() {
           </div>
         )}
 
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-4 shrink-0">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder={`Search ${activeTab}...`}
-              value={globalFilter ?? ''}
-              onChange={e => setGlobalFilter(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          {activeTab === 'properties' && (
-            <div className="flex items-center gap-2">
-              <div className="relative group">
-                <Button variant="outline" className="gap-2">
-                  <Columns className="w-4 h-4" /> Customize Columns
-                </Button>
-                <div className="absolute right-0 mt-2 w-48 bg-white border rounded-md shadow-lg p-2 hidden group-hover:block z-50">
-                  {table.getAllLeafColumns().map(column => {
-                    return (
-                      <div key={column.id} className="px-1 py-1">
-                        <label className="flex items-center gap-2 text-sm cursor-pointer">
-                          <input
-                            {...{
-                              type: 'checkbox',
-                              checked: column.getIsVisible(),
-                              onChange: column.getToggleVisibilityHandler(),
-                            }}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                          />
-                          {column.columnDef.header as string}
-                        </label>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
+        {activeTab === 'bundles' && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-4 shrink-0">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search bundles..."
+                value={globalFilter ?? ''}
+                onChange={e => setGlobalFilter(e.target.value)}
+                className="pl-9"
+              />
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {activeTab === 'properties' ? (
-          <>
-            <div className="bg-white border rounded-lg shadow-sm flex-1 overflow-auto">
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
-                  {table.getHeaderGroups().map(headerGroup => (
-                    <tr key={headerGroup.id}>
-                      {headerGroup.headers.map(header => (
-                        <th key={header.id} className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
-                        </th>
-                      ))}
-                    </tr>
-                  ))}
-                </thead>
-                <tbody className="divide-y">
-                  {table.getRowModel().rows.map(row => (
-                    <tr key={row.id} className="hover:bg-gray-50 transition-colors">
-                      {row.getVisibleCells().map(cell => (
-                        <td key={cell.id} className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                  {table.getRowModel().rows.length === 0 && (
-                    <tr>
-                      <td colSpan={columns.length} className="px-6 py-8 text-center text-gray-500">
-                        No properties found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-4 flex items-center justify-between shrink-0">
-              <div className="text-sm text-gray-500">
-                Showing {table.getRowModel().rows.length} of {data.properties.length} properties
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => table.previousPage()}
-                  disabled={!table.getCanPreviousPage()}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => table.nextPage()}
-                  disabled={!table.getCanNextPage()}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          </>
+          <PropertiesList
+            onOpenCreate={handleCreateNewApiProperty}
+            onOpenProperty={handleOpenApiProperty}
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto pb-8">
             {filteredBundles.map(bundle => (
@@ -364,6 +308,16 @@ export function Properties() {
           </div>
         )}
       </div>
+
+      <PropertyEditorSheet
+        isOpen={isNewPropertySheetOpen}
+        onClose={handleCloseApiPropertySheet}
+        initialProperty={apiPropertyEditId ? apiProperties.find((p) => p.id === apiPropertyEditId) ?? null : null}
+        createProperty={createProperty}
+        updateProperty={updateProperty}
+        mutationError={mutationError}
+        clearMutationError={clearMutationError}
+      />
 
       <Sheet
         isOpen={isPropertySheetOpen}

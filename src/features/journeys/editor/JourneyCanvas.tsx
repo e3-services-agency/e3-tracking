@@ -7,12 +7,16 @@ import type { Journey, TestingProfile } from '@/src/types';
 import {
   isJourneyStepNode,
   isTriggerNode,
+  type JourneyFlowNode,
+  type JourneyFlowEdge,
 } from '@/src/features/journeys/nodes/types';
+import { buildProofFromFile, readFileAsContent } from '@/src/features/journeys/lib/proofs';
 import { JourneyStepNode } from '@/src/features/journeys/nodes/JourneyStepNode';
 import { TriggerNode } from '@/src/features/journeys/nodes/TriggerNode';
 import { NoteNode } from '@/src/features/journeys/nodes/NoteNode';
 import { AnnotationNode } from '@/src/features/journeys/nodes/AnnotationNode';
 import { JourneyProofViewer } from '@/src/features/journeys/overlays/JourneyProofViewer';
+import { EventCodeGen } from '@/src/features/events/components/EventCodeGen';
 import { useJourneyCanvas } from '@/src/features/journeys/hooks/useJourneyCanvas';
 import {
   CheckCircle2,
@@ -127,9 +131,11 @@ function TestingProfilesEditor({
 export function JourneyCanvas({
   journey,
   activeQARunId,
+  readOnly = false,
 }: {
   journey: Journey;
   activeQARunId: string | null;
+  readOnly?: boolean;
 }) {
   const {
     nodes,
@@ -153,6 +159,7 @@ export function JourneyCanvas({
     updateQAVerification,
     handleAddPayload,
     handleTriggerPayloadPaste,
+    handleValidatePayload,
     updateNodeLinkedProfiles,
     addExtraNodeProfile,
     updateExtraNodeProfile,
@@ -166,6 +173,8 @@ export function JourneyCanvas({
     setPayloadDraft,
     setViewerProof,
     closeViewerProof,
+    setNodes,
+    buildTextProof,
     selectedPanel,
     selectedNodeId,
     isSaving,
@@ -180,6 +189,8 @@ export function JourneyCanvas({
     draftAnnotationId,
     payloadDraft,
     viewerProof,
+    payloadValidationResult,
+    isValidatingPayload,
     activeQARun,
     selectedNode,
     currentVerification,
@@ -189,11 +200,11 @@ export function JourneyCanvas({
     nodeExtraProfiles,
     verificationProofs,
     pendingNodeProofs,
-  } = useJourneyCanvas({ journey, activeQARunId });
+  } = useJourneyCanvas({ journey, activeQARunId, readOnly });
 
   return (
     <div className="flex h-full w-full">
-      {!activeQARunId && (
+      {!activeQARunId && !readOnly && (
         <div className="w-64 border-r bg-gray-50 flex flex-col p-4 space-y-6">
           <div>
             <h3 className="font-semibold text-sm text-gray-900">
@@ -365,7 +376,7 @@ export function JourneyCanvas({
           </div>
         )}
 
-        {!activeQARunId && tool === 'annotation' && (
+        {!activeQARunId && !readOnly && tool === 'annotation' && (
           <div
             className="absolute inset-0 z-10"
             style={{ cursor: 'crosshair', backgroundColor: 'transparent' }}
@@ -404,12 +415,12 @@ export function JourneyCanvas({
           nodeTypes={nodeTypes}
           fitView
           className="bg-[#F9FAFB]"
-          nodesDraggable={!activeQARunId && tool !== 'annotation'}
-          nodesConnectable={!activeQARunId && tool !== 'annotation'}
-          elementsSelectable={tool !== 'annotation'}
-          panOnDrag={tool !== 'annotation'}
-          selectionOnDrag={tool !== 'annotation'}
-          deleteKeyCode={['Backspace', 'Delete']}
+          nodesDraggable={!readOnly && !activeQARunId && tool !== 'annotation'}
+          nodesConnectable={!readOnly && !activeQARunId && tool !== 'annotation'}
+          elementsSelectable={true}
+          panOnDrag={tool !== 'annotation' || readOnly}
+          selectionOnDrag={!readOnly && tool !== 'annotation'}
+          deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
         >
           <Controls />
           <MiniMap
@@ -419,7 +430,7 @@ export function JourneyCanvas({
           <Background gap={16} size={1} color="#E5E7EB" />
         </ReactFlow>
 
-        {!activeQARunId && (
+        {!activeQARunId && !readOnly && (
           <div className="absolute top-4 right-4 z-20">
             <Button
               onClick={handleSaveLayout}
@@ -438,7 +449,7 @@ export function JourneyCanvas({
           </div>
         )}
 
-        {menuPos && (
+        {menuPos && !readOnly && (
           <div
             className="fixed z-50 bg-white border rounded-lg shadow-xl p-2 flex flex-col gap-1 w-48"
             style={{ left: menuPos.x, top: menuPos.y }}
@@ -546,15 +557,15 @@ export function JourneyCanvas({
         </div>
       )}
 
-      {activeQARunId &&
+      {(activeQARunId || readOnly) &&
         selectedPanel === 'node' &&
         selectedNode &&
         (isJourneyStepNode(selectedNode) || isTriggerNode(selectedNode)) && (
           <div className="w-[420px] border-l bg-white flex flex-col shadow-xl z-20 absolute right-0 top-0 bottom-0">
             <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                <CheckSquare className="w-5 h-5 text-[#3E52FF]" /> QA
-                Verification
+                <CheckSquare className="w-5 h-5 text-[#3E52FF]" />
+                {readOnly ? 'Node Details' : 'QA Verification'}
               </h3>
               <button
                 onClick={() => {
@@ -588,6 +599,18 @@ export function JourneyCanvas({
                 </div>
               </div>
 
+              {isTriggerNode(selectedNode) &&
+                selectedNode.data.connectedEvent?.eventId && (
+                  <div className="pt-2 border-t border-gray-200">
+                    <EventCodeGen
+                      eventId={selectedNode.data.connectedEvent.eventId}
+                      compact
+                      title="Code Snippets"
+                    />
+                  </div>
+                )}
+
+              {!readOnly && (
               <div>
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                   Verification Status
@@ -631,7 +654,9 @@ export function JourneyCanvas({
                   </Button>
                 </div>
               </div>
+              )}
 
+              {!readOnly && (
               <div>
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                   QA Notes
@@ -647,7 +672,9 @@ export function JourneyCanvas({
                   }
                 />
               </div>
+              )}
 
+              {!readOnly && (
               <div>
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                   Linked Testing Profiles
@@ -690,7 +717,9 @@ export function JourneyCanvas({
                   ))}
                 </div>
               </div>
+              )}
 
+              {!readOnly && (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -753,8 +782,10 @@ export function JourneyCanvas({
                   ))}
                 </div>
               </div>
+              )}
 
               <div className="space-y-3">
+                {!readOnly && (
                 <div className="flex items-center justify-between">
                   <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Proof Files
@@ -799,8 +830,9 @@ export function JourneyCanvas({
                     </Button>
                   </label>
                 </div>
+                )}
 
-                {pendingNodeProofs.length > 0 && (
+                {!readOnly && pendingNodeProofs.length > 0 && (
                   <div className="border border-blue-200 bg-blue-50 rounded p-3 space-y-2">
                     <div className="text-xs font-medium text-blue-900">
                       Pending uploads ({pendingNodeProofs.length})
@@ -943,7 +975,7 @@ export function JourneyCanvas({
                 )}
               </div>
 
-              {isTriggerNode(selectedNode) && (
+              {isTriggerNode(selectedNode) && !readOnly && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -1000,7 +1032,7 @@ export function JourneyCanvas({
                     onChange={(e) => setPayloadDraft(e.target.value)}
                   />
 
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
                       className="bg-[#3E52FF] hover:bg-blue-600 text-white"
@@ -1014,6 +1046,22 @@ export function JourneyCanvas({
                     <Button
                       size="sm"
                       variant="outline"
+                      onClick={handleValidatePayload}
+                      disabled={isValidatingPayload}
+                    >
+                      {isValidatingPayload ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-gray-400 border-t-gray-700 rounded-full animate-spin inline-block mr-2" />
+                          Validating...
+                        </>
+                      ) : (
+                        'Validate Payload'
+                      )}
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={() => setPayloadDraft('')}
                       disabled={!payloadDraft.trim()}
                     >
@@ -1021,10 +1069,38 @@ export function JourneyCanvas({
                     </Button>
                   </div>
 
+                  {payloadValidationResult && (
+                    <div
+                      className={`text-xs rounded p-2 ${
+                        payloadValidationResult.valid
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                          : 'bg-red-50 text-red-800 border border-red-200'
+                      }`}
+                    >
+                      {payloadValidationResult.valid ? (
+                        <span className="font-medium">Payload valid.</span>
+                      ) : (
+                        <div>
+                          <span className="font-medium">Missing or invalid: </span>
+                          {payloadValidationResult.missing_keys?.length ? (
+                            <ul className="list-disc pl-4 mt-1">
+                              {payloadValidationResult.missing_keys.map(
+                                (key) => (
+                                  <li key={key}>{key}</li>
+                                )
+                              )}
+                            </ul>
+                          ) : (
+                            <span>Check payload format.</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="text-[11px] text-gray-500">
-                    Paste text or JSON here, then click Add Payload. Uploaded or
-                    added payloads appear below in Proof Files and can be
-                    removed later.
+                    Paste text or JSON here, then click Add Payload. Use Validate
+                    Payload to check against event&apos;s always-sent properties.
                   </div>
                 </div>
               )}

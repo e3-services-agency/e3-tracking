@@ -185,6 +185,9 @@ interface StoreState {
   deleteJourney: (id: string) => void;
 
   addCustomCategory: (name: string) => void;
+
+  activeWorkspaceId: string;
+  setActiveWorkspaceId: (id: string) => void;
 }
 
 export const useStore = create<StoreState>((set, get) => {
@@ -204,11 +207,14 @@ export const useStore = create<StoreState>((set, get) => {
     });
   };
 
+  const DEFAULT_WORKSPACE_ID = '00000000-0000-0000-0000-000000000001';
+
   return {
     mainData: initialData,
     branches: [],
     activeBranchId: 'main',
     selectedItemIdToEdit: null,
+    activeWorkspaceId: DEFAULT_WORKSPACE_ID,
 
     auditConfig: {
       eventNaming: 'Title Case',
@@ -403,6 +409,8 @@ export const useStore = create<StoreState>((set, get) => {
         if (list.includes(trimmed)) return data;
         return { ...data, customCategories: [...list, trimmed] };
       }),
+
+    setActiveWorkspaceId: (id) => set({ activeWorkspaceId: id }),
   };
 });
 

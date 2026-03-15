@@ -8,6 +8,10 @@ import {
   JourneyFlowEdge,
   JourneyStepNodeData,
   isJourneyStepNode,
+  JourneyStepActionType,
+  JOURNEY_STEP_ACTION_TYPES,
+  ImplementationType,
+  IMPLEMENTATION_TYPES,
 } from '@/src/features/journeys/nodes/types';
 import { buildProofFromFile } from '@/src/features/journeys/lib/proofs';
 import { StrictHandles, QAStatusBadge } from '@/src/features/journeys/nodes/NodeHandles';
@@ -17,8 +21,10 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
   const { setNodes } = useReactFlow<JourneyFlowNode, JourneyFlowEdge>();
 
   const isQAMode = !!data.activeQARunId;
+  const isReadOnly = !!(data as JourneyStepNodeData & { readOnly?: boolean }).readOnly;
   const qaStatus = data.qaVerification?.status || 'Pending';
   const pendingProofs = data.pendingProofs || [];
+  const disabled = isQAMode || isReadOnly;
 
   const updateNodeData = useCallback(
     (patch: Partial<JourneyStepNodeData>) => {
@@ -34,7 +40,7 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
   );
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isQAMode) return;
+    if (disabled) return;
 
     const file = e.target.files?.[0];
     if (!file) return;
@@ -77,6 +83,14 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
     [isQAMode, pendingProofs, updateNodeData],
   );
 
+  const implType = data.implementationType ?? 'new';
+  const badgeStyle = {
+    new: 'bg-emerald-600 text-white',
+    enrichment: 'bg-blue-600 text-white',
+    fix: 'bg-amber-600 text-white',
+  }[implType];
+  const badgeLabel = { new: 'New', enrichment: 'Enrichment', fix: 'Fix' }[implType];
+
   return (
     <div
       className={`bg-white border-2 ${
@@ -89,9 +103,28 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
       onPaste={handlePaste}
       tabIndex={0}
     >
+      <div className={`rounded-t-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${badgeStyle}`}>
+        {!disabled ? (
+          <select
+            value={implType}
+            onChange={(e) =>
+              updateNodeData({ implementationType: (e.target.value || 'new') as ImplementationType })
+            }
+            className="w-full bg-transparent border-none text-inherit font-bold uppercase cursor-pointer focus:ring-0 p-0 nodrag"
+          >
+            {IMPLEMENTATION_TYPES.map((t) => (
+              <option key={t} value={t} className="text-gray-900">
+                {{ new: 'New', enrichment: 'Enrichment', fix: 'Fix' }[t]}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span>{badgeLabel}</span>
+        )}
+      </div>
       {isQAMode && <QAStatusBadge status={qaStatus} />}
       <StrictHandles color="bg-gray-400" isQAMode={isQAMode} />
-      {!isQAMode && <JourneyQuickAddMenu nodeId={id} position="right" />}
+      {!isQAMode && !isReadOnly && <JourneyQuickAddMenu nodeId={id} position="right" />}
 
       <div className="bg-gray-50 px-3 py-2 border-b flex flex-col gap-2 rounded-t-lg">
         <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
@@ -100,9 +133,9 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
             type="text"
             value={data.label}
             onChange={(e) =>
-              !isQAMode && updateNodeData({ label: e.target.value })
+              !disabled && updateNodeData({ label: e.target.value })
             }
-            disabled={isQAMode}
+            disabled={disabled}
             className="bg-transparent border-none focus:ring-0 p-0 font-semibold text-gray-700 w-full"
           />
         </div>
@@ -111,9 +144,9 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
           placeholder="Step Description..."
           value={data.description}
           onChange={(e) =>
-            !isQAMode && updateNodeData({ description: e.target.value })
+            !disabled && updateNodeData({ description: e.target.value })
           }
-          disabled={isQAMode}
+          disabled={disabled}
           className="w-full text-xs text-gray-600 bg-white border rounded p-1 resize-none h-16 disabled:bg-gray-50 nodrag"
         />
 
@@ -123,9 +156,9 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
             placeholder="Step URL (for testing)"
             value={data.url ?? ''}
             onChange={(e) =>
-              !isQAMode && updateNodeData({ url: e.target.value || undefined })
+              !disabled && updateNodeData({ url: e.target.value || undefined })
             }
-            disabled={isQAMode}
+            disabled={disabled}
             className="flex-1 min-w-0 text-xs text-gray-600 bg-white border rounded px-2 py-1.5 disabled:bg-gray-50 nodrag"
           />
           {data.url?.trim() && (
@@ -140,6 +173,83 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
             </a>
           )}
         </div>
+
+        {!isQAMode && (
+          <div className="mt-2 pt-2 border-t border-gray-200 space-y-1.5">
+            {isReadOnly ? (
+              <>
+                <div className="text-[10px] text-gray-500 uppercase font-medium">Action</div>
+                <div className="text-xs text-gray-700">{data.actionType ?? 'click'}</div>
+                {(data.targetElement ?? '').trim() && (
+                  <>
+                    <div className="text-[10px] text-gray-500 uppercase font-medium mt-1">Target element</div>
+                    <pre className="text-xs text-gray-600 whitespace-pre-wrap break-all bg-gray-50 p-1.5 rounded">{data.targetElement}</pre>
+                  </>
+                )}
+                {(data.testDataJson ?? '').trim() && (
+                  <>
+                    <div className="text-[10px] text-gray-500 uppercase font-medium mt-1">Test data</div>
+                    <pre className="text-xs text-gray-600 whitespace-pre-wrap break-all bg-gray-50 p-1.5 rounded">{data.testDataJson}</pre>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-gray-500 uppercase font-medium w-16 shrink-0">
+                    Action
+                  </span>
+                  <select
+                    value={data.actionType ?? 'click'}
+                    onChange={(e) =>
+                      updateNodeData({
+                        actionType: (e.target.value || 'click') as JourneyStepActionType,
+                      })
+                    }
+                    className="flex-1 min-w-0 text-xs text-gray-700 bg-white border rounded px-2 py-1 nodrag"
+                  >
+                    {JOURNEY_STEP_ACTION_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <span className="block text-[10px] text-gray-500 uppercase font-medium">
+                    Target Element (HTML snippet or CSS Selector)
+                  </span>
+                  <textarea
+                    placeholder="Paste HTML or e.g. [data-testid=submit]"
+                    value={data.targetElement ?? ''}
+                    onChange={(e) =>
+                      updateNodeData({ targetElement: e.target.value || undefined })
+                    }
+                    rows={4}
+                    className="w-full text-xs text-gray-600 bg-white border rounded px-2 py-1.5 resize-y min-h-[4rem] nodrag"
+                  />
+                  <p className="text-[10px] text-gray-400 leading-tight">
+                    💡 Tip for non-technical users: Go to the live website, right-click the button &gt; Inspect &gt; Right-click the highlighted code in DevTools &gt; Copy &gt; Copy element. Paste that exact HTML here.
+                  </p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-[10px] text-gray-500 uppercase font-medium w-16 shrink-0 pt-1">
+                    Test data
+                  </span>
+                  <textarea
+                    placeholder='Optional JSON e.g. {"value": "hello"}'
+                    value={data.testDataJson ?? ''}
+                    onChange={(e) =>
+                      updateNodeData({ testDataJson: e.target.value || undefined })
+                    }
+                    rows={2}
+                    className="flex-1 min-w-0 text-xs text-gray-600 bg-white border rounded px-2 py-1 resize-none nodrag"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="relative p-2">
@@ -164,13 +274,13 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
               accept="image/*"
               className="hidden"
               onChange={handleImageUpload}
-              disabled={isQAMode}
+              disabled={disabled}
             />
           </label>
         )}
       </div>
 
-      {isQAMode && (
+      {isQAMode && !isReadOnly && (
         <div className="p-2 border-t bg-blue-50/50">
           <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-300 rounded bg-white text-blue-600 text-xs cursor-pointer hover:bg-blue-50 transition-colors">
             <UploadCloud className="w-4 h-4 mb-1" />

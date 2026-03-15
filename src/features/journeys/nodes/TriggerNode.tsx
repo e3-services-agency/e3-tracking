@@ -31,8 +31,10 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const isQAMode = !!data.activeQARunId;
+  const isReadOnly = !!(data as TriggerNodeData & { readOnly?: boolean }).readOnly;
   const qaStatus = data.qaVerification?.status || 'Pending';
   const pendingProofs = data.pendingProofs || [];
+  const disabled = isQAMode || isReadOnly;
 
   const filteredEvents = (activeData.events ?? []).filter(
     (event: TrackingEvent) =>
@@ -101,7 +103,7 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
     >
       {isQAMode && <QAStatusBadge status={qaStatus} />}
       <StrictHandles color="bg-amber-400" isQAMode={isQAMode} />
-      {!isQAMode && <JourneyQuickAddMenu nodeId={id} position="right" />}
+      {!isQAMode && !isReadOnly && <JourneyQuickAddMenu nodeId={id} position="right" />}
 
       <div className="bg-amber-50 px-3 py-2 border-b border-amber-200 flex items-center gap-2 rounded-t-lg">
         <Zap className="w-4 h-4 text-amber-600" />
@@ -113,19 +115,21 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
           placeholder="Trigger Description..."
           value={data.description}
           onChange={(e) =>
-            !isQAMode && updateNodeData({ description: e.target.value })
+            !disabled && updateNodeData({ description: e.target.value })
           }
-          disabled={isQAMode}
+          disabled={disabled}
           className="w-full text-xs text-gray-600 bg-white border rounded p-2 resize-none h-16 disabled:bg-gray-50 nodrag"
         />
 
         {!data.connectedEvent ? (
           <div className="relative">
+            {!isReadOnly && (
+            <>
             <Button
               variant="outline"
               className="w-full justify-between text-sm border-dashed border-2"
-              onClick={() => !isQAMode && setIsDropdownOpen(!isDropdownOpen)}
-              disabled={isQAMode}
+              onClick={() => !disabled && setIsDropdownOpen(!isDropdownOpen)}
+              disabled={disabled}
             >
               <span className="flex items-center gap-2 text-gray-500">
                 <Plus className="w-4 h-4" /> Connect Event
@@ -184,10 +188,12 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
                 </div>
               </div>
             )}
+            </>
+            )}
           </div>
         ) : (
           <div className="bg-blue-50 border border-blue-200 rounded p-2 relative group">
-            {!isQAMode && (
+            {!isQAMode && !isReadOnly && (
               <button
                 className="absolute top-1 right-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={() => updateNodeData({ connectedEvent: null })}
@@ -219,7 +225,7 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
         )}
       </div>
 
-      {isQAMode && (
+      {isQAMode && !isReadOnly && (
         <div className="p-2 border-t bg-blue-50/50">
           <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-300 rounded bg-white text-blue-600 text-xs cursor-pointer hover:bg-blue-50 transition-colors">
             <UploadCloud className="w-4 h-4 mb-1" />

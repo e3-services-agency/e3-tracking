@@ -10,6 +10,12 @@ export interface CustomFieldDef {
 export interface Settings {
   customEventFields: CustomFieldDef[];
   customPropertyFields: CustomFieldDef[];
+  /** Client logo URL for co-branded header (optional). */
+  client_logo_url?: string | null;
+  /** Client/project name for co-branded header (optional). */
+  client_name?: string | null;
+  /** Client primary color; sets --brand-primary when present. */
+  client_primary_color?: string | null;
 }
 
 export interface Property {
@@ -162,6 +168,10 @@ export interface Journey {
   nodes: any[]; // ReactFlow nodes
   edges: any[]; // ReactFlow edges
   qaRuns?: QARun[];
+  /** Counts of step implementation types (new / enrichment / fix). Set on canvas save. */
+  type_counts?: { new?: number; enrichment?: number; fix?: number } | null;
+  /** Global testing instructions for AI/human testers (Markdown). Synced to API. */
+  testing_instructions_markdown?: string | null;
 }
 
 export interface TrackingPlanData {
@@ -184,3 +194,33 @@ export interface Branch {
   draftData: TrackingPlanData;
   approvals: string[]; // Team IDs that have approved
 }
+
+// ---------------------------------------------------------------------------
+// Phase 1 Core Data Foundation — DB/API schema types (relational model).
+// See docs/DATA_SCHEMA_AND_ARCHITECTURE_PLAN.md. Use for API and DB layer.
+// ---------------------------------------------------------------------------
+export type {
+  PropertyContext,
+  PiiStatus,
+  PropertyDataType,
+  EventPropertyPresence,
+  QARunStatus,
+  NamingConvention,
+  WorkspaceAuditRules,
+  WorkspaceRow,
+  WorkspaceSettingsRow,
+  SourceRow,
+  PropertyRow,
+  CreatePropertyInput,
+  PropertySourceRow,
+  EventRow,
+  CreateEventInput,
+  EventSourceRow,
+  EventPropertyRow,
+  JourneyRow,
+  JourneyEventRow,
+  QARunRow,
+  QARunEvidenceRow,
+  QARunPayloadRow,
+  PropertyNameMapping,
+} from './types/schema';

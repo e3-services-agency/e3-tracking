@@ -3,7 +3,7 @@
  * Document-Relational Hybrid: canvas state stored as JSONB; journey_events kept in sync from trigger nodes.
  * Every function takes workspaceId; all queries enforce workspace_id.
  */
-import { getSupabase } from '../db/supabase';
+import { getSupabaseOrThrow } from '../db/supabase';
 import type { JourneyRow } from '../../types/schema';
 import { DatabaseError, NotFoundError } from '../errors';
 
@@ -29,7 +29,7 @@ export async function getJourneyById(
   workspaceId: string,
   journeyId: string
 ): Promise<JourneyRow | null> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('journeys')
     .select('*')
@@ -48,7 +48,7 @@ export async function getJourneyById(
  * Lists all non-deleted journeys for the workspace.
  */
 export async function listJourneys(workspaceId: string): Promise<JourneyRow[]> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('journeys')
     .select('*')
@@ -99,7 +99,7 @@ export async function saveJourneyCanvas(
     );
   }
 
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const type_counts = computeTypeCounts(nodes ?? []);
 
   const { error: updateError } = await supabase
@@ -177,7 +177,7 @@ export async function updateJourney(
     );
   }
 
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const updates: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   };
@@ -230,7 +230,7 @@ export async function generateShareToken(
   const { randomUUID } = await import('node:crypto');
   const token = randomUUID();
 
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { error } = await supabase
     .from('journeys')
     .update({
@@ -264,7 +264,7 @@ export async function getJourneyByShareToken(token: string): Promise<{
   nodes: unknown;
   edges: unknown;
 }> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('journeys')
     .select('id, name, description, testing_instructions_markdown, canvas_nodes_json, canvas_edges_json')

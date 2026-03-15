@@ -3,7 +3,8 @@
  * Clones only core schema: workspace_settings, sources, properties, property_sources, events, event_sources, event_properties.
  * Does NOT clone: journeys, journey_events, qa_runs, qa_run_evidence, qa_run_payloads.
  */
-import { getSupabase } from '../db/supabase';
+import { getSupabaseOrThrow } from '../db/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { WorkspaceRow } from '../../types/schema';
 import { DatabaseError, NotFoundError } from '../errors';
 
@@ -24,7 +25,7 @@ export interface CreateWorkspaceInput {
 export async function createWorkspace(
   input: CreateWorkspaceInput
 ): Promise<WorkspaceRow> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const name = input.name?.trim() ?? '';
   if (!name) {
     throw new Error('Workspace name is required.');
@@ -256,7 +257,7 @@ export async function createWorkspace(
 }
 
 async function ensureWorkspaceSettings(
-  supabase: ReturnType<typeof getSupabase>,
+  supabase: SupabaseClient,
   workspaceId: string,
   opts?: { client_name?: string | null }
 ): Promise<void> {

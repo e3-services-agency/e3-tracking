@@ -27,3 +27,12 @@ export class NotFoundError extends Error {
     this.name = 'NotFoundError';
   }
 }
+
+/** Use when required env (e.g. SUPABASE_*) is missing. Map to 503 CONFIG_ERROR. */
+export class ConfigError extends Error {
+  readonly code = 'CONFIG_ERROR';
+  constructor(message: string) {
+    super(message);
+    this.name = 'ConfigError';
+  }
+}

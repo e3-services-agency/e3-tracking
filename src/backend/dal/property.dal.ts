@@ -3,7 +3,7 @@
  * Every function takes workspaceId; all queries enforce workspace_id.
  * Shadow paths: DB errors (e.g. unique violation) are caught and mapped to typed errors.
  */
-import { getSupabase } from '../db/supabase';
+import { getSupabaseOrThrow } from '../db/supabase';
 import type { PropertyRow, CreatePropertyInput, PropertyMappingType } from '../../types/schema';
 import { ConflictError, DatabaseError, NotFoundError } from '../errors';
 
@@ -13,7 +13,7 @@ const UNIQUE_VIOLATION_CODE = '23505';
  * Lists all non-deleted properties for the given workspace.
  */
 export async function listProperties(workspaceId: string): Promise<PropertyRow[]> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('properties')
     .select('*')
@@ -38,7 +38,7 @@ export async function createProperty(
   workspaceId: string,
   propertyData: CreatePropertyInput
 ): Promise<PropertyRow> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
 
   const row: Record<string, unknown> = {
     workspace_id: workspaceId,
@@ -112,7 +112,7 @@ export async function updateProperty(
     | 'name_mappings_json'
   >>
 ): Promise<PropertyRow> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { data: existing, error: fetchErr } = await supabase
     .from('properties')
     .select('id')

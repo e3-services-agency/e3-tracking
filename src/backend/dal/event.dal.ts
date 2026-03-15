@@ -4,7 +4,7 @@
  * Attached properties: only non–soft-deleted properties are included.
  * Transactional integrity: attachPropertyToEvent verifies event and property belong to workspace.
  */
-import { getSupabase } from '../db/supabase';
+import { getSupabaseOrThrow } from '../db/supabase';
 import type {
   EventRow,
   EventPropertyRow,
@@ -22,7 +22,7 @@ export async function getEventById(
   workspaceId: string,
   eventId: string
 ): Promise<EventRow | null> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('events')
     .select('*')
@@ -44,7 +44,7 @@ export async function getPropertyById(
   workspaceId: string,
   propertyId: string
 ): Promise<{ id: string; workspace_id: string } | null> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('properties')
     .select('id, workspace_id')
@@ -69,7 +69,7 @@ export async function createEvent(
   workspaceId: string,
   eventData: CreateEventInput
 ): Promise<EventRow> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
 
   const row = {
     workspace_id: workspaceId,
@@ -132,7 +132,7 @@ export async function attachPropertyToEvent(
     );
   }
 
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const row = {
     event_id: eventId,
     property_id: propertyId,
@@ -177,7 +177,7 @@ export interface EventWithPropertyCount extends EventRow {
 export async function listEvents(
   workspaceId: string
 ): Promise<EventWithPropertyCount[]> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
 
   const { data: events, error: eventsError } = await supabase
     .from('events')
@@ -275,7 +275,7 @@ export async function getEventWithProperties(
     );
   }
 
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
 
   const { data: links, error: linkError } = await supabase
     .from('event_properties')
@@ -339,7 +339,7 @@ export async function updatePropertyPresenceOnEvent(
   await getEventById(workspaceId, eventId);
   await getPropertyById(workspaceId, propertyId);
 
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('event_properties')
     .update({ presence, updated_at: new Date().toISOString() })
@@ -385,7 +385,7 @@ export async function getAlwaysSentPropertyKeysForEvent(
     );
   }
 
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
 
   const { data: links, error: linkError } = await supabase
     .from('event_properties')

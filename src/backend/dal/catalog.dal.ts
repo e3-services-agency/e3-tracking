@@ -2,7 +2,7 @@
  * Catalogs & Catalog Fields Data Access Layer.
  * All queries filter by workspace_id (catalogs) or via catalog's workspace_id (fields).
  */
-import { getSupabase } from '../db/supabase';
+import { getSupabaseOrThrow } from '../db/supabase';
 import type { CatalogRow, CatalogFieldRow, CatalogType } from '../../types/schema';
 
 const VALID_CATALOG_TYPES: CatalogType[] = ['Product', 'Variant', 'General'];
@@ -12,7 +12,7 @@ function normalizeCatalogType(v: string | undefined): CatalogType {
 import { DatabaseError, NotFoundError } from '../errors';
 
 export async function listCatalogs(workspaceId: string): Promise<CatalogRow[]> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('catalogs')
     .select('*')
@@ -29,7 +29,7 @@ export async function getCatalogById(
   workspaceId: string,
   catalogId: string
 ): Promise<CatalogRow | null> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('catalogs')
     .select('*')
@@ -63,7 +63,7 @@ export async function createCatalog(
   workspaceId: string,
   input: CreateCatalogInput
 ): Promise<CatalogRow> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const row = {
     workspace_id: workspaceId,
     name: input.name.trim(),
@@ -96,7 +96,7 @@ export async function updateCatalog(
   input: Partial<CreateCatalogInput>
 ): Promise<CatalogRow> {
   await getCatalogOrThrow(workspaceId, catalogId);
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const updates: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   };
@@ -130,7 +130,7 @@ export async function deleteCatalog(
   catalogId: string
 ): Promise<void> {
   await getCatalogOrThrow(workspaceId, catalogId);
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { error } = await supabase
     .from('catalogs')
     .delete()
@@ -145,7 +145,7 @@ export async function deleteCatalog(
 // ----- Catalog Fields -----
 
 export async function listCatalogFields(catalogId: string): Promise<CatalogFieldRow[]> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('catalog_fields')
     .select('*')
@@ -178,7 +178,7 @@ export async function createCatalogField(
   input: CreateCatalogFieldInput
 ): Promise<CatalogFieldRow> {
   await getCatalogOrThrow(workspaceId, catalogId);
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const type = ['string', 'number', 'boolean'].includes(input.type) ? input.type : 'string';
   const row = {
     catalog_id: catalogId,
@@ -208,7 +208,7 @@ export async function setCatalogFieldLookupKey(
   fieldId: string
 ): Promise<CatalogFieldRow> {
   await getCatalogOrThrow(workspaceId, catalogId);
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   // Clear current lookup key for this catalog, then set the chosen field
   const { data: fields } = await supabase
     .from('catalog_fields')
@@ -248,7 +248,7 @@ export async function updateCatalogField(
   input: Partial<CreateCatalogFieldInput>
 ): Promise<CatalogFieldRow> {
   await getCatalogOrThrow(workspaceId, catalogId);
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const updates: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   };
@@ -281,7 +281,7 @@ export async function deleteCatalogField(
   fieldId: string
 ): Promise<void> {
   await getCatalogOrThrow(workspaceId, catalogId);
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { error } = await supabase
     .from('catalog_fields')
     .delete()

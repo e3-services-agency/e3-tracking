@@ -13,7 +13,7 @@ const router = Router();
  * GET /api/catalogs
  * List catalogs for the workspace.
  */
-router.get('/', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
+router.get('/', requireWorkspace, async (req: Request, res: Response, next: import('express').NextFunction): Promise<void> => {
   const workspaceId = req.workspaceId;
   if (!workspaceId) {
     res.status(403).json({ error: 'Workspace context required.', code: 'WORKSPACE_REQUIRED' });
@@ -23,18 +23,7 @@ router.get('/', requireWorkspace, async (req: Request, res: Response): Promise<v
     const list = await CatalogService.listCatalogs(workspaceId);
     res.status(200).json(list);
   } catch (err) {
-    console.error(err);
-    if (err instanceof DatabaseError) {
-      res.status(500).json({ error: 'Failed to list catalogs.', code: err.code });
-      return;
-    }
-    const message = err instanceof Error ? err.message : '';
-    const isEnvError = typeof message === 'string' && message.includes('Missing or empty required env');
-    res.status(isEnvError ? 503 : 500).json({
-      error: isEnvError ? 'Server configuration error.' : 'An unexpected error occurred.',
-      code: isEnvError ? 'CONFIG_ERROR' : 'INTERNAL_ERROR',
-      ...(isEnvError && { detail: 'Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the deployment environment.' }),
-    });
+    next(err);
   }
 });
 

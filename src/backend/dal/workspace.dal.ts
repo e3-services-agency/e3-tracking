@@ -2,14 +2,14 @@
  * Workspace Data Access Layer.
  * All functions require workspaceId; every query enforces workspace_id.
  */
-import { getSupabase } from '../db/supabase';
+import { getSupabaseOrThrow } from '../db/supabase';
 import type { WorkspaceSettingsRow, WorkspaceRow, WorkspaceMemberRow } from '../../types/schema';
 
 /**
  * Lists all non-deleted workspaces (for template dropdown and switcher).
  */
 export async function listWorkspaces(): Promise<WorkspaceRow[]> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('workspaces')
     .select('id, name, created_at, updated_at, deleted_at')
@@ -26,7 +26,7 @@ export async function listWorkspaces(): Promise<WorkspaceRow[]> {
  * Returns a workspace by id if it exists and is not deleted.
  */
 export async function getWorkspaceById(id: string): Promise<WorkspaceRow | null> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('workspaces')
     .select('*')
@@ -46,7 +46,7 @@ export async function getWorkspaceById(id: string): Promise<WorkspaceRow | null>
 export async function getWorkspaceSettings(
   workspaceId: string
 ): Promise<WorkspaceSettingsRow | null> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('workspace_settings')
     .select('*')
@@ -77,7 +77,7 @@ export async function updateWorkspace(
   workspaceId: string,
   updates: { name?: string }
 ): Promise<WorkspaceRow | null> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   if (updates.name !== undefined) {
     const { data, error } = await supabase
       .from('workspaces')
@@ -95,7 +95,7 @@ export async function updateWorkspaceSettings(
   workspaceId: string,
   updates: { client_primary_color?: string | null; client_name?: string | null; client_logo_url?: string | null }
 ): Promise<void> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (updates.client_primary_color !== undefined) payload.client_primary_color = updates.client_primary_color;
   if (updates.client_name !== undefined) payload.client_name = updates.client_name;
@@ -108,7 +108,7 @@ export async function updateWorkspaceSettings(
 }
 
 export async function listWorkspaceMembers(workspaceId: string): Promise<WorkspaceMemberRow[]> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('workspace_members')
     .select('workspace_id, user_id, role, created_at, updated_at')
@@ -123,7 +123,7 @@ export async function addWorkspaceMember(
   userId: string,
   role: 'admin' | 'member' | 'viewer' = 'member'
 ): Promise<WorkspaceMemberRow> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('workspace_members')
     .insert({ workspace_id: workspaceId, user_id: userId, role, updated_at: new Date().toISOString() })
@@ -134,7 +134,7 @@ export async function addWorkspaceMember(
 }
 
 export async function getUserIdByEmail(email: string): Promise<string | null> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase.rpc('get_user_id_by_email', { user_email: email.trim() });
   if (error) return null;
   return typeof data === 'string' ? data : null;
@@ -144,7 +144,7 @@ export async function getWorkspaceMember(
   workspaceId: string,
   userId: string
 ): Promise<WorkspaceMemberRow | null> {
-  const supabase = getSupabase();
+  const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('workspace_members')
     .select('workspace_id, user_id, role, created_at, updated_at')

@@ -18,6 +18,7 @@ import eventsRouter from './routes/events';
 import propertiesRouter from './routes/properties';
 import journeysRouter from './routes/journeys';
 import sharedRouter from './routes/shared';
+import { ConfigError } from './errors';
 
 function getCorsOrigin(): string | string[] | boolean {
   const raw = process.env.CORS_ORIGIN;
@@ -45,6 +46,21 @@ export function createApp(): express.Express {
   app.use('/api/properties', propertiesRouter);
   app.use('/api/journeys', journeysRouter);
   app.use('/api/shared', sharedRouter);
+
+  // Global error handler: expose error.message and error.stack in JSON so the Network tab shows the real error.
+  app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction): void => {
+    console.error(err);
+    if (res.headersSent) return;
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    const code = err instanceof ConfigError ? err.code : 'INTERNAL_ERROR';
+    const status = err instanceof ConfigError ? 503 : 500;
+    res.status(status).json({
+      error: message,
+      code,
+      ...(stack && { stack }),
+    });
+  });
 
   return app;
 }

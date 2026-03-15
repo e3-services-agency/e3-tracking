@@ -2,7 +2,7 @@
  * Events API routes.
  * All routes require workspace context (x-workspace-id). Audit validator enforces naming on create.
  */
-import { Router, type Request, type Response } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
 import { requireWorkspace } from '../middleware/workspace';
 import { createAuditValidator } from '../middleware/auditValidator';
 import { getWorkspaceSettings } from '../dal/workspace.dal';
@@ -27,7 +27,7 @@ const eventAuditValidator = createAuditValidator(getWorkspaceSettings, {
  * GET /api/events
  * List events with attached property counts (only non–soft-deleted properties). Requires x-workspace-id.
  */
-router.get('/', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
+router.get('/', requireWorkspace, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const workspaceId = req.workspaceId;
   if (!workspaceId) {
     res.status(403).json({
@@ -40,21 +40,7 @@ router.get('/', requireWorkspace, async (req: Request, res: Response): Promise<v
     const list = await EventDAL.listEvents(workspaceId);
     res.status(200).json(list);
   } catch (err) {
-    console.error(err);
-    if (err instanceof DatabaseError) {
-      res.status(500).json({
-        error: 'Failed to list events.',
-        code: err.code,
-      });
-      return;
-    }
-    const message = err instanceof Error ? err.message : '';
-    const isEnvError = typeof message === 'string' && message.includes('Missing or empty required env');
-    res.status(isEnvError ? 503 : 500).json({
-      error: isEnvError ? 'Server configuration error.' : 'An unexpected error occurred.',
-      code: isEnvError ? 'CONFIG_ERROR' : 'INTERNAL_ERROR',
-      ...(isEnvError && { detail: 'Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the deployment environment.' }),
-    });
+    next(err);
   }
 });
 

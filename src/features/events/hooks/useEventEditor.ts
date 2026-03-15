@@ -187,6 +187,24 @@ export function useEventEditor({
     setIsAddActionPopoverOpen(false);
   };
 
+  const openTriggerModalForNew = () => {
+    setEditingTriggerId(null);
+    setTriggerImgBase64(null);
+    setTriggerSource('Source Independent');
+    setTriggerDesc('');
+    setTriggerName('');
+    setIsTriggerModalOpen(true);
+  };
+
+  const openTriggerModalForEdit = (trigger: EventTrigger) => {
+    setEditingTriggerId(trigger.id);
+    setTriggerImgBase64(trigger.image ?? null);
+    setTriggerSource(trigger.source ?? 'Source Independent');
+    setTriggerDesc(trigger.desc ?? '');
+    setTriggerName(trigger.name ?? '');
+    setIsTriggerModalOpen(true);
+  };
+
   const saveTrigger = () => {
     const newTrigger = {
       id: uuidv4(),

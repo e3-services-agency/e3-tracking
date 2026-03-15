@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useActiveData } from '@/src/store';
 import { AGENCY_CONFIG } from '@/src/config/agency';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
@@ -6,11 +6,17 @@ import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 const SPACE_BLUE = '#1A1E38';
 const E3_WHITE = '#EEEEE3';
 
+const LOGO_SRC =
+  typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL != null
+    ? `${String(import.meta.env.BASE_URL).replace(/\/$/, '')}/branding/agency-logo.png`.replace(/\/+/g, '/')
+    : '/branding/agency-logo.png';
+
 export function Header() {
   const { settings } = useActiveData();
   const clientLogoUrl = settings?.client_logo_url ?? null;
   const clientName = settings?.client_name ?? null;
   const hasClientBranding = !!(clientLogoUrl && clientName);
+  const [logoError, setLogoError] = useState(false);
 
   return (
     <header
@@ -18,12 +24,22 @@ export function Header() {
       style={{ backgroundColor: SPACE_BLUE }}
     >
       <div className="flex items-center gap-4">
-        <img
-          src={AGENCY_CONFIG.logoPath}
-          alt={AGENCY_CONFIG.name}
-          className="h-8 w-auto object-contain"
-          height={32}
-        />
+        {logoError ? (
+          <span
+            className="text-sm font-bold"
+            style={{ color: E3_WHITE, fontFamily: 'DM Sans, sans-serif' }}
+          >
+            {AGENCY_CONFIG.name}
+          </span>
+        ) : (
+          <img
+            src={LOGO_SRC}
+            alt={AGENCY_CONFIG.name}
+            className="h-8 w-auto object-contain"
+            height={32}
+            onError={() => setLogoError(true)}
+          />
+        )}
         <div
           className="h-6 w-px bg-current opacity-30"
           style={{ color: E3_WHITE }}

@@ -3,7 +3,10 @@ import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import { BookOpen, FileText, LayoutDashboard, LayoutList, Loader2, Shield } from 'lucide-react';
 
-const BASE_PATH = '/docs/user-manual';
+const BASE_PATH =
+  typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL != null
+    ? `${String(import.meta.env.BASE_URL).replace(/\/$/, '')}/docs/user-manual`.replace(/\/+/g, '/')
+    : '/docs/user-manual';
 
 const ARTICLES = [
   { id: 'getting-started', label: 'Getting Started', file: 'getting-started.md', icon: BookOpen },

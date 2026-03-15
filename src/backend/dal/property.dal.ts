@@ -3,9 +3,9 @@
  * Every function takes workspaceId; all queries enforce workspace_id.
  * Shadow paths: DB errors (e.g. unique violation) are caught and mapped to typed errors.
  */
-import { getSupabase } from '../db/supabase.js';
-import type { PropertyRow, CreatePropertyInput, PropertyMappingType } from '../../types/schema.js';
-import { ConflictError, DatabaseError, NotFoundError } from '../errors.js';
+import { getSupabase } from '../db/supabase';
+import type { PropertyRow, CreatePropertyInput, PropertyMappingType } from '../../types/schema';
+import { ConflictError, DatabaseError, NotFoundError } from '../errors';
 
 const UNIQUE_VIOLATION_CODE = '23505';
 

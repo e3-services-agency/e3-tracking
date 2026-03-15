@@ -2,8 +2,8 @@
  * Workspace Data Access Layer.
  * All functions require workspaceId; every query enforces workspace_id.
  */
-import { getSupabase } from '../db/supabase.js';
-import type { WorkspaceSettingsRow, WorkspaceRow, WorkspaceMemberRow } from '../../types/schema.js';
+import { getSupabase } from '../db/supabase';
+import type { WorkspaceSettingsRow, WorkspaceRow, WorkspaceMemberRow } from '../../types/schema';
 
 /**
  * Lists all non-deleted workspaces (for template dropdown and switcher).

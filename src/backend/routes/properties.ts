@@ -3,12 +3,12 @@
  * All routes require workspace context (x-workspace-id) and enforce audit rules where applicable.
  */
 import { Router, type Request, type Response } from 'express';
-import { requireWorkspace } from '../middleware/workspace.js';
-import { createAuditValidator } from '../middleware/auditValidator.js';
-import { getWorkspaceSettings } from '../dal/workspace.dal.js';
-import * as PropertyDAL from '../dal/property.dal.js';
-import { ConflictError, DatabaseError, NotFoundError } from '../errors.js';
-import type { CreatePropertyInput, PropertyContext, PropertyDataType, PiiStatus, PropertyMappingType } from '../../types/schema.js';
+import { requireWorkspace } from '../middleware/workspace';
+import { createAuditValidator } from '../middleware/auditValidator';
+import { getWorkspaceSettings } from '../dal/workspace.dal';
+import * as PropertyDAL from '../dal/property.dal';
+import { ConflictError, DatabaseError, NotFoundError } from '../errors';
+import type { CreatePropertyInput, PropertyContext, PropertyDataType, PiiStatus, PropertyMappingType } from '../../types/schema';
 
 const router = Router();
 

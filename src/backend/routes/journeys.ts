@@ -6,11 +6,11 @@
  * Mount this router at /api/journeys, e.g. app.use('/api/journeys', journeysRouter).
  */
 import { Router, type Request, type Response } from 'express';
-import { requireWorkspace } from '../middleware/workspace.js';
-import * as JourneyDAL from '../dal/journey.dal.js';
-import { getAlwaysSentPropertyKeysForEvent } from '../dal/event.dal.js';
-import { generateJourneyHtmlExport } from '../services/export.service.js';
-import { DatabaseError, NotFoundError } from '../errors.js';
+import { requireWorkspace } from '../middleware/workspace';
+import * as JourneyDAL from '../dal/journey.dal';
+import { getAlwaysSentPropertyKeysForEvent } from '../dal/event.dal';
+import { generateJourneyHtmlExport } from '../services/export.service';
+import { DatabaseError, NotFoundError } from '../errors';
 
 const router = Router();
 

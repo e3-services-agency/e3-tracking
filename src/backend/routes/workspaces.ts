@@ -7,10 +7,10 @@
  * POST /api/workspaces/:id/members — invite by email; requires auth + admin role; body: { email, role? }.
  */
 import { Router, type Request, type Response } from 'express';
-import { optionalAuth, requireAuth } from '../middleware/auth.js';
-import * as WorkspaceDAL from '../dal/workspace.dal.js';
-import { createWorkspace } from '../services/workspace.service.js';
-import { DatabaseError, NotFoundError } from '../errors.js';
+import { optionalAuth, requireAuth } from '../middleware/auth';
+import * as WorkspaceDAL from '../dal/workspace.dal';
+import { createWorkspace } from '../services/workspace.service';
+import { DatabaseError, NotFoundError } from '../errors';
 
 const router = Router();
 

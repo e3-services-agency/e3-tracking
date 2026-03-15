@@ -4,14 +4,14 @@
  * Attached properties: only non–soft-deleted properties are included.
  * Transactional integrity: attachPropertyToEvent verifies event and property belong to workspace.
  */
-import { getSupabase } from '../db/supabase.js';
+import { getSupabase } from '../db/supabase';
 import type {
   EventRow,
   EventPropertyRow,
   CreateEventInput,
   EventPropertyPresence,
-} from '../../types/schema.js';
-import { ConflictError, DatabaseError, NotFoundError } from '../errors.js';
+} from '../../types/schema';
+import { ConflictError, DatabaseError, NotFoundError } from '../errors';
 
 const UNIQUE_VIOLATION_CODE = '23505';
 

@@ -2,11 +2,11 @@
  * Standalone HTML Export Engine for Journeys.
  * Generates a zero-dependency HTML file with steps, screenshots (base64), and tracking payloads.
  */
-import * as JourneyDAL from '../dal/journey.dal.js';
-import { getEventWithProperties } from '../dal/event.dal.js';
-import type { EventPropertyWithDetails } from '../dal/event.dal.js';
-import { NotFoundError } from '../errors.js';
-import { buildCodegenSnippetsFromPresence } from './codegen.service.js';
+import * as JourneyDAL from '../dal/journey.dal';
+import { getEventWithProperties } from '../dal/event.dal';
+import type { EventPropertyWithDetails } from '../dal/event.dal';
+import { NotFoundError } from '../errors';
+import { buildCodegenSnippetsFromPresence } from './codegen.service';
 
 type CanvasNode = {
   id: string;

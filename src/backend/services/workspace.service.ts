@@ -3,9 +3,9 @@
  * Clones only core schema: workspace_settings, sources, properties, property_sources, events, event_sources, event_properties.
  * Does NOT clone: journeys, journey_events, qa_runs, qa_run_evidence, qa_run_payloads.
  */
-import { getSupabase } from '../db/supabase.js';
-import type { WorkspaceRow } from '../../types/schema.js';
-import { DatabaseError, NotFoundError } from '../errors.js';
+import { getSupabase } from '../db/supabase';
+import type { WorkspaceRow } from '../../types/schema';
+import { DatabaseError, NotFoundError } from '../errors';
 
 export interface CreateWorkspaceInput {
   name: string;

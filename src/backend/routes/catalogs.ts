@@ -3,9 +3,9 @@
  * Mount at /api/catalogs. All routes require x-workspace-id (requireWorkspace).
  */
 import { Router, type Request, type Response } from 'express';
-import { requireWorkspace } from '../middleware/workspace.js';
-import * as CatalogService from '../services/catalog.service.js';
-import { DatabaseError, NotFoundError } from '../errors.js';
+import { requireWorkspace } from '../middleware/workspace';
+import * as CatalogService from '../services/catalog.service';
+import { DatabaseError, NotFoundError } from '../errors';
 
 const router = Router();
 

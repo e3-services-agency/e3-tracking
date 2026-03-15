@@ -12,12 +12,12 @@
  */
 import express from 'express';
 import cors from 'cors';
-import workspacesRouter from './routes/workspaces.js';
-import catalogsRouter from './routes/catalogs.js';
-import eventsRouter from './routes/events.js';
-import propertiesRouter from './routes/properties.js';
-import journeysRouter from './routes/journeys.js';
-import sharedRouter from './routes/shared.js';
+import workspacesRouter from './routes/workspaces';
+import catalogsRouter from './routes/catalogs';
+import eventsRouter from './routes/events';
+import propertiesRouter from './routes/properties';
+import journeysRouter from './routes/journeys';
+import sharedRouter from './routes/shared';
 
 function getCorsOrigin(): string | string[] | boolean {
   const raw = process.env.CORS_ORIGIN;

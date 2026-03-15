@@ -6,7 +6,7 @@
  *
  * Always-sent properties are included; sometimes-sent properties get a "// Optional:" comment above the line.
  */
-import type { EventPropertyPresence } from '../../types/schema.js';
+import type { EventPropertyPresence } from '../../types/schema';
 
 export interface AttachedPropertyForCodegen {
   property_name: string;

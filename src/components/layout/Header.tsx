@@ -6,7 +6,7 @@ import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 const SPACE_BLUE = '#1A1E38';
 const E3_WHITE = '#EEEEE3';
 
-const LOGO_SRC = `${import.meta.env.BASE_URL}branding/agency-logo.png`.replace(/([^:])\/\//g, '$1/');
+const LOGO_SRC = `${window.location.origin}/tracking-plan/branding/agency-logo.png`;
 
 export function Header() {
   const { settings } = useActiveData();

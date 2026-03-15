@@ -3,13 +3,13 @@
  * All routes require workspace context (x-workspace-id). Audit validator enforces naming on create.
  */
 import { Router, type Request, type Response } from 'express';
-import { requireWorkspace } from '../middleware/workspace.js';
-import { createAuditValidator } from '../middleware/auditValidator.js';
-import { getWorkspaceSettings } from '../dal/workspace.dal.js';
-import * as EventDAL from '../dal/event.dal.js';
-import { ConflictError, DatabaseError, NotFoundError } from '../errors.js';
-import type { CreateEventInput, EventPropertyPresence } from '../../types/schema.js';
-import { buildCodegenSnippets } from '../services/codegen.service.js';
+import { requireWorkspace } from '../middleware/workspace';
+import { createAuditValidator } from '../middleware/auditValidator';
+import { getWorkspaceSettings } from '../dal/workspace.dal';
+import * as EventDAL from '../dal/event.dal';
+import { ConflictError, DatabaseError, NotFoundError } from '../errors';
+import type { CreateEventInput, EventPropertyPresence } from '../../types/schema';
+import { buildCodegenSnippets } from '../services/codegen.service';
 
 const router = Router();
 

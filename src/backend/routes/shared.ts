@@ -5,8 +5,8 @@
  * Example: import sharedRouter from './routes/shared.js';
  */
 import { Router, type Request, type Response } from 'express';
-import { getJourneyByShareToken } from '../dal/journey.dal.js';
-import { DatabaseError, NotFoundError } from '../errors.js';
+import { getJourneyByShareToken } from '../dal/journey.dal';
+import { DatabaseError, NotFoundError } from '../errors';
 
 const router = Router();
 

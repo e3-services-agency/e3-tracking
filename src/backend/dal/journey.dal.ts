@@ -3,9 +3,9 @@
  * Document-Relational Hybrid: canvas state stored as JSONB; journey_events kept in sync from trigger nodes.
  * Every function takes workspaceId; all queries enforce workspace_id.
  */
-import { getSupabase } from '../db/supabase.js';
-import type { JourneyRow } from '../../types/schema.js';
-import { DatabaseError, NotFoundError } from '../errors.js';
+import { getSupabase } from '../db/supabase';
+import type { JourneyRow } from '../../types/schema';
+import { DatabaseError, NotFoundError } from '../errors';
 
 type NodeLike = { type?: string; data?: { connectedEvent?: { eventId?: string }; implementationType?: string } };
 

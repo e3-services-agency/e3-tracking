@@ -9,7 +9,7 @@ import type {
   WorkspaceSettingsRow,
   WorkspaceAuditRules,
   NamingConvention,
-} from '../../types/schema.js';
+} from '../../types/schema';
 
 export type GetWorkspaceSettings = (
   workspaceId: string

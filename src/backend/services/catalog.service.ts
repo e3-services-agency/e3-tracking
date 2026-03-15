@@ -2,8 +2,8 @@
  * Catalog CRUD service. All operations are workspace-scoped.
  * Delegates to catalog DAL.
  */
-import * as CatalogDAL from '../dal/catalog.dal.js';
-import type { CatalogRow, CatalogFieldRow } from '../../types/schema.js';
+import * as CatalogDAL from '../dal/catalog.dal';
+import type { CatalogRow, CatalogFieldRow } from '../../types/schema';
 
 export async function listCatalogs(workspaceId: string): Promise<CatalogRow[]> {
   return CatalogDAL.listCatalogs(workspaceId);

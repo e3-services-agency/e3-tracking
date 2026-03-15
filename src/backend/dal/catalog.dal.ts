@@ -2,14 +2,14 @@
  * Catalogs & Catalog Fields Data Access Layer.
  * All queries filter by workspace_id (catalogs) or via catalog's workspace_id (fields).
  */
-import { getSupabase } from '../db/supabase.js';
-import type { CatalogRow, CatalogFieldRow, CatalogType } from '../../types/schema.js';
+import { getSupabase } from '../db/supabase';
+import type { CatalogRow, CatalogFieldRow, CatalogType } from '../../types/schema';
 
 const VALID_CATALOG_TYPES: CatalogType[] = ['Product', 'Variant', 'General'];
 function normalizeCatalogType(v: string | undefined): CatalogType {
   return VALID_CATALOG_TYPES.includes(v as CatalogType) ? (v as CatalogType) : 'General';
 }
-import { DatabaseError, NotFoundError } from '../errors.js';
+import { DatabaseError, NotFoundError } from '../errors';
 
 export async function listCatalogs(workspaceId: string): Promise<CatalogRow[]> {
   const supabase = getSupabase();

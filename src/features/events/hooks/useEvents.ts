@@ -11,7 +11,7 @@ import type {
   EventPropertyPresence,
 } from '@/src/types/schema';
 
-export const MOCK_WORKSPACE_ID = '00000000-0000-0000-0000-000000000000';
+export const MOCK_WORKSPACE_ID = '00000000-0000-0000-0000-000000000001';
 
 export interface ApiError {
   status: number;

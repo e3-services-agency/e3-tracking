@@ -31,6 +31,7 @@
 The repo includes **`api/[[...path]].ts`**, which forwards every **`/api/*`** request to the same Express app. That way the API runs on Vercel in the **same project** as the frontend.
 
 - **Behavior:** Requests to e.g. `/api/workspaces` or `/api/journeys/123/canvas` are handled by the serverless function, which passes `(req, res)` to the Express app. No separate Node server is required.
+- **Build:** The API handler (`api/[[...path]].ts`) imports the compiled Express app from **`api/_backend/backend/app.js`**. Run **`npm run build`** before deploy so that `build:backend` produces `api/_backend/`; the function and backend live in the same `api/` tree so Vercel includes them together. **Build Command** in Vercel should be **`npm run build`**, **Output Directory** **`dist`**.
 - **Env for the API:** Set the **backend** variables in the **Vercel** project (see Task 2). The serverless function runs in the same deployment and reads `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, and optionally `CORS_ORIGIN` and `GEMINI_API_KEY`.
 - **Same-origin:** Because the API is served from the same Vercel deployment, **do not set `VITE_API_BASE_URL`** (or set it to the same origin). The frontend will call `/api/...` relative to the current origin.
 

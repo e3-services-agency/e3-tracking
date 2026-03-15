@@ -12,7 +12,7 @@ const SPACE_BLUE = '#1A1E38';
 const E3_WHITE = '#EEEEE3';
 const EMERALD = '#0DCC96';
 
-const LOGO_SRC = `${import.meta.env.BASE_URL || '/'}branding/agency-logo.png`.replace(/\/+/g, '/');
+const LOGO_SRC = `${import.meta.env.BASE_URL || '/'}branding/logo-light.png`.replace(/\/+/g, '/');
 
 export function Login() {
   const { signIn } = useAuth();
@@ -93,7 +93,7 @@ export function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@company.com"
-                  className="w-full pr-10"
+                  className="w-full pr-10 border-gray-300 bg-white text-gray-900 placeholder:text-gray-500 focus-visible:ring-[var(--e3-emerald)] focus-visible:border-gray-400"
                   disabled={loading}
                 />
                 <span
@@ -117,7 +117,7 @@ export function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pr-10"
+                  className="w-full pr-10 border-gray-300 bg-white text-gray-900 placeholder:text-gray-500 focus-visible:ring-[var(--e3-emerald)] focus-visible:border-gray-400"
                   disabled={loading}
                 />
                 <span

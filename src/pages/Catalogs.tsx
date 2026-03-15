@@ -65,7 +65,9 @@ export function Catalogs() {
     }
   }, [selectedCatalog, catalogs]);
 
-  const detailCatalog = selectedCatalog ? catalogs.find((c) => c.id === selectedCatalog.id) ?? null;
+  const detailCatalog = selectedCatalog
+    ? (catalogs.find((c) => c.id === selectedCatalog.id) ?? null)
+    : null;
 
   return (
     <div className="flex flex-1 flex-col h-full bg-[#F9FAFB]">

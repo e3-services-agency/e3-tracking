@@ -8,7 +8,7 @@ import { API_BASE } from '@/src/config/env';
 import type { PropertyRow, CreatePropertyInput, PropertyMappingType } from '@/src/types/schema';
 
 /** Mock workspace ID until auth/workspace context exists. Replace with useWorkspace() or similar. */
-export const MOCK_WORKSPACE_ID = '00000000-0000-0000-0000-000000000001';
+export const MOCK_WORKSPACE_ID = '00000000-0000-0000-0000-000000000000';
 
 export interface ApiError {
   status: number;

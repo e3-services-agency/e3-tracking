@@ -92,7 +92,7 @@ export const useStore = create<StoreState>((set, get) => {
     });
   };
 
-  const DEFAULT_WORKSPACE_ID = '00000000-0000-0000-0000-000000000001';
+  const DEFAULT_WORKSPACE_ID = '00000000-0000-0000-0000-000000000000';
 
   return {
     mainData: initialData,

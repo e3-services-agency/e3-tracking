@@ -3,7 +3,7 @@ import { Copy, Check, Code } from 'lucide-react';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 
-const MOCK_WORKSPACE_ID = '00000000-0000-0000-0000-000000000001';
+const MOCK_WORKSPACE_ID = '00000000-0000-0000-0000-000000000000';
 
 export type CodegenStyle = 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi';
 

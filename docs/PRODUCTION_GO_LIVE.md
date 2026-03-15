@@ -32,6 +32,7 @@ The repo includes **`api/[[...path]].ts`**, which forwards every **`/api/*`** re
 
 - **Behavior:** Requests to e.g. `/api/workspaces` or `/api/journeys/123/canvas` are handled by the serverless function, which passes `(req, res)` to the Express app. No separate Node server is required.
 - **Build:** The API handler **`api/[[...path]].ts`** exports the Express app from **`../src/backend/app`**. Vercel’s **@vercel/node** builder compiles the `api/` folder and the backend TypeScript natively; no separate backend build step. **Build Command** in Vercel: **`npm run build`** (Vite only). **Output Directory**: **`dist`**.
+- **Rewrites (`vercel.json`):** The first rewrite maps **`/tracking-plan/api/:path*`** → **`/api/:path*`** so sub-path API calls hit the serverless function; the second sends all other non-file paths to **`/index.html`** (SPA). Order is important: API rewrite first, then SPA fallback.
 - **Env for the API:** Set the **backend** variables in the **Vercel** project (see Task 2). The serverless function runs in the same deployment and reads `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, and optionally `CORS_ORIGIN` and `GEMINI_API_KEY`.
 - **Same-origin:** Because the API is served from the same Vercel deployment, **do not set `VITE_API_BASE_URL`** (or set it to the same origin). The frontend will call `/api/...` relative to the current origin.
 

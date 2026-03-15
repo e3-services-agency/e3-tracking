@@ -2,6 +2,7 @@
  * E3-branded login: Space Blue background, white card, Emerald primary button.
  */
 import React, { useState } from 'react';
+import { Mail, Lock } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -11,12 +12,15 @@ const SPACE_BLUE = '#1A1E38';
 const E3_WHITE = '#EEEEE3';
 const EMERALD = '#0DCC96';
 
+const LOGO_SRC = `${import.meta.env.BASE_URL || '/'}branding/agency-logo.png`.replace(/\/+/g, '/');
+
 export function Login() {
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,12 +49,22 @@ export function Login() {
         style={{ backgroundColor: E3_WHITE }}
       >
         <div className="p-8 sm:p-10">
-          <div className="flex justify-center mb-8">
-            <img
-              src={AGENCY_CONFIG.logoPath}
-              alt={AGENCY_CONFIG.name}
-              className="h-10 w-auto object-contain"
-            />
+          <div className="flex justify-center mb-8 min-h-[2.5rem] items-center">
+            {logoError ? (
+              <span
+                className="text-xl font-bold"
+                style={{ color: SPACE_BLUE, fontFamily: 'DM Sans, sans-serif' }}
+              >
+                E3 Agency
+              </span>
+            ) : (
+              <img
+                src={LOGO_SRC}
+                alt={AGENCY_CONFIG.name}
+                className="h-10 w-auto object-contain"
+                onError={() => setLogoError(true)}
+              />
+            )}
           </div>
           <h1 className="text-xl font-semibold text-center text-gray-900 mb-1">
             Tracking Portal
@@ -67,35 +81,53 @@ export function Login() {
                 {error}
               </div>
             )}
-            <div>
+            <div className="relative">
               <label htmlFor="login-email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email
               </label>
-              <Input
-                id="login-email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                className="w-full"
-                disabled={loading}
-              />
+              <div className="relative">
+                <Input
+                  id="login-email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  className="w-full pr-10"
+                  disabled={loading}
+                />
+                <span
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none"
+                  style={{ color: EMERALD }}
+                  aria-hidden
+                >
+                  <Mail className="h-5 w-5" />
+                </span>
+              </div>
             </div>
-            <div>
+            <div className="relative">
               <label htmlFor="login-password" className="block text-sm font-medium text-gray-700 mb-1">
                 Password
               </label>
-              <Input
-                id="login-password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full"
-                disabled={loading}
-              />
+              <div className="relative">
+                <Input
+                  id="login-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pr-10"
+                  disabled={loading}
+                />
+                <span
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none"
+                  style={{ color: EMERALD }}
+                  aria-hidden
+                >
+                  <Lock className="h-5 w-5" />
+                </span>
+              </div>
             </div>
             <Button
               type="submit"

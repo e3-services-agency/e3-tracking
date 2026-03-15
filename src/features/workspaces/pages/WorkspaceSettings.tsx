@@ -5,14 +5,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
+import { API_BASE } from '@/src/config/env';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import type { WorkspaceMemberRole } from '@/src/types/schema';
-
-const API_BASE =
-  typeof import.meta !== 'undefined' && (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL != null
-    ? String((import.meta as { env: { VITE_API_BASE_URL: string } }).env.VITE_API_BASE_URL).replace(/\/$/, '')
-    : '';
 
 const EMERALD = '#0DCC96';
 

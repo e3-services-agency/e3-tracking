@@ -4,12 +4,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
+import { API_BASE } from '@/src/config/env';
 import type { CatalogRow, CatalogFieldRow, CatalogType } from '@/src/types/schema';
-
-const API_BASE =
-  typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL != null
-    ? String(import.meta.env.VITE_API_BASE_URL).replace(/\/$/, '')
-    : '';
 
 export type CatalogCreateInput = {
   name: string;

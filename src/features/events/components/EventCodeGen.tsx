@@ -1,11 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Copy, Check, Code } from 'lucide-react';
 import { fetchWithAuth } from '@/src/lib/api';
-
-const API_BASE =
-  typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL != null
-    ? String(import.meta.env.VITE_API_BASE_URL).replace(/\/$/, '')
-    : '';
+import { API_BASE } from '@/src/config/env';
 
 const MOCK_WORKSPACE_ID = '00000000-0000-0000-0000-000000000001';
 

@@ -5,11 +5,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/src/contexts/AuthContext';
 import { getSupabaseClient } from '@/src/lib/supabase';
 import { fetchWithAuth } from '@/src/lib/api';
-
-const API_BASE =
-  typeof import.meta !== 'undefined' && (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL != null
-    ? String((import.meta as { env: { VITE_API_BASE_URL: string } }).env.VITE_API_BASE_URL).replace(/\/$/, '')
-    : '';
+import { API_BASE } from '@/src/config/env';
 
 export interface WorkspaceItem {
   id: string;

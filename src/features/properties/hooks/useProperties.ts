@@ -4,11 +4,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
+import { API_BASE } from '@/src/config/env';
 import type { PropertyRow, CreatePropertyInput, PropertyMappingType } from '@/src/types/schema';
-
-const API_BASE = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL != null
-  ? String(import.meta.env.VITE_API_BASE_URL).replace(/\/$/, '')
-  : '';
 
 /** Mock workspace ID until auth/workspace context exists. Replace with useWorkspace() or similar. */
 export const MOCK_WORKSPACE_ID = '00000000-0000-0000-0000-000000000001';

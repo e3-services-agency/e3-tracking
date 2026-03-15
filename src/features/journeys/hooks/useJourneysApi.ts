@@ -5,16 +5,12 @@
 import { useStore } from '@/src/store';
 import { MOCK_WORKSPACE_ID } from '@/src/features/events/hooks/useEvents';
 import { fetchWithAuth } from '@/src/lib/api';
+import { API_BASE } from '@/src/config/env';
 
 /** Hook to use when calling journey APIs so they target the active workspace. */
 export function useActiveWorkspaceId(): string {
   return useStore((s) => s.activeWorkspaceId) ?? MOCK_WORKSPACE_ID;
 }
-
-const API_BASE =
-  typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL != null
-    ? String(import.meta.env.VITE_API_BASE_URL).replace(/\/$/, '')
-    : '';
 
 export interface ValidatePayloadResult {
   valid: boolean;

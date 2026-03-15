@@ -48,9 +48,12 @@ router.get('/', requireWorkspace, async (req: Request, res: Response): Promise<v
       });
       return;
     }
-    res.status(500).json({
-      error: 'An unexpected error occurred.',
-      code: 'INTERNAL_ERROR',
+    const message = err instanceof Error ? err.message : '';
+    const isEnvError = typeof message === 'string' && message.includes('Missing or empty required env');
+    res.status(isEnvError ? 503 : 500).json({
+      error: isEnvError ? 'Server configuration error.' : 'An unexpected error occurred.',
+      code: isEnvError ? 'CONFIG_ERROR' : 'INTERNAL_ERROR',
+      ...(isEnvError && { detail: 'Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the deployment environment.' }),
     });
   }
 });

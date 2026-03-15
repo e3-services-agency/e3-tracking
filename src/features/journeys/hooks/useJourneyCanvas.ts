@@ -10,6 +10,7 @@ import {
 } from '@xyflow/react';
 
 import { useStore } from '@/src/store';
+import { useAuth } from '@/src/contexts/AuthContext';
 import type {
   Journey,
   QAProof,

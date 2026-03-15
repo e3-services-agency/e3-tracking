@@ -5,7 +5,7 @@
  * Required env in Vercel: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY.
  * Optional: CORS_ORIGIN (comma-separated), GEMINI_API_KEY (for codegen).
  */
-import { createApp } from '../src/backend/app.js';
+import { createApp } from '../src/backend/app.ts';
 
 const app = createApp();
 

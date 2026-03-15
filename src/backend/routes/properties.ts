@@ -32,6 +32,7 @@ router.get('/', requireWorkspace, async (req: Request, res: Response): Promise<v
     const list = await PropertyDAL.listProperties(workspaceId);
     res.status(200).json(list);
   } catch (err) {
+    console.error(err);
     if (err instanceof DatabaseError) {
       res.status(500).json({ error: 'Failed to list properties.', code: err.code });
       return;
@@ -107,10 +108,10 @@ router.post(
       pii_status: piiStatus as PiiStatus,
       data_format: typeof body.data_format === 'string' ? body.data_format : undefined,
       is_list: Boolean(body.is_list),
-      example_values_json: body.example_values_json ?? undefined,
-      name_mappings_json: body.name_mappings_json ?? undefined,
-      mapped_catalog_id: typeof body.mapped_catalog_id === 'string' ? body.mapped_catalog_id : undefined,
-      mapped_catalog_field_id: typeof body.mapped_catalog_field_id === 'string' ? body.mapped_catalog_field_id : undefined,
+      example_values_json: (body.example_values_json ?? undefined) as string | undefined,
+      name_mappings_json: (body.name_mappings_json ?? undefined) as string | undefined,
+      mapped_catalog_id: typeof body.mapped_catalog_id === 'string' ? (body.mapped_catalog_id as string) : undefined,
+      mapped_catalog_field_id: typeof body.mapped_catalog_field_id === 'string' ? (body.mapped_catalog_field_id as string) : undefined,
       mapping_type: body.mapping_type === 'lookup_key' || body.mapping_type === 'mapped_value' ? (body.mapping_type as PropertyMappingType) : undefined,
     };
 
@@ -118,6 +119,7 @@ router.post(
       const created = await PropertyDAL.createProperty(workspaceId, propertyData);
       res.status(201).json(created);
     } catch (err) {
+      console.error(err);
       if (err instanceof ConflictError) {
         res.status(409).json({
           error: err.message,
@@ -161,8 +163,8 @@ router.patch(
     const body = req.body as Record<string, unknown>;
     const updates: Parameters<typeof PropertyDAL.updateProperty>[2] = {};
     if (typeof body.name === 'string') updates.name = body.name;
-    if (typeof body.description === 'string' || body.description === null) updates.description = body.description;
-    if (typeof body.category === 'string' || body.category === null) updates.category = body.category;
+    if (typeof body.description === 'string' || body.description === null) updates.description = body.description as string | null;
+    if (typeof body.category === 'string' || body.category === null) updates.category = body.category as string | null;
     if (body.pii_status !== undefined && PII_STATUSES.includes(body.pii_status as PiiStatus)) {
       updates.pii_status = body.pii_status as PiiStatus;
     }
@@ -171,16 +173,16 @@ router.patch(
     }
     if (body.data_format !== undefined) updates.data_format = body.data_format === null ? null : String(body.data_format);
     if (typeof body.is_list === 'boolean') updates.is_list = body.is_list;
-    if (body.example_values_json !== undefined) updates.example_values_json = body.example_values_json;
-    if (body.name_mappings_json !== undefined) updates.name_mappings_json = body.name_mappings_json;
+    if (body.example_values_json !== undefined) updates.example_values_json = body.example_values_json as string | null;
+    if (body.name_mappings_json !== undefined) updates.name_mappings_json = body.name_mappings_json as string | null;
     if (body.mapped_catalog_id !== undefined) {
-      updates.mapped_catalog_id = typeof body.mapped_catalog_id === 'string' ? body.mapped_catalog_id : null;
+      updates.mapped_catalog_id = typeof body.mapped_catalog_id === 'string' ? (body.mapped_catalog_id as string) : null;
     }
     if (body.mapped_catalog_field_id !== undefined) {
-      updates.mapped_catalog_field_id = typeof body.mapped_catalog_field_id === 'string' ? body.mapped_catalog_field_id : null;
+      updates.mapped_catalog_field_id = typeof body.mapped_catalog_field_id === 'string' ? (body.mapped_catalog_field_id as string) : null;
     }
     if (body.mapping_type === 'lookup_key' || body.mapping_type === 'mapped_value' || body.mapping_type === null) {
-      updates.mapping_type = body.mapping_type;
+      updates.mapping_type = body.mapping_type as PropertyMappingType | null;
     }
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: 'No valid fields to update.', code: 'NO_UPDATES' });
@@ -190,6 +192,7 @@ router.patch(
       const updated = await PropertyDAL.updateProperty(workspaceId, propertyId, updates);
       res.status(200).json(updated);
     } catch (err) {
+      console.error(err);
       if (err instanceof NotFoundError) {
         res.status(404).json({ error: err.message, code: err.code });
         return;

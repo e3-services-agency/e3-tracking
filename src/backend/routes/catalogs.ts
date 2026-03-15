@@ -23,6 +23,7 @@ router.get('/', requireWorkspace, async (req: Request, res: Response): Promise<v
     const list = await CatalogService.listCatalogs(workspaceId);
     res.status(200).json(list);
   } catch (err) {
+    console.error(err);
     if (err instanceof DatabaseError) {
       res.status(500).json({ error: 'Failed to list catalogs.', code: err.code });
       return;
@@ -62,6 +63,7 @@ router.post('/', requireWorkspace, async (req: Request, res: Response): Promise<
     });
     res.status(201).json(catalog);
   } catch (err) {
+    console.error(err);
     if (err instanceof DatabaseError) {
       res.status(500).json({ error: 'Failed to create catalog.', code: err.code });
       return;
@@ -85,6 +87,7 @@ router.get('/:id/fields', requireWorkspace, async (req: Request, res: Response):
     const fields = await CatalogService.listCatalogFields(workspaceId, catalogId);
     res.status(200).json(fields);
   } catch (err) {
+    console.error(err);
     if (err instanceof NotFoundError) {
       res.status(404).json({ error: err.message, code: err.code });
       return;
@@ -123,6 +126,7 @@ router.post('/:id/fields', requireWorkspace, async (req: Request, res: Response)
     });
     res.status(201).json(field);
   } catch (err) {
+    console.error(err);
     if (err instanceof NotFoundError) {
       res.status(404).json({ error: err.message, code: err.code });
       return;
@@ -154,6 +158,7 @@ router.get('/:id', requireWorkspace, async (req: Request, res: Response): Promis
     }
     res.status(200).json(catalog);
   } catch (err) {
+    console.error(err);
     if (err instanceof DatabaseError) {
       res.status(500).json({ error: 'Failed to get catalog.', code: err.code });
       return;
@@ -190,6 +195,7 @@ router.patch('/:id', requireWorkspace, async (req: Request, res: Response): Prom
     });
     res.status(200).json(catalog);
   } catch (err) {
+    console.error(err);
     if (err instanceof NotFoundError) {
       res.status(404).json({ error: err.message, code: err.code });
       return;
@@ -266,6 +272,7 @@ router.patch(
       );
       res.status(200).json(field);
     } catch (err) {
+      console.error(err);
       if (err instanceof NotFoundError) {
         res.status(404).json({ error: err.message, code: err.code });
         return;
@@ -297,6 +304,7 @@ router.delete(
       await CatalogService.deleteCatalogField(workspaceId, catalogId, fieldId);
       res.status(204).send();
     } catch (err) {
+      console.error(err);
       if (err instanceof NotFoundError) {
         res.status(404).json({ error: err.message, code: err.code });
         return;

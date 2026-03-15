@@ -7,7 +7,6 @@ import { Properties } from '@/src/pages/Properties';
 import { Sources } from '@/src/pages/Sources';
 import { Journeys } from '@/src/pages/Journeys';
 import { Settings } from '@/src/pages/Settings';
-import { Docs } from '@/src/pages/Docs';
 import { Documentation } from '@/src/pages/Documentation';
 
 import { JourneysList } from '@/src/pages/JourneysList';
@@ -44,7 +43,6 @@ export function Layout() {
         {activeTab === 'journeysList' && <JourneysList onSelectJourney={(id) => { setSelectedJourneyId(id); setActiveTab('journeys'); }} />}
         {activeTab === 'journeys' && <Journeys selectedJourneyId={selectedJourneyId} onBack={() => setActiveTab('journeysList')} />}
         {activeTab === 'settings' && <Settings />}
-        {activeTab === 'docs' && <Docs />}
         {activeTab === 'documentation' && <Documentation />}
         {activeTab === 'auditConfig' && <TrackingPlanAuditConfig />}
         </main>

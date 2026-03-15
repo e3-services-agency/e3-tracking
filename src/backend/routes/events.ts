@@ -40,6 +40,7 @@ router.get('/', requireWorkspace, async (req: Request, res: Response): Promise<v
     const list = await EventDAL.listEvents(workspaceId);
     res.status(200).json(list);
   } catch (err) {
+    console.error(err);
     if (err instanceof DatabaseError) {
       res.status(500).json({
         error: 'Failed to list events.',
@@ -72,6 +73,7 @@ router.get('/:id', requireWorkspace, async (req: Request, res: Response): Promis
     const result = await EventDAL.getEventWithProperties(workspaceId, eventId);
     res.status(200).json(result);
   } catch (err) {
+    console.error(err);
     if (err instanceof NotFoundError) {
       res.status(404).json({
         error: err.message,
@@ -120,6 +122,7 @@ router.get('/:id/codegen', requireWorkspace, async (req: Request, res: Response)
     const snippets = buildCodegenSnippets(event.name, attached);
     res.status(200).json(snippets);
   } catch (err) {
+    console.error(err);
     if (err instanceof NotFoundError) {
       res.status(404).json({
         error: err.message,
@@ -185,6 +188,7 @@ router.post(
       const created = await EventDAL.createEvent(workspaceId, eventData);
       res.status(201).json(created);
     } catch (err) {
+      console.error(err);
       if (err instanceof ConflictError) {
         res.status(409).json({
           error: err.message,
@@ -258,6 +262,7 @@ router.post(
       );
       res.status(201).json(row);
     } catch (err) {
+      console.error(err);
       if (err instanceof NotFoundError) {
         res.status(404).json({
           error: err.message,
@@ -339,6 +344,7 @@ router.patch(
       );
       res.status(200).json(row);
     } catch (err) {
+      console.error(err);
       if (err instanceof NotFoundError) {
         res.status(404).json({
           error: err.message,

@@ -250,33 +250,41 @@ export function Events() {
                     <div>
                       <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">Sources</div>
                       <div className="space-y-3">
-                        {['Website', 'Backend', 'iOS', 'Android'].map(s => (
-                          <label key={s} className="flex items-center gap-3 cursor-pointer group">
-                            <input 
-                              type="checkbox" 
-                              checked={sourceFilters.includes(s)}
-                              onChange={() => toggleSourceFilter(s)}
-                              className="rounded border-gray-300 w-4 h-4 text-gray-500 focus:ring-0 cursor-pointer" 
-                            />
-                            <span className="text-[14px] font-medium text-gray-700 group-hover:text-gray-900 transition-colors">{s}</span>
-                          </label>
-                        ))}
+                        {data.sources.length === 0 ? (
+                          <span className="text-[13px] text-gray-500">No sources in workspace</span>
+                        ) : (
+                          data.sources.map((s) => (
+                            <label key={s.id} className="flex items-center gap-3 cursor-pointer group">
+                              <input
+                                type="checkbox"
+                                checked={sourceFilters.includes(s.name)}
+                                onChange={() => toggleSourceFilter(s.name)}
+                                className="rounded border-gray-300 w-4 h-4 text-gray-500 focus:ring-0 cursor-pointer"
+                              />
+                              <span className="text-[14px] font-medium text-gray-700 group-hover:text-gray-900 transition-colors">{s.name}</span>
+                            </label>
+                          ))
+                        )}
                       </div>
                     </div>
                     <div>
                       <div className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-3">Stakeholders</div>
                       <div className="space-y-3">
-                        {['Central data team', 'Checkout team', 'Search team', 'Marketing', 'Core Product'].map(s => (
-                          <label key={s} className="flex items-center gap-3 cursor-pointer group">
-                            <input 
-                              type="checkbox" 
-                              checked={stakeholderFilters.includes(s)}
-                              onChange={() => toggleStakeholderFilter(s)}
-                              className="rounded border-gray-300 w-4 h-4 text-gray-500 focus:ring-0 cursor-pointer" 
-                            />
-                            <span className="text-[14px] font-medium text-gray-700 group-hover:text-gray-900 transition-colors">{s}</span>
-                          </label>
-                        ))}
+                        {data.teams.length === 0 ? (
+                          <span className="text-[13px] text-gray-500">No teams in workspace</span>
+                        ) : (
+                          data.teams.map((t) => (
+                            <label key={t.id} className="flex items-center gap-3 cursor-pointer group">
+                              <input
+                                type="checkbox"
+                                checked={stakeholderFilters.includes(t.name)}
+                                onChange={() => toggleStakeholderFilter(t.name)}
+                                className="rounded border-gray-300 w-4 h-4 text-gray-500 focus:ring-0 cursor-pointer"
+                              />
+                              <span className="text-[14px] font-medium text-gray-700 group-hover:text-gray-900 transition-colors">{t.name}</span>
+                            </label>
+                          ))
+                        )}
                       </div>
                     </div>
                   </div>

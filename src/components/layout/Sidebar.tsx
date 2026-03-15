@@ -8,7 +8,6 @@ import {
   Check,
   Settings,
   BookOpen,
-  Bookmark,
   AlertCircle,
   Download,
   LogOut,
@@ -54,8 +53,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
 
   const bottomNavItems = [
     { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'docs', label: 'Docs', icon: BookOpen },
-    { id: 'documentation', label: 'Documentation', icon: Bookmark },
+    { id: 'documentation', label: 'Documentation', icon: BookOpen },
   ];
   const BASE = (typeof import.meta !== 'undefined' && (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL) ? String((import.meta as { env: { BASE_URL: string } }).env.BASE_URL).replace(/\/$/, '') : '';
 

@@ -9,6 +9,19 @@ import { JourneyCanvas } from '@/src/features/journeys/editor/JourneyCanvas';
 import { getSharedJourneyByIdApi, getSharedJourneyByTokenApi } from '@/src/features/journeys/hooks/useJourneysApi';
 import type { Journey } from '@/src/types';
 
+type SharedResponse = {
+  id: string;
+  name: string;
+  description: string | null;
+  testing_instructions_markdown: string | null;
+  nodes: unknown;
+  edges: unknown;
+  eventSnippets?: Record<
+    string,
+    { eventName: string; snippets: { dataLayer: string; bloomreachSdk: string; bloomreachApi: string } }
+  >;
+};
+
 export function SharedJourneyView({
   token,
   journeyId,
@@ -29,13 +42,23 @@ export function SharedJourneyView({
       if (cancelled) return;
       setLoading(false);
       if (result.success) {
-        const j = result.journey;
+        const j = result.journey as SharedResponse;
+        const snippetMap = j.eventSnippets ?? {};
+        const nodes = Array.isArray(j.nodes) ? j.nodes : [];
+        const enrichedNodes = nodes.map((n: any) => {
+          if (n?.type !== 'triggerNode') return n;
+          const eventId = n?.data?.connectedEvent?.eventId;
+          if (typeof eventId !== 'string') return n;
+          const sn = snippetMap[eventId]?.snippets;
+          if (!sn) return n;
+          return { ...n, data: { ...n.data, codegenSnippets: sn } };
+        });
         setJourney({
           id: j.id,
           name: j.name,
           description: j.description ?? undefined,
           testing_instructions_markdown: j.testing_instructions_markdown ?? undefined,
-          nodes: Array.isArray(j.nodes) ? j.nodes : [],
+          nodes: enrichedNodes,
           edges: Array.isArray(j.edges) ? j.edges : [],
           qaRuns: [],
         });

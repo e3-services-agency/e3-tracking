@@ -336,6 +336,7 @@ export async function setShareToken(
  * @throws NotFoundError when id is invalid, deleted, or share is disabled.
  */
 export async function getJourneyByShareId(journeyId: string): Promise<{
+  workspace_id: string;
   id: string;
   name: string;
   description: string | null;
@@ -347,7 +348,7 @@ export async function getJourneyByShareId(journeyId: string): Promise<{
   const { data, error } = await supabase
     .from('journeys')
     .select(
-      'id, name, description, testing_instructions_markdown, canvas_nodes_json, canvas_edges_json, share_token'
+      'workspace_id, id, name, description, testing_instructions_markdown, canvas_nodes_json, canvas_edges_json, share_token'
     )
     .eq('id', journeyId)
     .is('deleted_at', null)
@@ -362,6 +363,7 @@ export async function getJourneyByShareId(journeyId: string): Promise<{
   }
 
   const row = data as {
+    workspace_id: string;
     id: string;
     name: string;
     description: string | null;
@@ -372,6 +374,7 @@ export async function getJourneyByShareId(journeyId: string): Promise<{
   };
 
   return {
+    workspace_id: row.workspace_id,
     id: row.id,
     name: row.name,
     description: row.description,
@@ -388,6 +391,7 @@ export async function getJourneyByShareId(journeyId: string): Promise<{
  * @throws NotFoundError when token is invalid or journey is deleted.
  */
 export async function getJourneyByShareToken(token: string): Promise<{
+  workspace_id: string;
   id: string;
   name: string;
   description: string | null;
@@ -398,7 +402,7 @@ export async function getJourneyByShareToken(token: string): Promise<{
   const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('journeys')
-    .select('id, name, description, testing_instructions_markdown, canvas_nodes_json, canvas_edges_json')
+    .select('workspace_id, id, name, description, testing_instructions_markdown, canvas_nodes_json, canvas_edges_json')
     .eq('share_token', token)
     .is('deleted_at', null)
     .maybeSingle();
@@ -418,6 +422,7 @@ export async function getJourneyByShareToken(token: string): Promise<{
   }
 
   const row = data as {
+    workspace_id: string;
     id: string;
     name: string;
     description: string | null;
@@ -427,6 +432,7 @@ export async function getJourneyByShareToken(token: string): Promise<{
   };
 
   return {
+    workspace_id: row.workspace_id,
     id: row.id,
     name: row.name,
     description: row.description,

@@ -147,6 +147,8 @@ export function JourneyCanvas({
     saveError: string | null;
   }) => void;
 }) {
+  const [readOnlyImagePreview, setReadOnlyImagePreview] = React.useState<string | null>(null);
+
   const {
     nodes,
     edges,
@@ -624,11 +626,104 @@ export function JourneyCanvas({
                 </div>
               </div>
 
+              {readOnly && isJourneyStepNode(selectedNode) && (
+                <div className="space-y-4">
+                  {(selectedNode.data.description ?? '').trim() && (
+                    <div>
+                      <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Description
+                      </div>
+                      <div className="bg-white border rounded-md p-2 text-sm text-gray-800 whitespace-pre-wrap">
+                        {selectedNode.data.description}
+                      </div>
+                    </div>
+                  )}
+
+                  {(selectedNode.data.url ?? '').trim() && (
+                    <div>
+                      <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        URL
+                      </div>
+                      <a
+                        className="block bg-white border rounded-md p-2 text-sm text-[var(--color-info)] break-all hover:underline"
+                        href={selectedNode.data.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {selectedNode.data.url}
+                      </a>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Action
+                      </div>
+                      <div className="bg-white border rounded-md p-2 text-sm text-gray-800">
+                        {selectedNode.data.actionType ?? 'click'}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Implementation
+                      </div>
+                      <div className="bg-white border rounded-md p-2 text-sm text-gray-800 capitalize">
+                        {selectedNode.data.implementationType ?? 'new'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {(selectedNode.data.targetElement ?? '').trim() && (
+                    <div>
+                      <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Target element
+                      </div>
+                      <pre className="bg-white border rounded-md p-2 text-xs text-gray-700 whitespace-pre-wrap break-all">
+                        {selectedNode.data.targetElement}
+                      </pre>
+                    </div>
+                  )}
+
+                  {(selectedNode.data.testDataJson ?? '').trim() && (
+                    <div>
+                      <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Test data
+                      </div>
+                      <pre className="bg-white border rounded-md p-2 text-xs text-gray-700 whitespace-pre-wrap break-all">
+                        {selectedNode.data.testDataJson}
+                      </pre>
+                    </div>
+                  )}
+
+                  {(selectedNode.data.imageUrl ?? '').trim() && (
+                    <div>
+                      <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Screenshot
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setReadOnlyImagePreview(selectedNode.data.imageUrl)}
+                        className="w-full border rounded-md overflow-hidden bg-white hover:border-[var(--color-info)] transition-colors"
+                        title="Click to preview"
+                      >
+                        <img
+                          src={selectedNode.data.imageUrl}
+                          alt="Step screenshot"
+                          className="block w-full h-auto"
+                        />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {isTriggerNode(selectedNode) &&
                 selectedNode.data.connectedEvent?.eventId && (
                   <div className="pt-2 border-t border-gray-200">
                     <EventCodeGen
                       eventId={selectedNode.data.connectedEvent.eventId}
+                      prefetchedSnippets={(selectedNode.data as any).codegenSnippets ?? null}
                       compact
                       title="Code Snippets"
                     />
@@ -1134,6 +1229,33 @@ export function JourneyCanvas({
         )}
 
       <JourneyProofViewer proof={viewerProof} onClose={closeViewerProof} />
+
+      {readOnlyImagePreview && (
+        <div
+          className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-6"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setReadOnlyImagePreview(null)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-[92vw] max-h-[92vh] overflow-hidden relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="absolute top-3 right-3 bg-white/90 hover:bg-white border rounded-md px-2 py-1 text-sm"
+              onClick={() => setReadOnlyImagePreview(null)}
+            >
+              Close
+            </button>
+            <img
+              src={readOnlyImagePreview}
+              alt="Screenshot preview"
+              className="block max-w-[92vw] max-h-[92vh] w-auto h-auto"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

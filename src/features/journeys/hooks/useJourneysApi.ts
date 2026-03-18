@@ -217,7 +217,7 @@ export async function setJourneyShareEnabledApi(
 export async function getSharedJourneyByIdApi(
   journeyId: string
 ): Promise<
-  | { success: true; journey: { id: string; name: string; description: string | null; testing_instructions_markdown: string | null; nodes: unknown; edges: unknown } }
+  | { success: true; journey: { id: string; name: string; description: string | null; testing_instructions_markdown: string | null; nodes: unknown; edges: unknown; eventSnippets?: Record<string, { eventName: string; snippets: { dataLayer: string; bloomreachSdk: string; bloomreachApi: string } }> } }
   | { success: false; error: string }
 > {
   try {
@@ -245,7 +245,7 @@ export async function getSharedJourneyByIdApi(
 export async function getSharedJourneyByTokenApi(
   token: string
 ): Promise<
-  | { success: true; journey: { id: string; name: string; description: string | null; testing_instructions_markdown: string | null; nodes: unknown; edges: unknown } }
+  | { success: true; journey: { id: string; name: string; description: string | null; testing_instructions_markdown: string | null; nodes: unknown; edges: unknown; eventSnippets?: Record<string, { eventName: string; snippets: { dataLayer: string; bloomreachSdk: string; bloomreachApi: string } }> } }
   | { success: false; error: string }
 > {
   try {

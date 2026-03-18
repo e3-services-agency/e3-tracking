@@ -17,6 +17,8 @@ type EventCodeGenProps = {
   /** Event ID to fetch snippets for (GET /api/events/:id/codegen). */
   eventId: string | null | undefined;
   workspaceId?: string;
+  /** Optional: precomputed snippets (e.g. in public shared view). */
+  prefetchedSnippets?: CodegenSnippets | null;
   /** Optional: show a compact header (e.g. in Journey sidebar). */
   compact?: boolean;
   /** Section title. */
@@ -32,6 +34,7 @@ const STYLE_LABELS: Record<CodegenStyle, string> = {
 export function EventCodeGen({
   eventId,
   workspaceId = MOCK_WORKSPACE_ID,
+  prefetchedSnippets = null,
   compact = false,
   title = 'Code Snippets',
 }: EventCodeGenProps) {
@@ -42,6 +45,12 @@ export function EventCodeGen({
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    if (prefetchedSnippets) {
+      setSnippets(prefetchedSnippets);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     if (!eventId) {
       setSnippets(null);
       setError(null);

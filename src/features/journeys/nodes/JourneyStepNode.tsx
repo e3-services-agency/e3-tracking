@@ -140,39 +140,62 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
           />
         </div>
 
-        <textarea
-          placeholder="Step Description..."
-          value={data.description}
-          onChange={(e) =>
-            !disabled && updateNodeData({ description: e.target.value })
-          }
-          disabled={disabled}
-          className="w-full text-xs text-gray-600 bg-white border rounded p-1 resize-none h-16 disabled:bg-gray-50 nodrag"
-        />
-
-        <div className="flex items-center gap-2 mt-1">
-          <input
-            type="url"
-            placeholder="Step URL (for testing)"
-            value={data.url ?? ''}
+        {isReadOnly ? (
+          <div className="w-full text-xs text-gray-700 bg-white border rounded p-2 min-h-[3.5rem] whitespace-pre-wrap">
+            {(data.description ?? '').trim() ? data.description : '—'}
+          </div>
+        ) : (
+          <textarea
+            placeholder="Step Description..."
+            value={data.description}
             onChange={(e) =>
-              !disabled && updateNodeData({ url: e.target.value || undefined })
+              !disabled && updateNodeData({ description: e.target.value })
             }
             disabled={disabled}
-            className="flex-1 min-w-0 text-xs text-gray-600 bg-white border rounded px-2 py-1.5 disabled:bg-gray-50 nodrag"
+            className="w-full text-xs text-gray-600 bg-white border rounded p-1 resize-none h-16 disabled:bg-gray-50 nodrag"
           />
-          {data.url?.trim() && (
+        )}
+
+        {isReadOnly ? (
+          (data.url ?? '').trim() ? (
             <a
-              href={data.url.trim()}
+              href={data.url!.trim()}
               target="_blank"
               rel="noopener noreferrer"
-              className="shrink-0 p-1.5 rounded text-blue-600 hover:bg-blue-50 transition-colors nodrag"
+              className="mt-1 flex items-center justify-between gap-2 text-xs text-[var(--color-info)] bg-white border rounded px-2 py-1.5 nodrag hover:underline"
               title="Open step URL"
             >
-              <ExternalLink className="w-4 h-4" />
+              <span className="truncate">{data.url!.trim()}</span>
+              <ExternalLink className="w-4 h-4 shrink-0" />
             </a>
-          )}
-        </div>
+          ) : (
+            <div className="mt-1 text-[10px] text-gray-400">No URL</div>
+          )
+        ) : (
+          <div className="flex items-center gap-2 mt-1">
+            <input
+              type="url"
+              placeholder="Step URL (for testing)"
+              value={data.url ?? ''}
+              onChange={(e) =>
+                !disabled && updateNodeData({ url: e.target.value || undefined })
+              }
+              disabled={disabled}
+              className="flex-1 min-w-0 text-xs text-gray-600 bg-white border rounded px-2 py-1.5 disabled:bg-gray-50 nodrag"
+            />
+            {data.url?.trim() && (
+              <a
+                href={data.url.trim()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 p-1.5 rounded text-blue-600 hover:bg-blue-50 transition-colors nodrag"
+                title="Open step URL"
+              >
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            )}
+          </div>
+        )}
 
         {!isQAMode && (
           <div className="mt-2 pt-2 border-t border-gray-200 space-y-1.5">

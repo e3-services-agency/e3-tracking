@@ -6,10 +6,16 @@ import React, { useEffect, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { JourneyCanvas } from '@/src/features/journeys/editor/JourneyCanvas';
-import { getSharedJourneyByTokenApi } from '@/src/features/journeys/hooks/useJourneysApi';
+import { getSharedJourneyByIdApi, getSharedJourneyByTokenApi } from '@/src/features/journeys/hooks/useJourneysApi';
 import type { Journey } from '@/src/types';
 
-export function SharedJourneyView({ token }: { token: string }) {
+export function SharedJourneyView({
+  token,
+  journeyId,
+}: {
+  token?: string;
+  journeyId?: string;
+}) {
   const [journey, setJourney] = useState<Journey | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -18,7 +24,8 @@ export function SharedJourneyView({ token }: { token: string }) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    getSharedJourneyByTokenApi(token).then((result) => {
+    const fetcher = journeyId ? getSharedJourneyByIdApi(journeyId) : getSharedJourneyByTokenApi(token ?? '');
+    fetcher.then((result) => {
       if (cancelled) return;
       setLoading(false);
       if (result.success) {
@@ -39,7 +46,7 @@ export function SharedJourneyView({ token }: { token: string }) {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, journeyId]);
 
   if (loading) {
     return (

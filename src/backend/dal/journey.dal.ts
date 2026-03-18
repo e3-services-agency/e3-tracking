@@ -309,6 +309,78 @@ export async function generateShareToken(
   return token;
 }
 
+export async function setShareToken(
+  workspaceId: string,
+  journeyId: string,
+  token: string | null
+): Promise<void> {
+  const supabase = getSupabaseOrThrow();
+  const { error } = await supabase
+    .from('journeys')
+    .update({
+      share_token: token,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', journeyId)
+    .eq('workspace_id', workspaceId);
+
+  if (error) {
+    throw new DatabaseError(`Failed to update share token: ${error.message}`, error);
+  }
+}
+
+/**
+ * Returns journey canvas data by journey id when public share is enabled.
+ * Uses share_token as the enable/disable flag (non-null => enabled).
+ *
+ * @throws NotFoundError when id is invalid, deleted, or share is disabled.
+ */
+export async function getJourneyByShareId(journeyId: string): Promise<{
+  id: string;
+  name: string;
+  description: string | null;
+  testing_instructions_markdown: string | null;
+  nodes: unknown;
+  edges: unknown;
+}> {
+  const supabase = getSupabaseOrThrow();
+  const { data, error } = await supabase
+    .from('journeys')
+    .select(
+      'id, name, description, testing_instructions_markdown, canvas_nodes_json, canvas_edges_json, share_token'
+    )
+    .eq('id', journeyId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (error) {
+    throw new DatabaseError(`Failed to fetch journey by id: ${error.message}`, error);
+  }
+
+  if (data === null || !(data as { share_token: string | null }).share_token) {
+    throw new NotFoundError('Invalid or expired share link.', 'journey');
+  }
+
+  const row = data as {
+    id: string;
+    name: string;
+    description: string | null;
+    testing_instructions_markdown: string | null;
+    canvas_nodes_json: unknown;
+    canvas_edges_json: unknown;
+    share_token: string | null;
+  };
+
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    testing_instructions_markdown: row.testing_instructions_markdown,
+    nodes: row.canvas_nodes_json ?? [],
+    edges: row.canvas_edges_json ?? [],
+  };
+}
+
 /**
  * Returns journey canvas data by share token (public access, no workspace check).
  * Strips internal fields; returns only what is needed to render the read-only canvas.

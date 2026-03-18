@@ -172,6 +172,12 @@ export interface Journey {
   type_counts?: { new?: number; enrichment?: number; fix?: number } | null;
   /** Global testing instructions for AI/human testers (Markdown). Synced to API. */
   testing_instructions_markdown?: string | null;
+  /**
+   * Public sharing toggle is derived from this:
+   * - null => not publicly shareable
+   * - non-null => public share is enabled (legacy token value)
+   */
+  share_token?: string | null;
 }
 
 export interface TrackingPlanData {

@@ -226,6 +226,59 @@ router.post(
 );
 
 /**
+ * PATCH /api/journeys/:id/share
+ * Enable/disable public sharing. Body: { enabled: boolean }.
+ *
+ * Implementation detail: share_token being non-null indicates sharing is enabled.
+ */
+router.patch(
+  '/:id/share',
+  requireWorkspace,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = req.workspaceId;
+    if (!workspaceId) {
+      res.status(403).json({
+        error: 'Workspace context required.',
+        code: 'WORKSPACE_REQUIRED',
+      });
+      return;
+    }
+    const journeyId = req.params.id;
+    const body = req.body as { enabled?: unknown };
+    const enabled = body.enabled === true;
+    try {
+      if (enabled) {
+        const token = await JourneyDAL.generateShareToken(workspaceId, journeyId);
+        res.status(200).json({ enabled: true, token });
+        return;
+      }
+      await JourneyDAL.setShareToken(workspaceId, journeyId, null);
+      res.status(200).json({ enabled: false });
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        res.status(404).json({
+          error: err.message,
+          code: err.code,
+          resource: err.resource,
+        });
+        return;
+      }
+      if (err instanceof DatabaseError) {
+        res.status(500).json({
+          error: 'Failed to update share settings.',
+          code: err.code,
+        });
+        return;
+      }
+      res.status(500).json({
+        error: 'An unexpected error occurred.',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+);
+
+/**
  * GET /api/journeys/:id
  * Get one journey by id.
  */

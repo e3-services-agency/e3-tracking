@@ -15,6 +15,7 @@ import {
   getJourneyShareTokenApi,
   useActiveWorkspaceId,
   renameJourneyApi,
+  setJourneyShareEnabledApi,
 } from '@/src/features/journeys/hooks/useJourneysApi';
 import { MoreHorizontal } from 'lucide-react';
 import { ReactFlowProvider } from '@xyflow/react';
@@ -48,6 +49,8 @@ export function Journeys({
   const [isSavingInstructions, setIsSavingInstructions] = useState(false);
   const [instructionsSaveSuccess, setInstructionsSaveSuccess] = useState(false);
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
+  const [isSharePanelOpen, setIsSharePanelOpen] = useState(false);
+  const [isTogglingShare, setIsTogglingShare] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
   const [isRenaming, setIsRenaming] = useState(false);
@@ -179,6 +182,14 @@ export function Journeys({
       setTimeout(() => setInstructionsSaveSuccess(false), 2000);
     }
   };
+
+  const base =
+    (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) ||
+    '/tracking-plan/';
+
+  const shareUrlById = selectedJourney
+    ? `${window.location.origin}${String(base).replace(/\/$/, '')}/share/journey/${selectedJourney.id}`
+    : '';
 
   return (
     <div className="flex-1 flex flex-col h-full bg-white">
@@ -354,28 +365,66 @@ export function Journeys({
                   <button
                     type="button"
                     className="w-full px-3 py-2 text-sm text-left hover:bg-[var(--surface-default)] flex items-center gap-2"
-                    onClick={async () => {
-                      setIsMoreMenuOpen(false);
-                      const result = await getJourneyShareTokenApi(
-                        selectedJourney.id,
-                        activeWorkspaceId,
-                      );
-                      if (!result.success) {
-                        alert(result.error ?? 'Failed to get share link');
-                        return;
-                      }
-                      const base =
-                        (typeof import.meta !== 'undefined' &&
-                          import.meta.env?.BASE_URL) ||
-                        '/tracking-plan/';
-                      const shareUrl = `${window.location.origin}${base.replace(/\/$/, '')}/share/${result.token}`;
-                      await navigator.clipboard.writeText(shareUrl);
-                      setShareLinkCopied(true);
-                      setTimeout(() => setShareLinkCopied(false), 2000);
+                    onClick={() => {
+                      setIsSharePanelOpen((v) => !v);
                     }}
                   >
-                    <Share2 className="w-4 h-4" /> {shareLinkCopied ? 'Link copied!' : 'Copy Share Link'}
+                    <Share2 className="w-4 h-4" /> Share…
                   </button>
+
+                  {isSharePanelOpen && (
+                    <div className="px-3 py-3 bg-[var(--surface-default)] border-t border-[var(--border-default)]">
+                      <div className="text-xs font-semibold text-gray-700 mb-2">Public access</div>
+                      <label className="flex items-center justify-between gap-3 text-sm text-gray-800">
+                        <span>Allow anyone with link to view</span>
+                        <input
+                          type="checkbox"
+                          checked={Boolean(selectedJourney.share_token)}
+                          disabled={isTogglingShare}
+                          onChange={async (e) => {
+                            const next = e.target.checked;
+                            setIsTogglingShare(true);
+                            const result = await setJourneyShareEnabledApi(
+                              selectedJourney.id,
+                              next,
+                              activeWorkspaceId,
+                            );
+                            setIsTogglingShare(false);
+                            if (!result.success) {
+                              alert(result.error ?? 'Failed to update share settings');
+                              return;
+                            }
+                            updateJourney(selectedJourney.id, {
+                              share_token: next ? (result.token ?? 'enabled') : null,
+                            });
+                          }}
+                        />
+                      </label>
+
+                      <div className="mt-3 flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!selectedJourney.share_token}
+                          onClick={async () => {
+                            if (!selectedJourney.share_token) return;
+                            await navigator.clipboard.writeText(shareUrlById);
+                            setShareLinkCopied(true);
+                            setTimeout(() => setShareLinkCopied(false), 2000);
+                          }}
+                          className="flex-1"
+                        >
+                          {shareLinkCopied ? 'Link copied!' : 'Copy link'}
+                        </Button>
+                      </div>
+
+                      {!selectedJourney.share_token && (
+                        <div className="text-xs text-gray-600 mt-2">
+                          Enable public access to generate a shareable link.
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <label className="w-full px-3 py-2 text-sm text-left hover:bg-[var(--surface-default)] flex items-center gap-2 cursor-pointer">
                     <span className="w-4 h-4 inline-block" /> Import JSON

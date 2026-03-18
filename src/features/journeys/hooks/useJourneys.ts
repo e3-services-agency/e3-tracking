@@ -17,6 +17,7 @@ function mapJourneyRowToUi(j: JourneyRow): Journey {
     qaRuns: [],
     type_counts: j.type_counts ?? null,
     testing_instructions_markdown: j.testing_instructions_markdown ?? null,
+    share_token: j.share_token ?? null,
   };
 }
 

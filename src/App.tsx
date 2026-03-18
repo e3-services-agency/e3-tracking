@@ -23,6 +23,11 @@ function AppContent() {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
+  const shareByIdMatch = pathname.match(/\/share\/journey\/([^/]+)$/);
+  if (shareByIdMatch) {
+    return <SharedJourneyView journeyId={shareByIdMatch[1]} />;
+  }
+
   const shareMatch = pathname.match(/\/share\/([^/]+)$/);
   if (shareMatch) {
     return <SharedJourneyView token={shareMatch[1]} />;

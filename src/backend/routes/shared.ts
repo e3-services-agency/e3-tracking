@@ -5,7 +5,7 @@
  * Example: import sharedRouter from './routes/shared.js';
  */
 import { Router, type Request, type Response } from 'express';
-import { getJourneyByShareToken } from '../dal/journey.dal';
+import { getJourneyByShareId, getJourneyByShareToken } from '../dal/journey.dal';
 import { DatabaseError, NotFoundError } from '../errors';
 
 const router = Router();
@@ -28,6 +28,48 @@ router.get(
     }
     try {
       const journey = await getJourneyByShareToken(token);
+      res.status(200).json(journey);
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        res.status(404).json({
+          error: err.message,
+          code: err.code,
+          resource: err.resource,
+        });
+        return;
+      }
+      if (err instanceof DatabaseError) {
+        res.status(500).json({
+          error: 'Failed to load shared journey.',
+          code: err.code,
+        });
+        return;
+      }
+      res.status(500).json({
+        error: 'An unexpected error occurred.',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/shared/journeys/journey/:id
+ * Public read-only journey view by journey id (only when share enabled).
+ */
+router.get(
+  '/journeys/journey/:id',
+  async (req: Request, res: Response): Promise<void> => {
+    const id = req.params.id;
+    if (!id) {
+      res.status(400).json({
+        error: 'Journey id is required.',
+        code: 'ID_REQUIRED',
+      });
+      return;
+    }
+    try {
+      const journey = await getJourneyByShareId(id);
       res.status(200).json(journey);
     } catch (err) {
       if (err instanceof NotFoundError) {

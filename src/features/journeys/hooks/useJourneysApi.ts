@@ -180,6 +180,66 @@ export async function getJourneyShareTokenApi(
 }
 
 /**
+ * Enable/disable public sharing (stable public URL by journey id).
+ * PATCH /api/journeys/:id/share. Body: { enabled }.
+ */
+export async function setJourneyShareEnabledApi(
+  journeyId: string,
+  enabled: boolean,
+  workspaceId: string = MOCK_WORKSPACE_ID
+): Promise<{ success: true; enabled: boolean; token?: string } | { success: false; error: string }> {
+  try {
+    const res = await fetchWithAuth(`${API_BASE}/api/journeys/${journeyId}/share`, {
+      method: 'PATCH',
+      headers: { 'x-workspace-id': workspaceId },
+      body: JSON.stringify({ enabled }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        error: typeof body?.error === 'string' ? body.error : res.statusText || 'Update failed',
+      };
+    }
+    const data = (await res.json().catch(() => ({}))) as { enabled?: boolean; token?: string };
+    return { success: true, enabled: data.enabled === true, token: typeof data.token === 'string' ? data.token : undefined };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'Network error',
+    };
+  }
+}
+
+/**
+ * Fetch shared journey by journey id (public). GET /api/shared/journeys/journey/:id.
+ */
+export async function getSharedJourneyByIdApi(
+  journeyId: string
+): Promise<
+  | { success: true; journey: { id: string; name: string; description: string | null; testing_instructions_markdown: string | null; nodes: unknown; edges: unknown } }
+  | { success: false; error: string }
+> {
+  try {
+    const res = await fetch(`${API_BASE}/api/shared/journeys/journey/${journeyId}`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        error: typeof body?.error === 'string' ? body.error : res.statusText || 'Failed to load shared journey',
+      };
+    }
+    const data = await res.json();
+    return { success: true, journey: data };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'Network error',
+    };
+  }
+}
+
+/**
  * Fetch shared journey by token (public). GET /api/shared/journeys/:token.
  */
 export async function getSharedJourneyByTokenApi(

@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import { createApp } from '../src/backend/app';
+import { createApp } from './_backend/app.js';
 
 const app = createApp();
 const SUB_PATH = '/tracking-plan';

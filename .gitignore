@@ -1,6 +1,8 @@
 node_modules/
 build/
 dist/
+api/_backend/
+dist-backend/
 coverage/
 .DS_Store
 *.log

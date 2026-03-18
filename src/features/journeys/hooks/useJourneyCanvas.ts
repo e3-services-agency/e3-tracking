@@ -373,7 +373,7 @@ export function useJourneyCanvas({
       id: newNodeId,
       type: 'annotationNode',
       position: flowPos,
-      style: { width: 1, height: 1 },
+      style: { width: 1, height: 1, zIndex: 50 },
       data: { color: annotationColor },
     };
 
@@ -397,7 +397,7 @@ export function useJourneyCanvas({
           ? {
               ...node,
               position: { x, y },
-              style: { ...node.style, width, height },
+              style: { ...node.style, width, height, zIndex: 50 },
             }
           : node,
       ),

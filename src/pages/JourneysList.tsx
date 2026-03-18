@@ -3,7 +3,7 @@ import { useStore, useActiveData } from '@/src/store';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Search, Plus, GitMerge, Trash2 } from 'lucide-react';
-import { createJourneyApi, useActiveWorkspaceId } from '@/src/features/journeys/hooks/useJourneysApi';
+import { createJourneyApi, deleteJourneyApi, useActiveWorkspaceId } from '@/src/features/journeys/hooks/useJourneysApi';
 import { useJourneys } from '@/src/features/journeys/hooks/useJourneys';
 
 interface JourneysListProps {
@@ -118,7 +118,21 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
                     {journey.qaRuns?.length || 0} runs
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap text-right">
-                    <Button variant="ghost" size="sm" onClick={() => deleteJourney(journey.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        const ok = window.confirm(`Delete journey "${journey.name}"?`);
+                        if (!ok) return;
+                        const result = await deleteJourneyApi(journey.id, activeWorkspaceId);
+                        if (!result.success) {
+                          alert(result.error ?? 'Delete failed');
+                          return;
+                        }
+                        deleteJourney(journey.id);
+                      }}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    >
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </td>

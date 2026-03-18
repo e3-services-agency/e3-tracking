@@ -9,6 +9,7 @@ import { getJourneyByShareId, getJourneyByShareToken } from '../dal/journey.dal'
 import { getEventWithProperties } from '../dal/event.dal';
 import { DatabaseError, NotFoundError } from '../errors';
 import { buildCodegenSnippets } from '../services/codegen.service';
+import { generateJourneyHtmlExport } from '../services/export.service';
 
 const router = Router();
 
@@ -143,6 +144,50 @@ router.get(
       if (err instanceof DatabaseError) {
         res.status(500).json({
           error: 'Failed to load shared journey.',
+          code: err.code,
+        });
+        return;
+      }
+      res.status(500).json({
+        error: 'An unexpected error occurred.',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/shared/journeys/journey/:id/export/html
+ * Public Implementation Brief by journey id (only when share enabled).
+ */
+router.get(
+  '/journeys/journey/:id/export/html',
+  async (req: Request, res: Response): Promise<void> => {
+    const id = req.params.id;
+    if (!id) {
+      res.status(400).json({
+        error: 'Journey id is required.',
+        code: 'ID_REQUIRED',
+      });
+      return;
+    }
+    try {
+      const journey = await getJourneyByShareId(id);
+      const html = await generateJourneyHtmlExport(journey.workspace_id, journey.id);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.status(200).send(html);
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        res.status(404).json({
+          error: err.message,
+          code: err.code,
+          resource: err.resource,
+        });
+        return;
+      }
+      if (err instanceof DatabaseError) {
+        res.status(500).json({
+          error: 'Failed to load implementation brief.',
           code: err.code,
         });
         return;

@@ -81,6 +81,34 @@ export async function createJourneyApi(
 }
 
 /**
+ * Deletes a journey. DELETE /api/journeys/:id.
+ */
+export async function deleteJourneyApi(
+  journeyId: string,
+  workspaceId: string = MOCK_WORKSPACE_ID
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const res = await fetchWithAuth(`${API_BASE}/api/journeys/${journeyId}`, {
+      method: 'DELETE',
+      headers: { 'x-workspace-id': workspaceId },
+    });
+    if (!res.ok && res.status !== 204) {
+      const body = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        error: typeof body?.error === 'string' ? body.error : res.statusText || 'Delete failed',
+      };
+    }
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'Network error',
+    };
+  }
+}
+
+/**
  * Renames a journey. PATCH /api/journeys/:id. Body: { name }.
  */
 export async function renameJourneyApi(

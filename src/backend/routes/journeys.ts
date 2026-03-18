@@ -80,6 +80,42 @@ router.get('/', requireWorkspace, async (req: Request, res: Response): Promise<v
 });
 
 /**
+ * DELETE /api/journeys/:id
+ * Soft-deletes a journey (sets deleted_at).
+ */
+router.delete(
+  '/:id',
+  requireWorkspace,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = req.workspaceId;
+    if (!workspaceId) {
+      res.status(403).json({
+        error: 'Workspace context required.',
+        code: 'WORKSPACE_REQUIRED',
+      });
+      return;
+    }
+    const journeyId = req.params.id;
+    try {
+      await JourneyDAL.deleteJourney(workspaceId, journeyId);
+      res.status(204).send('');
+    } catch (err) {
+      if (err instanceof DatabaseError) {
+        res.status(500).json({
+          error: 'Failed to delete journey.',
+          code: err.code,
+        });
+        return;
+      }
+      res.status(500).json({
+        error: 'An unexpected error occurred.',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+);
+
+/**
  * POST /api/journeys
  * Create a journey row for the workspace.
  * Body: { id: string, name: string }.

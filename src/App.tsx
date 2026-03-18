@@ -11,6 +11,7 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { Layout } from './components/layout/Layout';
 import { Login } from './pages/Login';
 import { SharedJourneyView } from './pages/SharedJourneyView';
+import { SharedJourneyBriefView } from './pages/SharedJourneyBriefView';
 
 function AppContent() {
   const [pathname, setPathname] = useState(
@@ -22,6 +23,11 @@ function AppContent() {
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
+
+  const shareBriefMatch = pathname.match(/\/share\/journey\/([^/]+)\/brief$/);
+  if (shareBriefMatch) {
+    return <SharedJourneyBriefView journeyId={shareBriefMatch[1]} />;
+  }
 
   const shareByIdMatch = pathname.match(/\/share\/journey\/([^/]+)$/);
   if (shareByIdMatch) {

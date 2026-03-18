@@ -17,6 +17,7 @@ import {
   useActiveWorkspaceId,
   renameJourneyApi,
   setJourneyShareEnabledApi,
+  deleteJourneyApi,
 } from '@/src/features/journeys/hooks/useJourneysApi';
 import { MoreHorizontal } from 'lucide-react';
 import { ReactFlowProvider } from '@xyflow/react';
@@ -404,6 +405,8 @@ export function Journeys({
                             updateJourney(selectedJourney.id, {
                               share_token: next ? (result.token ?? 'enabled') : null,
                             });
+                            if (next) setIsSharePanelOpen(true);
+                            else setIsSharePanelOpen(false);
                           }}
                           className="hidden"
                         />
@@ -434,6 +437,28 @@ export function Journeys({
                           onClick={async () => {
                             if (!selectedJourney.share_token) return;
                             await navigator.clipboard.writeText(shareUrlById);
+                            setShareLinkCopied(true);
+                            setTimeout(() => setShareLinkCopied(false), 2000);
+                          }}
+                        >
+                          {shareLinkCopied ? 'Copied' : 'Copy'}
+                        </Button>
+                      </div>
+
+                      <div className="mt-2 flex items-center gap-2">
+                        <input
+                          className="flex-1 h-9 px-2 text-xs rounded-md border border-gray-200 bg-white text-gray-700"
+                          value={selectedJourney.share_token ? `${shareUrlById}/brief` : ''}
+                          placeholder="Enable sharing to generate brief URL"
+                          readOnly
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!selectedJourney.share_token}
+                          onClick={async () => {
+                            if (!selectedJourney.share_token) return;
+                            await navigator.clipboard.writeText(`${shareUrlById}/brief`);
                             setShareLinkCopied(true);
                             setTimeout(() => setShareLinkCopied(false), 2000);
                           }}
@@ -493,8 +518,15 @@ export function Journeys({
                   <button
                     type="button"
                     className="w-full px-3 py-2 text-sm text-left hover:bg-red-50 text-red-700 flex items-center gap-2"
-                    onClick={() => {
+                    onClick={async () => {
                       setIsMoreMenuOpen(false);
+                      const ok = window.confirm(`Delete journey "${selectedJourney.name}"?`);
+                      if (!ok) return;
+                      const result = await deleteJourneyApi(selectedJourney.id, activeWorkspaceId);
+                      if (!result.success) {
+                        alert(result.error ?? 'Delete failed');
+                        return;
+                      }
                       deleteJourney(selectedJourney.id);
                       onBack();
                     }}

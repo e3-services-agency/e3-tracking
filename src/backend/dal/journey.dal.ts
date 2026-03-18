@@ -329,6 +329,28 @@ export async function setShareToken(
   }
 }
 
+export async function deleteJourney(
+  workspaceId: string,
+  journeyId: string
+): Promise<void> {
+  const supabase = getSupabaseOrThrow();
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from('journeys')
+    .update({
+      deleted_at: now,
+      share_token: null,
+      updated_at: now,
+    })
+    .eq('id', journeyId)
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null);
+
+  if (error) {
+    throw new DatabaseError(`Failed to delete journey: ${error.message}`, error);
+  }
+}
+
 /**
  * Returns journey canvas data by journey id when public share is enabled.
  * Uses share_token as the enable/disable flag (non-null => enabled).

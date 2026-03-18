@@ -19,3 +19,4 @@ export default function handler(req: IncomingMessage, res: ServerResponse): void
   (req as IncomingMessage & { url: string }).url = path + query;
   app(req, res);
 }
+

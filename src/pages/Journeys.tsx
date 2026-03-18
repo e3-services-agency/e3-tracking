@@ -392,7 +392,13 @@ export function Journeys({
                 variant="outline"
                 size="sm"
                 className="w-10 h-9 px-0"
-                onClick={() => setIsMoreMenuOpen((v) => !v)}
+                onClick={() => {
+                  const next = !isMoreMenuOpen;
+                  setIsMoreMenuOpen(next);
+                  // If sharing is already enabled, auto-expand the share link UI.
+                  setIsSharePanelOpen(next ? Boolean(selectedJourney?.share_token) : false);
+                  setShareLinkCopied(false);
+                }}
                 aria-label="More actions"
               >
                 <MoreHorizontal className="w-4 h-4" />

@@ -151,6 +151,10 @@ export function useJourneyCanvas({
           activeQARunId,
           qaVerification: activeQARun.verifications?.[node.id],
           workspaceId: activeWorkspaceId,
+          // In QA mode we rebuild node.data from the snapshot, so we must
+          // re-apply readOnly; otherwise node components may think they are
+          // editable and show upload-proof controls on shared links.
+          readOnly: readOnly || undefined,
         },
       }));
 
@@ -176,6 +180,7 @@ export function useJourneyCanvas({
     journey.edges,
     selectedNodeId,
     activeWorkspaceId,
+    readOnly,
     setNodes,
     setEdges,
   ]);

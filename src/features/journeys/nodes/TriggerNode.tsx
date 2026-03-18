@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useReactFlow, NodeProps } from '@xyflow/react';
 import {
   Zap,
@@ -13,6 +13,8 @@ import {
 import { Button } from '@/src/components/ui/Button';
 import { useActiveData } from '@/src/store';
 import type { Event as TrackingEvent, EventVariant } from '@/src/types';
+import { useEvents } from '@/src/features/events/hooks/useEvents';
+import { useActiveWorkspaceId } from '@/src/features/journeys/hooks/useJourneysApi';
 import {
   TriggerFlowNode,
   JourneyFlowNode,
@@ -27,6 +29,9 @@ import { JourneyQuickAddMenu } from '@/src/features/journeys/overlays/JourneyQui
 export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
   const { setNodes } = useReactFlow<JourneyFlowNode, JourneyFlowEdge>();
   const activeData = useActiveData();
+  const activeWorkspaceId = useActiveWorkspaceId();
+  const { events: apiEvents, isLoading: isLoadingEvents, refetch: refetchEvents } =
+    useEvents(activeWorkspaceId);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -36,10 +41,37 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
   const pendingProofs = data.pendingProofs || [];
   const disabled = isQAMode || isReadOnly;
 
-  const filteredEvents = (activeData.events ?? []).filter(
-    (event: TrackingEvent) =>
-      event.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  const mergedEvents: TrackingEvent[] = useMemo(() => {
+    // Prefer richer in-memory events when available (includes variants), otherwise fall back to API list.
+    const storeEvents = (activeData.events ?? []) as TrackingEvent[];
+    if (Array.isArray(storeEvents) && storeEvents.length > 0) return storeEvents;
+    return (apiEvents ?? []).map((e) => ({
+      id: e.id,
+      name: e.name,
+      description: e.description ?? '',
+      categories: [],
+      tags: [],
+      sources: [],
+      actions: [],
+      variants: [],
+      stakeholderTeamIds: [],
+      customFields: {},
+    })) as TrackingEvent[];
+  }, [activeData.events, apiEvents]);
+
+  const filteredEvents = useMemo(
+    () =>
+      mergedEvents.filter((event) =>
+        event.name.toLowerCase().includes(searchQuery.toLowerCase()),
+      ),
+    [mergedEvents, searchQuery],
   );
+
+  useEffect(() => {
+    if (!isDropdownOpen) return;
+    if ((activeData.events ?? []).length > 0) return;
+    void refetchEvents();
+  }, [isDropdownOpen, activeData.events, refetchEvents]);
 
   const updateNodeData = (patch: Partial<TriggerNodeData>) => {
     setNodes((nds) =>
@@ -153,6 +185,11 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
                 </div>
 
                 <div className="overflow-y-auto p-1">
+                  {isLoadingEvents && filteredEvents.length === 0 && (
+                    <div className="p-2 text-xs text-center text-gray-500">
+                      Loading events…
+                    </div>
+                  )}
                   {filteredEvents.map((event: TrackingEvent) => (
                     <div key={event.id}>
                       <button

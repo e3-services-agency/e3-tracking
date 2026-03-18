@@ -146,24 +146,22 @@ export function Journeys({
           </Button>
           <h1 className="text-xl font-bold text-gray-900">Journeys</h1>
 
-          <div className="flex gap-2 flex-wrap">
-            {data.journeys.map((journey: Journey) => (
-              <button
-                key={journey.id}
-                onClick={() => {
-                  setSelectedJourneyId(journey.id);
-                  setActiveQARunId(null);
-                }}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  selectedJourneyId === journey.id
-                    ? 'bg-[var(--color-info)]/10 text-[var(--color-info)]'
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
-                type="button"
-              >
-                {journey.name}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-600">Journey</span>
+            <select
+              className="text-sm border border-gray-200 rounded-md px-2 py-1.5 bg-white text-gray-900 shadow-sm max-w-[260px]"
+              value={selectedJourneyId ?? ''}
+              onChange={(e) => {
+                setSelectedJourneyId(e.target.value || null);
+                setActiveQARunId(null);
+              }}
+            >
+              {data.journeys.map((journey: Journey) => (
+                <option key={journey.id} value={journey.id}>
+                  {journey.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

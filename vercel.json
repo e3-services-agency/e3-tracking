@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/tracking-plan/api", "destination": "/api" },
     { "source": "/tracking-plan/api/:path*", "destination": "/api/:path*" },
     { "source": "/((?!api/)(?!.*\\.).*)", "destination": "/index.html" }
   ]

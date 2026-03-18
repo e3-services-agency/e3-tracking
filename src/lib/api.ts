@@ -34,7 +34,11 @@ function isOnLoginPage(): boolean {
  */
 export async function fetchWithAuth(url: string, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers);
-  if (!headers.has('Content-Type')) {
+  // Only default to JSON if the caller isn't sending FormData.
+  // For multipart/form-data, the browser must set the boundary.
+  const isFormData =
+    typeof FormData !== 'undefined' && init?.body instanceof FormData;
+  if (!headers.has('Content-Type') && !isFormData) {
     headers.set('Content-Type', 'application/json');
   }
   if (authConfig?.getAccessToken) {

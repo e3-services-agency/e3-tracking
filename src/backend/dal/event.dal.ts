@@ -256,6 +256,10 @@ export async function listEvents(
 /** Event property attachment with property snapshot (for editor). */
 export interface EventPropertyWithDetails extends EventPropertyRow {
   property_name: string;
+  property_description?: string | null;
+  property_data_type?: string | null;
+  property_data_format?: string | null;
+  property_is_list?: boolean | null;
 }
 
 /**
@@ -298,7 +302,7 @@ export async function getEventWithProperties(
 
   const { data: props, error: propsError } = await supabase
     .from('properties')
-    .select('id, name')
+    .select('id, name, description, data_type, data_format, is_list')
     .in('id', propertyIds)
     .eq('workspace_id', workspaceId)
     .is('deleted_at', null);
@@ -310,16 +314,32 @@ export async function getEventWithProperties(
     );
   }
 
-  const nameById = new Map(
-    (props ?? []).map((p: { id: string; name: string }) => [p.id, p.name])
+  const snapshotById = new Map(
+    (props ?? []).map((p: any) => [
+      p.id,
+      {
+        name: p.name,
+        description: p.description ?? null,
+        data_type: p.data_type ?? null,
+        data_format: p.data_format ?? null,
+        is_list: typeof p.is_list === 'boolean' ? p.is_list : null,
+      },
+    ])
   );
 
   const attached_properties: EventPropertyWithDetails[] = rows
-    .filter((r) => nameById.has(r.property_id))
-    .map((r) => ({
-      ...r,
-      property_name: nameById.get(r.property_id) ?? '',
-    }));
+    .filter((r) => snapshotById.has(r.property_id))
+    .map((r) => {
+      const s = snapshotById.get(r.property_id);
+      return {
+        ...r,
+        property_name: s?.name ?? '',
+        property_description: s?.description ?? null,
+        property_data_type: s?.data_type ?? null,
+        property_data_format: s?.data_format ?? null,
+        property_is_list: s?.is_list ?? null,
+      };
+    });
 
   return { event, attached_properties };
 }

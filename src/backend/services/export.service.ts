@@ -14,6 +14,9 @@ type CanvasNode = {
   id: string;
   type?: string;
   position?: { x: number; y: number };
+  width?: number;
+  height?: number;
+  style?: { width?: number; height?: number; [k: string]: unknown };
   data?: {
     label?: string;
     description?: string;
@@ -23,6 +26,7 @@ type CanvasNode = {
     implementationType?: 'new' | 'enrichment' | 'fix';
     url?: string;
     connectedEvent?: { eventId?: string; name?: string };
+    color?: string;
   };
 };
 
@@ -108,6 +112,50 @@ function buildPayloadDoc(
   return { jsonExample, alwaysSent, sometimesSent };
 }
 
+function presenceLabel(presence: string | undefined): string {
+  if (presence === 'always_sent') return 'Always sent';
+  if (presence === 'sometimes_sent') return 'Sometimes sent';
+  if (presence === 'never_sent') return 'Never sent';
+  return '—';
+}
+
+function buildPropertyDetailsTable(attached: EventPropertyWithDetails[]): string {
+  if (!attached || attached.length === 0) return '';
+  const rows = attached
+    .map((p) => {
+      const dtype = p.property_data_type ? String(p.property_data_type) : '—';
+      const fmt = p.property_data_format ? String(p.property_data_format) : '';
+      const list = p.property_is_list ? ' (list)' : '';
+      const typeLabel = escapeHtml(dtype + (fmt ? ` · ${fmt}` : '') + list);
+      const desc = p.property_description ? escapeHtml(p.property_description) : '—';
+      return `<tr>
+  <td><code class="export-inline-code">${escapeHtml(p.property_name || '')}</code></td>
+  <td>${escapeHtml(presenceLabel((p as any).presence))}</td>
+  <td>${typeLabel}</td>
+  <td>${desc}</td>
+</tr>`;
+    })
+    .join('');
+  return `<div class="export-props">
+  <div class="export-props-title">Event properties</div>
+  <div class="export-props-wrap">
+    <table class="export-props-table">
+      <thead>
+        <tr>
+          <th>Property</th>
+          <th>Presence</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  </div>
+</div>`;
+}
+
 export interface StepExportItem {
   id: string;
   label: string;
@@ -123,6 +171,7 @@ export interface StepExportItem {
     jsonExample: string;
     alwaysSent: string[];
     sometimesSent: string[];
+    attached_properties: EventPropertyWithDetails[];
   }[];
 }
 
@@ -147,7 +196,9 @@ export async function generateJourneyHtmlExport(
 
   const stepNodes = nodes.filter((n) => n?.type === 'journeyStepNode') as CanvasNode[];
   const triggerNodes = nodes.filter((n) => n?.type === 'triggerNode') as CanvasNode[];
+  const annotationNodes = nodes.filter((n) => n?.type === 'annotationNode') as CanvasNode[];
   const triggerById = new Map(triggerNodes.map((n) => [n.id, n]));
+  const stepById = new Map(stepNodes.map((n) => [n.id, n]));
 
   const edgesFromStep = new Map<string, string[]>();
   for (const e of edges) {
@@ -161,7 +212,13 @@ export async function generateJourneyHtmlExport(
   const steps: StepExportItem[] = [];
   const eventPayloadCache = new Map<
     string,
-    { eventName: string; jsonExample: string; alwaysSent: string[]; sometimesSent: string[] }
+    {
+      eventName: string;
+      jsonExample: string;
+      alwaysSent: string[];
+      sometimesSent: string[];
+      attached_properties: EventPropertyWithDetails[];
+    }
   >();
 
   for (const step of stepNodes) {
@@ -188,6 +245,7 @@ export async function generateJourneyHtmlExport(
             jsonExample: doc.jsonExample,
             alwaysSent: doc.alwaysSent,
             sometimesSent: doc.sometimesSent,
+            attached_properties,
           };
           eventPayloadCache.set(eventId, cached);
         } catch {
@@ -196,6 +254,7 @@ export async function generateJourneyHtmlExport(
             jsonExample: '{}',
             alwaysSent: [],
             sometimesSent: [],
+            attached_properties: [],
           };
           eventPayloadCache.set(eventId, cached);
         }
@@ -206,6 +265,7 @@ export async function generateJourneyHtmlExport(
         jsonExample: cached.jsonExample,
         alwaysSent: cached.alwaysSent,
         sometimesSent: cached.sometimesSent,
+        attached_properties: cached.attached_properties,
       });
     }
 
@@ -221,8 +281,8 @@ export async function generateJourneyHtmlExport(
       label: typeof data.label === 'string' ? data.label : 'Step',
       description: typeof data.description === 'string' ? data.description : '',
       imageUrl:
-        typeof data.imageUrl === 'string' && data.imageUrl.startsWith('data:')
-          ? data.imageUrl
+        typeof data.imageUrl === 'string' && data.imageUrl.trim()
+          ? data.imageUrl.trim()
           : null,
       actionType:
         typeof data.actionType === 'string' && data.actionType
@@ -274,7 +334,50 @@ export async function generateJourneyHtmlExport(
       const stepNum = index + 1;
       let imgBlock = '';
       if (step.imageUrl) {
-        imgBlock = `<div class="export-step-img-wrap"><img src="${escapeHtml(step.imageUrl)}" alt="${escapeHtml(step.label)}" class="export-step-img" data-export-image="1" /></div>`;
+        const stepNode = stepById.get(step.id);
+        const sx = Number(stepNode?.position?.x ?? 0);
+        const sy = Number(stepNode?.position?.y ?? 0);
+        const sw =
+          Number(stepNode?.width ?? stepNode?.style?.width ?? 420) || 420;
+        const sh =
+          Number(stepNode?.height ?? stepNode?.style?.height ?? 260) || 260;
+
+        const intersects = (
+          a: { x: number; y: number; w: number; h: number },
+          b: { x: number; y: number; w: number; h: number }
+        ) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+
+        const overlays = annotationNodes
+          .map((an) => {
+            const ax = Number(an?.position?.x ?? 0);
+            const ay = Number(an?.position?.y ?? 0);
+            const aw = Number(an?.style?.width ?? an?.width ?? 0);
+            const ah = Number(an?.style?.height ?? an?.height ?? 0);
+            if (!aw || !ah) return null;
+            const aRect = { x: ax, y: ay, w: aw, h: ah };
+            const sRect = { x: sx, y: sy, w: sw, h: sh };
+            if (!intersects(aRect, sRect)) return null;
+
+            const ix1 = Math.max(aRect.x, sRect.x);
+            const iy1 = Math.max(aRect.y, sRect.y);
+            const ix2 = Math.min(aRect.x + aRect.w, sRect.x + sRect.w);
+            const iy2 = Math.min(aRect.y + aRect.h, sRect.y + sRect.h);
+            const iw = Math.max(1, ix2 - ix1);
+            const ih = Math.max(1, iy2 - iy1);
+            const leftPct = ((ix1 - sRect.x) / sRect.w) * 100;
+            const topPct = ((iy1 - sRect.y) / sRect.h) * 100;
+            const wPct = (iw / sRect.w) * 100;
+            const hPct = (ih / sRect.h) * 100;
+            const color = typeof an?.data?.color === 'string' ? an.data.color : 'rgba(16,185,129,1)';
+            return `<div class="export-anno" style="left:${leftPct}%;top:${topPct}%;width:${wPct}%;height:${hPct}%;border-color:${escapeHtml(color)};background:${escapeHtml(color)};"></div>`;
+          })
+          .filter(Boolean)
+          .join('');
+
+        imgBlock = `<div class="export-step-img-wrap export-step-img-wrap--rel">
+  <img src="${escapeHtml(step.imageUrl)}" alt="${escapeHtml(step.label)}" class="export-step-img" data-export-image="1" />
+  ${overlays ? `<div class="export-anno-layer" aria-hidden="true">${overlays}</div>` : ''}
+</div>`;
       } else {
         imgBlock =
           '<div class="export-step-img-wrap export-step-no-img">No screenshot</div>';
@@ -313,10 +416,12 @@ export async function generateJourneyHtmlExport(
               t.alwaysSent.length > 0 || t.sometimesSent.length > 0
                 ? `<div class="export-presence-note"><strong>Always Sent:</strong> ${t.alwaysSent.length ? escapeHtml(t.alwaysSent.join(', ')) : '—'} &nbsp;|&nbsp; <strong>Sometimes Sent:</strong> ${t.sometimesSent.length ? escapeHtml(t.sometimesSent.join(', ')) : '—'}</div>`
                 : '';
+            const propsTable = buildPropertyDetailsTable((t as any).attached_properties || []);
             return `
         <div class="export-tracking-block">
           <div class="export-tracking-title">Tracking: ${escapeHtml(t.eventName)} <span class="export-tracking-id">(${escapeHtml(t.eventId)})</span></div>
           ${presence}
+          ${propsTable}
           <div class="export-implementation-examples">
             <div class="export-examples-title">Implementation examples</div>
             <div class="export-example-group">
@@ -479,7 +584,10 @@ export async function generateJourneyHtmlExport(
     .export-badge-fix { background: #d97706; }
     .export-step-desc { margin: 0 0 12px; color: #4b5563; font-size: 0.9rem; }
     .export-step-img-wrap { margin: 12px 0; border-radius: 6px; overflow: hidden; border: 1px solid #e5e7eb; }
+    .export-step-img-wrap--rel { position: relative; }
     .export-step-img { display: block; max-width: 100%; height: auto; cursor: zoom-in; }
+    .export-anno-layer { position: absolute; inset: 0; pointer-events: none; }
+    .export-anno { position: absolute; border: 2px dashed; border-radius: 4px; opacity: 0.14; }
     .export-step-no-img { padding: 24px; text-align: center; color: #9ca3af; background: #f9fafb; }
     .export-step-meta { margin: 12px 0; font-size: 0.85rem; color: #6b7280; }
     .export-meta { display: inline-block; margin-right: 16px; }
@@ -511,6 +619,14 @@ export async function generateJourneyHtmlExport(
     .export-copy:hover { opacity: 1; }
     .export-code { margin: 0; padding: 12px; background: #1e293b; color: #e2e8f0; border-radius: 4px; overflow-x: auto; font-size: 0.85rem; }
     .export-code code { background: none; padding: 0; }
+
+    .export-props { margin-top: 12px; }
+    .export-props-title { font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em; }
+    .export-props-wrap { overflow-x: auto; }
+    .export-props-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; }
+    .export-props-table th, .export-props-table td { text-align: left; padding: 10px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+    .export-props-table th { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; background: #f8fafc; }
+    .export-props-table tr:last-child td { border-bottom: 0; }
 
     .export-modal {
       position: fixed;

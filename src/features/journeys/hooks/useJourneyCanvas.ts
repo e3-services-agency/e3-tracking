@@ -68,7 +68,7 @@ export function useJourneyCanvas({
   );
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [selectedPanel, setSelectedPanel] = useState<'summary' | 'node'>(
+  const [selectedPanel, setSelectedPanel] = useState<'summary' | 'node' | 'none'>(
     'summary',
   );
   const [isSaving, setIsSaving] = useState(false);
@@ -392,32 +392,32 @@ export function useJourneyCanvas({
     // On failure, leave isSaving false; caller can show error if needed
   };
 
-  const handleSaveQA = () => {
-    if (!activeQARunId) return;
+  const handleSaveQA = async (): Promise<boolean> => {
+    if (!activeQARunId) return false;
 
     setIsSavingQA(true);
+    try {
+      const payloadRuns = (journey.qaRuns ?? []).map((run) => ({
+        id: run.id,
+        // Persist only what we need for shared read-only rendering.
+        verifications: run.verifications,
+      }));
 
-    const persist = async () => {
-      try {
-        const payloadRuns = (journey.qaRuns ?? []).map((run) => ({
-          id: run.id,
-          // Persist only what we need for shared read-only rendering.
-          verifications: run.verifications,
-        }));
-
-        const result = await saveJourneyQARunsApi(journey.id, payloadRuns, activeWorkspaceId);
-        if (result.success) {
-          setSaveQASuccess(true);
-          setTimeout(() => setSaveQASuccess(false), 2000);
-        } else {
-          console.error('Save QA failed:', result.error);
-        }
-      } finally {
-        setIsSavingQA(false);
+      const result = await saveJourneyQARunsApi(
+        journey.id,
+        payloadRuns,
+        activeWorkspaceId,
+      );
+      if (result.success) {
+        setSaveQASuccess(true);
+        setTimeout(() => setSaveQASuccess(false), 2000);
+        return true;
       }
-    };
-
-    void persist();
+      console.error('Save QA failed:', result.error);
+      return false;
+    } finally {
+      setIsSavingQA(false);
+    }
   };
 
   const addStepNode = () => {

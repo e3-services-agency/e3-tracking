@@ -133,12 +133,16 @@ export function JourneyCanvas({
   journey,
   activeQARunId,
   readOnly = false,
+  qaLocked = false,
+  onEndQA,
   hideFloatingSave = false,
   onSaveLayoutState,
 }: {
   journey: Journey;
   activeQARunId: string | null;
   readOnly?: boolean;
+  qaLocked?: boolean;
+  onEndQA?: () => void;
   hideFloatingSave?: boolean;
   onSaveLayoutState?: (s: {
     save: () => void;
@@ -147,6 +151,7 @@ export function JourneyCanvas({
     saveError: string | null;
   }) => void;
 }) {
+  const effectiveReadOnly = readOnly || qaLocked;
   const [readOnlyImagePreview, setReadOnlyImagePreview] = React.useState<string | null>(null);
 
   const {
@@ -213,7 +218,10 @@ export function JourneyCanvas({
     nodeExtraProfiles,
     verificationProofs,
     pendingNodeProofs,
-  } = useJourneyCanvas({ journey, activeQARunId, readOnly });
+  } = useJourneyCanvas({ journey, activeQARunId, readOnly: effectiveReadOnly });
+
+  const imageProofs = verificationProofs.filter((p) => p.type === 'image');
+  const payloadProofs = verificationProofs.filter((p) => p.type !== 'image');
 
   React.useEffect(() => {
     onSaveLayoutState?.({
@@ -225,8 +233,8 @@ export function JourneyCanvas({
   }, [onSaveLayoutState, handleSaveLayout, isSaving, saveSuccess, saveError]);
 
   return (
-    <div className="flex h-full w-full">
-      {!activeQARunId && !readOnly && (
+    <div className="flex h-full w-full relative">
+      {!activeQARunId && !effectiveReadOnly && (
         <div className="w-64 border-r bg-gray-50 flex flex-col p-4 space-y-6">
           <div>
             <h3 className="font-semibold text-sm text-gray-900">
@@ -327,7 +335,7 @@ export function JourneyCanvas({
       )}
 
       <div className="flex-1 relative">
-        {activeQARunId && (
+        {activeQARunId && selectedPanel === 'none' && (
           <div className="absolute top-4 left-4 z-20 bg-white border-2 border-[var(--color-info)]/60 rounded-lg shadow-md p-3 flex flex-col gap-2">
             <div className="flex items-center gap-2 text-gray-900 font-bold">
               <CheckSquare className="w-5 h-5" />
@@ -381,24 +389,41 @@ export function JourneyCanvas({
                 <FileText className="w-4 h-4" /> QA Summary
               </Button>
 
-              <Button
-                size="sm"
-                className="gap-2"
-                onClick={handleSaveQA}
-                disabled={isSavingQA}
-              >
-                <Save className="w-4 h-4" />
-                {isSavingQA
-                  ? 'Saving QA...'
-                  : saveQASuccess
-                  ? 'QA Saved!'
-                  : 'Save QA'}
-              </Button>
+              {!effectiveReadOnly && (
+                <>
+                  <Button
+                    size="sm"
+                    className="gap-2"
+                    onClick={handleSaveQA}
+                    disabled={isSavingQA}
+                  >
+                    <Save className="w-4 h-4" />
+                    {isSavingQA
+                      ? 'Saving QA...'
+                      : saveQASuccess
+                        ? 'QA Saved!'
+                        : 'Save QA'}
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
+                    onClick={async () => {
+                      const ok = await handleSaveQA();
+                      if (ok) onEndQA?.();
+                    }}
+                    disabled={isSavingQA}
+                  >
+                    <X className="w-4 h-4" /> End QA
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         )}
 
-        {!activeQARunId && !readOnly && tool === 'annotation' && (
+        {!activeQARunId && !effectiveReadOnly && tool === 'annotation' && (
           <div
             className="absolute inset-0 z-10"
             style={{ cursor: 'crosshair', backgroundColor: 'transparent' }}
@@ -437,12 +462,12 @@ export function JourneyCanvas({
           nodeTypes={nodeTypes}
           fitView
           className="bg-[var(--surface-default)]"
-          nodesDraggable={!readOnly && !activeQARunId && tool !== 'annotation'}
-          nodesConnectable={!readOnly && !activeQARunId && tool !== 'annotation'}
+          nodesDraggable={!effectiveReadOnly && !activeQARunId && tool !== 'annotation'}
+          nodesConnectable={!effectiveReadOnly && !activeQARunId && tool !== 'annotation'}
           elementsSelectable={true}
-          panOnDrag={tool !== 'annotation' || readOnly}
-          selectionOnDrag={!readOnly && tool !== 'annotation'}
-          deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
+          panOnDrag={tool !== 'annotation' || effectiveReadOnly}
+          selectionOnDrag={!effectiveReadOnly && tool !== 'annotation'}
+          deleteKeyCode={effectiveReadOnly ? null : ['Backspace', 'Delete']}
         >
           <Controls />
           <MiniMap
@@ -452,7 +477,7 @@ export function JourneyCanvas({
           <Background gap={16} size={1} color="var(--border-default)" />
         </ReactFlow>
 
-        {!hideFloatingSave && !activeQARunId && !readOnly && (
+        {!hideFloatingSave && !activeQARunId && !effectiveReadOnly && (
           <div className="absolute top-4 right-4 z-20">
             <Button
               onClick={handleSaveLayout}
@@ -476,7 +501,7 @@ export function JourneyCanvas({
           </div>
         )}
 
-        {menuPos && !readOnly && (
+        {menuPos && !effectiveReadOnly && (
           <div
             className="fixed z-50 bg-white border rounded-lg shadow-xl p-2 flex flex-col gap-1 w-48"
             style={{ left: menuPos.x, top: menuPos.y }}
@@ -508,11 +533,14 @@ export function JourneyCanvas({
               <FileText className="w-5 h-5 text-[var(--color-info)]" /> QA Run Details
             </h3>
             <button
-              onClick={() => setSelectedPanel('summary')}
+              onClick={() => {
+                setSelectedNodeId(null);
+                setSelectedPanel('none');
+              }}
               className="text-gray-400 hover:text-gray-600"
               type="button"
             >
-              <CheckSquare className="w-5 h-5" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
@@ -525,6 +553,7 @@ export function JourneyCanvas({
                 <Input
                   value={activeQARun?.name || ''}
                   onChange={(e) => updateQARun({ name: e.target.value })}
+                  disabled={effectiveReadOnly}
                 />
               </div>
 
@@ -538,6 +567,7 @@ export function JourneyCanvas({
                     updateQARun({ testerName: e.target.value })
                   }
                   placeholder="Who performed the QA?"
+                  disabled={effectiveReadOnly}
                 />
               </div>
 
@@ -551,6 +581,7 @@ export function JourneyCanvas({
                     updateQARun({ environment: e.target.value })
                   }
                   placeholder="e.g. Staging / Production-like"
+                  disabled={effectiveReadOnly}
                 />
               </div>
             </div>
@@ -566,6 +597,7 @@ export function JourneyCanvas({
                   updateQARun({ overallNotes: e.target.value })
                 }
                 placeholder="Add overall run notes, blockers, conclusions, or final recommendation..."
+                readOnly={effectiveReadOnly}
               />
             </div>
 
@@ -573,12 +605,20 @@ export function JourneyCanvas({
               <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 Testing Profiles
               </div>
-              <TestingProfilesEditor
-                profiles={runProfiles}
-                onChange={(profiles) =>
-                  updateQARun({ testingProfiles: profiles })
-                }
-              />
+              {effectiveReadOnly ? (
+                <div className="text-xs text-gray-600 bg-gray-50 border rounded p-3">
+                  {runProfiles.length > 0
+                    ? `Provided: ${runProfiles
+                        .map((p) => p.label || p.url)
+                        .join(', ')}`
+                    : 'No testing profiles added.'}
+                </div>
+              ) : (
+                <TestingProfilesEditor
+                  profiles={runProfiles}
+                  onChange={(profiles) => updateQARun({ testingProfiles: profiles })}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -592,7 +632,7 @@ export function JourneyCanvas({
             <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
                 <CheckSquare className="w-5 h-5 text-[var(--color-info)]" />
-                {readOnly ? 'Node Details' : 'QA Verification'}
+                {effectiveReadOnly ? 'Node Details' : 'QA Verification'}
               </h3>
               <button
                 onClick={() => {
@@ -626,7 +666,7 @@ export function JourneyCanvas({
                 </div>
               </div>
 
-              {readOnly && isJourneyStepNode(selectedNode) && (
+              {effectiveReadOnly && isJourneyStepNode(selectedNode) && (
                 <div className="space-y-4">
                   {(selectedNode.data.description ?? '').trim() && (
                     <div>
@@ -730,7 +770,7 @@ export function JourneyCanvas({
                   </div>
                 )}
 
-              {!readOnly && (
+              {!effectiveReadOnly && (
               <div>
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                   Verification Status
@@ -776,7 +816,7 @@ export function JourneyCanvas({
               </div>
               )}
 
-              {!readOnly && (
+              {!effectiveReadOnly && (
               <div>
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                   QA Notes
@@ -794,7 +834,7 @@ export function JourneyCanvas({
               </div>
               )}
 
-              {!readOnly && (
+              {!effectiveReadOnly && (
               <div>
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                   Linked Testing Profiles
@@ -839,7 +879,7 @@ export function JourneyCanvas({
               </div>
               )}
 
-              {!readOnly && (
+              {!effectiveReadOnly && (
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -905,7 +945,7 @@ export function JourneyCanvas({
               )}
 
               <div className="space-y-3">
-                {!readOnly && (
+                {!effectiveReadOnly && (
                 <div className="flex items-center justify-between">
                   <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     Proof Files
@@ -952,7 +992,7 @@ export function JourneyCanvas({
                 </div>
                 )}
 
-                {!readOnly && pendingNodeProofs.length > 0 && (
+                {!effectiveReadOnly && pendingNodeProofs.length > 0 && (
                   <div className="border border-blue-200 bg-blue-50 rounded p-3 space-y-2">
                     <div className="text-xs font-medium text-blue-900">
                       Pending uploads ({pendingNodeProofs.length})
@@ -1011,91 +1051,138 @@ export function JourneyCanvas({
                   </div>
                 )}
 
-                {verificationProofs.length > 0 && (
-                  <div className="space-y-2">
-                    {verificationProofs.map((proof) => (
-                      <div
-                        key={proof.id}
-                        className="border rounded p-3 bg-gray-50 space-y-2"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium text-gray-900 break-all">
-                              {proof.name}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {proof.type.toUpperCase()} •{' '}
-                              {new Date(
-                                proof.createdAt,
-                              ).toLocaleString()}
-                            </div>
-                          </div>
-
-                          <button
-                            className="text-red-500 hover:text-red-700"
-                            onClick={() =>
-                              updateQAVerification(selectedNode.id, {
-                                proofs: verificationProofs.filter(
-                                  (candidate) => candidate.id !== proof.id,
-                                ),
-                              })
-                            }
-                            type="button"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                {(imageProofs.length > 0 || payloadProofs.length > 0) && (
+                  <div className="space-y-3">
+                    {imageProofs.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                          Upload Image (QA Proof)
                         </div>
+                        {imageProofs.map((proof) => (
+                          <div
+                            key={proof.id}
+                            className="border rounded p-3 bg-gray-50 space-y-2"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium text-gray-900 break-all">
+                                  {proof.name}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  IMAGE •{' '}
+                                  {new Date(proof.createdAt).toLocaleString()}
+                                </div>
+                              </div>
 
-                        {proof.type === 'image' ? (
-                          <div className="space-y-2">
-                            <button
-                              type="button"
-                              className="block w-full text-left"
-                              onClick={() => setViewerProof(proof)}
-                            >
-                              <img
-                                src={proof.content}
-                                alt={proof.name}
-                                className="w-full rounded border cursor-zoom-in hover:opacity-95 transition"
-                              />
-                            </button>
+                              {!effectiveReadOnly && (
+                                <button
+                                  className="text-red-500 hover:text-red-700"
+                                  onClick={() =>
+                                    updateQAVerification(selectedNode.id, {
+                                      proofs: verificationProofs.filter(
+                                        (candidate) => candidate.id !== proof.id,
+                                      ),
+                                    })
+                                  }
+                                  type="button"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
 
-                            <div className="flex justify-end">
-                              <Button
-                                size="sm"
-                                variant="outline"
+                            <div className="space-y-2">
+                              <button
                                 type="button"
+                                className="block w-full text-left"
                                 onClick={() => setViewerProof(proof)}
                               >
-                                View Full Screen
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <pre className="text-xs bg-white border rounded p-2 overflow-auto max-h-64 whitespace-pre-wrap">
-                              {proof.content}
-                            </pre>
+                                <img
+                                  src={proof.content}
+                                  alt={proof.name}
+                                  className="w-full rounded border cursor-zoom-in hover:opacity-95 transition"
+                                />
+                              </button>
 
-                            <div className="flex justify-end">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                type="button"
-                                onClick={() => setViewerProof(proof)}
-                              >
-                                View Full Screen
-                              </Button>
+                              <div className="flex justify-end">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  type="button"
+                                  onClick={() => setViewerProof(proof)}
+                                >
+                                  View Full Screen
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                        )}
+                        ))}
                       </div>
-                    ))}
+                    )}
+
+                    {payloadProofs.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                          Payload (Trigger Proof)
+                        </div>
+                        {payloadProofs.map((proof) => (
+                          <div
+                            key={proof.id}
+                            className="border rounded p-3 bg-gray-50 space-y-2"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium text-gray-900 break-all">
+                                  {proof.name}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {proof.type.toUpperCase()} •{' '}
+                                  {new Date(proof.createdAt).toLocaleString()}
+                                </div>
+                              </div>
+
+                              {!effectiveReadOnly && (
+                                <button
+                                  className="text-red-500 hover:text-red-700"
+                                  onClick={() =>
+                                    updateQAVerification(selectedNode.id, {
+                                      proofs: verificationProofs.filter(
+                                        (candidate) => candidate.id !== proof.id,
+                                      ),
+                                    })
+                                  }
+                                  type="button"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="space-y-2">
+                              <pre className="text-xs bg-white border rounded p-2 overflow-auto max-h-64 whitespace-pre-wrap">
+                                {proof.content}
+                              </pre>
+
+                              <div className="flex justify-end">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  type="button"
+                                  onClick={() => setViewerProof(proof)}
+                                >
+                                  View Full Screen
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
 
-              {isTriggerNode(selectedNode) && !readOnly && (
+              {isTriggerNode(selectedNode) && !effectiveReadOnly && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">

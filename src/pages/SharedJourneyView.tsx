@@ -68,6 +68,19 @@ export function SharedJourneyView({
           if (!sn) return n;
           return { ...n, data: { ...n.data, codegenSnippets: sn } };
         });
+        const rawQaRuns = Array.isArray((j as any).qaRuns) ? ((j as any).qaRuns as any[]) : [];
+        const enrichedQaRuns = rawQaRuns.map((run: any) => {
+          if (!Array.isArray(run?.nodes)) return run;
+          const runNodes = run.nodes.map((n: any) => {
+            if (n?.type !== 'triggerNode') return n;
+            const eventId = n?.data?.connectedEvent?.eventId;
+            if (typeof eventId !== 'string') return n;
+            const sn = snippetMap[eventId]?.snippets;
+            if (!sn) return n;
+            return { ...n, data: { ...n.data, codegenSnippets: sn } };
+          });
+          return { ...run, nodes: runNodes };
+        });
         setJourney({
           id: j.id,
           name: j.name,
@@ -75,7 +88,7 @@ export function SharedJourneyView({
           testing_instructions_markdown: j.testing_instructions_markdown ?? undefined,
           nodes: enrichedNodes,
           edges: Array.isArray(j.edges) ? j.edges : [],
-          qaRuns: Array.isArray((j as any).qaRuns) ? ((j as any).qaRuns as any) : [],
+          qaRuns: enrichedQaRuns,
         });
       } else {
         setError(result.error ?? 'Failed to load journey');

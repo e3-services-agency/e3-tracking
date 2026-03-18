@@ -60,6 +60,8 @@ export function Journeys({
   const [isTogglingShare, setIsTogglingShare] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
+  const [lockedQARunIds, setLockedQARunIds] = useState<string[]>([]);
+  const qaLocked = !!activeQARunId && lockedQARunIds.includes(activeQARunId);
   const [isRenaming, setIsRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const [renameError, setRenameError] = useState<string | null>(null);
@@ -129,6 +131,13 @@ export function Journeys({
     setNewQARunName('');
     setNewQATesterName('');
     setNewQAEnvironment('');
+  };
+
+  const handleEndQA = () => {
+    if (!activeQARunId) return;
+    setLockedQARunIds((prev) =>
+      prev.includes(activeQARunId) ? prev : [...prev, activeQARunId],
+    );
   };
 
   useEffect(() => {
@@ -659,6 +668,8 @@ export function Journeys({
               <JourneyCanvas
                 journey={selectedJourney}
                 activeQARunId={activeQARunId}
+                qaLocked={qaLocked}
+                onEndQA={handleEndQA}
                 hideFloatingSave
                 onSaveLayoutState={setSaveLayoutState}
               />

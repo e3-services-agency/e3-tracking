@@ -133,10 +133,19 @@ export function JourneyCanvas({
   journey,
   activeQARunId,
   readOnly = false,
+  hideFloatingSave = false,
+  onSaveLayoutState,
 }: {
   journey: Journey;
   activeQARunId: string | null;
   readOnly?: boolean;
+  hideFloatingSave?: boolean;
+  onSaveLayoutState?: (s: {
+    save: () => void;
+    isSaving: boolean;
+    saveSuccess: boolean;
+    saveError: string | null;
+  }) => void;
 }) {
   const {
     nodes,
@@ -203,6 +212,15 @@ export function JourneyCanvas({
     verificationProofs,
     pendingNodeProofs,
   } = useJourneyCanvas({ journey, activeQARunId, readOnly });
+
+  React.useEffect(() => {
+    onSaveLayoutState?.({
+      save: handleSaveLayout,
+      isSaving,
+      saveSuccess,
+      saveError,
+    });
+  }, [onSaveLayoutState, handleSaveLayout, isSaving, saveSuccess, saveError]);
 
   return (
     <div className="flex h-full w-full">
@@ -432,7 +450,7 @@ export function JourneyCanvas({
           <Background gap={16} size={1} color="var(--border-default)" />
         </ReactFlow>
 
-        {!activeQARunId && !readOnly && (
+        {!hideFloatingSave && !activeQARunId && !readOnly && (
           <div className="absolute top-4 right-4 z-20">
             <Button
               onClick={handleSaveLayout}

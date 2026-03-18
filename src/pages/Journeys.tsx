@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, useActiveData } from '@/src/store';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import {
-  Plus,
   Trash2,
   Save,
   CheckSquare,
@@ -12,7 +11,6 @@ import {
 } from 'lucide-react';
 import {
   updateJourneyTestingInstructionsApi,
-  createJourneyApi,
   downloadJourneyHtmlExportApi,
   getJourneyShareTokenApi,
   useActiveWorkspaceId,
@@ -23,6 +21,7 @@ import '@xyflow/react/dist/style.css';
 import type { Journey, QARun } from '@/src/types';
 import { JourneyStartQARunModal } from '@/src/features/journeys/overlays/JourneyStartQARunModal';
 import { JourneyCanvas } from '@/src/features/journeys/editor/JourneyCanvas';
+import { useJourneys } from '@/src/features/journeys/hooks/useJourneys';
 
 export function Journeys({
   selectedJourneyId: initialJourneyId,
@@ -34,6 +33,7 @@ export function Journeys({
   const data = useActiveData();
   const { addJourney, updateJourney, deleteJourney } = useStore();
   const activeWorkspaceId = useActiveWorkspaceId();
+  useJourneys();
 
   const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(
     initialJourneyId || data.journeys[0]?.id || null,
@@ -48,6 +48,13 @@ export function Journeys({
   const [instructionsSaveSuccess, setInstructionsSaveSuccess] = useState(false);
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement | null>(null);
+  const [saveLayoutState, setSaveLayoutState] = useState<{
+    save: () => void;
+    isSaving: boolean;
+    saveSuccess: boolean;
+    saveError: string | null;
+  } | null>(null);
 
   const selectedJourney =
     data.journeys.find((journey: Journey) => journey.id === selectedJourneyId) ||
@@ -78,21 +85,7 @@ export function Journeys({
     }
   }, [selectedJourneyId, data.journeys]);
 
-  const handleCreateNew = async () => {
-    const name = 'New Journey';
-    const newId = addJourney({
-      name,
-      nodes: [],
-      edges: [],
-      qaRuns: [],
-    });
-
-    // Persist immediately so canvas saves work without relying on the safety net.
-    await createJourneyApi(newId, name, activeWorkspaceId);
-
-    setSelectedJourneyId(newId);
-    setActiveQARunId(null);
-  };
+  // Creating journeys should happen from the Journeys list, not from inside the canvas view.
 
   const handleStartQARun = () => {
     if (!selectedJourney || !newQARunName.trim()) return;
@@ -119,6 +112,24 @@ export function Journeys({
     setNewQATesterName('');
     setNewQAEnvironment('');
   };
+
+  useEffect(() => {
+    if (!isMoreMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const el = moreMenuRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && !el.contains(e.target)) {
+        setIsMoreMenuOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', onDown);
+    return () => window.removeEventListener('mousedown', onDown);
+  }, [isMoreMenuOpen]);
+
+  const journeyOptions = useMemo(
+    () => data.journeys,
+    [data.journeys],
+  );
 
   const handleSaveTestingInstructions = async () => {
     if (!selectedJourney) return;
@@ -154,7 +165,6 @@ export function Journeys({
           <h1 className="text-xl font-bold text-gray-900">Journeys</h1>
 
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-600">Journey</span>
             <select
               className="text-sm border border-gray-200 rounded-md px-2 py-1.5 bg-white text-gray-900 shadow-sm max-w-[260px]"
               value={selectedJourneyId ?? ''}
@@ -163,7 +173,7 @@ export function Journeys({
                 setActiveQARunId(null);
               }}
             >
-              {data.journeys.map((journey: Journey) => (
+              {journeyOptions.map((journey: Journey) => (
                 <option key={journey.id} value={journey.id}>
                   {journey.name}
                 </option>
@@ -172,7 +182,7 @@ export function Journeys({
           </div>
         </div>
 
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center justify-end">
           {selectedJourney && (
             <div className="flex items-center gap-2 mr-4 border-r pr-4">
               <span className="text-sm font-medium text-gray-700">
@@ -208,7 +218,21 @@ export function Journeys({
           )}
 
           {selectedJourney && (
-            <div className="relative">
+            <div className="relative flex items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => saveLayoutState?.save()}
+                disabled={!saveLayoutState || saveLayoutState.isSaving}
+                className="gap-2"
+              >
+                <Save className="w-4 h-4" />
+                {saveLayoutState?.isSaving
+                  ? 'Saving...'
+                  : saveLayoutState?.saveSuccess
+                    ? 'Saved!'
+                    : 'Save Layout'}
+              </Button>
+
               <Button
                 variant="outline"
                 size="sm"
@@ -220,7 +244,10 @@ export function Journeys({
               </Button>
 
               {isMoreMenuOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white border border-[var(--border-default)] rounded-md shadow-lg z-50 overflow-hidden">
+                <div
+                  ref={moreMenuRef}
+                  className="absolute right-0 top-full mt-2 w-64 bg-white border border-[var(--border-default)] rounded-md shadow-lg z-50 overflow-hidden"
+                >
                   <button
                     type="button"
                     className="w-full px-3 py-2 text-sm text-left hover:bg-[var(--surface-default)] flex items-center gap-2"
@@ -286,7 +313,7 @@ export function Journeys({
                   </button>
 
                   <label className="w-full px-3 py-2 text-sm text-left hover:bg-[var(--surface-default)] flex items-center gap-2 cursor-pointer">
-                    <Plus className="w-4 h-4" /> Import JSON
+                    <span className="w-4 h-4 inline-block" /> Import JSON
                     <input
                       type="file"
                       accept=".json"
@@ -303,8 +330,9 @@ export function Journeys({
                             ) as Journey;
                             if (importedJourney && importedJourney.nodes && importedJourney.edges) {
                               const createdId = addJourney({
-                                ...importedJourney,
                                 name: `${importedJourney.name || 'Journey'} (Imported)`,
+                                nodes: importedJourney.nodes || [],
+                                edges: importedJourney.edges || [],
                                 qaRuns: importedJourney.qaRuns || [],
                               });
                               setSelectedJourneyId(createdId);
@@ -337,17 +365,13 @@ export function Journeys({
                   </button>
                 </div>
               )}
+              {saveLayoutState?.saveError && (
+                <div className="absolute right-0 top-full mt-1 text-xs text-red-600 max-w-[360px] text-right">
+                  {saveLayoutState.saveError}
+                </div>
+              )}
             </div>
           )}
-
-          <Button
-            onClick={handleCreateNew}
-            variant="default"
-            size="sm"
-            className="gap-2"
-          >
-            <Plus className="w-4 h-4" /> New Journey
-          </Button>
         </div>
       </div>
 
@@ -391,6 +415,8 @@ export function Journeys({
             <JourneyCanvas
               journey={selectedJourney}
               activeQARunId={activeQARunId}
+              hideFloatingSave
+              onSaveLayoutState={setSaveLayoutState}
             />
           </ReactFlowProvider>
         ) : (

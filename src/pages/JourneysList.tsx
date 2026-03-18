@@ -4,6 +4,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Search, Plus, GitMerge, Trash2 } from 'lucide-react';
 import { createJourneyApi, useActiveWorkspaceId } from '@/src/features/journeys/hooks/useJourneysApi';
+import { useJourneys } from '@/src/features/journeys/hooks/useJourneys';
 
 interface JourneysListProps {
   onSelectJourney: (id: string) => void;
@@ -14,6 +15,7 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
   const { addJourney, deleteJourney } = useStore();
   const [searchQuery, setSearchQuery] = useState('');
   const activeWorkspaceId = useActiveWorkspaceId();
+  useJourneys();
 
   const filteredJourneys = data.journeys.filter(j => 
     j.name.toLowerCase().includes(searchQuery.toLowerCase())

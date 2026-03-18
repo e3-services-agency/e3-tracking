@@ -68,6 +68,7 @@ interface StoreState {
   addJourney: (journey: Omit<Journey, 'id'>) => string;
   updateJourney: (id: string, journey: Partial<Journey>) => void;
   deleteJourney: (id: string) => void;
+  setJourneys: (journeys: Journey[]) => void;
 
   addCustomCategory: (name: string) => void;
 
@@ -284,6 +285,12 @@ export const useStore = create<StoreState>((set, get) => {
       updateActiveData((data) => ({
         ...data,
         journeys: data.journeys.filter((journey) => journey.id !== id),
+      })),
+
+    setJourneys: (journeys) =>
+      updateActiveData((data) => ({
+        ...data,
+        journeys: Array.isArray(journeys) ? journeys : data.journeys,
       })),
 
     addCustomCategory: (name) =>

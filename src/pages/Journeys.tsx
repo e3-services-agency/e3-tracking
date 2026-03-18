@@ -17,6 +17,7 @@ import {
   getJourneyShareTokenApi,
   useActiveWorkspaceId,
 } from '@/src/features/journeys/hooks/useJourneysApi';
+import { MoreHorizontal } from 'lucide-react';
 import { ReactFlowProvider } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import type { Journey, QARun } from '@/src/types';
@@ -46,6 +47,7 @@ export function Journeys({
   const [isSavingInstructions, setIsSavingInstructions] = useState(false);
   const [instructionsSaveSuccess, setInstructionsSaveSuccess] = useState(false);
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
 
   const selectedJourney =
     data.journeys.find((journey: Journey) => journey.id === selectedJourneyId) ||
@@ -206,125 +208,136 @@ export function Journeys({
           )}
 
           {selectedJourney && (
-            <>
+            <div className="relative">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  const dataStr =
-                    'data:text/json;charset=utf-8,' +
-                    encodeURIComponent(
-                      JSON.stringify(selectedJourney, null, 2),
-                    );
-                  const downloadAnchorNode =
-                    document.createElement('a');
-                  downloadAnchorNode.setAttribute('href', dataStr);
-                  downloadAnchorNode.setAttribute(
-                    'download',
-                    `${selectedJourney.name.replace(/\s+/g, '_')}.json`,
-                  );
-                  document.body.appendChild(downloadAnchorNode);
-                  downloadAnchorNode.click();
-                  downloadAnchorNode.remove();
-                }}
-                className="gap-2"
+                className="w-10 h-9 px-0"
+                onClick={() => setIsMoreMenuOpen((v) => !v)}
+                aria-label="More actions"
               >
-                <Save className="w-4 h-4" /> Export
+                <MoreHorizontal className="w-4 h-4" />
               </Button>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  const result = await downloadJourneyHtmlExportApi(
-                    selectedJourney.id,
-                    `${selectedJourney.name.replace(/\s+/g, '_')}-implementation-brief.html`,
-                    activeWorkspaceId,
-                  );
-                  if (!result.success) {
-                    alert(result.error ?? 'Export failed');
-                  }
-                }}
-                className="gap-2"
-              >
-                <FileText className="w-4 h-4" /> Export Implementation Brief
-              </Button>
+              {isMoreMenuOpen && (
+                <div className="absolute right-0 mt-2 w-64 bg-white border border-[var(--border-default)] rounded-md shadow-lg z-50 overflow-hidden">
+                  <button
+                    type="button"
+                    className="w-full px-3 py-2 text-sm text-left hover:bg-[var(--surface-default)] flex items-center gap-2"
+                    onClick={() => {
+                      setIsMoreMenuOpen(false);
+                      const dataStr =
+                        'data:text/json;charset=utf-8,' +
+                        encodeURIComponent(JSON.stringify(selectedJourney, null, 2));
+                      const a = document.createElement('a');
+                      a.setAttribute('href', dataStr);
+                      a.setAttribute(
+                        'download',
+                        `${selectedJourney.name.replace(/\s+/g, '_')}.json`,
+                      );
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                    }}
+                  >
+                    <Save className="w-4 h-4" /> Export JSON
+                  </button>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  const result = await getJourneyShareTokenApi(selectedJourney.id, activeWorkspaceId);
-                  if (!result.success) {
-                    alert(result.error ?? 'Failed to get share link');
-                    return;
-                  }
-                  const base = (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) || '/tracking-plan/';
-                  const shareUrl = `${window.location.origin}${base.replace(/\/$/, '')}/share/${result.token}`;
-                  await navigator.clipboard.writeText(shareUrl);
-                  setShareLinkCopied(true);
-                  setTimeout(() => setShareLinkCopied(false), 2000);
-                }}
-                className="gap-2"
-              >
-                <Share2 className="w-4 h-4" /> {shareLinkCopied ? 'Link copied!' : 'Share Link'}
-              </Button>
+                  <button
+                    type="button"
+                    className="w-full px-3 py-2 text-sm text-left hover:bg-[var(--surface-default)] flex items-center gap-2"
+                    onClick={async () => {
+                      setIsMoreMenuOpen(false);
+                      const result = await downloadJourneyHtmlExportApi(
+                        selectedJourney.id,
+                        `${selectedJourney.name.replace(/\s+/g, '_')}-implementation-brief.html`,
+                        activeWorkspaceId,
+                      );
+                      if (!result.success) alert(result.error ?? 'Export failed');
+                    }}
+                  >
+                    <FileText className="w-4 h-4" /> Export Implementation Brief
+                  </button>
 
-              <label className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium bg-white border rounded-md shadow-sm hover:bg-gray-50 cursor-pointer transition-colors">
-                <Plus className="w-4 h-4" /> Import
-                <input
-                  type="file"
-                  accept=".json"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                      try {
-                        const importedJourney = JSON.parse(
-                          event.target?.result as string,
-                        ) as Journey;
-                        if (
-                          importedJourney &&
-                          importedJourney.nodes &&
-                          importedJourney.edges
-                        ) {
-                          const createdId = addJourney({
-                            ...importedJourney,
-                            name: `${
-                              importedJourney.name || 'Journey'
-                            } (Imported)`,
-                            qaRuns: importedJourney.qaRuns || [],
-                          });
-                          setSelectedJourneyId(createdId);
-                          setActiveQARunId(null);
-                        } else {
-                          alert('Invalid journey JSON format.');
-                        }
-                      } catch {
-                        alert('Error parsing JSON file.');
+                  <button
+                    type="button"
+                    className="w-full px-3 py-2 text-sm text-left hover:bg-[var(--surface-default)] flex items-center gap-2"
+                    onClick={async () => {
+                      setIsMoreMenuOpen(false);
+                      const result = await getJourneyShareTokenApi(
+                        selectedJourney.id,
+                        activeWorkspaceId,
+                      );
+                      if (!result.success) {
+                        alert(result.error ?? 'Failed to get share link');
+                        return;
                       }
-                    };
-                    reader.readAsText(file);
-                    e.target.value = '';
-                  }}
-                />
-              </label>
+                      const base =
+                        (typeof import.meta !== 'undefined' &&
+                          import.meta.env?.BASE_URL) ||
+                        '/tracking-plan/';
+                      const shareUrl = `${window.location.origin}${base.replace(/\/$/, '')}/share/${result.token}`;
+                      await navigator.clipboard.writeText(shareUrl);
+                      setShareLinkCopied(true);
+                      setTimeout(() => setShareLinkCopied(false), 2000);
+                    }}
+                  >
+                    <Share2 className="w-4 h-4" /> {shareLinkCopied ? 'Link copied!' : 'Copy Share Link'}
+                  </button>
 
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => {
-                  deleteJourney(selectedJourney.id);
-                  onBack();
-                }}
-                className="gap-2"
-              >
-                <Trash2 className="w-4 h-4" /> Delete
-              </Button>
-            </>
+                  <label className="w-full px-3 py-2 text-sm text-left hover:bg-[var(--surface-default)] flex items-center gap-2 cursor-pointer">
+                    <Plus className="w-4 h-4" /> Import JSON
+                    <input
+                      type="file"
+                      accept=".json"
+                      className="hidden"
+                      onChange={(e) => {
+                        setIsMoreMenuOpen(false);
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          try {
+                            const importedJourney = JSON.parse(
+                              event.target?.result as string,
+                            ) as Journey;
+                            if (importedJourney && importedJourney.nodes && importedJourney.edges) {
+                              const createdId = addJourney({
+                                ...importedJourney,
+                                name: `${importedJourney.name || 'Journey'} (Imported)`,
+                                qaRuns: importedJourney.qaRuns || [],
+                              });
+                              setSelectedJourneyId(createdId);
+                              setActiveQARunId(null);
+                            } else {
+                              alert('Invalid journey JSON format.');
+                            }
+                          } catch {
+                            alert('Error parsing JSON file.');
+                          }
+                        };
+                        reader.readAsText(file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
+
+                  <div className="border-t border-[var(--border-default)]" />
+
+                  <button
+                    type="button"
+                    className="w-full px-3 py-2 text-sm text-left hover:bg-red-50 text-red-700 flex items-center gap-2"
+                    onClick={() => {
+                      setIsMoreMenuOpen(false);
+                      deleteJourney(selectedJourney.id);
+                      onBack();
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4" /> Delete
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
           <Button

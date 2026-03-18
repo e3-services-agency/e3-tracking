@@ -148,6 +148,7 @@ export function JourneyCanvas({
     onConnectEnd,
     handleAddConnectedNode,
     handleSaveLayout,
+    saveError,
     handleSaveQA,
     addStepNode,
     addTriggerNode,
@@ -447,6 +448,11 @@ export function JourneyCanvas({
               )}
               {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Layout'}
             </Button>
+            {saveError && (
+              <div className="mt-1 text-xs text-red-600 max-w-[240px] text-right">
+                {saveError}
+              </div>
+            )}
           </div>
         )}
 

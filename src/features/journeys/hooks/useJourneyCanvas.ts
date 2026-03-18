@@ -70,6 +70,7 @@ export function useJourneyCanvas({
   );
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [isSavingQA, setIsSavingQA] = useState(false);
   const [saveQASuccess, setSaveQASuccess] = useState(false);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(
@@ -280,6 +281,7 @@ export function useJourneyCanvas({
 
   const handleSaveLayout = async () => {
     setIsSaving(true);
+    setSaveError(null);
     const result = await saveJourneyCanvasApi(journey.id, journey.name, nodes, edges, activeWorkspaceId);
     setIsSaving(false);
     if (result.success) {
@@ -295,6 +297,9 @@ export function useJourneyCanvas({
       updateJourney(journey.id, { nodes, edges, type_counts });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
+    } else {
+      setSaveError(result.error || 'Save failed');
+      console.error('Save layout failed:', result.error);
     }
     // On failure, leave isSaving false; caller can show error if needed
   };
@@ -675,6 +680,7 @@ export function useJourneyCanvas({
     onConnectEnd,
     handleAddConnectedNode,
     handleSaveLayout,
+    saveError,
     handleSaveQA,
     addStepNode,
     addTriggerNode,

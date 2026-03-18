@@ -5,7 +5,7 @@
  */
 import { getSupabaseOrThrow } from '../db/supabase';
 import type { JourneyRow } from '../../types/schema';
-import { DatabaseError, NotFoundError } from '../errors';
+import { ConflictError, DatabaseError, NotFoundError } from '../errors';
 
 type NodeLike = { type?: string; data?: { connectedEvent?: { eventId?: string }; implementationType?: string } };
 
@@ -60,6 +60,62 @@ export async function listJourneys(workspaceId: string): Promise<JourneyRow[]> {
     throw new DatabaseError(`Failed to list journeys: ${error.message}`, error);
   }
   return (data ?? []) as JourneyRow[];
+}
+
+/**
+ * Creates a journey row (idempotent for existing id/workspace).
+ * Used as a safety net when the UI creates journeys client-side and first persistence happens on Save Layout.
+ */
+export async function createJourneyIfMissing(
+  workspaceId: string,
+  journeyId: string,
+  name: string
+): Promise<JourneyRow> {
+  const existing = await getJourneyById(workspaceId, journeyId);
+  if (existing) return existing;
+
+  const supabase = getSupabaseOrThrow();
+  const now = new Date().toISOString();
+  const { error } = await supabase.from('journeys').insert({
+    id: journeyId,
+    workspace_id: workspaceId,
+    name: name || 'New Journey',
+    description: null,
+    developer_instructions_markdown: null,
+    canvas_nodes_json: null,
+    canvas_edges_json: null,
+    testing_instructions_markdown: null,
+    share_token: null,
+    type_counts: null,
+    created_at: now,
+    updated_at: now,
+    deleted_at: null,
+  });
+
+  if (error) {
+    throw new DatabaseError(`Failed to create journey: ${error.message}`, error);
+  }
+
+  const created = await getJourneyById(workspaceId, journeyId);
+  if (created === null) {
+    throw new DatabaseError('Journey not found after create.');
+  }
+  return created;
+}
+
+/**
+ * Creates a journey row. Throws ConflictError if the id already exists in this workspace.
+ */
+export async function createJourney(
+  workspaceId: string,
+  journeyId: string,
+  name: string
+): Promise<JourneyRow> {
+  const existing = await getJourneyById(workspaceId, journeyId);
+  if (existing) {
+    throw new ConflictError('Journey already exists.', `journey_id=${journeyId}`);
+  }
+  return await createJourneyIfMissing(workspaceId, journeyId, name);
 }
 
 /**

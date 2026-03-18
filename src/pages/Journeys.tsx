@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import {
   updateJourneyTestingInstructionsApi,
+  createJourneyApi,
   downloadJourneyHtmlExportApi,
   getJourneyShareTokenApi,
   useActiveWorkspaceId,
@@ -75,13 +76,17 @@ export function Journeys({
     }
   }, [selectedJourneyId, data.journeys]);
 
-  const handleCreateNew = () => {
+  const handleCreateNew = async () => {
+    const name = 'New Journey';
     const newId = addJourney({
-      name: 'New Journey',
+      name,
       nodes: [],
       edges: [],
       qaRuns: [],
     });
+
+    // Persist immediately so canvas saves work without relying on the safety net.
+    await createJourneyApi(newId, name, activeWorkspaceId);
 
     setSelectedJourneyId(newId);
     setActiveQARunId(null);

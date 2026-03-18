@@ -22,6 +22,7 @@ export interface ValidatePayloadResult {
  */
 export async function saveJourneyCanvasApi(
   journeyId: string,
+  journeyName: string,
   nodes: unknown,
   edges: unknown,
   workspaceId: string = MOCK_WORKSPACE_ID
@@ -30,13 +31,44 @@ export async function saveJourneyCanvasApi(
     const res = await fetchWithAuth(`${API_BASE}/api/journeys/${journeyId}/canvas`, {
       method: 'PUT',
       headers: { 'x-workspace-id': workspaceId },
-      body: JSON.stringify({ nodes, edges }),
+      body: JSON.stringify({ name: journeyName, nodes, edges }),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       return {
         success: false,
         error: typeof body?.error === 'string' ? body.error : res.statusText || 'Save failed',
+      };
+    }
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'Network error',
+    };
+  }
+}
+
+/**
+ * Creates a journey row in the backend. POST /api/journeys.
+ * Returns the created journey id.
+ */
+export async function createJourneyApi(
+  journeyId: string,
+  name: string,
+  workspaceId: string = MOCK_WORKSPACE_ID
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const res = await fetchWithAuth(`${API_BASE}/api/journeys`, {
+      method: 'POST',
+      headers: { 'x-workspace-id': workspaceId },
+      body: JSON.stringify({ id: journeyId, name }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        error: typeof body?.error === 'string' ? body.error : res.statusText || 'Create failed',
       };
     }
     return { success: true };

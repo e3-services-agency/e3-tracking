@@ -280,7 +280,7 @@ export function useJourneyCanvas({
 
   const handleSaveLayout = async () => {
     setIsSaving(true);
-    const result = await saveJourneyCanvasApi(journey.id, nodes, edges, activeWorkspaceId);
+    const result = await saveJourneyCanvasApi(journey.id, journey.name, nodes, edges, activeWorkspaceId);
     setIsSaving(false);
     if (result.success) {
       const type_counts = (() => {

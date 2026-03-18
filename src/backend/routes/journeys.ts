@@ -10,7 +10,7 @@ import { requireWorkspace } from '../middleware/workspace';
 import * as JourneyDAL from '../dal/journey.dal';
 import { getAlwaysSentPropertyKeysForEvent } from '../dal/event.dal';
 import { generateJourneyHtmlExport } from '../services/export.service';
-import { DatabaseError, NotFoundError } from '../errors';
+import { ConflictError, DatabaseError, NotFoundError } from '../errors';
 
 const router = Router();
 
@@ -78,6 +78,63 @@ router.get('/', requireWorkspace, async (req: Request, res: Response): Promise<v
     });
   }
 });
+
+/**
+ * POST /api/journeys
+ * Create a journey row for the workspace.
+ * Body: { id: string, name: string }.
+ */
+router.post(
+  '/',
+  requireWorkspace,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = req.workspaceId;
+    if (!workspaceId) {
+      res.status(403).json({
+        error: 'Workspace context required.',
+        code: 'WORKSPACE_REQUIRED',
+      });
+      return;
+    }
+
+    const body = req.body as { id?: unknown; name?: unknown };
+    const id = typeof body.id === 'string' ? body.id.trim() : '';
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+
+    if (!id || !name) {
+      res.status(400).json({
+        error: 'id and name are required.',
+        code: 'BAD_REQUEST',
+      });
+      return;
+    }
+
+    try {
+      const created = await JourneyDAL.createJourney(workspaceId, id, name);
+      res.status(201).json(created);
+    } catch (err) {
+      if (err instanceof ConflictError) {
+        res.status(409).json({
+          error: err.message,
+          code: err.code,
+          details: err.details,
+        });
+        return;
+      }
+      if (err instanceof DatabaseError) {
+        res.status(500).json({
+          error: 'Failed to create journey.',
+          code: err.code,
+        });
+        return;
+      }
+      res.status(500).json({
+        error: 'An unexpected error occurred.',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+);
 
 /**
  * GET /api/journeys/:id/export/html
@@ -226,11 +283,14 @@ router.put(
       return;
     }
     const journeyId = req.params.id;
-    const body = req.body as { nodes?: unknown; edges?: unknown };
+    const body = req.body as { nodes?: unknown; edges?: unknown; name?: unknown };
     const nodes = body.nodes;
     const edges = body.edges;
+    const name = typeof body.name === 'string' ? body.name : 'New Journey';
 
     try {
+      // Safety net: if the UI created the journey client-side, persist the row on first save.
+      await JourneyDAL.createJourneyIfMissing(workspaceId, journeyId, name);
       const updated = await JourneyDAL.saveJourneyCanvas(
         workspaceId,
         journeyId,

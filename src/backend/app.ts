@@ -49,6 +49,12 @@ export function createApp(): express.Express {
   app.use('/api/journeys', journeysRouter);
   app.use('/api/shared', sharedRouter);
 
+  // Simple health endpoint. Kept in Express so we don't need a separate
+  // Vercel function on the Hobby plan.
+  app.get('/api/health', (_req, res) => {
+    res.status(200).json({ ok: true });
+  });
+
   // Global error handler: expose error.message and error.stack in JSON so the Network tab shows the real error.
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction): void => {
     console.error(err);

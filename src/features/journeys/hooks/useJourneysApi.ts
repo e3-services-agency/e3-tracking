@@ -50,6 +50,37 @@ export async function saveJourneyCanvasApi(
 }
 
 /**
+ * Persists QA runs for a journey.
+ * PUT /api/journeys/:id/qa
+ */
+export async function saveJourneyQARunsApi(
+  journeyId: string,
+  qaRuns: Array<{ id: string; verifications?: Record<string, any> }>,
+  workspaceId: string = MOCK_WORKSPACE_ID
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const res = await fetchWithAuth(`${API_BASE}/api/journeys/${journeyId}/qa`, {
+      method: 'PUT',
+      headers: { 'x-workspace-id': workspaceId },
+      body: JSON.stringify({ qaRuns }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        error: typeof body?.error === 'string' ? body.error : res.statusText || 'Save QA failed',
+      };
+    }
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'Network error',
+    };
+  }
+}
+
+/**
  * Creates a journey row in the backend. POST /api/journeys.
  * Returns the created journey id.
  */
@@ -245,7 +276,7 @@ export async function setJourneyShareEnabledApi(
 export async function getSharedJourneyByIdApi(
   journeyId: string
 ): Promise<
-  | { success: true; journey: { id: string; name: string; description: string | null; testing_instructions_markdown: string | null; nodes: unknown; edges: unknown; eventSnippets?: Record<string, { eventName: string; snippets: { dataLayer: string; bloomreachSdk: string; bloomreachApi: string } }> } }
+  | { success: true; journey: { id: string; name: string; description: string | null; testing_instructions_markdown: string | null; nodes: unknown; edges: unknown; eventSnippets?: Record<string, { eventName: string; snippets: { dataLayer: string; bloomreachSdk: string; bloomreachApi: string } }>; qaRuns?: unknown } }
   | { success: false; error: string }
 > {
   try {
@@ -273,7 +304,7 @@ export async function getSharedJourneyByIdApi(
 export async function getSharedJourneyByTokenApi(
   token: string
 ): Promise<
-  | { success: true; journey: { id: string; name: string; description: string | null; testing_instructions_markdown: string | null; nodes: unknown; edges: unknown; eventSnippets?: Record<string, { eventName: string; snippets: { dataLayer: string; bloomreachSdk: string; bloomreachApi: string } }> } }
+  | { success: true; journey: { id: string; name: string; description: string | null; testing_instructions_markdown: string | null; nodes: unknown; edges: unknown; eventSnippets?: Record<string, { eventName: string; snippets: { dataLayer: string; bloomreachSdk: string; bloomreachApi: string } }>; qaRuns?: unknown } }
   | { success: false; error: string }
 > {
   try {

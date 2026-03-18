@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore, useActiveData } from '@/src/store';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
+import { v4 as uuidv4 } from 'uuid';
 import {
   Trash2,
   Save,
@@ -108,7 +109,7 @@ export function Journeys({
     if (!selectedJourney || !newQARunName.trim()) return;
 
     const newRun: QARun = {
-      id: `qa-${Date.now()}`,
+      id: uuidv4(),
       name: newQARunName.trim(),
       createdAt: new Date().toISOString(),
       testerName: newQATesterName.trim(),

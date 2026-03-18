@@ -21,6 +21,7 @@ import type {
 } from '@/src/types';
 import {
   saveJourneyCanvasApi,
+  saveJourneyQARunsApi,
   validatePayloadApi,
   useActiveWorkspaceId,
   type ValidatePayloadResult,
@@ -391,12 +392,27 @@ export function useJourneyCanvas({
 
     setIsSavingQA(true);
 
-    setTimeout(() => {
-      updateJourney(journey.id, { qaRuns: [...(journey.qaRuns || [])] });
-      setIsSavingQA(false);
-      setSaveQASuccess(true);
-      setTimeout(() => setSaveQASuccess(false), 2000);
-    }, 300);
+    const persist = async () => {
+      try {
+        const payloadRuns = (journey.qaRuns ?? []).map((run) => ({
+          id: run.id,
+          // Persist only what we need for shared read-only rendering.
+          verifications: run.verifications,
+        }));
+
+        const result = await saveJourneyQARunsApi(journey.id, payloadRuns, activeWorkspaceId);
+        if (result.success) {
+          setSaveQASuccess(true);
+          setTimeout(() => setSaveQASuccess(false), 2000);
+        } else {
+          console.error('Save QA failed:', result.error);
+        }
+      } finally {
+        setIsSavingQA(false);
+      }
+    };
+
+    void persist();
   };
 
   const addStepNode = () => {

@@ -11,6 +11,7 @@ import { DatabaseError, NotFoundError } from '../errors';
 import { buildCodegenSnippets } from '../services/codegen.service';
 import { generateJourneyHtmlExport } from '../services/export.service';
 import { getSupabaseOrThrow } from '../db/supabase';
+import { getSharedJourneyQARuns } from '../dal/qa.dal';
 
 const router = Router();
 
@@ -95,6 +96,7 @@ router.get(
       const journey = await getJourneyByShareToken(token);
       const rewrittenNodes = rewriteSharedImageUrls(journey.id, journey.nodes);
       const eventSnippets = await buildSharedEventSnippets(journey.workspace_id, rewrittenNodes);
+      const qaRuns = await getSharedJourneyQARuns(journey.id);
       res.status(200).json({
         id: journey.id,
         name: journey.name,
@@ -103,6 +105,7 @@ router.get(
         nodes: rewrittenNodes,
         edges: journey.edges,
         eventSnippets,
+        qaRuns,
       });
     } catch (err) {
       if (err instanceof NotFoundError) {
@@ -147,6 +150,7 @@ router.get(
       const journey = await getJourneyByShareId(id);
       const rewrittenNodes = rewriteSharedImageUrls(journey.id, journey.nodes);
       const eventSnippets = await buildSharedEventSnippets(journey.workspace_id, rewrittenNodes);
+      const qaRuns = await getSharedJourneyQARuns(journey.id);
       res.status(200).json({
         id: journey.id,
         name: journey.name,
@@ -155,6 +159,7 @@ router.get(
         nodes: rewrittenNodes,
         edges: journey.edges,
         eventSnippets,
+        qaRuns,
       });
     } catch (err) {
       if (err instanceof NotFoundError) {

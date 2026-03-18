@@ -15,6 +15,34 @@ import { TrackingPlanAuditConfig } from '@/src/pages/TrackingPlanAuditConfig';
 
 const DEFAULT_BRAND_PRIMARY = 'var(--e3-emerald)';
 const SIDEBAR_COLLAPSED_KEY = 'e3-tracking.sidebarCollapsed';
+const BASE =
+  typeof import.meta !== 'undefined' && (import.meta.env?.BASE_URL != null)
+    ? String(import.meta.env.BASE_URL).replace(/\/$/, '')
+    : '';
+
+function getPathWithoutBase(pathname: string): string {
+  if (!BASE) return pathname;
+  return pathname.startsWith(BASE) ? pathname.slice(BASE.length) || '/' : pathname;
+}
+
+function syncJourneysRouteFromLocation(): { tab: string; journeyId: string | null } | null {
+  if (typeof window === 'undefined') return null;
+  const path = getPathWithoutBase(window.location.pathname);
+  const match = path.match(/^\/journeys(?:\/([^/]+))?\/?$/);
+  if (!match) return null;
+  return { tab: match[1] ? 'journeys' : 'journeysList', journeyId: match[1] ?? null };
+}
+
+function pushPath(nextPath: string): void {
+  try {
+    const full = `${BASE}${nextPath.startsWith('/') ? nextPath : `/${nextPath}`}`;
+    if (typeof window !== 'undefined' && window.location.pathname !== full) {
+      window.history.pushState({}, '', full);
+    }
+  } catch {
+    // ignore
+  }
+}
 
 export function Layout() {
   const [activeTab, setActiveTab] = useState('events');
@@ -50,6 +78,30 @@ export function Layout() {
     };
   }, [settings?.client_primary_color]);
 
+  // Deep-link support: /journeys and /journeys/:id.
+  useEffect(() => {
+    const applyFromLocation = () => {
+      const parsed = syncJourneysRouteFromLocation();
+      if (!parsed) return;
+      setActiveTab(parsed.tab);
+      setSelectedJourneyId(parsed.journeyId);
+    };
+    applyFromLocation();
+    window.addEventListener('popstate', applyFromLocation);
+    return () => window.removeEventListener('popstate', applyFromLocation);
+  }, []);
+
+  // Keep URL in sync when navigating inside the app.
+  useEffect(() => {
+    if (activeTab === 'journeysList') {
+      pushPath('/journeys');
+      return;
+    }
+    if (activeTab === 'journeys' && selectedJourneyId) {
+      pushPath(`/journeys/${selectedJourneyId}`);
+    }
+  }, [activeTab, selectedJourneyId]);
+
   return (
     <div className="flex h-screen font-sans">
       <Sidebar
@@ -65,8 +117,24 @@ export function Layout() {
         {activeTab === 'properties' && <Properties />}
         {activeTab === 'catalogs' && <Catalogs />}
         {activeTab === 'sources' && <Sources />}
-        {activeTab === 'journeysList' && <JourneysList onSelectJourney={(id) => { setSelectedJourneyId(id); setActiveTab('journeys'); }} />}
-        {activeTab === 'journeys' && <Journeys selectedJourneyId={selectedJourneyId} onBack={() => setActiveTab('journeysList')} />}
+        {activeTab === 'journeysList' && (
+          <JourneysList
+            onSelectJourney={(id) => {
+              setSelectedJourneyId(id);
+              setActiveTab('journeys');
+              pushPath(`/journeys/${id}`);
+            }}
+          />
+        )}
+        {activeTab === 'journeys' && (
+          <Journeys
+            selectedJourneyId={selectedJourneyId}
+            onBack={() => {
+              setActiveTab('journeysList');
+              pushPath('/journeys');
+            }}
+          />
+        )}
         {activeTab === 'settings' && <Settings />}
         {activeTab === 'documentation' && <Documentation />}
         {activeTab === 'auditConfig' && <TrackingPlanAuditConfig />}

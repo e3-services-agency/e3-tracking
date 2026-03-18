@@ -8,6 +8,7 @@ import {
   CheckSquare,
   FileText,
   Share2,
+  Upload,
 } from 'lucide-react';
 import {
   updateJourneyTestingInstructionsApi,
@@ -375,33 +376,55 @@ export function Journeys({
                   {isSharePanelOpen && (
                     <div className="px-3 py-3 bg-[var(--surface-default)] border-t border-[var(--border-default)]">
                       <div className="text-xs font-semibold text-gray-700 mb-2">Public access</div>
-                      <label className="flex items-center justify-between gap-3 text-sm text-gray-800">
-                        <span>Allow anyone with link to view</span>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(selectedJourney.share_token)}
-                          disabled={isTogglingShare}
-                          onChange={async (e) => {
-                            const next = e.target.checked;
-                            setIsTogglingShare(true);
-                            const result = await setJourneyShareEnabledApi(
-                              selectedJourney.id,
-                              next,
-                              activeWorkspaceId,
-                            );
-                            setIsTogglingShare(false);
-                            if (!result.success) {
-                              alert(result.error ?? 'Failed to update share settings');
-                              return;
-                            }
-                            updateJourney(selectedJourney.id, {
-                              share_token: next ? (result.token ?? 'enabled') : null,
-                            });
-                          }}
-                        />
+                      <label className="flex items-center justify-between cursor-pointer select-none">
+                        <span className="text-[13px] font-bold text-gray-600">
+                          Allow anyone with link to view
+                        </span>
+                        <div
+                          className={`w-10 h-5 rounded-full relative transition-colors ${
+                            selectedJourney.share_token ? 'bg-green-500' : 'bg-gray-200'
+                          } ${isTogglingShare ? 'opacity-60' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={Boolean(selectedJourney.share_token)}
+                            disabled={isTogglingShare}
+                            onChange={async (e) => {
+                              const next = e.target.checked;
+                              setIsTogglingShare(true);
+                              const result = await setJourneyShareEnabledApi(
+                                selectedJourney.id,
+                                next,
+                                activeWorkspaceId,
+                              );
+                              setIsTogglingShare(false);
+                              if (!result.success) {
+                                alert(result.error ?? 'Failed to update share settings');
+                                return;
+                              }
+                              updateJourney(selectedJourney.id, {
+                                share_token: next ? (result.token ?? 'enabled') : null,
+                              });
+                            }}
+                            className="hidden"
+                          />
+                          <div
+                            className={`w-5 h-5 bg-white rounded-full absolute top-0 shadow-sm transition-all ${
+                              selectedJourney.share_token
+                                ? 'right-0'
+                                : 'left-0 border border-gray-200'
+                            }`}
+                          />
+                        </div>
                       </label>
 
                       <div className="mt-3 flex items-center gap-2">
+                        <input
+                          className="flex-1 h-9 px-2 text-xs rounded-md border border-gray-200 bg-white text-gray-700"
+                          value={selectedJourney.share_token ? shareUrlById : ''}
+                          placeholder="Enable sharing to generate link"
+                          readOnly
+                        />
                         <Button
                           size="sm"
                           variant="outline"
@@ -412,9 +435,8 @@ export function Journeys({
                             setShareLinkCopied(true);
                             setTimeout(() => setShareLinkCopied(false), 2000);
                           }}
-                          className="flex-1"
                         >
-                          {shareLinkCopied ? 'Link copied!' : 'Copy link'}
+                          {shareLinkCopied ? 'Copied' : 'Copy'}
                         </Button>
                       </div>
 
@@ -427,7 +449,7 @@ export function Journeys({
                   )}
 
                   <label className="w-full px-3 py-2 text-sm text-left hover:bg-[var(--surface-default)] flex items-center gap-2 cursor-pointer">
-                    <span className="w-4 h-4 inline-block" /> Import JSON
+                    <Upload className="w-4 h-4" /> Import JSON
                     <input
                       type="file"
                       accept=".json"

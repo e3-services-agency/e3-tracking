@@ -25,7 +25,7 @@ export function EventSourcesSection({
       <div className="flex items-center gap-3 mb-3 relative">
         <h3 className="text-[15px] font-bold text-gray-900">Sources</h3>
         {variantId && (
-          <button className="text-[#3E52FF] text-[13px] font-semibold hover:underline">
+          <button className="text-[var(--color-info)] text-[13px] font-semibold hover:underline">
             Edit on variant
           </button>
         )}
@@ -78,7 +78,7 @@ export function EventSourcesSection({
         {!variantId && (
           <button
             onClick={onToggleAddSourceModal}
-            className="text-[#3E52FF] text-[14px] font-semibold hover:underline"
+            className="text-[var(--color-info)] text-[14px] font-semibold hover:underline"
           >
             + Add Source
           </button>

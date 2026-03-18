@@ -30,7 +30,7 @@ export function EventTriggersSection({
         </h3>
         <button
           onClick={onOpenTriggerModal}
-          className="text-[13px] font-semibold text-[#3E52FF] hover:underline"
+          className="text-[13px] font-semibold text-[var(--color-info)] hover:underline"
         >
           + New Trigger
         </button>
@@ -49,7 +49,7 @@ export function EventTriggersSection({
                   onEditTrigger?.(t);
                 }
               }}
-              className="border border-gray-200 rounded-lg p-4 w-48 bg-white flex flex-col gap-2 shrink-0 shadow-sm cursor-pointer hover:border-[#3E52FF] hover:border-2 hover:shadow-md transition-all relative group"
+              className="border border-gray-200 rounded-lg p-4 w-48 bg-white flex flex-col gap-2 shrink-0 shadow-sm cursor-pointer hover:border-[var(--color-info)] hover:border-2 hover:shadow-md transition-all relative group"
             >
               <button
                 type="button"

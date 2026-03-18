@@ -164,7 +164,7 @@ function SourceEditor({ source, isCreating, onClose }: { source: Source | null |
               key={opt.value}
               onClick={() => setColor(opt.value)}
               className={`flex items-center justify-center py-2 rounded-md border text-sm font-medium transition-all ${
-                color === opt.value ? 'ring-2 ring-[#3E52FF] ring-offset-1' : 'hover:bg-gray-50'
+                color === opt.value ? 'ring-2 ring-[var(--color-info)] ring-offset-1' : 'hover:bg-gray-50'
               } ${opt.value}`}
             >
               {opt.label}

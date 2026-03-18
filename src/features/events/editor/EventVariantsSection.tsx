@@ -27,7 +27,7 @@ export function EventVariantsSection({
       <div className="flex items-center gap-3 mb-3">
         <h3 className="text-[15px] font-bold text-gray-900">Variants</h3>
         <button
-          className="text-[13px] font-semibold text-[#3E52FF] hover:underline"
+          className="text-[13px] font-semibold text-[var(--color-info)] hover:underline"
           onClick={onOpenCreateVariantModal}
         >
           + New Variant
@@ -48,10 +48,10 @@ export function EventVariantsSection({
                   className="cursor-pointer"
                   onClick={() => onSelectVariant(v.id)}
                 >
-                  <div className="text-[15px] font-bold text-gray-900 group-hover:text-[#3E52FF]">
+                  <div className="text-[15px] font-bold text-gray-900 group-hover:text-[var(--color-info)]">
                     {v.name}
                   </div>
-                  <div className="text-[13px] font-semibold text-[#3E52FF] mt-1.5">
+                  <div className="text-[13px] font-semibold text-[var(--color-info)] mt-1.5">
                     {Object.keys(v.propertyOverrides).length} Overrides
                   </div>
                 </div>

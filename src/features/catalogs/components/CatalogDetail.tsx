@@ -8,8 +8,8 @@ import { Input } from '@/src/components/ui/Input';
 import type { CatalogRow, CatalogFieldRow, CatalogType } from '@/src/types/schema';
 import { useCatalogs } from '../hooks/useCatalogs';
 
-const SPACE_BLUE = '#1A1E38';
-const EMERALD = '#0DCC96';
+const SPACE_BLUE = 'var(--e3-space-blue)';
+const EMERALD = 'var(--brand-primary)';
 
 function CatalogTypeBadge({ type }: { type: CatalogType }) {
   const styles: Record<CatalogType, string> = {

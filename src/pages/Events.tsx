@@ -151,7 +151,7 @@ export function Events() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#F9FAFB] relative">
+    <div className="flex-1 flex flex-col h-full bg-[var(--surface-default)] relative">
       
       <div className={`px-6 py-4 border-b bg-white flex flex-col gap-4 relative ${(isCustomizeOpen || isFilterOpen) ? 'z-50' : 'z-20'}`}>
         <div className="flex items-center justify-between">
@@ -166,7 +166,8 @@ export function Events() {
                   handleCreateNew();
                 }
               }}
-              className="h-8 gap-2 bg-[#F11578] hover:bg-[#D10F65] text-white border-none shadow-sm rounded-md px-3"
+              size="sm"
+              className="gap-2"
             >
               <Plus className="w-4 h-4" /> New Event
             </Button>
@@ -327,13 +328,13 @@ export function Events() {
                <Input
                  value={newCategoryName}
                  onChange={(e) => setNewCategoryName(e.target.value)}
-                 className="mb-6 focus-visible:ring-[#3E52FF]"
+                 className="mb-6 focus-visible:ring-[var(--color-info)]"
                  placeholder="e.g. Checkout, Search"
                />
                <p className="text-sm text-gray-500 leading-relaxed mb-1">
                  <strong className="text-gray-700">Categories</strong> are a way to create a organized structure for events and metrics. It is useful to create categories for important features and/or important flows in the product.
                </p>
-               <a href="#" className="text-sm font-bold text-[#3E52FF] hover:underline">Docs ↗</a>
+               <a href="#" className="text-sm font-bold text-[var(--color-info)] hover:underline">Docs ↗</a>
             </div>
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
                <Button variant="ghost" onClick={() => { setIsCategoryModalOpen(false); setNewCategoryName(''); }} className="text-gray-600">Cancel</Button>
@@ -347,7 +348,7 @@ export function Events() {
                      setIsCategoryModalOpen(false);
                    }
                  }}
-                 className={newCategoryName.trim() ? 'bg-[#3E52FF] hover:bg-blue-600 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}
+                 variant={newCategoryName.trim() ? 'default' : 'secondary'}
                >
                  Create
                </Button>
@@ -358,7 +359,7 @@ export function Events() {
 
       <div className="flex-1 overflow-hidden flex flex-col relative z-10">
         {viewMode === 'List' ? (
-          <div className="flex-1 overflow-hidden flex flex-col p-6 bg-[#F9FAFB]">
+          <div className="flex-1 overflow-hidden flex flex-col p-6 bg-[var(--surface-default)]">
             <EventsList
               onOpenCreate={() => {
                 setApiEventSheetEventId(null);
@@ -389,7 +390,7 @@ export function Events() {
               {viewMode === 'Category' ? (
                 Object.entries(groupedRows).map(([category, rows]) => (
                   <React.Fragment key={category}>
-                    <tr className="bg-[#F8F9F9] border-y border-gray-200">
+                    <tr className="bg-gray-50 border-y border-gray-200">
                       <td colSpan={columns.length} className="px-4 py-3">
                         <div className="flex items-start gap-3">
                           <input type="checkbox" className="mt-1 rounded border-gray-300 w-4 h-4 text-gray-500 focus:ring-0" />
@@ -397,7 +398,7 @@ export function Events() {
                             <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider leading-tight">Category</span>
                             <div className="flex items-center gap-3 mt-0.5">
                               <span className="font-bold text-gray-700 text-[15px] leading-tight">{category}</span>
-                              <span className="bg-[#BFC4D0] text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full">{rows.length} events</span>
+                              <span className="bg-gray-400 text-white text-[11px] font-bold px-2.5 py-0.5 rounded-full">{rows.length} events</span>
                             </div>
                           </div>
                         </div>

@@ -33,7 +33,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError && this.state.error) {
       return (
         <div
-          className="min-h-screen flex flex-col items-center justify-center p-8 bg-[#F9FAFB] text-gray-900 font-sans"
+          className="min-h-screen flex flex-col items-center justify-center p-8 bg-[var(--surface-default)] text-gray-900 font-sans"
           role="alert"
         >
           <h1 className="text-xl font-bold text-red-600 mb-4">
@@ -55,7 +55,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <button
             type="button"
             onClick={() => this.setState({ hasError: false, error: null, errorInfo: null })}
-            className="mt-6 px-4 py-2 bg-[#3E52FF] text-white rounded-md hover:bg-blue-600"
+            className="mt-6 px-4 py-2 bg-[var(--brand-primary)] text-white rounded-md hover:opacity-90"
           >
             Try again
           </button>

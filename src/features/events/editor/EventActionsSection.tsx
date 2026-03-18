@@ -225,7 +225,7 @@ export function EventActionsSection({
                         onClick={() => {
                           handleOpenAddEventPropertyModal(action.id);
                         }}
-                        className="text-[#3E52FF] text-[14px] font-semibold hover:underline"
+                        className="text-[var(--color-info)] text-[14px] font-semibold hover:underline"
                       >
                         + Add Event Property
                       </button>
@@ -234,7 +234,7 @@ export function EventActionsSection({
                         onClick={() => {
                           handleOpenAddEventPropertyModal(action.id);
                         }}
-                        className="text-[#3E52FF] text-[14px] font-semibold hover:underline"
+                        className="text-[var(--color-info)] text-[14px] font-semibold hover:underline"
                       >
                         + Add Event Property to Variant
                       </button>
@@ -299,7 +299,7 @@ export function EventActionsSection({
                         onClick={() => {
                           handleOpenAddSystemPropertyModal(action.id);
                         }}
-                        className="text-[#3E52FF] text-[14px] font-semibold hover:underline"
+                        className="text-[var(--color-info)] text-[14px] font-semibold hover:underline"
                       >
                         + Add System Property
                       </button>
@@ -316,7 +316,7 @@ export function EventActionsSection({
         {!variantId && (
           <button
             onClick={onToggleAddActionPopover}
-            className="text-[#3E52FF] text-[15px] font-bold hover:underline border border-blue-200 bg-blue-50 px-4 py-2 rounded-lg"
+            className="text-[var(--color-info)] text-[15px] font-bold hover:underline border border-[var(--color-info)]/20 bg-[var(--color-info)]/10 px-4 py-2 rounded-lg"
           >
             + Add Action
           </button>

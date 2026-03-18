@@ -4,8 +4,8 @@ import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { useWorkspaces } from '../hooks/useWorkspaces';
 
-const SPACE_BLUE = '#1A1E38';
-const E3_WHITE = '#EEEEE3';
+const SPACE_BLUE = 'var(--e3-space-blue)';
+const E3_WHITE = 'var(--e3-white)';
 
 export interface NewWorkspaceModalProps {
   isOpen: boolean;

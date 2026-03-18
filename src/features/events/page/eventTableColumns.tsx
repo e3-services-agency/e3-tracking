@@ -31,12 +31,12 @@ export function getEventTableColumns({
                 <span className="text-[11px] text-gray-500 font-medium leading-none">
                   {row.original.baseEventName} -
                 </span>
-                <div className="text-sm font-bold text-gray-900 leading-tight mt-0.5 group-hover:text-[#3E52FF]">
+                <div className="text-sm font-bold text-gray-900 leading-tight mt-0.5 group-hover:text-[var(--color-info)]">
                   {row.original.name}
                 </div>
               </div>
             ) : (
-              <span className="text-sm font-semibold text-gray-900 leading-tight group-hover:text-[#3E52FF]">
+              <span className="text-sm font-semibold text-gray-900 leading-tight group-hover:text-[var(--color-info)]">
                 {row.original.name}
               </span>
             )}

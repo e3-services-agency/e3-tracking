@@ -143,8 +143,8 @@ export function EventCodeGen({
         ))}
       </div>
 
-      <div className="bg-[#2A2A2A] rounded-xl overflow-hidden shadow-sm border border-gray-200">
-        <div className="px-4 py-2 bg-[#333333] border-b border-[#444] flex justify-between items-center">
+      <div className="bg-[var(--surface-code)] rounded-xl overflow-hidden shadow-sm border border-[var(--border-code)]">
+        <div className="px-4 py-2 bg-[var(--surface-code-header)] border-b border-[var(--border-code)] flex justify-between items-center">
           <span className="text-[12px] font-semibold text-gray-300">
             {STYLE_LABELS[activeStyle]}
           </span>
@@ -164,7 +164,7 @@ export function EventCodeGen({
             )}
           </button>
         </div>
-        <pre className="p-4 text-[13px] font-mono text-[#E0E0E0] overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-[320px] overflow-y-auto">
+        <pre className="p-4 text-[13px] font-mono text-[var(--text-code)] overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-[320px] overflow-y-auto">
           <code>{currentSnippet}</code>
         </pre>
       </div>

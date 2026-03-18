@@ -24,7 +24,7 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
-        style={{ backgroundColor: '#1A1E38', fontFamily: 'DM Sans, sans-serif' }}
+        style={{ backgroundColor: 'var(--e3-space-blue)', fontFamily: 'DM Sans, sans-serif' }}
       >
         <div className="text-white/80 text-sm">Loading…</div>
       </div>

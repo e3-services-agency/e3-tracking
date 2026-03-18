@@ -5,8 +5,8 @@ import { useWorkspaces } from '@/src/features/workspaces/hooks/useWorkspaces';
 import type { WorkspaceItem } from '@/src/features/workspaces/hooks/useWorkspaces';
 import { NewWorkspaceModal } from '@/src/features/workspaces/components/NewWorkspaceModal';
 
-const SPACE_BLUE = '#1A1E38';
-const E3_WHITE = '#EEEEE3';
+const SPACE_BLUE = 'var(--e3-space-blue)';
+const E3_WHITE = 'var(--e3-white)';
 
 const FALLBACK_GROUP = 'Internal Projects';
 

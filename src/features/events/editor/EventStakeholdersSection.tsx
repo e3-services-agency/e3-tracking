@@ -33,7 +33,7 @@ export function EventStakeholdersSection({
         <div className="relative">
           <button
             onClick={onToggleAddStakeholder}
-            className="text-[13px] font-semibold text-[#3E52FF] hover:underline"
+            className="text-[13px] font-semibold text-[var(--color-info)] hover:underline"
           >
             + Add stakeholder
           </button>

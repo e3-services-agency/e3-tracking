@@ -156,7 +156,7 @@ export function Journeys({
                 }}
                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                   selectedJourneyId === journey.id
-                    ? 'bg-blue-50 text-[#3E52FF]'
+                    ? 'bg-[var(--color-info)]/10 text-[var(--color-info)]'
                     : 'text-gray-600 hover:bg-gray-50'
                 }`}
                 type="button"
@@ -328,7 +328,7 @@ export function Journeys({
             onClick={handleCreateNew}
             variant="default"
             size="sm"
-            className="gap-2 bg-[#3E52FF] hover:bg-blue-600 text-white"
+            className="gap-2"
           >
             <Plus className="w-4 h-4" /> New Journey
           </Button>

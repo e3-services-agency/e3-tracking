@@ -9,9 +9,9 @@ import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { AGENCY_CONFIG } from '@/src/config/agency';
 
-const SPACE_BLUE = '#1A1E38';
-const E3_WHITE = '#EEEEE3';
-const EMERALD = '#0DCC96';
+const SPACE_BLUE = 'var(--e3-space-blue)';
+const E3_WHITE = 'var(--e3-white)';
+const EMERALD = 'var(--brand-primary)';
 
 const LOGO_SRC = `${import.meta.env.BASE_URL || '/'}branding/logo-light.png`.replace(/\/+/g, '/');
 

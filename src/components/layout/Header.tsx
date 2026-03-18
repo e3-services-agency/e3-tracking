@@ -3,8 +3,8 @@ import { useActiveData } from '@/src/store';
 import { AGENCY_CONFIG } from '@/src/config/agency';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
-const SPACE_BLUE = '#1A1E38';
-const E3_WHITE = '#EEEEE3';
+const SPACE_BLUE = 'var(--e3-space-blue)';
+const E3_WHITE = 'var(--e3-white)';
 
 const LOGO_SRC = `${window.location.origin}/tracking-plan/branding/agency-logo.png`;
 

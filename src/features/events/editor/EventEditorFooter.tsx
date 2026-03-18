@@ -42,7 +42,7 @@ export function EventEditorFooter({
         )}
         <Button
           onClick={onSave}
-          className="h-10 text-[14px] font-bold bg-[#3E52FF] hover:bg-blue-600 shadow-sm rounded-lg px-8"
+          className="h-10 text-[14px] font-bold shadow-sm rounded-lg px-8"
         >
           Save
         </Button>

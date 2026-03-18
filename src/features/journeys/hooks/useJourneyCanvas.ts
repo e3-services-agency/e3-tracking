@@ -79,7 +79,7 @@ export function useJourneyCanvas({
     useState<PendingConnection | null>(null);
 
   const [tool, setTool] = useState<'select' | 'annotation'>('select');
-  const [annotationColor, setAnnotationColor] = useState('#FACC15');
+  const [annotationColor, setAnnotationColor] = useState('var(--annotation-1)');
   const [annotationStart, setAnnotationStart] = useState<Point | null>(null);
   const [draftAnnotationId, setDraftAnnotationId] = useState<string | null>(
     null,
@@ -181,7 +181,7 @@ export function useJourneyCanvas({
           {
             ...params,
             animated: true,
-            style: { stroke: '#9CA3AF', strokeWidth: 2 },
+            style: { stroke: 'var(--border-default)', strokeWidth: 2 },
             type: 'smoothstep',
           } as JourneyFlowEdge,
           existingEdges,
@@ -267,7 +267,7 @@ export function useJourneyCanvas({
           target: newNodeId,
           targetHandle: 'left',
           animated: true,
-          style: { stroke: '#9CA3AF', strokeWidth: 2 },
+          style: { stroke: 'var(--border-default)', strokeWidth: 2 },
           type: 'smoothstep',
         },
         existingEdges,

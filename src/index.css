@@ -8,13 +8,38 @@
 :root {
   --e3-space-blue: #1A1E38;
   --e3-emerald: #0DCC96;
-  --e3-white: #EEEEE3;
-  --brand-primary: var(--e3-emerald);
+  --e3-white: #EEEEE3; /* brand-only: do not use as app surface */
+
+  /* Product semantic tokens */
+  --brand-primary: var(--e3-emerald); /* create/save/confirm */
+  --color-info: #0077E3; /* navigation / informational / interactive accents */
+  --brand-destructive: #E35010; /* delete/remove */
+  --brand-warning: #E3DA76; /* caution (sparingly) */
+
+  /* Surfaces */
+  --surface-default: #F3F4F6; /* neutral light gray */
+  --surface-panel: #FFFFFF;
+  --border-default: #E5E7EB;
+  --surface-disabled: #C1C3C8;
+
+  /* Code surfaces (system utility, repeated) */
+  --surface-code: #1e293b;
+  --surface-code-header: #334155;
+  --surface-code-footer: #0f172a;
+  --border-code: #475569;
+  --text-code: #e2e8f0;
+
+  /* Neutral/system annotation palette (not semantics, not classification) */
+  --annotation-1: #FACC15;
+  --annotation-2: #60A5FA;
+  --annotation-3: #F87171;
+  --annotation-4: #34D399;
+  --annotation-5: #C084FC;
 }
 
 body {
-  background-color: #1A1E38;
-  color: #EEEEE3;
+  background-color: var(--surface-default);
+  color: #111827;
 }
 
 /* Living Documentation prose: E3 brand + DM Sans */

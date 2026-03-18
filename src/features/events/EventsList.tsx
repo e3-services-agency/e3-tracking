@@ -43,7 +43,7 @@ export function EventsList({ onOpenCreate, onOpenEvent }: EventsListProps) {
               <button
                 type="button"
                 onClick={() => onOpenEvent(e.id)}
-                className="text-left font-mono font-medium text-[#3E52FF] hover:underline"
+                className="text-left font-mono font-medium text-[var(--color-info)] hover:underline"
               >
                 {e.name}
               </button>

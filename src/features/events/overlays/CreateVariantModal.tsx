@@ -41,7 +41,7 @@ export function CreateVariantModal({
               value={newVariantName}
               onChange={(e) => onChangeNewVariantName(e.target.value)}
               placeholder="Type a variant name..."
-              className="flex-1 text-[15px] h-10 border-2 border-[#3E52FF] focus-visible:ring-0 rounded-lg shadow-sm"
+              className="flex-1 text-[15px] h-10 border-2 border-[var(--color-info)] focus-visible:ring-0 rounded-lg shadow-sm"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') onCreateVariant();
@@ -60,7 +60,7 @@ export function CreateVariantModal({
           <Button
             onClick={onCreateVariant}
             disabled={!newVariantName.trim()}
-            className="h-10 px-6 text-[15px] bg-[#C1C3C8] text-white disabled:opacity-100 rounded-lg border-none shadow-none font-bold data-[valid=true]:bg-[#3E52FF]"
+            className="h-10 px-6 text-[15px] bg-[var(--surface-disabled)] text-white disabled:opacity-100 rounded-lg border-none shadow-none font-bold data-[valid=true]:bg-[var(--brand-primary)]"
             data-valid={!!newVariantName.trim()}
           >
             Create variant

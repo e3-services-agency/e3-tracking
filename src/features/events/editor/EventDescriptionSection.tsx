@@ -38,7 +38,7 @@ export function EventDescriptionSection({
         value={value}
         onChange={handleChange}
         onBlur={onBlurDescription}
-        className="w-full text-[14px] text-gray-800 bg-white border border-gray-200 rounded-lg p-4 min-h-[100px] resize-y focus:outline-none focus:ring-1 focus:ring-[#3E52FF] shadow-sm leading-relaxed"
+        className="w-full text-[14px] text-gray-800 bg-white border border-gray-200 rounded-lg p-4 min-h-[100px] resize-y focus:outline-none focus:ring-1 focus:ring-[var(--color-info)] shadow-sm leading-relaxed"
         placeholder={
           variantId
             ? "Describe this variant's specific context..."

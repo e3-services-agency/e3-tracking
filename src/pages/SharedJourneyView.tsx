@@ -43,9 +43,9 @@ export function SharedJourneyView({ token }: { token: string }) {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#F9FAFB]">
+      <div className="flex h-screen w-full items-center justify-center bg-[var(--surface-default)]">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-[#3E52FF] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <div className="w-8 h-8 border-2 border-[var(--color-info)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm text-gray-600">Loading shared journey…</p>
         </div>
       </div>
@@ -54,7 +54,7 @@ export function SharedJourneyView({ token }: { token: string }) {
 
   if (error || !journey) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#F9FAFB]">
+      <div className="flex h-screen w-full items-center justify-center bg-[var(--surface-default)]">
         <div className="text-center max-w-md px-4">
           <p className="text-red-600 font-medium">Invalid or expired link</p>
           <p className="text-sm text-gray-600 mt-1">{error ?? 'This share link may have been removed or has expired.'}</p>
@@ -64,7 +64,7 @@ export function SharedJourneyView({ token }: { token: string }) {
   }
 
   return (
-    <div className="flex h-screen w-full flex-col bg-[#F9FAFB]">
+    <div className="flex h-screen w-full flex-col bg-[var(--surface-default)]">
       <div className="shrink-0 px-4 py-3 border-b bg-white shadow-sm">
         <h1 className="text-lg font-bold text-gray-900">{journey.name}</h1>
         <p className="text-xs text-gray-500 mt-0.5">Read-only view — pan and zoom to explore</p>

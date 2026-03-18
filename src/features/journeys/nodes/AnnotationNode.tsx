@@ -7,13 +7,13 @@ import {
 
 export const AnnotationNode = ({ data, selected }: NodeProps<AnnotationFlowNode>) => {
   const isQAMode = !!data.activeQARunId;
-  const color = data.color || '#FACC15';
+  const color = data.color || 'var(--annotation-1)';
 
   return (
     <>
       {!isQAMode && (
         <NodeResizer
-          color="#3b82f6"
+          color="var(--color-info)"
           isVisible={selected}
           minWidth={1}
           minHeight={1}

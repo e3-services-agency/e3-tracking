@@ -10,7 +10,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import type { WorkspaceMemberRole } from '@/src/types/schema';
 
-const EMERALD = '#0DCC96';
+const EMERALD = 'var(--brand-primary)';
 
 interface WorkspaceInfo {
   id: string;
@@ -251,7 +251,7 @@ export function WorkspaceSettings() {
                 <Input
                   value={clientPrimaryColor}
                   onChange={(e) => setClientPrimaryColor(e.target.value)}
-                  placeholder="#0DCC96"
+                  placeholder="e.g. 0DCC96"
                   className="flex-1"
                 />
               </div>

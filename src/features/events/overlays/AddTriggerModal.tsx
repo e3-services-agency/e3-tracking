@@ -122,7 +122,7 @@ export function AddTriggerModal({
                 </div>
                 <input
                   type="text"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[#3E52FF] focus:border-transparent"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[13px] outline-none focus:ring-2 focus:ring-[var(--color-info)] focus:border-transparent"
                   placeholder="e.g. Add to cart button tap"
                   value={triggerName}
                   onChange={(e) => onChangeTriggerName(e.target.value)}

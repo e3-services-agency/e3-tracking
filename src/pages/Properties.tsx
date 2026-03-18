@@ -187,7 +187,7 @@ export function Properties() {
             onClick={() => setActiveTab('properties')}
             className={`pb-4 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'properties'
-                ? 'border-[#3E52FF] text-[#3E52FF]'
+                ? 'border-[var(--color-info)] text-[var(--color-info)]'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -197,7 +197,7 @@ export function Properties() {
             onClick={() => setActiveTab('bundles')}
             className={`pb-4 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'bundles'
-                ? 'border-[#3E52FF] text-[#3E52FF]'
+                ? 'border-[var(--color-info)] text-[var(--color-info)]'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -210,7 +210,7 @@ export function Properties() {
         {activeTab === 'properties' && diff && (diff.newProps.length > 0 || diff.modifiedProps.length > 0) && (
           <div className="mb-8 p-4 bg-white border rounded-lg shadow-sm shrink-0">
             <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-              <GitMerge className="w-4 h-4 text-[#3E52FF]" /> Workbench Summary
+              <GitMerge className="w-4 h-4 text-[var(--color-info)]" /> Workbench Summary
             </h3>
             <div className="flex gap-4">
               {diff.newProps.length > 0 && (
@@ -270,11 +270,11 @@ export function Properties() {
               <div
                 key={bundle.id}
                 onClick={() => handleOpenBundle(bundle.id)}
-                className="bg-white border rounded-lg p-6 shadow-sm hover:shadow-md cursor-pointer transition-all hover:border-[#3E52FF]"
+                className="bg-white border rounded-lg p-6 shadow-sm hover:shadow-md cursor-pointer transition-all hover:border-[var(--color-info)]"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <Package className="w-5 h-5 text-[#3E52FF]" />
+                    <Package className="w-5 h-5 text-[var(--color-info)]" />
                     <h3 className="font-semibold text-gray-900">{bundle.name}</h3>
                   </div>
                   <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-1 rounded-full">

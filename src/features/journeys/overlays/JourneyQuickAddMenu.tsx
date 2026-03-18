@@ -60,7 +60,7 @@ export const JourneyQuickAddMenu = ({
       target: newNodeId,
       targetHandle: position === 'right' ? 'left' : 'top',
       animated: true,
-      style: { stroke: '#9CA3AF', strokeWidth: 2 },
+      style: { stroke: 'var(--border-default)', strokeWidth: 2 },
       type: 'smoothstep',
     };
 

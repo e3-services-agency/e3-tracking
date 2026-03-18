@@ -74,7 +74,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     <div className="w-64 bg-white border-r h-screen flex flex-col">
       <div className="p-6 flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-          <div className="w-6 h-6 bg-[#3E52FF] rounded-md flex items-center justify-center">
+          <div className="w-6 h-6 bg-[var(--color-info)] rounded-md flex items-center justify-center">
             <span className="text-white text-xs font-bold">A</span>
           </div>
           Tracking Plan
@@ -109,7 +109,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
 
             setActiveBranch(e.target.value);
           }}
-          className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-md focus:ring-[#3E52FF] focus:border-[#3E52FF] block p-2"
+          className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-md focus:ring-[var(--color-info)] focus:border-[var(--color-info)] block p-2"
         >
           <option value="main">main</option>
           {branches.map((branch) => (
@@ -151,7 +151,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
               onClick={() => setActiveTab(item.id)}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                 isActive
-                  ? 'bg-blue-50 text-[#3E52FF]'
+                  ? 'bg-[var(--color-info)]/10 text-[var(--color-info)]'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }`}
               type="button"
@@ -174,7 +174,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
               onClick={() => setActiveTab(item.id)}
               className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                 isActive
-                  ? 'bg-blue-50 text-[#3E52FF]'
+                  ? 'bg-[var(--color-info)]/10 text-[var(--color-info)]'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }`}
               type="button"
@@ -241,7 +241,7 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
                         <div className="text-sm text-gray-700 mt-1">{violation.message}</div>
 
                         <button
-                          className="text-xs font-medium text-[#3E52FF] mt-2 hover:underline"
+                          className="text-xs font-medium text-[var(--color-info)] mt-2 hover:underline"
                           onClick={() => {
                             setActiveTab(violation.type === 'event' ? 'events' : 'properties');
                             setSelectedItemIdToEdit(violation.itemId);

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ReactFlow, MiniMap, Controls, Background } from '@xyflow/react';
 
+// CRITICAL: AVO-inspired builder — do not change layout or interaction model
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import type { Journey, TestingProfile } from '@/src/types';
@@ -250,8 +251,8 @@ export function JourneyCanvas({
                 }
                 className={`flex items-center gap-2 px-3 py-2 text-sm rounded shadow-sm transition-colors text-left ${
                   tool === 'annotation'
-                    ? 'bg-blue-600 text-white border border-blue-600'
-                    : 'bg-blue-50 border border-blue-200 hover:border-blue-400 text-blue-900'
+                    ? 'bg-[var(--color-info)] text-white border border-[var(--color-info)]'
+                    : 'bg-[var(--color-info)]/10 border border-[var(--color-info)]/30 hover:border-[var(--color-info)]/60 text-gray-900'
                 }`}
                 type="button"
               >
@@ -264,7 +265,7 @@ export function JourneyCanvas({
               </button>
 
               <div className="flex items-center gap-2 pt-1">
-                {['#FACC15', '#60A5FA', '#F87171', '#34D399', '#C084FC'].map(
+                {['var(--annotation-1)', 'var(--annotation-2)', 'var(--annotation-3)', 'var(--annotation-4)', 'var(--annotation-5)'].map(
                   (color) => (
                     <button
                       key={color}
@@ -284,9 +285,9 @@ export function JourneyCanvas({
             </div>
           </div>
 
-          <div className="mt-auto p-4 bg-blue-50 rounded-lg border border-blue-100">
-            <h4 className="text-sm font-semibold text-blue-900 mb-1">Tips</h4>
-            <ul className="text-xs text-blue-800 space-y-2 list-disc pl-4">
+          <div className="mt-auto p-4 bg-[var(--color-info)]/10 rounded-lg border border-[var(--color-info)]/20">
+            <h4 className="text-sm font-semibold text-gray-900 mb-1">Tips</h4>
+            <ul className="text-xs text-gray-700 space-y-2 list-disc pl-4">
               <li>
                 Use the <strong>+</strong> button next to node handles to
                 instantly build flows.
@@ -306,8 +307,8 @@ export function JourneyCanvas({
 
       <div className="flex-1 relative">
         {activeQARunId && (
-          <div className="absolute top-4 left-4 z-20 bg-white border-2 border-blue-400 rounded-lg shadow-md p-3 flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-blue-700 font-bold">
+          <div className="absolute top-4 left-4 z-20 bg-white border-2 border-[var(--color-info)]/60 rounded-lg shadow-md p-3 flex flex-col gap-2">
+            <div className="flex items-center gap-2 text-gray-900 font-bold">
               <CheckSquare className="w-5 h-5" />
               QA Mode Active
             </div>
@@ -361,7 +362,7 @@ export function JourneyCanvas({
 
               <Button
                 size="sm"
-                className="gap-2 bg-[#3E52FF] hover:bg-blue-600 text-white"
+                className="gap-2"
                 onClick={handleSaveQA}
                 disabled={isSavingQA}
               >
@@ -414,7 +415,7 @@ export function JourneyCanvas({
           onNodeClick={onNodeClick}
           nodeTypes={nodeTypes}
           fitView
-          className="bg-[#F9FAFB]"
+          className="bg-[var(--surface-default)]"
           nodesDraggable={!readOnly && !activeQARunId && tool !== 'annotation'}
           nodesConnectable={!readOnly && !activeQARunId && tool !== 'annotation'}
           elementsSelectable={true}
@@ -424,10 +425,10 @@ export function JourneyCanvas({
         >
           <Controls />
           <MiniMap
-            nodeColor="#3E52FF"
+            nodeColor="var(--color-info)"
             maskColor="rgba(249, 250, 251, 0.7)"
           />
-          <Background gap={16} size={1} color="#E5E7EB" />
+          <Background gap={16} size={1} color="var(--border-default)" />
         </ReactFlow>
 
         {!activeQARunId && !readOnly && (
@@ -478,7 +479,7 @@ export function JourneyCanvas({
         <div className="w-[420px] border-l bg-white flex flex-col shadow-xl z-20 absolute right-0 top-0 bottom-0">
           <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
             <h3 className="font-bold text-gray-900 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-[#3E52FF]" /> QA Run Details
+              <FileText className="w-5 h-5 text-[var(--color-info)]" /> QA Run Details
             </h3>
             <button
               onClick={() => setSelectedPanel('summary')}
@@ -564,7 +565,7 @@ export function JourneyCanvas({
           <div className="w-[420px] border-l bg-white flex flex-col shadow-xl z-20 absolute right-0 top-0 bottom-0">
             <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                <CheckSquare className="w-5 h-5 text-[#3E52FF]" />
+                <CheckSquare className="w-5 h-5 text-[var(--color-info)]" />
                 {readOnly ? 'Node Details' : 'QA Verification'}
               </h3>
               <button
@@ -881,7 +882,7 @@ export function JourneyCanvas({
                     ))}
 
                     <Button
-                      className="w-full bg-[#3E52FF] hover:bg-blue-600 text-white"
+                      className="w-full"
                       onClick={() =>
                         updateQAVerification(selectedNode.id, {})
                       }
@@ -1035,7 +1036,7 @@ export function JourneyCanvas({
                   <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
-                      className="bg-[#3E52FF] hover:bg-blue-600 text-white"
+                      className=""
                       onClick={handleAddPayload}
                       disabled={!payloadDraft.trim()}
                     >

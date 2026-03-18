@@ -2,15 +2,12 @@
  * Create or Edit Catalog modal. E3 branding: Space Blue, Emerald, E3 White.
  */
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
+import { Sheet } from '@/src/components/ui/Sheet';
 import type { CatalogRow, CatalogType } from '@/src/types/schema';
 import { CATALOG_TYPES } from '@/src/types/schema';
 import type { CatalogCreateInput } from '../hooks/useCatalogs';
-
-const SPACE_BLUE = '#1A1E38';
-const E3_WHITE = '#EEEEE3';
 
 export interface CatalogFormModalProps {
   isOpen: boolean;
@@ -86,29 +83,13 @@ export function CatalogFormModal({
   if (!isOpen) return null;
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/50 z-40" onClick={onClose} aria-hidden />
-      <div
-        className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-lg rounded-xl shadow-xl border border-gray-200 overflow-hidden"
-        style={{ backgroundColor: E3_WHITE }}
-      >
-        <div
-          className="px-6 py-4 border-b flex items-center justify-between"
-          style={{ backgroundColor: SPACE_BLUE }}
-        >
-          <h2 className="text-lg font-semibold" style={{ color: E3_WHITE }}>
-            {isEdit ? 'Edit Catalog' : 'New Catalog'}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded hover:bg-white/10 transition-colors"
-            style={{ color: E3_WHITE }}
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+    <Sheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title={isEdit ? 'Edit Catalog' : 'New Catalog'}
+      className="w-[520px]"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Name <span className="text-red-500">*</span>
@@ -184,13 +165,12 @@ export function CatalogFormModal({
             <Button
               type="submit"
               disabled={!name.trim() || submitting}
-              className="flex-1 bg-[var(--brand-primary)] text-white hover:opacity-90"
+              className="flex-1"
             >
               {submitting ? 'Saving…' : isEdit ? 'Save' : 'Create Catalog'}
             </Button>
           </div>
-        </form>
-      </div>
-    </>
+      </form>
+    </Sheet>
   );
 }

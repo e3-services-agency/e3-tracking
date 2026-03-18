@@ -71,7 +71,7 @@ export function BundleEditor({
                 <div
                   className={`w-4 h-4 rounded border flex items-center justify-center ${
                     isSelected
-                      ? 'bg-[#3E52FF] border-[#3E52FF]'
+                      ? 'bg-[var(--color-info)] border-[var(--color-info)]'
                       : 'border-gray-300 bg-white'
                   }`}
                 >

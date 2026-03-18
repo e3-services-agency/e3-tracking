@@ -7,7 +7,8 @@
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "npm run build:backend && vite build",
     "preview": "vite preview",
-    "lint": "tsc --noEmit",
+    "lint": "tsc --noEmit && npm run lint:colors",
+    "lint:colors": "node ./scripts/lint-colors.mjs",
     "build:backend": "tsup",
     "clean": "npx rimraf dist api/_backend dist-backend"
   },

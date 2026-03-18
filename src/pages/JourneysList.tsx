@@ -36,7 +36,7 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
           <h1 className="text-2xl font-bold text-gray-900">Journeys</h1>
           <p className="text-sm text-gray-500 mt-1">Manage and audit your tracking plan journeys.</p>
         </div>
-        <Button onClick={handleCreateNew} className="gap-2 bg-[#3E52FF] hover:bg-blue-600 text-white">
+        <Button onClick={handleCreateNew} className="gap-2">
           <Plus className="w-4 h-4" /> New Journey
         </Button>
       </div>
@@ -85,9 +85,9 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
                 <tr key={journey.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                     <div className="flex items-center gap-2">
-                      <GitMerge className="w-4 h-4 text-[#3E52FF]" />
+                      <GitMerge className="w-4 h-4 text-[var(--color-info)]" />
                       <span 
-                        className="font-medium text-blue-600 cursor-pointer hover:underline"
+                        className="font-medium text-[var(--color-info)] cursor-pointer hover:underline"
                         onClick={() => onSelectJourney(journey.id)}
                       >
                         {journey.name}

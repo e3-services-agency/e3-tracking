@@ -80,7 +80,7 @@ export function PropertiesList({ onOpenCreate, onOpenProperty }: PropertiesListP
               <button
                 type="button"
                 onClick={() => onOpenProperty(p.id)}
-                className="text-left font-mono font-medium text-[#3E52FF] hover:underline"
+                className="text-left font-mono font-medium text-[var(--color-info)] hover:underline"
               >
                 {p.name}
               </button>

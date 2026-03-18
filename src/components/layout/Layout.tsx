@@ -13,7 +13,7 @@ import { JourneysList } from '@/src/pages/JourneysList';
 import { Catalogs } from '@/src/pages/Catalogs';
 import { TrackingPlanAuditConfig } from '@/src/pages/TrackingPlanAuditConfig';
 
-const DEFAULT_BRAND_PRIMARY = '#0DCC96';
+const DEFAULT_BRAND_PRIMARY = 'var(--brand-primary)';
 
 export function Layout() {
   const [activeTab, setActiveTab] = useState('events');
@@ -33,7 +33,7 @@ export function Layout() {
   return (
     <div className="flex h-screen font-sans">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-      <div className="flex-1 overflow-hidden flex flex-col bg-[#F9FAFB] text-gray-900">
+      <div className="flex-1 overflow-hidden flex flex-col bg-[var(--surface-default)] text-gray-900">
         <Header />
         <main className="flex-1 overflow-hidden flex flex-col">
         {activeTab === 'events' && <Events />}

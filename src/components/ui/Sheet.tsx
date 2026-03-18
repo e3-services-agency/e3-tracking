@@ -29,10 +29,13 @@ export function Sheet({ isOpen, onClose, title, children, className, hideHeader 
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className={cn("fixed right-0 top-0 h-full bg-white shadow-xl z-50 flex flex-col", className || "w-[500px]")}
+            className={cn(
+              "fixed right-0 top-0 h-full bg-[var(--surface-panel)] shadow-xl z-50 flex flex-col border-l border-[var(--border-default)]",
+              className || "w-[500px]"
+            )}
           >
             {!hideHeader && (
-              <div className="flex items-center justify-between p-6 border-b">
+              <div className="flex items-center justify-between p-6 border-b border-[var(--border-default)]">
                 <h2 className="text-xl font-semibold">{title}</h2>
                 <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
                   <X className="w-5 h-5 text-gray-500" />

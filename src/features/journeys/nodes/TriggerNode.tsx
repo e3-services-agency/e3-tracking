@@ -160,7 +160,7 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
                         onClick={() => handleEventSelect(event)}
                         type="button"
                       >
-                        <Zap className="w-3 h-3 text-[#3E52FF]" />
+                        <Zap className="w-3 h-3 text-[var(--color-info)]" />
                         <span className="font-medium truncate">
                           {event.name}
                         </span>
@@ -204,7 +204,7 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
             )}
 
             <div className="flex items-center gap-2 mb-1">
-              <Zap className="w-3 h-3 text-[#3E52FF]" />
+              <Zap className="w-3 h-3 text-[var(--color-info)]" />
               <span className="text-sm font-bold text-blue-900 break-all">
                 {data.connectedEvent.name}
               </span>

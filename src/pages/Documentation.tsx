@@ -45,7 +45,7 @@ export function Documentation() {
   }, [file]);
 
   return (
-    <div className="flex flex-1 overflow-hidden bg-[#F9FAFB]">
+    <div className="flex flex-1 overflow-hidden bg-[var(--surface-default)]">
       <aside className="w-56 shrink-0 border-r border-gray-200 bg-white flex flex-col">
         <div className="p-4 border-b border-gray-100">
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">

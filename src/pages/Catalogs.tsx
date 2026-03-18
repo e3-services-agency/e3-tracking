@@ -8,9 +8,10 @@ import type { CatalogRow, CatalogType } from '@/src/types/schema';
 import { useCatalogs } from '@/src/features/catalogs/hooks/useCatalogs';
 
 function CatalogTypeBadge({ type }: { type: CatalogType }) {
+  // Type is descriptive (not a semantic state), so keep it neutral.
   const styles: Record<CatalogType, string> = {
-    Product: 'bg-blue-100 text-blue-800 border-blue-200',
-    Variant: 'bg-purple-100 text-purple-800 border-purple-200',
+    Product: 'bg-gray-100 text-gray-800 border-gray-200',
+    Variant: 'bg-gray-100 text-gray-800 border-gray-200',
     General: 'bg-gray-100 text-gray-800 border-gray-200',
   };
   return (
@@ -70,7 +71,7 @@ export function Catalogs() {
     : null;
 
   return (
-    <div className="flex flex-1 flex-col h-full bg-[#F9FAFB]">
+    <div className="flex flex-1 flex-col h-full bg-[var(--surface-default)]">
       {detailCatalog ? (
         <CatalogDetail
           catalog={detailCatalog}
@@ -94,7 +95,7 @@ export function Catalogs() {
                   setEditingCatalog(null);
                   setIsFormOpen(true);
                 }}
-                className="gap-2 bg-[var(--brand-primary)] text-white hover:opacity-90"
+                className="gap-2"
               >
                 <Plus className="w-4 h-4" /> New Catalog
               </Button>
@@ -121,7 +122,7 @@ export function Catalogs() {
                 </p>
                 <Button
                   onClick={() => setIsFormOpen(true)}
-                  className="gap-2 bg-[var(--brand-primary)] text-white hover:opacity-90"
+                  className="gap-2"
                 >
                   <Plus className="w-4 h-4" /> Create your first Catalog
                 </Button>

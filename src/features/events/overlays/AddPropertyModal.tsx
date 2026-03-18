@@ -89,7 +89,7 @@ export function AddPropertyModal({
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">
                   {hovered.name}
                 </h3>
-                <div className="font-mono text-[12px] font-medium text-[#3E52FF] mb-6 bg-blue-50 inline-block self-start px-2 py-1 rounded">
+                <div className="font-mono text-[12px] font-medium text-[var(--color-info)] mb-6 bg-[var(--color-info)]/10 inline-block self-start px-2 py-1 rounded">
                   {hovered.property_value_type}
                 </div>
                 <p className="text-[15px] text-gray-700 leading-relaxed">

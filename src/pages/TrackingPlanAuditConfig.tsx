@@ -18,7 +18,7 @@ export function TrackingPlanAuditConfig() {
     <div className="flex-1 flex flex-col h-full bg-gray-50 overflow-y-auto">
       <div className="p-8 border-b bg-white">
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-          <Shield className="w-6 h-6 text-[#3E52FF]" />
+          <Shield className="w-6 h-6 text-[var(--color-info)]" />
           Tracking Plan Audit Configuration
         </h1>
         <p className="text-sm text-gray-500 mt-1">
@@ -43,7 +43,7 @@ export function TrackingPlanAuditConfig() {
               <select
                 value={auditConfig?.eventNaming || 'Title Case'}
                 onChange={(e) => updateAuditConfig({ eventNaming: e.target.value })}
-                className="border-gray-300 rounded-md text-sm focus:ring-[#3E52FF] focus:border-[#3E52FF]"
+                className="border-gray-300 rounded-md text-sm focus:ring-[var(--color-info)] focus:border-[var(--color-info)]"
               >
                 {namingConventions.map(c => (
                   <option key={c.value} value={c.value}>{c.label}</option>
@@ -63,7 +63,7 @@ export function TrackingPlanAuditConfig() {
                   checked={auditConfig?.requireEventDescription ?? true}
                   onChange={(e) => updateAuditConfig({ requireEventDescription: e.target.checked })}
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#3E52FF]"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-info)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-info)]"></div>
               </label>
             </div>
           </div>
@@ -85,7 +85,7 @@ export function TrackingPlanAuditConfig() {
               <select
                 value={auditConfig?.propertyNaming || 'snake_case'}
                 onChange={(e) => updateAuditConfig({ propertyNaming: e.target.value })}
-                className="border-gray-300 rounded-md text-sm focus:ring-[#3E52FF] focus:border-[#3E52FF]"
+                className="border-gray-300 rounded-md text-sm focus:ring-[var(--color-info)] focus:border-[var(--color-info)]"
               >
                 {namingConventions.map(c => (
                   <option key={c.value} value={c.value}>{c.label}</option>
@@ -105,7 +105,7 @@ export function TrackingPlanAuditConfig() {
                   checked={auditConfig?.requirePropertyDescription ?? true}
                   onChange={(e) => updateAuditConfig({ requirePropertyDescription: e.target.checked })}
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#3E52FF]"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-info)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-info)]"></div>
               </label>
             </div>
           </div>
@@ -131,7 +131,7 @@ export function TrackingPlanAuditConfig() {
                   checked={auditConfig?.requireAuditPassForMerge ?? false}
                   onChange={(e) => updateAuditConfig({ requireAuditPassForMerge: e.target.checked })}
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#3E52FF]"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-info)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-info)]"></div>
               </label>
             </div>
           </div>

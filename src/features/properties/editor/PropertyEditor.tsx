@@ -100,7 +100,7 @@ export function PropertyEditor({
               type="checkbox"
               checked={isList}
               onChange={(e) => setIsList(e.target.checked)}
-              className="rounded border-gray-300 text-[#3E52FF] focus:ring-[#3E52FF]"
+              className="rounded border-gray-300 text-[var(--color-info)] focus:ring-[var(--color-info)]"
             />
             Is List (Array)
           </label>

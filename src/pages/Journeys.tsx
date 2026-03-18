@@ -14,6 +14,7 @@ import {
   downloadJourneyHtmlExportApi,
   getJourneyShareTokenApi,
   useActiveWorkspaceId,
+  renameJourneyApi,
 } from '@/src/features/journeys/hooks/useJourneysApi';
 import { MoreHorizontal } from 'lucide-react';
 import { ReactFlowProvider } from '@xyflow/react';
@@ -49,6 +50,9 @@ export function Journeys({
   const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [renameError, setRenameError] = useState<string | null>(null);
   const [saveLayoutState, setSaveLayoutState] = useState<{
     save: () => void;
     isSaving: boolean;
@@ -65,6 +69,9 @@ export function Journeys({
       setTestingInstructionsDraft(
         selectedJourney.testing_instructions_markdown ?? '',
       );
+      setNameDraft(selectedJourney.name ?? '');
+      setRenameError(null);
+      setIsRenaming(false);
     }
   }, [selectedJourney?.id, selectedJourney?.testing_instructions_markdown]);
 
@@ -131,6 +138,29 @@ export function Journeys({
     [data.journeys],
   );
 
+  const commitRename = async () => {
+    if (!selectedJourney) return;
+    const next = nameDraft.trim();
+    if (!next || next === selectedJourney.name) {
+      setNameDraft(selectedJourney.name);
+      setIsRenaming(false);
+      setRenameError(null);
+      return;
+    }
+    // Optimistic UI update for responsiveness.
+    updateJourney(selectedJourney.id, { name: next });
+    const result = await renameJourneyApi(selectedJourney.id, next, activeWorkspaceId);
+    if (!result.success) {
+      // Revert and show error.
+      updateJourney(selectedJourney.id, { name: selectedJourney.name });
+      setNameDraft(selectedJourney.name);
+      setRenameError(result.error);
+    } else {
+      setRenameError(null);
+    }
+    setIsRenaming(false);
+  };
+
   const handleSaveTestingInstructions = async () => {
     if (!selectedJourney) return;
     setIsSavingInstructions(true);
@@ -164,7 +194,41 @@ export function Journeys({
           </Button>
           <h1 className="text-xl font-bold text-gray-900">Journeys</h1>
 
-          <div className="flex items-center gap-2">
+          {selectedJourney ? (
+            <div className="flex flex-col">
+              {isRenaming ? (
+                <Input
+                  value={nameDraft}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  onBlur={commitRename}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitRename();
+                    if (e.key === 'Escape') {
+                      setNameDraft(selectedJourney.name);
+                      setIsRenaming(false);
+                      setRenameError(null);
+                    }
+                  }}
+                  className="h-9 w-[360px] text-[16px] font-semibold"
+                  autoFocus
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="text-left text-[18px] font-semibold text-gray-900 truncate max-w-[420px] hover:underline underline-offset-4"
+                  title="Click to rename"
+                  onClick={() => setIsRenaming(true)}
+                >
+                  {selectedJourney.name}
+                </button>
+              )}
+              {renameError && (
+                <div className="text-xs text-red-600 mt-0.5 max-w-[420px] truncate">
+                  {renameError}
+                </div>
+              )}
+            </div>
+          ) : (
             <select
               className="text-sm border border-gray-200 rounded-md px-2 py-1.5 bg-white text-gray-900 shadow-sm max-w-[260px]"
               value={selectedJourneyId ?? ''}
@@ -179,7 +243,7 @@ export function Journeys({
                 </option>
               ))}
             </select>
-          </div>
+          )}
         </div>
 
         <div className="flex gap-2 items-center justify-end">

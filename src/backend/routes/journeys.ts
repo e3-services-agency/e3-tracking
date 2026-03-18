@@ -339,15 +339,17 @@ router.patch(
       return;
     }
     const journeyId = req.params.id;
-    const body = req.body as { testing_instructions_markdown?: string };
+    const body = req.body as { testing_instructions_markdown?: unknown; name?: unknown };
     const testing_instructions_markdown =
       typeof body.testing_instructions_markdown === 'string'
         ? body.testing_instructions_markdown
         : undefined;
+    const name = typeof body.name === 'string' ? body.name.trim() : undefined;
 
     try {
       const updated = await JourneyDAL.updateJourney(workspaceId, journeyId, {
         testing_instructions_markdown,
+        name,
       });
       res.status(200).json(updated);
     } catch (err) {

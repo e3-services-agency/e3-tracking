@@ -223,7 +223,7 @@ export async function saveJourneyCanvas(
 export async function updateJourney(
   workspaceId: string,
   journeyId: string,
-  patch: { testing_instructions_markdown?: string | null }
+  patch: { testing_instructions_markdown?: string | null; name?: string }
 ): Promise<JourneyRow> {
   const journey = await getJourneyById(workspaceId, journeyId);
   if (journey === null) {
@@ -237,6 +237,9 @@ export async function updateJourney(
   const updates: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   };
+  if (patch.name !== undefined) {
+    updates.name = patch.name;
+  }
   if (patch.testing_instructions_markdown !== undefined) {
     updates.testing_instructions_markdown = patch.testing_instructions_markdown;
   }

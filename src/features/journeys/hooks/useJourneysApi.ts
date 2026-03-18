@@ -81,6 +81,36 @@ export async function createJourneyApi(
 }
 
 /**
+ * Renames a journey. PATCH /api/journeys/:id. Body: { name }.
+ */
+export async function renameJourneyApi(
+  journeyId: string,
+  name: string,
+  workspaceId: string = MOCK_WORKSPACE_ID
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const res = await fetchWithAuth(`${API_BASE}/api/journeys/${journeyId}`, {
+      method: 'PATCH',
+      headers: { 'x-workspace-id': workspaceId },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        error: typeof body?.error === 'string' ? body.error : res.statusText || 'Rename failed',
+      };
+    }
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'Network error',
+    };
+  }
+}
+
+/**
  * Validates payload JSON against the event's always_sent properties.
  * POST /api/journeys/:id/events/:eventId/qa/validate.
  */

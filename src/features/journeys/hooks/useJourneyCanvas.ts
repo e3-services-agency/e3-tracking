@@ -236,7 +236,11 @@ export function useJourneyCanvas({
   const handleAddConnectedNode = (type: JourneyFlowNode['type']) => {
     if (!menuPos || !pendingConnection) return;
 
-    const position = screenToFlowPosition({ x: menuPos.x, y: menuPos.y });
+    const fromNode = nodes.find((n) => n.id === pendingConnection.nodeId) ?? null;
+    const fromPos = fromNode?.position ?? null;
+    const position = fromPos
+      ? { x: fromPos.x + 350, y: fromPos.y }
+      : screenToFlowPosition({ x: menuPos.x, y: menuPos.y });
     const newNodeId = `${type}-${Date.now()}`;
     const stepCount = nodes.filter(
       (node) => node.type === 'journeyStepNode',

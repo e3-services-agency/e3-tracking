@@ -20,15 +20,22 @@ export const AnnotationNode = ({ data, selected }: NodeProps<AnnotationFlowNode>
         />
       )}
       <div
-        className={`w-full h-full rounded-sm border-2 border-dashed transition-colors ${
+        className={`w-full h-full rounded-sm border-2 border-dashed transition-colors relative overflow-hidden ${
           selected ? 'ring-2 ring-blue-400' : ''
         }`}
         style={{
           borderColor: color,
-          backgroundColor: `${color}22`,
           pointerEvents: isQAMode ? 'none' : 'auto',
         }}
-      />
+      >
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundColor: color,
+            opacity: 0.14,
+          }}
+        />
+      </div>
     </>
   );
 };

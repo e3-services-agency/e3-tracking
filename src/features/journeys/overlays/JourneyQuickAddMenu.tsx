@@ -32,14 +32,20 @@ export const JourneyQuickAddMenu = ({
       (n) => n.type === 'journeyStepNode',
     ).length;
 
+    // Prefer horizontal alignment for "nice organized" flow.
+    const nextPos =
+      position === 'right'
+        ? { x: node.position.x + offsetX, y: node.position.y }
+        : { x: node.position.x, y: node.position.y + offsetY };
+
     const newNode: JourneyFlowNode =
       type === 'journeyStepNode'
         ? {
             id: newNodeId,
             type,
             position: {
-              x: node.position.x + offsetX,
-              y: node.position.y + offsetY,
+              x: nextPos.x,
+              y: nextPos.y,
             },
             data: { label: `Step ${stepCount + 1}`, description: '' },
           }
@@ -47,8 +53,8 @@ export const JourneyQuickAddMenu = ({
             id: newNodeId,
             type: 'triggerNode',
             position: {
-              x: node.position.x + offsetX,
-              y: node.position.y + offsetY,
+              x: nextPos.x,
+              y: nextPos.y,
             },
             data: { description: '', connectedEvent: null },
           };

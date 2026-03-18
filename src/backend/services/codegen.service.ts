@@ -77,7 +77,11 @@ function buildDataLayerSnippet(
   eventName: string,
   props: AttachedPropertyForCodegen[]
 ): string {
-  const lines: string[] = ['window.dataLayer.push({', `  event: '${eventName}',`];
+  const lines: string[] = [
+    'window.dataLayer = window.dataLayer || [];',
+    'window.dataLayer.push({',
+    `  event: '${eventName}',`,
+  ];
   for (const p of props) {
     const { comment, line } = formatPropLine(
       p.property_name,

@@ -18,6 +18,7 @@ const DEFAULT_BRAND_PRIMARY = 'var(--e3-emerald)';
 export function Layout() {
   const [activeTab, setActiveTab] = useState('events');
   const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(null);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const { settings } = useActiveData();
 
   useEffect(() => {
@@ -32,7 +33,12 @@ export function Layout() {
 
   return (
     <div className="flex h-screen font-sans">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapsed={() => setIsSidebarCollapsed((v) => !v)}
+      />
       <div className="flex-1 overflow-hidden flex flex-col bg-[var(--surface-default)] text-gray-900">
         <Header />
         <main className="flex-1 overflow-hidden flex flex-col">

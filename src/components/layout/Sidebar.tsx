@@ -11,6 +11,8 @@ import {
   AlertCircle,
   Download,
   LogOut,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useStore, useActiveData } from '@/src/store';
 import { useAuth } from '@/src/contexts/AuthContext';
@@ -23,9 +25,16 @@ import { generateHandoffHtml } from '@/src/lib/handoff/generateHandoff';
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  isCollapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
-export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
+export function Sidebar({
+  activeTab,
+  setActiveTab,
+  isCollapsed,
+  onToggleCollapsed,
+}: SidebarProps) {
   const { signOut } = useAuth();
   const {
     branches,
@@ -71,76 +80,93 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   };
 
   return (
-    <div className="w-64 bg-white border-r h-screen flex flex-col">
-      <div className="p-6 flex items-center justify-between">
+    <div
+      className={`bg-white border-r h-screen flex flex-col transition-[width] duration-200 ${
+        isCollapsed ? 'w-[72px]' : 'w-64'
+      }`}
+    >
+      <div className={`flex items-center justify-between ${isCollapsed ? 'p-4' : 'p-6'}`}>
         <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
           <div className="w-6 h-6 bg-[var(--color-info)] rounded-md flex items-center justify-center">
             <span className="text-white text-xs font-bold">A</span>
           </div>
-          Tracking Plan
+          {!isCollapsed && 'Tracking Plan'}
         </h1>
 
-        {violations.length > 0 && (
+        <div className="flex items-center gap-2">
+          {violations.length > 0 && (
+            <button
+              onClick={() => setIsAuditOpen(true)}
+              className="relative text-yellow-500 hover:text-yellow-600 transition-colors"
+              type="button"
+              title="Open audit report"
+            >
+              <AlertCircle className="w-5 h-5" />
+              <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-red-500 text-[8px] text-white font-bold">
+                {violations.length}
+              </span>
+            </button>
+          )}
           <button
-            onClick={() => setIsAuditOpen(true)}
-            className="relative text-yellow-500 hover:text-yellow-600 transition-colors"
             type="button"
+            onClick={onToggleCollapsed}
+            className="text-gray-400 hover:text-gray-900 transition-colors"
+            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            <AlertCircle className="w-5 h-5" />
-            <span className="absolute -top-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-red-500 text-[8px] text-white font-bold">
-              {violations.length}
-            </span>
+            {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
           </button>
-        )}
-      </div>
-
-      <div className="px-4 mb-6">
-        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-          Current Branch
         </div>
-
-        <select
-          value={activeBranchId}
-          onChange={(e) => {
-            if (e.target.value === 'new') {
-              setIsCreatingBranch(true);
-              return;
-            }
-
-            setActiveBranch(e.target.value);
-          }}
-          className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-md focus:ring-[var(--color-info)] focus:border-[var(--color-info)] block p-2"
-        >
-          <option value="main">main</option>
-          {branches.map((branch) => (
-            <option key={branch.id} value={branch.id}>
-              {branch.name}
-            </option>
-          ))}
-          <option value="new">+ Create new branch...</option>
-        </select>
-
-        {isCreatingBranch && (
-          <div className="mt-2 flex gap-2">
-            <input
-              type="text"
-              value={newBranchName}
-              onChange={(e) => setNewBranchName(e.target.value)}
-              placeholder="Branch name"
-              className="flex-1 border rounded px-2 py-1 text-sm"
-              autoFocus
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreateBranch();
-              }}
-            />
-            <Button size="sm" onClick={handleCreateBranch}>
-              Add
-            </Button>
-          </div>
-        )}
       </div>
 
-      <nav className="flex-1 px-4 space-y-1">
+      {!isCollapsed && (
+        <div className="px-4 mb-6">
+          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+            Current Branch
+          </div>
+
+          <select
+            value={activeBranchId}
+            onChange={(e) => {
+              if (e.target.value === 'new') {
+                setIsCreatingBranch(true);
+                return;
+              }
+
+              setActiveBranch(e.target.value);
+            }}
+            className="w-full bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-md focus:ring-[var(--color-info)] focus:border-[var(--color-info)] block p-2"
+          >
+            <option value="main">main</option>
+            {branches.map((branch) => (
+              <option key={branch.id} value={branch.id}>
+                {branch.name}
+              </option>
+            ))}
+            <option value="new">+ Create new branch...</option>
+          </select>
+
+          {isCreatingBranch && (
+            <div className="mt-2 flex gap-2">
+              <input
+                type="text"
+                value={newBranchName}
+                onChange={(e) => setNewBranchName(e.target.value)}
+                placeholder="Branch name"
+                className="flex-1 border rounded px-2 py-1 text-sm"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreateBranch();
+                }}
+              />
+              <Button size="sm" onClick={handleCreateBranch}>
+                Add
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      <nav className={`${isCollapsed ? 'flex-1 px-2 space-y-1' : 'flex-1 px-4 space-y-1'}`}>
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -149,7 +175,8 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              title={item.label}
+              className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2 rounded-md text-sm font-medium transition-colors ${
                 isActive
                   ? 'bg-[var(--color-info)]/10 text-[var(--color-info)]'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -157,13 +184,13 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
               type="button"
             >
               <Icon className="w-4 h-4" />
-              {item.label}
+              {!isCollapsed && item.label}
             </button>
           );
         })}
       </nav>
 
-      <div className="p-4 border-t space-y-1">
+      <div className={`${isCollapsed ? 'p-2' : 'p-4'} border-t space-y-1`}>
         {bottomNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -172,7 +199,8 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+              title={item.label}
+              className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2 rounded-md text-sm font-medium transition-colors ${
                 isActive
                   ? 'bg-[var(--color-info)]/10 text-[var(--color-info)]'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -180,29 +208,52 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
               type="button"
             >
               <Icon className="w-4 h-4" />
-              {item.label}
+              {!isCollapsed && item.label}
             </button>
           );
         })}
       </div>
 
-      <div className="p-4 border-t space-y-2 mt-auto">
-        <Button
-          variant="outline"
-          className="w-full gap-2 border-gray-300 text-gray-700 hover:bg-gray-50"
-          onClick={handleDownloadHandoff}
-        >
-          <Download className="w-4 h-4" />
-          Download Handoff
-        </Button>
-        <Button
-          variant="ghost"
-          className="w-full gap-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-          onClick={() => signOut().then(() => { window.location.href = `${BASE}/login`; })}
-        >
-          <LogOut className="w-4 h-4" />
-          Log out
-        </Button>
+      <div className={`${isCollapsed ? 'p-2' : 'p-4'} border-t space-y-2 mt-auto`}>
+        {isCollapsed ? (
+          <>
+            <button
+              type="button"
+              onClick={handleDownloadHandoff}
+              className="w-full flex items-center justify-center rounded-md py-2 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+              title="Download Handoff"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => signOut().then(() => { window.location.href = `${BASE}/login`; })}
+              className="w-full flex items-center justify-center rounded-md py-2 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+              title="Log out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="outline"
+              className="w-full gap-2 border-gray-300 text-gray-700 hover:bg-gray-50"
+              onClick={handleDownloadHandoff}
+            >
+              <Download className="w-4 h-4" />
+              Download Handoff
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full gap-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              onClick={() => signOut().then(() => { window.location.href = `${BASE}/login`; })}
+            >
+              <LogOut className="w-4 h-4" />
+              Log out
+            </Button>
+          </>
+        )}
       </div>
 
       <Sheet isOpen={isAuditOpen} onClose={() => setIsAuditOpen(false)} title="Audit Report">

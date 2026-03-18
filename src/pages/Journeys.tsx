@@ -192,38 +192,39 @@ export function Journeys({
           >
             &larr; Back
           </Button>
-          <h1 className="text-xl font-bold text-gray-900">Journeys</h1>
 
           {selectedJourney ? (
             <div className="flex flex-col">
-              {isRenaming ? (
-                <Input
-                  value={nameDraft}
-                  onChange={(e) => setNameDraft(e.target.value)}
-                  onBlur={commitRename}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') commitRename();
-                    if (e.key === 'Escape') {
-                      setNameDraft(selectedJourney.name);
-                      setIsRenaming(false);
-                      setRenameError(null);
-                    }
-                  }}
-                  className="h-9 w-[360px] text-[16px] font-semibold"
-                  autoFocus
-                />
-              ) : (
-                <button
-                  type="button"
-                  className="text-left text-[18px] font-semibold text-gray-900 truncate max-w-[420px] hover:underline underline-offset-4"
-                  title="Click to rename"
-                  onClick={() => setIsRenaming(true)}
-                >
-                  {selectedJourney.name}
-                </button>
-              )}
+              <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 w-[420px]">
+                {isRenaming ? (
+                  <Input
+                    value={nameDraft}
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    onBlur={commitRename}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitRename();
+                      if (e.key === 'Escape') {
+                        setNameDraft(selectedJourney.name);
+                        setIsRenaming(false);
+                        setRenameError(null);
+                      }
+                    }}
+                    className="h-7 px-0 border-0 bg-transparent shadow-none focus-visible:ring-0 text-[16px] font-semibold"
+                    autoFocus
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="w-full text-left text-[16px] font-semibold text-gray-900 truncate"
+                    title="Click to rename"
+                    onClick={() => setIsRenaming(true)}
+                  >
+                    {selectedJourney.name}
+                  </button>
+                )}
+              </div>
               {renameError && (
-                <div className="text-xs text-red-600 mt-0.5 max-w-[420px] truncate">
+                <div className="text-xs text-red-600 mt-1 max-w-[420px] truncate">
                   {renameError}
                 </div>
               )}

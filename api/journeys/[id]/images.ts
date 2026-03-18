@@ -1,10 +1,19 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import { createApp } from '../../../src/backend/app';
+import { createApp } from '../../_backend/app.js';
+
+const app = createApp();
+const SUB_PATH = '/tracking-plan';
 
 export default function handler(req: IncomingMessage, res: ServerResponse): void {
-  const app = createApp();
-  // Express expects req.url to exist; Vercel provides it.
-  // This file exists to prevent Vercel platform NOT_FOUND for deep route.
+  // Normalize /tracking-plan prefix (same logic as catch-all).
+  const url = req.url ?? '/';
+  const pathOnly = url.split('?')[0];
+  const query = url.includes('?') ? url.slice(url.indexOf('?')) : '';
+  let path = pathOnly;
+  if (path.startsWith(SUB_PATH)) {
+    path = path.slice(SUB_PATH.length) || '/';
+  }
+  (req as IncomingMessage & { url: string }).url = path + query;
   app(req as any, res as any);
 }
 

@@ -33,10 +33,16 @@ export function SharedJourneyView({
   const [journey, setJourney] = useState<Journey | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<'journey' | 'brief'>(() => {
+  const [view, setView] = useState<'journey' | 'brief' | 'qa'>(() => {
     if (typeof window === 'undefined') return 'journey';
-    const view = new URL(window.location.href).searchParams.get('view');
-    return view === 'brief' ? 'brief' : 'journey';
+    const v = new URL(window.location.href).searchParams.get('view');
+    if (v === 'brief') return 'brief';
+    if (v === 'qa') return 'qa';
+    return 'journey';
+  });
+  const [activeQARunId, setActiveQARunId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return new URL(window.location.href).searchParams.get('qa') || null;
   });
   const [briefHtml, setBriefHtml] = useState<string | null>(null);
   const [briefError, setBriefError] = useState<string | null>(null);
@@ -69,7 +75,7 @@ export function SharedJourneyView({
           testing_instructions_markdown: j.testing_instructions_markdown ?? undefined,
           nodes: enrichedNodes,
           edges: Array.isArray(j.edges) ? j.edges : [],
-          qaRuns: [],
+          qaRuns: Array.isArray((j as any).qaRuns) ? ((j as any).qaRuns as any) : [],
         });
       } else {
         setError(result.error ?? 'Failed to load journey');
@@ -82,7 +88,7 @@ export function SharedJourneyView({
 
   useEffect(() => {
     if (!journeyId) return;
-    if (tab !== 'brief') return;
+    if (view !== 'brief') return;
     let cancelled = false;
     setBriefLoading(true);
     setBriefError(null);
@@ -114,7 +120,7 @@ export function SharedJourneyView({
     return () => {
       cancelled = true;
     };
-  }, [tab, journeyId]);
+  }, [view, journeyId]);
 
   if (loading) {
     return (
@@ -145,45 +151,57 @@ export function SharedJourneyView({
           <div className="min-w-0">
             <h1 className="text-lg font-bold text-gray-900 truncate">{journey.name}</h1>
             <p className="text-xs text-gray-500 mt-0.5">
-              Read-only view — switch between journey and brief
+              Read-only view — journey, brief, and QA runs
             </p>
           </div>
           {journeyId && (
-            <div className="flex items-center gap-1 rounded-md border bg-gray-50 p-1">
-              <button
-                type="button"
-                className={`px-2.5 py-1 text-xs rounded ${
-                  tab === 'journey' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-900'
-                }`}
-                onClick={() => {
-                  setTab('journey');
-                  const u = new URL(window.location.href);
+            <select
+              className="text-xs border rounded-md px-2 py-1.5 bg-gray-50 text-gray-900"
+              value={view === 'qa' ? `qa:${activeQARunId || ''}` : view}
+              onChange={(e) => {
+                const v = e.target.value;
+                const u = new URL(window.location.href);
+                if (v === 'journey') {
+                  setView('journey');
+                  setActiveQARunId(null);
                   u.searchParams.delete('view');
+                  u.searchParams.delete('qa');
                   window.history.replaceState({}, '', u.toString());
-                }}
-              >
-                Journey
-              </button>
-              <button
-                type="button"
-                className={`px-2.5 py-1 text-xs rounded ${
-                  tab === 'brief' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600 hover:text-gray-900'
-                }`}
-                onClick={() => {
-                  setTab('brief');
-                  const u = new URL(window.location.href);
+                  return;
+                }
+                if (v === 'brief') {
+                  setView('brief');
+                  setActiveQARunId(null);
                   u.searchParams.set('view', 'brief');
+                  u.searchParams.delete('qa');
                   window.history.replaceState({}, '', u.toString());
-                }}
-              >
-                Implementation brief
-              </button>
-            </div>
+                  return;
+                }
+                if (v.startsWith('qa:')) {
+                  const qaId = v.slice(3) || null;
+                  setView('qa');
+                  setActiveQARunId(qaId);
+                  u.searchParams.set('view', 'qa');
+                  if (qaId) u.searchParams.set('qa', qaId);
+                  else u.searchParams.delete('qa');
+                  window.history.replaceState({}, '', u.toString());
+                }
+              }}
+            >
+              <option value="journey">Journey</option>
+              <option value="brief">Implementation brief</option>
+              {(journey.qaRuns || []).length > 0 && <option disabled>──────────</option>}
+              {(journey.qaRuns || []).map((run: any) => (
+                <option key={run.id} value={`qa:${run.id}`}>
+                  QA: {run.name || run.id}
+                </option>
+              ))}
+            </select>
           )}
         </div>
       </div>
       <div className="flex-1 min-h-0">
-        {tab === 'brief' && journeyId ? (
+        {view === 'brief' && journeyId ? (
           briefError ? (
             <div className="flex h-full w-full items-center justify-center bg-[var(--surface-default)]">
               <div className="text-center max-w-md px-4">
@@ -203,7 +221,7 @@ export function SharedJourneyView({
           )
         ) : (
           <ReactFlowProvider>
-            <JourneyCanvas journey={journey} activeQARunId={null} readOnly />
+            <JourneyCanvas journey={journey} activeQARunId={view === 'qa' ? activeQARunId : null} readOnly />
           </ReactFlowProvider>
         )}
       </div>

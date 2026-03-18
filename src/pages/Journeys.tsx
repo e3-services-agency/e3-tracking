@@ -444,7 +444,11 @@ export function Journeys({
                     type="button"
                     className="w-full px-3 py-2 text-sm text-left hover:bg-[var(--surface-default)] flex items-center justify-between gap-2"
                     onClick={() => {
-                      setIsSharePanelOpen((v) => !v);
+                      // Default: keep share panel closed unless share is enabled,
+                      // so the toggle is the primary action.
+                      if (selectedJourney.share_token) {
+                        setIsSharePanelOpen((v) => !v);
+                      }
                     }}
                   >
                     <span className="flex items-center gap-2">
@@ -477,7 +481,7 @@ export function Journeys({
                         updateJourney(selectedJourney.id, {
                           share_token: next ? (result.token ?? 'enabled') : null,
                         });
-                        setIsSharePanelOpen(next);
+                        setIsSharePanelOpen(next); // auto-open link when enabled, hide when disabled
                       }}
                     >
                       <div

@@ -9,6 +9,7 @@ import { API_BASE } from '@/src/config/env';
 
 export interface WorkspaceItem {
   id: string;
+  workspace_key?: string | null;
   name: string;
   client_name: string | null;
   created_at: string;
@@ -34,7 +35,7 @@ export function useWorkspaces() {
       const supabase = getSupabaseClient();
       const { data: wsData, error: err } = await supabase
         .from('workspaces')
-        .select('id, name, created_at, updated_at, deleted_at')
+        .select('id, name, workspace_key, created_at, updated_at, deleted_at')
         .is('deleted_at', null)
         .order('name');
       if (err) {

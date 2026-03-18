@@ -26,7 +26,7 @@ function groupWorkspacesByClient(workspaces: WorkspaceItem[]): { groupLabel: str
 }
 
 export function WorkspaceSwitcher() {
-  const { activeWorkspaceId, setActiveWorkspaceId } = useStore();
+  const { activeWorkspaceId, setActiveWorkspace } = useStore();
   const { workspaces, fetchWorkspaces } = useWorkspaces();
   const [isOpen, setIsOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -56,7 +56,8 @@ export function WorkspaceSwitcher() {
   }, []);
 
   const handleCreateSuccess = (newId: string, _newName: string) => {
-    setActiveWorkspaceId(newId);
+    const created = workspaces.find((w) => w.id === newId);
+    setActiveWorkspace({ id: newId, key: created?.workspace_key ?? null });
     fetchWorkspaces();
     setModalOpen(false);
   };
@@ -93,7 +94,7 @@ export function WorkspaceSwitcher() {
                   key={w.id}
                   type="button"
                   onClick={() => {
-                    setActiveWorkspaceId(w.id);
+                    setActiveWorkspace({ id: w.id, key: w.workspace_key ?? null });
                     setIsOpen(false);
                   }}
                   className={`w-full text-left pl-5 pr-4 py-2 text-sm transition-colors ${

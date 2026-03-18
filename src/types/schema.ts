@@ -83,6 +83,8 @@ export interface WorkspaceMemberRow {
 export interface WorkspaceRow {
   id: string;
   name: string;
+  /** Short public key used in URLs (e.g. "a1B9z"). */
+  workspace_key?: string | null;
   created_at: string; // ISO
   updated_at: string;
   deleted_at: string | null;

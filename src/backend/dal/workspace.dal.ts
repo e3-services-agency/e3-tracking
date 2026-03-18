@@ -12,7 +12,7 @@ export async function listWorkspaces(): Promise<WorkspaceRow[]> {
   const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('workspaces')
-    .select('id, name, created_at, updated_at, deleted_at')
+    .select('id, name, workspace_key, created_at, updated_at, deleted_at')
     .is('deleted_at', null)
     .order('updated_at', { ascending: false });
 

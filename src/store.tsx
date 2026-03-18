@@ -73,7 +73,8 @@ interface StoreState {
   addCustomCategory: (name: string) => void;
 
   activeWorkspaceId: string;
-  setActiveWorkspaceId: (id: string) => void;
+  activeWorkspaceKey: string | null;
+  setActiveWorkspace: (args: { id: string; key?: string | null }) => void;
 }
 
 export const useStore = create<StoreState>((set, get) => {
@@ -101,6 +102,7 @@ export const useStore = create<StoreState>((set, get) => {
     activeBranchId: 'main',
     selectedItemIdToEdit: null,
     activeWorkspaceId: DEFAULT_WORKSPACE_ID,
+    activeWorkspaceKey: null,
 
     auditConfig: {
       eventNaming: 'Title Case',
@@ -302,7 +304,11 @@ export const useStore = create<StoreState>((set, get) => {
         return { ...data, customCategories: [...list, trimmed] };
       }),
 
-    setActiveWorkspaceId: (id) => set({ activeWorkspaceId: id }),
+    setActiveWorkspace: ({ id, key }) =>
+      set({
+        activeWorkspaceId: id,
+        activeWorkspaceKey: key ?? null,
+      }),
   };
 });
 

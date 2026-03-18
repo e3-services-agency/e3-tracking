@@ -21,6 +21,12 @@ import { EventCodeGen } from '@/src/features/events/components/EventCodeGen';
 import { useJourneyCanvas } from '@/src/features/journeys/hooks/useJourneyCanvas';
 import { useActiveWorkspaceId } from '@/src/features/journeys/hooks/useJourneysApi';
 import {
+  computeQARunStatusForRun,
+  getQARunDisplayName,
+  hasPendingStepsForRun,
+} from '@/src/features/journeys/lib/qaRunUtils';
+import { JourneyPendingQAWarnModal } from '@/src/features/journeys/overlays/JourneyPendingQAWarnModal';
+import {
   CheckCircle2,
   CheckSquare,
   FileText,
@@ -155,6 +161,7 @@ export function JourneyCanvas({
   const effectiveReadOnly = readOnly || qaLocked;
   const activeWorkspaceId = useActiveWorkspaceId();
   const [readOnlyImagePreview, setReadOnlyImagePreview] = React.useState<string | null>(null);
+  const [isPendingQAWarnOpen, setIsPendingQAWarnOpen] = React.useState(false);
 
   const {
     nodes,
@@ -224,6 +231,9 @@ export function JourneyCanvas({
 
   const imageProofs = verificationProofs.filter((p) => p.type === 'image');
   const payloadProofs = verificationProofs.filter((p) => p.type !== 'image');
+
+  const qaRunDerivedStatus = computeQARunStatusForRun(activeQARun);
+  const qaRunHasPendingSteps = hasPendingStepsForRun(activeQARun);
 
   React.useEffect(() => {
     onSaveLayoutState?.({
@@ -344,7 +354,21 @@ export function JourneyCanvas({
               QA Mode Active
             </div>
             <div className="text-xs text-gray-600">
-              Run: {activeQARun?.name}
+              Run: {getQARunDisplayName(activeQARun)}
+            </div>
+            <div className="text-xs text-gray-600">
+              QA Status:{' '}
+              <span
+                className={
+                  qaRunDerivedStatus === 'FAILED'
+                    ? 'text-red-600 font-semibold'
+                    : qaRunDerivedStatus === 'PASSED'
+                      ? 'text-emerald-600 font-semibold'
+                      : 'text-[var(--color-info)] font-semibold'
+                }
+              >
+                {qaRunDerivedStatus}
+              </span>
             </div>
             <div className="flex items-center gap-3 text-xs mt-1">
               <div className="flex items-center gap-1 text-gray-500">
@@ -397,6 +421,9 @@ export function JourneyCanvas({
                     size="sm"
                     className="gap-2"
                     onClick={() => {
+                      if (qaRunHasPendingSteps) {
+                        setIsPendingQAWarnOpen(true);
+                      }
                       void handleSaveQA();
                     }}
                     disabled={isSavingQA}
@@ -556,11 +583,29 @@ export function JourneyCanvas({
                   Run Name
                 </div>
                 <Input
-                  value={activeQARun?.name || ''}
-                  onChange={(e) => updateQARun({ name: e.target.value })}
-                  disabled={effectiveReadOnly}
+                    value={getQARunDisplayName(activeQARun)}
+                    disabled
                 />
               </div>
+
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                    QA Status
+                  </div>
+                  <div
+                    className={
+                      qaRunDerivedStatus === 'FAILED'
+                        ? 'bg-red-50 border-red-200 text-red-700'
+                        : qaRunDerivedStatus === 'PASSED'
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                          : 'bg-blue-50 border-blue-200 text-[var(--color-info)]'
+                    }
+                  >
+                    <div className="border rounded-md p-2 text-sm font-semibold">
+                      {qaRunDerivedStatus}
+                    </div>
+                  </div>
+                </div>
 
               <div>
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
@@ -1322,6 +1367,11 @@ export function JourneyCanvas({
         )}
 
       <JourneyProofViewer proof={viewerProof} onClose={closeViewerProof} />
+
+      <JourneyPendingQAWarnModal
+        isOpen={isPendingQAWarnOpen}
+        onClose={() => setIsPendingQAWarnOpen(false)}
+      />
 
       {readOnlyImagePreview && (
         <div

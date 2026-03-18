@@ -32,6 +32,7 @@ import { JourneyCanvas } from '@/src/features/journeys/editor/JourneyCanvas';
 import { useJourneys } from '@/src/features/journeys/hooks/useJourneys';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
+import { formatQARunName, getQARunDisplayName } from '@/src/features/journeys/lib/qaRunUtils';
 
 export function Journeys({
   selectedJourneyId: initialJourneyId,
@@ -382,7 +383,7 @@ export function Journeys({
                 <option value="__brief__">-- Implementation Brief Preview --</option>
                 {(selectedJourney.qaRuns || []).map((run) => (
                   <option key={run.id} value={run.id}>
-                    {run.name}
+                    {getQARunDisplayName(run)}
                   </option>
                 ))}
               </select>
@@ -391,15 +392,7 @@ export function Journeys({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  const now = new Date();
-                  const yyyy = now.getFullYear();
-                  const mm = String(now.getMonth() + 1).padStart(2, '0');
-                  const dd = String(now.getDate()).padStart(2, '0');
-                  const hh = String(now.getHours()).padStart(2, '0');
-                  const min = String(now.getMinutes()).padStart(2, '0');
-                  const formatted = `QA Run - ${yyyy}-${mm}-${dd} ${hh}:${min}`;
-
-                  setNewQARunName(formatted);
+                  setNewQARunName(formatQARunName(new Date()));
                   setNewQATesterName(user?.email ?? '');
                   setNewQAEnvironment('');
                   setIsQAModalOpen(true);

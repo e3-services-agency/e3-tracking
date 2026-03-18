@@ -8,13 +8,15 @@ import { useActiveWorkspaceId } from '@/src/features/journeys/hooks/useJourneysA
 
 type ApiError = { status: number; message: string };
 
-function mapJourneyRowToUi(j: JourneyRow): Journey {
+function mapJourneyRowToUi(j: JourneyRow & { qaRunsCount?: number; latestQARun?: any }): Journey {
   return {
     id: j.id,
     name: j.name,
     nodes: (Array.isArray(j.canvas_nodes_json) ? j.canvas_nodes_json : []) as any[],
     edges: (Array.isArray(j.canvas_edges_json) ? j.canvas_edges_json : []) as any[],
     qaRuns: [],
+    qaRunsCount: typeof j.qaRunsCount === 'number' ? j.qaRunsCount : undefined,
+    latestQARun: (j.latestQARun ?? null) as any,
     type_counts: j.type_counts ?? null,
     testing_instructions_markdown: j.testing_instructions_markdown ?? null,
     share_token: j.share_token ?? null,
@@ -45,7 +47,7 @@ export function useJourneys(): {
         setError({ status: res.status, message: res.statusText || 'Failed to load journeys' });
         return;
       }
-      const data = (await res.json()) as JourneyRow[];
+      const data = (await res.json()) as Array<JourneyRow & { qaRunsCount?: number; latestQARun?: any }>;
       const mapped = Array.isArray(data) ? data.map(mapJourneyRowToUi) : [];
       setJourneys(mapped);
     } catch (e) {

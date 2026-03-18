@@ -1,0 +1,383 @@
+{
+  "featureName": "Journeys",
+  "rootPath": "src/features/journeys",
+  "primaryEntryPoints": [
+    "src/pages/Journeys.tsx",
+    "src/features/journeys/editor/JourneyCanvas.tsx",
+    "src/features/journeys/hooks/useJourneyCanvas.ts",
+    "src/pages/SharedJourneyView.tsx",
+    "src/pages/SharedJourneyBriefView.tsx"
+  ],
+  "relatedFiles": {
+    "feature_files": [
+      {
+        "path": "src/features/journeys/editor/JourneyCanvas.tsx",
+        "description": "Main Journey builder UI and QA read-only/locking gate in the canvas layout."
+      },
+      {
+        "path": "src/features/journeys/editor/index.ts",
+        "description": "Barrel export for editor modules."
+      },
+      {
+        "path": "src/features/journeys/hooks/useJourneyCanvas.ts",
+        "description": "Client-side canvas persistence and QA snapshot saving/migration; injects readOnly into QA snapshots."
+      },
+      {
+        "path": "src/features/journeys/hooks/useJourneysApi.ts",
+        "description": "Frontend API helpers for journeys (canvas, images, share, QA, export, validation)."
+      },
+      {
+        "path": "src/features/journeys/hooks/useJourneys.ts",
+        "description": "Fetches journeys list for the current workspace."
+      },
+      {
+        "path": "src/features/journeys/hooks/index.ts",
+        "description": "Barrel export for hooks."
+      },
+      {
+        "path": "src/features/journeys/nodes/types.ts",
+        "description": "Type definitions for Journey node data and QA verification attachment shapes."
+      },
+      {
+        "path": "src/features/journeys/nodes/JourneyStepNode.tsx",
+        "description": "Step node UI including screenshot upload and image rendering with legacy/proxy URL handling."
+      },
+      {
+        "path": "src/features/journeys/nodes/TriggerNode.tsx",
+        "description": "Trigger node UI for connecting events and rendering QA-related verification UI."
+      },
+      {
+        "path": "src/features/journeys/nodes/AnnotationNode.tsx",
+        "description": "Annotation highlight/draw/resizing node UI driven by node sizing and CSS variables."
+      },
+      {
+        "path": "src/features/journeys/nodes/NoteNode.tsx",
+        "description": "Sticky note node UI."
+      },
+      {
+        "path": "src/features/journeys/nodes/NodeHandles.tsx",
+        "description": "React Flow handle and node UI affordances."
+      },
+      {
+        "path": "src/features/journeys/nodes/index.ts",
+        "description": "Barrel export for nodes."
+      },
+      {
+        "path": "src/features/journeys/overlays/JourneyQuickAddMenu.tsx",
+        "description": "Quick-add context menu overlay for node insertion."
+      },
+      {
+        "path": "src/features/journeys/overlays/JourneyStartQARunModal.tsx",
+        "description": "Start new QA run modal; simplified UX disables editable fields and omits environment input."
+      },
+      {
+        "path": "src/features/journeys/overlays/JourneyPendingQAWarnModal.tsx",
+        "description": "Warning modal shown before saving QA when some steps are still Pending."
+      },
+      {
+        "path": "src/features/journeys/overlays/JourneyProofViewer.tsx",
+        "description": "Fullscreen/modal viewer for QA proofs."
+      },
+      {
+        "path": "src/features/journeys/overlays/index.ts",
+        "description": "Barrel export for overlays."
+      },
+      {
+        "path": "src/features/journeys/lib/journeyImageStorage.ts",
+        "description": "Uploads step screenshots via multipart FormData to `POST /api/journeys/:id/images`."
+      },
+      {
+        "path": "src/features/journeys/lib/proofs.ts",
+        "description": "Transforms uploaded proof files into the `QAProof` object structure."
+      },
+      {
+        "path": "src/features/journeys/lib/qaRunUtils.ts",
+        "description": "Centralized QA Run naming formatter and derived QA status computation (PASSED/FAILED/PENDING)."
+      },
+      {
+        "path": "src/features/journeys/lib/index.ts",
+        "description": "Barrel export for Journey libs."
+      },
+      {
+        "path": "src/features/journeys/page/index.ts",
+        "description": "Placeholder barrel export for journeys page modules."
+      },
+      {
+        "path": "src/features/journeys/qa/index.ts",
+        "description": "Placeholder barrel export for QA modules."
+      }
+    ],
+    "routes_pages": [
+      {
+        "path": "src/App.tsx",
+        "description": "Detects public share/brief URLs and mounts shared views."
+      },
+      {
+        "path": "src/components/layout/Layout.tsx",
+        "description": "Workspace key routing (`/w/<workspace_key>/...`) and route syncing for journeys."
+      },
+      {
+        "path": "src/pages/Journeys.tsx",
+        "description": "Authenticated journey builder page wiring canvas + QA selector + share toggle."
+      },
+      {
+        "path": "src/pages/JourneysList.tsx",
+        "description": "List/management screen for journeys (create/delete)."
+      },
+      {
+        "path": "src/pages/SharedJourneyView.tsx",
+        "description": "Public read-only shared journey renderer; supports journey/brief/QA modes and QA run selection."
+      },
+      {
+        "path": "src/pages/SharedJourneyBriefView.tsx",
+        "description": "Fetches and renders implementation brief HTML for shared brief URLs."
+      }
+    ],
+    "services_api_backend": [
+      {
+        "path": "src/backend/app.ts",
+        "description": "Express app mounting journeys and shared routers and providing `/api/health`."
+      },
+      {
+        "path": "src/backend/routes/journeys.ts",
+        "description": "Authenticated contracts: canvas, images, share, QA persistence/load, export, and validation."
+      },
+      {
+        "path": "src/backend/routes/shared.ts",
+        "description": "Public contracts: shared journey JSON, rewritten image streaming, shared HTML export, QA runs."
+      },
+      {
+        "path": "src/backend/dal/journey.dal.ts",
+        "description": "DAL for journeys CRUD plus saving canvas JSON and syncing `journey_events`."
+      },
+      {
+        "path": "src/backend/dal/qa.dal.ts",
+        "description": "DAL for QA run persistence and reconstruction of frontend QARun objects."
+      },
+      {
+        "path": "src/backend/dal/event.dal.ts",
+        "description": "DAL for event property attachments used by snippet and export generation."
+      },
+      {
+        "path": "src/backend/services/codegen.service.ts",
+        "description": "Builds codegen snippets for events (dataLayer, Bloomreach SDK, Bloomreach API)."
+      },
+      {
+        "path": "src/backend/services/export.service.ts",
+        "description": "Standalone HTML export engine for implementation briefs (includes annotation overlays)."
+      }
+    ],
+    "store_state": [
+      {
+        "path": "src/store.tsx",
+        "description": "Zustand store containing derived `mainData.journeys` and active workspace identification."
+      }
+    ],
+    "types_schemas": [
+      {
+        "path": "src/types.ts",
+        "description": "Frontend types including QARun endedAt/locking and QA verification shapes."
+      },
+      {
+        "path": "src/types/schema.ts",
+        "description": "Backend DB row typings mirrored to SQL schema."
+      },
+      {
+        "path": "supabase/migrations/0001_initial_schema.sql",
+        "description": "SQL schema for journeys + QA runs/payloads and security policies."
+      },
+      {
+        "path": "supabase/migrations/0002_journeys_canvas_columns.sql",
+        "description": "Adds canvas JSONB columns and testing instructions markdown."
+      },
+      {
+        "path": "supabase/migrations/0007_security_and_membership.sql",
+        "description": "Security and membership policies impacting access to journeys/QA."
+      }
+    ],
+    "utils_constants": [
+      {
+        "path": "src/lib/api.ts",
+        "description": "Authenticated fetch wrapper; special-cases FormData to avoid incorrect Content-Type."
+      },
+      {
+        "path": "src/config/env.ts",
+        "description": "Environment constants `API_BASE` and `SUPABASE_URL` for public Storage URL rewriting."
+      },
+      {
+        "path": "src/index.css",
+        "description": "Tailwind/theme tokens including `--annotation-*` palette used by annotation nodes."
+      },
+      {
+        "path": "src/lib/handoff/generateHandoff.ts",
+        "description": "Handoff/brief assembly from serialized data."
+      },
+      {
+        "path": "src/lib/serializeHandoffData.ts",
+        "description": "Serializes tracking plan + journeys + QA into portable structures."
+      },
+      {
+        "path": "src/lib/handoff/htmlUtils.ts",
+        "description": "HTML helper functions used by handoff/brief generation."
+      }
+    ],
+    "tests": []
+  },
+  "routes": {
+    "frontend": [
+      {
+        "path": "/w/<workspace_key>/journeys/:journeyId",
+        "entry": "src/pages/Journeys.tsx"
+      },
+      {
+        "path": "/w/<workspace_key>/journeys",
+        "entry": "src/pages/JourneysList.tsx"
+      },
+      {
+        "path": "/share/journey/:id",
+        "entry": "src/pages/SharedJourneyView.tsx"
+      },
+      {
+        "path": "/share/journey/:id/brief",
+        "entry": "src/pages/SharedJourneyBriefView.tsx"
+      },
+      {
+        "path": "/share/:token",
+        "entry": "src/pages/SharedJourneyView.tsx"
+      }
+    ],
+    "backend_api": [
+      {
+        "method": "PUT",
+        "path": "/api/journeys/:id/canvas",
+        "auth": "workspace + auth",
+        "purpose": "Persist React Flow nodes/edges and sync trigger nodes -> journey_events."
+      },
+      {
+        "method": "GET",
+        "path": "/api/journeys",
+        "auth": "workspace context",
+        "purpose": "Homepage journeys list enriched with QA summary (`qaRunsCount` + `latestQARun`) for derived QA status."
+      },
+      {
+        "method": "POST",
+        "path": "/api/journeys/:id/images",
+        "auth": "workspace + auth",
+        "purpose": "Upload step screenshot to Supabase Storage (public objects expected)."
+      },
+      {
+        "method": "POST/PATCH",
+        "path": "/api/journeys/:id/share",
+        "auth": "workspace + auth",
+        "purpose": "Enable/disable sharing and set `share_token`."
+      },
+      {
+        "method": "GET",
+        "path": "/api/journeys/:id/export/html",
+        "auth": "workspace + auth (internal)",
+        "purpose": "Generate implementation brief HTML for the internal builder."
+      },
+      {
+        "method": "PUT",
+        "path": "/api/journeys/:id/qa",
+        "auth": "workspace + auth",
+        "purpose": "Persist QA run metadata, snapshot, and per-node verifications."
+      },
+      {
+        "method": "GET",
+        "path": "/api/journeys/:id/qa",
+        "auth": "workspace + auth",
+        "purpose": "Load QA runs + verifications for the current workspace."
+      },
+      {
+        "method": "GET",
+        "path": "/api/shared/journeys/:token",
+        "auth": "public token",
+        "purpose": "Load shared journey nodes/edges with image URL rewriting, eventSnippets, and qaRuns."
+      },
+      {
+        "method": "GET",
+        "path": "/api/shared/journeys/journey/:id",
+        "auth": "public id when share enabled",
+        "purpose": "Load shared journey by share-enabled journey id."
+      },
+      {
+        "method": "GET",
+        "path": "/api/shared/journeys/journey/:id/export/html",
+        "auth": "public",
+        "purpose": "Serve standalone implementation brief HTML export in public mode."
+      },
+      {
+        "method": "GET",
+        "path": "/api/shared/journeys/journey/:id/images/:encodedPath",
+        "auth": "public",
+        "purpose": "Stream shared step screenshot images for the public shared view."
+      }
+    ]
+  },
+  "stateManagement": {
+    "store": "Zustand (`src/store.tsx`)",
+    "mainState": [
+      "mainData.journeys (derived from active workspace selection)"
+    ],
+    "canvasState": [
+      "React Flow nodes/edges managed by `useJourneyCanvas` and persisted on Save Layout."
+    ],
+    "qaState": [
+      "QA runs list and active run selection in `src/pages/Journeys.tsx` (local state + store update).",
+      "QA gating derived via `activeQARun.endedAt` plus in-session `lockedQARunIds` to produce `qaLocked` and `effectiveReadOnly`."
+    ]
+  },
+  "apiDependencies": {
+    "supabaseTables": [
+      "journeys",
+      "journey_events",
+      "qa_runs",
+      "qa_run_payloads",
+      "events",
+      "event_properties",
+      "properties"
+    ],
+    "storageBuckets": [
+      "journey-images (public objects expected for shared + export image rendering)"
+    ],
+    "contracts": [
+      "marker-based reconstruction of QA meta/nodes/edges in `qa_run_payloads` (see `qa.dal.ts`)",
+      "legacy image proxy URL pattern supported in export via `normalizeStepImageUrlForExport` and in client via normalization helpers."
+    ]
+  },
+  "sharedDependencies": {
+    "sharedImageRewriting": [
+      "Backend `routes/shared.ts` rewrites step node `data.imageUrl` to shared image proxy endpoint."
+    ],
+    "sharedEventSnippets": [
+      "Backend `routes/shared.ts` builds `eventSnippets` via `codegen.service.ts` using event property presence lists."
+    ],
+    "sharedQARunsReconstruction": [
+      "Backend `routes/shared.ts` calls `getSharedJourneyQARuns(journey.id)` from `qa.dal.ts`."
+    ]
+  },
+  "knownIssues": [
+    "Image URL normalization is high-risk: legacy proxy URLs and duplicated path segments must be normalized consistently across canvas save, shared rendering, and HTML export.",
+    "QA marker reconstruction is fragile if marker payloads (meta/nodes/edges) are missing or malformed for older runs.",
+    "Homepage QA status is derived from `latestQARun` reconstructed in `GET /api/journeys`; if that payload is partially missing, status falls back to PENDING (derived logic in `qaRunUtils.ts`)."
+  ],
+  "incompleteAreas": [
+    "No automated tests were found for Journeys flows; regression detection relies on manual QA.",
+    "Some export/handoff HTML generation uses inline styles/colors (implementation detail); may drift from the semantic design system.",
+    "QA run derived naming/status logic was centralized into `qaRunUtils.ts`, but unit tests were not added yet."
+  ],
+  "nextSteps": [
+    "Add a regression checklist for image loading + shared view QA snippets + annotation overlays in exported HTML.",
+    "Harden `qa.dal.ts` reconstruction with explicit validation + structured logs when marker payloads are missing.",
+    "Add unit tests for URL normalization helpers and QA reconstruction parsing."
+  ],
+  "resumeChecklist": [
+    "Start with `src/pages/Journeys.tsx` + `src/features/journeys/editor/JourneyCanvas.tsx`.",
+    "Follow Save/QA calls from `useJourneyCanvas.ts` to `useJourneysApi.ts` to backend routes `src/backend/routes/journeys.ts`.",
+    "For shared mode, follow `SharedJourneyView.tsx` to backend `src/backend/routes/shared.ts` and DAL `src/backend/dal/qa.dal.ts`.",
+    "Do not break: QA marker payload reconstruction contract + shared image URL rewriting contract.",
+    "Verify end-to-end: (1) Save Layout persists canvas, (2) step images load in shared view without auth, (3) QA runs load in shared view and show code snippets for triggers."
+  ]
+}
+

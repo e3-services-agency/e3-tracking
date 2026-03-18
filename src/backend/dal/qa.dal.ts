@@ -445,3 +445,152 @@ export async function getJourneyQARuns(
   return outRuns;
 }
 
+/**
+ * Lightweight summary for journeys homepage:
+ * - `qaRunsCount`: number of runs
+ * - `latestQARun`: reconstructed full QARun object for the most recent run
+ *
+ * This avoids loading/verifying all QA runs on the homepage.
+ */
+export async function getJourneyQARunsCountAndLatest(
+  workspaceId: string,
+  journeyId: string,
+): Promise<{
+  qaRunsCount: number;
+  latestQARun: {
+    id: string;
+    name: string;
+    createdAt: string;
+    testerName?: string;
+    environment?: string;
+    overallNotes?: string;
+    testingProfiles?: unknown[];
+    nodes?: any[];
+    edges?: any[];
+    endedAt?: string | null;
+    verifications: Record<string, QAVerificationUi>;
+  } | null;
+}> {
+  const supabase = getSupabaseOrThrow();
+
+  // Ensure journey belongs to workspace.
+  const { data: j, error: jErr } = await supabase
+    .from('journeys')
+    .select('id')
+    .eq('id', journeyId)
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (jErr) {
+    throw new DatabaseError(`Failed to fetch journey: ${jErr.message}`, jErr);
+  }
+  if (!j) {
+    throw new NotFoundError(
+      'Journey not found or does not belong to this workspace.',
+      'journey'
+    );
+  }
+
+  const { data: runs, error: runErr } = await supabase
+    .from('qa_runs')
+    .select('id, created_at')
+    .eq('journey_id', journeyId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false });
+
+  if (runErr) {
+    throw new DatabaseError(`Failed to fetch qa_runs: ${runErr.message}`, runErr);
+  }
+
+  const qaRunsCount = Array.isArray(runs) ? runs.length : 0;
+  if (qaRunsCount === 0) {
+    return { qaRunsCount: 0, latestQARun: null };
+  }
+
+  const latest = (runs as Array<{ id: string; created_at: string }>)[0];
+  const latestRunId = latest?.id;
+  if (!latestRunId) return { qaRunsCount, latestQARun: null };
+
+  const outRun = {
+    id: latestRunId,
+    name: latestRunId,
+    createdAt: latest.created_at,
+    verifications: {} as Record<string, QAVerificationUi>,
+    testingProfiles: [],
+    testerName: undefined as string | undefined,
+    environment: undefined as string | undefined,
+    overallNotes: undefined as string | undefined,
+    endedAt: null as string | null,
+    nodes: undefined as any[] | undefined,
+    edges: undefined as any[] | undefined,
+  };
+
+  const { data: payloadRows, error: payloadErr } = await supabase
+    .from('qa_run_payloads')
+    .select('node_id, expected_json')
+    .eq('qa_run_id', latestRunId);
+
+  if (payloadErr) {
+    throw new DatabaseError(
+      `Failed to fetch qa_run_payloads: ${payloadErr.message}`,
+      payloadErr
+    );
+  }
+
+  for (const row of payloadRows ?? []) {
+    const nodeId = row?.node_id as string | undefined;
+    if (!nodeId) continue;
+
+    const expectedJson = row.expected_json as string | null;
+    if (typeof expectedJson !== 'string') continue;
+
+    try {
+      if (nodeId === RUN_META_NODE_ID) {
+        const meta = JSON.parse(expectedJson) as any;
+        outRun.name = typeof meta?.name === 'string' ? meta.name : outRun.name;
+        outRun.createdAt =
+          typeof meta?.createdAt === 'string' ? meta.createdAt : outRun.createdAt;
+        outRun.testerName = typeof meta?.testerName === 'string' ? meta.testerName : undefined;
+        outRun.environment =
+          typeof meta?.environment === 'string' ? meta.environment : undefined;
+        outRun.overallNotes =
+          typeof meta?.overallNotes === 'string' ? meta.overallNotes : undefined;
+        outRun.testingProfiles = Array.isArray(meta?.testingProfiles)
+          ? meta.testingProfiles
+          : [];
+        outRun.endedAt =
+          typeof meta?.endedAt === 'string' || meta?.endedAt === null ? meta.endedAt : null;
+        continue;
+      }
+
+      if (nodeId === RUN_NODES_NODE_ID) {
+        const ns = JSON.parse(expectedJson);
+        outRun.nodes = Array.isArray(ns) ? ns : [];
+        continue;
+      }
+
+      if (nodeId === RUN_EDGES_NODE_ID) {
+        const es = JSON.parse(expectedJson);
+        outRun.edges = Array.isArray(es) ? es : [];
+        continue;
+      }
+
+      const parsed = JSON.parse(expectedJson) as Partial<QAVerificationUi>;
+      outRun.verifications[nodeId] = {
+        nodeId,
+        status: (parsed.status as QAStatusUi) ?? 'Pending',
+        notes: parsed.notes,
+        proofText: (parsed as any).proofText,
+        proofs: parsed.proofs as QAProofUi[] | undefined,
+        testingProfileIds: parsed.testingProfileIds,
+        extraTestingProfiles: parsed.extraTestingProfiles as unknown[] | undefined,
+      };
+    } catch {
+      // Ignore malformed JSON payload rows.
+    }
+  }
+
+  return { qaRunsCount, latestQARun: outRun };
+}
+

@@ -11,7 +11,7 @@ import { requireWorkspace } from '../middleware/workspace';
 import { requireAuth } from '../middleware/auth';
 import * as JourneyDAL from '../dal/journey.dal';
 import { getAlwaysSentPropertyKeysForEvent } from '../dal/event.dal';
-import { getJourneyQARuns, upsertJourneyQARuns } from '../dal/qa.dal';
+import { getJourneyQARunsCountAndLatest, getJourneyQARuns, upsertJourneyQARuns } from '../dal/qa.dal';
 import { generateJourneyHtmlExport } from '../services/export.service';
 import { ConflictError, DatabaseError, NotFoundError, ConfigError } from '../errors';
 import { getSupabaseOrThrow } from '../db/supabase';
@@ -68,7 +68,30 @@ router.get('/', requireWorkspace, async (req: Request, res: Response): Promise<v
   }
   try {
     const list = await JourneyDAL.listJourneys(workspaceId);
-    res.status(200).json(list);
+
+    // Homepage needs QA run count + latest run for derived status.
+    // We intentionally load only the latest run + count (not all runs).
+    const enriched = await Promise.all(
+      list.map(async (j) => {
+        try {
+          const summary = await getJourneyQARunsCountAndLatest(
+            workspaceId,
+            j.id
+          );
+          return {
+            ...j,
+            qaRunsCount: summary.qaRunsCount,
+            latestQARun: summary.latestQARun,
+          };
+        } catch (e) {
+          // Keep journeys list usable even if QA summary fails.
+          console.error('Failed to load QA summary for journey', j.id, e);
+          return { ...j, qaRunsCount: 0, latestQARun: null };
+        }
+      })
+    );
+
+    res.status(200).json(enriched);
   } catch (err) {
     if (err instanceof DatabaseError) {
       res.status(500).json({

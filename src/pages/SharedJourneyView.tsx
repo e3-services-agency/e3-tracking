@@ -9,6 +9,7 @@ import { JourneyCanvas } from '@/src/features/journeys/editor/JourneyCanvas';
 import { getSharedJourneyByIdApi, getSharedJourneyByTokenApi } from '@/src/features/journeys/hooks/useJourneysApi';
 import type { Journey } from '@/src/types';
 import { API_BASE } from '@/src/config/env';
+import { computeQARunStatusForRun, getQARunDisplayName } from '@/src/features/journeys/lib/qaRunUtils';
 
 type SharedResponse = {
   id: string;
@@ -206,7 +207,7 @@ export function SharedJourneyView({
               {(journey.qaRuns || []).length > 0 && <option disabled>──────────</option>}
               {(journey.qaRuns || []).map((run: any) => (
                 <option key={run.id} value={`qa:${run.id}`}>
-                  QA: {run.name || run.id}
+                  QA: {getQARunDisplayName(run)} ({computeQARunStatusForRun(run)})
                 </option>
               ))}
             </select>

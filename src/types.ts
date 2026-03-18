@@ -172,6 +172,10 @@ export interface Journey {
   nodes: any[]; // ReactFlow nodes
   edges: any[]; // ReactFlow edges
   qaRuns?: QARun[];
+  /** Homepage optimization: total QA runs count for this journey. */
+  qaRunsCount?: number;
+  /** Homepage optimization: reconstructed latest QA run used for derived status. */
+  latestQARun?: QARun | null;
   /** Counts of step implementation types (new / enrichment / fix). Set on canvas save. */
   type_counts?: { new?: number; enrichment?: number; fix?: number } | null;
   /** Global testing instructions for AI/human testers (Markdown). Synced to API. */

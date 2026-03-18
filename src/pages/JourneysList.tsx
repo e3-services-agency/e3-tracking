@@ -5,6 +5,7 @@ import { Input } from '@/src/components/ui/Input';
 import { Search, Plus, GitMerge, Trash2 } from 'lucide-react';
 import { createJourneyApi, deleteJourneyApi, useActiveWorkspaceId } from '@/src/features/journeys/hooks/useJourneysApi';
 import { useJourneys } from '@/src/features/journeys/hooks/useJourneys';
+import { computeQARunStatusForRun } from '@/src/features/journeys/lib/qaRunUtils';
 
 interface JourneysListProps {
   onSelectJourney: (id: string) => void;
@@ -66,6 +67,7 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
                 <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">Scope</th>
                 <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">Nodes</th>
                 <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">QA Runs</th>
+                <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">QA Status</th>
                 <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b text-right">Actions</th>
               </tr>
             </thead>
@@ -115,7 +117,16 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
                     {journey.nodes?.length || 0} nodes
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
-                    {journey.qaRuns?.length || 0} runs
+                    {journey.qaRunsCount ?? journey.qaRuns?.length ?? 0} runs
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                    {journey.qaRunsCount && journey.latestQARun ? (
+                      <span className="font-medium text-gray-700">
+                        {computeQARunStatusForRun(journey.latestQARun)}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap text-right">
                     <Button
@@ -140,7 +151,7 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
               );})}
               {filteredJourneys.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                     No journeys found. Create one to get started.
                   </td>
                 </tr>

@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useReactFlow, NodeProps } from '@xyflow/react';
 import { Image as ImageIcon, UploadCloud, CheckCircle2, ExternalLink } from 'lucide-react';
 
@@ -17,15 +17,68 @@ import { buildProofFromFile } from '@/src/features/journeys/lib/proofs';
 import { uploadJourneyStepImage } from '@/src/features/journeys/lib/journeyImageStorage';
 import { StrictHandles, QAStatusBadge } from '@/src/features/journeys/nodes/NodeHandles';
 import { JourneyQuickAddMenu } from '@/src/features/journeys/overlays/JourneyQuickAddMenu';
+import { fetchWithAuth } from '@/src/lib/api';
+import { API_BASE } from '@/src/config/env';
 
 export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) => {
   const { setNodes } = useReactFlow<JourneyFlowNode, JourneyFlowEdge>();
+  const [resolvedImageSrc, setResolvedImageSrc] = useState<string | null>(null);
+  const [imgError, setImgError] = useState(false);
 
   const isQAMode = !!data.activeQARunId;
   const isReadOnly = !!(data as JourneyStepNodeData & { readOnly?: boolean }).readOnly;
   const qaStatus = data.qaVerification?.status || 'Pending';
   const pendingProofs = data.pendingProofs || [];
   const disabled = isQAMode || isReadOnly;
+
+  const rawImageUrl = typeof data.imageUrl === 'string' ? data.imageUrl.trim() : '';
+  const needsAuthedFetch = useMemo(() => rawImageUrl.startsWith('/api/'), [rawImageUrl]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    setImgError(false);
+
+    if (!rawImageUrl) {
+      setResolvedImageSrc(null);
+      return () => {};
+    }
+
+    if (!needsAuthedFetch) {
+      setResolvedImageSrc(rawImageUrl);
+      return () => {};
+    }
+
+    // Legacy/private proxy URLs can't be loaded by <img> because they require auth and headers.
+    // Fetch with auth and convert to a blob URL.
+    const workspaceId = (data as JourneyStepNodeData & { workspaceId?: string }).workspaceId;
+    if (!workspaceId) {
+      setResolvedImageSrc(rawImageUrl);
+      return () => {};
+    }
+
+    fetchWithAuth(`${API_BASE}${rawImageUrl}`, {
+      method: 'GET',
+      headers: { 'x-workspace-id': workspaceId },
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`Image fetch failed (${res.status})`);
+        const blob = await res.blob();
+        objectUrl = URL.createObjectURL(blob);
+        if (!cancelled) setResolvedImageSrc(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setResolvedImageSrc(rawImageUrl);
+          setImgError(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [rawImageUrl, needsAuthedFetch, data]);
 
   const updateNodeData = useCallback(
     (patch: Partial<JourneyStepNodeData>) => {
@@ -311,14 +364,22 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
       </div>
 
       <div className="relative p-2">
-        {data.imageUrl ? (
+        {rawImageUrl ? (
           <div className="relative inline-block w-full select-none">
             <img
-              src={data.imageUrl}
+              src={resolvedImageSrc ?? rawImageUrl}
               alt="Step"
               className="w-full h-auto rounded border"
               draggable={false}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onError={() => setImgError(true)}
             />
+            {imgError && (
+              <div className="mt-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                Image failed to load in canvas. If this is an older journey, re-upload the screenshot to migrate it to a public Storage URL.
+              </div>
+            )}
           </div>
         ) : (
           <label className="h-32 flex flex-col items-center justify-center bg-gray-50 border-2 border-dashed rounded text-gray-400 text-sm cursor-pointer hover:bg-gray-100 transition-colors">

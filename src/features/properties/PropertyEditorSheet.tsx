@@ -17,7 +17,7 @@ import {
 import type { ApiError } from '@/src/features/properties/hooks/useProperties';
 import type { PropertyUpdatePayload } from '@/src/features/properties/hooks/useProperties';
 import { useCatalogs } from '@/src/features/catalogs/hooks/useCatalogs';
-import { AlertCircle, Info, Link2 } from 'lucide-react';
+import { AlertCircle, Info, Link2, Braces, Brackets, Hash, Type, ToggleLeft, Sigma } from 'lucide-react';
 
 const CONTEXTS: { value: PropertyContext; label: string }[] = [
   { value: 'event_property', label: 'Event Property' },
@@ -25,7 +25,24 @@ const CONTEXTS: { value: PropertyContext; label: string }[] = [
   { value: 'system_property', label: 'System Property' },
 ];
 
-const DATA_TYPES: PropertyDataType[] = ['string', 'integer', 'float', 'boolean', 'object', 'list'];
+type UIPropertyDataType = PropertyDataType | 'array';
+const UI_DATA_TYPES: { value: UIPropertyDataType; label: string }[] = [
+  { value: 'string', label: 'string' },
+  { value: 'integer', label: 'integer' },
+  { value: 'float', label: 'float' },
+  { value: 'boolean', label: 'boolean' },
+  { value: 'object', label: 'object {}' },
+  { value: 'array', label: 'array []' },
+];
+
+function dataTypeIcon(t: UIPropertyDataType): React.ReactNode {
+  if (t === 'array') return <Brackets className="w-4 h-4" />;
+  if (t === 'object') return <Braces className="w-4 h-4" />;
+  if (t === 'boolean') return <ToggleLeft className="w-4 h-4" />;
+  if (t === 'integer') return <Hash className="w-4 h-4" />;
+  if (t === 'float') return <Sigma className="w-4 h-4" />;
+  return <Type className="w-4 h-4" />;
+}
 
 const PII_OPTIONS: { value: PiiStatus; label: string }[] = [
   { value: 'none', label: 'None' },
@@ -71,9 +88,8 @@ export function PropertyEditorSheet({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [context, setContext] = useState<PropertyContext>('event_property');
-  const [dataType, setDataType] = useState<PropertyDataType>('string');
+  const [dataType, setDataType] = useState<UIPropertyDataType>('string');
   const [piiStatus, setPiiStatus] = useState<PiiStatus>('none');
-  const [isList, setIsList] = useState(false);
   const [dataFormat, setDataFormat] = useState('');
   const [presence, setPresence] = useState<'always_sent' | 'sometimes_sent' | 'never_sent'>('always_sent');
   const [saving, setSaving] = useState(false);
@@ -92,9 +108,8 @@ export function PropertyEditorSheet({
         setName(initialProperty.name);
         setDescription(initialProperty.description ?? '');
         setContext(initialProperty.context);
-        setDataType(initialProperty.data_type);
+        setDataType(initialProperty.data_type === 'list' || initialProperty.is_list ? 'array' : initialProperty.data_type);
         setPiiStatus(initialProperty.pii_status);
-        setIsList(initialProperty.is_list);
         setDataFormat(initialProperty.data_format ?? '');
         setMappingEnabled(Boolean(initialProperty.mapped_catalog_id && initialProperty.mapped_catalog_field_id));
         setMappedCatalogId(initialProperty.mapped_catalog_id ?? '');
@@ -112,7 +127,6 @@ export function PropertyEditorSheet({
         setContext('event_property');
         setDataType('string');
         setPiiStatus('none');
-        setIsList(false);
         setDataFormat('');
         setPresence('always_sent');
         setMappingEnabled(false);
@@ -144,13 +158,16 @@ export function PropertyEditorSheet({
     clearMutationError();
 
     if (isEdit && initialProperty && updateProperty) {
+      const normalizedDataType: PropertyDataType =
+        dataType === 'array' ? 'list' : (dataType as PropertyDataType);
+      const normalizedIsList = dataType === 'array';
       const payload: PropertyUpdatePayload = {
         name: trimmedName,
         description: description.trim() || undefined,
         context,
-        data_type: dataType,
+        data_type: normalizedDataType,
         pii_status: piiStatus,
-        is_list: isList,
+        is_list: normalizedIsList,
         data_format: dataFormat.trim() || undefined,
       };
       if (mappingEnabled && mappedCatalogId && mappedFieldId) {
@@ -168,13 +185,16 @@ export function PropertyEditorSheet({
       return;
     }
 
+    const normalizedDataType: PropertyDataType =
+      dataType === 'array' ? 'list' : (dataType as PropertyDataType);
+    const normalizedIsList = dataType === 'array';
     const payload: CreatePropertyInput = {
       name: trimmedName,
       description: description.trim() || undefined,
       context,
-      data_type: dataType,
+      data_type: normalizedDataType,
       pii_status: piiStatus,
-      is_list: isList,
+      is_list: normalizedIsList,
       data_format: dataFormat.trim() || undefined,
     };
     if (mappingEnabled && mappedCatalogId && mappedFieldId) {
@@ -240,23 +260,21 @@ export function PropertyEditorSheet({
           <div className="flex gap-4 items-center flex-wrap">
             <select
               value={dataType}
-              onChange={(e) => setDataType(e.target.value as PropertyDataType)}
+              onChange={(e) => setDataType(e.target.value as UIPropertyDataType)}
               className="rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {DATA_TYPES.map((t) => (
-                <option key={t} value={t}>{t}</option>
+              {UI_DATA_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
-            <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isList}
-                onChange={(e) => setIsList(e.target.checked)}
-                className="rounded border-gray-300 text-[var(--color-info)] focus:ring-[var(--color-info)]"
-              />
-              List
-            </label>
+            <span className="inline-flex items-center gap-2 text-sm text-gray-600 bg-gray-50 border rounded-md px-2 py-1">
+              {dataTypeIcon(dataType)}
+              <span className="font-mono">{dataType === 'array' ? 'array []' : dataType === 'object' ? 'object {}' : dataType}</span>
+            </span>
           </div>
+          <p className="text-xs text-gray-500">
+            Arrays and objects are first-class types; list storage is handled automatically.
+          </p>
         </div>
 
         <div className="space-y-2">

@@ -19,7 +19,7 @@ import { useProperties } from '@/src/features/properties/hooks/useProperties';
 import { useCatalogs } from '@/src/features/catalogs/hooks/useCatalogs';
 import type { PropertyRow, PropertyContext, PiiStatus } from '@/src/types/schema';
 import type { CatalogFieldRow } from '@/src/types/schema';
-import { Search, Plus, FileQuestion, AlertCircle, Link2 } from 'lucide-react';
+import { Search, Plus, FileQuestion, AlertCircle, Link2, Braces, Brackets, Hash, Type, ToggleLeft, Sigma } from 'lucide-react';
 
 const CONTEXT_LABELS: Record<PropertyContext, string> = {
   event_property: 'Event Property',
@@ -102,21 +102,24 @@ export function PropertiesList({ onOpenCreate, onOpenProperty }: PropertiesListP
       {
         id: 'type',
         header: 'Type',
-        accessorFn: (row) => (row.is_list ? `[${row.data_type}]` : row.data_type),
+        accessorFn: (row) => (row.data_type === 'list' || row.is_list ? 'array' : row.data_type),
         cell: ({ row }) => {
           const p = row.original;
+          const uiType = p.data_type === 'list' || p.is_list ? 'array' : p.data_type;
+          const icon =
+            uiType === 'array' ? <Brackets className="w-3.5 h-3.5" /> :
+            uiType === 'object' ? <Braces className="w-3.5 h-3.5" /> :
+            uiType === 'boolean' ? <ToggleLeft className="w-3.5 h-3.5" /> :
+            uiType === 'integer' ? <Hash className="w-3.5 h-3.5" /> :
+            uiType === 'float' ? <Sigma className="w-3.5 h-3.5" /> :
+            <Type className="w-3.5 h-3.5" />;
           return (
-            <Badge variant="outline" className="font-mono text-xs">
-              {p.is_list ? `[${p.data_type}]` : p.data_type}
+            <Badge variant="outline" className="font-mono text-xs inline-flex items-center gap-1.5">
+              {icon}
+              {uiType === 'array' ? 'array []' : uiType === 'object' ? 'object {}' : uiType}
             </Badge>
           );
         },
-      },
-      {
-        id: 'is_list',
-        header: 'List',
-        accessorFn: (row) => row.is_list,
-        cell: ({ getValue }) => (getValue() ? 'Yes' : '—'),
       },
       {
         id: 'pii_status',

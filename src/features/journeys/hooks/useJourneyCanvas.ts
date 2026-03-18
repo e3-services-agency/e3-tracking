@@ -342,9 +342,7 @@ export function useJourneyCanvas({
       updateJourney(journey.id, { nodes: nodesWithUploadedImages, edges, type_counts });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
-      if (migratedCount > 0) {
-        setSaveError(`Saved, and migrated ${migratedCount} screenshot(s) to Storage URLs.`);
-      }
+      // Migration of old base64 images is expected; avoid surfacing as an "error" banner.
     } else {
       setSaveError(result.error || 'Save failed');
       console.error('Save layout failed:', result.error);

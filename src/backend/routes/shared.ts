@@ -16,10 +16,31 @@ const router = Router();
 
 type CanvasNode = {
   type?: string;
+  id?: string;
   data?: {
     connectedEvent?: { eventId?: string; name?: string };
+    imageUrl?: string;
   };
 };
+
+function rewriteSharedImageUrls(journeyId: string, nodes: unknown): unknown {
+  if (!Array.isArray(nodes)) return nodes;
+  return (nodes as CanvasNode[]).map((n) => {
+    if (n?.type !== 'journeyStepNode') return n;
+    const url = n?.data?.imageUrl;
+    if (typeof url !== 'string') return n;
+    const prefix = `/api/journeys/${journeyId}/images/`;
+    if (!url.startsWith(prefix)) return n;
+    const encoded = url.slice(prefix.length);
+    return {
+      ...n,
+      data: {
+        ...n.data,
+        imageUrl: `/api/shared/journeys/journey/${journeyId}/images/${encoded}`,
+      },
+    };
+  });
+}
 
 async function buildSharedEventSnippets(
   workspaceId: string,
@@ -72,13 +93,14 @@ router.get(
     }
     try {
       const journey = await getJourneyByShareToken(token);
-      const eventSnippets = await buildSharedEventSnippets(journey.workspace_id, journey.nodes);
+      const rewrittenNodes = rewriteSharedImageUrls(journey.id, journey.nodes);
+      const eventSnippets = await buildSharedEventSnippets(journey.workspace_id, rewrittenNodes);
       res.status(200).json({
         id: journey.id,
         name: journey.name,
         description: journey.description,
         testing_instructions_markdown: journey.testing_instructions_markdown,
-        nodes: journey.nodes,
+        nodes: rewrittenNodes,
         edges: journey.edges,
         eventSnippets,
       });
@@ -123,13 +145,14 @@ router.get(
     }
     try {
       const journey = await getJourneyByShareId(id);
-      const eventSnippets = await buildSharedEventSnippets(journey.workspace_id, journey.nodes);
+      const rewrittenNodes = rewriteSharedImageUrls(journey.id, journey.nodes);
+      const eventSnippets = await buildSharedEventSnippets(journey.workspace_id, rewrittenNodes);
       res.status(200).json({
         id: journey.id,
         name: journey.name,
         description: journey.description,
         testing_instructions_markdown: journey.testing_instructions_markdown,
-        nodes: journey.nodes,
+        nodes: rewrittenNodes,
         edges: journey.edges,
         eventSnippets,
       });

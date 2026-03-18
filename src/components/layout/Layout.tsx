@@ -14,12 +14,31 @@ import { Catalogs } from '@/src/pages/Catalogs';
 import { TrackingPlanAuditConfig } from '@/src/pages/TrackingPlanAuditConfig';
 
 const DEFAULT_BRAND_PRIMARY = 'var(--e3-emerald)';
+const SIDEBAR_COLLAPSED_KEY = 'e3-tracking.sidebarCollapsed';
 
 export function Layout() {
   const [activeTab, setActiveTab] = useState('events');
   const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const { settings } = useActiveData();
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      if (raw === null) return;
+      setIsSidebarCollapsed(raw === '1');
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, isSidebarCollapsed ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  }, [isSidebarCollapsed]);
 
   useEffect(() => {
     const root = document.documentElement;

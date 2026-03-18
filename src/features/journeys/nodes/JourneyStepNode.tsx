@@ -24,6 +24,7 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
   const { setNodes } = useReactFlow<JourneyFlowNode, JourneyFlowEdge>();
   const [resolvedImageSrc, setResolvedImageSrc] = useState<string | null>(null);
   const [imgError, setImgError] = useState(false);
+  const [imgErrorDetail, setImgErrorDetail] = useState<string | null>(null);
 
   const isQAMode = !!data.activeQARunId;
   const isReadOnly = !!(data as JourneyStepNodeData & { readOnly?: boolean }).readOnly;
@@ -38,6 +39,7 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
     let cancelled = false;
     let objectUrl: string | null = null;
     setImgError(false);
+    setImgErrorDetail(null);
 
     if (!rawImageUrl) {
       setResolvedImageSrc(null);
@@ -67,10 +69,11 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
         objectUrl = URL.createObjectURL(blob);
         if (!cancelled) setResolvedImageSrc(objectUrl);
       })
-      .catch(() => {
+      .catch((e) => {
         if (!cancelled) {
           setResolvedImageSrc(rawImageUrl);
           setImgError(true);
+          setImgErrorDetail(e instanceof Error ? e.message : 'Image fetch failed');
         }
       });
 
@@ -372,12 +375,20 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
               className="w-full h-auto rounded border"
               draggable={false}
               loading="lazy"
-              referrerPolicy="no-referrer"
-              onError={() => setImgError(true)}
+              onError={() => {
+                setImgError(true);
+                if (!imgErrorDetail) setImgErrorDetail('Image element failed to load');
+              }}
             />
             {imgError && (
               <div className="mt-1 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                Image failed to load in canvas. If this is an older journey, re-upload the screenshot to migrate it to a public Storage URL.
+                <div className="font-medium">Image failed to load in canvas.</div>
+                <div className="mt-0.5 text-amber-800/80 break-all">
+                  {imgErrorDetail ? imgErrorDetail : 'Unknown error'}
+                </div>
+                <div className="mt-0.5 text-amber-800/80 break-all">
+                  src: {resolvedImageSrc ?? rawImageUrl}
+                </div>
               </div>
             )}
           </div>

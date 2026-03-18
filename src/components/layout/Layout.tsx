@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { useActiveData, useStore } from '@/src/store';
@@ -61,6 +61,7 @@ export function Layout() {
   const activeWorkspaceId = useStore((s) => s.activeWorkspaceId);
   const activeWorkspaceKey = useStore((s) => s.activeWorkspaceKey);
   const setActiveWorkspace = useStore((s) => s.setActiveWorkspace);
+  const resolveSeq = useRef(0);
 
   useEffect(() => {
     try {
@@ -95,8 +96,14 @@ export function Layout() {
     const applyFromLocation = () => {
       const parsedWs = parseWorkspaceFromPath(window.location.pathname);
       if (parsedWs.workspaceKey) {
+        const current = useStore.getState();
+        // If URL already matches current workspace key, don't re-resolve (prevents loops).
+        if (current.activeWorkspaceKey === parsedWs.workspaceKey) {
+          // still continue to sync route tab/journey
+        } else {
         // Resolve key -> full workspace UUID via Supabase (RLS ensures membership).
         const key = parsedWs.workspaceKey;
+        const seq = ++resolveSeq.current;
         const supabase = getSupabaseClient();
         supabase
           .from('workspaces')
@@ -105,13 +112,17 @@ export function Layout() {
           .is('deleted_at', null)
           .maybeSingle()
           .then(({ data }) => {
+            if (seq !== resolveSeq.current) return; // ignore stale resolve
             const id = (data as any)?.id as string | undefined;
             const wk = (data as any)?.workspace_key as string | undefined;
-            if (id && id !== activeWorkspaceId) {
+            if (!id) return;
+            const latest = useStore.getState();
+            if (id !== latest.activeWorkspaceId || (wk ?? key) !== latest.activeWorkspaceKey) {
               setActiveWorkspace({ id, key: wk ?? key });
             }
           })
           .catch(() => {});
+        }
       }
       const parsed = syncJourneysRouteFromLocation();
       if (!parsed) return;
@@ -121,7 +132,7 @@ export function Layout() {
     applyFromLocation();
     window.addEventListener('popstate', applyFromLocation);
     return () => window.removeEventListener('popstate', applyFromLocation);
-  }, [activeWorkspaceId, setActiveWorkspace]);
+  }, [setActiveWorkspace]);
 
   // Keep workspace prefix in URL in sync (always use short workspace key in URL).
   useEffect(() => {

@@ -40,6 +40,7 @@ import {
 } from '@/src/features/journeys/nodes/types';
 import { readFileAsContent, buildProofFromFile } from '@/src/features/journeys/lib/proofs';
 import { uploadJourneyStepImage } from '@/src/features/journeys/lib/journeyImageStorage';
+import { SUPABASE_URL } from '@/src/config/env';
 
 type UseJourneyCanvasArgs = {
   journey: Journey;
@@ -299,14 +300,48 @@ export function useJourneyCanvas({
       return new File([blob], `${filename}.${ext || 'png'}`, { type: blob.type || 'image/png' });
     };
 
+    const base64UrlToUtf8 = (b64url: string): string | null => {
+      try {
+        const pad = '='.repeat((4 - (b64url.length % 4)) % 4);
+        const b64 = (b64url + pad).replace(/-/g, '+').replace(/_/g, '/');
+        const bin = atob(b64);
+        // binary -> utf8
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+        return new TextDecoder().decode(bytes);
+      } catch {
+        return null;
+      }
+    };
+
+    const normalizeLegacyProxyUrl = (imageUrl: string): string | null => {
+      // Old format (private proxy): /api/journeys/:id/images/:encodedPath
+      const prefix = `/api/journeys/${journey.id}/images/`;
+      if (!imageUrl.startsWith(prefix)) return null;
+      const encoded = imageUrl.slice(prefix.length);
+      const objectPath = base64UrlToUtf8(encoded);
+      if (!objectPath || !SUPABASE_URL) return null;
+      return `${SUPABASE_URL}/storage/v1/object/public/journey-images/${objectPath}`;
+    };
+
     let migratedCount = 0;
     const nodesWithUploadedImages = await Promise.all(
       nodes.map(async (n) => {
         if (n?.type !== 'journeyStepNode') return n;
         const imageUrl = (n.data as { imageUrl?: unknown })?.imageUrl;
-        if (typeof imageUrl !== 'string' || !imageUrl.startsWith('data:image/')) return n;
+        if (typeof imageUrl !== 'string' || !imageUrl.trim()) return n;
+        const trimmed = imageUrl.trim();
+
+        // Convert legacy proxy URLs to public Storage URLs (so exports/shared view work).
+        const normalized = normalizeLegacyProxyUrl(trimmed);
+        if (normalized) {
+          migratedCount += 1;
+          return { ...n, data: { ...n.data, imageUrl: normalized } };
+        }
+
+        if (!trimmed.startsWith('data:image/')) return n;
         try {
-          const file = await dataUrlToFile(imageUrl, `step-${n.id}-${Date.now()}`);
+          const file = await dataUrlToFile(trimmed, `step-${n.id}-${Date.now()}`);
           const result = await uploadJourneyStepImage({
             journeyId: journey.id,
             nodeId: n.id,

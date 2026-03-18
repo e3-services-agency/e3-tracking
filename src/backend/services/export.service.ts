@@ -69,6 +69,26 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+function normalizeStepImageUrlForExport(raw: string): string {
+  const url = (raw || '').trim();
+  if (!url) return url;
+
+  // If the stored value is an old private proxy URL, convert it to a public Storage URL
+  // so exported HTML works without auth headers.
+  // Format: /api/journeys/:id/images/:encodedPath
+  const m = url.match(/^\/api\/journeys\/[^/]+\/images\/([^/?#]+)$/);
+  if (!m) return url;
+  const encoded = m[1];
+  const supabaseUrl = (process.env.SUPABASE_URL || '').trim().replace(/\/$/, '');
+  if (!supabaseUrl) return url;
+  try {
+    const objectPath = Buffer.from(encoded, 'base64url').toString('utf8');
+    return `${supabaseUrl}/storage/v1/object/public/journey-images/${objectPath}`;
+  } catch {
+    return url;
+  }
+}
+
 async function readPublicAssetAsDataUrl(
   relativePathFromPublic: string,
   mimeType: string
@@ -282,7 +302,7 @@ export async function generateJourneyHtmlExport(
       description: typeof data.description === 'string' ? data.description : '',
       imageUrl:
         typeof data.imageUrl === 'string' && data.imageUrl.trim()
-          ? data.imageUrl.trim()
+          ? normalizeStepImageUrlForExport(data.imageUrl.trim())
           : null,
       actionType:
         typeof data.actionType === 'string' && data.actionType

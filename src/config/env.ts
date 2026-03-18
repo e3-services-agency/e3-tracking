@@ -15,3 +15,9 @@ export const API_BASE =
   getEnv('VITE_API_BASE_URL') != null
     ? String(getEnv('VITE_API_BASE_URL')).replace(/\/$/, '')
     : (getEnv('BASE_URL') != null ? String(getEnv('BASE_URL')).replace(/\/$/, '') : '');
+
+/** Supabase project URL (no trailing slash). Used for building public Storage URLs. */
+export const SUPABASE_URL =
+  getEnv('VITE_SUPABASE_URL') != null
+    ? String(getEnv('VITE_SUPABASE_URL')).replace(/\/$/, '')
+    : '';

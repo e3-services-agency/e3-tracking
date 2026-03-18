@@ -14,6 +14,7 @@ import {
   IMPLEMENTATION_TYPES,
 } from '@/src/features/journeys/nodes/types';
 import { buildProofFromFile } from '@/src/features/journeys/lib/proofs';
+import { uploadJourneyStepImage } from '@/src/features/journeys/lib/journeyImageStorage';
 import { StrictHandles, QAStatusBadge } from '@/src/features/journeys/nodes/NodeHandles';
 import { JourneyQuickAddMenu } from '@/src/features/journeys/overlays/JourneyQuickAddMenu';
 
@@ -45,12 +46,31 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const imageUrl = event.target?.result as string;
-      updateNodeData({ imageUrl });
-    };
-    reader.readAsDataURL(file);
+    const journeyId = (data as JourneyStepNodeData & { journeyId?: string }).journeyId;
+    if (!journeyId) {
+      // Fallback (shouldn't happen): keep old behavior.
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const imageUrl = event.target?.result as string;
+        updateNodeData({ imageUrl });
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const workspaceId = (data as JourneyStepNodeData & { workspaceId?: string }).workspaceId;
+    if (!workspaceId) {
+      alert('Workspace context missing. Please refresh and try again.');
+      return;
+    }
+
+    uploadJourneyStepImage({ journeyId, nodeId: id, file, workspaceId }).then((result) => {
+      if (!result.success) {
+        alert(result.error ?? 'Failed to upload image');
+        return;
+      }
+      updateNodeData({ imageUrl: result.url });
+    });
   };
 
   const handlePaste = useCallback(
@@ -67,12 +87,27 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
             const proof = await buildProofFromFile(file);
             updateNodeData({ pendingProofs: [...pendingProofs, proof] });
           } else {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              const imageUrl = event.target?.result as string;
-              updateNodeData({ imageUrl });
-            };
-            reader.readAsDataURL(file);
+            const journeyId = (data as JourneyStepNodeData & { journeyId?: string }).journeyId;
+            if (!journeyId) {
+              const reader = new FileReader();
+              reader.onload = (event) => {
+                const imageUrl = event.target?.result as string;
+                updateNodeData({ imageUrl });
+              };
+              reader.readAsDataURL(file);
+            } else {
+              const workspaceId = (data as JourneyStepNodeData & { workspaceId?: string }).workspaceId;
+              if (!workspaceId) {
+                alert('Workspace context missing. Please refresh and try again.');
+                continue;
+              }
+              const result = await uploadJourneyStepImage({ journeyId, nodeId: id, file, workspaceId });
+              if (!result.success) {
+                alert(result.error ?? 'Failed to upload image');
+              } else {
+                updateNodeData({ imageUrl: result.url });
+              }
+            }
           }
 
           e.preventDefault();
@@ -80,7 +115,7 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
         }
       }
     },
-    [isQAMode, pendingProofs, updateNodeData],
+    [isQAMode, pendingProofs, updateNodeData, data, id],
   );
 
   const implType = data.implementationType ?? 'new';

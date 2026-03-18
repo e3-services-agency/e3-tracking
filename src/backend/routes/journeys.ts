@@ -6,13 +6,17 @@
  * Mount this router at /api/journeys, e.g. app.use('/api/journeys', journeysRouter).
  */
 import { Router, type Request, type Response } from 'express';
+import multer from 'multer';
 import { requireWorkspace } from '../middleware/workspace';
+import { requireAuth } from '../middleware/auth';
 import * as JourneyDAL from '../dal/journey.dal';
 import { getAlwaysSentPropertyKeysForEvent } from '../dal/event.dal';
 import { generateJourneyHtmlExport } from '../services/export.service';
 import { ConflictError, DatabaseError, NotFoundError } from '../errors';
+import { getSupabaseOrThrow } from '../db/supabase';
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 /**
  * validatePayload(eventId, actualJson): checks that all always_sent property keys exist in actualJson.
@@ -78,6 +82,119 @@ router.get('/', requireWorkspace, async (req: Request, res: Response): Promise<v
     });
   }
 });
+
+/**
+ * POST /api/journeys/:id/images
+ * Upload an image to Supabase Storage (service role). Returns { path, url }.
+ */
+router.post(
+  '/:id/images',
+  requireWorkspace,
+  requireAuth,
+  upload.single('file'),
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = req.workspaceId;
+    if (!workspaceId) {
+      res.status(403).json({ error: 'Workspace context required.', code: 'WORKSPACE_REQUIRED' });
+      return;
+    }
+    const journeyId = req.params.id;
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ error: 'file is required.', code: 'BAD_REQUEST' });
+      return;
+    }
+
+    try {
+      // Ensure journey exists in workspace (prevents writing orphaned paths).
+      const journey = await JourneyDAL.getJourneyById(workspaceId, journeyId);
+      if (!journey) {
+        res.status(404).json({ error: 'Journey not found.', code: 'NOT_FOUND', resource: 'journey' });
+        return;
+      }
+
+      const supabase = getSupabaseOrThrow();
+      const safeName = (file.originalname || 'image')
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9._-]/g, '');
+      const objectPath = `workspaces/${workspaceId}/journeys/${journeyId}/${Date.now()}-${safeName}`;
+
+      const { error: upErr } = await supabase.storage
+        .from('journey-images')
+        .upload(objectPath, file.buffer, {
+          upsert: true,
+          contentType: file.mimetype || 'application/octet-stream',
+          cacheControl: '3600',
+        });
+
+      if (upErr) {
+        res.status(500).json({ error: upErr.message, code: 'STORAGE_UPLOAD_FAILED' });
+        return;
+      }
+
+      // Bucket is private: return proxy URL served by our API (so app + shared view can load it).
+      const encoded = Buffer.from(objectPath, 'utf8').toString('base64url');
+      res.status(200).json({
+        path: objectPath,
+        url: `/api/journeys/${journeyId}/images/${encoded}`,
+      });
+    } catch (err) {
+      if (err instanceof DatabaseError) {
+        res.status(500).json({ error: 'Failed to upload image.', code: err.code });
+        return;
+      }
+      res.status(500).json({ error: 'An unexpected error occurred.', code: 'INTERNAL_ERROR' });
+    }
+  }
+);
+
+/**
+ * GET /api/journeys/:id/images/:encodedPath
+ * Streams a private storage object via service role.
+ */
+router.get(
+  '/:id/images/:encodedPath',
+  requireWorkspace,
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = req.workspaceId;
+    if (!workspaceId) {
+      res.status(403).json({ error: 'Workspace context required.', code: 'WORKSPACE_REQUIRED' });
+      return;
+    }
+    const journeyId = req.params.id;
+    const encodedPath = req.params.encodedPath;
+    let objectPath = '';
+    try {
+      objectPath = Buffer.from(encodedPath, 'base64url').toString('utf8');
+    } catch {
+      res.status(400).json({ error: 'Invalid image path.', code: 'BAD_REQUEST' });
+      return;
+    }
+
+    // Basic guard: ensure path matches journey/workspace prefix we write.
+    const expectedPrefix = `workspaces/${workspaceId}/journeys/${journeyId}/`;
+    if (!objectPath.startsWith(expectedPrefix)) {
+      res.status(403).json({ error: 'Forbidden.', code: 'FORBIDDEN' });
+      return;
+    }
+
+    try {
+      const supabase = getSupabaseOrThrow();
+      const { data, error } = await supabase.storage.from('journey-images').download(objectPath);
+      if (error || !data) {
+        res.status(404).json({ error: 'Image not found.', code: 'NOT_FOUND' });
+        return;
+      }
+      const buf = Buffer.from(await data.arrayBuffer());
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.status(200).send(buf);
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to load image.', code: 'INTERNAL_ERROR' });
+    }
+  }
+);
 
 /**
  * DELETE /api/journeys/:id

@@ -18,6 +18,7 @@ import eventsRouter from './routes/events';
 import propertiesRouter from './routes/properties';
 import journeysRouter from './routes/journeys';
 import sharedRouter from './routes/shared';
+import { optionalAuth } from './middleware/auth';
 import { ConfigError } from './errors';
 
 function getCorsOrigin(): string | string[] | boolean {
@@ -38,6 +39,7 @@ export function createApp(): express.Express {
       optionsSuccessStatus: 204,
     })
   );
+  app.use(optionalAuth);
   app.use(express.json());
 
   app.use('/api/workspaces', workspacesRouter);

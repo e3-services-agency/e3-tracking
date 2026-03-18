@@ -13,6 +13,8 @@ export type BaseJourneyNodeData = {
   activeQARunId?: string | null;
   qaVerification?: QAVerification;
   pendingProofs?: QAProof[];
+  /** Used for Storage uploads (step screenshots). */
+  journeyId?: string;
 };
 
 /** AI Agent step action type. */

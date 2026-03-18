@@ -374,10 +374,29 @@ export function Journeys({
                     <span className="flex items-center gap-2">
                       <Share2 className="w-4 h-4" /> Share
                     </span>
-                    <span
+                    <button
+                      type="button"
                       className="shrink-0"
-                      onClick={(e) => {
+                      aria-label="Toggle public sharing"
+                      onClick={async (e) => {
                         e.stopPropagation();
+                        if (isTogglingShare) return;
+                        const next = !Boolean(selectedJourney.share_token);
+                        setIsTogglingShare(true);
+                        const result = await setJourneyShareEnabledApi(
+                          selectedJourney.id,
+                          next,
+                          activeWorkspaceId,
+                        );
+                        setIsTogglingShare(false);
+                        if (!result.success) {
+                          alert(result.error ?? 'Failed to update share settings');
+                          return;
+                        }
+                        updateJourney(selectedJourney.id, {
+                          share_token: next ? (result.token ?? 'enabled') : null,
+                        });
+                        setIsSharePanelOpen(next);
                       }}
                     >
                       <div
@@ -385,31 +404,6 @@ export function Journeys({
                           selectedJourney.share_token ? 'bg-green-500' : 'bg-gray-200'
                         } ${isTogglingShare ? 'opacity-60' : ''}`}
                       >
-                        <input
-                          type="checkbox"
-                          checked={Boolean(selectedJourney.share_token)}
-                          disabled={isTogglingShare}
-                          onChange={async (e) => {
-                            const next = e.target.checked;
-                            setIsTogglingShare(true);
-                            const result = await setJourneyShareEnabledApi(
-                              selectedJourney.id,
-                              next,
-                              activeWorkspaceId,
-                            );
-                            setIsTogglingShare(false);
-                            if (!result.success) {
-                              alert(result.error ?? 'Failed to update share settings');
-                              return;
-                            }
-                            updateJourney(selectedJourney.id, {
-                              share_token: next ? (result.token ?? 'enabled') : null,
-                            });
-                            if (next) setIsSharePanelOpen(true);
-                            else setIsSharePanelOpen(false);
-                          }}
-                          className="hidden"
-                        />
                         <div
                           className={`w-5 h-5 bg-white rounded-full absolute top-0 shadow-sm transition-all ${
                             selectedJourney.share_token
@@ -418,7 +412,7 @@ export function Journeys({
                           }`}
                         />
                       </div>
-                    </span>
+                    </button>
                   </button>
 
                   {isSharePanelOpen && (

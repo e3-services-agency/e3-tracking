@@ -98,6 +98,8 @@ export function useJourneyCanvas({
           ...node,
           data: {
             ...node.data,
+            journeyId: journey.id,
+            workspaceId: activeWorkspaceId,
             activeQARunId: null,
             qaVerification: undefined,
             readOnly: readOnly || undefined,
@@ -145,6 +147,7 @@ export function useJourneyCanvas({
           ...node.data,
           activeQARunId,
           qaVerification: activeQARun.verifications?.[node.id],
+          workspaceId: activeWorkspaceId,
         },
       }));
 
@@ -286,21 +289,45 @@ export function useJourneyCanvas({
   const handleSaveLayout = async () => {
     setIsSaving(true);
     setSaveError(null);
-    const result = await saveJourneyCanvasApi(journey.id, journey.name, nodes, edges, activeWorkspaceId);
+    // Safety net: old journeys may still contain base64 screenshots (data: URLs),
+    // which will blow up request size on Vercel. Strip them before saving.
+    let strippedCount = 0;
+    const sanitizedNodes = nodes.map((n) => {
+      if (n?.type !== 'journeyStepNode') return n;
+      const imageUrl = (n.data as { imageUrl?: unknown })?.imageUrl;
+      if (typeof imageUrl === 'string' && imageUrl.startsWith('data:image/')) {
+        strippedCount += 1;
+        return { ...n, data: { ...n.data, imageUrl: undefined } };
+      }
+      return n;
+    });
+
+    const result = await saveJourneyCanvasApi(
+      journey.id,
+      journey.name,
+      sanitizedNodes,
+      edges,
+      activeWorkspaceId
+    );
     setIsSaving(false);
     if (result.success) {
       const type_counts = (() => {
         const counts = { new: 0, enrichment: 0, fix: 0 };
-        for (const n of nodes) {
+        for (const n of sanitizedNodes) {
           if (n?.type !== 'journeyStepNode') continue;
           const t = (n.data as { implementationType?: string })?.implementationType;
           if (t === 'new' || t === 'enrichment' || t === 'fix') counts[t] += 1;
         }
         return counts;
       })();
-      updateJourney(journey.id, { nodes, edges, type_counts });
+      updateJourney(journey.id, { nodes: sanitizedNodes, edges, type_counts });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
+      if (strippedCount > 0) {
+        setSaveError(
+          `Saved, but removed ${strippedCount} embedded screenshot(s). Please re-upload screenshots so they’re stored in Supabase Storage.`
+        );
+      }
     } else {
       setSaveError(result.error || 'Save failed');
       console.error('Save layout failed:', result.error);

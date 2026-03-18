@@ -10,6 +10,7 @@ import { getEventWithProperties } from '../dal/event.dal';
 import { DatabaseError, NotFoundError } from '../errors';
 import { buildCodegenSnippets } from '../services/codegen.service';
 import { generateJourneyHtmlExport } from '../services/export.service';
+import { getSupabaseOrThrow } from '../db/supabase';
 
 const router = Router();
 
@@ -196,6 +197,53 @@ router.get(
         error: 'An unexpected error occurred.',
         code: 'INTERNAL_ERROR',
       });
+    }
+  }
+);
+
+/**
+ * GET /api/shared/journeys/journey/:id/images/:encodedPath
+ * Streams a private journey image when share is enabled.
+ */
+router.get(
+  '/journeys/journey/:id/images/:encodedPath',
+  async (req: Request, res: Response): Promise<void> => {
+    const id = req.params.id;
+    const encodedPath = req.params.encodedPath;
+    if (!id || !encodedPath) {
+      res.status(400).json({ error: 'Bad request.', code: 'BAD_REQUEST' });
+      return;
+    }
+    let objectPath = '';
+    try {
+      objectPath = Buffer.from(encodedPath, 'base64url').toString('utf8');
+    } catch {
+      res.status(400).json({ error: 'Invalid image path.', code: 'BAD_REQUEST' });
+      return;
+    }
+
+    try {
+      const journey = await getJourneyByShareId(id);
+      const expectedPrefix = `workspaces/${journey.workspace_id}/journeys/${journey.id}/`;
+      if (!objectPath.startsWith(expectedPrefix)) {
+        res.status(403).json({ error: 'Forbidden.', code: 'FORBIDDEN' });
+        return;
+      }
+      const supabase = getSupabaseOrThrow();
+      const { data, error } = await supabase.storage.from('journey-images').download(objectPath);
+      if (error || !data) {
+        res.status(404).json({ error: 'Image not found.', code: 'NOT_FOUND' });
+        return;
+      }
+      const buf = Buffer.from(await data.arrayBuffer());
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.status(200).send(buf);
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        res.status(404).json({ error: err.message, code: err.code, resource: err.resource });
+        return;
+      }
+      res.status(500).json({ error: 'Failed to load image.', code: 'INTERNAL_ERROR' });
     }
   }
 );

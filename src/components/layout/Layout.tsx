@@ -13,7 +13,7 @@ import { JourneysList } from '@/src/pages/JourneysList';
 import { Catalogs } from '@/src/pages/Catalogs';
 import { TrackingPlanAuditConfig } from '@/src/pages/TrackingPlanAuditConfig';
 
-const DEFAULT_BRAND_PRIMARY = 'var(--brand-primary)';
+const DEFAULT_BRAND_PRIMARY = 'var(--e3-emerald)';
 
 export function Layout() {
   const [activeTab, setActiveTab] = useState('events');

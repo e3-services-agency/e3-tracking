@@ -9,6 +9,7 @@ import {
   FileText,
   Share2,
   Upload,
+  Loader2,
 } from 'lucide-react';
 import {
   updateJourneyTestingInstructionsApi,
@@ -26,6 +27,8 @@ import type { Journey, QARun } from '@/src/types';
 import { JourneyStartQARunModal } from '@/src/features/journeys/overlays/JourneyStartQARunModal';
 import { JourneyCanvas } from '@/src/features/journeys/editor/JourneyCanvas';
 import { useJourneys } from '@/src/features/journeys/hooks/useJourneys';
+import { fetchWithAuth } from '@/src/lib/api';
+import { API_BASE } from '@/src/config/env';
 
 export function Journeys({
   selectedJourneyId: initialJourneyId,
@@ -43,6 +46,7 @@ export function Journeys({
     initialJourneyId || data.journeys[0]?.id || null,
   );
   const [activeQARunId, setActiveQARunId] = useState<string | null>(null);
+  const [isBriefPreview, setIsBriefPreview] = useState(false);
   const [isQAModalOpen, setIsQAModalOpen] = useState(false);
   const [newQARunName, setNewQARunName] = useState('');
   const [newQATesterName, setNewQATesterName] = useState('');
@@ -94,6 +98,7 @@ export function Journeys({
     ) {
       setSelectedJourneyId(data.journeys[0]?.id || null);
       setActiveQARunId(null);
+      setIsBriefPreview(false);
     }
   }, [selectedJourneyId, data.journeys]);
 
@@ -193,6 +198,67 @@ export function Journeys({
     ? `${window.location.origin}${String(base).replace(/\/$/, '')}/share/journey/${selectedJourney.id}`
     : '';
 
+  const JourneyBriefPreview = ({ journeyId }: { journeyId: string }) => {
+    const [html, setHtml] = React.useState<string | null>(null);
+    const [error, setError] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+      let cancelled = false;
+      setHtml(null);
+      setError(null);
+      fetchWithAuth(`${API_BASE}/api/journeys/${journeyId}/export/html`, {
+        method: 'GET',
+        headers: { 'x-workspace-id': activeWorkspaceId },
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            const msg =
+              typeof (body as any)?.error === 'string'
+                ? (body as any).error
+                : res.statusText || 'Failed to load brief';
+            throw new Error(msg);
+          }
+          return res.text();
+        })
+        .then((t) => {
+          if (cancelled) return;
+          setHtml(t);
+        })
+        .catch((e) => {
+          if (cancelled) return;
+          setError(e instanceof Error ? e.message : 'Failed to load brief');
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [journeyId]);
+
+    if (error) {
+      return (
+        <div className="flex h-full w-full items-center justify-center bg-[var(--surface-default)]">
+          <div className="text-center max-w-md px-4">
+            <p className="text-red-600 font-medium">Failed to load brief</p>
+            <p className="text-sm text-gray-600 mt-1">{error}</p>
+          </div>
+        </div>
+      );
+    }
+    if (!html) {
+      return (
+        <div className="flex h-full w-full items-center justify-center bg-[var(--surface-default)]">
+          <div className="text-center">
+            <div className="w-8 h-8 border-2 border-[var(--color-info)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-sm text-gray-600">Loading implementation brief…</p>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <iframe title="Implementation brief preview" className="w-full h-full border-0 bg-white" srcDoc={html} />
+    );
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full bg-white">
       <div className="p-4 border-b bg-white flex items-center justify-between">
@@ -268,10 +334,20 @@ export function Journeys({
               </span>
               <select
                 className="text-sm border rounded p-1.5 bg-gray-50"
-                value={activeQARunId || ''}
-                onChange={(e) => setActiveQARunId(e.target.value || null)}
+                value={isBriefPreview ? '__brief__' : activeQARunId || ''}
+                onChange={(e) => {
+                  const v = e.target.value || '';
+                  if (v === '__brief__') {
+                    setIsBriefPreview(true);
+                    setActiveQARunId(null);
+                    return;
+                  }
+                  setIsBriefPreview(false);
+                  setActiveQARunId(v || null);
+                }}
               >
                 <option value="">-- Design Mode --</option>
+                <option value="__brief__">-- Implementation Brief Preview --</option>
                 {(selectedJourney.qaRuns || []).map((run) => (
                   <option key={run.id} value={run.id}>
                     {run.name}
@@ -373,6 +449,11 @@ export function Journeys({
                   >
                     <span className="flex items-center gap-2">
                       <Share2 className="w-4 h-4" /> Share
+                      {isTogglingShare && (
+                        <span className="flex items-center gap-1 text-xs text-gray-500">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Updating…
+                        </span>
+                      )}
                     </span>
                     <button
                       type="button"
@@ -439,31 +520,14 @@ export function Journeys({
                         </Button>
                       </div>
 
-                      <div className="mt-2 flex items-center gap-2">
-                        <input
-                          className="flex-1 h-9 px-2 text-xs rounded-md border border-gray-200 bg-white text-gray-700"
-                          value={selectedJourney.share_token ? `${shareUrlById}/brief` : ''}
-                          placeholder="Enable sharing to generate brief URL"
-                          readOnly
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={!selectedJourney.share_token}
-                          onClick={async () => {
-                            if (!selectedJourney.share_token) return;
-                            await navigator.clipboard.writeText(`${shareUrlById}/brief`);
-                            setShareLinkCopied(true);
-                            setTimeout(() => setShareLinkCopied(false), 2000);
-                          }}
-                        >
-                          {shareLinkCopied ? 'Copied' : 'Copy'}
-                        </Button>
-                      </div>
-
                       {!selectedJourney.share_token && (
                         <div className="text-xs text-gray-600 mt-2">
                           Enable public access to generate a shareable link.
+                        </div>
+                      )}
+                      {selectedJourney.share_token && (
+                        <div className="text-[11px] text-gray-500 mt-2">
+                          Tip: the shared page lets the developer switch between the journey canvas and the implementation brief using a tab toggle.
                         </div>
                       )}
                     </div>
@@ -576,12 +640,18 @@ export function Journeys({
       <div className="flex-1 relative">
         {selectedJourney ? (
           <ReactFlowProvider>
-            <JourneyCanvas
-              journey={selectedJourney}
-              activeQARunId={activeQARunId}
-              hideFloatingSave
-              onSaveLayoutState={setSaveLayoutState}
-            />
+            {isBriefPreview ? (
+              <div className="h-full w-full">
+                <JourneyBriefPreview journeyId={selectedJourney.id} />
+              </div>
+            ) : (
+              <JourneyCanvas
+                journey={selectedJourney}
+                activeQARunId={activeQARunId}
+                hideFloatingSave
+                onSaveLayoutState={setSaveLayoutState}
+              />
+            )}
           </ReactFlowProvider>
         ) : (
           <div className="flex items-center justify-center h-full text-gray-500">

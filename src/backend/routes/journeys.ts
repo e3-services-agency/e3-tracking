@@ -12,7 +12,7 @@ import { requireAuth } from '../middleware/auth';
 import * as JourneyDAL from '../dal/journey.dal';
 import { getAlwaysSentPropertyKeysForEvent } from '../dal/event.dal';
 import { generateJourneyHtmlExport } from '../services/export.service';
-import { ConflictError, DatabaseError, NotFoundError } from '../errors';
+import { ConflictError, DatabaseError, NotFoundError, ConfigError } from '../errors';
 import { getSupabaseOrThrow } from '../db/supabase';
 
 const router = Router();
@@ -145,11 +145,16 @@ router.post(
         url: publicUrl,
       });
     } catch (err) {
+      if (err instanceof ConfigError) {
+        res.status(503).json({ error: err.message, code: err.code });
+        return;
+      }
       if (err instanceof DatabaseError) {
         res.status(500).json({ error: 'Failed to upload image.', code: err.code });
         return;
       }
-      res.status(500).json({ error: 'An unexpected error occurred.', code: 'INTERNAL_ERROR' });
+      const msg = err instanceof Error ? err.message : 'An unexpected error occurred.';
+      res.status(500).json({ error: msg, code: 'INTERNAL_ERROR' });
     }
   }
 );

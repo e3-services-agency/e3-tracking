@@ -2,6 +2,8 @@
  * Standalone HTML Export Engine for Journeys.
  * Generates a zero-dependency HTML file with steps, screenshots (base64), and tracking payloads.
  */
+import { readFile } from 'fs/promises';
+import path from 'path';
 import * as JourneyDAL from '../dal/journey.dal';
 import { getEventWithProperties } from '../dal/event.dal';
 import type { EventPropertyWithDetails } from '../dal/event.dal';
@@ -61,6 +63,20 @@ function escapeHtml(s: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+async function readPublicAssetAsDataUrl(
+  relativePathFromPublic: string,
+  mimeType: string
+): Promise<string | null> {
+  try {
+    const absolute = path.join(process.cwd(), 'public', relativePathFromPublic);
+    const buf = await readFile(absolute);
+    const base64 = buf.toString('base64');
+    return `data:${mimeType};base64,${base64}`;
+  } catch {
+    return null;
+  }
 }
 
 /** Build example payload and presence labels for an event. */
@@ -229,12 +245,36 @@ export async function generateJourneyHtmlExport(
     journey.testing_instructions_markdown ?? ''
   );
 
+  const logoDataUrl =
+    (await readPublicAssetAsDataUrl('branding/logo-light.png', 'image/png')) ??
+    null;
+
+  const tocHtml =
+    steps.length > 0
+      ? `<nav class="export-toc" aria-label="Steps">
+  <div class="export-toc-title">Steps</div>
+  <div class="export-toc-list">
+    ${steps
+      .map((s, idx) => {
+        const n = idx + 1;
+        const label = s.label ? escapeHtml(s.label) : `Step ${n}`;
+        const meta =
+          s.triggers.length > 0
+            ? `<span class="export-toc-meta">${s.triggers.length} event${s.triggers.length === 1 ? '' : 's'}</span>`
+            : '';
+        return `<a class="export-toc-link" href="#step-${n}"><span class="export-toc-step">Step ${n}</span><span class="export-toc-label">${label}</span>${meta}</a>`;
+      })
+      .join('\n')}
+  </div>
+</nav>`
+      : '';
+
   const stepsHtml = steps
     .map((step, index) => {
       const stepNum = index + 1;
       let imgBlock = '';
       if (step.imageUrl) {
-        imgBlock = `<div class="export-step-img-wrap"><img src="${escapeHtml(step.imageUrl)}" alt="${escapeHtml(step.label)}" class="export-step-img" /></div>`;
+        imgBlock = `<div class="export-step-img-wrap"><img src="${escapeHtml(step.imageUrl)}" alt="${escapeHtml(step.label)}" class="export-step-img" data-export-image="1" /></div>`;
       } else {
         imgBlock =
           '<div class="export-step-img-wrap export-step-no-img">No screenshot</div>';
@@ -253,6 +293,13 @@ export async function generateJourneyHtmlExport(
         .filter(Boolean)
         .join('');
 
+      const triggersSummary =
+        step.triggers.length > 0
+          ? `<div class="export-step-subtitle">${step.triggers
+              .map((t) => escapeHtml(t.eventName))
+              .join('<span class="export-step-subtitle-sep">·</span>')}</div>`
+          : '';
+
       let triggersBlock = '';
       if (step.triggers.length > 0) {
         triggersBlock = step.triggers
@@ -262,23 +309,36 @@ export async function generateJourneyHtmlExport(
               t.alwaysSent,
               t.sometimesSent
             );
+            const presence =
+              t.alwaysSent.length > 0 || t.sometimesSent.length > 0
+                ? `<div class="export-presence-note"><strong>Always Sent:</strong> ${t.alwaysSent.length ? escapeHtml(t.alwaysSent.join(', ')) : '—'} &nbsp;|&nbsp; <strong>Sometimes Sent:</strong> ${t.sometimesSent.length ? escapeHtml(t.sometimesSent.join(', ')) : '—'}</div>`
+                : '';
             return `
         <div class="export-tracking-block">
-          <div class="export-tracking-title">Tracking: ${escapeHtml(t.eventName)}</div>
-          ${t.alwaysSent.length > 0 || t.sometimesSent.length > 0 ? `<div class="export-presence-note"><strong>Always Sent:</strong> ${t.alwaysSent.length ? t.alwaysSent.join(', ') : '—'} &nbsp;|&nbsp; <strong>Sometimes Sent:</strong> ${t.sometimesSent.length ? t.sometimesSent.join(', ') : '—'}</div>` : ''}
+          <div class="export-tracking-title">Tracking: ${escapeHtml(t.eventName)} <span class="export-tracking-id">(${escapeHtml(t.eventId)})</span></div>
+          ${presence}
           <div class="export-implementation-examples">
             <div class="export-examples-title">Implementation examples</div>
             <div class="export-example-group">
               <div class="export-example-label">GTM dataLayer</div>
-              <pre class="export-code"><code>${escapeHtml(snippets.dataLayer)}</code></pre>
+              <div class="export-code-wrap">
+                <button class="export-copy" type="button" data-copy-from="next">Copy</button>
+                <pre class="export-code"><code>${escapeHtml(snippets.dataLayer)}</code></pre>
+              </div>
             </div>
             <div class="export-example-group">
               <div class="export-example-label">Bloomreach Web SDK</div>
-              <pre class="export-code"><code>${escapeHtml(snippets.bloomreachSdk)}</code></pre>
+              <div class="export-code-wrap">
+                <button class="export-copy" type="button" data-copy-from="next">Copy</button>
+                <pre class="export-code"><code>${escapeHtml(snippets.bloomreachSdk)}</code></pre>
+              </div>
             </div>
             <div class="export-example-group">
               <div class="export-example-label">Bloomreach Tracking API</div>
-              <pre class="export-code"><code>${escapeHtml(snippets.bloomreachApi)}</code></pre>
+              <div class="export-code-wrap">
+                <button class="export-copy" type="button" data-copy-from="next">Copy</button>
+                <pre class="export-code"><code>${escapeHtml(snippets.bloomreachApi)}</code></pre>
+              </div>
             </div>
           </div>
         </div>`;
@@ -288,11 +348,22 @@ export async function generateJourneyHtmlExport(
 
       return `
       <section class="export-step" id="step-${stepNum}">
-        <h3 class="export-step-title">Step ${stepNum}: ${escapeHtml(step.label)} ${implBadge}</h3>
-        ${step.description ? `<p class="export-step-desc">${escapeHtml(step.description)}</p>` : ''}
-        ${imgBlock}
-        ${meta ? `<div class="export-step-meta">${meta}</div>` : ''}
-        ${triggersBlock}
+        <button class="export-step-header" type="button" data-accordion="toggle" aria-expanded="${stepNum === 1 ? 'true' : 'false'}">
+          <div class="export-step-title">Step ${stepNum}: ${escapeHtml(step.label)} ${implBadge}</div>
+          <div class="export-step-header-right">
+            ${triggersSummary}
+            <span class="export-step-chevron" aria-hidden="true"></span>
+          </div>
+        </button>
+        <div class="export-step-body" data-accordion="body" ${stepNum === 1 ? '' : 'hidden'}>
+          ${step.description ? `<p class="export-step-desc">${escapeHtml(step.description)}</p>` : ''}
+          ${imgBlock}
+          ${meta ? `<div class="export-step-meta">${meta}</div>` : ''}
+          ${triggersBlock}
+          <div class="export-step-footer">
+            <a class="export-step-top" href="#top">Back to top</a>
+          </div>
+        </div>
       </section>`;
     })
     .join('\n');
@@ -312,11 +383,13 @@ export async function generateJourneyHtmlExport(
       font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
       line-height: 1.5;
       color: #1a1a1a;
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 24px 20px 48px;
+      margin: 0;
       background: #fafafa;
     }
+    a { color: inherit; }
+    .export-shell { max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
+    .export-layout { display: grid; grid-template-columns: 280px 1fr; gap: 16px; align-items: start; }
+    @media (max-width: 980px) { .export-layout { grid-template-columns: 1fr; } }
     .export-header {
       background: #fff;
       border: 1px solid #e5e7eb;
@@ -331,9 +404,12 @@ export async function generateJourneyHtmlExport(
       gap: 16px;
     }
     .export-header-logo { height: 32px; width: auto; object-fit: contain; }
+    .export-header-mark { height: 32px; display: inline-flex; align-items: center; justify-content: center; padding: 0 10px; border-radius: 6px; background: #0f172a; color: #fff; font-weight: 700; letter-spacing: 0.04em; font-size: 0.8rem; }
     .export-header-content { flex: 1; min-width: 0; }
     .export-header h1 { margin: 0 0 8px; font-size: 1.75rem; color: #111; }
     .export-header .export-desc { margin: 0; color: #4b5563; font-size: 0.95rem; }
+    .export-subhead { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 8px; color: #6b7280; font-size: 0.85rem; }
+    .export-pill { display: inline-flex; gap: 6px; align-items: center; padding: 4px 10px; border: 1px solid #e5e7eb; border-radius: 999px; background: #f9fafb; }
     .export-instructions {
       background: #fff;
       border: 1px solid #e5e7eb;
@@ -348,22 +424,62 @@ export async function generateJourneyHtmlExport(
     .export-instructions .export-h2,
     .export-instructions .export-h3 { margin: 0 0 8px; }
     .export-inline-code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+
+    .export-toc {
+      position: sticky;
+      top: 16px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .export-toc-title { font-size: 0.85rem; font-weight: 700; color: #111; margin-bottom: 10px; }
+    .export-toc-list { display: flex; flex-direction: column; gap: 6px; }
+    .export-toc-link { display: grid; grid-template-columns: 70px 1fr auto; gap: 8px; padding: 8px 10px; border-radius: 8px; text-decoration: none; border: 1px solid transparent; }
+    .export-toc-link:hover { background: #f9fafb; border-color: #e5e7eb; }
+    .export-toc-step { font-weight: 700; color: #111; font-size: 0.75rem; }
+    .export-toc-label { color: #374151; font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .export-toc-meta { color: #6b7280; font-size: 0.75rem; }
+
     .export-step {
       background: #fff;
       border: 1px solid #e5e7eb;
       border-radius: 8px;
-      padding: 24px;
       margin-bottom: 24px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
-    .export-step-title { margin: 0 0 8px; font-size: 1.15rem; color: #111; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .export-step-header {
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: 0;
+      padding: 18px 18px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      cursor: pointer;
+    }
+    .export-step-header:focus { outline: 2px solid #2563eb33; outline-offset: 2px; border-radius: 8px; }
+    .export-step-title { margin: 0; font-size: 1.05rem; color: #111; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .export-step-header-right { display: flex; align-items: center; gap: 10px; }
+    .export-step-subtitle { display: none; color: #6b7280; font-size: 0.78rem; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .export-step-subtitle-sep { margin: 0 6px; opacity: 0.8; }
+    @media (min-width: 980px) { .export-step-subtitle { display: inline; } }
+    .export-step-chevron { width: 10px; height: 10px; border-right: 2px solid #94a3b8; border-bottom: 2px solid #94a3b8; transform: rotate(45deg); transition: transform 0.12s ease; }
+    .export-step-header[aria-expanded="true"] .export-step-chevron { transform: rotate(-135deg); }
+    .export-step-body { padding: 0 18px 18px; }
+    .export-step-footer { margin-top: 14px; display: flex; justify-content: flex-end; }
+    .export-step-top { font-size: 0.8rem; color: #2563eb; text-decoration: none; }
+    .export-step-top:hover { text-decoration: underline; }
     .export-badge { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 8px; border-radius: 4px; color: #fff; }
     .export-badge-new { background: #059669; }
     .export-badge-enrichment { background: #2563eb; }
     .export-badge-fix { background: #d97706; }
     .export-step-desc { margin: 0 0 12px; color: #4b5563; font-size: 0.9rem; }
     .export-step-img-wrap { margin: 12px 0; border-radius: 6px; overflow: hidden; border: 1px solid #e5e7eb; }
-    .export-step-img { display: block; max-width: 100%; height: auto; }
+    .export-step-img { display: block; max-width: 100%; height: auto; cursor: zoom-in; }
     .export-step-no-img { padding: 24px; text-align: center; color: #9ca3af; background: #f9fafb; }
     .export-step-meta { margin: 12px 0; font-size: 0.85rem; color: #6b7280; }
     .export-meta { display: inline-block; margin-right: 16px; }
@@ -371,14 +487,65 @@ export async function generateJourneyHtmlExport(
     .export-block-code { display: block; white-space: pre-wrap; word-break: break-all; margin-top: 4px; }
     .export-tracking-block { margin-top: 16px; padding: 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
     .export-tracking-title { font-weight: 600; margin-bottom: 8px; color: #334155; font-size: 0.95rem; }
+    .export-tracking-id { font-weight: 500; color: #64748b; font-size: 0.85em; }
     .export-presence-note { font-size: 0.8rem; color: #64748b; margin-bottom: 12px; }
     .export-implementation-examples { margin-top: 12px; }
     .export-examples-title { font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em; }
     .export-example-group { margin-bottom: 12px; }
     .export-example-group:last-child { margin-bottom: 0; }
     .export-example-label { font-size: 0.75rem; color: #64748b; margin-bottom: 4px; }
+    .export-code-wrap { position: relative; }
+    .export-copy {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      border: 1px solid #334155;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      opacity: 0.9;
+    }
+    .export-copy:hover { opacity: 1; }
     .export-code { margin: 0; padding: 12px; background: #1e293b; color: #e2e8f0; border-radius: 4px; overflow-x: auto; font-size: 0.85rem; }
     .export-code code { background: none; padding: 0; }
+
+    .export-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 9999;
+    }
+    .export-modal[data-open="1"] { display: flex; }
+    .export-modal-content {
+      max-width: min(1200px, 96vw);
+      max-height: 92vh;
+      background: #0b1220;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      position: relative;
+    }
+    .export-modal-img { display: block; max-width: 100%; max-height: 92vh; height: auto; width: auto; }
+    .export-modal-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(15, 23, 42, 0.85);
+      color: #e2e8f0;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
     .export-footer {
       margin-top: 48px;
       padding-top: 24px;
@@ -389,20 +556,103 @@ export async function generateJourneyHtmlExport(
     }
   </style>
 </head>
-<body>
+<body id="top">
+  <div class="export-shell">
   <header class="export-header">
-    <img src="/branding/logo-light.png" alt="E3" class="export-header-logo" />
-    <div class="export-header-content">
+    ${logoDataUrl ? `<img src="${logoDataUrl}" alt="E3" class="export-header-logo" />` : `<div class="export-header-mark" aria-label="E3">E3</div>`}
+    <div class="export-header-content" role="banner">
       <h1>${escapeHtml(journeyName)}</h1>
       ${journeyDescription ? `<p class="export-desc">${journeyDescription}</p>` : ''}
+      <div class="export-subhead">
+        <span class="export-pill"><strong>Generated</strong> <span>${escapeHtml(new Date().toISOString().slice(0, 10))}</span></span>
+        <span class="export-pill"><strong>Steps</strong> <span>${steps.length}</span></span>
+      </div>
     </div>
   </header>
   ${instructionsHtml ? `<section class="export-instructions"><h2>Testing instructions</h2>${instructionsHtml}</section>` : ''}
-  <main>
-    <h2 style="margin: 0 0 16px; font-size: 1.25rem;">Steps &amp; tracking</h2>
-    ${stepsHtml || '<p>No steps defined.</p>'}
-  </main>
+  <div class="export-layout">
+    ${tocHtml}
+    <main>
+      <h2 style="margin: 0 0 16px; font-size: 1.25rem;">Steps &amp; tracking</h2>
+      ${stepsHtml || '<p>No steps defined.</p>'}
+    </main>
+  </div>
   <footer class="export-footer">Powered by E3 | ENABLE. EMPOWER. ELEVATE.</footer>
+  </div>
+
+  <div class="export-modal" id="export-modal" role="dialog" aria-modal="true" aria-label="Screenshot preview">
+    <div class="export-modal-content">
+      <button type="button" class="export-modal-close" data-modal-close="1">Close</button>
+      <img class="export-modal-img" id="export-modal-img" alt="Screenshot preview" />
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      function closest(el, sel) {
+        while (el && el !== document.documentElement) {
+          if (el.matches && el.matches(sel)) return el;
+          el = el.parentElement;
+        }
+        return null;
+      }
+
+      document.addEventListener('click', function (e) {
+        var t = e.target;
+        var headerBtn = closest(t, '[data-accordion="toggle"]');
+        if (headerBtn) {
+          var expanded = headerBtn.getAttribute('aria-expanded') === 'true';
+          var body = headerBtn.parentElement.querySelector('[data-accordion="body"]');
+          headerBtn.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+          if (body) body.hidden = expanded;
+          return;
+        }
+
+        var copyBtn = closest(t, '.export-copy');
+        if (copyBtn) {
+          var wrap = copyBtn.parentElement;
+          var pre = wrap ? wrap.querySelector('pre') : null;
+          var text = pre ? pre.innerText : '';
+          if (!text) return;
+          navigator.clipboard.writeText(text).then(function () {
+            var prev = copyBtn.innerText;
+            copyBtn.innerText = 'Copied';
+            setTimeout(function () { copyBtn.innerText = prev; }, 900);
+          });
+          return;
+        }
+
+        var img = closest(t, 'img[data-export-image="1"]');
+        if (img) {
+          var modal = document.getElementById('export-modal');
+          var modalImg = document.getElementById('export-modal-img');
+          if (modal && modalImg) {
+            modalImg.src = img.getAttribute('src');
+            modal.setAttribute('data-open', '1');
+          }
+          return;
+        }
+
+        var closeBtn = closest(t, '[data-modal-close="1"]');
+        if (closeBtn) {
+          var modal2 = document.getElementById('export-modal');
+          if (modal2) modal2.removeAttribute('data-open');
+          return;
+        }
+
+        var modalEl = closest(t, '#export-modal');
+        if (modalEl && t === modalEl) {
+          modalEl.removeAttribute('data-open');
+        }
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        var modal = document.getElementById('export-modal');
+        if (modal) modal.removeAttribute('data-open');
+      });
+    })();
+  </script>
 </body>
 </html>`;
 

@@ -55,7 +55,7 @@ export async function saveJourneyCanvasApi(
  */
 export async function saveJourneyQARunsApi(
   journeyId: string,
-  qaRuns: Array<{ id: string; verifications?: Record<string, any> }>,
+  qaRuns: Array<{ id: string; verifications?: Record<string, any> } & Record<string, any>>,
   workspaceId: string = MOCK_WORKSPACE_ID
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
@@ -77,6 +77,35 @@ export async function saveJourneyQARunsApi(
       success: false,
       error: e instanceof Error ? e.message : 'Network error',
     };
+  }
+}
+
+/**
+ * Fetch QA runs for a journey.
+ * GET /api/journeys/:id/qa
+ */
+export async function getJourneyQARunsApi(
+  journeyId: string,
+  workspaceId: string = MOCK_WORKSPACE_ID
+): Promise<
+  | { success: true; qaRuns: any[] }
+  | { success: false; error: string }
+> {
+  try {
+    const res = await fetchWithAuth(`${API_BASE}/api/journeys/${journeyId}/qa`, {
+      headers: { 'x-workspace-id': workspaceId },
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        error: typeof body?.error === 'string' ? body.error : res.statusText || 'Failed to load QA runs',
+      };
+    }
+    const data = (await res.json()) as { qaRuns?: any[] };
+    return { success: true, qaRuns: Array.isArray(data.qaRuns) ? data.qaRuns : [] };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : 'Network error' };
   }
 }
 

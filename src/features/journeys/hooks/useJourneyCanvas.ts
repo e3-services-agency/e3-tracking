@@ -392,16 +392,32 @@ export function useJourneyCanvas({
     // On failure, leave isSaving false; caller can show error if needed
   };
 
-  const handleSaveQA = async (): Promise<boolean> => {
+  const handleSaveQA = async (
+    opts?: {
+      endedAtForActiveRun?: string | null;
+    }
+  ): Promise<boolean> => {
     if (!activeQARunId) return false;
 
     setIsSavingQA(true);
     try {
-      const payloadRuns = (journey.qaRuns ?? []).map((run) => ({
-        id: run.id,
-        // Persist only what we need for shared read-only rendering.
-        verifications: run.verifications,
-      }));
+      // Persist full run data (meta + snapshot) so the QA selector can reload
+      // existing runs and so "End QA" can be locked across reloads.
+      const payloadRuns = (journey.qaRuns ?? []).map((run) => {
+        const endedAt =
+          opts && 'endedAtForActiveRun' in opts
+            ? run.id === activeQARunId
+              ? opts.endedAtForActiveRun
+              : run.endedAt ?? null
+            : run.endedAt ?? null;
+
+        return {
+          ...run,
+          id: run.id,
+          endedAt,
+          verifications: run.verifications,
+        };
+      });
 
       const result = await saveJourneyQARunsApi(
         journey.id,

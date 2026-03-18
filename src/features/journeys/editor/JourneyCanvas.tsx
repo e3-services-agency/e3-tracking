@@ -19,6 +19,7 @@ import { AnnotationNode } from '@/src/features/journeys/nodes/AnnotationNode';
 import { JourneyProofViewer } from '@/src/features/journeys/overlays/JourneyProofViewer';
 import { EventCodeGen } from '@/src/features/events/components/EventCodeGen';
 import { useJourneyCanvas } from '@/src/features/journeys/hooks/useJourneyCanvas';
+import { useActiveWorkspaceId } from '@/src/features/journeys/hooks/useJourneysApi';
 import {
   CheckCircle2,
   CheckSquare,
@@ -152,6 +153,7 @@ export function JourneyCanvas({
   }) => void;
 }) {
   const effectiveReadOnly = readOnly || qaLocked;
+  const activeWorkspaceId = useActiveWorkspaceId();
   const [readOnlyImagePreview, setReadOnlyImagePreview] = React.useState<string | null>(null);
 
   const {
@@ -394,7 +396,9 @@ export function JourneyCanvas({
                   <Button
                     size="sm"
                     className="gap-2"
-                    onClick={handleSaveQA}
+                    onClick={() => {
+                      void handleSaveQA();
+                    }}
                     disabled={isSavingQA}
                   >
                     <Save className="w-4 h-4" />
@@ -407,11 +411,12 @@ export function JourneyCanvas({
 
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="destructive"
                     className="gap-2"
                     onClick={async () => {
-                      const ok = await handleSaveQA();
-                      if (ok) onEndQA?.();
+                      const endedAt = new Date().toISOString();
+                      await handleSaveQA({ endedAtForActiveRun: endedAt });
+                      onEndQA?.();
                     }}
                     disabled={isSavingQA}
                   >
@@ -766,6 +771,7 @@ export function JourneyCanvas({
                       prefetchedSnippets={(selectedNode.data as any).codegenSnippets ?? null}
                       compact
                       title="Code Snippets"
+                      workspaceId={activeWorkspaceId}
                     />
                   </div>
                 )}

@@ -11,7 +11,7 @@ import { requireWorkspace } from '../middleware/workspace';
 import { requireAuth } from '../middleware/auth';
 import * as JourneyDAL from '../dal/journey.dal';
 import { getAlwaysSentPropertyKeysForEvent } from '../dal/event.dal';
-import { upsertJourneyQARuns } from '../dal/qa.dal';
+import { getJourneyQARuns, upsertJourneyQARuns } from '../dal/qa.dal';
 import { generateJourneyHtmlExport } from '../services/export.service';
 import { ConflictError, DatabaseError, NotFoundError, ConfigError } from '../errors';
 import { getSupabaseOrThrow } from '../db/supabase';
@@ -490,6 +490,39 @@ router.put(
       });
     }
   },
+);
+
+/**
+ * GET /api/journeys/:id/qa
+ * Returns QA runs + verifications for this workspace.
+ */
+router.get(
+  '/:id/qa',
+  requireWorkspace,
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = req.workspaceId;
+    if (!workspaceId) {
+      res.status(403).json({ error: 'Workspace context required.', code: 'WORKSPACE_REQUIRED' });
+      return;
+    }
+
+    const journeyId = req.params.id;
+    try {
+      const qaRuns = await getJourneyQARuns(workspaceId, journeyId);
+      res.status(200).json({ success: true, qaRuns });
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        res.status(404).json({ error: err.message, code: err.code, resource: err.resource });
+        return;
+      }
+      if (err instanceof DatabaseError) {
+        res.status(500).json({ error: 'Failed to load QA.', code: err.code });
+        return;
+      }
+      res.status(500).json({ error: 'An unexpected error occurred.', code: 'INTERNAL_ERROR' });
+    }
+  }
 );
 
 /**

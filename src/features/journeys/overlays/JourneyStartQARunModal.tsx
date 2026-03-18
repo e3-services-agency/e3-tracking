@@ -43,6 +43,7 @@ export const JourneyStartQARunModal = ({
               onChange={(e) => onChangeQARunName(e.target.value)}
               placeholder="e.g. Release 1.2 QA"
               autoFocus
+              disabled
             />
           </div>
 
@@ -54,17 +55,7 @@ export const JourneyStartQARunModal = ({
               value={testerName}
               onChange={(e) => onChangeTesterName(e.target.value)}
               placeholder="e.g. Jan Pan"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Environment
-            </label>
-            <Input
-              value={environment}
-              onChange={(e) => onChangeEnvironment(e.target.value)}
-              placeholder="e.g. Staging / Production-like"
+              disabled
             />
           </div>
 

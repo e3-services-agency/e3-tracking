@@ -27,8 +27,21 @@ type QAVerificationUi = {
   extraTestingProfiles?: unknown[];
 };
 
+const RUN_META_NODE_ID = '__run_meta__';
+const RUN_NODES_NODE_ID = '__run_nodes__';
+const RUN_EDGES_NODE_ID = '__run_edges__';
+
 type QARunPayloadInput = {
   id: string;
+  name?: string;
+  createdAt?: string;
+  testerName?: string;
+  environment?: string;
+  overallNotes?: string;
+  testingProfiles?: Array<{ id: string; label: string; url: string; note?: string }>;
+  nodes?: any[];
+  edges?: any[];
+  endedAt?: string | null;
   verifications?: Record<string, QAVerificationUi>;
 };
 
@@ -115,8 +128,10 @@ export async function upsertJourneyQARuns(
 
   for (const run of qaRuns) {
     if (!run?.id) continue;
+
     const verifications = run.verifications ?? {};
 
+    // 1) Persist per-node verifications.
     for (const [nodeId, verification] of Object.entries(verifications)) {
       if (!nodeId) continue;
       const nodeVerification: QAVerificationUi = {
@@ -132,6 +147,37 @@ export async function upsertJourneyQARuns(
         actual_json: '{}',
       });
     }
+
+    // 2) Persist run metadata + snapshot (used by the in-app QA selector and QA mode).
+    const meta = {
+      name: run.name ?? run.id,
+      createdAt: run.createdAt ?? now,
+      testerName: run.testerName,
+      environment: run.environment,
+      overallNotes: run.overallNotes ?? '',
+      testingProfiles: run.testingProfiles ?? [],
+      endedAt: run.endedAt ?? null,
+    };
+    payloadRows.push({
+      qa_run_id: run.id,
+      node_id: RUN_META_NODE_ID,
+      expected_json: JSON.stringify(meta),
+      actual_json: '{}',
+    });
+
+    payloadRows.push({
+      qa_run_id: run.id,
+      node_id: RUN_NODES_NODE_ID,
+      expected_json: JSON.stringify(run.nodes ?? []),
+      actual_json: '{}',
+    });
+
+    payloadRows.push({
+      qa_run_id: run.id,
+      node_id: RUN_EDGES_NODE_ID,
+      expected_json: JSON.stringify(run.edges ?? []),
+      actual_json: '{}',
+    });
   }
 
   if (payloadRows.length === 0) return;
@@ -160,6 +206,9 @@ export async function getSharedJourneyQARuns(
     testerName?: string;
     environment?: string;
     overallNotes?: string;
+    endedAt?: string | null;
+    nodes?: any[];
+    edges?: any[];
   }>
 > {
   const supabase = getSupabaseOrThrow();
@@ -175,13 +224,154 @@ export async function getSharedJourneyQARuns(
     throw new DatabaseError(`Failed to fetch qa_runs: ${runErr.message}`, runErr);
   }
 
+  const outRuns = (runs ?? []).map((r) => ({
+    id: r.id as string,
+    name: r.id as string,
+    createdAt: r.created_at as string,
+    verifications: {} as Record<string, QAVerificationUi>,
+    testingProfiles: [],
+    testerName: undefined as string | undefined,
+    environment: undefined as string | undefined,
+    overallNotes: undefined as string | undefined,
+    endedAt: null as string | null,
+    nodes: undefined as any[] | undefined,
+    edges: undefined as any[] | undefined,
+  }));
+
+  const runIdList = outRuns.map((r) => r.id);
+  if (runIdList.length === 0) return [];
+
+  const { data: payloadRows, error: payloadErr } = await supabase
+    .from('qa_run_payloads')
+    .select('qa_run_id, node_id, expected_json')
+    .in('qa_run_id', runIdList);
+
+  if (payloadErr) {
+    throw new DatabaseError(`Failed to fetch qa_run_payloads: ${payloadErr.message}`, payloadErr);
+  }
+
+  const payloadByRun = new Map<string, Array<any>>();
+  for (const row of payloadRows ?? []) {
+    const runId = row.qa_run_id as string;
+    if (!payloadByRun.has(runId)) payloadByRun.set(runId, []);
+    payloadByRun.get(runId)!.push(row);
+  }
+
+  for (const run of outRuns) {
+    const rows = payloadByRun.get(run.id) ?? [];
+  for (const row of rows) {
+      const nodeId = row.node_id as string;
+      if (!nodeId) continue;
+      const expectedJson = row.expected_json as string | null;
+      if (typeof expectedJson !== 'string') continue;
+      try {
+        if (nodeId === RUN_META_NODE_ID) {
+          const meta = JSON.parse(expectedJson) as any;
+          run.name = typeof meta?.name === 'string' ? meta.name : run.name;
+          run.createdAt = typeof meta?.createdAt === 'string' ? meta.createdAt : run.createdAt;
+          run.testerName = typeof meta?.testerName === 'string' ? meta.testerName : undefined;
+          run.environment = typeof meta?.environment === 'string' ? meta.environment : undefined;
+          run.overallNotes = typeof meta?.overallNotes === 'string' ? meta.overallNotes : undefined;
+          run.testingProfiles = Array.isArray(meta?.testingProfiles) ? meta.testingProfiles : [];
+          run.endedAt = typeof meta?.endedAt === 'string' || meta?.endedAt === null ? meta.endedAt : null;
+          continue;
+        }
+
+        if (nodeId === RUN_NODES_NODE_ID) {
+          const ns = JSON.parse(expectedJson);
+          run.nodes = Array.isArray(ns) ? ns : [];
+          continue;
+        }
+
+        if (nodeId === RUN_EDGES_NODE_ID) {
+          const es = JSON.parse(expectedJson);
+          run.edges = Array.isArray(es) ? es : [];
+          continue;
+        }
+
+        const parsed = JSON.parse(expectedJson) as Partial<QAVerificationUi>;
+        run.verifications[nodeId] = {
+          nodeId,
+          status: (parsed.status as QAStatusUi) ?? 'Pending',
+          notes: parsed.notes,
+          proofText: (parsed as any).proofText,
+          proofs: parsed.proofs as QAProofUi[] | undefined,
+          testingProfileIds: parsed.testingProfileIds,
+          extraTestingProfiles: parsed.extraTestingProfiles as unknown[] | undefined,
+        };
+      } catch {
+        // Ignore malformed JSON payload rows.
+      }
+    }
+  }
+
+  return outRuns;
+}
+
+/**
+ * Loads QA runs for an internal authenticated view (workspace isolated).
+ * Returns full run meta + snapshot + per-node verifications.
+ */
+export async function getJourneyQARuns(
+  workspaceId: string,
+  journeyId: string,
+): Promise<
+  Array<{
+    id: string;
+    name: string;
+    createdAt: string;
+    testerName?: string;
+    environment?: string;
+    overallNotes?: string;
+    testingProfiles?: Array<any>;
+    nodes?: any[];
+    edges?: any[];
+    endedAt?: string | null;
+    verifications: Record<string, QAVerificationUi>;
+  }>
+> {
+  const supabase = getSupabaseOrThrow();
+
+  // Ensure journey belongs to workspace.
+  const { data: j, error: jErr } = await supabase
+    .from('journeys')
+    .select('id')
+    .eq('id', journeyId)
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (jErr) {
+    throw new DatabaseError(`Failed to fetch journey: ${jErr.message}`, jErr);
+  }
+  if (!j) {
+    throw new NotFoundError('Journey not found or does not belong to this workspace.', 'journey');
+  }
+
+  const { data: runs, error: runErr } = await supabase
+    .from('qa_runs')
+    .select('id, created_at')
+    .eq('journey_id', journeyId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false });
+
+  if (runErr) {
+    throw new DatabaseError(`Failed to fetch qa_runs: ${runErr.message}`, runErr);
+  }
+
   const outRuns =
     (runs ?? []).map((r) => ({
       id: r.id as string,
-      name: r.id as string, // DB doesn't store run name; fallback to id.
+      name: r.id as string,
       createdAt: r.created_at as string,
       verifications: {} as Record<string, QAVerificationUi>,
       testingProfiles: [],
+      testerName: undefined as string | undefined,
+      environment: undefined as string | undefined,
+      overallNotes: undefined as string | undefined,
+      endedAt: null as string | null,
+      nodes: undefined as any[] | undefined,
+      edges: undefined as any[] | undefined,
     }));
 
   const runIdList = outRuns.map((r) => r.id);
@@ -210,7 +400,32 @@ export async function getSharedJourneyQARuns(
       if (!nodeId) continue;
       const expectedJson = row.expected_json as string | null;
       if (typeof expectedJson !== 'string') continue;
+
       try {
+        if (nodeId === RUN_META_NODE_ID) {
+          const meta = JSON.parse(expectedJson) as any;
+          run.name = typeof meta?.name === 'string' ? meta.name : run.name;
+          run.createdAt = typeof meta?.createdAt === 'string' ? meta.createdAt : run.createdAt;
+          run.testerName = typeof meta?.testerName === 'string' ? meta.testerName : undefined;
+          run.environment = typeof meta?.environment === 'string' ? meta.environment : undefined;
+          run.overallNotes = typeof meta?.overallNotes === 'string' ? meta.overallNotes : undefined;
+          run.testingProfiles = Array.isArray(meta?.testingProfiles) ? meta.testingProfiles : [];
+          run.endedAt = typeof meta?.endedAt === 'string' || meta?.endedAt === null ? meta.endedAt : null;
+          continue;
+        }
+
+        if (nodeId === RUN_NODES_NODE_ID) {
+          const ns = JSON.parse(expectedJson);
+          run.nodes = Array.isArray(ns) ? ns : [];
+          continue;
+        }
+
+        if (nodeId === RUN_EDGES_NODE_ID) {
+          const es = JSON.parse(expectedJson);
+          run.edges = Array.isArray(es) ? es : [];
+          continue;
+        }
+
         const parsed = JSON.parse(expectedJson) as Partial<QAVerificationUi>;
         run.verifications[nodeId] = {
           nodeId,
@@ -222,7 +437,7 @@ export async function getSharedJourneyQARuns(
           extraTestingProfiles: parsed.extraTestingProfiles as unknown[] | undefined,
         };
       } catch {
-        // Ignore malformed JSON payload rows.
+        // ignore
       }
     }
   }

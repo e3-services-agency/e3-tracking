@@ -137,6 +137,10 @@ export interface QARun {
   id: string;
   name: string;
   createdAt: string;
+  /**
+   * When set, the run is "ended" (locked) and UI should be read-only.
+   */
+  endedAt?: string | null;
 
   /**
    * Optional QA metadata

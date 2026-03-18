@@ -3,6 +3,7 @@ import { useStore, useActiveData } from '@/src/store';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { v4 as uuidv4 } from 'uuid';
+import { useAuth } from '@/src/contexts/AuthContext';
 import {
   Trash2,
   Save,
@@ -20,6 +21,7 @@ import {
   renameJourneyApi,
   setJourneyShareEnabledApi,
   deleteJourneyApi,
+  getJourneyQARunsApi,
 } from '@/src/features/journeys/hooks/useJourneysApi';
 import { MoreHorizontal } from 'lucide-react';
 import { ReactFlowProvider } from '@xyflow/react';
@@ -41,6 +43,7 @@ export function Journeys({
   const data = useActiveData();
   const { addJourney, updateJourney, deleteJourney } = useStore();
   const activeWorkspaceId = useActiveWorkspaceId();
+  const { user } = useAuth();
   useJourneys();
 
   const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(
@@ -61,7 +64,6 @@ export function Journeys({
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
   const [lockedQARunIds, setLockedQARunIds] = useState<string[]>([]);
-  const qaLocked = !!activeQARunId && lockedQARunIds.includes(activeQARunId);
   const [isRenaming, setIsRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const [renameError, setRenameError] = useState<string | null>(null);
@@ -75,6 +77,9 @@ export function Journeys({
   const selectedJourney =
     data.journeys.find((journey: Journey) => journey.id === selectedJourneyId) ||
     null;
+
+  const activeQARun = selectedJourney?.qaRuns?.find((run) => run.id === activeQARunId) ?? null;
+  const qaLocked = !!activeQARunId && (lockedQARunIds.includes(activeQARunId) || !!activeQARun?.endedAt);
 
   useEffect(() => {
     if (selectedJourney) {
@@ -105,6 +110,23 @@ export function Journeys({
     }
   }, [selectedJourneyId, data.journeys]);
 
+  // Load persisted QA runs so they appear in the selector after reload.
+  useEffect(() => {
+    if (!selectedJourneyId) return;
+
+    let cancelled = false;
+    void (async () => {
+      const result = await getJourneyQARunsApi(selectedJourneyId, activeWorkspaceId);
+      if (cancelled) return;
+      if (!result.success) return;
+      updateJourney(selectedJourneyId, { qaRuns: result.qaRuns });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedJourneyId, activeWorkspaceId, updateJourney]);
+
   // Creating journeys should happen from the Journeys list, not from inside the canvas view.
 
   const handleStartQARun = () => {
@@ -115,12 +137,12 @@ export function Journeys({
       name: newQARunName.trim(),
       createdAt: new Date().toISOString(),
       testerName: newQATesterName.trim(),
-      environment: newQAEnvironment.trim(),
       overallNotes: '',
       testingProfiles: [],
       nodes: JSON.parse(JSON.stringify(selectedJourney.nodes || [])),
       edges: JSON.parse(JSON.stringify(selectedJourney.edges || [])),
       verifications: {},
+      endedAt: null,
     };
 
     const updatedQaRuns = [...(selectedJourney.qaRuns || []), newRun];
@@ -369,9 +391,17 @@ export function Journeys({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setNewQARunName(
-                    `QA Run - ${new Date().toLocaleDateString()}`,
-                  );
+                  const now = new Date();
+                  const yyyy = now.getFullYear();
+                  const mm = String(now.getMonth() + 1).padStart(2, '0');
+                  const dd = String(now.getDate()).padStart(2, '0');
+                  const hh = String(now.getHours()).padStart(2, '0');
+                  const min = String(now.getMinutes()).padStart(2, '0');
+                  const formatted = `QA Run - ${yyyy}-${mm}-${dd} ${hh}:${min}`;
+
+                  setNewQARunName(formatted);
+                  setNewQATesterName(user?.email ?? '');
+                  setNewQAEnvironment('');
                   setIsQAModalOpen(true);
                 }}
                 className="gap-2"

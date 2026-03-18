@@ -39,6 +39,7 @@ import {
   isTriggerNode,
 } from '@/src/features/journeys/nodes/types';
 import { readFileAsContent, buildProofFromFile } from '@/src/features/journeys/lib/proofs';
+import { uploadJourneyStepImage } from '@/src/features/journeys/lib/journeyImageStorage';
 
 type UseJourneyCanvasArgs = {
   journey: Journey;
@@ -289,23 +290,41 @@ export function useJourneyCanvas({
   const handleSaveLayout = async () => {
     setIsSaving(true);
     setSaveError(null);
-    // Safety net: old journeys may still contain base64 screenshots (data: URLs),
-    // which will blow up request size on Vercel. Strip them before saving.
-    let strippedCount = 0;
-    const sanitizedNodes = nodes.map((n) => {
-      if (n?.type !== 'journeyStepNode') return n;
-      const imageUrl = (n.data as { imageUrl?: unknown })?.imageUrl;
-      if (typeof imageUrl === 'string' && imageUrl.startsWith('data:image/')) {
-        strippedCount += 1;
-        return { ...n, data: { ...n.data, imageUrl: undefined } };
-      }
-      return n;
-    });
+    // Migrate any embedded base64 screenshots to Supabase Storage URLs before saving.
+    const dataUrlToFile = async (dataUrl: string, filename: string): Promise<File> => {
+      const resp = await fetch(dataUrl);
+      const blob = await resp.blob();
+      const ext = blob.type?.includes('/') ? blob.type.split('/').pop() : 'png';
+      return new File([blob], `${filename}.${ext || 'png'}`, { type: blob.type || 'image/png' });
+    };
+
+    let migratedCount = 0;
+    const nodesWithUploadedImages = await Promise.all(
+      nodes.map(async (n) => {
+        if (n?.type !== 'journeyStepNode') return n;
+        const imageUrl = (n.data as { imageUrl?: unknown })?.imageUrl;
+        if (typeof imageUrl !== 'string' || !imageUrl.startsWith('data:image/')) return n;
+        try {
+          const file = await dataUrlToFile(imageUrl, `step-${n.id}-${Date.now()}`);
+          const result = await uploadJourneyStepImage({
+            journeyId: journey.id,
+            nodeId: n.id,
+            file,
+            workspaceId: activeWorkspaceId,
+          });
+          if (!result.success) return n;
+          migratedCount += 1;
+          return { ...n, data: { ...n.data, imageUrl: result.url } };
+        } catch {
+          return n;
+        }
+      })
+    );
 
     const result = await saveJourneyCanvasApi(
       journey.id,
       journey.name,
-      sanitizedNodes,
+      nodesWithUploadedImages,
       edges,
       activeWorkspaceId
     );
@@ -313,20 +332,18 @@ export function useJourneyCanvas({
     if (result.success) {
       const type_counts = (() => {
         const counts = { new: 0, enrichment: 0, fix: 0 };
-        for (const n of sanitizedNodes) {
+        for (const n of nodesWithUploadedImages) {
           if (n?.type !== 'journeyStepNode') continue;
           const t = (n.data as { implementationType?: string })?.implementationType;
           if (t === 'new' || t === 'enrichment' || t === 'fix') counts[t] += 1;
         }
         return counts;
       })();
-      updateJourney(journey.id, { nodes: sanitizedNodes, edges, type_counts });
+      updateJourney(journey.id, { nodes: nodesWithUploadedImages, edges, type_counts });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
-      if (strippedCount > 0) {
-        setSaveError(
-          `Saved, but removed ${strippedCount} embedded screenshot(s). Please re-upload screenshots so they’re stored in Supabase Storage.`
-        );
+      if (migratedCount > 0) {
+        setSaveError(`Saved, and migrated ${migratedCount} screenshot(s) to Storage URLs.`);
       }
     } else {
       setSaveError(result.error || 'Save failed');
@@ -484,81 +501,112 @@ export function useJourneyCanvas({
   ) => {
     if (!activeQARunId) return;
 
-    const node = nodes.find((candidate) => candidate.id === nodeId);
-    const pendingProofs = node?.data.pendingProofs || [];
+    const migrateAndUpdate = async (): Promise<void> => {
+      const node = nodes.find((candidate) => candidate.id === nodeId);
+      const pendingProofs = node?.data.pendingProofs || [];
 
-    const updatedRuns = (journey.qaRuns || []).map((run) => {
-      if (run.id !== activeQARunId) return run;
-
-      const existingVerification: QAVerification =
-        run.verifications?.[nodeId] || {
-          nodeId,
-          status: 'Pending',
-          proofs: [],
-        };
-
-      const nextProofs =
-        updates.proofs !== undefined
-          ? updates.proofs
-          : [...(existingVerification.proofs || []), ...pendingProofs];
-
-      return {
-        ...run,
-        verifications: {
-          ...(run.verifications || {}),
-          [nodeId]: {
-            ...existingVerification,
-            ...updates,
-            proofs: nextProofs,
-          },
-        },
+      const dataUrlToFile = async (dataUrl: string, filename: string): Promise<File> => {
+        const resp = await fetch(dataUrl);
+        const blob = await resp.blob();
+        const ext = blob.type?.includes('/') ? blob.type.split('/').pop() : 'png';
+        return new File([blob], `${filename}.${ext || 'png'}`, { type: blob.type || 'image/png' });
       };
-    });
 
-    updateJourney(journey.id, { qaRuns: updatedRuns });
+      const migratedPendingProofs: QAProof[] = await Promise.all(
+        pendingProofs.map(async (p) => {
+          if (p.type !== 'image') return p;
+          if (typeof p.content !== 'string' || !p.content.startsWith('data:image/')) return p;
+          try {
+            const file = await dataUrlToFile(p.content, `qa-proof-${nodeId}-${Date.now()}`);
+            const result = await uploadJourneyStepImage({
+              journeyId: journey.id,
+              nodeId,
+              file,
+              workspaceId: activeWorkspaceId,
+            });
+            if (!result.success) return p;
+            return { ...p, content: result.url };
+          } catch {
+            return p;
+          }
+        })
+      );
 
-    if (pendingProofs.length > 0 && updates.proofs === undefined) {
-      setNodes((existingNodes) =>
-        existingNodes.map((candidate) =>
-          candidate.id === nodeId
-            ? {
-                ...candidate,
-                data: {
-                  ...candidate.data,
-                  pendingProofs: [],
-                  qaVerification: {
-                    ...(candidate.data.qaVerification || {
-                      nodeId,
-                      status: 'Pending' as QAStatus,
-                    }),
-                    ...updates,
+      const updatedRuns = (journey.qaRuns || []).map((run) => {
+        if (run.id !== activeQARunId) return run;
+
+        const existingVerification: QAVerification =
+          run.verifications?.[nodeId] || {
+            nodeId,
+            status: 'Pending',
+            proofs: [],
+          };
+
+        const nextProofs =
+          updates.proofs !== undefined
+            ? updates.proofs
+            : [...(existingVerification.proofs || []), ...migratedPendingProofs];
+
+        return {
+          ...run,
+          verifications: {
+            ...(run.verifications || {}),
+            [nodeId]: {
+              ...existingVerification,
+              ...updates,
+              proofs: nextProofs,
+            },
+          },
+        };
+      });
+
+      updateJourney(journey.id, { qaRuns: updatedRuns });
+
+      if (pendingProofs.length > 0 && updates.proofs === undefined) {
+        setNodes((existingNodes) =>
+          existingNodes.map((candidate) =>
+            candidate.id === nodeId
+              ? {
+                  ...candidate,
+                  data: {
+                    ...candidate.data,
+                    pendingProofs: [],
+                    qaVerification: {
+                      ...(candidate.data.qaVerification || {
+                        nodeId,
+                        status: 'Pending' as QAStatus,
+                      }),
+                      ...updates,
+                    },
                   },
-                },
-              }
-            : candidate,
-        ),
-      );
-    } else {
-      setNodes((existingNodes) =>
-        existingNodes.map((candidate) =>
-          candidate.id === nodeId
-            ? {
-                ...candidate,
-                data: {
-                  ...candidate.data,
-                  qaVerification: {
-                    ...(candidate.data.qaVerification || {
-                      nodeId,
-                      status: 'Pending' as QAStatus,
-                    }),
-                    ...updates,
+                }
+              : candidate,
+          ),
+        );
+      } else {
+        setNodes((existingNodes) =>
+          existingNodes.map((candidate) =>
+            candidate.id === nodeId
+              ? {
+                  ...candidate,
+                  data: {
+                    ...candidate.data,
+                    qaVerification: {
+                      ...(candidate.data.qaVerification || {
+                        nodeId,
+                        status: 'Pending' as QAStatus,
+                      }),
+                      ...updates,
+                    },
                   },
-                },
-              }
-            : candidate,
-        ),
-      );
-    }
+                }
+              : candidate,
+          ),
+        );
+      }
+    };
+
+    void migrateAndUpdate();
   };
 
   const buildTextProof = (content: string, name = 'Payload'): QAProof => ({

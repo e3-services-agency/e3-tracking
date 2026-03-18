@@ -15,6 +15,8 @@ export type BaseJourneyNodeData = {
   pendingProofs?: QAProof[];
   /** Used for Storage uploads (step screenshots). */
   journeyId?: string;
+  /** Used for backend upload (workspace-scoped). */
+  workspaceId?: string;
 };
 
 /** AI Agent step action type. */

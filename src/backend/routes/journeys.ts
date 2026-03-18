@@ -133,11 +133,16 @@ router.post(
         return;
       }
 
-      // Bucket is private: return proxy URL served by our API (so app + shared view can load it).
-      const encoded = Buffer.from(objectPath, 'utf8').toString('base64url');
+      // Bucket is public (Option A): return a stable public URL for reuse in QA/export/docs.
+      const { data: pub } = supabase.storage.from('journey-images').getPublicUrl(objectPath);
+      const publicUrl = pub?.publicUrl;
+      if (!publicUrl) {
+        res.status(500).json({ error: 'Failed to generate public URL.', code: 'STORAGE_URL_FAILED' });
+        return;
+      }
       res.status(200).json({
         path: objectPath,
-        url: `/api/journeys/${journeyId}/images/${encoded}`,
+        url: publicUrl,
       });
     } catch (err) {
       if (err instanceof DatabaseError) {

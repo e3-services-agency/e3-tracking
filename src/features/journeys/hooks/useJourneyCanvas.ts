@@ -113,7 +113,7 @@ export function useJourneyCanvas({
       setSelectedNodeId(null);
       setSelectedPanel('summary');
     }
-  }, [activeQARunId, journey.id, journey.nodes, journey.edges, readOnly, setNodes, setEdges]);
+  }, [activeQARunId, journey.id, journey.nodes, journey.edges, readOnly, activeWorkspaceId, setNodes, setEdges]);
 
   useEffect(() => {
     if (!viewerProof) return;
@@ -173,6 +173,7 @@ export function useJourneyCanvas({
     journey.nodes,
     journey.edges,
     selectedNodeId,
+    activeWorkspaceId,
     setNodes,
     setEdges,
   ]);

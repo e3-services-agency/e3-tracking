@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
-import { useActiveData } from '@/src/store';
+import { useActiveData, useStore } from '@/src/store';
 import { Events } from '@/src/pages/Events';
 import { Properties } from '@/src/pages/Properties';
 import { Sources } from '@/src/pages/Sources';
@@ -25,17 +25,25 @@ function getPathWithoutBase(pathname: string): string {
   return pathname.startsWith(BASE) ? pathname.slice(BASE.length) || '/' : pathname;
 }
 
+function parseWorkspaceFromPath(pathname: string): { workspaceId: string | null; restPath: string } {
+  const path = getPathWithoutBase(pathname);
+  const m = path.match(/^\/w\/([^/]+)(\/.*)?$/);
+  if (!m) return { workspaceId: null, restPath: path };
+  return { workspaceId: m[1] ?? null, restPath: m[2] ?? '/' };
+}
+
 function syncJourneysRouteFromLocation(): { tab: string; journeyId: string | null } | null {
   if (typeof window === 'undefined') return null;
-  const path = getPathWithoutBase(window.location.pathname);
+  const { restPath: path } = parseWorkspaceFromPath(window.location.pathname);
   const match = path.match(/^\/journeys(?:\/([^/]+))?\/?$/);
   if (!match) return null;
   return { tab: match[1] ? 'journeys' : 'journeysList', journeyId: match[1] ?? null };
 }
 
-function pushPath(nextPath: string): void {
+function pushPath(nextPath: string, workspaceId?: string | null): void {
   try {
-    const full = `${BASE}${nextPath.startsWith('/') ? nextPath : `/${nextPath}`}`;
+    const wsPrefix = workspaceId ? `/w/${workspaceId}` : '';
+    const full = `${BASE}${wsPrefix}${nextPath.startsWith('/') ? nextPath : `/${nextPath}`}`;
     if (typeof window !== 'undefined' && window.location.pathname !== full) {
       window.history.pushState({}, '', full);
     }
@@ -49,6 +57,8 @@ export function Layout() {
   const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const { settings } = useActiveData();
+  const activeWorkspaceId = useStore((s) => s.activeWorkspaceId);
+  const setActiveWorkspaceId = useStore((s) => s.setActiveWorkspaceId);
 
   useEffect(() => {
     try {
@@ -81,6 +91,10 @@ export function Layout() {
   // Deep-link support: /journeys and /journeys/:id.
   useEffect(() => {
     const applyFromLocation = () => {
+      const parsedWs = parseWorkspaceFromPath(window.location.pathname);
+      if (parsedWs.workspaceId && parsedWs.workspaceId !== activeWorkspaceId) {
+        setActiveWorkspaceId(parsedWs.workspaceId);
+      }
       const parsed = syncJourneysRouteFromLocation();
       if (!parsed) return;
       setActiveTab(parsed.tab);
@@ -89,17 +103,35 @@ export function Layout() {
     applyFromLocation();
     window.addEventListener('popstate', applyFromLocation);
     return () => window.removeEventListener('popstate', applyFromLocation);
-  }, []);
+  }, [activeWorkspaceId, setActiveWorkspaceId]);
+
+  // Keep workspace prefix in URL in sync (back-compat: migrate /<path> -> /w/:id/<path>).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const { workspaceId: wsInUrl, restPath } = parseWorkspaceFromPath(window.location.pathname);
+    if (wsInUrl === activeWorkspaceId) return;
+    // Only auto-migrate when URL has no workspace id.
+    if (wsInUrl === null && activeWorkspaceId) {
+      pushPath(restPath, activeWorkspaceId);
+    }
+  }, [activeWorkspaceId]);
 
   // Keep URL in sync when navigating inside the app.
   useEffect(() => {
     if (activeTab === 'journeysList') {
-      pushPath('/journeys');
+      pushPath('/journeys', activeWorkspaceId);
       return;
     }
     if (activeTab === 'journeys' && selectedJourneyId) {
-      pushPath(`/journeys/${selectedJourneyId}`);
+      pushPath(`/journeys/${selectedJourneyId}`, activeWorkspaceId);
     }
+    if (activeTab === 'events') pushPath('/events', activeWorkspaceId);
+    if (activeTab === 'properties') pushPath('/properties', activeWorkspaceId);
+    if (activeTab === 'catalogs') pushPath('/catalogs', activeWorkspaceId);
+    if (activeTab === 'sources') pushPath('/sources', activeWorkspaceId);
+    if (activeTab === 'settings') pushPath('/settings', activeWorkspaceId);
+    if (activeTab === 'documentation') pushPath('/documentation', activeWorkspaceId);
+    if (activeTab === 'auditConfig') pushPath('/audit-config', activeWorkspaceId);
   }, [activeTab, selectedJourneyId]);
 
   return (
@@ -122,7 +154,7 @@ export function Layout() {
             onSelectJourney={(id) => {
               setSelectedJourneyId(id);
               setActiveTab('journeys');
-              pushPath(`/journeys/${id}`);
+              pushPath(`/journeys/${id}`, activeWorkspaceId);
             }}
           />
         )}
@@ -131,7 +163,7 @@ export function Layout() {
             selectedJourneyId={selectedJourneyId}
             onBack={() => {
               setActiveTab('journeysList');
-              pushPath('/journeys');
+              pushPath('/journeys', activeWorkspaceId);
             }}
           />
         )}

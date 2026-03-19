@@ -1,7 +1,8 @@
 {
   "rewrites": [
-    { "source": "/tracking-plan/api", "destination": "/api" },
-    { "source": "/tracking-plan/api/:path*", "destination": "/api/:path*" },
+    { "source": "/tracking-plan/api", "destination": "/api/index.ts" },
+    { "source": "/tracking-plan/api/:path*", "destination": "/api/index.ts" },
+    { "source": "/api/(.*)", "destination": "/api/index.ts" },
     { "source": "/((?!api/)(?!.*\\.).*)", "destination": "/index.html" }
   ]
 }

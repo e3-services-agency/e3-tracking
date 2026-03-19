@@ -1,4 +1,4 @@
-import { createApp } from '../src/backend/app.js';
+import { createApp } from './_backend/app.js';
 
 // Single gateway entry point for all /api/* requests.
 // Express routing is handled by `src/backend/app.ts`.

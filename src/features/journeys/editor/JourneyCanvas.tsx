@@ -1413,7 +1413,11 @@ export function JourneyCanvas({
                         ? 'default'
                         : 'outline'
                     }
-                    className="w-full"
+                    className={
+                      currentVerification?.status === 'Passed'
+                        ? 'w-full'
+                        : 'w-full text-[var(--brand-primary)]'
+                    }
                     onClick={() =>
                       updateQAVerification(selectedNode.id, { status: 'Passed' })
                     }
@@ -1427,7 +1431,11 @@ export function JourneyCanvas({
                         ? 'destructive'
                         : 'outline'
                     }
-                    className="w-full"
+                    className={
+                      currentVerification?.status === 'Failed'
+                        ? 'w-full'
+                        : 'w-full text-[var(--brand-destructive)]'
+                    }
                     onClick={() =>
                       updateQAVerification(selectedNode.id, { status: 'Failed' })
                     }

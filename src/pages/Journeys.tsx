@@ -135,6 +135,9 @@ export function Journeys({
   // Load persisted QA runs so they appear in the selector after reload.
   useEffect(() => {
     if (!selectedJourneyId) return;
+    // Prevent race with workspace resolution: only fetch QA runs once the
+    // selected journey is actually present in the currently loaded workspace.
+    if (!selectedJourney) return;
 
     let cancelled = false;
     void (async () => {
@@ -147,7 +150,7 @@ export function Journeys({
     return () => {
       cancelled = true;
     };
-  }, [selectedJourneyId, activeWorkspaceId, updateJourney]);
+  }, [selectedJourneyId, activeWorkspaceId, selectedJourney, updateJourney]);
 
   // Creating journeys should happen from the Journeys list, not from inside the canvas view.
 

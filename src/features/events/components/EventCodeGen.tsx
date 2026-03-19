@@ -58,7 +58,7 @@ export function EventCodeGen({
     }
     setLoading(true);
     setError(null);
-    fetchWithAuth(`/api/events/${eventId}/codegen`, {
+    fetchWithAuth(`${API_BASE}/api/events/${eventId}/codegen`, {
       headers: { 'x-workspace-id': workspaceId },
     })
       .then((res) => {

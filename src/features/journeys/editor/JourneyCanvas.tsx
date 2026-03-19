@@ -554,15 +554,15 @@ export function JourneyCanvas({
 
       {activeQARunId && selectedPanel === 'summary' && (
         <div className="w-[420px] border-l bg-white flex flex-col shadow-xl z-20 absolute right-0 top-0 bottom-0">
-          <div className="p-4 border-b bg-gray-50 flex items-start justify-between gap-3">
+          <div className="p-4 border-b bg-gray-50 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0 flex-1 flex-wrap">
-              <h3 className="font-bold text-gray-900 flex items-center gap-2 shrink-0">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2 shrink-0 min-w-0">
                 <FileText className="w-5 h-5 text-[var(--color-info)] shrink-0" /> QA Run Details
               </h3>
-              <div className="shrink-0">
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+              <div className="flex items-center gap-2 shrink-0 min-w-0">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                   QA Status
-                </div>
+                </span>
                 <div
                   className={
                     qaRunDerivedStatus === 'FAILED'
@@ -572,7 +572,7 @@ export function JourneyCanvas({
                         : 'bg-blue-50 border-blue-200 text-[var(--color-info)]'
                   }
                 >
-                  <div className="border rounded-md p-2 text-sm font-semibold">
+                  <div className="border rounded-md px-2 py-1 text-sm font-semibold whitespace-nowrap">
                     {qaRunDerivedStatus}
                   </div>
                 </div>
@@ -755,7 +755,7 @@ export function JourneyCanvas({
         selectedNode &&
         (isJourneyStepNode(selectedNode) || isTriggerNode(selectedNode)) && (
           <div className="w-[420px] border-l bg-white flex flex-col shadow-xl z-20 absolute right-0 top-0 bottom-0">
-            <div className="p-4 border-b bg-gray-50 flex items-start justify-between gap-3">
+            <div className="p-4 border-b bg-gray-50 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0 flex-1 flex-wrap">
                 <h3 className="font-bold text-gray-900 flex items-center gap-2 min-w-0">
                   <CheckSquare className="w-5 h-5 text-[var(--color-info)] shrink-0" />
@@ -763,11 +763,11 @@ export function JourneyCanvas({
                     {effectiveReadOnly ? 'Node Details' : 'QA Verification'}
                   </span>
                 </h3>
-                <div className="shrink-0">
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                <div className="flex items-center gap-2 shrink-0 min-w-0">
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                     QA Status
-                  </div>
-                  <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold border ${statusChipClass}`}>
+                  </span>
+                  <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold border whitespace-nowrap ${statusChipClass}`}>
                     {nodeStatus}
                   </span>
                 </div>

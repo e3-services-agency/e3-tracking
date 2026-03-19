@@ -249,6 +249,25 @@ export function JourneyCanvas({
     return () => window.removeEventListener('beforeunload', handler);
   }, [hasUnsavedChanges]);
 
+  // Keyboard shortcut: Ctrl+S / Cmd+S to save layout (only if dirty).
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key.toLowerCase() !== 's') return;
+
+      // Prevent the browser from triggering its own "Save Page" dialog.
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (!hasUnsavedChanges) return;
+
+      void handleSaveLayout();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [hasUnsavedChanges, handleSaveLayout]);
+
   const imageProofs = verificationProofs.filter((p) => p.type === 'image');
   const payloadProofs = verificationProofs.filter((p) => p.type !== 'image');
 

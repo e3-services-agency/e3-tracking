@@ -771,7 +771,7 @@ export function JourneyCanvas({
               </button>
             </div>
 
-            <div className="p-4 flex-1 overflow-y-auto space-y-6">
+            <div className="p-4 flex-1 overflow-y-auto space-y-6 min-h-0">
               <div>
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                   Node Details
@@ -903,52 +903,6 @@ export function JourneyCanvas({
                     />
                   </div>
                 )}
-
-              {!effectiveReadOnly && (
-              <div>
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                  Verification Status
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant={
-                      currentVerification?.status === 'Passed'
-                        ? 'default'
-                        : 'outline'
-                    }
-                    className={
-                      currentVerification?.status === 'Passed'
-                        ? 'bg-emerald-500 hover:bg-emerald-600 text-white w-full'
-                        : 'w-full'
-                    }
-                    onClick={() =>
-                      updateQAVerification(selectedNode.id, { status: 'Passed' })
-                    }
-                  >
-                    <CheckCircle2 className="w-4 h-4 mr-2" /> Pass
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={
-                      currentVerification?.status === 'Failed'
-                        ? 'default'
-                        : 'outline'
-                    }
-                    className={
-                      currentVerification?.status === 'Failed'
-                        ? 'bg-red-500 hover:bg-red-600 text-white w-full'
-                        : 'w-full'
-                    }
-                    onClick={() =>
-                      updateQAVerification(selectedNode.id, { status: 'Failed' })
-                    }
-                  >
-                    <X className="w-4 h-4 mr-2" /> Fail
-                  </Button>
-                </div>
-              </div>
-              )}
 
               {!effectiveReadOnly && (
               <div>
@@ -1446,6 +1400,51 @@ export function JourneyCanvas({
                 </div>
               )}
             </div>
+            {!effectiveReadOnly && (
+              <div className="shrink-0 border-t bg-white p-4 z-10">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  Verification Status
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant={
+                      currentVerification?.status === 'Passed'
+                        ? 'default'
+                        : 'outline'
+                    }
+                    className={
+                      currentVerification?.status === 'Passed'
+                        ? 'bg-emerald-500 hover:bg-emerald-600 text-white w-full'
+                        : 'w-full'
+                    }
+                    onClick={() =>
+                      updateQAVerification(selectedNode.id, { status: 'Passed' })
+                    }
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-2" /> Pass
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={
+                      currentVerification?.status === 'Failed'
+                        ? 'default'
+                        : 'outline'
+                    }
+                    className={
+                      currentVerification?.status === 'Failed'
+                        ? 'bg-red-500 hover:bg-red-600 text-white w-full'
+                        : 'w-full'
+                    }
+                    onClick={() =>
+                      updateQAVerification(selectedNode.id, { status: 'Failed' })
+                    }
+                  >
+                    <X className="w-4 h-4 mr-2" /> Fail
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1480,7 +1479,6 @@ export function JourneyCanvas({
               <Button
                 onClick={async () => {
                   setIsConfirmSavingQA(true);
-                  if (qaRunHasPendingSteps) setIsPendingQAWarnOpen(true);
                   await handleSaveQA();
                   setIsConfirmSavingQA(false);
                   setIsSaveConfirmOpen(false);

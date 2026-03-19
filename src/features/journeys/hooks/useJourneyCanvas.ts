@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   useNodesState,
   useEdgesState,
@@ -59,6 +59,52 @@ export function useJourneyCanvas({
   const activeWorkspaceId = useActiveWorkspaceId();
   const { screenToFlowPosition } =
     useReactFlow<JourneyFlowNode, JourneyFlowEdge>();
+
+  const baselineNormalizedLayoutRef = useRef<string | null>(null);
+
+  const stableStringify = (value: unknown): string => {
+    if (value === null) return 'null';
+    if (typeof value === 'undefined') return '"__undefined__"';
+    if (typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) {
+      return `[${value.map((v) => stableStringify(v)).join(',')}]`;
+    }
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj).sort();
+    return `{${keys
+      .map((k) => `${JSON.stringify(k)}:${stableStringify(obj[k])}`)
+      .join(',')}}`;
+  };
+
+  const normalizeNodeForDirty = (n: any): unknown => ({
+    id: n?.id,
+    type: n?.type,
+    position: n?.position ? { x: n.position.x, y: n.position.y } : n?.position,
+    data: n?.data,
+    style: n?.style,
+  });
+
+  const normalizeEdgeForDirty = (e: any): unknown => ({
+    id: e?.id,
+    source: e?.source,
+    target: e?.target,
+    sourceHandle: e?.sourceHandle,
+    targetHandle: e?.targetHandle,
+    type: e?.type,
+    animated: e?.animated,
+    style: e?.style,
+    data: e?.data,
+  });
+
+  const normalizeLayoutForDirty = (ns: JourneyFlowNode[], es: JourneyFlowEdge[]): string => {
+    const normalizedNodes = [...(ns ?? [])]
+      .map((n) => normalizeNodeForDirty(n))
+      .sort((a: any, b: any) => String(a?.id ?? '').localeCompare(String(b?.id ?? '')));
+    const normalizedEdges = [...(es ?? [])]
+      .map((e) => normalizeEdgeForDirty(e))
+      .sort((a: any, b: any) => String(a?.id ?? '').localeCompare(String(b?.id ?? '')));
+    return stableStringify({ nodes: normalizedNodes, edges: normalizedEdges });
+  };
 
   const [nodes, setNodes, onNodesChangeBase] = useNodesState<JourneyFlowNode>(
     (journey.nodes as JourneyFlowNode[]) || [],
@@ -121,11 +167,9 @@ export function useJourneyCanvas({
       setNodes(baseNodes);
       // Clone edges so ReactFlow edits can't mutate the base journey object
       // (prevents stale/zombie state across reloads).
-      setEdges(
-        ((journey.edges as JourneyFlowEdge[]) || []).map((e) => ({
-          ...e,
-        })),
-      );
+      const baseEdges = ((journey.edges as JourneyFlowEdge[]) || []).map((e) => ({ ...e }));
+      baselineNormalizedLayoutRef.current = normalizeLayoutForDirty(baseNodes, baseEdges);
+      setEdges(baseEdges);
       setHasUnsavedChanges(false);
       setJourneyCanvasHasUnsavedChanges(false);
       setSelectedNodeId(null);
@@ -136,9 +180,24 @@ export function useJourneyCanvas({
   const markDirty = useCallback(() => {
     if (activeQARunId) return;
     if (readOnly) return;
+    if (!baselineNormalizedLayoutRef.current) return; // avoid marking dirty during hydration
     setJourneyCanvasHasUnsavedChanges(true);
     setHasUnsavedChanges(true);
-  }, [activeQARunId, readOnly]);
+  }, [activeQARunId, readOnly, setJourneyCanvasHasUnsavedChanges]);
+
+  // Recompute dirty state from a normalized comparison so ReactFlow runtime-only fields
+  // (measured/selected/etc) can't cause false positives after hydration.
+  useEffect(() => {
+    if (activeQARunId) return;
+    if (readOnly) return;
+    if (!baselineNormalizedLayoutRef.current) return;
+
+    const currentNormalized = normalizeLayoutForDirty(nodes, edges);
+    const dirty = currentNormalized !== baselineNormalizedLayoutRef.current;
+
+    setJourneyCanvasHasUnsavedChanges(dirty);
+    setHasUnsavedChanges(dirty);
+  }, [nodes, edges, activeQARunId, readOnly, setJourneyCanvasHasUnsavedChanges]);
 
   const onNodesChange = useCallback(
     // ReactFlow will call this on drag/resize/connection-related edits.
@@ -448,6 +507,7 @@ export function useJourneyCanvas({
     if (result.success) {
       setHasUnsavedChanges(false);
       setJourneyCanvasHasUnsavedChanges(false);
+      baselineNormalizedLayoutRef.current = normalizeLayoutForDirty(nodesWithUploadedImages, edges);
       const type_counts = (() => {
         const counts = { new: 0, enrichment: 0, fix: 0 };
         for (const n of nodesWithUploadedImages) {

@@ -121,9 +121,20 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                     {journey.qaRunsCount && journey.latestQARun ? (
-                      <span className="font-medium text-gray-700">
-                        {computeQARunStatusForRun(journey.latestQARun)}
-                      </span>
+                      (() => {
+                        const status = computeQARunStatusForRun(journey.latestQARun);
+                        const cls =
+                          status === 'PASSED'
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                            : status === 'FAILED'
+                              ? 'bg-red-100 text-red-800 border-red-200'
+                              : 'bg-amber-100 text-amber-800 border-amber-200';
+                        return (
+                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold border ${cls}`}>
+                            {status}
+                          </span>
+                        );
+                      })()
                     ) : (
                       <span className="text-gray-400">—</span>
                     )}

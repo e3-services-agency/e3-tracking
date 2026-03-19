@@ -10,6 +10,7 @@ import { getSharedJourneyByIdApi, getSharedJourneyByTokenApi } from '@/src/featu
 import type { Journey } from '@/src/types';
 import { API_BASE } from '@/src/config/env';
 import { computeQARunStatusForRun, getQARunDisplayName } from '@/src/features/journeys/lib/qaRunUtils';
+import { Check, ChevronDown, FileText, Lock, LockOpen, PenTool } from 'lucide-react';
 
 type SharedResponse = {
   id: string;
@@ -48,6 +49,8 @@ export function SharedJourneyView({
   const [briefHtml, setBriefHtml] = useState<string | null>(null);
   const [briefError, setBriefError] = useState<string | null>(null);
   const [briefLoading, setBriefLoading] = useState(false);
+  const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
+  const modeMenuRef = React.useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,6 +139,19 @@ export function SharedJourneyView({
     };
   }, [view, journeyId]);
 
+  useEffect(() => {
+    if (!isModeMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const el = modeMenuRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && !el.contains(e.target)) {
+        setIsModeMenuOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', onDown);
+    return () => window.removeEventListener('mousedown', onDown);
+  }, [isModeMenuOpen]);
+
   if (loading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-[var(--surface-default)]">
@@ -165,52 +181,114 @@ export function SharedJourneyView({
           <div className="min-w-0">
             <h1 className="text-lg font-bold text-gray-900 truncate">{journey.name}</h1>
             <p className="text-xs text-gray-500 mt-0.5">
-              Read-only view — journey, brief, and QA runs
+              Read-only view — design, docs, and QA runs
             </p>
           </div>
           {journeyId && (
-            <select
-              className="text-xs border rounded-md px-2 py-1.5 bg-gray-50 text-gray-900"
-              value={view === 'qa' ? `qa:${activeQARunId || ''}` : view}
-              onChange={(e) => {
-                const v = e.target.value;
-                const u = new URL(window.location.href);
-                if (v === 'journey') {
-                  setView('journey');
-                  setActiveQARunId(null);
-                  u.searchParams.delete('view');
-                  u.searchParams.delete('qa');
-                  window.history.replaceState({}, '', u.toString());
-                  return;
-                }
-                if (v === 'brief') {
-                  setView('brief');
-                  setActiveQARunId(null);
-                  u.searchParams.set('view', 'brief');
-                  u.searchParams.delete('qa');
-                  window.history.replaceState({}, '', u.toString());
-                  return;
-                }
-                if (v.startsWith('qa:')) {
-                  const qaId = v.slice(3) || null;
-                  setView('qa');
-                  setActiveQARunId(qaId);
-                  u.searchParams.set('view', 'qa');
-                  if (qaId) u.searchParams.set('qa', qaId);
-                  else u.searchParams.delete('qa');
-                  window.history.replaceState({}, '', u.toString());
-                }
-              }}
-            >
-              <option value="journey">Journey</option>
-              <option value="brief">Implementation brief</option>
-              {(journey.qaRuns || []).length > 0 && <option disabled>──────────</option>}
-              {(journey.qaRuns || []).map((run: any) => (
-                <option key={run.id} value={`qa:${run.id}`}>
-                  QA: {getQARunDisplayName(run)} ({computeQARunStatusForRun(run)})
-                </option>
-              ))}
-            </select>
+            <div className="relative" ref={modeMenuRef}>
+              <button
+                type="button"
+                className="text-xs border rounded-md px-2 py-1.5 bg-gray-50 text-gray-900 min-w-[290px] flex items-center justify-between gap-2"
+                onClick={() => setIsModeMenuOpen((v) => !v)}
+              >
+                <span className="flex items-center gap-2 truncate">
+                  {view === 'journey' ? (
+                    <PenTool className="w-3.5 h-3.5 text-[var(--color-info)]" />
+                  ) : view === 'brief' ? (
+                    <FileText className="w-3.5 h-3.5 text-[var(--color-info)]" />
+                  ) : ((journey.qaRuns || []).find((r: any) => r.id === activeQARunId)?.endedAt ? (
+                    <Lock className="w-3.5 h-3.5 text-gray-600" />
+                  ) : (
+                    <LockOpen className="w-3.5 h-3.5 text-emerald-600" />
+                  ))}
+                  <span className="truncate">
+                    {view === 'journey'
+                      ? 'Design Mode'
+                      : view === 'brief'
+                        ? 'Docs Mode'
+                        : getQARunDisplayName((journey.qaRuns || []).find((r: any) => r.id === activeQARunId) || null)}
+                  </span>
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-gray-500" />
+              </button>
+              {isModeMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 w-full bg-white border rounded-md shadow-lg z-50 overflow-hidden">
+                  <button
+                    type="button"
+                    className="w-full px-2 py-1.5 text-xs text-left hover:bg-gray-50 flex items-center gap-2"
+                    onClick={() => {
+                      const u = new URL(window.location.href);
+                      setView('journey');
+                      setActiveQARunId(null);
+                      u.searchParams.delete('view');
+                      u.searchParams.delete('qa');
+                      window.history.replaceState({}, '', u.toString());
+                      setIsModeMenuOpen(false);
+                    }}
+                  >
+                    <PenTool className="w-3.5 h-3.5 text-[var(--color-info)]" />
+                    <span className="flex-1">Design Mode</span>
+                    {view === 'journey' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full px-2 py-1.5 text-xs text-left hover:bg-gray-50 flex items-center gap-2"
+                    onClick={() => {
+                      const u = new URL(window.location.href);
+                      setView('brief');
+                      setActiveQARunId(null);
+                      u.searchParams.set('view', 'brief');
+                      u.searchParams.delete('qa');
+                      window.history.replaceState({}, '', u.toString());
+                      setIsModeMenuOpen(false);
+                    }}
+                  >
+                    <FileText className="w-3.5 h-3.5 text-[var(--color-info)]" />
+                    <span className="flex-1">Docs Mode</span>
+                    {view === 'brief' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                  </button>
+                  {(journey.qaRuns || []).length > 0 && <div className="border-t" />}
+                  {(journey.qaRuns || []).map((run: any) => {
+                    const runStatus = computeQARunStatusForRun(run);
+                    return (
+                      <button
+                        key={run.id}
+                        type="button"
+                        className="w-full px-2 py-1.5 text-xs text-left hover:bg-gray-50 flex items-center gap-2"
+                        onClick={() => {
+                          const u = new URL(window.location.href);
+                          setView('qa');
+                          setActiveQARunId(run.id);
+                          u.searchParams.set('view', 'qa');
+                          u.searchParams.set('qa', run.id);
+                          window.history.replaceState({}, '', u.toString());
+                          setIsModeMenuOpen(false);
+                        }}
+                      >
+                        {run.endedAt ? (
+                          <Lock className="w-3.5 h-3.5 text-gray-600" />
+                        ) : (
+                          <LockOpen className="w-3.5 h-3.5 text-emerald-600" />
+                        )}
+                        <span className="flex-1 truncate">{getQARunDisplayName(run)}</span>
+                        <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold border ${
+                          runStatus === 'PASSED'
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                            : runStatus === 'FAILED'
+                              ? 'bg-red-100 text-red-800 border-red-200'
+                              : 'bg-amber-100 text-amber-800 border-amber-200'
+                        }`}>
+                          {runStatus}
+                        </span>
+                        {view === 'qa' && activeQARunId === run.id && (
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -219,7 +297,7 @@ export function SharedJourneyView({
           briefError ? (
             <div className="flex h-full w-full items-center justify-center bg-[var(--surface-default)]">
               <div className="text-center max-w-md px-4">
-                <p className="text-red-600 font-medium">Failed to load brief</p>
+                <p className="text-red-600 font-medium">Failed to load docs</p>
                 <p className="text-sm text-gray-600 mt-1">{briefError}</p>
               </div>
             </div>
@@ -227,11 +305,11 @@ export function SharedJourneyView({
             <div className="flex h-full w-full items-center justify-center bg-[var(--surface-default)]">
               <div className="text-center">
                 <div className="w-8 h-8 border-2 border-[var(--color-info)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                <p className="text-sm text-gray-600">Loading implementation brief…</p>
+                <p className="text-sm text-gray-600">Loading docs…</p>
               </div>
             </div>
           ) : (
-            <iframe title="Implementation brief" className="w-full h-full border-0 bg-white" srcDoc={briefHtml} />
+            <iframe title="Docs" className="w-full h-full border-0 bg-white" srcDoc={briefHtml} />
           )
         ) : (
           <ReactFlowProvider>

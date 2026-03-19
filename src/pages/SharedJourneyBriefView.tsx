@@ -1,5 +1,5 @@
 /**
- * Public implementation brief view at /share/journey/:id/brief.
+ * Public docs view at /share/journey/:id/brief.
  * Fetches HTML from GET /api/shared/journeys/journey/:id/export/html and renders in an iframe.
  */
 import React, { useEffect, useState } from 'react';
@@ -42,7 +42,7 @@ export function SharedJourneyBriefView({ journeyId }: { journeyId: string }) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-[var(--surface-default)]">
         <div className="text-center max-w-md px-4">
-          <p className="text-red-600 font-medium">Failed to load brief</p>
+          <p className="text-red-600 font-medium">Failed to load docs</p>
           <p className="text-sm text-gray-600 mt-1">{error}</p>
         </div>
       </div>
@@ -54,7 +54,7 @@ export function SharedJourneyBriefView({ journeyId }: { journeyId: string }) {
       <div className="flex h-screen w-full items-center justify-center bg-[var(--surface-default)]">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-[var(--color-info)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-600">Loading implementation brief…</p>
+          <p className="text-sm text-gray-600">Loading docs…</p>
         </div>
       </div>
     );
@@ -62,7 +62,7 @@ export function SharedJourneyBriefView({ journeyId }: { journeyId: string }) {
 
   return (
     <iframe
-      title="Implementation brief"
+      title="Docs"
       className="w-full h-screen border-0 bg-white"
       srcDoc={html}
     />

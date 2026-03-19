@@ -109,3 +109,15 @@
 - No regression:
   - Share URLs and implementation brief export still work (no changes to export HTML generation logic).
 
+## 7. Follow-up Adjustments (Current Task)
+- Fixed QA side-panel codegen regression by rehydrating `codegenSnippets` into QA snapshot trigger nodes during `useJourneyCanvas` QA remap.
+- Added Save QA confirmation modal with explicit loading state (spinner + disabled action while request is in-flight).
+- Added End QA confirmation modal with hard blocker when pending steps exist:
+  - End QA button disabled if `hasPendingStepsForRun(activeQARun)` is true.
+  - Modal also blocks confirm action and explains why.
+- Unified mode dropdowns with iconized entries and naming:
+  - `Design Mode` iconized with `PenTool`
+  - `Docs Mode` iconized with `FileText` (replaces “Implementation Brief” wording in mode UI)
+  - QA run entries display lock/open state (`Lock`, `LockOpen`) and status chips.
+- Added node-level QA status chip in side panel (visible in read-only/shared context too).
+

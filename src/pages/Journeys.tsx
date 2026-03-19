@@ -5,6 +5,7 @@ import { Input } from '@/src/components/ui/Input';
 import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '@/src/contexts/AuthContext';
 import {
+  Check,
   Trash2,
   Save,
   CheckSquare,
@@ -12,6 +13,10 @@ import {
   Share2,
   Upload,
   Loader2,
+  PenTool,
+  Lock,
+  LockOpen,
+  ChevronDown,
 } from 'lucide-react';
 import {
   updateJourneyTestingInstructionsApi,
@@ -32,7 +37,7 @@ import { JourneyCanvas } from '@/src/features/journeys/editor/JourneyCanvas';
 import { useJourneys } from '@/src/features/journeys/hooks/useJourneys';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
-import { formatQARunName, getQARunDisplayName } from '@/src/features/journeys/lib/qaRunUtils';
+import { computeQARunStatusForRun, formatQARunName, getQARunDisplayName } from '@/src/features/journeys/lib/qaRunUtils';
 
 export function Journeys({
   selectedJourneyId: initialJourneyId,
@@ -64,6 +69,8 @@ export function Journeys({
   const [isTogglingShare, setIsTogglingShare] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement | null>(null);
+  const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
+  const modeMenuRef = useRef<HTMLDivElement | null>(null);
   const [lockedQARunIds, setLockedQARunIds] = useState<string[]>([]);
   const [isRenaming, setIsRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
@@ -176,6 +183,19 @@ export function Journeys({
     return () => window.removeEventListener('mousedown', onDown);
   }, [isMoreMenuOpen]);
 
+  useEffect(() => {
+    if (!isModeMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const el = modeMenuRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && !el.contains(e.target)) {
+        setIsModeMenuOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', onDown);
+    return () => window.removeEventListener('mousedown', onDown);
+  }, [isModeMenuOpen]);
+
   const journeyOptions = useMemo(
     () => data.journeys,
     [data.journeys],
@@ -271,7 +291,7 @@ export function Journeys({
       return (
         <div className="flex h-full w-full items-center justify-center bg-[var(--surface-default)]">
           <div className="text-center max-w-md px-4">
-            <p className="text-red-600 font-medium">Failed to load brief</p>
+            <p className="text-red-600 font-medium">Failed to load docs</p>
             <p className="text-sm text-gray-600 mt-1">{error}</p>
           </div>
         </div>
@@ -282,13 +302,13 @@ export function Journeys({
         <div className="flex h-full w-full items-center justify-center bg-[var(--surface-default)]">
           <div className="text-center">
             <div className="w-8 h-8 border-2 border-[var(--color-info)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-sm text-gray-600">Loading implementation brief…</p>
+            <p className="text-sm text-gray-600">Loading docs…</p>
           </div>
         </div>
       );
     }
     return (
-      <iframe title="Implementation brief preview" className="w-full h-full border-0 bg-white" srcDoc={html} />
+      <iframe title="Docs preview" className="w-full h-full border-0 bg-white" srcDoc={html} />
     );
   };
 
@@ -363,30 +383,118 @@ export function Journeys({
           {selectedJourney && (
             <div className="flex items-center gap-2 mr-4 border-r pr-4">
               <span className="text-sm font-medium text-gray-700">
-                QA Runs
+                Mode
               </span>
-              <select
-                className="text-sm border rounded p-1.5 bg-gray-50"
-                value={isBriefPreview ? '__brief__' : activeQARunId || ''}
-                onChange={(e) => {
-                  const v = e.target.value || '';
-                  if (v === '__brief__') {
-                    setIsBriefPreview(true);
-                    setActiveQARunId(null);
-                    return;
-                  }
-                  setIsBriefPreview(false);
-                  setActiveQARunId(v || null);
-                }}
-              >
-                <option value="">-- Design Mode --</option>
-                <option value="__brief__">-- Implementation Brief Preview --</option>
-                {(selectedJourney.qaRuns || []).map((run) => (
-                  <option key={run.id} value={run.id}>
-                    {getQARunDisplayName(run)}
-                  </option>
-                ))}
-              </select>
+              <div className="relative" ref={modeMenuRef}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="min-w-[320px] justify-between gap-2"
+                  onClick={() => setIsModeMenuOpen((v) => !v)}
+                >
+                  <span className="flex items-center gap-2 truncate">
+                    {isBriefPreview ? (
+                      <FileText className="w-4 h-4 text-[var(--color-info)]" />
+                    ) : activeQARun ? (
+                      activeQARun.endedAt ? (
+                        <Lock className="w-4 h-4 text-gray-600" />
+                      ) : (
+                        <LockOpen className="w-4 h-4 text-emerald-600" />
+                      )
+                    ) : (
+                      <PenTool className="w-4 h-4 text-[var(--color-info)]" />
+                    )}
+                    <span className="truncate">
+                      {isBriefPreview
+                        ? 'Docs Mode'
+                        : activeQARun
+                          ? getQARunDisplayName(activeQARun)
+                          : 'Design Mode'}
+                    </span>
+                    {activeQARun && (
+                      <span
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
+                          computeQARunStatusForRun(activeQARun) === 'PASSED'
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                            : computeQARunStatusForRun(activeQARun) === 'FAILED'
+                              ? 'bg-red-100 text-red-800 border-red-200'
+                              : 'bg-amber-100 text-amber-800 border-amber-200'
+                        }`}
+                      >
+                        {computeQARunStatusForRun(activeQARun)}
+                      </span>
+                    )}
+                  </span>
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                </Button>
+                {isModeMenuOpen && (
+                  <div className="absolute top-full mt-2 left-0 w-full bg-white border border-[var(--border-default)] rounded-md shadow-lg z-50 overflow-hidden">
+                    <button
+                      type="button"
+                      className="w-full px-3 py-2 text-sm text-left hover:bg-[var(--surface-default)] flex items-center gap-2"
+                      onClick={() => {
+                        setIsBriefPreview(false);
+                        setActiveQARunId(null);
+                        setIsModeMenuOpen(false);
+                      }}
+                    >
+                      <PenTool className="w-4 h-4 text-[var(--color-info)]" />
+                      <span className="flex-1">Design Mode</span>
+                      {!isBriefPreview && !activeQARunId && <Check className="w-4 h-4 text-emerald-600" />}
+                    </button>
+                    <button
+                      type="button"
+                      className="w-full px-3 py-2 text-sm text-left hover:bg-[var(--surface-default)] flex items-center gap-2"
+                      onClick={() => {
+                        setIsBriefPreview(true);
+                        setActiveQARunId(null);
+                        setIsModeMenuOpen(false);
+                      }}
+                    >
+                      <FileText className="w-4 h-4 text-[var(--color-info)]" />
+                      <span className="flex-1">Docs Mode</span>
+                      {isBriefPreview && <Check className="w-4 h-4 text-emerald-600" />}
+                    </button>
+                    {(selectedJourney.qaRuns || []).length > 0 && (
+                      <div className="border-t border-[var(--border-default)]" />
+                    )}
+                    {(selectedJourney.qaRuns || []).map((run) => {
+                      const st = computeQARunStatusForRun(run);
+                      return (
+                        <button
+                          key={run.id}
+                          type="button"
+                          className="w-full px-3 py-2 text-sm text-left hover:bg-[var(--surface-default)] flex items-center gap-2"
+                          onClick={() => {
+                            setIsBriefPreview(false);
+                            setActiveQARunId(run.id);
+                            setIsModeMenuOpen(false);
+                          }}
+                        >
+                          {run.endedAt ? (
+                            <Lock className="w-4 h-4 text-gray-600" />
+                          ) : (
+                            <LockOpen className="w-4 h-4 text-emerald-600" />
+                          )}
+                          <span className="flex-1 truncate">{getQARunDisplayName(run)}</span>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
+                              st === 'PASSED'
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                : st === 'FAILED'
+                                  ? 'bg-red-100 text-red-800 border-red-200'
+                                  : 'bg-amber-100 text-amber-800 border-amber-200'
+                            }`}
+                          >
+                            {st}
+                          </span>
+                          {activeQARunId === run.id && !isBriefPreview && <Check className="w-4 h-4 text-emerald-600" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               <Button
                 variant="outline"
@@ -570,7 +678,7 @@ export function Journeys({
                       )}
                       {selectedJourney.share_token && (
                         <div className="text-[11px] text-gray-500 mt-2">
-                          Tip: the shared page lets the developer switch between the journey canvas and the implementation brief using a tab toggle.
+                          Tip: the shared page lets the developer switch between the journey canvas and docs mode.
                         </div>
                       )}
                     </div>

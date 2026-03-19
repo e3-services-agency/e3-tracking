@@ -27,10 +27,12 @@ import {
 } from '@/src/features/journeys/lib/qaRunUtils';
 import { JourneyPendingQAWarnModal } from '@/src/features/journeys/overlays/JourneyPendingQAWarnModal';
 import {
+  AlertTriangle,
   CheckCircle2,
   CheckSquare,
   FileText,
   Image as ImageIcon,
+  Loader2,
   Pencil,
   Plus,
   Save,
@@ -162,6 +164,10 @@ export function JourneyCanvas({
   const activeWorkspaceId = useActiveWorkspaceId();
   const [readOnlyImagePreview, setReadOnlyImagePreview] = React.useState<string | null>(null);
   const [isPendingQAWarnOpen, setIsPendingQAWarnOpen] = React.useState(false);
+  const [isSaveConfirmOpen, setIsSaveConfirmOpen] = React.useState(false);
+  const [isEndConfirmOpen, setIsEndConfirmOpen] = React.useState(false);
+  const [isConfirmSavingQA, setIsConfirmSavingQA] = React.useState(false);
+  const [isConfirmEndingQA, setIsConfirmEndingQA] = React.useState(false);
 
   const {
     nodes,
@@ -234,6 +240,13 @@ export function JourneyCanvas({
 
   const qaRunDerivedStatus = computeQARunStatusForRun(activeQARun);
   const qaRunHasPendingSteps = hasPendingStepsForRun(activeQARun);
+  const nodeStatus = currentVerification?.status ?? 'Pending';
+  const statusChipClass =
+    nodeStatus === 'Passed'
+      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+      : nodeStatus === 'Failed'
+        ? 'bg-red-100 text-red-800 border-red-200'
+        : 'bg-amber-100 text-amber-800 border-amber-200';
 
   React.useEffect(() => {
     onSaveLayoutState?.({
@@ -421,10 +434,7 @@ export function JourneyCanvas({
                     size="sm"
                     className="gap-2"
                     onClick={() => {
-                      if (qaRunHasPendingSteps) {
-                        setIsPendingQAWarnOpen(true);
-                      }
-                      void handleSaveQA();
+                      setIsSaveConfirmOpen(true);
                     }}
                     disabled={isSavingQA}
                   >
@@ -440,18 +450,24 @@ export function JourneyCanvas({
                     size="sm"
                     variant="destructive"
                     className="gap-2"
-                    onClick={async () => {
-                      const endedAt = new Date().toISOString();
-                      await handleSaveQA({ endedAtForActiveRun: endedAt });
-                      onEndQA?.();
-                    }}
-                    disabled={isSavingQA}
+                    onClick={() => setIsEndConfirmOpen(true)}
+                    disabled={isSavingQA || qaRunHasPendingSteps}
+                    title={
+                      qaRunHasPendingSteps
+                        ? 'Cannot end QA while there are pending steps.'
+                        : undefined
+                    }
                   >
                     <X className="w-4 h-4" /> End QA
                   </Button>
                 </>
               )}
             </div>
+            {qaRunHasPendingSteps && (
+              <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                End QA is disabled because some nodes are still Pending.
+              </div>
+            )}
           </div>
         )}
 
@@ -714,6 +730,14 @@ export function JourneyCanvas({
                       </div>
                     )}
                 </div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  QA Status
+                </div>
+                <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold border ${statusChipClass}`}>
+                  {nodeStatus}
+                </span>
               </div>
 
               {effectiveReadOnly && isJourneyStepNode(selectedNode) && (
@@ -1372,6 +1396,101 @@ export function JourneyCanvas({
         isOpen={isPendingQAWarnOpen}
         onClose={() => setIsPendingQAWarnOpen(false)}
       />
+
+      {isSaveConfirmOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-[520px] border border-[var(--border-default)]">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Save QA run</h2>
+            <div className="text-sm text-gray-700">
+              Save current QA progress for this run?
+            </div>
+            {qaRunHasPendingSteps && (
+              <div className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                <AlertTriangle className="w-3.5 h-3.5 inline mr-1" />
+                There are steps with pending status. Are you sure you want to proceed?
+              </div>
+            )}
+            <div className="mt-6 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsSaveConfirmOpen(false)}
+                disabled={isConfirmSavingQA}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  setIsConfirmSavingQA(true);
+                  if (qaRunHasPendingSteps) setIsPendingQAWarnOpen(true);
+                  await handleSaveQA();
+                  setIsConfirmSavingQA(false);
+                  setIsSaveConfirmOpen(false);
+                }}
+                disabled={isConfirmSavingQA}
+                className="gap-2"
+              >
+                {isConfirmSavingQA ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save QA'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isEndConfirmOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-[560px] border border-[var(--border-default)]">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">End QA run</h2>
+            <div className="text-sm text-gray-700">
+              Ending this QA run is permanent. You will not be able to reopen and edit it afterward.
+            </div>
+            {qaRunHasPendingSteps && (
+              <div className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                <AlertTriangle className="w-3.5 h-3.5 inline mr-1" />
+                You cannot end this QA run while pending nodes exist.
+              </div>
+            )}
+            <div className="mt-6 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsEndConfirmOpen(false)}
+                disabled={isConfirmEndingQA}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={async () => {
+                  if (qaRunHasPendingSteps) return;
+                  setIsConfirmEndingQA(true);
+                  const endedAt = new Date().toISOString();
+                  await handleSaveQA({ endedAtForActiveRun: endedAt });
+                  onEndQA?.();
+                  setIsConfirmEndingQA(false);
+                  setIsEndConfirmOpen(false);
+                }}
+                disabled={isConfirmEndingQA || qaRunHasPendingSteps}
+                className="gap-2"
+              >
+                {isConfirmEndingQA ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Ending...
+                  </>
+                ) : (
+                  'End QA'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {readOnlyImagePreview && (
         <div

@@ -199,4 +199,7 @@ This file map is based on direct code inspection of the Journeys feature folder 
   - Image upload/save flow includes client-side and export-time normalization for legacy proxy URLs so images render in public contexts.
   - `GET /api/journeys` now returns `qaRunsCount` + `latestQARun` to power homepage QA count/status.
   - QA naming and derived status are computed from `createdAt` + step verification statuses via `qaRunUtils.ts` (single source of truth).
+  - QA side-panel codegen regression was fixed by rehydrating `codegenSnippets` into QA snapshot trigger nodes in `useJourneyCanvas` during active run node remap.
+  - Save QA and End QA now use explicit confirmation modals; End QA is blocked while pending steps exist.
+  - Mode dropdowns were unified to iconized Design/Docs/QA entries; QA entries show lock/open icons and color-coded status chips.
 

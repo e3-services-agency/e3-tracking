@@ -144,10 +144,32 @@ export function useJourneyCanvas({
     const runNodes =
       ((activeQARun.nodes as JourneyFlowNode[]) ||
         (journey.nodes as JourneyFlowNode[]) ||
-        []).map((node) => ({
+        []).map((node) => {
+        // QA snapshots may not contain runtime-enriched trigger snippets.
+        // Rehydrate from current journey nodes by eventId so side-panel codegen works.
+        let mergedData = { ...node.data } as any;
+        if (node.type === 'triggerNode') {
+          const eventId = (node.data as any)?.connectedEvent?.eventId;
+          if (typeof eventId === 'string' && !mergedData.codegenSnippets) {
+            const sourceTrigger = (journey.nodes as any[]).find(
+              (n) =>
+                n?.type === 'triggerNode' &&
+                n?.data?.connectedEvent?.eventId === eventId &&
+                n?.data?.codegenSnippets
+            );
+            if (sourceTrigger?.data?.codegenSnippets) {
+              mergedData = {
+                ...mergedData,
+                codegenSnippets: sourceTrigger.data.codegenSnippets,
+              };
+            }
+          }
+        }
+
+        return {
         ...node,
         data: {
-          ...node.data,
+          ...mergedData,
           activeQARunId,
           qaVerification: activeQARun.verifications?.[node.id],
           workspaceId: activeWorkspaceId,
@@ -156,7 +178,8 @@ export function useJourneyCanvas({
           // editable and show upload-proof controls on shared links.
           readOnly: readOnly || undefined,
         },
-      }));
+      };
+      });
 
     const runEdges =
       (activeQARun.edges as JourneyFlowEdge[]) ||

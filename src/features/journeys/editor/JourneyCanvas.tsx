@@ -493,7 +493,7 @@ export function JourneyCanvas({
           elementsSelectable={true}
           panOnDrag={tool !== 'annotation' || effectiveReadOnly}
           selectionOnDrag={!effectiveReadOnly && tool !== 'annotation'}
-          deleteKeyCode={effectiveReadOnly ? null : ['Backspace', 'Delete']}
+          deleteKeyCode={effectiveReadOnly || activeQARunId ? null : ['Backspace', 'Delete']}
         >
           <Controls />
           <MiniMap

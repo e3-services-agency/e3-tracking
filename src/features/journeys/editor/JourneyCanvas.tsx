@@ -554,20 +554,82 @@ export function JourneyCanvas({
 
       {activeQARunId && selectedPanel === 'summary' && (
         <div className="w-[420px] border-l bg-white flex flex-col shadow-xl z-20 absolute right-0 top-0 bottom-0">
-          <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
-            <h3 className="font-bold text-gray-900 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-[var(--color-info)]" /> QA Run Details
-            </h3>
+          <div className="p-4 border-b bg-gray-50 flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0 flex-1 flex-wrap">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2 shrink-0">
+                <FileText className="w-5 h-5 text-[var(--color-info)] shrink-0" /> QA Run Details
+              </h3>
+              <div className="shrink-0">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                  QA Status
+                </div>
+                <div
+                  className={
+                    qaRunDerivedStatus === 'FAILED'
+                      ? 'bg-red-50 border-red-200 text-red-700'
+                      : qaRunDerivedStatus === 'PASSED'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                        : 'bg-blue-50 border-blue-200 text-[var(--color-info)]'
+                  }
+                >
+                  <div className="border rounded-md p-2 text-sm font-semibold">
+                    {qaRunDerivedStatus}
+                  </div>
+                </div>
+              </div>
+            </div>
             <button
               onClick={() => {
                 setSelectedNodeId(null);
                 setSelectedPanel('none');
               }}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-gray-400 hover:text-gray-600 shrink-0"
               type="button"
             >
               <X className="w-5 h-5" />
             </button>
+          </div>
+
+          <div className="shrink-0 px-4 py-3 border-b bg-white">
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              QA Summary
+            </div>
+            <div className="text-sm text-gray-700 flex items-center gap-3 flex-wrap">
+              <span className="inline-flex items-center gap-1.5">
+                <CircleDashed className="w-4 h-4 text-gray-500" />
+                <span className="font-semibold text-gray-800">
+                  {
+                    nodes.filter(
+                      (node) =>
+                        node.type === 'journeyStepNode' || node.type === 'triggerNode'
+                    ).length
+                  }
+                </span>
+                <span className="text-gray-500">nodes</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span className="font-semibold text-emerald-700">
+                  {
+                    Object.values(activeVerifications).filter(
+                      (verification) => verification.status === 'Passed'
+                    ).length
+                  }
+                </span>
+                <span className="text-gray-500">passed</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <XCircle className="w-4 h-4 text-red-600" />
+                <span className="font-semibold text-red-700">
+                  {
+                    Object.values(activeVerifications).filter(
+                      (verification) => verification.status === 'Failed'
+                    ).length
+                  }
+                </span>
+                <span className="text-gray-500">failed</span>
+              </span>
+            </div>
           </div>
 
           <div className="flex flex-col flex-1 min-h-0">
@@ -581,67 +643,6 @@ export function JourneyCanvas({
                     value={getQARunDisplayName(activeQARun)}
                     disabled
                 />
-              </div>
-
-                <div>
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                    QA Status
-                  </div>
-                  <div
-                    className={
-                      qaRunDerivedStatus === 'FAILED'
-                        ? 'bg-red-50 border-red-200 text-red-700'
-                        : qaRunDerivedStatus === 'PASSED'
-                          ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                          : 'bg-blue-50 border-blue-200 text-[var(--color-info)]'
-                    }
-                  >
-                    <div className="border rounded-md p-2 text-sm font-semibold">
-                      {qaRunDerivedStatus}
-                    </div>
-                  </div>
-                </div>
-
-              <div>
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                  QA Summary
-                </div>
-                <div className="text-sm text-gray-700 flex items-center gap-3 flex-wrap">
-                  <span className="inline-flex items-center gap-1.5">
-                    <CircleDashed className="w-4 h-4 text-gray-500" />
-                    <span className="font-semibold text-gray-800">
-                      {
-                        nodes.filter(
-                          (node) =>
-                            node.type === 'journeyStepNode' || node.type === 'triggerNode'
-                        ).length
-                      }
-                    </span>
-                    <span className="text-gray-500">nodes</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span className="font-semibold text-emerald-700">
-                      {
-                        Object.values(activeVerifications).filter(
-                          (verification) => verification.status === 'Passed'
-                        ).length
-                      }
-                    </span>
-                    <span className="text-gray-500">passed</span>
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <XCircle className="w-4 h-4 text-red-600" />
-                    <span className="font-semibold text-red-700">
-                      {
-                        Object.values(activeVerifications).filter(
-                          (verification) => verification.status === 'Failed'
-                        ).length
-                      }
-                    </span>
-                    <span className="text-gray-500">failed</span>
-                  </span>
-                </div>
               </div>
 
               <div>
@@ -754,17 +755,29 @@ export function JourneyCanvas({
         selectedNode &&
         (isJourneyStepNode(selectedNode) || isTriggerNode(selectedNode)) && (
           <div className="w-[420px] border-l bg-white flex flex-col shadow-xl z-20 absolute right-0 top-0 bottom-0">
-            <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
-              <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                <CheckSquare className="w-5 h-5 text-[var(--color-info)]" />
-                {effectiveReadOnly ? 'Node Details' : 'QA Verification'}
-              </h3>
+            <div className="p-4 border-b bg-gray-50 flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1 flex-wrap">
+                <h3 className="font-bold text-gray-900 flex items-center gap-2 min-w-0">
+                  <CheckSquare className="w-5 h-5 text-[var(--color-info)] shrink-0" />
+                  <span className="truncate">
+                    {effectiveReadOnly ? 'Node Details' : 'QA Verification'}
+                  </span>
+                </h3>
+                <div className="shrink-0">
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                    QA Status
+                  </div>
+                  <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold border ${statusChipClass}`}>
+                    {nodeStatus}
+                  </span>
+                </div>
+              </div>
               <button
                 onClick={() => {
                   setSelectedNodeId(null);
                   setSelectedPanel('summary');
                 }}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 shrink-0"
                 type="button"
               >
                 <X className="w-5 h-5" />
@@ -789,14 +802,6 @@ export function JourneyCanvas({
                       </div>
                     )}
                 </div>
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                  QA Status
-                </div>
-                <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold border ${statusChipClass}`}>
-                  {nodeStatus}
-                </span>
               </div>
 
               {effectiveReadOnly && isJourneyStepNode(selectedNode) && (

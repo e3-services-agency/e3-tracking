@@ -88,6 +88,9 @@ export function Journeys({
   const selectedJourney =
     data.journeys.find((journey: Journey) => journey.id === selectedJourneyId) ||
     null;
+  const isSelectedJourneyReady = selectedJourneyId
+    ? data.journeys.some((journey: Journey) => journey.id === selectedJourneyId)
+    : false;
 
   const activeQARun = selectedJourney?.qaRuns?.find((run) => run.id === activeQARunId) ?? null;
   const qaLocked = !!activeQARunId && (lockedQARunIds.includes(activeQARunId) || !!activeQARun?.endedAt);
@@ -137,7 +140,7 @@ export function Journeys({
     if (!selectedJourneyId) return;
     // Prevent race with workspace resolution: only fetch QA runs once the
     // selected journey is actually present in the currently loaded workspace.
-    if (!selectedJourney) return;
+    if (!isSelectedJourneyReady) return;
 
     let cancelled = false;
     void (async () => {
@@ -150,7 +153,7 @@ export function Journeys({
     return () => {
       cancelled = true;
     };
-  }, [selectedJourneyId, activeWorkspaceId, selectedJourney, updateJourney]);
+  }, [selectedJourneyId, activeWorkspaceId, isSelectedJourneyReady, updateJourney]);
 
   // Creating journeys should happen from the Journeys list, not from inside the canvas view.
 

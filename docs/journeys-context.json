@@ -382,7 +382,8 @@
     "Verify no floating QA overlay remains on canvas and that Save/End/Status/Counts are available directly in QA Run Details panel.",
     "Verify active QA Tester field is locked and auto-filled from authenticated user email.",
     "Verify side-panel codegen uses real snippets from base journey nodes in Active QA mode and does not emit fallback 404 requests.",
-    "Verify QA run naming/timestamps render in local browser timezone and mode dropdown lock icon updates immediately after End QA success."
+    "Verify QA run naming/timestamps render in local browser timezone and mode dropdown lock icon updates immediately after End QA success.",
+    "Verify QA trigger shadow nodes preserve `connectedEvent` in Active QA mode and that QA details Save/End actions remain visible in fixed bottom footer while scrolling."
   ]
 }
 

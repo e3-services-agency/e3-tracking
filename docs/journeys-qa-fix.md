@@ -131,4 +131,9 @@
 - QA run names/dates now use local browser timezone formatting in `qaRunUtils.ts` (no UTC display).
 - After successful End QA save, local run state is updated with `endedAt` immediately so mode dropdown lock state switches without refresh.
 - QA Summary moved to the top of QA Run Details and visually enhanced with `CircleDashed` (total), `CheckCircle2` (passed), and `XCircle` (failed) inline counts.
+- Root-cause codegen fix: QA shadow trigger nodes now rehydrate missing `connectedEvent` (plus `eventId`/`eventName` when present) from base `journey.nodes` during active QA remap in `useJourneyCanvas`.
+- QA Run Details action layout is now strict fixed-footer:
+  - middle form content is scrollable (`flex-1 overflow-y-auto`)
+  - Save QA / End QA actions are in a non-scrolling bottom footer (`shrink-0 border-t`)
+  - redundant QA Summary button removed.
 

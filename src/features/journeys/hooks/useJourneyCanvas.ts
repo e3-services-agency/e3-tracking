@@ -145,33 +145,46 @@ export function useJourneyCanvas({
       ((activeQARun.nodes as JourneyFlowNode[]) ||
         (journey.nodes as JourneyFlowNode[]) ||
         []).map((node) => {
-        // QA snapshots may not contain runtime-enriched trigger snippets.
+        // QA snapshots can miss runtime-enriched trigger fields (connectedEvent/codegenSnippets).
         // Rehydrate from current journey nodes so side-panel codegen works in active QA mode.
         let mergedData = { ...node.data } as any;
         if (node.type === 'triggerNode') {
-          const eventId = (node.data as any)?.connectedEvent?.eventId;
-          if (!mergedData.codegenSnippets) {
-            // Prefer exact node id match, then event id match.
-            const byNodeId = (journey.nodes as any[]).find(
-              (n) =>
-                n?.type === 'triggerNode' &&
-                n?.id === node.id &&
-                n?.data?.codegenSnippets
-            );
-            const byEventId =
-              typeof eventId === 'string'
-                ? (journey.nodes as any[]).find(
-                    (n) =>
-                      n?.type === 'triggerNode' &&
-                      n?.data?.connectedEvent?.eventId === eventId &&
-                      n?.data?.codegenSnippets
-                  )
-                : null;
-            const sourceTrigger = byNodeId ?? byEventId;
-            if (sourceTrigger?.data?.codegenSnippets) {
+          const baseTriggerNodes = (journey.nodes as any[]).filter(
+            (n) => n?.type === 'triggerNode'
+          );
+          const snapshotEventId = (node.data as any)?.connectedEvent?.eventId;
+          const byNodeId = baseTriggerNodes.find((n) => n?.id === node.id);
+          const byEventId =
+            typeof snapshotEventId === 'string'
+              ? baseTriggerNodes.find(
+                  (n) => n?.data?.connectedEvent?.eventId === snapshotEventId
+                )
+              : null;
+          const sourceTrigger = byNodeId ?? byEventId ?? null;
+
+          if (sourceTrigger?.data) {
+            if (!mergedData.connectedEvent && sourceTrigger.data.connectedEvent) {
+              mergedData = {
+                ...mergedData,
+                connectedEvent: sourceTrigger.data.connectedEvent,
+              };
+            }
+            if (!mergedData.codegenSnippets && sourceTrigger.data.codegenSnippets) {
               mergedData = {
                 ...mergedData,
                 codegenSnippets: sourceTrigger.data.codegenSnippets,
+              };
+            }
+            if (!mergedData.eventName && sourceTrigger.data.eventName) {
+              mergedData = {
+                ...mergedData,
+                eventName: sourceTrigger.data.eventName,
+              };
+            }
+            if (!mergedData.eventId && sourceTrigger.data.eventId) {
+              mergedData = {
+                ...mergedData,
+                eventId: sourceTrigger.data.eventId,
               };
             }
           }

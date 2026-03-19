@@ -278,13 +278,32 @@ export function JourneyCanvas({
     if (byEventId?.data?.codegenSnippets) return byEventId.data.codegenSnippets;
     return null;
   }, [selectedNode, journey.nodes]);
+  const selectedTriggerConnectedEvent = React.useMemo(() => {
+    if (!selectedNode || !isTriggerNode(selectedNode)) return null;
+    const direct = selectedNode.data.connectedEvent;
+    if (direct?.eventId) return direct;
+
+    const baseNodes = Array.isArray(journey.nodes) ? (journey.nodes as any[]) : [];
+    const byNodeId = baseNodes.find(
+      (n) => n?.type === 'triggerNode' && n?.id === selectedNode.id && n?.data?.connectedEvent?.eventId
+    );
+    if (byNodeId?.data?.connectedEvent?.eventId) return byNodeId.data.connectedEvent;
+
+    const selectedEventId = (selectedNode.data as any)?.eventId;
+    if (typeof selectedEventId === 'string') {
+      const byEventId = baseNodes.find(
+        (n) =>
+          n?.type === 'triggerNode' &&
+          n?.data?.connectedEvent?.eventId === selectedEventId
+      );
+      if (byEventId?.data?.connectedEvent?.eventId) return byEventId.data.connectedEvent;
+    }
+
+    return null;
+  }, [selectedNode, journey.nodes]);
   const selectedTriggerEventIdForCodegen =
     selectedNode && isTriggerNode(selectedNode)
-      ? selectedTriggerPrefetchedSnippets
-        ? selectedNode.data.connectedEvent?.eventId ?? null
-        : activeQARunId
-          ? null
-          : selectedNode.data.connectedEvent?.eventId ?? null
+      ? selectedTriggerConnectedEvent?.eventId ?? null
       : null;
 
   React.useEffect(() => {
@@ -520,6 +539,7 @@ export function JourneyCanvas({
             </button>
           </div>
 
+          <div className="flex flex-col flex-1 min-h-0">
           <div className="p-4 flex-1 overflow-y-auto space-y-6">
             <div className="grid grid-cols-1 gap-3">
               <div>
@@ -591,51 +611,6 @@ export function JourneyCanvas({
                     <span className="text-gray-500">failed</span>
                   </span>
                 </div>
-                <div className="mt-3 flex gap-2 flex-wrap">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setSelectedPanel('summary')}
-                  >
-                    <FileText className="w-4 h-4 mr-1" /> QA Summary
-                  </Button>
-                  {!effectiveReadOnly && (
-                    <>
-                      <Button
-                        size="sm"
-                        className="gap-2"
-                        onClick={() => setIsSaveConfirmOpen(true)}
-                        disabled={isSavingQA}
-                      >
-                        <Save className="w-4 h-4" />
-                        {isSavingQA
-                          ? 'Saving QA...'
-                          : saveQASuccess
-                            ? 'QA Saved!'
-                            : 'Save QA'}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="gap-2"
-                        onClick={() => setIsEndConfirmOpen(true)}
-                        disabled={isSavingQA || qaRunHasPendingSteps}
-                        title={
-                          qaRunHasPendingSteps
-                            ? 'Cannot end QA while there are pending steps.'
-                            : undefined
-                        }
-                      >
-                        <X className="w-4 h-4" /> End QA
-                      </Button>
-                    </>
-                  )}
-                </div>
-                {qaRunHasPendingSteps && (
-                  <div className="mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                    End QA is disabled because some nodes are still Pending.
-                  </div>
-                )}
               </div>
 
               <div>
@@ -700,6 +675,45 @@ export function JourneyCanvas({
               )}
             </div>
 
+          </div>
+          {!effectiveReadOnly && (
+            <div className="shrink-0 border-t bg-white p-4 z-10">
+              {qaRunHasPendingSteps && (
+                <div className="mb-3 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                  End QA is disabled because some nodes are still Pending.
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setIsSaveConfirmOpen(true)}
+                  disabled={isSavingQA}
+                >
+                  <Save className="w-4 h-4" />
+                  {isSavingQA
+                    ? 'Saving QA...'
+                    : saveQASuccess
+                      ? 'QA Saved!'
+                      : 'Save QA'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="gap-2"
+                  onClick={() => setIsEndConfirmOpen(true)}
+                  disabled={isSavingQA || qaRunHasPendingSteps}
+                  title={
+                    qaRunHasPendingSteps
+                      ? 'Cannot end QA while there are pending steps.'
+                      : undefined
+                  }
+                >
+                  <X className="w-4 h-4" /> End QA
+                </Button>
+              </div>
+            </div>
+          )}
           </div>
         </div>
       )}

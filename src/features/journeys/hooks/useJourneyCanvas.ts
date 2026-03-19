@@ -202,32 +202,17 @@ export function useJourneyCanvas({
               : null;
           const sourceTrigger = byNodeId ?? byEventId ?? null;
 
-          if (sourceTrigger?.data) {
-            if (!mergedData.connectedEvent && sourceTrigger.data.connectedEvent) {
-              mergedData = {
-                ...mergedData,
-                connectedEvent: sourceTrigger.data.connectedEvent,
-              };
-            }
-            if (!mergedData.codegenSnippets && sourceTrigger.data.codegenSnippets) {
-              mergedData = {
-                ...mergedData,
-                codegenSnippets: sourceTrigger.data.codegenSnippets,
-              };
-            }
-            if (!mergedData.eventName && sourceTrigger.data.eventName) {
-              mergedData = {
-                ...mergedData,
-                eventName: sourceTrigger.data.eventName,
-              };
-            }
-            if (!mergedData.eventId && sourceTrigger.data.eventId) {
-              mergedData = {
-                ...mergedData,
-                eventId: sourceTrigger.data.eventId,
-              };
-            }
-          }
+          // Forceful rehydration:
+          // The QA snapshot may contain corrupted runtime identifiers for old runs.
+          // Always overwrite trigger "event/codegen" fields from the canonical base journey.
+          const canonical = sourceTrigger?.data as any | undefined;
+          mergedData = {
+            ...mergedData,
+            connectedEvent: canonical?.connectedEvent ?? null,
+            codegenSnippets: canonical?.codegenSnippets,
+            eventId: canonical?.eventId,
+            eventName: canonical?.eventName,
+          };
         }
 
         return {

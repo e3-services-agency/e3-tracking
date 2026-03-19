@@ -48,6 +48,9 @@ export function Journeys({
 }) {
   const data = useActiveData();
   const { addJourney, updateJourney, deleteJourney } = useStore();
+  const journeyCanvasHasUnsavedChanges = useStore(
+    (s) => s.journeyCanvasHasUnsavedChanges,
+  );
   const activeWorkspaceId = useActiveWorkspaceId();
   const { user } = useAuth();
   useJourneys();
@@ -524,13 +527,19 @@ export function Journeys({
               <Button
                 variant="outline"
                 size="sm"
+                disabled={journeyCanvasHasUnsavedChanges}
+                title={
+                  journeyCanvasHasUnsavedChanges
+                    ? 'Save layout changes before starting a QA run.'
+                    : undefined
+                }
                 onClick={() => {
                   setNewQARunName(formatQARunName(new Date()));
                   setNewQATesterName(user?.email ?? '');
                   setNewQAEnvironment('');
                   setIsQAModalOpen(true);
                 }}
-                className="gap-2"
+                className={`gap-2 ${journeyCanvasHasUnsavedChanges ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <CheckSquare className="w-4 h-4" /> Start QA Run
               </Button>
@@ -843,6 +852,8 @@ export function Journeys({
         qaRunName={newQARunName}
         testerName={newQATesterName}
         environment={newQAEnvironment}
+        disableStart={journeyCanvasHasUnsavedChanges}
+        startDisabledReason="Save layout changes before starting a QA run."
         onChangeQARunName={setNewQARunName}
         onChangeTesterName={setNewQATesterName}
         onChangeEnvironment={setNewQAEnvironment}

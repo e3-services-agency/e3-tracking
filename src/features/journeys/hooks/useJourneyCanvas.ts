@@ -54,18 +54,26 @@ export function useJourneyCanvas({
   activeQARunId,
   readOnly = false,
 }: UseJourneyCanvasArgs) {
-  const { updateJourney } = useStore();
+  const { updateJourney, setJourneyCanvasHasUnsavedChanges } = useStore();
   const { getAccessToken } = useAuth();
   const activeWorkspaceId = useActiveWorkspaceId();
   const { screenToFlowPosition } =
     useReactFlow<JourneyFlowNode, JourneyFlowEdge>();
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<JourneyFlowNode>(
+  const [nodes, setNodes, onNodesChangeBase] = useNodesState<JourneyFlowNode>(
     (journey.nodes as JourneyFlowNode[]) || [],
   );
-  const [edges, setEdges, onEdgesChange] = useEdgesState<JourneyFlowEdge>(
+  const [edges, setEdges, onEdgesChangeBase] = useEdgesState<JourneyFlowEdge>(
     (journey.edges as JourneyFlowEdge[]) || [],
   );
+
+  // Tracks whether the in-memory ReactFlow canvas diverges from the last saved
+  // `journey.nodes` / `journey.edges` in the global store.
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  useEffect(() => {
+    setJourneyCanvasHasUnsavedChanges(hasUnsavedChanges);
+  }, [hasUnsavedChanges, setJourneyCanvasHasUnsavedChanges]);
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedPanel, setSelectedPanel] = useState<'summary' | 'node' | 'none'>(
@@ -112,10 +120,36 @@ export function useJourneyCanvas({
 
       setNodes(baseNodes);
       setEdges((journey.edges as JourneyFlowEdge[]) || []);
+      setHasUnsavedChanges(false);
+      setJourneyCanvasHasUnsavedChanges(false);
       setSelectedNodeId(null);
       setSelectedPanel('summary');
     }
   }, [activeQARunId, journey.id, journey.nodes, journey.edges, readOnly, activeWorkspaceId, setNodes, setEdges]);
+
+  const markDirty = useCallback(() => {
+    if (activeQARunId) return;
+    if (readOnly) return;
+    setJourneyCanvasHasUnsavedChanges(true);
+    setHasUnsavedChanges(true);
+  }, [activeQARunId, readOnly]);
+
+  const onNodesChange = useCallback(
+    // ReactFlow will call this on drag/resize/connection-related edits.
+    (changes: Parameters<typeof onNodesChangeBase>[0]) => {
+      markDirty();
+      onNodesChangeBase(changes);
+    },
+    [markDirty, onNodesChangeBase],
+  );
+
+  const onEdgesChange = useCallback(
+    (changes: Parameters<typeof onEdgesChangeBase>[0]) => {
+      markDirty();
+      onEdgesChangeBase(changes);
+    },
+    [markDirty, onEdgesChangeBase],
+  );
 
   useEffect(() => {
     if (!viewerProof) return;
@@ -236,6 +270,7 @@ export function useJourneyCanvas({
     (params: Connection | Edge) => {
       if (activeQARunId || tool === 'annotation') return;
 
+      markDirty();
       setEdges((existingEdges) =>
         addEdge(
           {
@@ -248,7 +283,7 @@ export function useJourneyCanvas({
         ),
       );
     },
-    [activeQARunId, tool, setEdges],
+    [activeQARunId, tool, setEdges, markDirty],
   );
 
   useEffect(() => {
@@ -294,6 +329,7 @@ export function useJourneyCanvas({
 
   const handleAddConnectedNode = (type: JourneyFlowNode['type']) => {
     if (!menuPos || !pendingConnection) return;
+    markDirty();
 
     const fromNode = nodes.find((n) => n.id === pendingConnection.nodeId) ?? null;
     const fromPos = fromNode?.position ?? null;
@@ -419,6 +455,8 @@ export function useJourneyCanvas({
     );
     setIsSaving(false);
     if (result.success) {
+      setHasUnsavedChanges(false);
+      setJourneyCanvasHasUnsavedChanges(false);
       const type_counts = (() => {
         const counts = { new: 0, enrichment: 0, fix: 0 };
         for (const n of nodesWithUploadedImages) {
@@ -484,6 +522,7 @@ export function useJourneyCanvas({
   };
 
   const addStepNode = () => {
+    markDirty();
     const stepCount = nodes.filter(
       (node) => node.type === 'journeyStepNode',
     ).length;
@@ -504,6 +543,7 @@ export function useJourneyCanvas({
   };
 
   const addTriggerNode = () => {
+    markDirty();
     const newNode: TriggerFlowNode = {
       id: `trigger-${Date.now()}`,
       type: 'triggerNode',
@@ -515,6 +555,7 @@ export function useJourneyCanvas({
   };
 
   const addNoteNode = () => {
+    markDirty();
     const newNode: NoteFlowNode = {
       id: `note-${Date.now()}`,
       type: 'noteNode',
@@ -527,6 +568,7 @@ export function useJourneyCanvas({
 
   const beginAnnotationDraw = (clientX: number, clientY: number) => {
     if (activeQARunId) return;
+    markDirty();
 
     const flowPos = screenToFlowPosition({ x: clientX, y: clientY });
     const newNodeId = `annotation-${Date.now()}`;
@@ -568,6 +610,8 @@ export function useJourneyCanvas({
 
   const finishAnnotationDraw = () => {
     if (!draftAnnotationId) return;
+    // Node might be removed; still counts as a canvas edit.
+    markDirty();
 
     const draftNode = nodes.find((node) => node.id === draftAnnotationId);
     const width = Number(draftNode?.style?.width || 0);
@@ -924,6 +968,7 @@ export function useJourneyCanvas({
     payloadValidationResult,
     isValidatingPayload,
     activeQARun,
+    hasUnsavedChanges,
     selectedNode,
     currentVerification,
     activeVerifications,

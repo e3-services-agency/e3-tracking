@@ -235,7 +235,19 @@ export function JourneyCanvas({
     nodeExtraProfiles,
     verificationProofs,
     pendingNodeProofs,
+    hasUnsavedChanges,
   } = useJourneyCanvas({ journey, activeQARunId, readOnly: effectiveReadOnly });
+
+  // Native navigation guard: warn on refresh/tab-close while layout has unsaved edits.
+  React.useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hasUnsavedChanges]);
 
   const imageProofs = verificationProofs.filter((p) => p.type === 'image');
   const payloadProofs = verificationProofs.filter((p) => p.type !== 'image');

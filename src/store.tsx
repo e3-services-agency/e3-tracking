@@ -40,6 +40,10 @@ interface StoreState {
   selectedItemIdToEdit: string | null;
   auditConfig: AuditConfig;
 
+  // Used by the Journeys canvas editor to prevent losing unsaved layout changes.
+  journeyCanvasHasUnsavedChanges: boolean;
+  setJourneyCanvasHasUnsavedChanges: (v: boolean) => void;
+
   setActiveBranch: (id: string | 'main') => void;
   createBranch: (name: string) => void;
   mergeBranch: (id: string) => void;
@@ -103,6 +107,8 @@ export const useStore = create<StoreState>((set, get) => {
     selectedItemIdToEdit: null,
     activeWorkspaceId: DEFAULT_WORKSPACE_ID,
     activeWorkspaceKey: null,
+    journeyCanvasHasUnsavedChanges: false,
+    setJourneyCanvasHasUnsavedChanges: (v) => set({ journeyCanvasHasUnsavedChanges: v }),
 
     auditConfig: {
       eventNaming: 'Title Case',

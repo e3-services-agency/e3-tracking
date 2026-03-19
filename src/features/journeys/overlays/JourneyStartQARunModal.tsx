@@ -7,6 +7,8 @@ type JourneyStartQARunModalProps = {
   qaRunName: string;
   testerName: string;
   environment: string;
+  disableStart?: boolean;
+  startDisabledReason?: string;
   onChangeQARunName: (value: string) => void;
   onChangeTesterName: (value: string) => void;
   onChangeEnvironment: (value: string) => void;
@@ -19,6 +21,8 @@ export const JourneyStartQARunModal = ({
   qaRunName,
   testerName,
   environment,
+  disableStart = false,
+  startDisabledReason,
   onChangeQARunName,
   onChangeTesterName,
   onChangeEnvironment,
@@ -63,7 +67,13 @@ export const JourneyStartQARunModal = ({
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={onStart} disabled={!qaRunName.trim()}>
+            <Button
+              onClick={onStart}
+              disabled={!qaRunName.trim() || disableStart}
+              title={
+                disableStart ? startDisabledReason ?? 'Save layout changes before starting a QA run.' : undefined
+              }
+            >
               Start QA
             </Button>
           </div>

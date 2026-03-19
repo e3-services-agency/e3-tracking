@@ -61,7 +61,38 @@ export function Layout() {
   const activeWorkspaceId = useStore((s) => s.activeWorkspaceId);
   const activeWorkspaceKey = useStore((s) => s.activeWorkspaceKey);
   const setActiveWorkspace = useStore((s) => s.setActiveWorkspace);
+  const journeyCanvasHasUnsavedChanges = useStore(
+    (s) => s.journeyCanvasHasUnsavedChanges,
+  );
   const resolveSeq = useRef(0);
+  const activeTabRef = useRef(activeTab);
+  const dirtyRef = useRef(journeyCanvasHasUnsavedChanges);
+  const selectedJourneyIdRef = useRef(selectedJourneyId);
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+  useEffect(() => {
+    dirtyRef.current = journeyCanvasHasUnsavedChanges;
+  }, [journeyCanvasHasUnsavedChanges]);
+  useEffect(() => {
+    selectedJourneyIdRef.current = selectedJourneyId;
+  }, [selectedJourneyId]);
+
+  const confirmUnsavedAndNavigate = (nextTab: string) => {
+    if (
+      activeTabRef.current === 'journeys' &&
+      dirtyRef.current &&
+      nextTab !== activeTabRef.current
+    ) {
+      const ok = window.confirm(
+        'You have unsaved changes. Are you sure you want to leave?',
+      );
+      if (!ok) return false;
+    }
+    setActiveTab(nextTab);
+    return true;
+  };
 
   useEffect(() => {
     try {
@@ -126,6 +157,16 @@ export function Layout() {
       }
       const parsed = syncJourneysRouteFromLocation();
       if (!parsed) return;
+      if (
+        activeTabRef.current === 'journeys' &&
+        dirtyRef.current &&
+        (parsed.tab !== 'journeys' || parsed.journeyId !== selectedJourneyIdRef.current)
+      ) {
+        const ok = window.confirm(
+          'You have unsaved changes. Are you sure you want to leave?',
+        );
+        if (!ok) return;
+      }
       setActiveTab(parsed.tab);
       setSelectedJourneyId(parsed.journeyId);
     };
@@ -166,7 +207,7 @@ export function Layout() {
     <div className="flex h-screen font-sans">
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={confirmUnsavedAndNavigate}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapsed={() => setIsSidebarCollapsed((v) => !v)}
       />
@@ -190,6 +231,12 @@ export function Layout() {
           <Journeys
             selectedJourneyId={selectedJourneyId}
             onBack={() => {
+              if (activeTabRef.current === 'journeys' && dirtyRef.current) {
+                const ok = window.confirm(
+                  'You have unsaved changes. Are you sure you want to leave?',
+                );
+                if (!ok) return;
+              }
               setActiveTab('journeysList');
               pushPath('/journeys', activeWorkspaceKey);
             }}

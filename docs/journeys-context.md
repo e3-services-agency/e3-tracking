@@ -204,4 +204,7 @@ This file map is based on direct code inspection of the Journeys feature folder 
   - Mode dropdowns were unified to iconized Design/Docs/QA entries; QA entries show lock/open icons and color-coded status chips.
   - Floating “QA Mode Active” canvas overlay was removed; QA status/stats/actions now live in the QA Run Details panel.
   - Tester field is now locked in QA Run Details and auto-populated from authenticated user email when missing on active run.
+  - Codegen side panel now resolves real snippets from base `journey.nodes` (by trigger node id/event id) and does not inject placeholder snippet strings.
+  - QA run display names now render in local browser timezone; mode dropdown lock state updates immediately after successful End QA (local state mutation with `endedAt`).
+  - QA Summary section is positioned at the top of QA Run Details and uses icon-enhanced counts for total/passed/failed.
 

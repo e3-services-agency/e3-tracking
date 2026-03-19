@@ -28,6 +28,7 @@ import {
 import { JourneyPendingQAWarnModal } from '@/src/features/journeys/overlays/JourneyPendingQAWarnModal';
 import {
   AlertTriangle,
+  CircleDashed,
   CheckCircle2,
   CheckSquare,
   FileText,
@@ -40,6 +41,7 @@ import {
   Trash2,
   UploadCloud,
   X,
+  XCircle,
   Zap,
 } from 'lucide-react';
 
@@ -151,7 +153,7 @@ export function JourneyCanvas({
   activeQARunId: string | null;
   readOnly?: boolean;
   qaLocked?: boolean;
-  onEndQA?: () => void;
+  onEndQA?: (endedAt: string) => void;
   hideFloatingSave?: boolean;
   onSaveLayoutState?: (s: {
     save: () => void;
@@ -254,32 +256,36 @@ export function JourneyCanvas({
     if (direct) return direct;
 
     const eventId = selectedNode.data.connectedEvent?.eventId;
-    if (typeof eventId !== 'string') return null;
+    const baseNodes = Array.isArray(journey.nodes) ? (journey.nodes as any[]) : [];
+    if (typeof eventId !== 'string') {
+      const byNodeIdOnly = baseNodes.find(
+        (n) => n?.type === 'triggerNode' && n?.id === selectedNode.id && n?.data?.codegenSnippets
+      );
+      return byNodeIdOnly?.data?.codegenSnippets ?? null;
+    }
 
-    const byNodeId = nodes.find(
-      (n) => n.type === 'triggerNode' && n.id === selectedNode.id && (n.data as any)?.codegenSnippets
+    const byNodeId = baseNodes.find(
+      (n) => n?.type === 'triggerNode' && n?.id === selectedNode.id && n?.data?.codegenSnippets
     ) as any;
     if (byNodeId?.data?.codegenSnippets) return byNodeId.data.codegenSnippets;
 
-    const byEventId = nodes.find(
+    const byEventId = baseNodes.find(
       (n) =>
-        n.type === 'triggerNode' &&
-        (n.data as any)?.connectedEvent?.eventId === eventId &&
-        (n.data as any)?.codegenSnippets
+        n?.type === 'triggerNode' &&
+        n?.data?.connectedEvent?.eventId === eventId &&
+        n?.data?.codegenSnippets
     ) as any;
     if (byEventId?.data?.codegenSnippets) return byEventId.data.codegenSnippets;
-
-    // In active QA mode, avoid 404 fallback fetches when snapshot nodes
-    // are missing enriched snippets; render a deterministic placeholder instead.
-    if (activeQARunId) {
-      return {
-        dataLayer: '// Codegen snippets unavailable for this QA snapshot.',
-        bloomreachSdk: '// Codegen snippets unavailable for this QA snapshot.',
-        bloomreachApi: '// Codegen snippets unavailable for this QA snapshot.',
-      };
-    }
     return null;
-  }, [selectedNode, nodes, activeQARunId]);
+  }, [selectedNode, journey.nodes]);
+  const selectedTriggerEventIdForCodegen =
+    selectedNode && isTriggerNode(selectedNode)
+      ? selectedTriggerPrefetchedSnippets
+        ? selectedNode.data.connectedEvent?.eventId ?? null
+        : activeQARunId
+          ? null
+          : selectedNode.data.connectedEvent?.eventId ?? null
+      : null;
 
   React.useEffect(() => {
     onSaveLayoutState?.({
@@ -546,6 +552,93 @@ export function JourneyCanvas({
                 </div>
 
               <div>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  QA Summary
+                </div>
+                <div className="text-sm text-gray-700 flex items-center gap-3 flex-wrap">
+                  <span className="inline-flex items-center gap-1.5">
+                    <CircleDashed className="w-4 h-4 text-gray-500" />
+                    <span className="font-semibold text-gray-800">
+                      {
+                        nodes.filter(
+                          (node) =>
+                            node.type === 'journeyStepNode' || node.type === 'triggerNode'
+                        ).length
+                      }
+                    </span>
+                    <span className="text-gray-500">nodes</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span className="font-semibold text-emerald-700">
+                      {
+                        Object.values(activeVerifications).filter(
+                          (verification) => verification.status === 'Passed'
+                        ).length
+                      }
+                    </span>
+                    <span className="text-gray-500">passed</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <XCircle className="w-4 h-4 text-red-600" />
+                    <span className="font-semibold text-red-700">
+                      {
+                        Object.values(activeVerifications).filter(
+                          (verification) => verification.status === 'Failed'
+                        ).length
+                      }
+                    </span>
+                    <span className="text-gray-500">failed</span>
+                  </span>
+                </div>
+                <div className="mt-3 flex gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setSelectedPanel('summary')}
+                  >
+                    <FileText className="w-4 h-4 mr-1" /> QA Summary
+                  </Button>
+                  {!effectiveReadOnly && (
+                    <>
+                      <Button
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => setIsSaveConfirmOpen(true)}
+                        disabled={isSavingQA}
+                      >
+                        <Save className="w-4 h-4" />
+                        {isSavingQA
+                          ? 'Saving QA...'
+                          : saveQASuccess
+                            ? 'QA Saved!'
+                            : 'Save QA'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="gap-2"
+                        onClick={() => setIsEndConfirmOpen(true)}
+                        disabled={isSavingQA || qaRunHasPendingSteps}
+                        title={
+                          qaRunHasPendingSteps
+                            ? 'Cannot end QA while there are pending steps.'
+                            : undefined
+                        }
+                      >
+                        <X className="w-4 h-4" /> End QA
+                      </Button>
+                    </>
+                  )}
+                </div>
+                {qaRunHasPendingSteps && (
+                  <div className="mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                    End QA is disabled because some nodes are still Pending.
+                  </div>
+                )}
+              </div>
+
+              <div>
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                   Tester
                 </div>
@@ -607,80 +700,6 @@ export function JourneyCanvas({
               )}
             </div>
 
-            <div className="space-y-3">
-              <div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setSelectedPanel('summary')}
-                >
-                  <FileText className="w-4 h-4 mr-1" /> QA Summary
-                </Button>
-              </div>
-              <div className="text-xs text-gray-600">
-                <span className="font-semibold text-gray-700">
-                  {
-                    nodes.filter(
-                      (node) =>
-                        node.type === 'journeyStepNode' || node.type === 'triggerNode'
-                    ).length
-                  }
-                </span>{' '}
-                nodes,{' '}
-                <span className="font-semibold text-emerald-700">
-                  {
-                    Object.values(activeVerifications).filter(
-                      (verification) => verification.status === 'Passed'
-                    ).length
-                  }
-                </span>{' '}
-                passed,{' '}
-                <span className="font-semibold text-red-700">
-                  {
-                    Object.values(activeVerifications).filter(
-                      (verification) => verification.status === 'Failed'
-                    ).length
-                  }
-                </span>{' '}
-                failed
-              </div>
-              {!effectiveReadOnly && (
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => setIsSaveConfirmOpen(true)}
-                    disabled={isSavingQA}
-                  >
-                    <Save className="w-4 h-4" />
-                    {isSavingQA
-                      ? 'Saving QA...'
-                      : saveQASuccess
-                        ? 'QA Saved!'
-                        : 'Save QA'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="gap-2"
-                    onClick={() => setIsEndConfirmOpen(true)}
-                    disabled={isSavingQA || qaRunHasPendingSteps}
-                    title={
-                      qaRunHasPendingSteps
-                        ? 'Cannot end QA while there are pending steps.'
-                        : undefined
-                    }
-                  >
-                    <X className="w-4 h-4" /> End QA
-                  </Button>
-                </div>
-              )}
-              {qaRunHasPendingSteps && (
-                <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                  End QA is disabled because some nodes are still Pending.
-                </div>
-              )}
-            </div>
           </div>
         </div>
       )}
@@ -831,7 +850,7 @@ export function JourneyCanvas({
                 selectedNode.data.connectedEvent?.eventId && (
                   <div className="pt-2 border-t border-gray-200">
                     <EventCodeGen
-                      eventId={selectedNode.data.connectedEvent.eventId}
+                      eventId={selectedTriggerEventIdForCodegen}
                       prefetchedSnippets={selectedTriggerPrefetchedSnippets}
                       compact
                       title="Code Snippets"
@@ -1465,8 +1484,10 @@ export function JourneyCanvas({
                   if (qaRunHasPendingSteps) return;
                   setIsConfirmEndingQA(true);
                   const endedAt = new Date().toISOString();
-                  await handleSaveQA({ endedAtForActiveRun: endedAt });
-                  onEndQA?.();
+                  const saved = await handleSaveQA({ endedAtForActiveRun: endedAt });
+                  if (saved) {
+                    onEndQA?.(endedAt);
+                  }
                   setIsConfirmEndingQA(false);
                   setIsEndConfirmOpen(false);
                 }}

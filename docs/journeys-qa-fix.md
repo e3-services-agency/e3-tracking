@@ -120,12 +120,15 @@
   - `Docs Mode` iconized with `FileText` (replaces “Implementation Brief” wording in mode UI)
   - QA run entries display lock/open state (`Lock`, `LockOpen`) and status chips.
 - Added node-level QA status chip in side panel (visible in read-only/shared context too).
-- Prevented Active QA codegen 404 fallback by guaranteeing `prefetchedSnippets` for selected trigger nodes in `JourneyCanvas`:
-  - first use node-local `data.codegenSnippets`
-  - fallback to matching trigger nodes in current canvas by node id/event id
-  - in Active QA mode, provide deterministic placeholder snippets if snapshot lacks enrichment (so no failing network fetch is attempted).
+- Prevented Active QA codegen 404 fallback by guaranteeing real `prefetchedSnippets` for selected trigger nodes in `JourneyCanvas`:
+  - first use node-local `data.codegenSnippets` from selected node payload
+  - fallback to matching trigger nodes in the base journey nodes array by node id/event id
+  - in Active QA mode, suppress fallback event fetch when no prefetched snippets are resolved (no mock strings are injected).
 - QA runs in dropdowns are now sorted latest-to-oldest (`createdAt` descending) in both app and shared mode menus.
 - QA Run Details cleanup: removed the redundant boxed “QA Summary” header container; actions are rendered cleanly without the extra wrapper.
 - End QA modal copy updated exactly to:
   - "Ending this QA run is permanent. The QA run will be locked into read-only mode so it can be previewed but not edited."
+- QA run names/dates now use local browser timezone formatting in `qaRunUtils.ts` (no UTC display).
+- After successful End QA save, local run state is updated with `endedAt` immediately so mode dropdown lock state switches without refresh.
+- QA Summary moved to the top of QA Run Details and visually enhanced with `CircleDashed` (total), `CheckCircle2` (passed), and `XCircle` (failed) inline counts.
 

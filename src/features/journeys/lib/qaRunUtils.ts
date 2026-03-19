@@ -13,17 +13,17 @@ function isQAStatus(value: unknown): value is QAStatus {
  * Required output format:
  *   "QA Run YYYY-MM-DD HH:MM"
  *
- * Uses UTC to keep the string stable across viewers/timezones.
+ * Uses local browser timezone for human-readable display.
  */
 export function formatQARunName(timestamp: string | number | Date | null | undefined): string {
   const d = timestamp ? new Date(timestamp) : null;
   if (!d || Number.isNaN(d.getTime())) return 'QA Run (unknown time)';
 
-  const yyyy = d.getUTCFullYear();
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(d.getUTCDate()).padStart(2, '0');
-  const hh = String(d.getUTCHours()).padStart(2, '0');
-  const min = String(d.getUTCMinutes()).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
 
   return `QA Run ${yyyy}-${mm}-${dd} ${hh}:${min}`;
 }

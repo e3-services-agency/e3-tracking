@@ -174,8 +174,14 @@ export function Journeys({
     setNewQAEnvironment('');
   };
 
-  const handleEndQA = () => {
+  const handleEndQA = (endedAt: string) => {
     if (!activeQARunId) return;
+    if (selectedJourney) {
+      const nextRuns = (selectedJourney.qaRuns || []).map((run) =>
+        run.id === activeQARunId ? { ...run, endedAt } : run
+      );
+      updateJourney(selectedJourney.id, { qaRuns: nextRuns });
+    }
     setLockedQARunIds((prev) =>
       prev.includes(activeQARunId) ? prev : [...prev, activeQARunId],
     );

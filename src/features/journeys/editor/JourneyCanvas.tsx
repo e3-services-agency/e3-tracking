@@ -1413,11 +1413,7 @@ export function JourneyCanvas({
                         ? 'default'
                         : 'outline'
                     }
-                    className={
-                      currentVerification?.status === 'Passed'
-                        ? 'bg-emerald-500 hover:bg-emerald-600 text-white w-full'
-                        : 'w-full'
-                    }
+                    className="w-full"
                     onClick={() =>
                       updateQAVerification(selectedNode.id, { status: 'Passed' })
                     }
@@ -1428,14 +1424,10 @@ export function JourneyCanvas({
                     size="sm"
                     variant={
                       currentVerification?.status === 'Failed'
-                        ? 'default'
+                        ? 'destructive'
                         : 'outline'
                     }
-                    className={
-                      currentVerification?.status === 'Failed'
-                        ? 'bg-red-500 hover:bg-red-600 text-white w-full'
-                        : 'w-full'
-                    }
+                    className="w-full"
                     onClick={() =>
                       updateQAVerification(selectedNode.id, { status: 'Failed' })
                     }

@@ -360,117 +360,6 @@ export function JourneyCanvas({
       )}
 
       <div className="flex-1 relative">
-        {activeQARunId && selectedPanel === 'none' && (
-          <div className="absolute top-4 left-4 z-20 bg-white border-2 border-[var(--color-info)]/60 rounded-lg shadow-md p-3 flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-gray-900 font-bold">
-              <CheckSquare className="w-5 h-5" />
-              QA Mode Active
-            </div>
-            <div className="text-xs text-gray-600">
-              Run: {getQARunDisplayName(activeQARun)}
-            </div>
-            <div className="text-xs text-gray-600">
-              QA Status:{' '}
-              <span
-                className={
-                  qaRunDerivedStatus === 'FAILED'
-                    ? 'text-red-600 font-semibold'
-                    : qaRunDerivedStatus === 'PASSED'
-                      ? 'text-emerald-600 font-semibold'
-                      : 'text-[var(--color-info)] font-semibold'
-                }
-              >
-                {qaRunDerivedStatus}
-              </span>
-            </div>
-            <div className="flex items-center gap-3 text-xs mt-1">
-              <div className="flex items-center gap-1 text-gray-500">
-                <span className="font-semibold">
-                  {
-                    nodes.filter(
-                      (node) =>
-                        node.type === 'journeyStepNode' ||
-                        node.type === 'triggerNode',
-                    ).length
-                  }
-                </span>{' '}
-                Nodes
-              </div>
-              <div className="flex items-center gap-1 text-emerald-600">
-                <CheckCircle2 className="w-3 h-3" />
-                <span className="font-semibold">
-                  {
-                    Object.values(activeVerifications).filter(
-                      (verification) => verification.status === 'Passed',
-                    ).length
-                  }
-                </span>
-              </div>
-              <div className="flex items-center gap-1 text-red-600">
-                <X className="w-3 h-3" />
-                <span className="font-semibold">
-                  {
-                    Object.values(activeVerifications).filter(
-                      (verification) => verification.status === 'Failed',
-                    ).length
-                  }
-                </span>
-              </div>
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-2"
-                onClick={() => setSelectedPanel('summary')}
-              >
-                <FileText className="w-4 h-4" /> QA Summary
-              </Button>
-
-              {!effectiveReadOnly && (
-                <>
-                  <Button
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => {
-                      setIsSaveConfirmOpen(true);
-                    }}
-                    disabled={isSavingQA}
-                  >
-                    <Save className="w-4 h-4" />
-                    {isSavingQA
-                      ? 'Saving QA...'
-                      : saveQASuccess
-                        ? 'QA Saved!'
-                        : 'Save QA'}
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    className="gap-2"
-                    onClick={() => setIsEndConfirmOpen(true)}
-                    disabled={isSavingQA || qaRunHasPendingSteps}
-                    title={
-                      qaRunHasPendingSteps
-                        ? 'Cannot end QA while there are pending steps.'
-                        : undefined
-                    }
-                  >
-                    <X className="w-4 h-4" /> End QA
-                  </Button>
-                </>
-              )}
-            </div>
-            {qaRunHasPendingSteps && (
-              <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                End QA is disabled because some nodes are still Pending.
-              </div>
-            )}
-          </div>
-        )}
-
         {!activeQARunId && !effectiveReadOnly && tool === 'annotation' && (
           <div
             className="absolute inset-0 z-10"
@@ -629,11 +518,9 @@ export function JourneyCanvas({
                 </div>
                 <Input
                   value={activeQARun?.testerName || ''}
-                  onChange={(e) =>
-                    updateQARun({ testerName: e.target.value })
-                  }
-                  placeholder="Who performed the QA?"
-                  disabled={effectiveReadOnly}
+                  placeholder="Logged-in user email"
+                  readOnly
+                  disabled
                 />
               </div>
 
@@ -684,6 +571,84 @@ export function JourneyCanvas({
                   profiles={runProfiles}
                   onChange={(profiles) => updateQARun({ testingProfiles: profiles })}
                 />
+              )}
+            </div>
+
+            <div className="border rounded-md bg-gray-50 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  QA Summary
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setSelectedPanel('summary')}
+                >
+                  <FileText className="w-4 h-4 mr-1" /> QA Summary
+                </Button>
+              </div>
+              <div className="text-xs text-gray-600">
+                <span className="font-semibold text-gray-700">
+                  {
+                    nodes.filter(
+                      (node) =>
+                        node.type === 'journeyStepNode' || node.type === 'triggerNode'
+                    ).length
+                  }
+                </span>{' '}
+                nodes,{' '}
+                <span className="font-semibold text-emerald-700">
+                  {
+                    Object.values(activeVerifications).filter(
+                      (verification) => verification.status === 'Passed'
+                    ).length
+                  }
+                </span>{' '}
+                passed,{' '}
+                <span className="font-semibold text-red-700">
+                  {
+                    Object.values(activeVerifications).filter(
+                      (verification) => verification.status === 'Failed'
+                    ).length
+                  }
+                </span>{' '}
+                failed
+              </div>
+              {!effectiveReadOnly && (
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => setIsSaveConfirmOpen(true)}
+                    disabled={isSavingQA}
+                  >
+                    <Save className="w-4 h-4" />
+                    {isSavingQA
+                      ? 'Saving QA...'
+                      : saveQASuccess
+                        ? 'QA Saved!'
+                        : 'Save QA'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="gap-2"
+                    onClick={() => setIsEndConfirmOpen(true)}
+                    disabled={isSavingQA || qaRunHasPendingSteps}
+                    title={
+                      qaRunHasPendingSteps
+                        ? 'Cannot end QA while there are pending steps.'
+                        : undefined
+                    }
+                  >
+                    <X className="w-4 h-4" /> End QA
+                  </Button>
+                </div>
+              )}
+              {qaRunHasPendingSteps && (
+                <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                  End QA is disabled because some nodes are still Pending.
+                </div>
               )}
             </div>
           </div>

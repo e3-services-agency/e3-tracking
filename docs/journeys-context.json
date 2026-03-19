@@ -378,7 +378,9 @@
     "For shared mode, follow `SharedJourneyView.tsx` to backend `src/backend/routes/shared.ts` and DAL `src/backend/dal/qa.dal.ts`.",
     "Do not break: QA marker payload reconstruction contract + shared image URL rewriting contract.",
     "Verify end-to-end: (1) Save Layout persists canvas, (2) step images load in shared view without auth, (3) QA runs load in shared view and show code snippets for triggers.",
-    "Verify QA workflow safeguards: Save QA modal shows loading state, End QA is blocked when pending steps exist, and mode dropdowns display Design/Docs with icons plus lock/open state for QA runs."
+    "Verify QA workflow safeguards: Save QA modal shows loading state, End QA is blocked when pending steps exist, and mode dropdowns display Design/Docs with icons plus lock/open state for QA runs.",
+    "Verify no floating QA overlay remains on canvas and that Save/End/Status/Counts are available directly in QA Run Details panel.",
+    "Verify active QA Tester field is locked and auto-filled from authenticated user email."
   ]
 }
 

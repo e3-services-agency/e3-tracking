@@ -90,6 +90,17 @@ export function Journeys({
   const qaLocked = !!activeQARunId && (lockedQARunIds.includes(activeQARunId) || !!activeQARun?.endedAt);
 
   useEffect(() => {
+    if (!selectedJourney || !activeQARunId) return;
+    if (!user?.email) return;
+    if (activeQARun?.testerName && activeQARun.testerName.trim()) return;
+
+    const nextRuns = (selectedJourney.qaRuns || []).map((run) =>
+      run.id === activeQARunId ? { ...run, testerName: user.email } : run
+    );
+    updateJourney(selectedJourney.id, { qaRuns: nextRuns });
+  }, [selectedJourney, activeQARunId, activeQARun?.testerName, user?.email, updateJourney]);
+
+  useEffect(() => {
     if (selectedJourney) {
       setTestingInstructionsDraft(
         selectedJourney.testing_instructions_markdown ?? '',

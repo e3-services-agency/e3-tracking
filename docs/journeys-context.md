@@ -202,4 +202,6 @@ This file map is based on direct code inspection of the Journeys feature folder 
   - QA side-panel codegen regression was fixed by rehydrating `codegenSnippets` into QA snapshot trigger nodes in `useJourneyCanvas` during active run node remap.
   - Save QA and End QA now use explicit confirmation modals; End QA is blocked while pending steps exist.
   - Mode dropdowns were unified to iconized Design/Docs/QA entries; QA entries show lock/open icons and color-coded status chips.
+  - Floating “QA Mode Active” canvas overlay was removed; QA status/stats/actions now live in the QA Run Details panel.
+  - Tester field is now locked in QA Run Details and auto-populated from authenticated user email when missing on active run.
 

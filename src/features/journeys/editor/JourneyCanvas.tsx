@@ -281,6 +281,13 @@ export function JourneyCanvas({
         ? 'bg-red-100 text-red-800 border-red-200'
         : 'bg-amber-100 text-amber-800 border-amber-200';
 
+  const qaRunHeaderChipClass =
+    qaRunDerivedStatus === 'PASSED'
+      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+      : qaRunDerivedStatus === 'FAILED'
+        ? 'bg-red-100 text-red-800 border-red-200'
+        : 'bg-amber-100 text-amber-800 border-amber-200';
+
   const selectedTriggerPrefetchedSnippets = React.useMemo(() => {
     if (!selectedNode || !isTriggerNode(selectedNode)) return null;
     const direct = (selectedNode.data as any)?.codegenSnippets;
@@ -563,19 +570,11 @@ export function JourneyCanvas({
                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                   QA Status
                 </span>
-                <div
-                  className={
-                    qaRunDerivedStatus === 'FAILED'
-                      ? 'bg-red-50 border-red-200 text-red-700'
-                      : qaRunDerivedStatus === 'PASSED'
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                        : 'bg-blue-50 border-blue-200 text-[var(--color-info)]'
-                  }
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold border whitespace-nowrap ${qaRunHeaderChipClass}`}
                 >
-                  <div className="border rounded-md px-2 py-1 text-sm font-semibold whitespace-nowrap">
-                    {qaRunDerivedStatus}
-                  </div>
-                </div>
+                  {qaRunDerivedStatus}
+                </span>
               </div>
             </div>
             <button

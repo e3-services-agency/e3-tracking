@@ -211,6 +211,14 @@ export function Journeys({
     () => data.journeys,
     [data.journeys],
   );
+  const sortedQARuns = useMemo(() => {
+    const runs = selectedJourney?.qaRuns || [];
+    return [...runs].sort((a, b) => {
+      const ta = new Date(a.createdAt || 0).getTime();
+      const tb = new Date(b.createdAt || 0).getTime();
+      return tb - ta;
+    });
+  }, [selectedJourney?.qaRuns]);
 
   const commitRename = async () => {
     if (!selectedJourney) return;
@@ -466,10 +474,10 @@ export function Journeys({
                       <span className="flex-1">Docs Mode</span>
                       {isBriefPreview && <Check className="w-4 h-4 text-emerald-600" />}
                     </button>
-                    {(selectedJourney.qaRuns || []).length > 0 && (
+                    {sortedQARuns.length > 0 && (
                       <div className="border-t border-[var(--border-default)]" />
                     )}
-                    {(selectedJourney.qaRuns || []).map((run) => {
+                    {sortedQARuns.map((run) => {
                       const st = computeQARunStatusForRun(run);
                       return (
                         <button

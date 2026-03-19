@@ -248,6 +248,39 @@ export function JourneyCanvas({
         ? 'bg-red-100 text-red-800 border-red-200'
         : 'bg-amber-100 text-amber-800 border-amber-200';
 
+  const selectedTriggerPrefetchedSnippets = React.useMemo(() => {
+    if (!selectedNode || !isTriggerNode(selectedNode)) return null;
+    const direct = (selectedNode.data as any)?.codegenSnippets;
+    if (direct) return direct;
+
+    const eventId = selectedNode.data.connectedEvent?.eventId;
+    if (typeof eventId !== 'string') return null;
+
+    const byNodeId = nodes.find(
+      (n) => n.type === 'triggerNode' && n.id === selectedNode.id && (n.data as any)?.codegenSnippets
+    ) as any;
+    if (byNodeId?.data?.codegenSnippets) return byNodeId.data.codegenSnippets;
+
+    const byEventId = nodes.find(
+      (n) =>
+        n.type === 'triggerNode' &&
+        (n.data as any)?.connectedEvent?.eventId === eventId &&
+        (n.data as any)?.codegenSnippets
+    ) as any;
+    if (byEventId?.data?.codegenSnippets) return byEventId.data.codegenSnippets;
+
+    // In active QA mode, avoid 404 fallback fetches when snapshot nodes
+    // are missing enriched snippets; render a deterministic placeholder instead.
+    if (activeQARunId) {
+      return {
+        dataLayer: '// Codegen snippets unavailable for this QA snapshot.',
+        bloomreachSdk: '// Codegen snippets unavailable for this QA snapshot.',
+        bloomreachApi: '// Codegen snippets unavailable for this QA snapshot.',
+      };
+    }
+    return null;
+  }, [selectedNode, nodes, activeQARunId]);
+
   React.useEffect(() => {
     onSaveLayoutState?.({
       save: handleSaveLayout,
@@ -574,11 +607,8 @@ export function JourneyCanvas({
               )}
             </div>
 
-            <div className="border rounded-md bg-gray-50 p-3 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  QA Summary
-                </div>
+            <div className="space-y-3">
+              <div>
                 <Button
                   size="sm"
                   variant="outline"
@@ -802,7 +832,7 @@ export function JourneyCanvas({
                   <div className="pt-2 border-t border-gray-200">
                     <EventCodeGen
                       eventId={selectedNode.data.connectedEvent.eventId}
-                      prefetchedSnippets={(selectedNode.data as any).codegenSnippets ?? null}
+                      prefetchedSnippets={selectedTriggerPrefetchedSnippets}
                       compact
                       title="Code Snippets"
                       workspaceId={activeWorkspaceId}
@@ -1413,7 +1443,7 @@ export function JourneyCanvas({
           <div className="bg-white rounded-lg shadow-xl p-6 w-[560px] border border-[var(--border-default)]">
             <h2 className="text-lg font-bold text-gray-900 mb-3">End QA run</h2>
             <div className="text-sm text-gray-700">
-              Ending this QA run is permanent. You will not be able to reopen and edit it afterward.
+              Ending this QA run is permanent. The QA run will be locked into read-only mode so it can be previewed but not edited.
             </div>
             {qaRunHasPendingSteps && (
               <div className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">

@@ -2,7 +2,7 @@
  * Public read-only journey view at /share/:token.
  * Fetches journey from GET /api/shared/journeys/:token and renders JourneyCanvas with readOnly.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { JourneyCanvas } from '@/src/features/journeys/editor/JourneyCanvas';
@@ -51,6 +51,14 @@ export function SharedJourneyView({
   const [briefLoading, setBriefLoading] = useState(false);
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const modeMenuRef = React.useRef<HTMLDivElement | null>(null);
+  const sortedQARuns = useMemo(() => {
+    const runs = journey?.qaRuns || [];
+    return [...runs].sort((a: any, b: any) => {
+      const ta = new Date(a?.createdAt || 0).getTime();
+      const tb = new Date(b?.createdAt || 0).getTime();
+      return tb - ta;
+    });
+  }, [journey?.qaRuns]);
 
   useEffect(() => {
     let cancelled = false;
@@ -196,7 +204,7 @@ export function SharedJourneyView({
                     <PenTool className="w-3.5 h-3.5 text-[var(--color-info)]" />
                   ) : view === 'brief' ? (
                     <FileText className="w-3.5 h-3.5 text-[var(--color-info)]" />
-                  ) : ((journey.qaRuns || []).find((r: any) => r.id === activeQARunId)?.endedAt ? (
+                  ) : (sortedQARuns.find((r: any) => r.id === activeQARunId)?.endedAt ? (
                     <Lock className="w-3.5 h-3.5 text-gray-600" />
                   ) : (
                     <LockOpen className="w-3.5 h-3.5 text-emerald-600" />
@@ -206,7 +214,7 @@ export function SharedJourneyView({
                       ? 'Design Mode'
                       : view === 'brief'
                         ? 'Docs Mode'
-                        : getQARunDisplayName((journey.qaRuns || []).find((r: any) => r.id === activeQARunId) || null)}
+                        : getQARunDisplayName(sortedQARuns.find((r: any) => r.id === activeQARunId) || null)}
                   </span>
                 </span>
                 <ChevronDown className="w-3.5 h-3.5 text-gray-500" />
@@ -247,8 +255,8 @@ export function SharedJourneyView({
                     <span className="flex-1">Docs Mode</span>
                     {view === 'brief' && <Check className="w-3.5 h-3.5 text-emerald-600" />}
                   </button>
-                  {(journey.qaRuns || []).length > 0 && <div className="border-t" />}
-                  {(journey.qaRuns || []).map((run: any) => {
+                  {sortedQARuns.length > 0 && <div className="border-t" />}
+                  {sortedQARuns.map((run: any) => {
                     const runStatus = computeQARunStatusForRun(run);
                     return (
                       <button

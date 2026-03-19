@@ -120,4 +120,12 @@
   - `Docs Mode` iconized with `FileText` (replaces “Implementation Brief” wording in mode UI)
   - QA run entries display lock/open state (`Lock`, `LockOpen`) and status chips.
 - Added node-level QA status chip in side panel (visible in read-only/shared context too).
+- Prevented Active QA codegen 404 fallback by guaranteeing `prefetchedSnippets` for selected trigger nodes in `JourneyCanvas`:
+  - first use node-local `data.codegenSnippets`
+  - fallback to matching trigger nodes in current canvas by node id/event id
+  - in Active QA mode, provide deterministic placeholder snippets if snapshot lacks enrichment (so no failing network fetch is attempted).
+- QA runs in dropdowns are now sorted latest-to-oldest (`createdAt` descending) in both app and shared mode menus.
+- QA Run Details cleanup: removed the redundant boxed “QA Summary” header container; actions are rendered cleanly without the extra wrapper.
+- End QA modal copy updated exactly to:
+  - "Ending this QA run is permanent. The QA run will be locked into read-only mode so it can be previewed but not edited."
 

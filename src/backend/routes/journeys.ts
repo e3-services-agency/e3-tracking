@@ -632,7 +632,7 @@ router.put(
       }
       if (err instanceof DatabaseError) {
         res.status(500).json({
-          error: 'Failed to save journey canvas.',
+          error: err.message || 'Failed to save journey canvas.',
           code: err.code,
         });
         return;

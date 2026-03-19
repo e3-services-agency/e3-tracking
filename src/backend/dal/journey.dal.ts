@@ -125,10 +125,14 @@ export async function createJourney(
 function getEventIdsFromNodes(nodes: unknown): string[] {
   if (!Array.isArray(nodes)) return [];
   const ids: string[] = [];
+  const seen = new Set<string>();
   for (const node of nodes as NodeLike[]) {
     if (node?.type === 'triggerNode' && node?.data?.connectedEvent?.eventId) {
       const id = String(node.data.connectedEvent.eventId).trim();
-      if (id) ids.push(id);
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        ids.push(id);
+      }
     }
   }
   return ids;
@@ -158,26 +162,11 @@ export async function saveJourneyCanvas(
   const supabase = getSupabaseOrThrow();
   const type_counts = computeTypeCounts(nodes ?? []);
 
-  const { error: updateError } = await supabase
-    .from('journeys')
-    .update({
-      canvas_nodes_json: nodes ?? [],
-      canvas_edges_json: edges ?? [],
-      type_counts,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', journeyId)
-    .eq('workspace_id', workspaceId);
-
-  if (updateError) {
-    throw new DatabaseError(
-      `Failed to save journey canvas: ${updateError.message}`,
-      updateError
-    );
-  }
-
   const eventIds = getEventIdsFromNodes(nodes);
 
+  // Sync journey_events first, then persist the canvas.
+  // This prevents partial commits where a journey_events constraint/RLS failure
+  // causes a 500 but leaves canvas_nodes_json persisted.
   const { error: deleteError } = await supabase
     .from('journey_events')
     .delete()
@@ -206,6 +195,24 @@ export async function saveJourneyCanvas(
         insertError
       );
     }
+  }
+
+  const { error: updateError } = await supabase
+    .from('journeys')
+    .update({
+      canvas_nodes_json: nodes ?? [],
+      canvas_edges_json: edges ?? [],
+      type_counts,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', journeyId)
+    .eq('workspace_id', workspaceId);
+
+  if (updateError) {
+    throw new DatabaseError(
+      `Failed to save journey canvas: ${updateError.message}`,
+      updateError
+    );
   }
 
   const updated = await getJourneyById(workspaceId, journeyId);

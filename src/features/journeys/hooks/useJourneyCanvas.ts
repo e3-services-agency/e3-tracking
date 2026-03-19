@@ -119,7 +119,13 @@ export function useJourneyCanvas({
       );
 
       setNodes(baseNodes);
-      setEdges((journey.edges as JourneyFlowEdge[]) || []);
+      // Clone edges so ReactFlow edits can't mutate the base journey object
+      // (prevents stale/zombie state across reloads).
+      setEdges(
+        ((journey.edges as JourneyFlowEdge[]) || []).map((e) => ({
+          ...e,
+        })),
+      );
       setHasUnsavedChanges(false);
       setJourneyCanvasHasUnsavedChanges(false);
       setSelectedNodeId(null);

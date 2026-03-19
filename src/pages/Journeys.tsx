@@ -524,25 +524,34 @@ export function Journeys({
                 )}
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={journeyCanvasHasUnsavedChanges}
-                title={
-                  journeyCanvasHasUnsavedChanges
-                    ? 'Save layout changes before starting a QA run.'
-                    : undefined
-                }
-                onClick={() => {
-                  setNewQARunName(formatQARunName(new Date()));
-                  setNewQATesterName(user?.email ?? '');
-                  setNewQAEnvironment('');
-                  setIsQAModalOpen(true);
-                }}
-                className={`gap-2 ${journeyCanvasHasUnsavedChanges ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                <CheckSquare className="w-4 h-4" /> Start QA Run
-              </Button>
+              <div className="flex flex-col items-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={journeyCanvasHasUnsavedChanges}
+                  title={
+                    journeyCanvasHasUnsavedChanges
+                      ? 'Save layout changes before starting a QA run.'
+                      : undefined
+                  }
+                  onClick={() => {
+                    setNewQARunName(formatQARunName(new Date()));
+                    setNewQATesterName(user?.email ?? '');
+                    setNewQAEnvironment('');
+                    setIsQAModalOpen(true);
+                  }}
+                  className={`gap-2 ${
+                    journeyCanvasHasUnsavedChanges ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  <CheckSquare className="w-4 h-4" /> Start QA Run
+                </Button>
+                {journeyCanvasHasUnsavedChanges && (
+                  <div className="mt-1 text-xs text-red-600">
+                    Save layout first to start QA.
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

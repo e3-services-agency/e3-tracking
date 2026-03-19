@@ -78,11 +78,10 @@ export function Events() {
     }
   }, [selectedItemIdToEdit, data.events, setSelectedItemIdToEdit]);
 
-  const handleOpenEvent = (eventId: string, variantId?: string) => {
-    setSelectedEventId(eventId);
-    setSelectedVariantId(variantId);
-    setIsCreating(false);
-    setIsSheetOpen(true);
+  const handleOpenEvent = (eventId: string, _variantId?: string) => {
+    setIsSheetOpen(false);
+    setApiEventSheetEventId(eventId);
+    setIsApiEventSheetOpen(true);
   };
 
   const handleCreateNew = () => {
@@ -159,12 +158,8 @@ export function Events() {
             <h1 className="text-2xl font-bold text-gray-900">Events <span className="text-gray-400 font-normal text-lg">({flatTableData.length})</span></h1>
             <Button
               onClick={() => {
-                if (viewMode === 'List') {
-                  setApiEventSheetEventId(null);
-                  setIsApiEventSheetOpen(true);
-                } else {
-                  handleCreateNew();
-                }
+                setApiEventSheetEventId(null);
+                setIsApiEventSheetOpen(true);
               }}
               size="sm"
               className="gap-2"
@@ -369,6 +364,12 @@ export function Events() {
                 setApiEventSheetEventId(id);
                 setIsApiEventSheetOpen(true);
               }}
+              events={eventsApi.events}
+              isLoading={eventsApi.isLoading}
+              error={eventsApi.error}
+              refetch={eventsApi.refetch}
+              mutationError={eventsApi.mutationError}
+              clearMutationError={eventsApi.clearMutationError}
             />
           </div>
         ) : (
@@ -453,6 +454,7 @@ export function Events() {
         onClose={() => setIsApiEventSheetOpen(false)}
         eventId={apiEventSheetEventId}
         createEvent={eventsApi.createEvent}
+        updateEvent={eventsApi.updateEvent}
         attachProperty={eventsApi.attachProperty}
         updatePresence={eventsApi.updatePresence}
         getEventWithProperties={eventsApi.getEventWithProperties}
@@ -478,6 +480,7 @@ export function Events() {
             isCreating={isCreating}
             onClose={() => setIsSheetOpen(false)}
             onSwitchVariant={(vId) => setSelectedVariantId(vId)}
+            deleteEvent={eventsApi.deleteEvent}
           />
         )}
       </Sheet>

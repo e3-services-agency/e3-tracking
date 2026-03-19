@@ -23,6 +23,12 @@ type EventEditorSheetProps = {
   isCreating: boolean;
   onClose: () => void;
   onSwitchVariant?: (id: string) => void;
+  deleteEvent: (
+    eventId: string
+  ) => Promise<
+    | { success: true }
+    | { success: false; error: { message: string } }
+  >;
 };
 
 export function EventEditorSheet({
@@ -31,6 +37,7 @@ export function EventEditorSheet({
   isCreating,
   onClose,
   onSwitchVariant,
+  deleteEvent,
 }: EventEditorSheetProps) {
   const { data, form, ui, actions, derived } = useEventEditor({
     event,
@@ -38,6 +45,7 @@ export function EventEditorSheet({
     isCreating,
     onClose,
     onSwitchVariant,
+    deleteEventApi: deleteEvent,
   });
 
   const { teams, sources, properties } = data;

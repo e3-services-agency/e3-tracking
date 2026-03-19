@@ -65,6 +65,16 @@ export interface UseEventsResult {
     | { success: true; data: EventRow }
     | { success: false; error: ApiError }
   >;
+  updateEvent: (
+    eventId: string,
+    payload: CreateEventInput
+  ) => Promise<
+    | { success: true; data: EventRow }
+    | { success: false; error: ApiError }
+  >;
+  deleteEvent: (
+    eventId: string
+  ) => Promise<{ success: true } | { success: false; error: ApiError }>;
   attachProperty: (
     eventId: string,
     propertyId: string,
@@ -165,6 +175,102 @@ export function useEvents(
           code: 'NETWORK_ERROR',
           message:
             err instanceof Error ? err.message : 'Failed to create event.',
+        };
+        setMutationError(apiError);
+        return { success: false, error: apiError };
+      }
+    },
+    [effectiveWorkspaceId]
+  );
+
+  const updateEvent = useCallback(
+    async (
+      eventId: string,
+      payload: CreateEventInput
+    ): Promise<
+      | { success: true; data: EventRow }
+      | { success: false; error: ApiError }
+    > => {
+      setMutationError(null);
+      try {
+        const res = await fetchWithAuth(`${API_BASE}/api/events/${eventId}`, {
+          method: 'PATCH',
+          headers: { 'x-workspace-id': effectiveWorkspaceId },
+          body: JSON.stringify(payload),
+        });
+        const body = await res.json().catch(() => ({}));
+
+        if (res.ok && body?.id) {
+          const updated = body as EventRow;
+          setEvents((prev) =>
+            prev
+              .map((event) =>
+                event.id === eventId
+                  ? { ...event, ...updated }
+                  : event
+              )
+              .sort((a, b) => a.name.localeCompare(b.name))
+          );
+          return { success: true, data: updated };
+        }
+
+        const apiError: ApiError = {
+          status: res.status,
+          code: body?.code ?? 'UNKNOWN',
+          message:
+            typeof body?.error === 'string' ? body.error : res.statusText || 'Request failed',
+          details: body?.details,
+          resource: body?.resource,
+        };
+        setMutationError(apiError);
+        return { success: false, error: apiError };
+      } catch (err) {
+        const apiError: ApiError = {
+          status: 0,
+          code: 'NETWORK_ERROR',
+          message:
+            err instanceof Error ? err.message : 'Failed to update event.',
+        };
+        setMutationError(apiError);
+        return { success: false, error: apiError };
+      }
+    },
+    [effectiveWorkspaceId]
+  );
+
+  const deleteEvent = useCallback(
+    async (
+      eventId: string
+    ): Promise<{ success: true } | { success: false; error: ApiError }> => {
+      setMutationError(null);
+      try {
+        const res = await fetchWithAuth(`${API_BASE}/api/events/${eventId}`, {
+          method: 'DELETE',
+          headers: { 'x-workspace-id': effectiveWorkspaceId },
+        });
+
+        if (res.status === 204) {
+          setEvents((prev) => prev.filter((event) => event.id !== eventId));
+          return { success: true };
+        }
+
+        const body = await res.json().catch(() => ({}));
+        const apiError: ApiError = {
+          status: res.status,
+          code: body?.code ?? 'UNKNOWN',
+          message:
+            typeof body?.error === 'string' ? body.error : res.statusText || 'Request failed',
+          details: body?.details,
+          resource: body?.resource,
+        };
+        setMutationError(apiError);
+        return { success: false, error: apiError };
+      } catch (err) {
+        const apiError: ApiError = {
+          status: 0,
+          code: 'NETWORK_ERROR',
+          message:
+            err instanceof Error ? err.message : 'Failed to delete event.',
         };
         setMutationError(apiError);
         return { success: false, error: apiError };
@@ -283,6 +389,8 @@ export function useEvents(
     error,
     refetch,
     createEvent,
+    updateEvent,
+    deleteEvent,
     attachProperty,
     updatePresence,
     getEventWithProperties,

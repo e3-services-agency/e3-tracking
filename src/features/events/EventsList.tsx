@@ -15,18 +15,30 @@ import {
 import { Badge } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
-import { useEvents } from '@/src/features/events/hooks/useEvents';
-import type { EventWithPropertyCount } from '@/src/features/events/hooks/useEvents';
+import type { ApiError, EventWithPropertyCount } from '@/src/features/events/hooks/useEvents';
 import { Search, Plus, Calendar, AlertCircle } from 'lucide-react';
 
 type EventsListProps = {
   onOpenCreate: () => void;
   onOpenEvent: (id: string) => void;
+  events: EventWithPropertyCount[];
+  isLoading: boolean;
+  error: ApiError | null;
+  refetch: () => Promise<void>;
+  mutationError: ApiError | null;
+  clearMutationError: () => void;
 };
 
-export function EventsList({ onOpenCreate, onOpenEvent }: EventsListProps) {
-  const { events, isLoading, error, refetch, mutationError, clearMutationError } =
-    useEvents();
+export function EventsList({
+  onOpenCreate,
+  onOpenEvent,
+  events,
+  isLoading,
+  error,
+  refetch,
+  mutationError,
+  clearMutationError,
+}: EventsListProps) {
   const [globalFilter, setGlobalFilter] = useState('');
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 

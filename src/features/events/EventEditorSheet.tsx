@@ -25,6 +25,13 @@ export interface EventEditorSheetProps {
     | { success: true; data: { id: string } }
     | { success: false; error: ApiError }
   >;
+  updateEvent: (
+    eventId: string,
+    payload: CreateEventInput
+  ) => Promise<
+    | { success: true; data: { id: string } }
+    | { success: false; error: ApiError }
+  >;
   attachProperty: (
     eventId: string,
     propertyId: string,
@@ -46,6 +53,7 @@ export function EventEditorSheet({
   onClose,
   eventId,
   createEvent,
+  updateEvent,
   attachProperty,
   updatePresence,
   getEventWithProperties,
@@ -118,6 +126,30 @@ export function EventEditorSheet({
     }
   };
 
+  const handleSaveExistingEvent = async () => {
+    if (!currentEventId) return;
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+
+    setSaving(true);
+    clearMutationError();
+
+    const payload: CreateEventInput = {
+      name: trimmedName,
+      description: description.trim() || undefined,
+      triggers_markdown: triggersMarkdown.trim() || undefined,
+    };
+
+    const result = await updateEvent(currentEventId, payload);
+    setSaving(false);
+
+    if (result.success) {
+      setName(result.data.name);
+      setDescription(result.data.description ?? '');
+      setTriggersMarkdown(result.data.triggers_markdown ?? '');
+    }
+  };
+
   const handleAddProperty = async () => {
     if (!currentEventId || !selectedPropertyId) return;
     setAddingProperty(true);
@@ -181,7 +213,7 @@ export function EventEditorSheet({
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. checkout_completed, page_viewed"
             className="font-mono"
-            disabled={!!currentEventId}
+            disabled={saving}
           />
         </div>
 
@@ -318,7 +350,14 @@ export function EventEditorSheet({
           >
             {saving ? 'Creating…' : 'Create Event'}
           </Button>
-        ) : null}
+        ) : (
+          <Button
+            onClick={handleSaveExistingEvent}
+            disabled={saving || !name.trim() || !currentEventId}
+          >
+            {saving ? 'Saving…' : 'Save Changes'}
+          </Button>
+        )}
       </div>
     </Sheet>
   );

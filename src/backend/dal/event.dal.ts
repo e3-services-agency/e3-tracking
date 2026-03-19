@@ -103,6 +103,95 @@ export async function createEvent(
 }
 
 /**
+ * Updates core event fields in the workspace.
+ *
+ * @throws NotFoundError when the event is not in the workspace.
+ * @throws ConflictError when UNIQUE(workspace_id, name) is violated (409).
+ * @throws DatabaseError for other DB failures.
+ */
+export async function updateEvent(
+  workspaceId: string,
+  eventId: string,
+  eventData: CreateEventInput
+): Promise<EventRow> {
+  const existing = await getEventById(workspaceId, eventId);
+  if (existing === null) {
+    throw new NotFoundError(
+      `Event not found or does not belong to this workspace.`,
+      'event'
+    );
+  }
+
+  const supabase = getSupabaseOrThrow();
+  const row = {
+    name: eventData.name.trim(),
+    description: eventData.description?.trim() ?? null,
+    triggers_markdown: eventData.triggers_markdown?.trim() ?? null,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from('events')
+    .update(row)
+    .eq('id', eventId)
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null)
+    .select()
+    .single();
+
+  if (error) {
+    if (error.code === UNIQUE_VIOLATION_CODE) {
+      throw new ConflictError(
+        `An event with the same name already exists in this workspace.`,
+        `name="${row.name}"`
+      );
+    }
+    throw new DatabaseError(`Failed to update event: ${error.message}`, error);
+  }
+
+  if (data === null) {
+    throw new DatabaseError('Update event returned no row.');
+  }
+
+  return data as EventRow;
+}
+
+/**
+ * Soft-deletes an event in the workspace.
+ *
+ * @throws NotFoundError when the event is not in the workspace.
+ * @throws DatabaseError for DB failures.
+ */
+export async function deleteEvent(
+  workspaceId: string,
+  eventId: string
+): Promise<void> {
+  const existing = await getEventById(workspaceId, eventId);
+  if (existing === null) {
+    throw new NotFoundError(
+      `Event not found or does not belong to this workspace.`,
+      'event'
+    );
+  }
+
+  const supabase = getSupabaseOrThrow();
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from('events')
+    .update({
+      deleted_at: now,
+      updated_at: now,
+    })
+    .eq('id', eventId)
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null);
+
+  if (error) {
+    throw new DatabaseError(`Failed to delete event: ${error.message}`, error);
+  }
+}
+
+/**
  * Attaches a property to an event with the given presence.
  * Verifies both event_id and property_id belong to the same workspaceId.
  *

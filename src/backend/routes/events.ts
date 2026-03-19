@@ -202,6 +202,128 @@ router.post(
 );
 
 /**
+ * PATCH /api/events/:id
+ * Update core event fields. Requires x-workspace-id.
+ */
+router.patch(
+  '/:id',
+  requireWorkspace,
+  eventAuditValidator,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = req.workspaceId;
+    if (!workspaceId) {
+      res.status(403).json({
+        error: 'Workspace context required.',
+        code: 'WORKSPACE_REQUIRED',
+      });
+      return;
+    }
+
+    const eventId = req.params.id;
+    const body = req.body as Record<string, unknown>;
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+
+    if (!name) {
+      res.status(400).json({
+        error: 'Event name is required.',
+        code: 'NAME_REQUIRED',
+        field: 'name',
+      });
+      return;
+    }
+
+    const eventData: CreateEventInput = {
+      name,
+      description: typeof body.description === 'string' ? body.description : undefined,
+      triggers_markdown:
+        typeof body.triggers_markdown === 'string'
+          ? body.triggers_markdown
+          : undefined,
+    };
+
+    try {
+      const updated = await EventDAL.updateEvent(workspaceId, eventId, eventData);
+      res.status(200).json(updated);
+    } catch (err) {
+      console.error(err);
+      if (err instanceof NotFoundError) {
+        res.status(404).json({
+          error: err.message,
+          code: err.code,
+          resource: err.resource,
+        });
+        return;
+      }
+      if (err instanceof ConflictError) {
+        res.status(409).json({
+          error: err.message,
+          code: err.code,
+          details: err.details,
+        });
+        return;
+      }
+      if (err instanceof DatabaseError) {
+        res.status(500).json({
+          error: 'Failed to update event.',
+          code: err.code,
+        });
+        return;
+      }
+      res.status(500).json({
+        error: 'An unexpected error occurred.',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+);
+
+/**
+ * DELETE /api/events/:id
+ * Soft-delete an event. Requires x-workspace-id.
+ */
+router.delete(
+  '/:id',
+  requireWorkspace,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = req.workspaceId;
+    if (!workspaceId) {
+      res.status(403).json({
+        error: 'Workspace context required.',
+        code: 'WORKSPACE_REQUIRED',
+      });
+      return;
+    }
+
+    const eventId = req.params.id;
+    try {
+      await EventDAL.deleteEvent(workspaceId, eventId);
+      res.status(204).send('');
+    } catch (err) {
+      console.error(err);
+      if (err instanceof NotFoundError) {
+        res.status(404).json({
+          error: err.message,
+          code: err.code,
+          resource: err.resource,
+        });
+        return;
+      }
+      if (err instanceof DatabaseError) {
+        res.status(500).json({
+          error: 'Failed to delete event.',
+          code: err.code,
+        });
+        return;
+      }
+      res.status(500).json({
+        error: 'An unexpected error occurred.',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+);
+
+/**
  * POST /api/events/:id/properties
  * Attach a property to an event with a presence value. Body: { propertyId, presence }.
  * Returns 404 if event or property does not exist or does not belong to the workspace.

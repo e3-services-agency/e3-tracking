@@ -27,6 +27,12 @@ type UseEventEditorArgs = {
   isCreating: boolean;
   onClose: () => void;
   onSwitchVariant?: (id: string) => void;
+  deleteEventApi: (
+    eventId: string
+  ) => Promise<
+    | { success: true }
+    | { success: false; error: { message: string } }
+  >;
 };
 
 export function useEventEditor({
@@ -35,6 +41,7 @@ export function useEventEditor({
   isCreating,
   onClose,
   onSwitchVariant,
+  deleteEventApi,
 }: UseEventEditorArgs) {
   const data = useActiveData();
   const { addEvent, updateEvent, deleteEvent, auditConfig } = useStore();
@@ -283,8 +290,15 @@ export function useEventEditor({
 
   const handleArchive = () => {
     if (!event) return;
-    deleteEvent(event.id);
-    onClose();
+    void (async () => {
+      const result = await deleteEventApi(event.id);
+      if (!result.success) {
+        window.alert(result.error.message);
+        return;
+      }
+      deleteEvent(event.id);
+      onClose();
+    })();
   };
 
   const generateCodegen = () => {

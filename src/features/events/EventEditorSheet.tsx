@@ -10,12 +10,17 @@ import { Input } from '@/src/components/ui/Input';
 import { EventTriggerCardsSection } from '@/src/features/events/components/EventTriggerCardsSection';
 import { EventTriggerEditorModal } from '@/src/features/events/components/EventTriggerEditorModal';
 import { uploadEventTriggerImage } from '@/src/features/events/lib/eventTriggerImageStorage';
+import {
+  createWorkspaceSource,
+  listWorkspaceSources,
+} from '@/src/features/events/lib/eventTriggerSourcesApi';
 import type {
   CreateEventInput,
   EventPropertyPresence,
   EventRow,
   EventType,
   EventTriggerEntry,
+  SourceRow,
 } from '@/src/types/schema';
 import type { ApiError, EventWithPropertiesResponse } from '@/src/features/events/hooks/useEvents';
 import { useProperties } from '@/src/features/properties/hooks/useProperties';
@@ -145,6 +150,13 @@ export function EventEditorSheet({
   const [triggerDraft, setTriggerDraft] = useState<EventTriggerEntry>(createEmptyTrigger(0));
   const [triggerImageUploading, setTriggerImageUploading] = useState(false);
   const [triggerImageError, setTriggerImageError] = useState<string | null>(null);
+  const [workspaceSources, setWorkspaceSources] = useState<SourceRow[]>([]);
+  const [sourcesLoading, setSourcesLoading] = useState(false);
+  const [sourcesError, setSourcesError] = useState<string | null>(null);
+  const [isInlineSourceCreateOpen, setIsInlineSourceCreateOpen] = useState(false);
+  const [createSourceName, setCreateSourceName] = useState('');
+  const [createSourceError, setCreateSourceError] = useState<string | null>(null);
+  const [isCreatingSource, setIsCreatingSource] = useState(false);
 
   const isCreateMode = eventId === null && currentEventId === null;
 
@@ -186,6 +198,29 @@ export function EventEditorSheet({
     setSelectedPropertyId('');
     setAddPresence('always_sent');
   }, [isOpen, eventId, clearMutationError, loadEvent]);
+
+  const loadWorkspaceSources = useCallback(async () => {
+    if (!activeWorkspaceId) {
+      setWorkspaceSources([]);
+      setSourcesError('Workspace context missing. Please refresh and try again.');
+      return;
+    }
+    setSourcesLoading(true);
+    setSourcesError(null);
+    const result = await listWorkspaceSources(activeWorkspaceId);
+    setSourcesLoading(false);
+    if (!result.success) {
+      setWorkspaceSources([]);
+      setSourcesError(result.error);
+      return;
+    }
+    setWorkspaceSources(result.data);
+  }, [activeWorkspaceId]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    void loadWorkspaceSources();
+  }, [isOpen, loadWorkspaceSources]);
 
   const handleSaveNewEvent = async () => {
     const trimmedName = name.trim();
@@ -301,6 +336,9 @@ export function EventEditorSheet({
     setTriggerDraft(createEmptyTrigger(triggers.length));
     setTriggerImageError(null);
     setTriggerImageUploading(false);
+    setCreateSourceName('');
+    setCreateSourceError(null);
+    setIsInlineSourceCreateOpen(false);
     setIsTriggerModalOpen(true);
   };
 
@@ -311,6 +349,9 @@ export function EventEditorSheet({
     setTriggerDraft({ ...trigger });
     setTriggerImageError(null);
     setTriggerImageUploading(false);
+    setCreateSourceName('');
+    setCreateSourceError(null);
+    setIsInlineSourceCreateOpen(false);
     setIsTriggerModalOpen(true);
   };
 
@@ -320,6 +361,9 @@ export function EventEditorSheet({
     setTriggerDraft(createEmptyTrigger(0));
     setTriggerImageUploading(false);
     setTriggerImageError(null);
+    setCreateSourceName('');
+    setCreateSourceError(null);
+    setIsInlineSourceCreateOpen(false);
   };
 
   const saveTriggerDraft = () => {
@@ -377,6 +421,40 @@ export function EventEditorSheet({
     }
 
     setTriggerDraft((prev) => ({ ...prev, image: result.url }));
+  };
+
+  const handleCreateTriggerSource = async () => {
+    if (!activeWorkspaceId) {
+      setCreateSourceError('Workspace context missing. Please refresh and try again.');
+      return;
+    }
+    const trimmedName = createSourceName.trim();
+    if (!trimmedName) {
+      setCreateSourceError('Source name is required.');
+      return;
+    }
+
+    setIsCreatingSource(true);
+    setCreateSourceError(null);
+    const result = await createWorkspaceSource({
+      workspaceId: activeWorkspaceId,
+      name: trimmedName,
+      color: null,
+    });
+    setIsCreatingSource(false);
+
+    if (!result.success) {
+      setCreateSourceError(result.error);
+      return;
+    }
+
+    setWorkspaceSources((prev) =>
+      [...prev, result.data].sort((a, b) => a.name.localeCompare(b.name))
+    );
+    setTriggerDraft((prev) => ({ ...prev, source: result.data.name }));
+    setCreateSourceName('');
+    setCreateSourceError(null);
+    setIsInlineSourceCreateOpen(false);
   };
 
   const title = isCreateMode && !currentEventId
@@ -633,17 +711,41 @@ export function EventEditorSheet({
       <EventTriggerEditorModal
         isOpen={isTriggerModalOpen}
         trigger={triggerDraft}
+        sources={workspaceSources}
+        sourcesLoading={sourcesLoading}
+        sourcesError={sourcesError}
+        isCreatingSource={isCreatingSource}
+        createSourceName={createSourceName}
+        createSourceError={createSourceError}
+        isInlineSourceCreateOpen={isInlineSourceCreateOpen}
         imageUploadEnabled={!!currentEventId}
         imageUploading={triggerImageUploading}
         imageUploadError={triggerImageError}
         onChange={(patch) => {
           setTriggerDraft((prev) => ({ ...prev, ...patch }));
-          if ('image' in patch || 'title' in patch || 'description' in patch || 'source' in patch) {
+          if ('title' in patch || 'description' in patch || 'source' in patch) {
             setTriggerImageError(null);
+          }
+          if ('source' in patch) {
+            setCreateSourceError(null);
           }
         }}
         onUploadImage={handleTriggerImageUpload}
         onClearImage={() => setTriggerDraft((prev) => ({ ...prev, image: null }))}
+        onChangeCreateSourceName={(value) => {
+          setCreateSourceName(value);
+          setCreateSourceError(null);
+        }}
+        onOpenInlineSourceCreate={() => {
+          setCreateSourceError(null);
+          setIsInlineSourceCreateOpen(true);
+        }}
+        onCancelInlineSourceCreate={() => {
+          setCreateSourceName('');
+          setCreateSourceError(null);
+          setIsInlineSourceCreateOpen(false);
+        }}
+        onCreateSource={handleCreateTriggerSource}
         onSave={saveTriggerDraft}
         onClose={closeTriggerModal}
       />

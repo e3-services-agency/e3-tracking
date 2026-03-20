@@ -17,6 +17,7 @@ import catalogsRouter from './routes/catalogs';
 import eventsRouter from './routes/events';
 import metricsRouter from './routes/metrics';
 import propertiesRouter from './routes/properties';
+import sourcesRouter from './routes/sources';
 import journeysRouter from './routes/journeys';
 import sharedRouter from './routes/shared';
 import { optionalAuth } from './middleware/auth';
@@ -48,6 +49,7 @@ export function createApp(): express.Express {
   app.use('/api/events', eventsRouter);
   app.use('/api/metrics', metricsRouter);
   app.use('/api/properties', propertiesRouter);
+  app.use('/api/sources', sourcesRouter);
   app.use('/api/journeys', journeysRouter);
   app.use('/api/shared', sharedRouter);
 

@@ -1,17 +1,29 @@
 import React, { useEffect } from 'react';
 import { Button } from '@/src/components/ui/Button';
 import type { EventTriggerEntry } from '@/src/types/schema';
-import { Image as ImageIcon, UploadCloud, X, Zap } from 'lucide-react';
+import type { SourceRow } from '@/src/types/schema';
+import { Image as ImageIcon, Plus, UploadCloud, X, Zap } from 'lucide-react';
 
 type EventTriggerEditorModalProps = {
   isOpen: boolean;
   trigger: EventTriggerEntry;
+  sources: SourceRow[];
+  sourcesLoading: boolean;
+  sourcesError: string | null;
+  isCreatingSource: boolean;
+  createSourceName: string;
+  createSourceError: string | null;
+  isInlineSourceCreateOpen: boolean;
   imageUploadEnabled: boolean;
   imageUploading: boolean;
   imageUploadError: string | null;
   onChange: (patch: Partial<EventTriggerEntry>) => void;
   onUploadImage: (file: File) => Promise<void>;
   onClearImage: () => void;
+  onChangeCreateSourceName: (value: string) => void;
+  onOpenInlineSourceCreate: () => void;
+  onCancelInlineSourceCreate: () => void;
+  onCreateSource: () => Promise<void>;
   onSave: () => void;
   onClose: () => void;
 };
@@ -19,12 +31,23 @@ type EventTriggerEditorModalProps = {
 export function EventTriggerEditorModal({
   isOpen,
   trigger,
+  sources,
+  sourcesLoading,
+  sourcesError,
+  isCreatingSource,
+  createSourceName,
+  createSourceError,
+  isInlineSourceCreateOpen,
   imageUploadEnabled,
   imageUploading,
   imageUploadError,
   onChange,
   onUploadImage,
   onClearImage,
+  onChangeCreateSourceName,
+  onOpenInlineSourceCreate,
+  onCancelInlineSourceCreate,
+  onCreateSource,
   onSave,
   onClose,
 }: EventTriggerEditorModalProps) {
@@ -50,17 +73,24 @@ export function EventTriggerEditorModal({
   if (!isOpen) return null;
 
   const saveDisabled = !trigger.title.trim() || !trigger.description.trim() || imageUploading;
+  const selectedSourceValue = trigger.source?.trim() || '';
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30">
       <div className="flex h-[640px] w-[960px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl bg-white shadow-2xl">
         <div className="flex-1 border-r border-amber-200 bg-amber-50/40 p-8">
-          <div className="mb-4 flex items-center gap-2">
-            <Zap className="h-4 w-4 text-amber-600" />
-            <span className="text-sm font-semibold text-amber-900">Trigger Image</span>
+          <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-amber-900">
+            <ImageIcon className="h-4 w-4" />
+            <span>Trigger Image</span>
           </div>
 
-          <div className="flex h-[500px] items-center justify-center rounded-xl border-2 border-dashed border-amber-300 bg-white">
+          <label
+            className={`flex h-[500px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed bg-white p-6 text-center ${
+              imageUploadEnabled
+                ? 'border-amber-300 hover:bg-amber-50/40'
+                : 'cursor-not-allowed border-gray-200'
+            }`}
+          >
             {trigger.image ? (
               <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-xl">
                 <img
@@ -70,7 +100,11 @@ export function EventTriggerEditorModal({
                 />
                 <button
                   type="button"
-                  onClick={onClearImage}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onClearImage();
+                  }}
                   className="absolute right-3 top-3 rounded bg-black/60 p-1 text-white hover:bg-red-500"
                 >
                   <X className="h-4 w-4" />
@@ -81,10 +115,39 @@ export function EventTriggerEditorModal({
                 <ImageIcon className="mb-3 h-10 w-10 text-gray-300" />
                 <p className="text-sm font-medium">No trigger image selected</p>
                 <p className="mt-1 text-xs">
-                  Upload to store the image in `assets`, or paste an existing public URL below.
+                  Upload or paste an image here. Successful uploads are stored in `assets`.
                 </p>
               </div>
             )}
+
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              disabled={!imageUploadEnabled || imageUploading}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                void onUploadImage(file);
+                e.currentTarget.value = '';
+              }}
+            />
+          </label>
+
+          <div className="mt-3 flex items-start gap-2 text-xs text-gray-500">
+            <UploadCloud className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+            <div>
+              {!imageUploadEnabled ? (
+                <p>
+                  Save the event first, then reopen this trigger to upload an image into `assets`.
+                </p>
+              ) : (
+                <p>Click or paste in this image area to upload a trigger image.</p>
+              )}
+              {imageUploadError ? (
+                <p className="mt-2 text-red-600">{imageUploadError}</p>
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -108,14 +171,67 @@ export function EventTriggerEditorModal({
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">Source</label>
-              <input
-                type="text"
-                value={trigger.source ?? ''}
-                onChange={(e) => onChange({ source: e.target.value })}
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <label className="block text-sm font-medium text-gray-700">Source</label>
+                {!isInlineSourceCreateOpen ? (
+                  <button
+                    type="button"
+                    onClick={onOpenInlineSourceCreate}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 hover:text-amber-800"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    New source
+                  </button>
+                ) : null}
+              </div>
+
+              <select
+                value={selectedSourceValue}
+                onChange={(e) => onChange({ source: e.target.value || null })}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
-                placeholder="e.g. Web app, GTM, SDK"
-              />
+                disabled={sourcesLoading || isCreatingSource}
+              >
+                <option value="">Source independent</option>
+                {sources.map((source) => (
+                  <option key={source.id} value={source.name}>
+                    {source.name}
+                  </option>
+                ))}
+              </select>
+
+              {sourcesLoading ? (
+                <p className="mt-1 text-xs text-gray-500">Loading workspace sources…</p>
+              ) : null}
+              {sourcesError ? (
+                <p className="mt-1 text-xs text-red-600">{sourcesError}</p>
+              ) : null}
+
+              {isInlineSourceCreateOpen ? (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+                  <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-amber-800">
+                    Create workspace source
+                  </label>
+                  <input
+                    type="text"
+                    value={createSourceName}
+                    onChange={(e) => onChangeCreateSourceName(e.target.value)}
+                    className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+                    placeholder="e.g. Web App"
+                    disabled={isCreatingSource}
+                  />
+                  {createSourceError ? (
+                    <p className="mt-2 text-xs text-red-600">{createSourceError}</p>
+                  ) : null}
+                  <div className="mt-3 flex justify-end gap-2">
+                    <Button variant="outline" onClick={onCancelInlineSourceCreate} disabled={isCreatingSource}>
+                      Cancel
+                    </Button>
+                    <Button onClick={() => void onCreateSource()} disabled={isCreatingSource || !createSourceName.trim()}>
+                      {isCreatingSource ? 'Creating…' : 'Create Source'}
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div>
@@ -145,56 +261,6 @@ export function EventTriggerEditorModal({
               />
             </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">Image URL</label>
-              <input
-                type="url"
-                value={trigger.image ?? ''}
-                onChange={(e) => onChange({ image: e.target.value })}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
-                placeholder="https://... or upload to assets below"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Upload image</label>
-              <label
-                className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-4 text-sm ${
-                  imageUploadEnabled
-                    ? 'border-amber-300 text-amber-700 hover:bg-amber-50'
-                    : 'cursor-not-allowed border-gray-200 text-gray-400'
-                }`}
-              >
-                <UploadCloud className="h-4 w-4" />
-                <span>
-                  {imageUploading ? 'Uploading…' : 'Upload to assets'}
-                </span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  disabled={!imageUploadEnabled || imageUploading}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    void onUploadImage(file);
-                    e.currentTarget.value = '';
-                  }}
-                />
-              </label>
-              {!imageUploadEnabled ? (
-                <p className="text-xs text-gray-500">
-                  Save the event first, then reopen this trigger to upload an image into `assets`.
-                </p>
-              ) : (
-                <p className="text-xs text-gray-500">
-                  You can also paste an image from the clipboard while this modal is open.
-                </p>
-              )}
-              {imageUploadError ? (
-                <p className="text-xs text-red-600">{imageUploadError}</p>
-              ) : null}
-            </div>
           </div>
 
           <div className="flex justify-end gap-2 border-t border-gray-100 p-4">

@@ -9,7 +9,7 @@ import { API_BASE } from '@/src/config/env';
 
 export interface WorkspaceItem {
   id: string;
-  workspace_key?: string | null;
+  workspace_key: string;
   name: string;
   client_name: string | null;
   created_at: string;
@@ -100,6 +100,7 @@ export function useWorkspaces() {
       const raw = data as WorkspaceItem & { client_name?: string | null };
       const workspace: WorkspaceItem = {
         id: raw.id,
+        workspace_key: raw.workspace_key,
         name: raw.name,
         created_at: raw.created_at,
         updated_at: raw.updated_at,

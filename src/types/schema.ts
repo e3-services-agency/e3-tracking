@@ -8,11 +8,67 @@
 
 export type PropertyContext = 'event_property' | 'user_property' | 'system_property';
 
-export type PiiStatus = 'none' | 'sensitive' | 'highly_sensitive';
+export const PROPERTY_CONTEXTS: PropertyContext[] = [
+  'event_property',
+  'user_property',
+  'system_property',
+];
 
-export type PropertyDataType = 'string' | 'integer' | 'float' | 'boolean' | 'object' | 'list';
+export type PropertyDataType =
+  | 'string'
+  | 'number'
+  | 'boolean'
+  | 'timestamp'
+  | 'object'
+  | 'array';
+
+export const PROPERTY_DATA_TYPES: PropertyDataType[] = [
+  'string',
+  'number',
+  'boolean',
+  'timestamp',
+  'object',
+  'array',
+];
+
+export type PropertyDataFormat =
+  | 'uuid'
+  | 'iso8601_datetime'
+  | 'iso8601_date'
+  | 'unix_seconds'
+  | 'unix_milliseconds'
+  | 'email'
+  | 'uri'
+  | 'currency_code'
+  | 'country_code'
+  | 'language_code';
+
+export const PROPERTY_DATA_FORMATS: PropertyDataFormat[] = [
+  'uuid',
+  'iso8601_datetime',
+  'iso8601_date',
+  'unix_seconds',
+  'unix_milliseconds',
+  'email',
+  'uri',
+  'currency_code',
+  'country_code',
+  'language_code',
+];
 
 export type EventPropertyPresence = 'always_sent' | 'sometimes_sent' | 'never_sent';
+
+export type EventType = 'track' | 'page' | 'identify';
+
+export const EVENT_TYPES: EventType[] = ['track', 'page', 'identify'];
+
+export type MetricAggregationType = 'count' | 'sum' | 'avg';
+
+export const METRIC_AGGREGATION_TYPES: MetricAggregationType[] = [
+  'count',
+  'sum',
+  'avg',
+];
 
 export type QARunStatus = 'pass' | 'fail';
 
@@ -25,6 +81,39 @@ export type PropertyMappingType = 'lookup_key' | 'mapped_value';
 export type CatalogType = 'Product' | 'Variant' | 'General';
 
 export const CATALOG_TYPES: CatalogType[] = ['Product', 'Variant', 'General'];
+
+export type CatalogFieldDataType = 'string' | 'number' | 'boolean';
+
+export const CATALOG_FIELD_DATA_TYPES: CatalogFieldDataType[] = [
+  'string',
+  'number',
+  'boolean',
+];
+
+export type CatalogFieldFamily = 'system' | 'custom';
+
+export const CATALOG_FIELD_FAMILIES: CatalogFieldFamily[] = ['system', 'custom'];
+
+export type CatalogFieldItemLevel = 'parent' | 'variant' | 'general';
+
+export const CATALOG_FIELD_ITEM_LEVELS: CatalogFieldItemLevel[] = [
+  'parent',
+  'variant',
+  'general',
+];
+
+export type CatalogFieldSourceMappingType = 'json_field' | 'json_path' | 'alias';
+
+export const CATALOG_FIELD_SOURCE_MAPPING_TYPES: CatalogFieldSourceMappingType[] = [
+  'json_field',
+  'json_path',
+  'alias',
+];
+
+export interface CatalogFieldSourceMapping {
+  mapping_type: CatalogFieldSourceMappingType;
+  source_value: string;
+}
 
 export interface CatalogRow {
   id: string;
@@ -44,10 +133,14 @@ export interface CatalogFieldRow {
   id: string;
   catalog_id: string;
   name: string;
-  type: string; // 'string' | 'number' | 'boolean'
+  description: string | null;
+  data_type: CatalogFieldDataType;
   is_lookup_key: boolean;
-  created_at?: string;
-  updated_at?: string;
+  field_family: CatalogFieldFamily;
+  item_level: CatalogFieldItemLevel;
+  source_mapping_json: CatalogFieldSourceMapping | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // ----- Workspace audit rules (stored in workspace_settings.audit_rules_json) -----
@@ -83,8 +176,8 @@ export interface WorkspaceMemberRow {
 export interface WorkspaceRow {
   id: string;
   name: string;
-  /** Short public key used in URLs (e.g. "a1B9z"). */
-  workspace_key?: string | null;
+  /** URL-safe public key used in /w/<workspace_key>/... paths. */
+  workspace_key: string;
   created_at: string; // ISO
   updated_at: string;
   deleted_at: string | null;
@@ -117,14 +210,12 @@ export interface PropertyRow {
   name: string;
   description: string | null;
   category: string | null;
-  pii_status: PiiStatus;
+  pii: boolean;
   data_type: PropertyDataType;
-  data_format: string | null;
-  is_list: boolean;
-  /** JSON array of strings */
-  example_values_json: string | null;
-  /** JSON array of { context: string, mapped_name: string } */
-  name_mappings_json: string | null;
+  data_formats: PropertyDataFormat[] | null;
+  value_schema_json: PropertyValueSchema | null;
+  example_values_json: PropertyExampleValue[] | null;
+  name_mappings_json: PropertyNameMapping[] | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -141,10 +232,10 @@ export type CreatePropertyInput = Pick<
   | 'name'
   | 'description'
   | 'category'
-  | 'pii_status'
+  | 'pii'
   | 'data_type'
-  | 'data_format'
-  | 'is_list'
+  | 'data_formats'
+  | 'value_schema_json'
   | 'example_values_json'
   | 'name_mappings_json'
   | 'mapped_catalog_id'
@@ -163,7 +254,11 @@ export interface EventRow {
   workspace_id: string;
   name: string;
   description: string | null;
+  purpose: string | null;
+  event_type: EventType | null;
   owner_team_id: string | null;
+  categories: string[] | null;
+  tags: string[] | null;
   /**
    * Canonical structured trigger entries for the event.
    * Stored durably in the backend.
@@ -186,14 +281,44 @@ export interface EventTriggerEntry {
 export interface CreateEventInput {
   name: string;
   description?: string | null;
+  purpose?: string | null;
+  event_type?: EventType | null;
   owner_team_id?: string | null;
+  categories?: string[] | null;
+  tags?: string[] | null;
   triggers?: EventTriggerEntry[] | null;
+  source_ids?: string[] | null;
 }
 
 export interface EventSourceRow {
   event_id: string;
   source_id: string;
   created_at: string;
+}
+
+export interface MetricRow {
+  id: string;
+  workspace_id: string;
+  name: string;
+  description: string | null;
+  owner_team_id: string | null;
+  aggregation_type: MetricAggregationType;
+  primary_event_id: string;
+  measurement_property_id: string | null;
+  filter_json: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface CreateMetricInput {
+  name: string;
+  description?: string | null;
+  owner_team_id?: string | null;
+  aggregation_type: MetricAggregationType;
+  primary_event_id: string;
+  measurement_property_id?: string | null;
+  filter_json?: Record<string, unknown> | null;
 }
 
 export interface EventPropertyRow {
@@ -258,9 +383,46 @@ export interface QARunPayloadRow {
   created_at: string;
 }
 
-// ----- Name mapping (parsed from name_mappings_json) -----
+export interface PropertyValueSchemaNode {
+  type: PropertyDataType;
+  data_formats?: PropertyDataFormat[];
+  required?: boolean;
+  properties?: Record<string, PropertyValueSchemaNode>;
+  items?: PropertyValueSchemaNode;
+  allow_additional_properties?: boolean;
+}
+
+export interface PropertyValueSchema {
+  type: 'object' | 'array';
+  properties?: Record<string, PropertyValueSchemaNode>;
+  items?: PropertyValueSchemaNode;
+  allow_additional_properties?: boolean;
+}
+
+export interface PropertyExampleValue {
+  value: unknown;
+  label?: string;
+  notes?: string;
+}
+
+export type PropertyNameMappingRole =
+  | 'payload_key'
+  | 'source_field'
+  | 'lookup_key'
+  | 'mapped_value'
+  | 'alias';
+
+export const PROPERTY_NAME_MAPPING_ROLES: PropertyNameMappingRole[] = [
+  'payload_key',
+  'source_field',
+  'lookup_key',
+  'mapped_value',
+  'alias',
+];
 
 export interface PropertyNameMapping {
-  context: string;
-  mapped_name: string;
+  system: string;
+  name: string;
+  role: PropertyNameMappingRole;
+  notes?: string;
 }

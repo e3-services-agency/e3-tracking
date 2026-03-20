@@ -3,13 +3,26 @@
  * All queries filter by workspace_id (catalogs) or via catalog's workspace_id (fields).
  */
 import { getSupabaseOrThrow } from '../db/supabase';
-import type { CatalogRow, CatalogFieldRow, CatalogType } from '../../types/schema';
+import type {
+  CatalogFieldDataType,
+  CatalogFieldFamily,
+  CatalogFieldItemLevel,
+  CatalogFieldRow,
+  CatalogFieldSourceMapping,
+  CatalogRow,
+  CatalogType,
+} from '../../types/schema';
+import {
+  CATALOG_FIELD_DATA_TYPES,
+  CATALOG_FIELD_FAMILIES,
+  CATALOG_FIELD_ITEM_LEVELS,
+} from '../../types/schema';
+import { DatabaseError, NotFoundError } from '../errors';
 
 const VALID_CATALOG_TYPES: CatalogType[] = ['Product', 'Variant', 'General'];
 function normalizeCatalogType(v: string | undefined): CatalogType {
   return VALID_CATALOG_TYPES.includes(v as CatalogType) ? (v as CatalogType) : 'General';
 }
-import { DatabaseError, NotFoundError } from '../errors';
 
 export async function listCatalogs(workspaceId: string): Promise<CatalogRow[]> {
   const supabase = getSupabaseOrThrow();
@@ -168,9 +181,31 @@ export async function listCatalogFieldsForWorkspace(
 
 type CreateCatalogFieldInput = {
   name: string;
-  type: string;
+  description?: string | null;
+  data_type: CatalogFieldDataType;
   is_lookup_key: boolean;
+  field_family: CatalogFieldFamily;
+  item_level: CatalogFieldItemLevel;
+  source_mapping_json?: CatalogFieldSourceMapping | null;
 };
+
+function normalizeCatalogFieldDataType(value: string | undefined): CatalogFieldDataType {
+  return CATALOG_FIELD_DATA_TYPES.includes(value as CatalogFieldDataType)
+    ? (value as CatalogFieldDataType)
+    : 'string';
+}
+
+function normalizeCatalogFieldFamily(value: string | undefined): CatalogFieldFamily {
+  return CATALOG_FIELD_FAMILIES.includes(value as CatalogFieldFamily)
+    ? (value as CatalogFieldFamily)
+    : 'custom';
+}
+
+function normalizeCatalogFieldItemLevel(value: string | undefined): CatalogFieldItemLevel {
+  return CATALOG_FIELD_ITEM_LEVELS.includes(value as CatalogFieldItemLevel)
+    ? (value as CatalogFieldItemLevel)
+    : 'general';
+}
 
 export async function createCatalogField(
   workspaceId: string,
@@ -179,12 +214,15 @@ export async function createCatalogField(
 ): Promise<CatalogFieldRow> {
   await getCatalogOrThrow(workspaceId, catalogId);
   const supabase = getSupabaseOrThrow();
-  const type = ['string', 'number', 'boolean'].includes(input.type) ? input.type : 'string';
   const row = {
     catalog_id: catalogId,
     name: input.name.trim(),
-    type,
+    description: input.description?.trim() ?? null,
+    data_type: normalizeCatalogFieldDataType(input.data_type),
     is_lookup_key: Boolean(input.is_lookup_key),
+    field_family: normalizeCatalogFieldFamily(input.field_family),
+    item_level: normalizeCatalogFieldItemLevel(input.item_level),
+    source_mapping_json: input.source_mapping_json ?? null,
   };
 
   const { data, error } = await supabase
@@ -253,10 +291,20 @@ export async function updateCatalogField(
     updated_at: new Date().toISOString(),
   };
   if (input.name !== undefined) updates.name = input.name.trim();
-  if (input.type !== undefined) {
-    updates.type = ['string', 'number', 'boolean'].includes(input.type) ? input.type : 'string';
+  if (input.description !== undefined) updates.description = input.description?.trim() ?? null;
+  if (input.data_type !== undefined) {
+    updates.data_type = normalizeCatalogFieldDataType(input.data_type);
   }
   if (input.is_lookup_key !== undefined) updates.is_lookup_key = Boolean(input.is_lookup_key);
+  if (input.field_family !== undefined) {
+    updates.field_family = normalizeCatalogFieldFamily(input.field_family);
+  }
+  if (input.item_level !== undefined) {
+    updates.item_level = normalizeCatalogFieldItemLevel(input.item_level);
+  }
+  if (input.source_mapping_json !== undefined) {
+    updates.source_mapping_json = input.source_mapping_json ?? null;
+  }
 
   const { data, error } = await supabase
     .from('catalog_fields')

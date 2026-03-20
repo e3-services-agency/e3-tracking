@@ -19,8 +19,8 @@ export interface ApiError {
 
 export type PropertyUpdatePayload = Partial<Pick<
   PropertyRow,
-  'context' | 'name' | 'description' | 'category' | 'pii_status' | 'data_type' | 'data_format' | 'is_list'
-  | 'example_values_json' | 'name_mappings_json'
+  'context' | 'name' | 'description' | 'category' | 'pii' | 'data_type' | 'data_formats'
+  | 'value_schema_json' | 'example_values_json' | 'name_mappings_json'
   | 'mapped_catalog_id' | 'mapped_catalog_field_id' | 'mapping_type'
 >>;
 

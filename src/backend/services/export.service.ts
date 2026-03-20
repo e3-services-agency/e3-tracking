@@ -144,9 +144,8 @@ function buildPropertyDetailsTable(attached: EventPropertyWithDetails[]): string
   const rows = attached
     .map((p) => {
       const dtype = p.property_data_type ? String(p.property_data_type) : '—';
-      const fmt = p.property_data_format ? String(p.property_data_format) : '';
-      const list = p.property_is_list ? ' (list)' : '';
-      const typeLabel = escapeHtml(dtype + (fmt ? ` · ${fmt}` : '') + list);
+      const fmt = Array.isArray(p.property_data_formats) ? p.property_data_formats.join(', ') : '';
+      const typeLabel = escapeHtml(dtype + (fmt ? ` · ${fmt}` : ''));
       const desc = p.property_description ? escapeHtml(p.property_description) : '—';
       return `<tr>
   <td><code class="export-inline-code">${escapeHtml(p.property_name || '')}</code></td>

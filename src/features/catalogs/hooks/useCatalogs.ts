@@ -5,7 +5,15 @@ import { useState, useCallback, useEffect } from 'react';
 import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
-import type { CatalogRow, CatalogFieldRow, CatalogType } from '@/src/types/schema';
+import type {
+  CatalogFieldDataType,
+  CatalogFieldFamily,
+  CatalogFieldItemLevel,
+  CatalogFieldRow,
+  CatalogFieldSourceMapping,
+  CatalogRow,
+  CatalogType,
+} from '@/src/types/schema';
 
 export type CatalogCreateInput = {
   name: string;
@@ -19,8 +27,12 @@ export type CatalogCreateInput = {
 
 export type CatalogFieldCreateInput = {
   name: string;
-  type: string;
+  description?: string | null;
+  data_type: CatalogFieldDataType;
   is_lookup_key?: boolean;
+  field_family: CatalogFieldFamily;
+  item_level: CatalogFieldItemLevel;
+  source_mapping_json?: CatalogFieldSourceMapping | null;
 };
 
 export function useCatalogs() {
@@ -189,6 +201,31 @@ export function useCatalogs() {
     [workspaceId]
   );
 
+  const updateCatalogField = useCallback(
+    async (
+      catalogId: string,
+      fieldId: string,
+      input: Partial<CatalogFieldCreateInput>
+    ): Promise<{ success: true; data: CatalogFieldRow } | { success: false; error: string }> => {
+      if (!workspaceId) return { success: false, error: 'No workspace' };
+      try {
+        const res = await fetchWithAuth(`${API_BASE}/api/catalogs/${catalogId}/fields/${fieldId}`, {
+          method: 'PATCH',
+          headers: { 'x-workspace-id': workspaceId },
+          body: JSON.stringify(input),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data?.id) {
+          return { success: true, data: data as CatalogFieldRow };
+        }
+        return { success: false, error: (data?.error as string) || res.statusText || 'Update failed' };
+      } catch (e) {
+        return { success: false, error: e instanceof Error ? e.message : 'Network error' };
+      }
+    },
+    [workspaceId]
+  );
+
   const deleteCatalogField = useCallback(
     async (catalogId: string, fieldId: string): Promise<{ success: true } | { success: false; error: string }> => {
       if (!workspaceId) return { success: false, error: 'No workspace' };
@@ -218,6 +255,7 @@ export function useCatalogs() {
     fetchCatalogFields,
     createCatalogField,
     setFieldLookupKey,
+    updateCatalogField,
     deleteCatalogField,
   };
 }

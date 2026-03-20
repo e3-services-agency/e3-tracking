@@ -39,6 +39,7 @@ export interface EventPropertyWithDetails {
 export interface EventWithPropertiesResponse {
   event: EventRow;
   attached_properties: EventPropertyWithDetails[];
+  source_ids: string[];
 }
 
 async function parseErrorResponse(res: Response): Promise<ApiError> {
@@ -79,6 +80,10 @@ export interface UseEventsResult {
     eventId: string,
     propertyId: string,
     presence: EventPropertyPresence
+  ) => Promise<{ success: true } | { success: false; error: ApiError }>;
+  detachProperty: (
+    eventId: string,
+    propertyId: string
   ) => Promise<{ success: true } | { success: false; error: ApiError }>;
   updatePresence: (
     eventId: string,
@@ -365,6 +370,41 @@ export function useEvents(
     [effectiveWorkspaceId]
   );
 
+  const detachProperty = useCallback(
+    async (
+      eventId: string,
+      propertyId: string
+    ): Promise<{ success: true } | { success: false; error: ApiError }> => {
+      setMutationError(null);
+      try {
+        const res = await fetchWithAuth(`${API_BASE}/api/events/${eventId}/properties`, {
+          method: 'DELETE',
+          headers: { 'x-workspace-id': effectiveWorkspaceId },
+          body: JSON.stringify({ propertyId }),
+        });
+
+        if (res.status === 204) {
+          await refetch();
+          return { success: true };
+        }
+
+        const apiError = await parseErrorResponse(res);
+        setMutationError(apiError);
+        return { success: false, error: apiError };
+      } catch (err) {
+        const apiError: ApiError = {
+          status: 0,
+          code: 'NETWORK_ERROR',
+          message:
+            err instanceof Error ? err.message : 'Failed to detach property.',
+        };
+        setMutationError(apiError);
+        return { success: false, error: apiError };
+      }
+    },
+    [effectiveWorkspaceId, refetch]
+  );
+
   const getEventWithProperties = useCallback(
     async (eventId: string): Promise<EventWithPropertiesResponse | null> => {
       try {
@@ -392,6 +432,7 @@ export function useEvents(
     updateEvent,
     deleteEvent,
     attachProperty,
+    detachProperty,
     updatePresence,
     getEventWithProperties,
     mutationError,

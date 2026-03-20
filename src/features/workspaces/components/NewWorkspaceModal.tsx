@@ -10,7 +10,7 @@ const E3_WHITE = 'var(--e3-white)';
 export interface NewWorkspaceModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (workspaceId: string, workspaceName: string) => void;
+  onSuccess: (workspaceId: string, workspaceName: string, workspaceKey: string) => void;
 }
 
 export function NewWorkspaceModal({
@@ -49,7 +49,7 @@ export function NewWorkspaceModal({
     );
     setSubmitting(false);
     if (result.success) {
-      onSuccess(result.workspace.id, result.workspace.name);
+      onSuccess(result.workspace.id, result.workspace.name, result.workspace.workspace_key);
       onClose();
     } else {
       setSubmitError(result.error);

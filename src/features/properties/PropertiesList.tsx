@@ -1,6 +1,6 @@
 /**
  * Properties data table (Avo-style). Powered by /api/properties via useProperties.
- * Columns: Name/Description, Type, Is List, PII Status, Catalog Mapping, Presence.
+ * Columns: Name/Description, Type, PII, Catalog Mapping, Presence.
  */
 import React, { useMemo, useState, useEffect } from 'react';
 import {
@@ -16,21 +16,15 @@ import { Badge } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { useCatalogs } from '@/src/features/catalogs/hooks/useCatalogs';
-import type { PropertyRow, PropertyContext, PiiStatus } from '@/src/types/schema';
+import type { PropertyRow, PropertyContext } from '@/src/types/schema';
 import type { CatalogFieldRow } from '@/src/types/schema';
 import type { ApiError } from '@/src/features/properties/hooks/useProperties';
-import { Search, Plus, FileQuestion, AlertCircle, Link2, Braces, Brackets, Hash, Type, ToggleLeft, Sigma } from 'lucide-react';
+import { Search, Plus, FileQuestion, AlertCircle, Link2, Braces, Brackets, Clock3, Hash, Type, ToggleLeft } from 'lucide-react';
 
 const CONTEXT_LABELS: Record<PropertyContext, string> = {
   event_property: 'Event Property',
   user_property: 'User Property',
   system_property: 'System Property',
-};
-
-const PII_LABELS: Record<PiiStatus, string> = {
-  none: 'None',
-  sensitive: 'Sensitive',
-  highly_sensitive: 'Highly Sensitive',
 };
 
 type PropertiesListProps = {
@@ -109,40 +103,46 @@ export function PropertiesList({
         id: 'context',
         header: 'Context',
         accessorFn: (row) => row.context,
-        cell: ({ getValue }) => (
-          <Badge variant="secondary">{CONTEXT_LABELS[getValue() as PropertyContext] ?? getValue()}</Badge>
-        ),
+        cell: ({ getValue }) => {
+          const value = getValue() as PropertyContext;
+          return <Badge variant="secondary">{CONTEXT_LABELS[value] ?? value}</Badge>;
+        },
       },
       {
         id: 'type',
         header: 'Type',
-        accessorFn: (row) => (row.data_type === 'list' || row.is_list ? 'array' : row.data_type),
+        accessorFn: (row) => row.data_type,
         cell: ({ row }) => {
           const p = row.original;
-          const uiType = p.data_type === 'list' || p.is_list ? 'array' : p.data_type;
+          const uiType = p.data_type;
+          const formatsLabel = p.data_formats?.join(', ') ?? '';
           const icon =
             uiType === 'array' ? <Brackets className="w-3.5 h-3.5" /> :
             uiType === 'object' ? <Braces className="w-3.5 h-3.5" /> :
             uiType === 'boolean' ? <ToggleLeft className="w-3.5 h-3.5" /> :
-            uiType === 'integer' ? <Hash className="w-3.5 h-3.5" /> :
-            uiType === 'float' ? <Sigma className="w-3.5 h-3.5" /> :
+            uiType === 'number' ? <Hash className="w-3.5 h-3.5" /> :
+            uiType === 'timestamp' ? <Clock3 className="w-3.5 h-3.5" /> :
             <Type className="w-3.5 h-3.5" />;
           return (
-            <Badge variant="outline" className="font-mono text-xs inline-flex items-center gap-1.5">
-              {icon}
-              {uiType === 'array' ? 'array []' : uiType === 'object' ? 'object {}' : uiType}
-            </Badge>
+            <div className="space-y-1">
+              <Badge variant="outline" className="font-mono text-xs inline-flex items-center gap-1.5">
+                {icon}
+                {uiType === 'array' ? 'array []' : uiType === 'object' ? 'object {}' : uiType}
+              </Badge>
+              {formatsLabel ? (
+                <p className="text-xs text-gray-500 font-mono">{formatsLabel}</p>
+              ) : null}
+            </div>
           );
         },
       },
       {
-        id: 'pii_status',
-        header: 'PII Status',
-        accessorFn: (row) => row.pii_status,
+        id: 'pii',
+        header: 'PII',
+        accessorFn: (row) => row.pii,
         cell: ({ getValue }) => {
-          const v = getValue() as PiiStatus;
-          const variant = v === 'highly_sensitive' ? 'destructive' : v === 'sensitive' ? 'draft' : 'secondary';
-          return <Badge variant={variant}>{PII_LABELS[v] ?? v}</Badge>;
+          const v = Boolean(getValue());
+          return <Badge variant={v ? 'destructive' : 'secondary'}>{v ? 'Yes' : 'No'}</Badge>;
         },
       },
       {
@@ -179,7 +179,7 @@ export function PropertiesList({
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(10),
+    getPaginationRowModel: getPaginationRowModel(),
   });
 
   if (error) {

@@ -55,9 +55,8 @@ export function WorkspaceSwitcher() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleCreateSuccess = (newId: string, _newName: string) => {
-    const created = workspaces.find((w) => w.id === newId);
-    setActiveWorkspace({ id: newId, key: created?.workspace_key ?? null });
+  const handleCreateSuccess = (newId: string, _newName: string, workspaceKey: string) => {
+    setActiveWorkspace({ id: newId, key: workspaceKey });
     fetchWorkspaces();
     setModalOpen(false);
   };
@@ -127,7 +126,7 @@ export function WorkspaceSwitcher() {
       <NewWorkspaceModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
-        onSuccess={(id, name) => handleCreateSuccess(id, name)}
+        onSuccess={(id, name, workspaceKey) => handleCreateSuccess(id, name, workspaceKey)}
       />
     </div>
   );

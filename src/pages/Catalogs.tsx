@@ -39,13 +39,19 @@ export function Catalogs() {
 
   const handleCreateCatalog = async (input: Parameters<typeof createCatalog>[0]) => {
     const result = await createCatalog(input);
-    return { success: result.success, error: result.success ? undefined : result.error };
+    if ('error' in result) {
+      return { success: false, error: result.error };
+    }
+    return { success: true };
   };
 
   const handleUpdateCatalog = async (input: Parameters<typeof createCatalog>[0]) => {
     if (!editingCatalog) return { success: false, error: 'No catalog selected' };
     const result = await updateCatalog(editingCatalog.id, input);
-    return { success: result.success, error: result.success ? undefined : result.error };
+    if ('error' in result) {
+      return { success: false, error: result.error };
+    }
+    return { success: true };
   };
 
   const handleOpenEdit = () => {
@@ -58,6 +64,21 @@ export function Catalogs() {
   const handleCloseForm = () => {
     setIsFormOpen(false);
     setEditingCatalog(null);
+  };
+
+  const handleDeleteCatalog = async () => {
+    if (!selectedCatalog) {
+      return { success: false, error: 'No catalog selected' };
+    }
+
+    const result = await deleteCatalog(selectedCatalog.id);
+    if ('error' in result) {
+      return { success: false, error: result.error };
+    }
+
+    await fetchCatalogs();
+    setSelectedCatalog(null);
+    return { success: true };
   };
 
   useEffect(() => {
@@ -77,6 +98,7 @@ export function Catalogs() {
           catalog={detailCatalog}
           onBack={() => setSelectedCatalog(null)}
           onEdit={handleOpenEdit}
+          onDelete={handleDeleteCatalog}
         />
       ) : (
         <>

@@ -74,8 +74,12 @@ export async function listCatalogFields(
 
 type CreateCatalogFieldInput = {
   name: string;
-  type: string;
+  description?: string | null;
+  data_type: import('../../types/schema.js').CatalogFieldDataType;
   is_lookup_key?: boolean;
+  field_family: import('../../types/schema.js').CatalogFieldFamily;
+  item_level: import('../../types/schema.js').CatalogFieldItemLevel;
+  source_mapping_json?: import('../../types/schema.js').CatalogFieldSourceMapping | null;
 };
 
 export async function createCatalogField(
@@ -85,8 +89,12 @@ export async function createCatalogField(
 ): Promise<CatalogFieldRow> {
   return CatalogDAL.createCatalogField(workspaceId, catalogId, {
     name: input.name,
-    type: input.type,
+    description: input.description ?? null,
+    data_type: input.data_type,
     is_lookup_key: input.is_lookup_key ?? false,
+    field_family: input.field_family,
+    item_level: input.item_level,
+    source_mapping_json: input.source_mapping_json ?? null,
   });
 }
 

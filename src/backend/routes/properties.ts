@@ -8,15 +8,577 @@ import { createAuditValidator } from '../middleware/auditValidator';
 import { getWorkspaceSettings } from '../dal/workspace.dal';
 import * as PropertyDAL from '../dal/property.dal';
 import { ConflictError, DatabaseError, NotFoundError } from '../errors';
-import type { CreatePropertyInput, PropertyContext, PropertyDataType, PiiStatus, PropertyMappingType } from '../../types/schema';
+import type {
+  CreatePropertyInput,
+  PropertyContext,
+  PropertyDataFormat,
+  PropertyDataType,
+  PropertyExampleValue,
+  PropertyMappingType,
+  PropertyNameMapping,
+  PropertyNameMappingRole,
+  PropertyValueSchema,
+  PropertyValueSchemaNode,
+} from '../../types/schema';
+import {
+  PROPERTY_CONTEXTS,
+  PROPERTY_DATA_FORMATS,
+  PROPERTY_DATA_TYPES,
+  PROPERTY_NAME_MAPPING_ROLES,
+} from '../../types/schema';
 
 const router = Router();
 
-const CONTEXTS: PropertyContext[] = ['event_property', 'user_property', 'system_property'];
-const DATA_TYPES: PropertyDataType[] = ['string', 'integer', 'float', 'boolean', 'object', 'list'];
-const PII_STATUSES: PiiStatus[] = ['none', 'sensitive', 'highly_sensitive'];
-
 const propertyAuditValidator = createAuditValidator(getWorkspaceSettings, { entity: 'property' });
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizePii(pii: unknown, required: boolean): { value?: boolean; error?: string } {
+  if (typeof pii === 'boolean') {
+    return { value: pii };
+  }
+
+  if (required) {
+    return { error: 'pii is required and must be a boolean.' };
+  }
+
+  return {};
+}
+
+function normalizeDataType(
+  rawDataType: unknown,
+  required: boolean
+): { value?: PropertyDataType; error?: string } {
+  if (rawDataType === undefined) {
+    return required
+      ? { error: `data_type is required and must be one of: ${PROPERTY_DATA_TYPES.join(', ')}.` }
+      : {};
+  }
+
+  if (rawDataType !== undefined && typeof rawDataType !== 'string') {
+    return { error: `data_type must be one of: ${PROPERTY_DATA_TYPES.join(', ')}.` };
+  }
+
+  const candidate = typeof rawDataType === 'string' ? rawDataType.trim() : '';
+
+  switch (candidate) {
+    case 'string':
+    case 'number':
+    case 'boolean':
+    case 'timestamp':
+    case 'object':
+    case 'array':
+      return { value: candidate as PropertyDataType };
+    default:
+      return {
+        error: `data_type must be one of: ${PROPERTY_DATA_TYPES.join(', ')}.`,
+      };
+  }
+}
+
+function normalizeDataFormats(
+  rawDataFormats: unknown
+): { value?: PropertyDataFormat[] | null; error?: string } {
+  if (rawDataFormats === undefined) {
+    return {};
+  }
+
+  if (rawDataFormats === null) {
+    return { value: null };
+  }
+
+  if (rawDataFormats !== undefined) {
+    if (!Array.isArray(rawDataFormats)) {
+      return { error: `data_formats must be an array of: ${PROPERTY_DATA_FORMATS.join(', ')}.` };
+    }
+
+    const normalized = rawDataFormats.map((item) => String(item).trim()).filter(Boolean);
+    const invalid = normalized.find(
+      (item) => !PROPERTY_DATA_FORMATS.includes(item as PropertyDataFormat)
+    );
+
+    if (invalid) {
+      return { error: `Unsupported data_formats value: ${invalid}.` };
+    }
+
+    return {
+      value:
+        normalized.length > 0
+          ? Array.from(new Set(normalized)) as PropertyDataFormat[]
+          : null,
+    };
+  }
+
+  return { error: `data_formats must be an array of: ${PROPERTY_DATA_FORMATS.join(', ')}.` };
+}
+
+function validateValueSchemaNode(value: unknown): value is PropertyValueSchemaNode {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  if (
+    typeof value.type !== 'string' ||
+    !PROPERTY_DATA_TYPES.includes(value.type as PropertyDataType)
+  ) {
+    return false;
+  }
+
+  if (value.data_formats !== undefined) {
+    if (
+      !Array.isArray(value.data_formats) ||
+      value.data_formats.some(
+        (format) =>
+          typeof format !== 'string' ||
+          !PROPERTY_DATA_FORMATS.includes(format as PropertyDataFormat)
+      )
+    ) {
+      return false;
+    }
+  }
+
+  if (value.required !== undefined && typeof value.required !== 'boolean') {
+    return false;
+  }
+
+  if (
+    value.allow_additional_properties !== undefined &&
+    typeof value.allow_additional_properties !== 'boolean'
+  ) {
+    return false;
+  }
+
+  if (value.type === 'object') {
+    if (!isRecord(value.properties)) {
+      return false;
+    }
+
+    return Object.values(value.properties).every(validateValueSchemaNode);
+  }
+
+  if (value.type === 'array') {
+    return validateValueSchemaNode(value.items);
+  }
+
+  return true;
+}
+
+function normalizeValueSchema(
+  rawValueSchema: unknown,
+  dataType: PropertyDataType | undefined
+): { value?: PropertyValueSchema | null; error?: string } {
+  if (rawValueSchema === undefined) {
+    return {};
+  }
+
+  if (rawValueSchema === null || rawValueSchema === '') {
+    return { value: null };
+  }
+
+  let parsed: unknown;
+  parsed = rawValueSchema;
+
+  if (!isRecord(parsed) || (parsed.type !== 'object' && parsed.type !== 'array')) {
+    return { error: 'value_schema_json must be a top-level object or array schema.' };
+  }
+
+  if (!validateValueSchemaNode(parsed)) {
+    return { error: 'value_schema_json does not match the Property v1 schema contract.' };
+  }
+
+  if (
+    dataType &&
+    ((dataType === 'object' && parsed.type !== 'object') ||
+      (dataType === 'array' && parsed.type !== 'array') ||
+      (dataType !== 'object' && dataType !== 'array'))
+  ) {
+    if (dataType !== 'object' && dataType !== 'array') {
+      return { error: 'value_schema_json is only supported for object and array properties.' };
+    }
+
+    return { error: `value_schema_json.type must match data_type "${dataType}".` };
+  }
+
+  return { value: parsed as PropertyValueSchema };
+}
+
+function normalizeExampleValues(
+  rawExampleValues: unknown
+): { value?: PropertyExampleValue[] | null; error?: string } {
+  if (rawExampleValues === undefined) {
+    return {};
+  }
+
+  if (rawExampleValues === null || rawExampleValues === '') {
+    return { value: null };
+  }
+
+  if (!Array.isArray(rawExampleValues)) {
+    return { error: 'example_values_json must be an array.' };
+  }
+
+  const normalized: PropertyExampleValue[] = [];
+
+  for (const entry of rawExampleValues) {
+    if (!isRecord(entry) || !Object.prototype.hasOwnProperty.call(entry, 'value')) {
+      return { error: 'example_values_json entries must be objects with a value field.' };
+    }
+
+    if (
+      (entry.label !== undefined && typeof entry.label !== 'string') ||
+      (entry.notes !== undefined && typeof entry.notes !== 'string')
+    ) {
+      return {
+        error: 'example_values_json entries must use optional string label and notes fields.',
+      };
+    }
+
+    const normalizedEntry: PropertyExampleValue = {
+      value: entry.value,
+    };
+
+    if (typeof entry.label === 'string' && entry.label.trim()) {
+      normalizedEntry.label = entry.label.trim();
+    }
+    if (typeof entry.notes === 'string' && entry.notes.trim()) {
+      normalizedEntry.notes = entry.notes.trim();
+    }
+
+    normalized.push(normalizedEntry);
+  }
+
+  return { value: normalized.length > 0 ? normalized : null };
+}
+
+function normalizeNameMappings(
+  rawNameMappings: unknown
+): { value?: PropertyNameMapping[] | null; error?: string } {
+  if (rawNameMappings === undefined) {
+    return {};
+  }
+
+  if (rawNameMappings === null || rawNameMappings === '') {
+    return { value: null };
+  }
+
+  if (!Array.isArray(rawNameMappings)) {
+    return { error: 'name_mappings_json must be an array.' };
+  }
+
+  const normalized: PropertyNameMapping[] = [];
+
+  for (const entry of rawNameMappings) {
+    if (!isRecord(entry)) {
+      return { error: 'name_mappings_json entries must be objects.' };
+    }
+
+    const system = typeof entry.system === 'string' ? entry.system.trim() : '';
+    const name = typeof entry.name === 'string' ? entry.name.trim() : '';
+
+    if (!system || !name) {
+      return { error: 'Each name_mappings_json entry must include system and name.' };
+    }
+
+    const role =
+      typeof entry.role === 'string' &&
+      PROPERTY_NAME_MAPPING_ROLES.includes(entry.role as PropertyNameMappingRole)
+        ? (entry.role as PropertyNameMappingRole)
+        : null;
+
+    if (role === null) {
+      return {
+        error: `name_mappings_json role must be one of: ${PROPERTY_NAME_MAPPING_ROLES.join(', ')}.`,
+      };
+    }
+
+    if (entry.notes !== undefined && typeof entry.notes !== 'string') {
+      return { error: 'name_mappings_json notes must be a string when provided.' };
+    }
+
+    const normalizedEntry: PropertyNameMapping = {
+      system,
+      name,
+      role,
+    };
+
+    if (typeof entry.notes === 'string' && entry.notes.trim()) {
+      normalizedEntry.notes = entry.notes.trim();
+    }
+
+    normalized.push(normalizedEntry);
+  }
+
+  return { value: normalized.length > 0 ? normalized : null };
+}
+
+function readOptionalString(value: unknown): string | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  return typeof value === 'string' ? value : String(value);
+}
+
+function buildCreatePropertyInput(
+  body: Record<string, unknown>
+): { value?: CreatePropertyInput; error?: { message: string; field: string } } {
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
+  if (!name) {
+    return {
+      error: {
+        message: 'Property name is required.',
+        field: 'name',
+      },
+    };
+  }
+
+  const context = body.context;
+  if (typeof context !== 'string' || !PROPERTY_CONTEXTS.includes(context as PropertyContext)) {
+    return {
+      error: {
+        message: `Property context is required and must be one of: ${PROPERTY_CONTEXTS.join(', ')}.`,
+        field: 'context',
+      },
+    };
+  }
+
+  const pii = normalizePii(body.pii, true);
+  if (pii.error) {
+    return {
+      error: {
+        message: pii.error,
+        field: 'pii',
+      },
+    };
+  }
+
+  const dataType = normalizeDataType(body.data_type, true);
+  if (dataType.error || !dataType.value) {
+    return {
+      error: {
+        message:
+          dataType.error ??
+          `data_type is required and must be one of: ${PROPERTY_DATA_TYPES.join(', ')}.`,
+        field: 'data_type',
+      },
+    };
+  }
+
+  const dataFormats = normalizeDataFormats(body.data_formats);
+  if (dataFormats.error) {
+    return {
+      error: {
+        message: dataFormats.error,
+        field: 'data_formats',
+      },
+    };
+  }
+
+  const valueSchema = normalizeValueSchema(body.value_schema_json, dataType.value);
+  if (valueSchema.error) {
+    return {
+      error: {
+        message: valueSchema.error,
+        field: 'value_schema_json',
+      },
+    };
+  }
+
+  const exampleValues = normalizeExampleValues(body.example_values_json);
+  if (exampleValues.error) {
+    return {
+      error: {
+        message: exampleValues.error,
+        field: 'example_values_json',
+      },
+    };
+  }
+
+  const nameMappings = normalizeNameMappings(body.name_mappings_json);
+  if (nameMappings.error) {
+    return {
+      error: {
+        message: nameMappings.error,
+        field: 'name_mappings_json',
+      },
+    };
+  }
+
+  return {
+    value: {
+      context: context as PropertyContext,
+      name,
+      description: readOptionalString(body.description),
+      category: readOptionalString(body.category),
+      pii: pii.value ?? false,
+      data_type: dataType.value,
+      data_formats: dataFormats.value ?? null,
+      value_schema_json: valueSchema.value ?? null,
+      example_values_json: exampleValues.value ?? null,
+      name_mappings_json: nameMappings.value ?? null,
+      mapped_catalog_id:
+        typeof body.mapped_catalog_id === 'string' ? body.mapped_catalog_id : null,
+      mapped_catalog_field_id:
+        typeof body.mapped_catalog_field_id === 'string'
+          ? body.mapped_catalog_field_id
+          : null,
+      mapping_type:
+        body.mapping_type === 'lookup_key' || body.mapping_type === 'mapped_value'
+          ? (body.mapping_type as PropertyMappingType)
+          : null,
+    },
+  };
+}
+
+function buildUpdatePropertyInput(
+  body: Record<string, unknown>
+): { value?: Parameters<typeof PropertyDAL.updateProperty>[2]; error?: { message: string; field: string } } {
+  const updates: Parameters<typeof PropertyDAL.updateProperty>[2] = {};
+
+  if (body.context !== undefined) {
+    if (
+      typeof body.context !== 'string' ||
+      !PROPERTY_CONTEXTS.includes(body.context as PropertyContext)
+    ) {
+      return {
+        error: {
+          message: `context must be one of: ${PROPERTY_CONTEXTS.join(', ')}.`,
+          field: 'context',
+        },
+      };
+    }
+
+    updates.context = body.context as PropertyContext;
+  }
+
+  if (typeof body.name === 'string') updates.name = body.name;
+  if (body.description !== undefined) updates.description = readOptionalString(body.description);
+  if (body.category !== undefined) updates.category = readOptionalString(body.category);
+
+  const pii = normalizePii(body.pii, false);
+  if (pii.error) {
+    return {
+      error: {
+        message: pii.error,
+        field: 'pii',
+      },
+    };
+  }
+  if (pii.value !== undefined) {
+    updates.pii = pii.value;
+  }
+
+  const shouldNormalizeDataType = body.data_type !== undefined;
+  let normalizedDataType: PropertyDataType | undefined;
+  if (shouldNormalizeDataType) {
+    const dataType = normalizeDataType(body.data_type, false);
+    if (dataType.error || !dataType.value) {
+      return {
+        error: {
+          message:
+            dataType.error ??
+            `data_type must be one of: ${PROPERTY_DATA_TYPES.join(', ')}.`,
+          field: 'data_type',
+        },
+      };
+    }
+
+    normalizedDataType = dataType.value;
+    updates.data_type = dataType.value;
+  }
+
+  if (body.data_formats !== undefined) {
+    const dataFormats = normalizeDataFormats(body.data_formats);
+    if (dataFormats.error) {
+      return {
+        error: {
+          message: dataFormats.error,
+          field: 'data_formats',
+        },
+      };
+    }
+
+    updates.data_formats = dataFormats.value ?? null;
+  }
+
+  if (body.value_schema_json !== undefined) {
+    const valueSchema = normalizeValueSchema(body.value_schema_json, normalizedDataType);
+    if (valueSchema.error) {
+      return {
+        error: {
+          message: valueSchema.error,
+          field: 'value_schema_json',
+        },
+      };
+    }
+
+    if (valueSchema.value !== undefined) {
+      updates.value_schema_json = valueSchema.value;
+    }
+  } else if (
+    normalizedDataType !== undefined &&
+    normalizedDataType !== 'object' &&
+    normalizedDataType !== 'array'
+  ) {
+    updates.value_schema_json = null;
+  }
+
+  if (body.example_values_json !== undefined) {
+    const exampleValues = normalizeExampleValues(body.example_values_json);
+    if (exampleValues.error) {
+      return {
+        error: {
+          message: exampleValues.error,
+          field: 'example_values_json',
+        },
+      };
+    }
+
+    updates.example_values_json = exampleValues.value ?? null;
+  }
+
+  if (body.name_mappings_json !== undefined) {
+    const nameMappings = normalizeNameMappings(body.name_mappings_json);
+    if (nameMappings.error) {
+      return {
+        error: {
+          message: nameMappings.error,
+          field: 'name_mappings_json',
+        },
+      };
+    }
+
+    updates.name_mappings_json = nameMappings.value ?? null;
+  }
+
+  if (body.mapped_catalog_id !== undefined) {
+    updates.mapped_catalog_id =
+      typeof body.mapped_catalog_id === 'string' ? body.mapped_catalog_id : null;
+  }
+
+  if (body.mapped_catalog_field_id !== undefined) {
+    updates.mapped_catalog_field_id =
+      typeof body.mapped_catalog_field_id === 'string'
+        ? body.mapped_catalog_field_id
+        : null;
+  }
+
+  if (
+    body.mapping_type === 'lookup_key' ||
+    body.mapping_type === 'mapped_value' ||
+    body.mapping_type === null
+  ) {
+    updates.mapping_type = body.mapping_type as PropertyMappingType | null;
+  }
+
+  return { value: updates };
+}
 
 /**
  * GET /api/properties
@@ -55,63 +617,18 @@ router.post(
     }
 
     const body = req.body as Record<string, unknown>;
-    const name = typeof body.name === 'string' ? body.name.trim() : '';
-    const context = body.context as string | undefined;
-    const dataType = body.data_type as string | undefined;
-
-    if (!name) {
+    const parsed = buildCreatePropertyInput(body);
+    if (parsed.error || !parsed.value) {
       res.status(400).json({
-        error: 'Property name is required.',
-        code: 'NAME_REQUIRED',
-        field: 'name',
+        error: parsed.error?.message ?? 'Invalid property payload.',
+        code: 'PROPERTY_PAYLOAD_INVALID',
+        field: parsed.error?.field,
       });
       return;
     }
-    if (!context || !CONTEXTS.includes(context as PropertyContext)) {
-      res.status(400).json({
-        error: `Property context is required and must be one of: ${CONTEXTS.join(', ')}.`,
-        code: 'CONTEXT_INVALID',
-        field: 'context',
-      });
-      return;
-    }
-    if (!dataType || !DATA_TYPES.includes(dataType as PropertyDataType)) {
-      res.status(400).json({
-        error: `data_type is required and must be one of: ${DATA_TYPES.join(', ')}.`,
-        code: 'DATA_TYPE_INVALID',
-        field: 'data_type',
-      });
-      return;
-    }
-
-    const piiStatus = (body.pii_status as string) ?? 'none';
-    if (!PII_STATUSES.includes(piiStatus as PiiStatus)) {
-      res.status(400).json({
-        error: `pii_status must be one of: ${PII_STATUSES.join(', ')}.`,
-        code: 'PII_STATUS_INVALID',
-        field: 'pii_status',
-      });
-      return;
-    }
-
-    const propertyData: CreatePropertyInput = {
-      context: context as PropertyContext,
-      name,
-      data_type: dataType as PropertyDataType,
-      description: typeof body.description === 'string' ? body.description : undefined,
-      category: typeof body.category === 'string' ? body.category : undefined,
-      pii_status: piiStatus as PiiStatus,
-      data_format: typeof body.data_format === 'string' ? body.data_format : undefined,
-      is_list: Boolean(body.is_list),
-      example_values_json: (body.example_values_json ?? undefined) as string | undefined,
-      name_mappings_json: (body.name_mappings_json ?? undefined) as string | undefined,
-      mapped_catalog_id: typeof body.mapped_catalog_id === 'string' ? (body.mapped_catalog_id as string) : undefined,
-      mapped_catalog_field_id: typeof body.mapped_catalog_field_id === 'string' ? (body.mapped_catalog_field_id as string) : undefined,
-      mapping_type: body.mapping_type === 'lookup_key' || body.mapping_type === 'mapped_value' ? (body.mapping_type as PropertyMappingType) : undefined,
-    };
 
     try {
-      const created = await PropertyDAL.createProperty(workspaceId, propertyData);
+      const created = await PropertyDAL.createProperty(workspaceId, parsed.value);
       res.status(201).json(created);
     } catch (err) {
       console.error(err);
@@ -156,32 +673,17 @@ router.patch(
     }
     const propertyId = req.params.id;
     const body = req.body as Record<string, unknown>;
-    const updates: Parameters<typeof PropertyDAL.updateProperty>[2] = {};
-    if (body.context !== undefined && CONTEXTS.includes(body.context as PropertyContext)) {
-      updates.context = body.context as PropertyContext;
+    const parsed = buildUpdatePropertyInput(body);
+    if (parsed.error) {
+      res.status(400).json({
+        error: parsed.error.message,
+        code: 'PROPERTY_PAYLOAD_INVALID',
+        field: parsed.error.field,
+      });
+      return;
     }
-    if (typeof body.name === 'string') updates.name = body.name;
-    if (typeof body.description === 'string' || body.description === null) updates.description = body.description as string | null;
-    if (typeof body.category === 'string' || body.category === null) updates.category = body.category as string | null;
-    if (body.pii_status !== undefined && PII_STATUSES.includes(body.pii_status as PiiStatus)) {
-      updates.pii_status = body.pii_status as PiiStatus;
-    }
-    if (body.data_type !== undefined && DATA_TYPES.includes(body.data_type as PropertyDataType)) {
-      updates.data_type = body.data_type as PropertyDataType;
-    }
-    if (body.data_format !== undefined) updates.data_format = body.data_format === null ? null : String(body.data_format);
-    if (typeof body.is_list === 'boolean') updates.is_list = body.is_list;
-    if (body.example_values_json !== undefined) updates.example_values_json = body.example_values_json as string | null;
-    if (body.name_mappings_json !== undefined) updates.name_mappings_json = body.name_mappings_json as string | null;
-    if (body.mapped_catalog_id !== undefined) {
-      updates.mapped_catalog_id = typeof body.mapped_catalog_id === 'string' ? (body.mapped_catalog_id as string) : null;
-    }
-    if (body.mapped_catalog_field_id !== undefined) {
-      updates.mapped_catalog_field_id = typeof body.mapped_catalog_field_id === 'string' ? (body.mapped_catalog_field_id as string) : null;
-    }
-    if (body.mapping_type === 'lookup_key' || body.mapping_type === 'mapped_value' || body.mapping_type === null) {
-      updates.mapping_type = body.mapping_type as PropertyMappingType | null;
-    }
+
+    const updates = parsed.value ?? {};
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: 'No valid fields to update.', code: 'NO_UPDATES' });
       return;

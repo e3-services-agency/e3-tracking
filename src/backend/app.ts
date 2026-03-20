@@ -15,6 +15,7 @@ import cors from 'cors';
 import workspacesRouter from './routes/workspaces';
 import catalogsRouter from './routes/catalogs';
 import eventsRouter from './routes/events';
+import metricsRouter from './routes/metrics';
 import propertiesRouter from './routes/properties';
 import journeysRouter from './routes/journeys';
 import sharedRouter from './routes/shared';
@@ -45,6 +46,7 @@ export function createApp(): express.Express {
   app.use('/api/workspaces', workspacesRouter);
   app.use('/api/catalogs', catalogsRouter);
   app.use('/api/events', eventsRouter);
+  app.use('/api/metrics', metricsRouter);
   app.use('/api/properties', propertiesRouter);
   app.use('/api/journeys', journeysRouter);
   app.use('/api/shared', sharedRouter);

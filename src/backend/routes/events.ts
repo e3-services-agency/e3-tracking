@@ -11,6 +11,7 @@ import { ConflictError, DatabaseError, NotFoundError } from '../errors';
 import type {
   CreateEventInput,
   EventPropertyPresence,
+  EventType,
   EventTriggerEntry,
 } from '../../types/schema';
 import { buildCodegenSnippets } from '../services/codegen.service';
@@ -23,9 +24,32 @@ const PRESENCE_VALUES: EventPropertyPresence[] = [
   'never_sent',
 ];
 
+const EVENT_TYPES: EventType[] = ['track', 'page', 'identify'];
+
 const eventAuditValidator = createAuditValidator(getWorkspaceSettings, {
   entity: 'event',
 });
+
+function parseStringArrayField(
+  value: unknown,
+  fieldName: string
+): { ok: true; value: string[] | null | undefined } | { ok: false; error: string } {
+  if (typeof value === 'undefined') {
+    return { ok: true, value: undefined };
+  }
+  if (value === null) {
+    return { ok: true, value: null };
+  }
+  if (!Array.isArray(value)) {
+    return { ok: false, error: `${fieldName} must be an array when provided.` };
+  }
+
+  const normalized = value
+    .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+    .filter(Boolean);
+
+  return { ok: true, value: [...new Set(normalized)] };
+}
 
 function parseStructuredTriggers(
   value: unknown
@@ -210,12 +234,29 @@ router.post(
 
     const body = req.body as Record<string, unknown>;
     const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const purposeRaw =
+      typeof body.purpose === 'string'
+        ? body.purpose
+        : body.purpose === null || typeof body.purpose === 'undefined'
+          ? body.purpose
+          : Symbol('invalid-purpose');
+    const eventTypeRaw =
+      typeof body.eventType === 'string'
+        ? body.eventType.trim()
+        : typeof body.event_type === 'string'
+          ? body.event_type.trim()
+          : body.eventType === null || body.event_type === null
+            ? null
+            : undefined;
     const ownerTeamIdRaw =
       typeof body.ownerTeamId === 'string'
         ? body.ownerTeamId
         : typeof body.owner_team_id === 'string'
           ? body.owner_team_id
           : '';
+    const parsedCategories = parseStringArrayField(body.categories, 'categories');
+    const parsedTags = parseStringArrayField(body.tags, 'tags');
+    const parsedSourceIds = parseStringArrayField(body.source_ids, 'source_ids');
     const parsedTriggers = parseStructuredTriggers(body.triggers);
 
     if (!name) {
@@ -226,9 +267,53 @@ router.post(
       });
       return;
     }
+    if (typeof purposeRaw === 'symbol') {
+      res.status(400).json({
+        error: 'purpose must be a string when provided.',
+        code: 'PURPOSE_INVALID',
+        field: 'purpose',
+      });
+      return;
+    }
+    if (
+      eventTypeRaw !== undefined &&
+      eventTypeRaw !== null &&
+      !EVENT_TYPES.includes(eventTypeRaw as EventType)
+    ) {
+      res.status(400).json({
+        error: `event_type must be one of: ${EVENT_TYPES.join(', ')}.`,
+        code: 'EVENT_TYPE_INVALID',
+        field: 'event_type',
+      });
+      return;
+    }
+    if (!parsedCategories.ok) {
+      res.status(400).json({
+        error: 'error' in parsedCategories ? parsedCategories.error : 'Invalid categories.',
+        code: 'CATEGORIES_INVALID',
+        field: 'categories',
+      });
+      return;
+    }
+    if (!parsedTags.ok) {
+      res.status(400).json({
+        error: 'error' in parsedTags ? parsedTags.error : 'Invalid tags.',
+        code: 'TAGS_INVALID',
+        field: 'tags',
+      });
+      return;
+    }
+    if (!parsedSourceIds.ok) {
+      res.status(400).json({
+        error: 'error' in parsedSourceIds ? parsedSourceIds.error : 'Invalid source_ids.',
+        code: 'SOURCE_IDS_INVALID',
+        field: 'source_ids',
+      });
+      return;
+    }
     if (!parsedTriggers.ok) {
       res.status(400).json({
-        error: parsedTriggers.error,
+        error: 'error' in parsedTriggers ? parsedTriggers.error : 'Invalid triggers.',
         code: 'INVALID_TRIGGERS',
         field: 'triggers',
       });
@@ -238,8 +323,13 @@ router.post(
     const eventData: CreateEventInput = {
       name,
       description: typeof body.description === 'string' ? body.description : undefined,
+      purpose: typeof purposeRaw === 'string' ? purposeRaw : null,
+      event_type: typeof eventTypeRaw === 'string' ? (eventTypeRaw as EventType) : null,
       owner_team_id: ownerTeamIdRaw.trim() || null,
+      categories: parsedCategories.value,
+      tags: parsedTags.value,
       triggers: parsedTriggers.value,
+      source_ids: parsedSourceIds.value,
     };
 
     try {
@@ -291,12 +381,29 @@ router.patch(
     const eventId = req.params.id;
     const body = req.body as Record<string, unknown>;
     const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const purposeRaw =
+      typeof body.purpose === 'string'
+        ? body.purpose
+        : body.purpose === null || typeof body.purpose === 'undefined'
+          ? body.purpose
+          : Symbol('invalid-purpose');
+    const eventTypeRaw =
+      typeof body.eventType === 'string'
+        ? body.eventType.trim()
+        : typeof body.event_type === 'string'
+          ? body.event_type.trim()
+          : body.eventType === null || body.event_type === null
+            ? null
+            : undefined;
     const ownerTeamIdRaw =
       typeof body.ownerTeamId === 'string'
         ? body.ownerTeamId
         : typeof body.owner_team_id === 'string'
           ? body.owner_team_id
           : '';
+    const parsedCategories = parseStringArrayField(body.categories, 'categories');
+    const parsedTags = parseStringArrayField(body.tags, 'tags');
+    const parsedSourceIds = parseStringArrayField(body.source_ids, 'source_ids');
     const parsedTriggers = parseStructuredTriggers(body.triggers);
 
     if (!name) {
@@ -307,9 +414,53 @@ router.patch(
       });
       return;
     }
+    if (typeof purposeRaw === 'symbol') {
+      res.status(400).json({
+        error: 'purpose must be a string when provided.',
+        code: 'PURPOSE_INVALID',
+        field: 'purpose',
+      });
+      return;
+    }
+    if (
+      eventTypeRaw !== undefined &&
+      eventTypeRaw !== null &&
+      !EVENT_TYPES.includes(eventTypeRaw as EventType)
+    ) {
+      res.status(400).json({
+        error: `event_type must be one of: ${EVENT_TYPES.join(', ')}.`,
+        code: 'EVENT_TYPE_INVALID',
+        field: 'event_type',
+      });
+      return;
+    }
+    if (!parsedCategories.ok) {
+      res.status(400).json({
+        error: 'error' in parsedCategories ? parsedCategories.error : 'Invalid categories.',
+        code: 'CATEGORIES_INVALID',
+        field: 'categories',
+      });
+      return;
+    }
+    if (!parsedTags.ok) {
+      res.status(400).json({
+        error: 'error' in parsedTags ? parsedTags.error : 'Invalid tags.',
+        code: 'TAGS_INVALID',
+        field: 'tags',
+      });
+      return;
+    }
+    if (!parsedSourceIds.ok) {
+      res.status(400).json({
+        error: 'error' in parsedSourceIds ? parsedSourceIds.error : 'Invalid source_ids.',
+        code: 'SOURCE_IDS_INVALID',
+        field: 'source_ids',
+      });
+      return;
+    }
     if (!parsedTriggers.ok) {
       res.status(400).json({
-        error: parsedTriggers.error,
+        error: 'error' in parsedTriggers ? parsedTriggers.error : 'Invalid triggers.',
         code: 'INVALID_TRIGGERS',
         field: 'triggers',
       });
@@ -319,8 +470,13 @@ router.patch(
     const eventData: CreateEventInput = {
       name,
       description: typeof body.description === 'string' ? body.description : undefined,
+      purpose: typeof purposeRaw === 'string' ? purposeRaw : null,
+      event_type: typeof eventTypeRaw === 'string' ? (eventTypeRaw as EventType) : null,
       owner_team_id: ownerTeamIdRaw.trim() || null,
+      categories: parsedCategories.value,
+      tags: parsedTags.value,
       triggers: parsedTriggers.value,
+      source_ids: parsedSourceIds.value,
     };
 
     try {
@@ -549,6 +705,65 @@ router.patch(
       if (err instanceof DatabaseError) {
         res.status(500).json({
           error: 'Failed to update presence.',
+          code: err.code,
+        });
+        return;
+      }
+      res.status(500).json({
+        error: 'An unexpected error occurred.',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+);
+
+/**
+ * DELETE /api/events/:id/properties
+ * Detach an attached property from an event. Body: { propertyId }.
+ * Returns 404 if event, property, or link is not in workspace.
+ */
+router.delete(
+  '/:id/properties',
+  requireWorkspace,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = req.workspaceId;
+    if (!workspaceId) {
+      res.status(403).json({
+        error: 'Workspace context required.',
+        code: 'WORKSPACE_REQUIRED',
+      });
+      return;
+    }
+
+    const eventId = req.params.id;
+    const body = req.body as Record<string, unknown>;
+    const propertyId = typeof body.propertyId === 'string' ? body.propertyId.trim() : '';
+
+    if (!propertyId) {
+      res.status(400).json({
+        error: 'propertyId is required.',
+        code: 'PROPERTY_ID_REQUIRED',
+        field: 'propertyId',
+      });
+      return;
+    }
+
+    try {
+      await EventDAL.detachPropertyFromEvent(workspaceId, eventId, propertyId);
+      res.status(204).send('');
+    } catch (err) {
+      console.error(err);
+      if (err instanceof NotFoundError) {
+        res.status(404).json({
+          error: err.message,
+          code: err.code,
+          resource: err.resource,
+        });
+        return;
+      }
+      if (err instanceof DatabaseError) {
+        res.status(500).json({
+          error: 'Failed to detach property from event.',
           code: err.code,
         });
         return;

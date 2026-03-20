@@ -9,15 +9,28 @@ import { Input } from '@/src/components/ui/Input';
 import {
   type CreatePropertyInput,
   type PropertyContext,
+  type PropertyDataFormat,
   type PropertyDataType,
-  type PiiStatus,
+  type PropertyExampleValue,
+  type PropertyNameMapping,
   type PropertyRow,
   type PropertyMappingType,
+  PROPERTY_DATA_FORMATS,
 } from '@/src/types/schema';
 import type { ApiError } from '@/src/features/properties/hooks/useProperties';
 import type { PropertyUpdatePayload } from '@/src/features/properties/hooks/useProperties';
 import { useCatalogs } from '@/src/features/catalogs/hooks/useCatalogs';
-import { AlertCircle, Link2, Braces, Brackets, Hash, Type, ToggleLeft, Sigma, Trash2 } from 'lucide-react';
+import {
+  AlertCircle,
+  Braces,
+  Brackets,
+  Clock3,
+  Hash,
+  Link2,
+  ToggleLeft,
+  Trash2,
+  Type,
+} from 'lucide-react';
 
 const CONTEXTS: { value: PropertyContext; label: string }[] = [
   { value: 'event_property', label: 'Event Property' },
@@ -25,30 +38,40 @@ const CONTEXTS: { value: PropertyContext; label: string }[] = [
   { value: 'system_property', label: 'System Property' },
 ];
 
-type UIPropertyDataType = PropertyDataType | 'array';
-const UI_DATA_TYPES: { value: UIPropertyDataType; label: string }[] = [
+const UI_DATA_TYPES: { value: PropertyDataType; label: string }[] = [
   { value: 'string', label: 'string' },
-  { value: 'integer', label: 'integer' },
-  { value: 'float', label: 'float' },
+  { value: 'number', label: 'number' },
   { value: 'boolean', label: 'boolean' },
+  { value: 'timestamp', label: 'timestamp' },
   { value: 'object', label: 'object {}' },
   { value: 'array', label: 'array []' },
 ];
 
-function dataTypeIcon(t: UIPropertyDataType): React.ReactNode {
+function dataTypeIcon(t: PropertyDataType): React.ReactNode {
   if (t === 'array') return <Brackets className="w-4 h-4" />;
   if (t === 'object') return <Braces className="w-4 h-4" />;
   if (t === 'boolean') return <ToggleLeft className="w-4 h-4" />;
-  if (t === 'integer') return <Hash className="w-4 h-4" />;
-  if (t === 'float') return <Sigma className="w-4 h-4" />;
+  if (t === 'number') return <Hash className="w-4 h-4" />;
+  if (t === 'timestamp') return <Clock3 className="w-4 h-4" />;
   return <Type className="w-4 h-4" />;
 }
 
-const PII_OPTIONS: { value: PiiStatus; label: string }[] = [
-  { value: 'none', label: 'None' },
-  { value: 'sensitive', label: 'Sensitive' },
-  { value: 'highly_sensitive', label: 'Highly Sensitive' },
-];
+function formatJson(value: unknown): string {
+  return value === null || value === undefined ? '' : JSON.stringify(value, null, 2);
+}
+
+function parseOptionalJson<T>(value: string, fieldLabel: string): { value: T | null; error?: string } {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return { value: null };
+  }
+
+  try {
+    return { value: JSON.parse(trimmed) as T };
+  } catch {
+    return { value: null, error: `${fieldLabel} must be valid JSON.` };
+  }
+}
 
 export interface PropertyEditorSheetProps {
   isOpen: boolean;
@@ -82,16 +105,23 @@ export function PropertyEditorSheet({
   clearMutationError,
 }: PropertyEditorSheetProps) {
   const { catalogs, fetchCatalogFields } = useCatalogs();
-  const [catalogFields, setCatalogFields] = useState<{ id: string; name: string; type: string; is_lookup_key: boolean }[]>([]);
+  const [catalogFields, setCatalogFields] = useState<
+    { id: string; name: string; data_type: string; is_lookup_key: boolean }[]
+  >([]);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('');
   const [context, setContext] = useState<PropertyContext>('event_property');
-  const [dataType, setDataType] = useState<UIPropertyDataType>('string');
-  const [piiStatus, setPiiStatus] = useState<PiiStatus>('none');
-  const [dataFormat, setDataFormat] = useState('');
+  const [dataType, setDataType] = useState<PropertyDataType>('string');
+  const [pii, setPii] = useState(false);
+  const [dataFormats, setDataFormats] = useState<PropertyDataFormat[]>([]);
+  const [valueSchemaJson, setValueSchemaJson] = useState('');
+  const [exampleValuesJson, setExampleValuesJson] = useState('');
+  const [nameMappingsJson, setNameMappingsJson] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editorError, setEditorError] = useState<string | null>(null);
 
   const [mappingEnabled, setMappingEnabled] = useState(false);
   const [mappedCatalogId, setMappedCatalogId] = useState('');
@@ -104,14 +134,19 @@ export function PropertyEditorSheet({
     if (isOpen) {
       setSaving(false);
       setDeleting(false);
+      setEditorError(null);
       clearMutationError();
       if (initialProperty) {
         setName(initialProperty.name);
         setDescription(initialProperty.description ?? '');
+        setCategory(initialProperty.category ?? '');
         setContext(initialProperty.context);
-        setDataType(initialProperty.data_type === 'list' || initialProperty.is_list ? 'array' : initialProperty.data_type);
-        setPiiStatus(initialProperty.pii_status);
-        setDataFormat(initialProperty.data_format ?? '');
+        setDataType(initialProperty.data_type);
+        setPii(initialProperty.pii);
+        setDataFormats(initialProperty.data_formats ?? []);
+        setValueSchemaJson(formatJson(initialProperty.value_schema_json));
+        setExampleValuesJson(formatJson(initialProperty.example_values_json));
+        setNameMappingsJson(formatJson(initialProperty.name_mappings_json));
         setMappingEnabled(Boolean(initialProperty.mapped_catalog_id && initialProperty.mapped_catalog_field_id));
         setMappedCatalogId(initialProperty.mapped_catalog_id ?? '');
         setMappedFieldId(initialProperty.mapped_catalog_field_id ?? '');
@@ -119,16 +154,27 @@ export function PropertyEditorSheet({
         setCatalogFields([]);
         if (initialProperty.mapped_catalog_id) {
           fetchCatalogFields(initialProperty.mapped_catalog_id).then((fields) =>
-            setCatalogFields(fields.map((f) => ({ id: f.id, name: f.name, type: f.type, is_lookup_key: f.is_lookup_key })))
+            setCatalogFields(
+              fields.map((f) => ({
+                id: f.id,
+                name: f.name,
+                data_type: f.data_type,
+                is_lookup_key: f.is_lookup_key,
+              }))
+            )
           );
         }
       } else {
         setName('');
         setDescription('');
+        setCategory('');
         setContext('event_property');
         setDataType('string');
-        setPiiStatus('none');
-        setDataFormat('');
+        setPii(false);
+        setDataFormats([]);
+        setValueSchemaJson('');
+        setExampleValuesJson('');
+        setNameMappingsJson('');
         setMappingEnabled(false);
         setMappedCatalogId('');
         setMappedFieldId('');
@@ -141,7 +187,14 @@ export function PropertyEditorSheet({
   useEffect(() => {
     if (mappedCatalogId) {
       fetchCatalogFields(mappedCatalogId).then((fields) =>
-        setCatalogFields(fields.map((f) => ({ id: f.id, name: f.name, type: f.type, is_lookup_key: f.is_lookup_key })))
+        setCatalogFields(
+          fields.map((f) => ({
+            id: f.id,
+            name: f.name,
+            data_type: f.data_type,
+            is_lookup_key: f.is_lookup_key,
+          }))
+        )
       );
       setMappedFieldId('');
     } else {
@@ -170,21 +223,52 @@ export function PropertyEditorSheet({
     const trimmedName = name.trim();
     if (!trimmedName) return;
 
+    setEditorError(null);
     setSaving(true);
     clearMutationError();
 
+    const parsedValueSchema = parseOptionalJson<CreatePropertyInput['value_schema_json']>(
+      valueSchemaJson,
+      'Value schema'
+    );
+    if (parsedValueSchema.error) {
+      setEditorError(parsedValueSchema.error);
+      setSaving(false);
+      return;
+    }
+
+    const parsedExampleValues = parseOptionalJson<PropertyExampleValue[]>(
+      exampleValuesJson,
+      'Example values'
+    );
+    if (parsedExampleValues.error) {
+      setEditorError(parsedExampleValues.error);
+      setSaving(false);
+      return;
+    }
+
+    const parsedNameMappings = parseOptionalJson<PropertyNameMapping[]>(
+      nameMappingsJson,
+      'Name mappings'
+    );
+    if (parsedNameMappings.error) {
+      setEditorError(parsedNameMappings.error);
+      setSaving(false);
+      return;
+    }
+
     if (isEdit && initialProperty && updateProperty) {
-      const normalizedDataType: PropertyDataType =
-        dataType === 'array' ? 'list' : (dataType as PropertyDataType);
-      const normalizedIsList = dataType === 'array';
       const payload: PropertyUpdatePayload = {
         name: trimmedName,
         description: description.trim() || undefined,
+        category: category.trim() || null,
         context,
-        data_type: normalizedDataType,
-        pii_status: piiStatus,
-        is_list: normalizedIsList,
-        data_format: dataFormat.trim() || undefined,
+        pii,
+        data_type: dataType,
+        data_formats: dataFormats.length > 0 ? dataFormats : null,
+        value_schema_json: parsedValueSchema.value ?? null,
+        example_values_json: parsedExampleValues.value ?? null,
+        name_mappings_json: parsedNameMappings.value ?? null,
       };
       if (mappingEnabled && mappedCatalogId && mappedFieldId) {
         payload.mapped_catalog_id = mappedCatalogId;
@@ -201,20 +285,17 @@ export function PropertyEditorSheet({
       return;
     }
 
-    const normalizedDataType: PropertyDataType =
-      dataType === 'array' ? 'list' : (dataType as PropertyDataType);
-    const normalizedIsList = dataType === 'array';
     const payload: CreatePropertyInput = {
       name: trimmedName,
       description: description.trim() || null,
+      category: category.trim() || null,
       context,
-      data_type: normalizedDataType,
-      pii_status: piiStatus,
-      is_list: normalizedIsList,
-      data_format: dataFormat.trim() || null,
-      category: null,
-      example_values_json: null,
-      name_mappings_json: null,
+      pii,
+      data_type: dataType,
+      data_formats: dataFormats.length > 0 ? dataFormats : null,
+      value_schema_json: parsedValueSchema.value ?? null,
+      example_values_json: parsedExampleValues.value ?? null,
+      name_mappings_json: parsedNameMappings.value ?? null,
       mapped_catalog_id: null,
       mapped_catalog_field_id: null,
       mapping_type: null,
@@ -258,6 +339,18 @@ export function PropertyEditorSheet({
           </div>
         )}
 
+        {editorError && (
+          <div
+            className="p-4 rounded-lg bg-red-50 border border-red-200 flex gap-3"
+            role="alert"
+          >
+            <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-red-800">{editorError}</p>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
           <label className="text-sm font-medium text-gray-700">Name</label>
           <Input
@@ -280,11 +373,20 @@ export function PropertyEditorSheet({
         </div>
 
         <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Category</label>
+          <Input
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            placeholder="Optional grouping label"
+          />
+        </div>
+
+        <div className="space-y-2">
           <label className="text-sm font-medium text-gray-700">Property value type</label>
           <div className="flex gap-4 items-center flex-wrap">
             <select
               value={dataType}
-              onChange={(e) => setDataType(e.target.value as UIPropertyDataType)}
+              onChange={(e) => setDataType(e.target.value as PropertyDataType)}
               className="rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {UI_DATA_TYPES.map((t) => (
@@ -296,9 +398,6 @@ export function PropertyEditorSheet({
               <span className="font-mono">{dataType === 'array' ? 'array []' : dataType === 'object' ? 'object {}' : dataType}</span>
             </span>
           </div>
-          <p className="text-xs text-gray-500">
-            Arrays and objects are first-class types; list storage is handled automatically.
-          </p>
         </div>
 
         <div className="space-y-2">
@@ -315,24 +414,76 @@ export function PropertyEditorSheet({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">PII Status</label>
-          <select
-            value={piiStatus}
-            onChange={(e) => setPiiStatus(e.target.value as PiiStatus)}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {PII_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+          <label className="text-sm font-medium text-gray-700">PII</label>
+          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={pii}
+              onChange={(e) => setPii(e.target.checked)}
+              className="rounded border-gray-300 text-[var(--brand-primary)] focus:ring-[var(--brand-primary)]"
+            />
+            This property contains personally identifiable information
+          </label>
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Data format (optional)</label>
-          <Input
-            value={dataFormat}
-            onChange={(e) => setDataFormat(e.target.value)}
-            placeholder="e.g. UUID, ISO-8601, email"
+          <label className="text-sm font-medium text-gray-700">Data formats (optional)</label>
+          <select
+            multiple
+            value={dataFormats}
+            onChange={(e) =>
+              setDataFormats(
+                Array.from(e.target.selectedOptions, (option) => option.value as PropertyDataFormat)
+              )
+            }
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-32 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {PROPERTY_DATA_FORMATS.map((format) => (
+              <option key={format} value={format}>
+                {format}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500">
+            Hold Ctrl/Cmd to select multiple starter formats.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Value schema JSON</label>
+          <textarea
+            value={valueSchemaJson}
+            onChange={(e) => setValueSchemaJson(e.target.value)}
+            placeholder={dataType === 'array'
+              ? '{\n  "type": "array",\n  "items": { "type": "string" }\n}'
+              : '{\n  "type": "object",\n  "properties": {\n    "id": { "type": "string", "required": true }\n  }\n}'}
+            rows={8}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          />
+          <p className="text-xs text-gray-500">
+            Optional. Use for object and array property shapes.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Example values JSON</label>
+          <textarea
+            value={exampleValuesJson}
+            onChange={(e) => setExampleValuesJson(e.target.value)}
+            placeholder='[{"value":"abc-123","label":"Primary example"}]'
+            rows={6}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Name mappings JSON</label>
+          <textarea
+            value={nameMappingsJson}
+            onChange={(e) => setNameMappingsJson(e.target.value)}
+            placeholder='[{"system":"gtm","name":"user_id","role":"payload_key"}]'
+            rows={6}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           />
         </div>
 
@@ -376,7 +527,7 @@ export function PropertyEditorSheet({
                     >
                       <option value="">— Choose field —</option>
                       {catalogFields.map((f) => (
-                        <option key={f.id} value={f.id}>{f.name} ({f.type})</option>
+                        <option key={f.id} value={f.id}>{f.name} ({f.data_type})</option>
                       ))}
                     </select>
                   </div>

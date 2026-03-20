@@ -456,6 +456,7 @@ export function Events() {
         createEvent={eventsApi.createEvent}
         updateEvent={eventsApi.updateEvent}
         attachProperty={eventsApi.attachProperty}
+        detachProperty={eventsApi.detachProperty}
         updatePresence={eventsApi.updatePresence}
         getEventWithProperties={eventsApi.getEventWithProperties}
         mutationError={eventsApi.mutationError}

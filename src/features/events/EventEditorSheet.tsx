@@ -10,6 +10,8 @@ import { Input } from '@/src/components/ui/Input';
 import type {
   CreateEventInput,
   EventPropertyPresence,
+  EventRow,
+  EventType,
   EventTriggerEntry,
 } from '@/src/types/schema';
 import type { ApiError, EventWithPropertiesResponse } from '@/src/features/events/hooks/useEvents';
@@ -21,6 +23,12 @@ const PRESENCE_OPTIONS: { value: EventPropertyPresence; label: string }[] = [
   { value: 'always_sent', label: 'Always sent' },
   { value: 'sometimes_sent', label: 'Sometimes sent' },
   { value: 'never_sent', label: 'Never sent' },
+];
+
+const EVENT_TYPE_OPTIONS: { value: EventType; label: string }[] = [
+  { value: 'track', label: 'Track' },
+  { value: 'page', label: 'Page' },
+  { value: 'identify', label: 'Identify' },
 ];
 
 function createEmptyTrigger(order: number): EventTriggerEntry {
@@ -48,25 +56,38 @@ function normalizeTriggers(triggers: EventTriggerEntry[]): EventTriggerEntry[] {
     .sort((a, b) => a.order - b.order);
 }
 
+function normalizeTokenList(value: string): string[] | null {
+  const normalized = value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  return normalized.length > 0 ? [...new Set(normalized)] : null;
+}
+
 export interface EventEditorSheetProps {
   isOpen: boolean;
   onClose: () => void;
   eventId: string | null;
   createEvent: (payload: CreateEventInput) => Promise<
-    | { success: true; data: { id: string } }
+    | { success: true; data: EventRow }
     | { success: false; error: ApiError }
   >;
   updateEvent: (
     eventId: string,
     payload: CreateEventInput
   ) => Promise<
-    | { success: true; data: { id: string } }
+    | { success: true; data: EventRow }
     | { success: false; error: ApiError }
   >;
   attachProperty: (
     eventId: string,
     propertyId: string,
     presence: EventPropertyPresence
+  ) => Promise<{ success: true } | { success: false; error: ApiError }>;
+  detachProperty: (
+    eventId: string,
+    propertyId: string
   ) => Promise<{ success: true } | { success: false; error: ApiError }>;
   updatePresence: (
     eventId: string,
@@ -86,6 +107,7 @@ export function EventEditorSheet({
   createEvent,
   updateEvent,
   attachProperty,
+  detachProperty,
   updatePresence,
   getEventWithProperties,
   mutationError,
@@ -96,7 +118,11 @@ export function EventEditorSheet({
   const { properties: allProperties } = useProperties();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [purpose, setPurpose] = useState('');
+  const [eventType, setEventType] = useState<EventType | ''>('track');
   const [ownerTeamId, setOwnerTeamId] = useState('');
+  const [categoriesText, setCategoriesText] = useState('');
+  const [tagsText, setTagsText] = useState('');
   const [triggers, setTriggers] = useState<EventTriggerEntry[]>([]);
   const [saving, setSaving] = useState(false);
   const [currentEventId, setCurrentEventId] = useState<string | null>(eventId);
@@ -105,6 +131,7 @@ export function EventEditorSheet({
   const [selectedPropertyId, setSelectedPropertyId] = useState('');
   const [addPresence, setAddPresence] = useState<EventPropertyPresence>('always_sent');
   const [addingProperty, setAddingProperty] = useState(false);
+  const [removingPropertyId, setRemovingPropertyId] = useState<string | null>(null);
 
   const isCreateMode = eventId === null && currentEventId === null;
 
@@ -115,7 +142,11 @@ export function EventEditorSheet({
     if (result) {
       setName(result.event.name);
       setDescription(result.event.description ?? '');
+      setPurpose(result.event.purpose ?? '');
+      setEventType(result.event.event_type ?? '');
       setOwnerTeamId(result.event.owner_team_id ?? '');
+      setCategoriesText((result.event.categories ?? []).join(', '));
+      setTagsText((result.event.tags ?? []).join(', '));
       setTriggers(result.event.triggers ?? []);
       setAttached(result.attached_properties);
     }
@@ -131,7 +162,11 @@ export function EventEditorSheet({
       setCurrentEventId(null);
       setName('');
       setDescription('');
+      setPurpose('');
+      setEventType('track');
       setOwnerTeamId('');
+      setCategoriesText('');
+      setTagsText('');
       setTriggers([]);
       setAttached([]);
     }
@@ -149,7 +184,11 @@ export function EventEditorSheet({
     const payload: CreateEventInput = {
       name: trimmedName,
       description: description.trim() || undefined,
+      purpose: purpose.trim() || null,
+      event_type: eventType || null,
       owner_team_id: ownerTeamId || null,
+      categories: normalizeTokenList(categoriesText),
+      tags: normalizeTokenList(tagsText),
       triggers: normalizedTriggers,
     };
 
@@ -173,7 +212,11 @@ export function EventEditorSheet({
     const payload: CreateEventInput = {
       name: trimmedName,
       description: description.trim() || undefined,
+      purpose: purpose.trim() || null,
+      event_type: eventType || null,
       owner_team_id: ownerTeamId || null,
+      categories: normalizeTokenList(categoriesText),
+      tags: normalizeTokenList(tagsText),
       triggers: normalizedTriggers,
     };
 
@@ -183,7 +226,11 @@ export function EventEditorSheet({
     if (result.success) {
       setName(result.data.name);
       setDescription(result.data.description ?? '');
+      setPurpose(result.data.purpose ?? '');
+      setEventType(result.data.event_type ?? '');
       setOwnerTeamId(result.data.owner_team_id ?? '');
+      setCategoriesText((result.data.categories ?? []).join(', '));
+      setTagsText((result.data.tags ?? []).join(', '));
       setTriggers(result.data.triggers ?? []);
     }
   };
@@ -210,6 +257,22 @@ export function EventEditorSheet({
     if (result.success) {
       const updated = await getEventWithProperties(currentEventId);
       if (updated) setAttached(updated.attached_properties);
+    }
+  };
+
+  const handleDetachProperty = async (propertyId: string) => {
+    if (!currentEventId) return;
+    setRemovingPropertyId(propertyId);
+    clearMutationError();
+    const result = await detachProperty(currentEventId, propertyId);
+    setRemovingPropertyId(null);
+    if (result.success) {
+      const updated = await getEventWithProperties(currentEventId);
+      if (updated) {
+        setAttached(updated.attached_properties);
+      } else {
+        setAttached((prev) => prev.filter((item) => item.property_id !== propertyId));
+      }
     }
   };
 
@@ -290,6 +353,37 @@ export function EventEditorSheet({
         </div>
 
         <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Purpose</label>
+          <textarea
+            value={purpose}
+            onChange={(e) => setPurpose(e.target.value)}
+            placeholder="Why is this event in the tracking plan?"
+            rows={2}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Categories</label>
+          <Input
+            value={categoriesText}
+            onChange={(e) => setCategoriesText(e.target.value)}
+            placeholder="Comma-separated categories"
+            disabled={saving}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Tags</label>
+          <Input
+            value={tagsText}
+            onChange={(e) => setTagsText(e.target.value)}
+            placeholder="Comma-separated tags"
+            disabled={saving}
+          />
+        </div>
+
+        <div className="space-y-2">
           <label className="text-sm font-medium text-gray-700">Owner</label>
           <select
             value={ownerTeamId}
@@ -301,6 +395,23 @@ export function EventEditorSheet({
             {activeData.teams.map((team) => (
               <option key={team.id} value={team.id}>
                 {team.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Event Type</label>
+          <select
+            value={eventType}
+            onChange={(e) => setEventType(e.target.value as EventType | '')}
+            disabled={saving}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <option value="">Not set</option>
+            {EVENT_TYPE_OPTIONS.map((type) => (
+              <option key={type.value} value={type.value}>
+                {type.label}
               </option>
             ))}
           </select>
@@ -478,22 +589,36 @@ export function EventEditorSheet({
                       <span className="font-mono text-sm text-gray-900 truncate">
                         {a.property_name || a.property_id}
                       </span>
-                      <select
-                        value={a.presence}
-                        onChange={(e) =>
-                          handlePresenceChange(
-                            a.property_id,
-                            e.target.value as EventPropertyPresence
-                          )
-                        }
-                        className="rounded-md border border-input bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        {PRESENCE_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>
-                            {o.label}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={a.presence}
+                          onChange={(e) =>
+                            handlePresenceChange(
+                              a.property_id,
+                              e.target.value as EventPropertyPresence
+                            )
+                          }
+                          className="rounded-md border border-input bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          disabled={removingPropertyId === a.property_id}
+                        >
+                          {PRESENCE_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </select>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDetachProperty(a.property_id)}
+                          disabled={removingPropertyId === a.property_id}
+                          className="h-8 px-2 text-gray-500 hover:text-red-600"
+                          aria-label={`Remove ${a.property_name || a.property_id}`}
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </li>
                   ))
                 )}

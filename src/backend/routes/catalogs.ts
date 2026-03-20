@@ -6,8 +6,68 @@ import { Router, type Request, type Response } from 'express';
 import { requireWorkspace } from '../middleware/workspace';
 import * as CatalogService from '../services/catalog.service';
 import { DatabaseError, NotFoundError } from '../errors';
+import {
+  CATALOG_FIELD_DATA_TYPES,
+  CATALOG_FIELD_FAMILIES,
+  CATALOG_FIELD_ITEM_LEVELS,
+  CATALOG_FIELD_SOURCE_MAPPING_TYPES,
+  CATALOG_TYPES,
+  type CatalogFieldDataType,
+  type CatalogFieldFamily,
+  type CatalogFieldItemLevel,
+  type CatalogFieldSourceMapping,
+  type CatalogType,
+} from '../../types/schema';
 
 const router = Router();
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function parseCatalogType(value: unknown): CatalogType | undefined {
+  return typeof value === 'string' && CATALOG_TYPES.includes(value as CatalogType)
+    ? (value as CatalogType)
+    : undefined;
+}
+
+function parseCatalogFieldSourceMapping(
+  value: unknown
+): { value?: CatalogFieldSourceMapping | null; error?: string } {
+  if (value === undefined) {
+    return {};
+  }
+  if (value === null) {
+    return { value: null };
+  }
+  if (!isRecord(value)) {
+    return { error: 'source_mapping_json must be an object when provided.' };
+  }
+
+  const mappingType = value.mapping_type;
+  const sourceValue = value.source_value;
+
+  if (
+    typeof mappingType !== 'string' ||
+    !CATALOG_FIELD_SOURCE_MAPPING_TYPES.includes(
+      mappingType as CatalogFieldSourceMapping['mapping_type']
+    )
+  ) {
+    return {
+      error: `source_mapping_json.mapping_type must be one of: ${CATALOG_FIELD_SOURCE_MAPPING_TYPES.join(', ')}.`,
+    };
+  }
+  if (typeof sourceValue !== 'string' || !sourceValue.trim()) {
+    return { error: 'source_mapping_json.source_value must be a non-empty string.' };
+  }
+
+  return {
+    value: {
+      mapping_type: mappingType as CatalogFieldSourceMapping['mapping_type'],
+      source_value: sourceValue.trim(),
+    },
+  };
+}
 
 /**
  * GET /api/catalogs
@@ -43,9 +103,13 @@ router.post('/', requireWorkspace, async (req: Request, res: Response): Promise<
     res.status(400).json({ error: 'Catalog name is required.', code: 'NAME_REQUIRED' });
     return;
   }
-  const catalogType = body.catalog_type === 'Product' || body.catalog_type === 'Variant' || body.catalog_type === 'General'
-    ? body.catalog_type
-    : undefined;
+  if (body.catalog_type !== undefined && !parseCatalogType(body.catalog_type)) {
+    res.status(400).json({
+      error: `catalog_type must be one of: ${CATALOG_TYPES.join(', ')}.`,
+      code: 'CATALOG_TYPE_INVALID',
+    });
+    return;
+  }
   try {
     const catalog = await CatalogService.createCatalog(workspaceId, {
       name,
@@ -54,7 +118,7 @@ router.post('/', requireWorkspace, async (req: Request, res: Response): Promise<
       source_system: typeof body.source_system === 'string' ? body.source_system : '',
       sync_method: typeof body.sync_method === 'string' ? body.sync_method : '',
       update_frequency: typeof body.update_frequency === 'string' ? body.update_frequency : '',
-      catalog_type: catalogType,
+      catalog_type: parseCatalogType(body.catalog_type),
     });
     res.status(201).json(catalog);
   } catch (err) {
@@ -112,12 +176,54 @@ router.post('/:id/fields', requireWorkspace, async (req: Request, res: Response)
     res.status(400).json({ error: 'Field name is required.', code: 'NAME_REQUIRED' });
     return;
   }
-  const type = typeof body.type === 'string' ? body.type : 'string';
+  const dataType =
+    typeof body.data_type === 'string'
+      ? body.data_type
+      : typeof body.type === 'string'
+        ? body.type
+        : 'string';
+  if (!CATALOG_FIELD_DATA_TYPES.includes(dataType as CatalogFieldDataType)) {
+    res.status(400).json({
+      error: `data_type must be one of: ${CATALOG_FIELD_DATA_TYPES.join(', ')}.`,
+      code: 'DATA_TYPE_INVALID',
+    });
+    return;
+  }
+  const fieldFamily =
+    typeof body.field_family === 'string' ? body.field_family : 'custom';
+  if (!CATALOG_FIELD_FAMILIES.includes(fieldFamily as CatalogFieldFamily)) {
+    res.status(400).json({
+      error: `field_family must be one of: ${CATALOG_FIELD_FAMILIES.join(', ')}.`,
+      code: 'FIELD_FAMILY_INVALID',
+    });
+    return;
+  }
+  const itemLevel =
+    typeof body.item_level === 'string' ? body.item_level : 'general';
+  if (!CATALOG_FIELD_ITEM_LEVELS.includes(itemLevel as CatalogFieldItemLevel)) {
+    res.status(400).json({
+      error: `item_level must be one of: ${CATALOG_FIELD_ITEM_LEVELS.join(', ')}.`,
+      code: 'ITEM_LEVEL_INVALID',
+    });
+    return;
+  }
+  const parsedSourceMapping = parseCatalogFieldSourceMapping(body.source_mapping_json);
+  if (parsedSourceMapping.error) {
+    res.status(400).json({
+      error: parsedSourceMapping.error,
+      code: 'SOURCE_MAPPING_INVALID',
+    });
+    return;
+  }
   try {
     const field = await CatalogService.createCatalogField(workspaceId, catalogId, {
       name,
-      type: ['string', 'number', 'boolean'].includes(type) ? type : 'string',
+      description: typeof body.description === 'string' ? body.description : null,
+      data_type: dataType as CatalogFieldDataType,
       is_lookup_key: Boolean(body.is_lookup_key),
+      field_family: fieldFamily as CatalogFieldFamily,
+      item_level: itemLevel as CatalogFieldItemLevel,
+      source_mapping_json: parsedSourceMapping.value ?? null,
     });
     res.status(201).json(field);
   } catch (err) {
@@ -174,11 +280,14 @@ router.patch('/:id', requireWorkspace, async (req: Request, res: Response): Prom
   }
   const catalogId = req.params.id;
   const body = req.body as Record<string, unknown>;
+  if (body.catalog_type !== undefined && !parseCatalogType(body.catalog_type)) {
+    res.status(400).json({
+      error: `catalog_type must be one of: ${CATALOG_TYPES.join(', ')}.`,
+      code: 'CATALOG_TYPE_INVALID',
+    });
+    return;
+  }
   try {
-    const catalogTypePatch =
-      body.catalog_type === 'Product' || body.catalog_type === 'Variant' || body.catalog_type === 'General'
-        ? body.catalog_type
-        : undefined;
     const catalog = await CatalogService.updateCatalog(workspaceId, catalogId, {
       name: typeof body.name === 'string' ? body.name : undefined,
       description: body.description !== undefined ? (typeof body.description === 'string' ? body.description : null) : undefined,
@@ -186,7 +295,7 @@ router.patch('/:id', requireWorkspace, async (req: Request, res: Response): Prom
       source_system: typeof body.source_system === 'string' ? body.source_system : undefined,
       sync_method: typeof body.sync_method === 'string' ? body.sync_method : undefined,
       update_frequency: typeof body.update_frequency === 'string' ? body.update_frequency : undefined,
-      catalog_type: catalogTypePatch,
+      catalog_type: parseCatalogType(body.catalog_type),
     });
     res.status(200).json(catalog);
   } catch (err) {
@@ -256,13 +365,76 @@ router.patch(
         res.status(200).json(field);
         return;
       }
+      if (
+        body.data_type !== undefined &&
+        (!(
+          typeof body.data_type === 'string' &&
+          CATALOG_FIELD_DATA_TYPES.includes(body.data_type as CatalogFieldDataType)
+        ))
+      ) {
+        res.status(400).json({
+          error: `data_type must be one of: ${CATALOG_FIELD_DATA_TYPES.join(', ')}.`,
+          code: 'DATA_TYPE_INVALID',
+        });
+        return;
+      }
+      if (
+        body.field_family !== undefined &&
+        (!(
+          typeof body.field_family === 'string' &&
+          CATALOG_FIELD_FAMILIES.includes(body.field_family as CatalogFieldFamily)
+        ))
+      ) {
+        res.status(400).json({
+          error: `field_family must be one of: ${CATALOG_FIELD_FAMILIES.join(', ')}.`,
+          code: 'FIELD_FAMILY_INVALID',
+        });
+        return;
+      }
+      if (
+        body.item_level !== undefined &&
+        (!(
+          typeof body.item_level === 'string' &&
+          CATALOG_FIELD_ITEM_LEVELS.includes(body.item_level as CatalogFieldItemLevel)
+        ))
+      ) {
+        res.status(400).json({
+          error: `item_level must be one of: ${CATALOG_FIELD_ITEM_LEVELS.join(', ')}.`,
+          code: 'ITEM_LEVEL_INVALID',
+        });
+        return;
+      }
+      const parsedSourceMapping = parseCatalogFieldSourceMapping(body.source_mapping_json);
+      if (parsedSourceMapping.error) {
+        res.status(400).json({
+          error: parsedSourceMapping.error,
+          code: 'SOURCE_MAPPING_INVALID',
+        });
+        return;
+      }
       const field = await CatalogService.updateCatalogField(
         workspaceId,
         catalogId,
         fieldId,
         {
           name: typeof body.name === 'string' ? body.name : undefined,
-          type: typeof body.type === 'string' ? body.type : undefined,
+          description:
+            body.description !== undefined
+              ? (typeof body.description === 'string' ? body.description : null)
+              : undefined,
+          data_type:
+            typeof body.data_type === 'string'
+              ? (body.data_type as CatalogFieldDataType)
+              : undefined,
+          field_family:
+            typeof body.field_family === 'string'
+              ? (body.field_family as CatalogFieldFamily)
+              : undefined,
+          item_level:
+            typeof body.item_level === 'string'
+              ? (body.item_level as CatalogFieldItemLevel)
+              : undefined,
+          source_mapping_json: parsedSourceMapping.value,
         }
       );
       res.status(200).json(field);

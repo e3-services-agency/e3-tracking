@@ -1,8 +1,8 @@
 import React from 'react';
-import type { Property } from '@/src/types';
+import type { Property, PropertyValueType } from '@/src/types';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
-import { AlertCircle, Trash2, X } from 'lucide-react';
+import { AlertCircle, X } from 'lucide-react';
 import { usePropertyEditor } from '@/src/features/properties/hooks/usePropertyEditor';
 
 type PropertyEditorProps = {
@@ -41,7 +41,6 @@ export function PropertyEditor({
     setNewCategory,
     setNewTag,
     handleSave,
-    handleDelete,
     addCategory,
     addTag,
   } = usePropertyEditor({ property, isCreating, onClose });
@@ -245,18 +244,7 @@ export function PropertyEditor({
         </div>
       </div>
 
-      <div className="fixed bottom-0 right-0 w-[500px] p-6 bg-white border-t flex justify-between z-10">
-        {!isCreating && property ? (
-          <Button
-            variant="destructive"
-            onClick={handleDelete}
-            className="gap-2"
-          >
-            <Trash2 className="w-4 h-4" /> Delete
-          </Button>
-        ) : (
-          <div />
-        )}
+      <div className="fixed bottom-0 right-0 w-[500px] p-6 bg-white border-t flex justify-end z-10">
         <div className="flex gap-2">
           <Button variant="outline" onClick={onClose}>
             Cancel

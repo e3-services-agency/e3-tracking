@@ -17,7 +17,7 @@ import {
 import type { ApiError } from '@/src/features/properties/hooks/useProperties';
 import type { PropertyUpdatePayload } from '@/src/features/properties/hooks/useProperties';
 import { useCatalogs } from '@/src/features/catalogs/hooks/useCatalogs';
-import { AlertCircle, Info, Link2, Braces, Brackets, Hash, Type, ToggleLeft, Sigma } from 'lucide-react';
+import { AlertCircle, Link2, Braces, Brackets, Hash, Type, ToggleLeft, Sigma, Trash2 } from 'lucide-react';
 
 const CONTEXTS: { value: PropertyContext; label: string }[] = [
   { value: 'event_property', label: 'Event Property' },
@@ -63,6 +63,10 @@ export interface PropertyEditorSheetProps {
     | { success: true; data: unknown }
     | { success: false; error: ApiError }
   >;
+  deleteProperty?: (id: string) => Promise<
+    | { success: true }
+    | { success: false; error: ApiError }
+  >;
   mutationError: ApiError | null;
   clearMutationError: () => void;
 }
@@ -73,6 +77,7 @@ export function PropertyEditorSheet({
   initialProperty,
   createProperty,
   updateProperty,
+  deleteProperty,
   mutationError,
   clearMutationError,
 }: PropertyEditorSheetProps) {
@@ -86,6 +91,7 @@ export function PropertyEditorSheet({
   const [piiStatus, setPiiStatus] = useState<PiiStatus>('none');
   const [dataFormat, setDataFormat] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const [mappingEnabled, setMappingEnabled] = useState(false);
   const [mappedCatalogId, setMappedCatalogId] = useState('');
@@ -96,6 +102,8 @@ export function PropertyEditorSheet({
 
   useEffect(() => {
     if (isOpen) {
+      setSaving(false);
+      setDeleting(false);
       clearMutationError();
       if (initialProperty) {
         setName(initialProperty.name);
@@ -142,6 +150,22 @@ export function PropertyEditorSheet({
     }
   }, [mappedCatalogId, fetchCatalogFields]);
 
+  const handleDelete = async () => {
+    if (!isEdit || !initialProperty || !deleteProperty) return;
+
+    const ok = window.confirm(`Delete property "${initialProperty.name}"?`);
+    if (!ok) return;
+
+    setDeleting(true);
+    clearMutationError();
+    const result = await deleteProperty(initialProperty.id);
+    setDeleting(false);
+
+    if (result.success) {
+      onClose();
+    }
+  };
+
   const handleSave = async () => {
     const trimmedName = name.trim();
     if (!trimmedName) return;
@@ -182,12 +206,18 @@ export function PropertyEditorSheet({
     const normalizedIsList = dataType === 'array';
     const payload: CreatePropertyInput = {
       name: trimmedName,
-      description: description.trim() || undefined,
+      description: description.trim() || null,
       context,
       data_type: normalizedDataType,
       pii_status: piiStatus,
       is_list: normalizedIsList,
-      data_format: dataFormat.trim() || undefined,
+      data_format: dataFormat.trim() || null,
+      category: null,
+      example_values_json: null,
+      name_mappings_json: null,
+      mapped_catalog_id: null,
+      mapped_catalog_field_id: null,
+      mapping_type: null,
     };
     if (mappingEnabled && mappedCatalogId && mappedFieldId) {
       payload.mapped_catalog_id = mappedCatalogId;
@@ -199,6 +229,8 @@ export function PropertyEditorSheet({
     setSaving(false);
     if (result.success) onClose();
   };
+
+  const isMutating = saving || deleting;
 
   return (
     <Sheet
@@ -387,13 +419,28 @@ export function PropertyEditorSheet({
         </div>
       </div>
 
-      <div className="fixed bottom-0 right-0 w-[480px] p-6 bg-white border-t flex justify-end gap-2 z-10">
-        <Button variant="outline" onClick={onClose} disabled={saving}>
-          Cancel
-        </Button>
-        <Button onClick={handleSave} disabled={saving || !name.trim()}>
-          {saving ? 'Saving…' : 'Save Property'}
-        </Button>
+      <div className="fixed bottom-0 right-0 w-[480px] p-6 bg-white border-t flex justify-between gap-2 z-10">
+        {isEdit && initialProperty ? (
+          <Button
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={isMutating}
+            className="gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            {deleting ? 'Deleting…' : 'Delete'}
+          </Button>
+        ) : (
+          <div />
+        )}
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose} disabled={isMutating}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={isMutating || !name.trim()}>
+            {saving ? 'Saving…' : 'Save Property'}
+          </Button>
+        </div>
       </div>
     </Sheet>
   );

@@ -157,6 +157,9 @@ router.patch(
     const propertyId = req.params.id;
     const body = req.body as Record<string, unknown>;
     const updates: Parameters<typeof PropertyDAL.updateProperty>[2] = {};
+    if (body.context !== undefined && CONTEXTS.includes(body.context as PropertyContext)) {
+      updates.context = body.context as PropertyContext;
+    }
     if (typeof body.name === 'string') updates.name = body.name;
     if (typeof body.description === 'string' || body.description === null) updates.description = body.description as string | null;
     if (typeof body.category === 'string' || body.category === null) updates.category = body.category as string | null;
@@ -197,6 +200,52 @@ router.patch(
         return;
       }
       res.status(500).json({ error: 'An unexpected error occurred.', code: 'INTERNAL_ERROR' });
+    }
+  }
+);
+
+/**
+ * DELETE /api/properties/:id
+ * Soft-delete a property. Requires x-workspace-id.
+ */
+router.delete(
+  '/:id',
+  requireWorkspace,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = req.workspaceId;
+    if (!workspaceId) {
+      res.status(403).json({
+        error: 'Workspace context required.',
+        code: 'WORKSPACE_REQUIRED',
+      });
+      return;
+    }
+
+    const propertyId = req.params.id;
+    try {
+      await PropertyDAL.deleteProperty(workspaceId, propertyId);
+      res.status(204).send('');
+    } catch (err) {
+      console.error(err);
+      if (err instanceof NotFoundError) {
+        res.status(404).json({
+          error: err.message,
+          code: err.code,
+          resource: err.resource,
+        });
+        return;
+      }
+      if (err instanceof DatabaseError) {
+        res.status(500).json({
+          error: 'Failed to delete property.',
+          code: err.code,
+        });
+        return;
+      }
+      res.status(500).json({
+        error: 'An unexpected error occurred.',
+        code: 'INTERNAL_ERROR',
+      });
     }
   }
 );

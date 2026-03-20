@@ -98,6 +98,7 @@ export async function updateProperty(
   propertyId: string,
   updates: Partial<Pick<
     PropertyRow,
+    | 'context'
     | 'mapped_catalog_id'
     | 'mapped_catalog_field_id'
     | 'mapping_type'
@@ -131,6 +132,7 @@ export async function updateProperty(
   const patch: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
   };
+  if (updates.context !== undefined) patch.context = updates.context;
   if (updates.name !== undefined) patch.name = updates.name.trim();
   if (updates.description !== undefined) patch.description = updates.description?.trim() ?? null;
   if (updates.category !== undefined) patch.category = updates.category?.trim() ?? null;
@@ -167,6 +169,48 @@ export async function updateProperty(
     throw new NotFoundError('Property not found after update.', 'property');
   }
   return data as PropertyRow;
+}
+
+/**
+ * Soft-deletes a property in the workspace.
+ *
+ * @throws NotFoundError when the property is not in the workspace.
+ * @throws DatabaseError for DB failures.
+ */
+export async function deleteProperty(
+  workspaceId: string,
+  propertyId: string
+): Promise<void> {
+  const supabase = getSupabaseOrThrow();
+  const { data: existing, error: fetchErr } = await supabase
+    .from('properties')
+    .select('id')
+    .eq('id', propertyId)
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (fetchErr) {
+    throw new DatabaseError(`Failed to fetch property: ${fetchErr.message}`, fetchErr);
+  }
+  if (!existing) {
+    throw new NotFoundError('Property not found.', 'property');
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from('properties')
+    .update({
+      deleted_at: now,
+      updated_at: now,
+    })
+    .eq('id', propertyId)
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null);
+
+  if (error) {
+    throw new DatabaseError(`Failed to delete property: ${error.message}`, error);
+  }
 }
 
 /**

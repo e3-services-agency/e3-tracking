@@ -38,6 +38,7 @@ export function Properties() {
     refetch: refetchApiProperties,
     createProperty,
     updateProperty,
+    deleteProperty,
     mutationError,
     clearMutationError,
   } = useProperties();
@@ -61,16 +62,15 @@ export function Properties() {
 
   React.useEffect(() => {
     if (selectedItemIdToEdit) {
-      const property = data.properties.find(p => p.id === selectedItemIdToEdit);
+      const property = apiProperties.find(p => p.id === selectedItemIdToEdit);
       if (property) {
-        setSelectedPropertyId(property.id);
-        setIsCreatingProperty(false);
-        setIsPropertySheetOpen(true);
+        setApiPropertyEditId(property.id);
+        setIsNewPropertySheetOpen(true);
         setActiveTab('properties');
         setSelectedItemIdToEdit(null);
       }
     }
-  }, [selectedItemIdToEdit, data.properties, setSelectedItemIdToEdit]);
+  }, [selectedItemIdToEdit, apiProperties, setSelectedItemIdToEdit]);
 
   const handleOpenProperty = (id: string) => {
     setSelectedPropertyId(id);
@@ -324,6 +324,7 @@ export function Properties() {
         initialProperty={apiPropertyEditId ? apiProperties.find((p) => p.id === apiPropertyEditId) ?? null : null}
         createProperty={createProperty}
         updateProperty={updateProperty}
+        deleteProperty={deleteProperty}
         mutationError={mutationError}
         clearMutationError={clearMutationError}
       />

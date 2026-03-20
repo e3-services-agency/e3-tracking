@@ -19,7 +19,7 @@ export interface ApiError {
 
 export type PropertyUpdatePayload = Partial<Pick<
   PropertyRow,
-  'name' | 'description' | 'category' | 'pii_status' | 'data_type' | 'data_format' | 'is_list'
+  'context' | 'name' | 'description' | 'category' | 'pii_status' | 'data_type' | 'data_format' | 'is_list'
   | 'example_values_json' | 'name_mappings_json'
   | 'mapped_catalog_id' | 'mapped_catalog_field_id' | 'mapping_type'
 >>;
@@ -31,6 +31,7 @@ export interface UsePropertiesResult {
   refetch: () => Promise<void>;
   createProperty: (payload: CreatePropertyInput) => Promise<{ success: true; data: PropertyRow } | { success: false; error: ApiError }>;
   updateProperty: (id: string, payload: PropertyUpdatePayload) => Promise<{ success: true; data: PropertyRow } | { success: false; error: ApiError }>;
+  deleteProperty: (id: string) => Promise<{ success: true } | { success: false; error: ApiError }>;
   mutationError: ApiError | null;
   clearMutationError: () => void;
 }
@@ -166,6 +167,36 @@ export function useProperties(workspaceId?: string): UsePropertiesResult {
     [effectiveWorkspaceId]
   );
 
+  const deleteProperty = useCallback(
+    async (
+      id: string
+    ): Promise<{ success: true } | { success: false; error: ApiError }> => {
+      setMutationError(null);
+      try {
+        const res = await fetchWithAuth(`${API_BASE}/api/properties/${id}`, {
+          method: 'DELETE',
+          headers: { 'x-workspace-id': effectiveWorkspaceId },
+        });
+        if (res.ok) {
+          setProperties((prev) => prev.filter((p) => p.id !== id));
+          return { success: true };
+        }
+        const apiError = await parseErrorResponse(res);
+        setMutationError(apiError);
+        return { success: false, error: apiError };
+      } catch (err) {
+        const apiError: ApiError = {
+          status: 0,
+          code: 'NETWORK_ERROR',
+          message: err instanceof Error ? err.message : 'Failed to delete property.',
+        };
+        setMutationError(apiError);
+        return { success: false, error: apiError };
+      }
+    },
+    [effectiveWorkspaceId]
+  );
+
   const clearMutationError = useCallback(() => setMutationError(null), []);
 
   return {
@@ -175,6 +206,7 @@ export function useProperties(workspaceId?: string): UsePropertiesResult {
     refetch,
     createProperty,
     updateProperty,
+    deleteProperty,
     mutationError,
     clearMutationError,
   };

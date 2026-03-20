@@ -1,21 +1,52 @@
 /**
  * Create/Edit Event slide-out sheet. API-powered.
- * Form: Name, Description, Triggers Markdown (Bloomreach). Mapping: Property Picker + attached list with Presence.
+ * Form: Name, Description, canonical structured triggers,
+ * Property Picker + attached list with Presence.
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
-import type { CreateEventInput, EventPropertyPresence } from '@/src/types/schema';
+import type {
+  CreateEventInput,
+  EventPropertyPresence,
+  EventTriggerEntry,
+} from '@/src/types/schema';
 import type { ApiError, EventWithPropertiesResponse } from '@/src/features/events/hooks/useEvents';
 import { useProperties } from '@/src/features/properties/hooks/useProperties';
-import { AlertCircle, Link2, Plus } from 'lucide-react';
+import { useActiveData } from '@/src/store';
+import { AlertCircle, Plus, X } from 'lucide-react';
 
 const PRESENCE_OPTIONS: { value: EventPropertyPresence; label: string }[] = [
   { value: 'always_sent', label: 'Always sent' },
   { value: 'sometimes_sent', label: 'Sometimes sent' },
   { value: 'never_sent', label: 'Never sent' },
 ];
+
+function createEmptyTrigger(order: number): EventTriggerEntry {
+  return {
+    title: '',
+    description: '',
+    image: '',
+    source: '',
+    order,
+  };
+}
+
+function normalizeTriggers(triggers: EventTriggerEntry[]): EventTriggerEntry[] {
+  return triggers
+    .map((trigger, index) => ({
+      title: trigger.title.trim(),
+      description: trigger.description.trim(),
+      image: trigger.image?.trim() || null,
+      source: trigger.source?.trim() || null,
+      order:
+        typeof trigger.order === 'number' && Number.isFinite(trigger.order)
+          ? trigger.order
+          : index,
+    }))
+    .sort((a, b) => a.order - b.order);
+}
 
 export interface EventEditorSheetProps {
   isOpen: boolean;
@@ -61,10 +92,12 @@ export function EventEditorSheet({
   clearMutationError,
   onEventCreated,
 }: EventEditorSheetProps) {
+  const activeData = useActiveData();
   const { properties: allProperties } = useProperties();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [triggersMarkdown, setTriggersMarkdown] = useState('');
+  const [ownerTeamId, setOwnerTeamId] = useState('');
+  const [triggers, setTriggers] = useState<EventTriggerEntry[]>([]);
   const [saving, setSaving] = useState(false);
   const [currentEventId, setCurrentEventId] = useState<string | null>(eventId);
   const [attached, setAttached] = useState<EventWithPropertiesResponse['attached_properties']>([]);
@@ -82,7 +115,8 @@ export function EventEditorSheet({
     if (result) {
       setName(result.event.name);
       setDescription(result.event.description ?? '');
-      setTriggersMarkdown(result.event.triggers_markdown ?? '');
+      setOwnerTeamId(result.event.owner_team_id ?? '');
+      setTriggers(result.event.triggers ?? []);
       setAttached(result.attached_properties);
     }
   }, [getEventWithProperties]);
@@ -97,7 +131,8 @@ export function EventEditorSheet({
       setCurrentEventId(null);
       setName('');
       setDescription('');
-      setTriggersMarkdown('');
+      setOwnerTeamId('');
+      setTriggers([]);
       setAttached([]);
     }
     setSelectedPropertyId('');
@@ -114,7 +149,8 @@ export function EventEditorSheet({
     const payload: CreateEventInput = {
       name: trimmedName,
       description: description.trim() || undefined,
-      triggers_markdown: triggersMarkdown.trim() || undefined,
+      owner_team_id: ownerTeamId || null,
+      triggers: normalizedTriggers,
     };
 
     const result = await createEvent(payload);
@@ -137,7 +173,8 @@ export function EventEditorSheet({
     const payload: CreateEventInput = {
       name: trimmedName,
       description: description.trim() || undefined,
-      triggers_markdown: triggersMarkdown.trim() || undefined,
+      owner_team_id: ownerTeamId || null,
+      triggers: normalizedTriggers,
     };
 
     const result = await updateEvent(currentEventId, payload);
@@ -146,7 +183,8 @@ export function EventEditorSheet({
     if (result.success) {
       setName(result.data.name);
       setDescription(result.data.description ?? '');
-      setTriggersMarkdown(result.data.triggers_markdown ?? '');
+      setOwnerTeamId(result.data.owner_team_id ?? '');
+      setTriggers(result.data.triggers ?? []);
     }
   };
 
@@ -177,6 +215,29 @@ export function EventEditorSheet({
 
   const attachedIds = new Set(attached.map((a) => a.property_id));
   const availableProperties = allProperties.filter((p) => !attachedIds.has(p.id));
+  const normalizedTriggers = normalizeTriggers(triggers);
+  const hasInvalidTriggers = normalizedTriggers.some(
+    (trigger) => !trigger.title || !trigger.description
+  );
+
+  const updateTrigger = (
+    index: number,
+    patch: Partial<EventTriggerEntry>
+  ) => {
+    setTriggers((prev) =>
+      prev.map((trigger, triggerIndex) =>
+        triggerIndex === index ? { ...trigger, ...patch } : trigger
+      )
+    );
+  };
+
+  const addTrigger = () => {
+    setTriggers((prev) => [...prev, createEmptyTrigger(prev.length)]);
+  };
+
+  const removeTrigger = (index: number) => {
+    setTriggers((prev) => prev.filter((_, triggerIndex) => triggerIndex !== index));
+  };
 
   const title = isCreateMode && !currentEventId
     ? 'New Event'
@@ -229,21 +290,124 @@ export function EventEditorSheet({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-            <Link2 className="w-4 h-4 text-gray-500" />
-            Triggers (Markdown) — Bloomreach / technical rules
-          </label>
-          <textarea
-            value={triggersMarkdown}
-            onChange={(e) => setTriggersMarkdown(e.target.value)}
-            placeholder="Document when this event fires (e.g. Bloomreach weblayer conditions, DOM selectors, or API triggers). Use Markdown for structure."
-            rows={5}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          />
-          <p className="text-xs text-gray-500">
-            Use this field to document exactly when a Bloomreach weblayer or other
-            trigger fires. Supports Markdown.
-          </p>
+          <label className="text-sm font-medium text-gray-700">Owner</label>
+          <select
+            value={ownerTeamId}
+            onChange={(e) => setOwnerTeamId(e.target.value)}
+            disabled={saving}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <option value="">No owner selected</option>
+            {activeData.teams.map((team) => (
+              <option key={team.id} value={team.id}>
+                {team.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <label className="text-sm font-medium text-gray-700">Triggers</label>
+            <Button type="button" variant="outline" size="sm" onClick={addTrigger} className="gap-1">
+              <Plus className="w-4 h-4" /> Add Trigger
+            </Button>
+          </div>
+          <div className="rounded-md border border-input bg-gray-50 px-3 py-3">
+            {triggers.length === 0 ? (
+              <p className="text-sm text-gray-500">
+                No triggers yet. Add at least one trigger when this event needs firing context.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {triggers.map((trigger, index) => (
+                  <div key={index} className="rounded-md border bg-white p-3 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                        Trigger {index + 1}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeTrigger(index)}
+                        className="text-gray-400 hover:text-red-600"
+                        aria-label={`Remove trigger ${index + 1}`}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-600">Title</label>
+                        <Input
+                          value={trigger.title}
+                          onChange={(e) => updateTrigger(index, { title: e.target.value })}
+                          placeholder="e.g. Add to cart tap"
+                          disabled={saving}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-600">Order</label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={String(trigger.order)}
+                          onChange={(e) =>
+                            updateTrigger(index, {
+                              order: Number.isFinite(e.target.valueAsNumber)
+                                ? e.target.valueAsNumber
+                                : index,
+                            })
+                          }
+                          disabled={saving}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-gray-600">Description</label>
+                      <textarea
+                        value={trigger.description}
+                        onChange={(e) =>
+                          updateTrigger(index, { description: e.target.value })
+                        }
+                        placeholder="Describe when this trigger fires."
+                        rows={3}
+                        disabled={saving}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-600">Image URL</label>
+                        <Input
+                          value={trigger.image ?? ''}
+                          onChange={(e) => updateTrigger(index, { image: e.target.value })}
+                          placeholder="Optional screenshot URL"
+                          disabled={saving}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-gray-600">Source</label>
+                        <Input
+                          value={trigger.source ?? ''}
+                          onChange={(e) => updateTrigger(index, { source: e.target.value })}
+                          placeholder="Optional source"
+                          disabled={saving}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {hasInvalidTriggers ? (
+              <p className="mt-3 text-xs text-red-600">
+                Each trigger must include both a title and description before saving.
+              </p>
+            ) : null}
+          </div>
         </div>
 
         {loadingEvent && currentEventId && (
@@ -346,14 +510,14 @@ export function EventEditorSheet({
         {isCreateMode && !currentEventId ? (
           <Button
             onClick={handleSaveNewEvent}
-            disabled={saving || !name.trim()}
+            disabled={saving || !name.trim() || hasInvalidTriggers}
           >
             {saving ? 'Creating…' : 'Create Event'}
           </Button>
         ) : (
           <Button
             onClick={handleSaveExistingEvent}
-            disabled={saving || !name.trim() || !currentEventId}
+            disabled={saving || !name.trim() || !currentEventId || hasInvalidTriggers}
           >
             {saving ? 'Saving…' : 'Save Changes'}
           </Button>

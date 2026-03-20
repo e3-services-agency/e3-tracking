@@ -33,6 +33,9 @@ export function Properties() {
   // API-powered properties (new)
   const {
     properties: apiProperties,
+    isLoading: apiPropertiesLoading,
+    error: apiPropertiesError,
+    refetch: refetchApiProperties,
     createProperty,
     updateProperty,
     mutationError,
@@ -263,6 +266,12 @@ export function Properties() {
           <PropertiesList
             onOpenCreate={handleCreateNewApiProperty}
             onOpenProperty={handleOpenApiProperty}
+            properties={apiProperties}
+            isLoading={apiPropertiesLoading}
+            error={apiPropertiesError}
+            refetch={refetchApiProperties}
+            mutationError={mutationError}
+            clearMutationError={clearMutationError}
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 overflow-y-auto pb-8">

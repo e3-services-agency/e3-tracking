@@ -163,17 +163,32 @@ export interface EventRow {
   workspace_id: string;
   name: string;
   description: string | null;
-  triggers_markdown: string | null;
+  owner_team_id: string | null;
+  /**
+   * Canonical structured trigger entries for the event.
+   * Stored durably in the backend.
+   */
+  triggers: EventTriggerEntry[] | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
 }
 
-/** Payload for creating an event (DAL/API). id, workspace_id, timestamps set by DB or DAL. */
-export type CreateEventInput = Pick<
-  EventRow,
-  'name' | 'description' | 'triggers_markdown'
->;
+export interface EventTriggerEntry {
+  title: string;
+  description: string;
+  image?: string | null;
+  source?: string | null;
+  order: number;
+}
+
+/** Payload for creating/updating an event (DAL/API). */
+export interface CreateEventInput {
+  name: string;
+  description?: string | null;
+  owner_team_id?: string | null;
+  triggers?: EventTriggerEntry[] | null;
+}
 
 export interface EventSourceRow {
   event_id: string;

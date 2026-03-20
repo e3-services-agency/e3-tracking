@@ -228,6 +228,7 @@ export type {
   CreatePropertyInput,
   PropertySourceRow,
   EventRow,
+  EventTriggerEntry,
   CreateEventInput,
   EventSourceRow,
   EventPropertyRow,

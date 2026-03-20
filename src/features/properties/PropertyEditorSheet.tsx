@@ -50,12 +50,6 @@ const PII_OPTIONS: { value: PiiStatus; label: string }[] = [
   { value: 'highly_sensitive', label: 'Highly Sensitive' },
 ];
 
-const PRESENCE_OPTIONS = [
-  { value: 'always_sent', label: 'Always sent' },
-  { value: 'sometimes_sent', label: 'Sometimes sent' },
-  { value: 'never_sent', label: 'Never sent' },
-] as const;
-
 export interface PropertyEditorSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -91,7 +85,6 @@ export function PropertyEditorSheet({
   const [dataType, setDataType] = useState<UIPropertyDataType>('string');
   const [piiStatus, setPiiStatus] = useState<PiiStatus>('none');
   const [dataFormat, setDataFormat] = useState('');
-  const [presence, setPresence] = useState<'always_sent' | 'sometimes_sent' | 'never_sent'>('always_sent');
   const [saving, setSaving] = useState(false);
 
   const [mappingEnabled, setMappingEnabled] = useState(false);
@@ -128,7 +121,6 @@ export function PropertyEditorSheet({
         setDataType('string');
         setPiiStatus('none');
         setDataFormat('');
-        setPresence('always_sent');
         setMappingEnabled(false);
         setMappedCatalogId('');
         setMappedFieldId('');
@@ -310,25 +302,6 @@ export function PropertyEditorSheet({
             onChange={(e) => setDataFormat(e.target.value)}
             placeholder="e.g. UUID, ISO-8601, email"
           />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-            Presence when sent with events
-            <Info className="w-4 h-4 text-gray-400" />
-          </label>
-          <select
-            value={presence}
-            onChange={(e) => setPresence(e.target.value as typeof presence)}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {PRESENCE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-          <p className="text-xs text-gray-500">
-            Presence is applied when this property is attached to an event.
-          </p>
         </div>
 
         <div className="space-y-2">

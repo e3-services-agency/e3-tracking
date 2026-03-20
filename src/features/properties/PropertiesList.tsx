@@ -15,10 +15,10 @@ import {
 import { Badge } from '@/src/components/ui/Badge';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
-import { useProperties } from '@/src/features/properties/hooks/useProperties';
 import { useCatalogs } from '@/src/features/catalogs/hooks/useCatalogs';
 import type { PropertyRow, PropertyContext, PiiStatus } from '@/src/types/schema';
 import type { CatalogFieldRow } from '@/src/types/schema';
+import type { ApiError } from '@/src/features/properties/hooks/useProperties';
 import { Search, Plus, FileQuestion, AlertCircle, Link2, Braces, Brackets, Hash, Type, ToggleLeft, Sigma } from 'lucide-react';
 
 const CONTEXT_LABELS: Record<PropertyContext, string> = {
@@ -36,10 +36,24 @@ const PII_LABELS: Record<PiiStatus, string> = {
 type PropertiesListProps = {
   onOpenCreate: () => void;
   onOpenProperty: (id: string) => void;
+  properties: PropertyRow[];
+  isLoading: boolean;
+  error: ApiError | null;
+  refetch: () => Promise<void>;
+  mutationError: ApiError | null;
+  clearMutationError: () => void;
 };
 
-export function PropertiesList({ onOpenCreate, onOpenProperty }: PropertiesListProps) {
-  const { properties, isLoading, error, refetch, mutationError, clearMutationError } = useProperties();
+export function PropertiesList({
+  onOpenCreate,
+  onOpenProperty,
+  properties,
+  isLoading,
+  error,
+  refetch,
+  mutationError,
+  clearMutationError,
+}: PropertiesListProps) {
   const { catalogs, fetchCatalogFields } = useCatalogs();
   const [globalFilter, setGlobalFilter] = useState('');
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);

@@ -7,6 +7,7 @@
 import { getSupabaseOrThrow } from '../db/supabase';
 import type {
   EventRow,
+  EventTriggerEntry,
   EventPropertyRow,
   CreateEventInput,
   EventPropertyPresence,
@@ -14,6 +15,57 @@ import type {
 import { ConflictError, DatabaseError, NotFoundError } from '../errors';
 
 const UNIQUE_VIOLATION_CODE = '23505';
+
+type EventDbRow = Omit<EventRow, 'triggers'> & {
+  triggers_json?: unknown | null;
+};
+
+function normalizeEventTriggers(value: unknown): EventTriggerEntry[] | null {
+  if (!Array.isArray(value)) return null;
+
+  const normalized = value
+    .map((entry, index) => {
+      if (!entry || typeof entry !== 'object') return null;
+      const raw = entry as Record<string, unknown>;
+      const title = typeof raw.title === 'string' ? raw.title.trim() : '';
+      const description =
+        typeof raw.description === 'string' ? raw.description.trim() : '';
+
+      if (!title || !description) return null;
+
+      return {
+        title,
+        description,
+        image: typeof raw.image === 'string' ? raw.image : null,
+        source: typeof raw.source === 'string' ? raw.source : null,
+        order:
+          typeof raw.order === 'number' && Number.isFinite(raw.order)
+            ? raw.order
+            : index,
+      } satisfies EventTriggerEntry;
+    })
+    .filter((entry): entry is EventTriggerEntry => entry !== null)
+    .sort((a, b) => a.order - b.order);
+
+  return normalized;
+}
+
+function mapEventRow(row: EventDbRow | null): EventRow | null {
+  if (row === null) return null;
+
+  const { triggers_json } = row;
+  return {
+    id: row.id,
+    workspace_id: row.workspace_id,
+    name: row.name,
+    description: row.description,
+    owner_team_id: row.owner_team_id ?? null,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    deleted_at: row.deleted_at,
+    triggers: normalizeEventTriggers(triggers_json),
+  };
+}
 
 /**
  * Returns an event by id only if it belongs to the workspace.
@@ -34,7 +86,7 @@ export async function getEventById(
   if (error) {
     throw new DatabaseError(`Failed to fetch event: ${error.message}`, error);
   }
-  return data as EventRow | null;
+  return mapEventRow(data as EventDbRow | null);
 }
 
 /**
@@ -75,7 +127,8 @@ export async function createEvent(
     workspace_id: workspaceId,
     name: eventData.name.trim(),
     description: eventData.description?.trim() ?? null,
-    triggers_markdown: eventData.triggers_markdown?.trim() ?? null,
+    owner_team_id: eventData.owner_team_id?.trim() || null,
+    triggers_json: eventData.triggers ?? null,
     deleted_at: null,
   };
 
@@ -99,7 +152,7 @@ export async function createEvent(
     throw new DatabaseError('Create event returned no row.');
   }
 
-  return data as EventRow;
+  return mapEventRow(data as EventDbRow)!;
 }
 
 /**
@@ -123,12 +176,15 @@ export async function updateEvent(
   }
 
   const supabase = getSupabaseOrThrow();
-  const row = {
+  const row: Record<string, unknown> = {
     name: eventData.name.trim(),
     description: eventData.description?.trim() ?? null,
-    triggers_markdown: eventData.triggers_markdown?.trim() ?? null,
+    owner_team_id: eventData.owner_team_id?.trim() || null,
     updated_at: new Date().toISOString(),
   };
+  if ('triggers' in eventData) {
+    row.triggers_json = eventData.triggers ?? null;
+  }
 
   const { data, error } = await supabase
     .from('events')
@@ -153,7 +209,7 @@ export async function updateEvent(
     throw new DatabaseError('Update event returned no row.');
   }
 
-  return data as EventRow;
+  return mapEventRow(data as EventDbRow)!;
 }
 
 /**
@@ -282,7 +338,7 @@ export async function listEvents(
     );
   }
 
-  const eventList = (events ?? []) as EventRow[];
+  const eventList = (events ?? []).map((event) => mapEventRow(event as EventDbRow)!);
   if (eventList.length === 0) {
     return [];
   }

@@ -8,7 +8,11 @@ import { createAuditValidator } from '../middleware/auditValidator';
 import { getWorkspaceSettings } from '../dal/workspace.dal';
 import * as EventDAL from '../dal/event.dal';
 import { ConflictError, DatabaseError, NotFoundError } from '../errors';
-import type { CreateEventInput, EventPropertyPresence } from '../../types/schema';
+import type {
+  CreateEventInput,
+  EventPropertyPresence,
+  EventTriggerEntry,
+} from '../../types/schema';
 import { buildCodegenSnippets } from '../services/codegen.service';
 
 const router = Router();
@@ -22,6 +26,58 @@ const PRESENCE_VALUES: EventPropertyPresence[] = [
 const eventAuditValidator = createAuditValidator(getWorkspaceSettings, {
   entity: 'event',
 });
+
+function parseStructuredTriggers(
+  value: unknown
+): { ok: true; value: EventTriggerEntry[] | null | undefined } | { ok: false; error: string } {
+  if (typeof value === 'undefined') {
+    return { ok: true, value: undefined };
+  }
+
+  if (value === null) {
+    return { ok: true, value: null };
+  }
+
+  if (!Array.isArray(value)) {
+    return { ok: false, error: 'triggers must be an array when provided.' };
+  }
+
+  const triggers: EventTriggerEntry[] = [];
+  for (let index = 0; index < value.length; index += 1) {
+    const entry = value[index];
+    if (!entry || typeof entry !== 'object') {
+      return { ok: false, error: `Trigger at index ${index} must be an object.` };
+    }
+
+    const raw = entry as Record<string, unknown>;
+    const title = typeof raw.title === 'string' ? raw.title.trim() : '';
+    const description =
+      typeof raw.description === 'string' ? raw.description.trim() : '';
+
+    if (!title) {
+      return { ok: false, error: `Trigger at index ${index} is missing title.` };
+    }
+    if (!description) {
+      return { ok: false, error: `Trigger at index ${index} is missing description.` };
+    }
+
+    triggers.push({
+      title,
+      description,
+      image: typeof raw.image === 'string' ? raw.image : null,
+      source: typeof raw.source === 'string' ? raw.source.trim() || null : null,
+      order:
+        typeof raw.order === 'number' && Number.isFinite(raw.order)
+          ? raw.order
+          : index,
+    });
+  }
+
+  return {
+    ok: true,
+    value: triggers.sort((a, b) => a.order - b.order),
+  };
+}
 
 /**
  * GET /api/events
@@ -154,6 +210,13 @@ router.post(
 
     const body = req.body as Record<string, unknown>;
     const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const ownerTeamIdRaw =
+      typeof body.ownerTeamId === 'string'
+        ? body.ownerTeamId
+        : typeof body.owner_team_id === 'string'
+          ? body.owner_team_id
+          : '';
+    const parsedTriggers = parseStructuredTriggers(body.triggers);
 
     if (!name) {
       res.status(400).json({
@@ -163,14 +226,20 @@ router.post(
       });
       return;
     }
+    if (!parsedTriggers.ok) {
+      res.status(400).json({
+        error: parsedTriggers.error,
+        code: 'INVALID_TRIGGERS',
+        field: 'triggers',
+      });
+      return;
+    }
 
     const eventData: CreateEventInput = {
       name,
       description: typeof body.description === 'string' ? body.description : undefined,
-      triggers_markdown:
-        typeof body.triggers_markdown === 'string'
-          ? body.triggers_markdown
-          : undefined,
+      owner_team_id: ownerTeamIdRaw.trim() || null,
+      triggers: parsedTriggers.value,
     };
 
     try {
@@ -222,6 +291,13 @@ router.patch(
     const eventId = req.params.id;
     const body = req.body as Record<string, unknown>;
     const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const ownerTeamIdRaw =
+      typeof body.ownerTeamId === 'string'
+        ? body.ownerTeamId
+        : typeof body.owner_team_id === 'string'
+          ? body.owner_team_id
+          : '';
+    const parsedTriggers = parseStructuredTriggers(body.triggers);
 
     if (!name) {
       res.status(400).json({
@@ -231,14 +307,20 @@ router.patch(
       });
       return;
     }
+    if (!parsedTriggers.ok) {
+      res.status(400).json({
+        error: parsedTriggers.error,
+        code: 'INVALID_TRIGGERS',
+        field: 'triggers',
+      });
+      return;
+    }
 
     const eventData: CreateEventInput = {
       name,
       description: typeof body.description === 'string' ? body.description : undefined,
-      triggers_markdown:
-        typeof body.triggers_markdown === 'string'
-          ? body.triggers_markdown
-          : undefined,
+      owner_team_id: ownerTeamIdRaw.trim() || null,
+      triggers: parsedTriggers.value,
     };
 
     try {

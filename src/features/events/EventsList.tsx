@@ -1,6 +1,6 @@
 /**
  * Events data table. Powered by /api/events via useEvents.
- * Columns: Name (description under), Triggers (truncate), Badge for attached_property_count.
+ * Columns: Name (description under), Triggers, Badge for attached_property_count.
  */
 import React, { useMemo, useState } from 'react';
 import {
@@ -71,13 +71,18 @@ export function EventsList({
       {
         id: 'triggers',
         header: 'Triggers',
-        accessorFn: (row) => row.triggers_markdown ?? '',
-        cell: ({ getValue }) => {
-          const v = getValue() as string;
-          if (!v) return <span className="text-gray-400 text-sm">—</span>;
+        accessorFn: (row) =>
+          row.triggers?.map((trigger) => trigger.title).join(', ') ?? '',
+        cell: ({ row, getValue }) => {
+          const value = getValue() as string;
+          const count = row.original.triggers?.length ?? 0;
+          if (!value) return <span className="text-gray-400 text-sm">—</span>;
           return (
-            <span className="text-sm text-gray-600 line-clamp-2 max-w-[280px]" title={v}>
-              {v}
+            <span
+              className="text-sm text-gray-600 line-clamp-2 max-w-[280px]"
+              title={value}
+            >
+              {count > 1 ? `${count} triggers: ${value}` : value}
             </span>
           );
         },

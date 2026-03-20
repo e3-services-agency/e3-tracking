@@ -7,6 +7,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
+import { EventTriggerCardsSection } from '@/src/features/events/components/EventTriggerCardsSection';
+import { EventTriggerEditorModal } from '@/src/features/events/components/EventTriggerEditorModal';
+import { uploadEventTriggerImage } from '@/src/features/events/lib/eventTriggerImageStorage';
 import type {
   CreateEventInput,
   EventPropertyPresence,
@@ -16,7 +19,7 @@ import type {
 } from '@/src/types/schema';
 import type { ApiError, EventWithPropertiesResponse } from '@/src/features/events/hooks/useEvents';
 import { useProperties } from '@/src/features/properties/hooks/useProperties';
-import { useActiveData } from '@/src/store';
+import { useActiveData, useStore } from '@/src/store';
 import { AlertCircle, Plus, X } from 'lucide-react';
 
 const PRESENCE_OPTIONS: { value: EventPropertyPresence; label: string }[] = [
@@ -54,6 +57,10 @@ function normalizeTriggers(triggers: EventTriggerEntry[]): EventTriggerEntry[] {
           : index,
     }))
     .sort((a, b) => a.order - b.order);
+}
+
+function sortTriggersForEditor(triggers: EventTriggerEntry[]): EventTriggerEntry[] {
+  return [...triggers].sort((a, b) => a.order - b.order);
 }
 
 function normalizeTokenList(value: string): string[] | null {
@@ -115,6 +122,7 @@ export function EventEditorSheet({
   onEventCreated,
 }: EventEditorSheetProps) {
   const activeData = useActiveData();
+  const activeWorkspaceId = useStore((state) => state.activeWorkspaceId);
   const { properties: allProperties } = useProperties();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -132,6 +140,11 @@ export function EventEditorSheet({
   const [addPresence, setAddPresence] = useState<EventPropertyPresence>('always_sent');
   const [addingProperty, setAddingProperty] = useState(false);
   const [removingPropertyId, setRemovingPropertyId] = useState<string | null>(null);
+  const [isTriggerModalOpen, setIsTriggerModalOpen] = useState(false);
+  const [editingTriggerIndex, setEditingTriggerIndex] = useState<number | null>(null);
+  const [triggerDraft, setTriggerDraft] = useState<EventTriggerEntry>(createEmptyTrigger(0));
+  const [triggerImageUploading, setTriggerImageUploading] = useState(false);
+  const [triggerImageError, setTriggerImageError] = useState<string | null>(null);
 
   const isCreateMode = eventId === null && currentEventId === null;
 
@@ -147,7 +160,7 @@ export function EventEditorSheet({
       setOwnerTeamId(result.event.owner_team_id ?? '');
       setCategoriesText((result.event.categories ?? []).join(', '));
       setTagsText((result.event.tags ?? []).join(', '));
-      setTriggers(result.event.triggers ?? []);
+      setTriggers(sortTriggersForEditor(result.event.triggers ?? []));
       setAttached(result.attached_properties);
     }
   }, [getEventWithProperties]);
@@ -231,7 +244,7 @@ export function EventEditorSheet({
       setOwnerTeamId(result.data.owner_team_id ?? '');
       setCategoriesText((result.data.categories ?? []).join(', '));
       setTagsText((result.data.tags ?? []).join(', '));
-      setTriggers(result.data.triggers ?? []);
+      setTriggers(sortTriggersForEditor(result.data.triggers ?? []));
     }
   };
 
@@ -283,23 +296,87 @@ export function EventEditorSheet({
     (trigger) => !trigger.title || !trigger.description
   );
 
-  const updateTrigger = (
-    index: number,
-    patch: Partial<EventTriggerEntry>
-  ) => {
-    setTriggers((prev) =>
-      prev.map((trigger, triggerIndex) =>
-        triggerIndex === index ? { ...trigger, ...patch } : trigger
-      )
-    );
+  const openTriggerModalForCreate = () => {
+    setEditingTriggerIndex(null);
+    setTriggerDraft(createEmptyTrigger(triggers.length));
+    setTriggerImageError(null);
+    setTriggerImageUploading(false);
+    setIsTriggerModalOpen(true);
   };
 
-  const addTrigger = () => {
-    setTriggers((prev) => [...prev, createEmptyTrigger(prev.length)]);
+  const openTriggerModalForEdit = (index: number) => {
+    const trigger = triggers[index];
+    if (!trigger) return;
+    setEditingTriggerIndex(index);
+    setTriggerDraft({ ...trigger });
+    setTriggerImageError(null);
+    setTriggerImageUploading(false);
+    setIsTriggerModalOpen(true);
+  };
+
+  const closeTriggerModal = () => {
+    setIsTriggerModalOpen(false);
+    setEditingTriggerIndex(null);
+    setTriggerDraft(createEmptyTrigger(0));
+    setTriggerImageUploading(false);
+    setTriggerImageError(null);
+  };
+
+  const saveTriggerDraft = () => {
+    const nextTrigger: EventTriggerEntry = {
+      title: triggerDraft.title,
+      description: triggerDraft.description,
+      image: triggerDraft.image?.trim() || null,
+      source: triggerDraft.source?.trim() || null,
+      order:
+        typeof triggerDraft.order === 'number' && Number.isFinite(triggerDraft.order)
+          ? triggerDraft.order
+          : triggers.length,
+    };
+
+    setTriggers((prev) => {
+      const updated =
+        editingTriggerIndex === null
+          ? [...prev, nextTrigger]
+          : prev.map((trigger, index) =>
+              index === editingTriggerIndex ? nextTrigger : trigger
+            );
+      return sortTriggersForEditor(updated);
+    });
+    closeTriggerModal();
   };
 
   const removeTrigger = (index: number) => {
-    setTriggers((prev) => prev.filter((_, triggerIndex) => triggerIndex !== index));
+    setTriggers((prev) =>
+      sortTriggersForEditor(prev.filter((_, triggerIndex) => triggerIndex !== index))
+    );
+  };
+
+  const handleTriggerImageUpload = async (file: File) => {
+    if (!currentEventId) {
+      setTriggerImageError('Save the event first before uploading a trigger image.');
+      return;
+    }
+    if (!activeWorkspaceId) {
+      setTriggerImageError('Workspace context missing. Please refresh and try again.');
+      return;
+    }
+
+    setTriggerImageUploading(true);
+    setTriggerImageError(null);
+    const result = await uploadEventTriggerImage({
+      eventId: currentEventId,
+      file,
+      workspaceId: activeWorkspaceId,
+    });
+    setTriggerImageUploading(false);
+
+    if (!result.success) {
+      setTriggerImageError(result.error);
+      return;
+    }
+
+    setTriggerDraft((prev) => ({ ...prev, image: result.url }));
   };
 
   const title = isCreateMode && !currentEventId
@@ -417,109 +494,13 @@ export function EventEditorSheet({
           </select>
         </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <label className="text-sm font-medium text-gray-700">Triggers</label>
-            <Button type="button" variant="outline" size="sm" onClick={addTrigger} className="gap-1">
-              <Plus className="w-4 h-4" /> Add Trigger
-            </Button>
-          </div>
-          <div className="rounded-md border border-input bg-gray-50 px-3 py-3">
-            {triggers.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                No triggers yet. Add at least one trigger when this event needs firing context.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {triggers.map((trigger, index) => (
-                  <div key={index} className="rounded-md border bg-white p-3 space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                        Trigger {index + 1}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeTrigger(index)}
-                        className="text-gray-400 hover:text-red-600"
-                        aria-label={`Remove trigger ${index + 1}`}
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-gray-600">Title</label>
-                        <Input
-                          value={trigger.title}
-                          onChange={(e) => updateTrigger(index, { title: e.target.value })}
-                          placeholder="e.g. Add to cart tap"
-                          disabled={saving}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-gray-600">Order</label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={String(trigger.order)}
-                          onChange={(e) =>
-                            updateTrigger(index, {
-                              order: Number.isFinite(e.target.valueAsNumber)
-                                ? e.target.valueAsNumber
-                                : index,
-                            })
-                          }
-                          disabled={saving}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-gray-600">Description</label>
-                      <textarea
-                        value={trigger.description}
-                        onChange={(e) =>
-                          updateTrigger(index, { description: e.target.value })
-                        }
-                        placeholder="Describe when this trigger fires."
-                        rows={3}
-                        disabled={saving}
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-gray-600">Image URL</label>
-                        <Input
-                          value={trigger.image ?? ''}
-                          onChange={(e) => updateTrigger(index, { image: e.target.value })}
-                          placeholder="Optional screenshot URL"
-                          disabled={saving}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-gray-600">Source</label>
-                        <Input
-                          value={trigger.source ?? ''}
-                          onChange={(e) => updateTrigger(index, { source: e.target.value })}
-                          placeholder="Optional source"
-                          disabled={saving}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {hasInvalidTriggers ? (
-              <p className="mt-3 text-xs text-red-600">
-                Each trigger must include both a title and description before saving.
-              </p>
-            ) : null}
-          </div>
-        </div>
+        <EventTriggerCardsSection
+          triggers={triggers}
+          hasInvalidTriggers={hasInvalidTriggers}
+          onAddTrigger={openTriggerModalForCreate}
+          onEditTrigger={openTriggerModalForEdit}
+          onRemoveTrigger={removeTrigger}
+        />
 
         {loadingEvent && currentEventId && (
           <p className="text-sm text-gray-500">Loading event…</p>
@@ -648,6 +629,24 @@ export function EventEditorSheet({
           </Button>
         )}
       </div>
+
+      <EventTriggerEditorModal
+        isOpen={isTriggerModalOpen}
+        trigger={triggerDraft}
+        imageUploadEnabled={!!currentEventId}
+        imageUploading={triggerImageUploading}
+        imageUploadError={triggerImageError}
+        onChange={(patch) => {
+          setTriggerDraft((prev) => ({ ...prev, ...patch }));
+          if ('image' in patch || 'title' in patch || 'description' in patch || 'source' in patch) {
+            setTriggerImageError(null);
+          }
+        }}
+        onUploadImage={handleTriggerImageUpload}
+        onClearImage={() => setTriggerDraft((prev) => ({ ...prev, image: null }))}
+        onSave={saveTriggerDraft}
+        onClose={closeTriggerModal}
+      />
     </Sheet>
   );
 }

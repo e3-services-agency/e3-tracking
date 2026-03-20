@@ -3,10 +3,13 @@
  * All routes require workspace context (x-workspace-id). Audit validator enforces naming on create.
  */
 import { Router, type Request, type Response, type NextFunction } from 'express';
+import multer from 'multer';
 import { requireWorkspace } from '../middleware/workspace';
+import { requireAuth } from '../middleware/auth';
 import { createAuditValidator } from '../middleware/auditValidator';
 import { getWorkspaceSettings } from '../dal/workspace.dal';
 import * as EventDAL from '../dal/event.dal';
+import { getSupabaseOrThrow } from '../db/supabase';
 import { ConflictError, DatabaseError, NotFoundError } from '../errors';
 import type {
   CreateEventInput,
@@ -17,6 +20,8 @@ import type {
 import { buildCodegenSnippets } from '../services/codegen.service';
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const ASSETS_BUCKET = 'assets';
 
 const PRESENCE_VALUES: EventPropertyPresence[] = [
   'always_sent',
@@ -102,6 +107,96 @@ function parseStructuredTriggers(
     value: triggers.sort((a, b) => a.order - b.order),
   };
 }
+
+function safeFilename(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9._-]/g, '');
+}
+
+router.post(
+  '/:id/triggers/images',
+  requireWorkspace,
+  requireAuth,
+  upload.single('file'),
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = req.workspaceId;
+    if (!workspaceId) {
+      res.status(403).json({
+        error: 'Workspace context required.',
+        code: 'WORKSPACE_REQUIRED',
+      });
+      return;
+    }
+
+    const eventId = req.params.id;
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({
+        error: 'Image file is required.',
+        code: 'FILE_REQUIRED',
+      });
+      return;
+    }
+
+    try {
+      const event = await EventDAL.getEventById(workspaceId, eventId);
+      if (!event) {
+        res.status(404).json({
+          error: 'Event not found.',
+          code: 'NOT_FOUND',
+          resource: 'event',
+        });
+        return;
+      }
+
+      const supabase = getSupabaseOrThrow();
+      const safeName = safeFilename(file.originalname || 'trigger-image');
+      const objectPath = `events/${workspaceId}/${eventId}/triggers/${Date.now()}-${safeName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(ASSETS_BUCKET)
+        .upload(objectPath, file.buffer, {
+          upsert: true,
+          contentType: file.mimetype || 'application/octet-stream',
+          cacheControl: '3600',
+        });
+
+      if (uploadError) {
+        res.status(500).json({
+          error: uploadError.message,
+          code: 'STORAGE_UPLOAD_FAILED',
+        });
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from(ASSETS_BUCKET)
+        .getPublicUrl(objectPath);
+      const publicUrl = publicUrlData?.publicUrl;
+      if (!publicUrl) {
+        res.status(500).json({
+          error: 'Failed to generate public URL.',
+          code: 'STORAGE_URL_FAILED',
+        });
+        return;
+      }
+
+      res.status(200).json({
+        path: objectPath,
+        url: publicUrl,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to upload trigger image.';
+      res.status(500).json({
+        error: message,
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+);
 
 /**
  * GET /api/events

@@ -211,7 +211,11 @@ export function EventEditorSheet({
     setSourcesLoading(false);
     if (!result.success) {
       setWorkspaceSources([]);
-      setSourcesError(result.error);
+      if ('error' in result) {
+        setSourcesError(result.error);
+      } else {
+        setSourcesError('Failed to load workspace sources.');
+      }
       return;
     }
     setWorkspaceSources(result.data);
@@ -416,7 +420,11 @@ export function EventEditorSheet({
     setTriggerImageUploading(false);
 
     if (!result.success) {
-      setTriggerImageError(result.error);
+      if ('error' in result) {
+        setTriggerImageError(result.error);
+      } else {
+        setTriggerImageError('Failed to upload trigger image.');
+      }
       return;
     }
 
@@ -444,7 +452,11 @@ export function EventEditorSheet({
     setIsCreatingSource(false);
 
     if (!result.success) {
-      setCreateSourceError(result.error);
+      if ('error' in result) {
+        setCreateSourceError(result.error);
+      } else {
+        setCreateSourceError('Failed to create source.');
+      }
       return;
     }
 

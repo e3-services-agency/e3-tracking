@@ -116,6 +116,29 @@ function safeFilename(name: string): string {
     .replace(/[^a-z0-9._-]/g, '');
 }
 
+async function ensureAssetsBucketReady(): Promise<void> {
+  const supabase = getSupabaseOrThrow();
+  const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+  if (listError) {
+    throw new DatabaseError(`Failed to list storage buckets: ${listError.message}`, listError);
+  }
+
+  const hasAssetsBucket = (buckets ?? []).some((bucket) => bucket.name === ASSETS_BUCKET);
+  if (hasAssetsBucket) return;
+
+  const { error: createError } = await supabase.storage.createBucket(ASSETS_BUCKET, {
+    public: true,
+  });
+  if (createError) {
+    const message = createError.message || 'Failed to create assets bucket.';
+    const alreadyExists =
+      message.toLowerCase().includes('already exists') ||
+      message.toLowerCase().includes('duplicate');
+    if (alreadyExists) return;
+    throw new DatabaseError(`Failed to create assets bucket: ${message}`, createError);
+  }
+}
+
 router.post(
   '/:id/triggers/images',
   requireWorkspace,
@@ -152,6 +175,7 @@ router.post(
         return;
       }
 
+      await ensureAssetsBucketReady();
       const supabase = getSupabaseOrThrow();
       const safeName = safeFilename(file.originalname || 'trigger-image');
       const objectPath = `events/${workspaceId}/${eventId}/triggers/${Date.now()}-${safeName}`;

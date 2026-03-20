@@ -86,8 +86,18 @@ export function Login() {
             Tracking Portal
           </h1>
           <p className="text-sm text-gray-500 text-center mb-8">
-            Sign in to manage your workspaces
+            Sign in with your pre-created email and password to manage workspaces
           </p>
+          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="font-medium">Account access is invite-only.</p>
+            <p className="mt-1">
+              This app does not support self-serve sign-up or magic links in the product UI.
+            </p>
+            <p className="mt-1">
+              For a brand new project, create the first user in Supabase Auth, set an email/password
+              for that user, then sign in here and create the first workspace.
+            </p>
+          </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <div

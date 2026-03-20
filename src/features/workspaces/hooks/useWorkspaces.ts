@@ -97,7 +97,20 @@ export function useWorkspaces() {
           error: typeof data?.error === 'string' ? data.error : res.statusText || 'Failed to create workspace',
         };
       }
-      const raw = data as WorkspaceItem & { client_name?: string | null };
+      const raw = data as Partial<WorkspaceItem> & { client_name?: string | null };
+      if (
+        typeof raw.id !== 'string' ||
+        typeof raw.name !== 'string' ||
+        typeof raw.workspace_key !== 'string' ||
+        !raw.workspace_key.trim() ||
+        typeof raw.created_at !== 'string' ||
+        typeof raw.updated_at !== 'string'
+      ) {
+        return {
+          success: false as const,
+          error: 'Workspace create returned invalid workspace data.',
+        };
+      }
       const workspace: WorkspaceItem = {
         id: raw.id,
         workspace_key: raw.workspace_key,

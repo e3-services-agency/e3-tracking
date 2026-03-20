@@ -18,6 +18,14 @@ import { getSupabaseOrThrow } from '../db/supabase';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const ASSETS_BUCKET = 'assets';
+
+function isJourneyAssetPath(objectPath: string, workspaceId: string, journeyId: string): boolean {
+  return (
+    objectPath.startsWith(`journeys/${workspaceId}/${journeyId}/`) ||
+    objectPath.startsWith(`workspaces/${workspaceId}/journeys/${journeyId}/`)
+  );
+}
 
 /**
  * validatePayload(eventId, actualJson): checks that all always_sent property keys exist in actualJson.
@@ -142,10 +150,10 @@ router.post(
         .toLowerCase()
         .replace(/\s+/g, '-')
         .replace(/[^a-z0-9._-]/g, '');
-      const objectPath = `workspaces/${workspaceId}/journeys/${journeyId}/${Date.now()}-${safeName}`;
+      const objectPath = `journeys/${workspaceId}/${journeyId}/${Date.now()}-${safeName}`;
 
       const { error: upErr } = await supabase.storage
-        .from('journey-images')
+        .from(ASSETS_BUCKET)
         .upload(objectPath, file.buffer, {
           upsert: true,
           contentType: file.mimetype || 'application/octet-stream',
@@ -158,7 +166,7 @@ router.post(
       }
 
       // Bucket is public (Option A): return a stable public URL for reuse in QA/export/docs.
-      const { data: pub } = supabase.storage.from('journey-images').getPublicUrl(objectPath);
+      const { data: pub } = supabase.storage.from(ASSETS_BUCKET).getPublicUrl(objectPath);
       const publicUrl = pub?.publicUrl;
       if (!publicUrl) {
         res.status(500).json({ error: 'Failed to generate public URL.', code: 'STORAGE_URL_FAILED' });
@@ -207,16 +215,15 @@ router.get(
       return;
     }
 
-    // Basic guard: ensure path matches journey/workspace prefix we write.
-    const expectedPrefix = `workspaces/${workspaceId}/journeys/${journeyId}/`;
-    if (!objectPath.startsWith(expectedPrefix)) {
+    // Allow the new journeys/... object path and the legacy workspaces/.../journeys/... path.
+    if (!isJourneyAssetPath(objectPath, workspaceId, journeyId)) {
       res.status(403).json({ error: 'Forbidden.', code: 'FORBIDDEN' });
       return;
     }
 
     try {
       const supabase = getSupabaseOrThrow();
-      const { data, error } = await supabase.storage.from('journey-images').download(objectPath);
+      const { data, error } = await supabase.storage.from(ASSETS_BUCKET).download(objectPath);
       if (error || !data) {
         res.status(404).json({ error: 'Image not found.', code: 'NOT_FOUND' });
         return;

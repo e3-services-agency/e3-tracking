@@ -460,7 +460,7 @@ export function useJourneyCanvas({
       const encoded = imageUrl.slice(prefix.length);
       const objectPath = base64UrlToUtf8(encoded);
       if (!objectPath || !SUPABASE_URL) return null;
-      return `${SUPABASE_URL}/storage/v1/object/public/journey-images/${objectPath}`;
+      return `${SUPABASE_URL}/storage/v1/object/public/assets/${objectPath}`;
     };
 
     let migratedCount = 0;

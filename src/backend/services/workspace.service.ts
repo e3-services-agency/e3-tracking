@@ -50,7 +50,12 @@ export async function createWorkspace(
     throw new DatabaseError('Create workspace returned no row.');
   }
 
-  const newWorkspaceId = (newWorkspace as WorkspaceRow).id;
+  const createdWorkspace = newWorkspace as WorkspaceRow;
+  if (!createdWorkspace.workspace_key?.trim()) {
+    throw new DatabaseError('Failed to create workspace: created row is missing workspace_key.');
+  }
+
+  const newWorkspaceId = createdWorkspace.id;
 
   if (input.userId) {
     const { error: memberError } = await supabase.from('workspace_members').insert({
@@ -70,7 +75,7 @@ export async function createWorkspace(
     await ensureWorkspaceSettings(supabase, newWorkspaceId, {
       client_name: input.client_name?.trim() || null,
     });
-    return newWorkspace as WorkspaceRow;
+    return createdWorkspace;
   }
 
   const templateId = input.cloneFromWorkspaceId.trim();
@@ -253,7 +258,7 @@ export async function createWorkspace(
     });
   }
 
-  return newWorkspace as WorkspaceRow;
+  return createdWorkspace;
 }
 
 async function ensureWorkspaceSettings(

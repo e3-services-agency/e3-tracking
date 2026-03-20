@@ -14,6 +14,14 @@ import { getSupabaseOrThrow } from '../db/supabase';
 import { getSharedJourneyQARuns } from '../dal/qa.dal';
 
 const router = Router();
+const ASSETS_BUCKET = 'assets';
+
+function isJourneyAssetPath(objectPath: string, workspaceId: string, journeyId: string): boolean {
+  return (
+    objectPath.startsWith(`journeys/${workspaceId}/${journeyId}/`) ||
+    objectPath.startsWith(`workspaces/${workspaceId}/journeys/${journeyId}/`)
+  );
+}
 
 type CanvasNode = {
   type?: string;
@@ -252,13 +260,12 @@ router.get(
 
     try {
       const journey = await getJourneyByShareId(id);
-      const expectedPrefix = `workspaces/${journey.workspace_id}/journeys/${journey.id}/`;
-      if (!objectPath.startsWith(expectedPrefix)) {
+      if (!isJourneyAssetPath(objectPath, journey.workspace_id, journey.id)) {
         res.status(403).json({ error: 'Forbidden.', code: 'FORBIDDEN' });
         return;
       }
       const supabase = getSupabaseOrThrow();
-      const { data, error } = await supabase.storage.from('journey-images').download(objectPath);
+      const { data, error } = await supabase.storage.from(ASSETS_BUCKET).download(objectPath);
       if (error || !data) {
         res.status(404).json({ error: 'Image not found.', code: 'NOT_FOUND' });
         return;

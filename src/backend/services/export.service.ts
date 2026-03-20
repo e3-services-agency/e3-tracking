@@ -83,7 +83,7 @@ function normalizeStepImageUrlForExport(raw: string): string {
   if (!supabaseUrl) return url;
   try {
     const objectPath = Buffer.from(encoded, 'base64url').toString('utf8');
-    return `${supabaseUrl}/storage/v1/object/public/journey-images/${objectPath}`;
+    return `${supabaseUrl}/storage/v1/object/public/assets/${objectPath}`;
   } catch {
     return url;
   }

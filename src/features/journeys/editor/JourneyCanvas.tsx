@@ -498,6 +498,9 @@ export function JourneyCanvas({
 
             if (activeQARunId) {
               setSelectedPanel('summary');
+            } else {
+              setSelectedNodeId(null);
+              setSelectedPanel('none');
             }
           }}
           onNodeClick={onNodeClick}
@@ -758,19 +761,26 @@ export function JourneyCanvas({
         </div>
       )}
 
-      {(activeQARunId || readOnly) &&
-        selectedPanel === 'node' &&
+      {selectedPanel === 'node' &&
         selectedNode &&
-        (isJourneyStepNode(selectedNode) || isTriggerNode(selectedNode)) && (
+        (isTriggerNode(selectedNode) ||
+          (isJourneyStepNode(selectedNode) && (activeQARunId || readOnly))) && (
           <div className="w-[420px] min-w-0 max-w-[420px] border-l bg-white flex flex-col shadow-xl z-20 absolute right-0 top-0 bottom-0">
             <div className="p-4 border-b bg-gray-50 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0 flex-1 flex-wrap">
                 <h3 className="font-bold text-gray-900 flex items-center gap-2 min-w-0">
                   <CheckSquare className="w-5 h-5 text-[var(--color-info)] shrink-0" />
                   <span className="truncate">
-                    {effectiveReadOnly ? 'Node Details' : 'QA Verification'}
+                    {effectiveReadOnly
+                      ? 'Node Details'
+                      : activeQARunId
+                        ? 'QA Verification'
+                        : isTriggerNode(selectedNode)
+                          ? 'Trigger'
+                          : 'Node Details'}
                   </span>
                 </h3>
+                {activeQARunId && (
                 <div className="flex items-center gap-2 shrink-0 min-w-0">
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
                     QA Status
@@ -779,11 +789,12 @@ export function JourneyCanvas({
                     {nodeStatus}
                   </span>
                 </div>
+                )}
               </div>
               <button
                 onClick={() => {
                   setSelectedNodeId(null);
-                  setSelectedPanel('summary');
+                  setSelectedPanel(activeQARunId ? 'summary' : 'none');
                 }}
                 className="text-gray-400 hover:text-gray-600 shrink-0"
                 type="button"
@@ -961,6 +972,8 @@ export function JourneyCanvas({
                   </div>
                 )}
 
+              {activeQARunId && (
+              <>
               {!effectiveReadOnly && (
               <div>
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
@@ -1456,8 +1469,10 @@ export function JourneyCanvas({
                   </div>
                 </div>
               )}
+              </>
+              )}
             </div>
-            {!effectiveReadOnly && (
+            {activeQARunId && !effectiveReadOnly && (
               <div className="shrink-0 border-t bg-white p-4 z-10">
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                   Verification Status

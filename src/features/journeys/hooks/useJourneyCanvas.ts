@@ -693,10 +693,17 @@ export function useJourneyCanvas({
   const onNodeClick = (_event: React.MouseEvent, node: JourneyFlowNode) => {
     if (tool === 'annotation') return;
 
-    if (
-      (activeQARunId || readOnly) &&
-      (node.type === 'journeyStepNode' || node.type === 'triggerNode')
-    ) {
+    if (node.type !== 'journeyStepNode' && node.type !== 'triggerNode') return;
+
+    if (activeQARunId || readOnly) {
+      setSelectedNodeId(node.id);
+      setSelectedPanel('node');
+      return;
+    }
+
+    // Design mode (no active QA run): open the inspector for trigger nodes only —
+    // codegen preference + snippets live here; step nodes keep canvas-only selection.
+    if (node.type === 'triggerNode') {
       setSelectedNodeId(node.id);
       setSelectedPanel('node');
     }

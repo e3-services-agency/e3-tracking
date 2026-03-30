@@ -7,8 +7,31 @@ import path from 'path';
 import * as JourneyDAL from '../dal/journey.dal';
 import { getEventWithProperties } from '../dal/event.dal';
 import type { EventPropertyWithDetails } from '../dal/event.dal';
+import type { PropertyExampleValue } from '../../types/schema';
 import { NotFoundError } from '../errors';
 import { buildCodegenSnippetsFromPresence } from './codegen.service';
+
+/** Lucide-style Zap — matches Journey trigger node header icon treatment in export CSS. */
+const EXPORT_TRIGGER_ZAP_SVG = `<svg class="export-trigger-zap" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>`;
+
+function formatPropertyExamplesForExportHtml(
+  examples: PropertyExampleValue[] | null | undefined,
+): string {
+  if (!examples || examples.length === 0) return '—';
+  const text = examples
+    .map((ex) => {
+      const raw =
+        ex.value === undefined || ex.value === null
+          ? ''
+          : typeof ex.value === 'object'
+            ? JSON.stringify(ex.value)
+            : String(ex.value);
+      const label = ex.label ? `${ex.label}: ` : '';
+      return `${label}${raw}`;
+    })
+    .join(' · ');
+  return escapeHtml(text);
+}
 
 type CanvasNode = {
   id: string;
@@ -253,10 +276,14 @@ function buildPropertyDetailsTable(attached: EventPropertyWithDetails[]): string
       const fmt = Array.isArray(p.property_data_formats) ? p.property_data_formats.join(', ') : '';
       const typeLabel = escapeHtml(dtype + (fmt ? ` · ${fmt}` : ''));
       const desc = p.property_description ? escapeHtml(p.property_description) : '—';
+      const exampleCell = formatPropertyExamplesForExportHtml(
+        p.property_example_values_json ?? null
+      );
       return `<tr>
   <td><code class="export-inline-code">${escapeHtml(p.property_name || '')}</code></td>
   <td>${escapeHtml(presenceLabel((p as any).presence))}</td>
   <td>${typeLabel}</td>
+  <td class="export-props-example-cell">${exampleCell}</td>
   <td class="export-props-desc-cell">${desc}</td>
 </tr>`;
     })
@@ -270,6 +297,7 @@ function buildPropertyDetailsTable(attached: EventPropertyWithDetails[]): string
           <th>Property</th>
           <th>Presence</th>
           <th>Type</th>
+          <th>Example</th>
           <th>Description</th>
         </tr>
       </thead>
@@ -570,7 +598,12 @@ export async function generateJourneyHtmlExport(
             const propsTable = buildPropertyDetailsTable((t as any).attached_properties || []);
             return `
         <div class="export-tracking-block">
-          <div class="export-tracking-title">Tracking: ${escapeHtml(t.eventName)} <span class="export-tracking-id">(${escapeHtml(t.eventId)})</span></div>
+          <div class="export-tracking-bar">
+            ${EXPORT_TRIGGER_ZAP_SVG}
+            <span class="export-tracking-type-label">Trigger</span>
+          </div>
+          <div class="export-tracking-body">
+          <div class="export-tracking-title">Event: ${escapeHtml(t.eventName)} <span class="export-tracking-id">(${escapeHtml(t.eventId)})</span></div>
           ${presence}
           ${propsTable}
           <div class="export-implementation-examples">
@@ -596,6 +629,7 @@ export async function generateJourneyHtmlExport(
                 <pre class="export-code"><code>${escapeHtml(snippets.bloomreachApi)}</code></pre>
               </div>
             </div>
+          </div>
           </div>
         </div>`;
           })
@@ -750,9 +784,9 @@ export async function generateJourneyHtmlExport(
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      color: #475569;
-      background: #f1f5f9;
-      border: 1px solid #e2e8f0;
+      color: #374151;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
       padding: 3px 8px;
       border-radius: 4px;
       flex-shrink: 0;
@@ -864,8 +898,41 @@ export async function generateJourneyHtmlExport(
     .export-meta { display: inline-block; margin-right: 16px; }
     .export-meta code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; }
     .export-block-code { display: block; white-space: pre-wrap; word-break: break-all; margin-top: 4px; }
-    .export-tracking-block { margin-top: 16px; padding: 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
-    .export-tracking-title { font-weight: 600; margin-bottom: 8px; color: #334155; font-size: 0.95rem; }
+    .export-tracking-block {
+      margin-top: 16px;
+      border: 2px solid #fbbf24;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .export-tracking-block:first-child { margin-top: 0; }
+    .export-tracking-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: #fffbeb;
+      border-bottom: 1px solid #fde68a;
+    }
+    .export-trigger-zap {
+      flex-shrink: 0;
+      color: #d97706;
+    }
+    .export-tracking-type-label {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: #78350f;
+      letter-spacing: 0.02em;
+    }
+    .export-tracking-body {
+      padding: 16px;
+      background: #fff;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .export-tracking-title { font-weight: 600; margin: 0 0 8px; color: #334155; font-size: 0.95rem; }
     .export-tracking-id { font-weight: 500; color: #64748b; font-size: 0.85em; }
     .export-presence-note { font-size: 0.8rem; color: #64748b; margin-bottom: 12px; }
     .export-implementation-examples { margin-top: 12px; }
@@ -916,11 +983,14 @@ export async function generateJourneyHtmlExport(
       word-break: break-word;
     }
     .export-props-table th:nth-child(1),
-    .export-props-table td:nth-child(1) { width: 18%; }
+    .export-props-table td:nth-child(1) { width: 14%; }
     .export-props-table th:nth-child(2),
-    .export-props-table td:nth-child(2) { width: 14%; }
+    .export-props-table td:nth-child(2) { width: 11%; }
     .export-props-table th:nth-child(3),
-    .export-props-table td:nth-child(3) { width: 18%; }
+    .export-props-table td:nth-child(3) { width: 13%; }
+    .export-props-table th:nth-child(4),
+    .export-props-table td:nth-child(4) { width: 18%; }
+    .export-props-table .export-props-example-cell { hyphens: auto; font-size: 0.82rem; color: #475569; }
     .export-props-table .export-props-desc-cell { hyphens: auto; }
     .export-props-table th { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; background: #f8fafc; }
     .export-props-table tr:last-child td { border-bottom: 0; }

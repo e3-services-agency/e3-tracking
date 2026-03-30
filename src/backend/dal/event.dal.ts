@@ -14,11 +14,30 @@ import type {
   EventPropertyPresence,
   PropertyDataFormat,
   PropertyNameMapping,
+  PropertyExampleValue,
 } from '../../types/schema';
 import { PROPERTY_DATA_FORMATS } from '../../types/schema';
 import { ConflictError, DatabaseError, NotFoundError } from '../errors';
 
 const UNIQUE_VIOLATION_CODE = '23505';
+
+function normalizePropertyExampleValues(
+  raw: unknown
+): PropertyExampleValue[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const out: PropertyExampleValue[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const o = item as Record<string, unknown>;
+    if (!('value' in o)) continue;
+    out.push({
+      value: o.value,
+      label: typeof o.label === 'string' ? o.label : undefined,
+      notes: typeof o.notes === 'string' ? o.notes : undefined,
+    });
+  }
+  return out.length > 0 ? out : null;
+}
 
 type EventDbRow = Omit<EventRow, 'categories' | 'tags' | 'triggers' | 'event_type'> & {
   event_type?: EventType | null;
@@ -577,6 +596,8 @@ export interface EventPropertyWithDetails extends EventPropertyRow {
   property_description?: string | null;
   property_data_type?: string | null;
   property_data_formats?: PropertyDataFormat[] | null;
+  /** From `properties.example_values_json` (catalog examples). */
+  property_example_values_json?: PropertyExampleValue[] | null;
 }
 
 /**
@@ -653,6 +674,7 @@ export async function getEventWithProperties(
                 PROPERTY_DATA_FORMATS.includes(value as PropertyDataFormat)
             ))
           : null,
+        example_values_json: p.example_values_json ?? null,
       },
     ])
   );
@@ -667,6 +689,9 @@ export async function getEventWithProperties(
         property_description: s?.description ?? null,
         property_data_type: s?.data_type ?? null,
         property_data_formats: s?.data_formats ?? null,
+        property_example_values_json: normalizePropertyExampleValues(
+          s?.example_values_json ?? null
+        ),
       };
     });
 

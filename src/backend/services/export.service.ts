@@ -61,69 +61,101 @@ function markdownToHtml(md: string): string {
   return html;
 }
 
+/** Inline markdown (bold, italic) after HTML escape — mirrors Journey preview semantics. */
+function journeyDescInlineMd(line: string): string {
+  let t = escapeHtml(line);
+  const boldHolders: string[] = [];
+  t = t.replace(/\*\*(.+?)\*\*/g, (_, inner) => {
+    boldHolders.push(`<strong>${inner}</strong>`);
+    return `\x7F${boldHolders.length - 1}\x7F`;
+  });
+  t = t.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+  t = t.replace(/\x7F(\d+)\x7F/g, (_, i) => boldHolders[Number(i)]);
+  t = t.replace(/(^|[\s])_([^_\n]+)_([\s]|$)/g, '$1<em>$2</em>$3');
+  return t;
+}
+
 /**
  * Markdown for journey step descriptions — aligned with frontend {@link JourneyDescriptionMarkdown}
- * (bold, italic, bullet/ordered lists, paragraphs / line breaks). Used in implementation brief / Docs iframe.
+ * (headings #–###, bold, italic, bullet/ordered lists, paragraphs / soft line breaks).
+ * Line-based parsing so headings and lists are not flattened into a single paragraph.
  */
 function renderJourneyDescriptionForExport(raw: string): string {
   const text = (raw || '').trim();
   if (!text) return '';
 
-  const inlineMd = (line: string): string => {
-    let t = escapeHtml(line);
-    const boldHolders: string[] = [];
-    t = t.replace(/\*\*(.+?)\*\*/g, (_, inner) => {
-      boldHolders.push(`<strong>${inner}</strong>`);
-      return `\x7F${boldHolders.length - 1}\x7F`;
-    });
-    t = t.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
-    t = t.replace(/\x7F(\d+)\x7F/g, (_, i) => boldHolders[Number(i)]);
-    t = t.replace(/(^|[\s])_([^_\n]+)_([\s]|$)/g, '$1<em>$2</em>$3');
-    return t;
+  const lines = text.split('\n');
+  const parts: string[] = [];
+  const paraBuf: string[] = [];
+
+  const flushPara = () => {
+    if (paraBuf.length === 0) return;
+    const inner = paraBuf.map((l) => journeyDescInlineMd(l)).join('<br>\n');
+    parts.push(`<p class="export-desc-p">${inner}</p>`);
+    paraBuf.length = 0;
   };
 
-  const blocks = text.split(/\n\n+/);
-  const parts: string[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
 
-  for (const blockRaw of blocks) {
-    const block = blockRaw.trim();
-    if (!block) continue;
-    const lines = block.split('\n');
-    const trimmedLines = lines.map((l) => l.trim()).filter(Boolean);
-    if (trimmedLines.length === 0) continue;
-
-    const allBullet = trimmedLines.every((l) => /^-\s+/.test(l));
-    if (allBullet) {
-      const items = lines
-        .filter((l) => l.trim())
-        .map((l) => {
-          const m = l.match(/^\s*-\s+(.*)$/);
-          const content = m ? m[1] : l.replace(/^\s*-\s+/, '');
-          return `<li>${inlineMd(content)}</li>`;
-        })
-        .join('');
-      parts.push(`<ul class="export-desc-ul">${items}</ul>`);
+    if (trimmed === '') {
+      flushPara();
+      i += 1;
       continue;
     }
 
-    const allOrdered = trimmedLines.every((l) => /^\d+\.\s+/.test(l));
-    if (allOrdered) {
-      const items = lines
-        .filter((l) => l.trim())
-        .map((l) => {
-          const m = l.trim().match(/^\d+\.\s+(.*)$/);
-          const content = m ? m[1] : l;
-          return `<li>${inlineMd(content)}</li>`;
-        })
-        .join('');
-      parts.push(`<ol class="export-desc-ol">${items}</ol>`);
+    const atx = trimmed.match(/^(#{1,3})\s+(.+)$/);
+    if (atx) {
+      flushPara();
+      const level = atx[1].length;
+      const body = atx[2].replace(/\s+#+\s*$/, '').trim();
+      const content = journeyDescInlineMd(body);
+      const tag = level === 1 ? 'h1' : level === 2 ? 'h2' : 'h3';
+      const cls = `export-desc-${tag}`;
+      parts.push(`<${tag} class="${cls}">${content}</${tag}>`);
+      i += 1;
       continue;
     }
 
-    const withBr = lines.map((l) => inlineMd(l)).join('<br>\n');
-    parts.push(`<p class="export-desc-p">${withBr}</p>`);
+    if (/^-\s+/.test(trimmed)) {
+      flushPara();
+      const items: string[] = [];
+      while (i < lines.length) {
+        const t = lines[i].trim();
+        if (t === '') break;
+        if (!/^-\s+/.test(t)) break;
+        const m = lines[i].match(/^\s*-\s+(.*)$/);
+        const content = m ? m[1] : lines[i].replace(/^\s*-\s+/, '');
+        items.push(`<li>${journeyDescInlineMd(content)}</li>`);
+        i += 1;
+      }
+      parts.push(`<ul class="export-desc-ul">${items.join('')}</ul>`);
+      continue;
+    }
+
+    if (/^\d+\.\s+/.test(trimmed)) {
+      flushPara();
+      const items: string[] = [];
+      while (i < lines.length) {
+        const t = lines[i].trim();
+        if (t === '') break;
+        if (!/^\d+\.\s+/.test(t)) break;
+        const m = lines[i].trim().match(/^\d+\.\s+(.*)$/);
+        const content = m ? m[1] : lines[i];
+        items.push(`<li>${journeyDescInlineMd(content)}</li>`);
+        i += 1;
+      }
+      parts.push(`<ol class="export-desc-ol">${items.join('')}</ol>`);
+      continue;
+    }
+
+    paraBuf.push(line);
+    i += 1;
   }
 
+  flushPara();
   return `<div class="export-step-desc-md">${parts.join('\n')}</div>`;
 }
 
@@ -217,7 +249,7 @@ function buildPropertyDetailsTable(attached: EventPropertyWithDetails[]): string
   <td><code class="export-inline-code">${escapeHtml(p.property_name || '')}</code></td>
   <td>${escapeHtml(presenceLabel((p as any).presence))}</td>
   <td>${typeLabel}</td>
-  <td>${desc}</td>
+  <td class="export-props-desc-cell">${desc}</td>
 </tr>`;
     })
     .join('');
@@ -578,8 +610,9 @@ export async function generateJourneyHtmlExport(
     }
     a { color: inherit; }
     .export-shell { max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
-    .export-layout { display: grid; grid-template-columns: 280px 1fr; gap: 16px; align-items: start; }
-    @media (max-width: 980px) { .export-layout { grid-template-columns: 1fr; } }
+    .export-layout { display: grid; grid-template-columns: minmax(0, 280px) minmax(0, 1fr); gap: 16px; align-items: start; }
+    @media (max-width: 980px) { .export-layout { grid-template-columns: minmax(0, 1fr); } }
+    .export-main { min-width: 0; max-width: 100%; }
     .export-header {
       background: #fff;
       border: 1px solid #e5e7eb;
@@ -686,6 +719,12 @@ export async function generateJourneyHtmlExport(
     .export-step-desc-md li { margin: 2px 0; }
     .export-step-desc-md strong { font-weight: 600; color: #374151; }
     .export-step-desc-md em { font-style: italic; }
+    .export-step-desc-md .export-desc-h1 { font-size: 1.25rem; font-weight: 700; color: #111; margin: 12px 0 8px; line-height: 1.3; }
+    .export-step-desc-md .export-desc-h2 { font-size: 1.1rem; font-weight: 700; color: #111; margin: 10px 0 6px; line-height: 1.3; }
+    .export-step-desc-md .export-desc-h3 { font-size: 1rem; font-weight: 600; color: #1f2937; margin: 8px 0 4px; line-height: 1.35; }
+    .export-step-desc-md .export-desc-h1:first-child,
+    .export-step-desc-md .export-desc-h2:first-child,
+    .export-step-desc-md .export-desc-h3:first-child { margin-top: 0; }
     .export-step-img-wrap { margin: 12px 0; border-radius: 6px; overflow: hidden; border: 1px solid #e5e7eb; }
     .export-step-img-wrap--rel { position: relative; }
     .export-step-img { display: block; max-width: 100%; height: auto; cursor: zoom-in; }
@@ -725,9 +764,35 @@ export async function generateJourneyHtmlExport(
 
     .export-props { margin-top: 12px; }
     .export-props-title { font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em; }
-    .export-props-wrap { overflow-x: auto; }
-    .export-props-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; }
-    .export-props-table th, .export-props-table td { text-align: left; padding: 10px 10px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+    .export-props-wrap { min-width: 0; max-width: 100%; }
+    .export-props-table {
+      table-layout: fixed;
+      width: 100%;
+      max-width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .export-props-table th,
+    .export-props-table td {
+      text-align: left;
+      padding: 10px 10px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: top;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .export-props-table th:nth-child(1),
+    .export-props-table td:nth-child(1) { width: 18%; }
+    .export-props-table th:nth-child(2),
+    .export-props-table td:nth-child(2) { width: 14%; }
+    .export-props-table th:nth-child(3),
+    .export-props-table td:nth-child(3) { width: 18%; }
+    .export-props-table .export-props-desc-cell { hyphens: auto; }
     .export-props-table th { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; background: #f8fafc; }
     .export-props-table tr:last-child td { border-bottom: 0; }
 
@@ -791,7 +856,7 @@ export async function generateJourneyHtmlExport(
   ${instructionsHtml ? `<section class="export-instructions"><h2>Testing instructions</h2>${instructionsHtml}</section>` : ''}
   <div class="export-layout">
     ${tocHtml}
-    <main>
+    <main class="export-main">
       <h2 style="margin: 0 0 16px; font-size: 1.25rem;">Steps &amp; tracking</h2>
       ${stepsHtml || '<p>No steps defined.</p>'}
     </main>

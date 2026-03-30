@@ -7,7 +7,7 @@ type JourneyDescriptionMarkdownProps = {
 };
 
 /**
- * Renders journey node description as Markdown (bold, italic, lists, paragraphs).
+ * Renders journey node description as Markdown (headings, bold, italic, lists, paragraphs).
  * No raw HTML — trusted app content only, no rehype-raw.
  */
 export function JourneyDescriptionMarkdown({
@@ -23,6 +23,15 @@ export function JourneyDescriptionMarkdown({
     >
       <ReactMarkdown
         components={{
+          h1: ({ children }) => (
+            <h1 className="text-xl font-bold text-gray-900 mt-3 mb-2 first:mt-0">{children}</h1>
+          ),
+          h2: ({ children }) => (
+            <h2 className="text-lg font-bold text-gray-900 mt-3 mb-2 first:mt-0">{children}</h2>
+          ),
+          h3: ({ children }) => (
+            <h3 className="text-base font-semibold text-gray-900 mt-2 mb-1 first:mt-0">{children}</h3>
+          ),
           p: ({ children }) => <p className="whitespace-pre-wrap break-words">{children}</p>,
           ul: ({ children }) => <ul className="list-disc pl-4 my-2 space-y-0.5">{children}</ul>,
           ol: ({ children }) => <ol className="list-decimal pl-4 my-2 space-y-0.5">{children}</ol>,

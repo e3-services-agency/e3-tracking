@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useStore, useActiveData } from '@/src/store';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
-import { Search, Plus, GitMerge, Trash2, Copy, Check } from 'lucide-react';
+import { Search, Plus, GitMerge, Trash2, Share2, Loader2 } from 'lucide-react';
 import {
   createJourneyApi,
   deleteJourneyApi,
@@ -12,6 +12,7 @@ import {
 } from '@/src/features/journeys/hooks/useJourneysApi';
 import { useJourneys } from '@/src/features/journeys/hooks/useJourneys';
 import { computeQARunStatusForRun } from '@/src/features/journeys/lib/qaRunUtils';
+import { buildAppPageUrl } from '@/src/config/env';
 
 interface JourneysListProps {
   onSelectJourney: (id: string) => void;
@@ -28,6 +29,9 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
   const [hubError, setHubError] = useState<string | null>(null);
   const [hubPatching, setHubPatching] = useState(false);
   const [hubCopyDone, setHubCopyDone] = useState(false);
+  const [hubMenuOpen, setHubMenuOpen] = useState(false);
+  const [hubLinkPanelOpen, setHubLinkPanelOpen] = useState(false);
+  const hubMenuRef = useRef<HTMLDivElement | null>(null);
   useJourneys();
 
   useEffect(() => {
@@ -48,6 +52,19 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
       cancelled = true;
     };
   }, [activeWorkspaceId]);
+
+  useEffect(() => {
+    if (!hubMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const el = hubMenuRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && !el.contains(e.target)) {
+        setHubMenuOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', onDown);
+    return () => window.removeEventListener('mousedown', onDown);
+  }, [hubMenuOpen]);
 
   const filteredJourneys = data.journeys.filter(j => 
     j.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -72,6 +89,7 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
     setHubPatching(false);
     if (!r.success) {
       setHubError('error' in r ? r.error : 'Update failed');
+      setHubLinkPanelOpen(false);
       return;
     }
     setHubEnabled(r.enabled);
@@ -79,9 +97,7 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
   };
 
   const hubUrl =
-    typeof window !== 'undefined' && hubToken
-      ? `${window.location.origin}/share/hub/${hubToken}`
-      : '';
+    hubToken && !hubLoading ? buildAppPageUrl(`share/hub/${hubToken}`) : '';
 
   const copyHubLink = async () => {
     if (!hubUrl) return;
@@ -96,58 +112,124 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-gray-50">
-      <div className="p-8 border-b bg-white">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Journeys</h1>
-            <p className="text-sm text-gray-500 mt-1">Manage and audit your tracking plan journeys.</p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-start shrink-0">
-            <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm max-w-md">
-              <div className="font-medium text-gray-900">Shared Journey Hub</div>
-              <p className="text-xs text-gray-500 mt-1">
-                One link for stakeholders to open a read-only list of journeys you have shared individually.
-              </p>
-              {hubLoading && <p className="text-xs text-gray-500 mt-2">Loading hub settings…</p>}
-              {hubError && !hubLoading && <p className="text-xs text-red-600 mt-2">{hubError}</p>}
-              {!hubLoading && (
-                <>
-                  <label className="flex items-center gap-2 mt-3 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      className="rounded border-gray-300"
-                      checked={hubEnabled}
-                      disabled={hubPatching}
-                      onChange={(e) => void handleHubToggle(e.target.checked)}
-                    />
-                    <span className="text-gray-800">Enable shared hub link</span>
-                  </label>
-                  {hubEnabled && hubToken && (
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5"
-                        onClick={() => void copyHubLink()}
-                        disabled={hubPatching}
-                      >
-                        {hubCopyDone ? (
-                          <Check className="w-4 h-4 text-emerald-600" />
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                        {hubCopyDone ? 'Copied' : 'Copy hub link'}
-                      </Button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-            <Button onClick={handleCreateNew} className="gap-2 self-start">
-              <Plus className="w-4 h-4" /> New Journey
+      <div className="p-8 border-b bg-white flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Journeys</h1>
+          <p className="text-sm text-gray-500 mt-1">Manage and audit your tracking plan journeys.</p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="relative">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => {
+                const next = !hubMenuOpen;
+                setHubMenuOpen(next);
+                setHubLinkPanelOpen(next ? Boolean(hubToken) : false);
+                setHubCopyDone(false);
+              }}
+            >
+              <Share2 className="w-4 h-4" /> Shared hub
             </Button>
+            {hubMenuOpen && (
+              <div
+                ref={hubMenuRef}
+                className="absolute right-0 top-full mt-2 w-64 bg-white border border-[var(--border-default)] rounded-md shadow-lg z-50 overflow-hidden"
+              >
+                {hubLoading ? (
+                  <div className="px-3 py-3 text-xs text-gray-500 flex items-center gap-2">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading…
+                  </div>
+                ) : (
+                  <>
+                    {hubError && (
+                      <div className="px-3 py-2 text-xs text-red-600 border-b border-[var(--border-default)]">
+                        {hubError}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      className="w-full px-3 py-2 text-sm text-left hover:bg-[var(--surface-default)] flex items-center justify-between gap-2"
+                      onClick={() => {
+                        if (hubToken) {
+                          setHubLinkPanelOpen((v) => !v);
+                        }
+                      }}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Share2 className="w-4 h-4" /> Shared hub link
+                        {hubPatching && (
+                          <span className="flex items-center gap-1 text-xs text-gray-500">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Updating…
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        className="shrink-0"
+                        aria-label="Toggle shared journey hub"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (hubPatching) return;
+                          void handleHubToggle(!hubEnabled);
+                          setHubLinkPanelOpen(!hubEnabled);
+                        }}
+                      >
+                        <div
+                          className={`w-10 h-5 rounded-full relative transition-colors ${
+                            hubEnabled ? 'bg-green-500' : 'bg-gray-200'
+                          } ${hubPatching ? 'opacity-60' : ''}`}
+                        >
+                          <div
+                            className={`w-5 h-5 bg-white rounded-full absolute top-0 shadow-sm transition-all ${
+                              hubEnabled ? 'right-0' : 'left-0 border border-gray-200'
+                            }`}
+                          />
+                        </div>
+                      </button>
+                    </button>
+
+                    {hubLinkPanelOpen && (
+                      <div className="px-3 py-3 bg-[var(--surface-default)] border-t border-[var(--border-default)]">
+                        <div className="mt-1 flex items-center gap-2">
+                          <input
+                            className="flex-1 h-9 px-2 text-xs rounded-md border border-gray-200 bg-white text-gray-700"
+                            value={hubToken ? hubUrl : ''}
+                            placeholder="Enable the hub to generate a link"
+                            readOnly
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!hubToken}
+                            onClick={() => void copyHubLink()}
+                          >
+                            {hubCopyDone ? 'Copied' : 'Copy'}
+                          </Button>
+                        </div>
+                        {!hubToken && (
+                          <div className="text-xs text-gray-600 mt-2">
+                            Enable public hub access to generate a shareable link listing all individually shared
+                            journeys.
+                          </div>
+                        )}
+                        {hubToken && (
+                          <div className="text-[11px] text-gray-500 mt-2">
+                            Opens a read-only list; each journey still uses its existing shared preview.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
+          <Button onClick={handleCreateNew} className="gap-2">
+            <Plus className="w-4 h-4" /> New Journey
+          </Button>
         </div>
       </div>
 

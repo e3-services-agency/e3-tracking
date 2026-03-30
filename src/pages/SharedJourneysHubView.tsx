@@ -8,6 +8,7 @@ import {
   getSharedJourneysHubListApi,
   type SharedJourneysHubRow,
 } from '@/src/features/journeys/hooks/useJourneysApi';
+import { buildAppPageUrl } from '@/src/config/env';
 
 function formatUpdated(iso: string): string {
   const d = new Date(iso);
@@ -47,8 +48,7 @@ export function SharedJourneysHubView({ token }: { token: string }) {
   }, [token]);
 
   const openJourney = (id: string) => {
-    const path = `/share/journey/${encodeURIComponent(id)}`;
-    window.location.href = path;
+    window.location.href = buildAppPageUrl(`share/journey/${encodeURIComponent(id)}`);
   };
 
   return (

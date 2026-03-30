@@ -35,7 +35,7 @@ import { JourneyStartQARunModal } from '@/src/features/journeys/overlays/Journey
 import { JourneyCanvas } from '@/src/features/journeys/editor/JourneyCanvas';
 import { useJourneys } from '@/src/features/journeys/hooks/useJourneys';
 import { fetchWithAuth } from '@/src/lib/api';
-import { API_BASE } from '@/src/config/env';
+import { API_BASE, buildAppPageUrl } from '@/src/config/env';
 import { computeQARunStatusForRun, formatQARunName, getQARunDisplayName } from '@/src/features/journeys/lib/qaRunUtils';
 
 export function Journeys({
@@ -276,12 +276,8 @@ export function Journeys({
     }
   };
 
-  const base =
-    (typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL) ||
-    '/tracking-plan/';
-
   const shareUrlById = selectedJourney
-    ? `${window.location.origin}${String(base).replace(/\/$/, '')}/share/journey/${selectedJourney.id}`
+    ? buildAppPageUrl(`share/journey/${selectedJourney.id}`)
     : '';
 
   const JourneyBriefPreview = ({ journeyId }: { journeyId: string }) => {

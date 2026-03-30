@@ -16,6 +16,21 @@ export const API_BASE =
     ? String(getEnv('VITE_API_BASE_URL')).replace(/\/$/, '')
     : (getEnv('BASE_URL') != null ? String(getEnv('BASE_URL')).replace(/\/$/, '') : '');
 
+/**
+ * Absolute URL for an in-app route (public share links, etc.).
+ * Uses Vite BASE_URL so sub-path deploys (e.g. /tracking-plan/) match router + static hosting.
+ */
+export function buildAppPageUrl(pathFromRoot: string): string {
+  if (typeof window === 'undefined') return '';
+  const rawBase =
+    getEnv('BASE_URL') != null && String(getEnv('BASE_URL')).trim() !== ''
+      ? String(getEnv('BASE_URL'))
+      : '/tracking-plan/';
+  const baseNoTrailing = String(rawBase).replace(/\/$/, '');
+  const path = pathFromRoot.startsWith('/') ? pathFromRoot : `/${pathFromRoot}`;
+  return `${window.location.origin}${baseNoTrailing}${path}`;
+}
+
 /** Supabase project URL (no trailing slash). Used for building public Storage URLs. */
 export const SUPABASE_URL =
   getEnv('VITE_SUPABASE_URL') != null

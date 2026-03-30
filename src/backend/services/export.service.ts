@@ -1000,7 +1000,8 @@ export async function generateJourneyHtmlExport(
       table-layout: auto;
       width: max-content;
       min-width: 100%;
-      border-collapse: collapse;
+      border-collapse: separate;
+      border-spacing: 0;
       font-size: 0.85rem;
       background: #fff;
     }
@@ -1012,26 +1013,83 @@ export async function generateJourneyHtmlExport(
       vertical-align: top;
       overflow-wrap: anywhere;
       word-break: break-word;
+      box-sizing: border-box;
     }
+    /* Sticky identity block: Property | Presence | Type (widths sum for left offsets) */
     .export-props-table th:nth-child(1),
-    .export-props-table td:nth-child(1) { min-width: 140px; }
+    .export-props-table td:nth-child(1) {
+      position: sticky;
+      left: 0;
+      z-index: 3;
+      width: 156px;
+      min-width: 156px;
+      max-width: 156px;
+      background: #fff;
+      box-shadow: 3px 0 6px -2px rgba(15, 23, 42, 0.12);
+    }
+    .export-props-table thead th:nth-child(1) {
+      z-index: 5;
+      background: #f8fafc;
+    }
     .export-props-table th:nth-child(2),
-    .export-props-table td:nth-child(2) { min-width: 108px; }
+    .export-props-table td:nth-child(2) {
+      position: sticky;
+      left: 156px;
+      z-index: 3;
+      width: 120px;
+      min-width: 120px;
+      max-width: 120px;
+      background: #fff;
+      box-shadow: 3px 0 6px -2px rgba(15, 23, 42, 0.12);
+    }
+    .export-props-table thead th:nth-child(2) {
+      z-index: 5;
+      background: #f8fafc;
+    }
     .export-props-table th:nth-child(3),
-    .export-props-table td:nth-child(3) { min-width: 120px; }
+    .export-props-table td:nth-child(3) {
+      position: sticky;
+      left: 276px;
+      z-index: 3;
+      width: 132px;
+      min-width: 132px;
+      max-width: 132px;
+      background: #fff;
+      box-shadow: 4px 0 10px -2px rgba(15, 23, 42, 0.14);
+    }
+    .export-props-table thead th:nth-child(3) {
+      z-index: 5;
+      background: #f8fafc;
+    }
     .export-props-table th:nth-child(4),
-    .export-props-table td:nth-child(4) { min-width: 88px; }
+    .export-props-table td:nth-child(4) {
+      min-width: 88px;
+      max-width: 104px;
+    }
     .export-props-table th:nth-child(5),
-    .export-props-table td:nth-child(5) { min-width: 160px; }
+    .export-props-table td:nth-child(5) {
+      min-width: 140px;
+      max-width: 200px;
+    }
     .export-props-table th:nth-child(6),
-    .export-props-table td:nth-child(6) { min-width: 220px; }
+    .export-props-table td:nth-child(6) {
+      min-width: 200px;
+      max-width: 300px;
+    }
     .export-props-req { font-weight: 600; font-size: 0.8rem; }
     .export-props-req--yes { color: #059669; }
     .export-props-req--no { color: #64748b; }
     .export-props-req--unset { color: #94a3b8; font-weight: 500; }
     .export-props-table .export-props-example-cell { hyphens: auto; font-size: 0.82rem; color: #475569; }
     .export-props-table .export-props-desc-cell { hyphens: auto; }
-    .export-props-table th { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; background: #f8fafc; white-space: nowrap; }
+    .export-props-table th {
+      font-size: 0.75rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      background: #f8fafc;
+      white-space: nowrap;
+    }
     .export-props-table tr:last-child td { border-bottom: 0; }
 
     .export-modal {

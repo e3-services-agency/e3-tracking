@@ -21,7 +21,7 @@ import {
   createWorkspaceSource,
   listWorkspaceSources,
 } from '@/src/features/events/lib/eventTriggerSourcesApi';
-import { describeAttachedTriggerRequirement } from '@/src/lib/effectiveEventSchema';
+import { isAttachedPropertyRequiredForTrigger } from '@/src/lib/effectiveEventSchema';
 import {
   EVENT_TYPES,
   type CreateEventInput,
@@ -39,12 +39,13 @@ import { EventVariantsApiSection } from '@/src/features/events/components/EventV
 import type { ApiError, EventWithPropertiesResponse } from '@/src/features/events/hooks/useEvents';
 import { useProperties } from '@/src/features/properties/hooks/useProperties';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
+import { useStore } from '@/src/store';
 import { Activity, AlertCircle, Layout, Plus, UserRound, X } from 'lucide-react';
 
 const PRESENCE_OPTIONS: { value: EventPropertyPresence; label: string }[] = [
-  { value: 'always_sent', label: 'Always sent' },
-  { value: 'sometimes_sent', label: 'Sometimes sent' },
-  { value: 'never_sent', label: 'Never sent' },
+  { value: 'always_sent', label: 'Always' },
+  { value: 'sometimes_sent', label: 'Sometimes' },
+  { value: 'never_sent', label: 'Never' },
 ];
 
 /** ~20% wider than legacy 520px; capped on narrow viewports. */
@@ -916,64 +917,93 @@ export function EventEditorSheet({
                         : expanded || !needsTruncate
                           ? descRaw
                           : `${descRaw.slice(0, ATTACHED_DESC_PREVIEW_CHARS)}…`;
-                    const triggerDisplay = describeAttachedTriggerRequirement(
+                    const definitionRequired = a.property_required_override === true;
+                    const requiredForTrigger = isAttachedPropertyRequiredForTrigger(
                       a.presence,
                       a.property_required_override
                     );
-                    const definitionRequired = a.property_required_override === true;
-                    const showSecondaryDetail =
-                      triggerDisplay.requiredForTrigger ||
-                      triggerDisplay.secondaryExplanation !== triggerDisplay.primaryLabel;
                     return (
-                      <li
-                        key={a.property_id}
-                        className="flex items-start justify-between gap-3 px-3 py-2"
-                      >
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <div className="font-mono text-xs font-medium text-gray-900 truncate">
-                            {a.property_name || a.property_id}
-                          </div>
-                          <div
-                            className={
-                              triggerDisplay.requiredForTrigger
-                                ? 'text-sm font-semibold text-amber-900'
-                                : 'text-sm font-semibold text-slate-600'
-                            }
-                          >
-                            {triggerDisplay.primaryLabel}
-                          </div>
-                          {showSecondaryDetail && (
-                            <p className="text-[11px] text-gray-500 leading-snug max-w-[20rem]">
-                              {triggerDisplay.secondaryExplanation}
+                      <li key={a.property_id} className="px-3 py-2 border-b border-gray-50 last:border-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="font-mono text-xs font-medium text-gray-900 truncate">
+                              {a.property_name || a.property_id}
+                            </div>
+                            <p className="text-[11px] text-gray-600">
+                              Trigger rule:{' '}
+                              <span
+                                className={
+                                  requiredForTrigger
+                                    ? 'font-semibold text-amber-900'
+                                    : 'font-medium text-slate-600'
+                                }
+                              >
+                                {requiredForTrigger ? 'required' : 'not required'}
+                              </span>
                             </p>
-                          )}
-                          <div className="text-[11px] text-gray-500">
-                            {meta?.data_type ?? '—'}
+                            <div className="text-[11px] text-gray-500">{meta?.data_type ?? '—'}</div>
+                            {descShown !== null && (
+                              <p className="text-[11px] text-gray-600 leading-snug break-words">
+                                {descShown}
+                              </p>
+                            )}
+                            {descRaw && needsTruncate && (
+                              <button
+                                type="button"
+                                className="text-[11px] font-medium text-[var(--brand-primary)] hover:underline"
+                                onClick={() =>
+                                  setAttachedDescExpandedId((id) =>
+                                    id === a.property_id ? null : a.property_id
+                                  )
+                                }
+                              >
+                                {expanded ? 'Show less' : 'Show more'}
+                              </button>
+                            )}
                           </div>
-                          {descShown !== null && (
-                            <p className="text-[11px] text-gray-600 leading-snug break-words">
-                              {descShown}
-                            </p>
-                          )}
-                          {descRaw && needsTruncate && (
+                          <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                            <span className="text-[10px] font-medium text-gray-500 whitespace-nowrap">
+                              Required
+                            </span>
                             <button
                               type="button"
-                              className="text-[11px] font-medium text-[var(--brand-primary)] hover:underline"
+                              className="shrink-0"
+                              title="Definition-level required (event_property_definitions.required). Separate from presence and effective trigger rule above."
+                              aria-label={`Definition required for ${a.property_name || a.property_id}`}
+                              aria-pressed={definitionRequired}
+                              disabled={
+                                removingPropertyId === a.property_id ||
+                                updatingRequirementPropertyId === a.property_id ||
+                                !hasValidWorkspaceContext
+                              }
                               onClick={() =>
-                                setAttachedDescExpandedId((id) =>
-                                  id === a.property_id ? null : a.property_id
+                                void handlePropertyRequirementOverrideChange(
+                                  a.property_id,
+                                  !definitionRequired
                                 )
                               }
                             >
-                              {expanded ? 'Show less' : 'Show more'}
+                              <div
+                                className={`w-9 h-5 rounded-full relative transition-colors ${
+                                  definitionRequired ? 'bg-green-500' : 'bg-gray-200'
+                                } ${
+                                  updatingRequirementPropertyId === a.property_id
+                                    ? 'opacity-60 pointer-events-none'
+                                    : ''
+                                }`}
+                              >
+                                <div
+                                  className={`w-4 h-4 bg-white rounded-full absolute top-0.5 shadow-sm transition-all ${
+                                    definitionRequired ? 'right-0.5' : 'left-0.5 border border-gray-200'
+                                  }`}
+                                />
+                              </div>
                             </button>
-                          )}
+                          </div>
                         </div>
-                        <div className="flex flex-col items-end gap-2 shrink-0 pt-0.5">
-                          <div className="flex flex-col items-end gap-1">
-                            <span className="text-[9px] font-medium uppercase tracking-wide text-gray-400">
-                              Presence
-                            </span>
+                        <div className="flex flex-wrap items-center justify-between gap-2 mt-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-medium text-gray-500">Presence</span>
                             <select
                               value={a.presence}
                               onChange={(e) =>
@@ -982,7 +1012,7 @@ export function EventEditorSheet({
                                   e.target.value as EventPropertyPresence
                                 )
                               }
-                              className="h-8 rounded-md border border-input bg-background px-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-w-[9.5rem]"
+                              className="h-7 rounded-md border border-input bg-background px-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-w-[8.5rem]"
                               disabled={
                                 removingPropertyId === a.property_id ||
                                 !hasValidWorkspaceContext
@@ -994,31 +1024,6 @@ export function EventEditorSheet({
                                   {o.label}
                                 </option>
                               ))}
-                            </select>
-                          </div>
-                          <div className="flex flex-col items-end gap-1">
-                            <span className="text-[9px] font-medium uppercase tracking-wide text-gray-400 max-w-[10rem] text-right leading-tight">
-                              Event definition (required flag)
-                            </span>
-                            <select
-                              value={definitionRequired ? 'required' : 'optional'}
-                              onChange={(e) =>
-                                handlePropertyRequirementOverrideChange(
-                                  a.property_id,
-                                  e.target.value === 'required'
-                                )
-                              }
-                              className="h-8 rounded-md border border-input bg-background px-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-w-[11rem]"
-                              disabled={
-                                removingPropertyId === a.property_id ||
-                                updatingRequirementPropertyId === a.property_id ||
-                                !hasValidWorkspaceContext
-                              }
-                              title="Stored on event_property_definitions.required — separate from presence and from “required for trigger” above"
-                              aria-label={`Event definition required flag for ${a.property_name || a.property_id}`}
-                            >
-                              <option value="required">Required on definition</option>
-                              <option value="optional">Not required on definition</option>
                             </select>
                           </div>
                           <Button

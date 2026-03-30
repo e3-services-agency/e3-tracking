@@ -24,9 +24,9 @@ type OverrideChoice =
 
 const PRESENCE_OPTIONS: { value: OverrideChoice; label: string }[] = [
   { value: 'inherit', label: 'Inherit from base' },
-  { value: 'always_sent', label: 'Always sent' },
-  { value: 'sometimes_sent', label: 'Sometimes sent' },
-  { value: 'never_sent', label: 'Never sent' },
+  { value: 'always_sent', label: 'Always' },
+  { value: 'sometimes_sent', label: 'Sometimes' },
+  { value: 'never_sent', label: 'Never' },
   { value: 'exclude', label: 'Exclude (not in trigger schema)' },
 ];
 

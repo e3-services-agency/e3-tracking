@@ -1,14 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore, useActiveData } from '@/src/store';
 import { Source } from '@/src/types';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { Search, Plus, Trash2 } from 'lucide-react';
+import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
+import { listWorkspaceSources } from '@/src/features/events/lib/eventTriggerSourcesApi';
 
 export function Sources() {
   const data = useActiveData();
-  const { addSource, updateSource, deleteSource } = useStore();
+  const { addSource, updateSource, deleteSource, syncSourcesFromApi } = useStore();
+  const { activeWorkspaceId, hasValidWorkspaceContext } = useWorkspaceShell();
+
+  useEffect(() => {
+    if (!hasValidWorkspaceContext || !activeWorkspaceId?.trim()) return;
+    void listWorkspaceSources(activeWorkspaceId).then((r) => {
+      if (r.success) syncSourcesFromApi(r.data);
+    });
+  }, [hasValidWorkspaceContext, activeWorkspaceId, syncSourcesFromApi]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);

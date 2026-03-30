@@ -9,9 +9,9 @@ import type { EventPropertyPresence, PropertyRow } from '@/src/types/schema';
 import { Loader2, Plus } from 'lucide-react';
 
 const PRESENCE_OPTIONS: { value: EventPropertyPresence; label: string }[] = [
-  { value: 'always_sent', label: 'Always sent' },
-  { value: 'sometimes_sent', label: 'Sometimes sent' },
-  { value: 'never_sent', label: 'Never sent' },
+  { value: 'always_sent', label: 'Always' },
+  { value: 'sometimes_sent', label: 'Sometimes' },
+  { value: 'never_sent', label: 'Never' },
 ];
 
 export interface EventAttachPropertyPickerProps {

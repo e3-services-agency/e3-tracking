@@ -341,43 +341,29 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
 
             {triggerPropertyRows && triggerPropertyRows.length > 0 && (
               <div className="mt-2 overflow-x-auto max-h-44 overflow-y-auto rounded border border-blue-100 bg-white/80">
-                <table className="w-full min-w-[240px] text-[10px] text-left border-collapse">
+                <table className="w-full min-w-[200px] text-[10px] text-left border-collapse">
                   <thead>
                     <tr className="text-gray-500 border-b border-blue-100 bg-blue-50/50">
                       <th className="px-2 py-1 font-medium">Property</th>
-                      <th className="px-2 py-1 font-medium whitespace-nowrap">For trigger</th>
-                      <th className="px-2 py-1 font-medium whitespace-nowrap">Why</th>
+                      <th className="px-2 py-1 font-medium whitespace-nowrap text-center">Required</th>
                     </tr>
                   </thead>
                   <tbody>
                     {triggerPropertyRows.map((row) => {
                       const { display: d } = row;
-                      const showSub =
-                        d.requiredForTrigger ||
-                        d.secondaryExplanation !== d.primaryLabel;
                       return (
                         <tr key={row.name} className="border-b border-blue-50 last:border-0">
                           <td className="px-2 py-1 font-mono text-gray-800 break-all align-top">
                             {row.name}
                           </td>
-                          <td className="px-2 py-1 align-top min-w-[7.5rem]">
-                            <div
-                              className={
-                                d.requiredForTrigger
-                                  ? 'text-[11px] font-semibold text-amber-900 leading-tight'
-                                  : 'text-[11px] font-semibold text-slate-600 leading-tight'
-                              }
-                            >
-                              {d.primaryLabel}
-                            </div>
-                            {showSub && (
-                              <div className="text-gray-500 mt-0.5 leading-snug max-w-[11rem]">
-                                {d.secondaryExplanation}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-2 py-1 text-gray-500 align-top whitespace-nowrap">
-                            {d.reasonNote}
+                          <td
+                            className={`px-2 py-1 align-top text-center font-mono whitespace-nowrap ${
+                              d.requiredForTrigger
+                                ? 'text-[11px] font-semibold text-amber-900'
+                                : 'text-[11px] font-semibold text-slate-600'
+                            }`}
+                          >
+                            {d.requiredForTrigger ? 'true' : 'false'}
                           </td>
                         </tr>
                       );

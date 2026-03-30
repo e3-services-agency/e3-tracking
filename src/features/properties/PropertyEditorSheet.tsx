@@ -28,6 +28,7 @@ import {
 } from '@/src/features/events/lib/eventTriggerSourcesApi';
 import { fetchPropertySourceIds } from '@/src/features/properties/lib/propertySourcesApi';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
+import { useStore } from '@/src/store';
 import {
   AlertCircle,
   Braces,
@@ -347,6 +348,7 @@ export function PropertyEditorSheet({
       return;
     }
     const created = result.data;
+    useStore.getState().upsertSourceFromApi(created);
     markLinkedSourcesUserTouched();
     setWorkspaceSources((prev) =>
       [...prev, created].sort((a, b) => a.name.localeCompare(b.name))

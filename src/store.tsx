@@ -9,7 +9,16 @@ import {
   PropertyBundle,
   Settings,
 } from './types';
+import type { SourceRow } from './types/schema';
 import { v4 as uuidv4 } from 'uuid';
+
+function sourceRowToSource(row: SourceRow): Source {
+  return {
+    id: row.id,
+    name: row.name,
+    color: row.color ?? undefined,
+  };
+}
 
 export interface AuditConfig {
   eventNaming: string;
@@ -68,6 +77,10 @@ interface StoreState {
   addSource: (source: Omit<Source, 'id'>) => void;
   updateSource: (id: string, source: Partial<Source>) => void;
   deleteSource: (id: string) => void;
+  /** Replace workspace sources from GET /api/sources (canonical list for Sources page). */
+  syncSourcesFromApi: (rows: SourceRow[]) => void;
+  /** Merge one API source row after POST /api/sources (e.g. inline create from side panels). */
+  upsertSourceFromApi: (row: SourceRow) => void;
 
   addJourney: (journey: Omit<Journey, 'id'>) => string;
   updateJourney: (id: string, journey: Partial<Journey>) => void;
@@ -271,6 +284,27 @@ export const useStore = create<StoreState>((set, get) => {
           sources: event.sources.filter((source) => source.id !== id),
         })),
       })),
+
+    syncSourcesFromApi: (rows) =>
+      updateActiveData((data) => ({
+        ...data,
+        sources: rows.map(sourceRowToSource),
+      })),
+
+    upsertSourceFromApi: (row) =>
+      updateActiveData((data) => {
+        const mapped = sourceRowToSource(row);
+        const idx = data.sources.findIndex((s) => s.id === mapped.id);
+        if (idx >= 0) {
+          const next = [...data.sources];
+          next[idx] = { ...next[idx], ...mapped };
+          return { ...data, sources: next };
+        }
+        return {
+          ...data,
+          sources: [...data.sources, mapped].sort((a, b) => a.name.localeCompare(b.name)),
+        };
+      }),
 
     addJourney: (journey) => {
       const id = uuidv4();

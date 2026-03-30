@@ -1,7 +1,8 @@
 /**
  * Centralized env for frontend. Use for API base and base path so sub-path deployment works.
  * - If VITE_API_BASE_URL is set (e.g. cross-origin API), use it.
- * - Otherwise use '' so requests are same-origin `/api/...` (Express mounts at `/api`, not under Vite BASE_URL).
+ * - Otherwise use import.meta.env.BASE_URL (e.g. /tracking-plan) so same-origin API calls match
+ *   deployments where the API is reached as `{BASE}/api/...` (no trailing slash on BASE).
  */
 function getEnv(name: string): string | undefined {
   if (typeof import.meta === 'undefined') return undefined;
@@ -10,11 +11,13 @@ function getEnv(name: string): string | undefined {
   return v != null && v !== '' ? String(v).trim() : undefined;
 }
 
-/** Base URL for API requests (no trailing slash). Same-origin when unset → '' → `/api/...` from site root. */
+/** Base URL for API requests (no trailing slash). Same-origin when unset → Vite BASE_URL (sub-path deploy). */
 export const API_BASE =
   getEnv('VITE_API_BASE_URL') != null
     ? String(getEnv('VITE_API_BASE_URL')).replace(/\/$/, '')
-    : '';
+    : getEnv('BASE_URL') != null
+      ? String(getEnv('BASE_URL')).replace(/\/$/, '')
+      : '';
 
 /**
  * Absolute URL for an in-app route (public share links, etc.).

@@ -14,6 +14,29 @@ import { buildCodegenSnippetsFromPresence } from './codegen.service';
 /** Lucide-style Zap — matches Journey trigger node header icon treatment in export CSS. */
 const EXPORT_TRIGGER_ZAP_SVG = `<svg class="export-trigger-zap" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>`;
 
+function requiredCellForExport(override: boolean | null | undefined): string {
+  if (override === true) {
+    return '<span class="export-props-req export-props-req--yes">Yes</span>';
+  }
+  if (override === false) {
+    return '<span class="export-props-req export-props-req--no">No</span>';
+  }
+  return '<span class="export-props-req export-props-req--unset" title="Not set in event property definitions">—</span>';
+}
+
+function sortPropertyRowsForExport(
+  rows: EventPropertyWithDetails[],
+): EventPropertyWithDetails[] {
+  const indexed = rows.map((r, i) => ({ r, i }));
+  indexed.sort((a, b) => {
+    const ar = a.r.property_required_override === true ? 0 : 1;
+    const br = b.r.property_required_override === true ? 0 : 1;
+    if (ar !== br) return ar - br;
+    return a.i - b.i;
+  });
+  return indexed.map(({ r }) => r);
+}
+
 function formatPropertyExamplesForExportHtml(
   examples: PropertyExampleValue[] | null | undefined,
 ): string {
@@ -270,7 +293,8 @@ function presenceLabel(presence: string | undefined): string {
 
 function buildPropertyDetailsTable(attached: EventPropertyWithDetails[]): string {
   if (!attached || attached.length === 0) return '';
-  const rows = attached
+  const sorted = sortPropertyRowsForExport(attached);
+  const rows = sorted
     .map((p) => {
       const dtype = p.property_data_type ? String(p.property_data_type) : '—';
       const fmt = Array.isArray(p.property_data_formats) ? p.property_data_formats.join(', ') : '';
@@ -279,10 +303,12 @@ function buildPropertyDetailsTable(attached: EventPropertyWithDetails[]): string
       const exampleCell = formatPropertyExamplesForExportHtml(
         p.property_example_values_json ?? null
       );
+      const reqCell = requiredCellForExport(p.property_required_override);
       return `<tr>
   <td><code class="export-inline-code">${escapeHtml(p.property_name || '')}</code></td>
   <td>${escapeHtml(presenceLabel((p as any).presence))}</td>
   <td>${typeLabel}</td>
+  <td class="export-props-req-cell">${reqCell}</td>
   <td class="export-props-example-cell">${exampleCell}</td>
   <td class="export-props-desc-cell">${desc}</td>
 </tr>`;
@@ -297,6 +323,7 @@ function buildPropertyDetailsTable(attached: EventPropertyWithDetails[]): string
           <th>Property</th>
           <th>Presence</th>
           <th>Type</th>
+          <th>Required</th>
           <th>Example</th>
           <th>Description</th>
         </tr>
@@ -960,39 +987,51 @@ export async function generateJourneyHtmlExport(
 
     .export-props { margin-top: 12px; }
     .export-props-title { font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em; }
-    .export-props-wrap { min-width: 0; max-width: 100%; }
-    .export-props-table {
-      table-layout: fixed;
-      width: 100%;
+    .export-props-wrap {
+      min-width: 0;
       max-width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+    }
+    .export-props-table {
+      table-layout: auto;
+      width: max-content;
+      min-width: 100%;
       border-collapse: collapse;
       font-size: 0.85rem;
       background: #fff;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      overflow: hidden;
     }
     .export-props-table th,
     .export-props-table td {
       text-align: left;
-      padding: 10px 10px;
+      padding: 10px 12px;
       border-bottom: 1px solid #e2e8f0;
       vertical-align: top;
-      min-width: 0;
       overflow-wrap: anywhere;
       word-break: break-word;
     }
     .export-props-table th:nth-child(1),
-    .export-props-table td:nth-child(1) { width: 14%; }
+    .export-props-table td:nth-child(1) { min-width: 140px; }
     .export-props-table th:nth-child(2),
-    .export-props-table td:nth-child(2) { width: 11%; }
+    .export-props-table td:nth-child(2) { min-width: 108px; }
     .export-props-table th:nth-child(3),
-    .export-props-table td:nth-child(3) { width: 13%; }
+    .export-props-table td:nth-child(3) { min-width: 120px; }
     .export-props-table th:nth-child(4),
-    .export-props-table td:nth-child(4) { width: 18%; }
+    .export-props-table td:nth-child(4) { min-width: 88px; }
+    .export-props-table th:nth-child(5),
+    .export-props-table td:nth-child(5) { min-width: 160px; }
+    .export-props-table th:nth-child(6),
+    .export-props-table td:nth-child(6) { min-width: 220px; }
+    .export-props-req { font-weight: 600; font-size: 0.8rem; }
+    .export-props-req--yes { color: #059669; }
+    .export-props-req--no { color: #64748b; }
+    .export-props-req--unset { color: #94a3b8; font-weight: 500; }
     .export-props-table .export-props-example-cell { hyphens: auto; font-size: 0.82rem; color: #475569; }
     .export-props-table .export-props-desc-cell { hyphens: auto; }
-    .export-props-table th { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; background: #f8fafc; }
+    .export-props-table th { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.03em; background: #f8fafc; white-space: nowrap; }
     .export-props-table tr:last-child td { border-bottom: 0; }
 
     .export-modal {

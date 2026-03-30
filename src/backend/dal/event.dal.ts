@@ -598,6 +598,11 @@ export interface EventPropertyWithDetails extends EventPropertyRow {
   property_data_formats?: PropertyDataFormat[] | null;
   /** From `properties.example_values_json` (catalog examples). */
   property_example_values_json?: PropertyExampleValue[] | null;
+  /**
+   * From `event_property_definitions.required` when a row exists for this (event, property).
+   * `null` means no override row or `required` unset — not the same as "optional".
+   */
+  property_required_override?: boolean | null;
 }
 
 /**
@@ -646,9 +651,33 @@ export async function getEventWithProperties(
 
   const propertyIds = [...new Set(rows.map((r) => r.property_id))];
 
+  const { data: defRows, error: defError } = await supabase
+    .from('event_property_definitions')
+    .select('property_id, required')
+    .eq('workspace_id', workspaceId)
+    .eq('event_id', eventId)
+    .in('property_id', propertyIds);
+
+  if (defError) {
+    throw new DatabaseError(
+      `Failed to fetch event property definitions: ${defError.message}`,
+      defError
+    );
+  }
+
+  const requiredByPropertyId = new Map<string, boolean | null>();
+  for (const raw of defRows ?? []) {
+    const d = raw as { property_id: string; required: unknown };
+    const req = d.required;
+    requiredByPropertyId.set(
+      d.property_id,
+      typeof req === 'boolean' ? req : null
+    );
+  }
+
   const { data: props, error: propsError } = await supabase
     .from('properties')
-    .select('id, name, description, data_type, data_formats_json')
+    .select('id, name, description, data_type, data_formats_json, example_values_json')
     .in('id', propertyIds)
     .eq('workspace_id', workspaceId)
     .is('deleted_at', null);
@@ -692,6 +721,8 @@ export async function getEventWithProperties(
         property_example_values_json: normalizePropertyExampleValues(
           s?.example_values_json ?? null
         ),
+        property_required_override:
+          requiredByPropertyId.get(r.property_id) ?? null,
       };
     });
 

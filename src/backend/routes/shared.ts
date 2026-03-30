@@ -5,7 +5,8 @@
  * Example: import sharedRouter from './routes/shared.js';
  */
 import { Router, type Request, type Response } from 'express';
-import { getJourneyByShareId, getJourneyByShareToken } from '../dal/journey.dal';
+import { getJourneyByShareId, getJourneyByShareToken, listJourneysForShareHub } from '../dal/journey.dal';
+import { getWorkspaceIdByJourneysShareHubToken } from '../dal/workspace.dal';
 import { getEventWithProperties } from '../dal/event.dal';
 import { DatabaseError, NotFoundError } from '../errors';
 import { buildCodegenSnippets } from '../services/codegen.service';
@@ -83,6 +84,49 @@ async function buildSharedEventSnippets(
   }
   return out;
 }
+
+/**
+ * GET /api/shared/journeys-hub/:token
+ * Lists journeys in the workspace that have individual sharing enabled (share_token set).
+ * Hub access requires workspace_settings.journeys_share_hub_token to match.
+ */
+router.get(
+  '/journeys-hub/:token',
+  async (req: Request, res: Response): Promise<void> => {
+    const token = req.params.token;
+    if (!token || typeof token !== 'string') {
+      res.status(400).json({
+        error: 'Hub token is required.',
+        code: 'TOKEN_REQUIRED',
+      });
+      return;
+    }
+    try {
+      const workspaceId = await getWorkspaceIdByJourneysShareHubToken(token.trim());
+      if (!workspaceId) {
+        res.status(404).json({
+          error: 'Invalid or disabled shared hub link.',
+          code: 'NOT_FOUND',
+        });
+        return;
+      }
+      const journeys = await listJourneysForShareHub(workspaceId);
+      res.status(200).json({ journeys });
+    } catch (err) {
+      if (err instanceof DatabaseError) {
+        res.status(500).json({
+          error: 'Failed to load shared journeys hub.',
+          code: err.code,
+        });
+        return;
+      }
+      res.status(500).json({
+        error: 'An unexpected error occurred.',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+);
 
 /**
  * GET /api/shared/journeys/:token

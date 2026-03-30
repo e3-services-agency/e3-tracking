@@ -12,6 +12,7 @@ import { Layout } from './components/layout/Layout';
 import { Login } from './pages/Login';
 import { SharedJourneyView } from './pages/SharedJourneyView';
 import { SharedJourneyBriefView } from './pages/SharedJourneyBriefView';
+import { SharedJourneysHubView } from './pages/SharedJourneysHubView';
 
 function AppContent() {
   const [pathname, setPathname] = useState(
@@ -27,6 +28,11 @@ function AppContent() {
   const shareBriefMatch = pathname.match(/\/share\/journey\/([^/]+)\/brief$/);
   if (shareBriefMatch) {
     return <SharedJourneyBriefView journeyId={shareBriefMatch[1]} />;
+  }
+
+  const shareHubMatch = pathname.match(/\/share\/hub\/([^/]+)$/);
+  if (shareHubMatch) {
+    return <SharedJourneysHubView token={shareHubMatch[1]} />;
   }
 
   const shareByIdMatch = pathname.match(/\/share\/journey\/([^/]+)$/);

@@ -189,6 +189,8 @@ export interface WorkspaceSettingsRow {
   client_primary_color: string | null;
   client_name: string | null;
   client_logo_url: string | null;
+  /** Public hub token; null = stakeholder hub link disabled. */
+  journeys_share_hub_token: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -68,9 +68,84 @@ export async function getWorkspaceSettings(
     client_primary_color: (row.client_primary_color as string | null) ?? null,
     client_name: (row.client_name as string | null) ?? null,
     client_logo_url: (row.client_logo_url as string | null) ?? null,
+    journeys_share_hub_token:
+      (row.journeys_share_hub_token as string | null | undefined) ?? null,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
   };
+}
+
+/** Public hub link: resolve workspace from token (workspace_settings.journeys_share_hub_token). */
+export async function getWorkspaceIdByJourneysShareHubToken(
+  rawToken: string
+): Promise<string | null> {
+  const token = typeof rawToken === 'string' ? rawToken.trim() : '';
+  if (!token) return null;
+  const supabase = getSupabaseOrThrow();
+  const { data, error } = await supabase
+    .from('workspace_settings')
+    .select('workspace_id')
+    .eq('journeys_share_hub_token', token)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to resolve hub token: ${error.message}`);
+  }
+  if (data === null) return null;
+  return (data as { workspace_id: string }).workspace_id;
+}
+
+export async function getJourneysShareHubToken(workspaceId: string): Promise<string | null> {
+  const s = await getWorkspaceSettings(workspaceId);
+  return s?.journeys_share_hub_token ?? null;
+}
+
+export async function setJourneysShareHubToken(
+  workspaceId: string,
+  token: string | null
+): Promise<void> {
+  const supabase = getSupabaseOrThrow();
+  const now = new Date().toISOString();
+  const { data: existing, error: fetchErr } = await supabase
+    .from('workspace_settings')
+    .select('workspace_id')
+    .eq('workspace_id', workspaceId)
+    .maybeSingle();
+
+  if (fetchErr) {
+    throw new Error(`Failed to read workspace settings: ${fetchErr.message}`);
+  }
+
+  if (!existing) {
+    const { error } = await supabase.from('workspace_settings').insert({
+      workspace_id: workspaceId,
+      audit_rules_json: '{}',
+      journeys_share_hub_token: token,
+      created_at: now,
+      updated_at: now,
+    });
+    if (error) {
+      throw new Error(`Failed to create workspace settings for hub: ${error.message}`);
+    }
+    return;
+  }
+
+  const { error } = await supabase
+    .from('workspace_settings')
+    .update({ journeys_share_hub_token: token, updated_at: now })
+    .eq('workspace_id', workspaceId);
+  if (error) {
+    throw new Error(`Failed to update hub token: ${error.message}`);
+  }
+}
+
+export async function ensureJourneysShareHubToken(workspaceId: string): Promise<string> {
+  const current = await getJourneysShareHubToken(workspaceId);
+  if (current) return current;
+  const { randomUUID } = await import('node:crypto');
+  const token = randomUUID();
+  await setJourneysShareHubToken(workspaceId, token);
+  return token;
 }
 
 export async function updateWorkspace(

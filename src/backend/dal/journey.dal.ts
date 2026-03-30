@@ -529,3 +529,29 @@ export async function countJourneysUsingEventVariant(
   }
   return count;
 }
+
+/**
+ * Journeys visible on the stakeholder hub: same workspace, individually shared (share_token set).
+ */
+export async function listJourneysForShareHub(workspaceId: string): Promise<
+  { id: string; name: string; description: string | null; updated_at: string }[]
+> {
+  const supabase = getSupabaseOrThrow();
+  const { data, error } = await supabase
+    .from('journeys')
+    .select('id, name, description, updated_at')
+    .eq('workspace_id', workspaceId)
+    .not('share_token', 'is', null)
+    .is('deleted_at', null)
+    .order('updated_at', { ascending: false });
+
+  if (error) {
+    throw new DatabaseError(`Failed to list shared journeys for hub: ${error.message}`, error);
+  }
+  return (data ?? []) as {
+    id: string;
+    name: string;
+    description: string | null;
+    updated_at: string;
+  }[];
+}

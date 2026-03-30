@@ -342,6 +342,113 @@ export async function getSharedJourneyByIdApi(
 /**
  * Fetch shared journey by token (public). GET /api/shared/journeys/:token.
  */
+export interface SharedJourneysHubRow {
+  id: string;
+  name: string;
+  description: string | null;
+  updated_at: string;
+}
+
+/**
+ * Workspace Shared Journey Hub settings. GET /api/journeys/share-hub.
+ */
+export async function getJourneysShareHubSettingsApi(
+  workspaceId: string
+): Promise<
+  | { success: true; enabled: boolean; token: string | null }
+  | { success: false; error: string }
+> {
+  try {
+    const res = await fetchWithAuth(`${API_BASE}/api/journeys/share-hub`, {
+      headers: { 'x-workspace-id': workspaceId },
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        error: typeof body?.error === 'string' ? body.error : res.statusText || 'Failed to load hub settings',
+      };
+    }
+    const data = await res.json();
+    return {
+      success: true,
+      enabled: Boolean(data?.enabled),
+      token: typeof data?.token === 'string' ? data.token : null,
+    };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'Network error',
+    };
+  }
+}
+
+/**
+ * Enable or disable the Shared Journey Hub. PATCH /api/journeys/share-hub.
+ */
+export async function setJourneysShareHubEnabledApi(
+  workspaceId: string,
+  enabled: boolean
+): Promise<
+  | { success: true; enabled: boolean; token: string | null }
+  | { success: false; error: string }
+> {
+  try {
+    const res = await fetchWithAuth(`${API_BASE}/api/journeys/share-hub`, {
+      method: 'PATCH',
+      headers: { 'x-workspace-id': workspaceId, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        error: typeof body?.error === 'string' ? body.error : res.statusText || 'Failed to update hub',
+      };
+    }
+    const data = await res.json();
+    return {
+      success: true,
+      enabled: Boolean(data?.enabled),
+      token: typeof data?.token === 'string' ? data.token : null,
+    };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'Network error',
+    };
+  }
+}
+
+/**
+ * Public list of shared journeys for the hub. GET /api/shared/journeys-hub/:token.
+ */
+export async function getSharedJourneysHubListApi(
+  token: string
+): Promise<
+  | { success: true; journeys: SharedJourneysHubRow[] }
+  | { success: false; error: string }
+> {
+  try {
+    const res = await fetch(`${API_BASE}/api/shared/journeys-hub/${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        error: typeof body?.error === 'string' ? body.error : res.statusText || 'Failed to load hub',
+      };
+    }
+    const data = await res.json();
+    const journeys = Array.isArray(data?.journeys) ? data.journeys : [];
+    return { success: true, journeys };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'Network error',
+    };
+  }
+}
+
 export async function getSharedJourneyByTokenApi(
   token: string
 ): Promise<

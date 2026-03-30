@@ -1,9 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useStore, useActiveData } from '@/src/store';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
-import { Search, Plus, GitMerge, Trash2 } from 'lucide-react';
-import { createJourneyApi, deleteJourneyApi, useActiveWorkspaceId } from '@/src/features/journeys/hooks/useJourneysApi';
+import { Search, Plus, GitMerge, Trash2, Copy, Check } from 'lucide-react';
+import {
+  createJourneyApi,
+  deleteJourneyApi,
+  getJourneysShareHubSettingsApi,
+  setJourneysShareHubEnabledApi,
+  useActiveWorkspaceId,
+} from '@/src/features/journeys/hooks/useJourneysApi';
 import { useJourneys } from '@/src/features/journeys/hooks/useJourneys';
 import { computeQARunStatusForRun } from '@/src/features/journeys/lib/qaRunUtils';
 
@@ -16,7 +22,32 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
   const { addJourney, deleteJourney } = useStore();
   const [searchQuery, setSearchQuery] = useState('');
   const activeWorkspaceId = useActiveWorkspaceId();
+  const [hubLoading, setHubLoading] = useState(true);
+  const [hubEnabled, setHubEnabled] = useState(false);
+  const [hubToken, setHubToken] = useState<string | null>(null);
+  const [hubError, setHubError] = useState<string | null>(null);
+  const [hubPatching, setHubPatching] = useState(false);
+  const [hubCopyDone, setHubCopyDone] = useState(false);
   useJourneys();
+
+  useEffect(() => {
+    let cancelled = false;
+    setHubLoading(true);
+    setHubError(null);
+    getJourneysShareHubSettingsApi(activeWorkspaceId).then((r) => {
+      if (cancelled) return;
+      setHubLoading(false);
+      if (r.success) {
+        setHubEnabled(r.enabled);
+        setHubToken(r.token);
+      } else {
+        setHubError('error' in r ? r.error : 'Failed to load hub settings');
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeWorkspaceId]);
 
   const filteredJourneys = data.journeys.filter(j => 
     j.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -34,16 +65,90 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
     onSelectJourney(newId);
   };
 
+  const handleHubToggle = async (enabled: boolean) => {
+    setHubPatching(true);
+    setHubError(null);
+    const r = await setJourneysShareHubEnabledApi(activeWorkspaceId, enabled);
+    setHubPatching(false);
+    if (!r.success) {
+      setHubError('error' in r ? r.error : 'Update failed');
+      return;
+    }
+    setHubEnabled(r.enabled);
+    setHubToken(r.token ?? null);
+  };
+
+  const hubUrl =
+    typeof window !== 'undefined' && hubToken
+      ? `${window.location.origin}/share/hub/${hubToken}`
+      : '';
+
+  const copyHubLink = async () => {
+    if (!hubUrl) return;
+    try {
+      await navigator.clipboard.writeText(hubUrl);
+      setHubCopyDone(true);
+      window.setTimeout(() => setHubCopyDone(false), 2000);
+    } catch {
+      setHubError('Could not copy to clipboard.');
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full bg-gray-50">
-      <div className="p-8 border-b bg-white flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Journeys</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage and audit your tracking plan journeys.</p>
+      <div className="p-8 border-b bg-white">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Journeys</h1>
+            <p className="text-sm text-gray-500 mt-1">Manage and audit your tracking plan journeys.</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-start shrink-0">
+            <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm max-w-md">
+              <div className="font-medium text-gray-900">Shared Journey Hub</div>
+              <p className="text-xs text-gray-500 mt-1">
+                One link for stakeholders to open a read-only list of journeys you have shared individually.
+              </p>
+              {hubLoading && <p className="text-xs text-gray-500 mt-2">Loading hub settings…</p>}
+              {hubError && !hubLoading && <p className="text-xs text-red-600 mt-2">{hubError}</p>}
+              {!hubLoading && (
+                <>
+                  <label className="flex items-center gap-2 mt-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300"
+                      checked={hubEnabled}
+                      disabled={hubPatching}
+                      onChange={(e) => void handleHubToggle(e.target.checked)}
+                    />
+                    <span className="text-gray-800">Enable shared hub link</span>
+                  </label>
+                  {hubEnabled && hubToken && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => void copyHubLink()}
+                        disabled={hubPatching}
+                      >
+                        {hubCopyDone ? (
+                          <Check className="w-4 h-4 text-emerald-600" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                        {hubCopyDone ? 'Copied' : 'Copy hub link'}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            <Button onClick={handleCreateNew} className="gap-2 self-start">
+              <Plus className="w-4 h-4" /> New Journey
+            </Button>
+          </div>
         </div>
-        <Button onClick={handleCreateNew} className="gap-2">
-          <Plus className="w-4 h-4" /> New Journey
-        </Button>
       </div>
 
       <div className="p-8 flex-1 overflow-hidden flex flex-col">
@@ -148,7 +253,7 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
                         if (!ok) return;
                         const result = await deleteJourneyApi(journey.id, activeWorkspaceId);
                         if (!result.success) {
-                          alert(result.error ?? 'Delete failed');
+                          alert(('error' in result ? result.error : null) ?? 'Delete failed');
                           return;
                         }
                         deleteJourney(journey.id);

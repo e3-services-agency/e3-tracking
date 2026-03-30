@@ -10,6 +10,7 @@ import multer from 'multer';
 import { requireWorkspace } from '../middleware/workspace';
 import { requireAuth } from '../middleware/auth';
 import * as JourneyDAL from '../dal/journey.dal';
+import * as WorkspaceDAL from '../dal/workspace.dal';
 import { getTriggerRequiredPayloadKeysForEvent } from '../lib/triggerRequiredPayloadKeys';
 import { getJourneyQARunsCountAndLatest, getJourneyQARuns, upsertJourneyQARuns } from '../dal/qa.dal';
 import { generateJourneyHtmlExport } from '../services/export.service';
@@ -119,6 +120,64 @@ router.get('/', requireWorkspace, async (req: Request, res: Response): Promise<v
     }
     res.status(500).json({
       error: 'An unexpected error occurred.',
+      code: 'INTERNAL_ERROR',
+    });
+  }
+});
+
+/**
+ * GET /api/journeys/share-hub
+ * Stakeholder hub: returns whether the workspace hub link is enabled and the token (if any).
+ */
+router.get('/share-hub', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
+  const workspaceId = req.workspaceId;
+  if (!workspaceId) {
+    res.status(403).json({
+      error: 'Workspace context required.',
+      code: 'WORKSPACE_REQUIRED',
+    });
+    return;
+  }
+  try {
+    const token = await WorkspaceDAL.getJourneysShareHubToken(workspaceId);
+    const enabled = typeof token === 'string' && token.length > 0;
+    res.status(200).json({ enabled, token: enabled ? token : null });
+  } catch (err) {
+    console.error('[journeys/share-hub GET]', err);
+    res.status(500).json({
+      error: 'Failed to load share hub settings.',
+      code: 'INTERNAL_ERROR',
+    });
+  }
+});
+
+/**
+ * PATCH /api/journeys/share-hub
+ * Body: { enabled: boolean }. Enables generates a stable hub token; disable clears it.
+ */
+router.patch('/share-hub', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
+  const workspaceId = req.workspaceId;
+  if (!workspaceId) {
+    res.status(403).json({
+      error: 'Workspace context required.',
+      code: 'WORKSPACE_REQUIRED',
+    });
+    return;
+  }
+  const body = req.body as { enabled?: unknown };
+  const enabled = body.enabled === true;
+  try {
+    if (enabled) {
+      const token = await WorkspaceDAL.ensureJourneysShareHubToken(workspaceId);
+      res.status(200).json({ enabled: true, token });
+      return;
+    }
+    await WorkspaceDAL.setJourneysShareHubToken(workspaceId, null);
+    res.status(200).json({ enabled: false });
+  } catch (err) {
+    console.error('[journeys/share-hub PATCH]', err);
+    res.status(500).json({
+      error: 'Failed to update share hub settings.',
       code: 'INTERNAL_ERROR',
     });
   }

@@ -62,6 +62,13 @@ export type EventType = 'track' | 'page' | 'identify';
 
 export const EVENT_TYPES: EventType[] = ['track', 'page', 'identify'];
 
+/** Codegen output-only event name overrides per method (canonical `events.name` unchanged). */
+export type CodegenEventNameOverrides = {
+  dataLayer?: string | null;
+  bloomreachSdk?: string | null;
+  bloomreachApi?: string | null;
+};
+
 export type MetricAggregationType = 'count' | 'sum' | 'avg';
 
 export const METRIC_AGGREGATION_TYPES: MetricAggregationType[] = [
@@ -273,6 +280,8 @@ export interface EventRow {
    * Stored durably in the backend.
    */
   triggers: EventTriggerEntry[] | null;
+  /** Codegen snippet output names per method; does not change canonical `name`. */
+  codegen_event_name_overrides: CodegenEventNameOverrides | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -297,6 +306,7 @@ export interface CreateEventInput {
   tags?: string[] | null;
   triggers?: EventTriggerEntry[] | null;
   source_ids?: string[] | null;
+  codegen_event_name_overrides?: CodegenEventNameOverrides | null;
 }
 
 export interface EventSourceRow {

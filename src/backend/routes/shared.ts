@@ -68,16 +68,21 @@ async function buildSharedEventSnippets(
   for (const eventId of eventIds) {
     try {
       const { event, attached_properties } = await getEventWithProperties(workspaceId, eventId);
-      const alwaysSent = attached_properties
-        .filter((p) => p.presence === 'always_sent')
-        .map((p) => p.property_name);
-      const sometimesSent = attached_properties
-        .filter((p) => p.presence === 'sometimes_sent')
-        .map((p) => p.property_name);
-      out[eventId] = { eventName: event.name, snippets: buildCodegenSnippets(event.name, attached_properties) };
-      // Note: snippets already encode optional props; keep lists implicit.
-      void alwaysSent;
-      void sometimesSent;
+      const attached = attached_properties.map((p) => ({
+        property_name: p.property_name || '',
+        presence: p.presence,
+        property_data_type: p.property_data_type,
+        property_data_formats: p.property_data_formats,
+        property_example_values_json: p.property_example_values_json,
+      }));
+      out[eventId] = {
+        eventName: event.name,
+        snippets: buildCodegenSnippets(
+          event.name,
+          attached,
+          event.codegen_event_name_overrides ?? null
+        ),
+      };
     } catch {
       // If event lookup fails, omit snippets.
     }

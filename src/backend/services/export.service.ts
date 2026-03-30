@@ -8,10 +8,14 @@ import * as JourneyDAL from '../dal/journey.dal';
 import { getEventWithProperties } from '../dal/event.dal';
 import type { EventPropertyWithDetails } from '../dal/event.dal';
 import { getPropertySourceLabelsByPropertyIds } from '../dal/source.dal';
-import type { EventPropertyPresence, PropertyExampleValue } from '../../types/schema';
+import type { CodegenEventNameOverrides, PropertyExampleValue } from '../../types/schema';
 import { NotFoundError } from '../errors';
 import { isAttachedPropertyRequiredForTrigger } from '../../lib/effectiveEventSchema';
-import { buildCodegenSnippetsFromPresence } from './codegen.service';
+import {
+  buildCodegenSnippets,
+  jsonSampleValueForProperty,
+  type AttachedPropertyForCodegen,
+} from './codegen.service';
 import {
   codegenLanguageForStyle,
   highlightCodeToHtml,
@@ -283,12 +287,19 @@ function buildPayloadDoc(
   const alwaysSent: string[] = [];
   const sometimesSent: string[] = [];
   const keys: string[] = [];
-  const example: Record<string, string> = {};
+  const example: Record<string, unknown> = {};
 
   for (const p of attached) {
     const name = p.property_name || 'property';
     keys.push(name);
-    example[name] = '<value>';
+    const ap: AttachedPropertyForCodegen = {
+      property_name: name,
+      presence: p.presence,
+      property_data_type: p.property_data_type,
+      property_data_formats: p.property_data_formats,
+      property_example_values_json: p.property_example_values_json,
+    };
+    example[name] = jsonSampleValueForProperty(ap);
     if (p.presence === 'always_sent') alwaysSent.push(name);
     else if (p.presence === 'sometimes_sent') sometimesSent.push(name);
   }
@@ -388,6 +399,7 @@ export interface StepExportItem {
     sometimesSent: string[];
     attached_properties: EventPropertyWithDetails[];
     sourceLabelsByPropertyId: Map<string, string>;
+    codegen_event_name_overrides: CodegenEventNameOverrides | null;
   }[];
 }
 
@@ -441,6 +453,7 @@ export async function generateJourneyHtmlExport(
       sometimesSent: string[];
       attached_properties: EventPropertyWithDetails[];
       sourceLabelsByPropertyId: Map<string, string>;
+      codegen_event_name_overrides: CodegenEventNameOverrides | null;
     }
   >();
 
@@ -482,6 +495,7 @@ export async function generateJourneyHtmlExport(
             sometimesSent: doc.sometimesSent,
             attached_properties,
             sourceLabelsByPropertyId,
+            codegen_event_name_overrides: event.codegen_event_name_overrides ?? null,
           };
           eventPayloadCache.set(eventId, cached);
         } catch {
@@ -492,6 +506,7 @@ export async function generateJourneyHtmlExport(
             sometimesSent: [],
             attached_properties: [],
             sourceLabelsByPropertyId: new Map(),
+            codegen_event_name_overrides: null,
           };
           eventPayloadCache.set(eventId, cached);
         }
@@ -504,6 +519,7 @@ export async function generateJourneyHtmlExport(
         sometimesSent: cached.sometimesSent,
         attached_properties: cached.attached_properties,
         sourceLabelsByPropertyId: cached.sourceLabelsByPropertyId,
+        codegen_event_name_overrides: cached.codegen_event_name_overrides,
       });
     }
 
@@ -669,10 +685,16 @@ export async function generateJourneyHtmlExport(
       if (step.triggers.length > 0) {
         triggersBlock = step.triggers
           .map((t) => {
-            const snippets = buildCodegenSnippetsFromPresence(
+            const snippets = buildCodegenSnippets(
               t.eventName,
-              t.alwaysSent,
-              t.sometimesSent
+              t.attached_properties.map((p) => ({
+                property_name: p.property_name || '',
+                presence: p.presence,
+                property_data_type: p.property_data_type,
+                property_data_formats: p.property_data_formats,
+                property_example_values_json: p.property_example_values_json,
+              })),
+              t.codegen_event_name_overrides
             );
             const presence =
               t.alwaysSent.length > 0 || t.sometimesSent.length > 0

@@ -926,26 +926,30 @@ export function JourneyCanvas({
               {isTriggerNode(selectedNode) &&
                 selectedNode.data.connectedEvent?.eventId && (
                   <div className="pt-2 border-t border-gray-200">
-                    {!effectiveReadOnly && (
-                      <div className="mb-3">
-                        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                          Default codegen method
-                        </label>
-                        <select
-                          value={journey.codegen_preferred_style ?? 'dataLayer'}
-                          onChange={(e) =>
-                            onCodegenPreferredStyleChange?.(
-                              e.target.value as CodegenStyle
-                            )
-                          }
-                          className="w-full h-8 rounded-md border border-gray-300 bg-white px-2 text-xs text-gray-800"
-                        >
-                          <option value="dataLayer">Data Layer</option>
-                          <option value="bloomreachSdk">Bloomreach SDK</option>
-                          <option value="bloomreachApi">Bloomreach API</option>
-                        </select>
-                      </div>
-                    )}
+                    <div className="mb-3">
+                      <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Default codegen method
+                      </label>
+                      <select
+                        value={journey.codegen_preferred_style ?? 'dataLayer'}
+                        onChange={(e) =>
+                          onCodegenPreferredStyleChange?.(
+                            e.target.value as CodegenStyle
+                          )
+                        }
+                        disabled={effectiveReadOnly || !onCodegenPreferredStyleChange}
+                        title={
+                          effectiveReadOnly
+                            ? 'View only — codegen preference is saved on the journey.'
+                            : undefined
+                        }
+                        className="w-full h-8 rounded-md border border-gray-300 bg-white px-2 text-xs text-gray-800 disabled:opacity-70 disabled:cursor-not-allowed"
+                      >
+                        <option value="dataLayer">Data Layer</option>
+                        <option value="bloomreachSdk">Bloomreach SDK</option>
+                        <option value="bloomreachApi">Bloomreach API</option>
+                      </select>
+                    </div>
                     <EventCodeGen
                       eventId={selectedTriggerEventIdForCodegen}
                       prefetchedSnippets={selectedTriggerPrefetchedSnippets}

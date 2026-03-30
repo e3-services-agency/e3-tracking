@@ -564,8 +564,15 @@ router.get('/:id/codegen', requireWorkspace, async (req: Request, res: Response)
     const attached = attached_properties.map((p) => ({
       property_name: p.property_name || '',
       presence: p.presence,
+      property_data_type: p.property_data_type,
+      property_data_formats: p.property_data_formats,
+      property_example_values_json: p.property_example_values_json,
     }));
-    const snippets = buildCodegenSnippets(event.name, attached);
+    const snippets = buildCodegenSnippets(
+      event.name,
+      attached,
+      event.codegen_event_name_overrides ?? null
+    );
     res.status(200).json(snippets);
   } catch (err) {
     console.error(err);
@@ -990,6 +997,11 @@ router.post(
       return;
     }
 
+    const codegenRaw =
+      body.codegen_event_name_overrides !== undefined
+        ? body.codegen_event_name_overrides
+        : body.codegenEventNameOverrides;
+
     const eventData: CreateEventInput = {
       name,
       description: typeof body.description === 'string' ? body.description : undefined,
@@ -1000,6 +1012,12 @@ router.post(
       tags: parsedTags.value,
       triggers: parsedTriggers.value,
       source_ids: parsedSourceIds.value,
+      ...(codegenRaw !== undefined
+        ? {
+            codegen_event_name_overrides:
+              EventDAL.normalizeCodegenEventNameOverrides(codegenRaw) ?? null,
+          }
+        : {}),
     };
 
     try {
@@ -1137,6 +1155,11 @@ router.patch(
       return;
     }
 
+    const codegenRawPatch =
+      body.codegen_event_name_overrides !== undefined
+        ? body.codegen_event_name_overrides
+        : body.codegenEventNameOverrides;
+
     const eventData: CreateEventInput = {
       name,
       description: typeof body.description === 'string' ? body.description : undefined,
@@ -1147,6 +1170,12 @@ router.patch(
       tags: parsedTags.value,
       triggers: parsedTriggers.value,
       source_ids: parsedSourceIds.value,
+      ...(codegenRawPatch !== undefined
+        ? {
+            codegen_event_name_overrides:
+              EventDAL.normalizeCodegenEventNameOverrides(codegenRawPatch) ?? null,
+          }
+        : {}),
     };
 
     try {

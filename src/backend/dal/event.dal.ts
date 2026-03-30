@@ -17,6 +17,7 @@ import type {
   PropertyExampleValue,
   EventVariantRow,
   EventVariantSummary,
+  CodegenEventNameOverrides,
 } from '../../types/schema';
 import { PROPERTY_DATA_FORMATS } from '../../types/schema';
 import { ConflictError, DatabaseError, NotFoundError } from '../errors';
@@ -42,11 +43,15 @@ function normalizePropertyExampleValues(
   return out.length > 0 ? out : null;
 }
 
-type EventDbRow = Omit<EventRow, 'categories' | 'tags' | 'triggers' | 'event_type'> & {
+type EventDbRow = Omit<
+  EventRow,
+  'categories' | 'tags' | 'triggers' | 'event_type' | 'codegen_event_name_overrides'
+> & {
   event_type?: EventType | null;
   categories_json?: unknown | null;
   tags_json?: unknown | null;
   triggers_json?: unknown | null;
+  codegen_event_name_overrides?: unknown | null;
 };
 
 function normalizeStringArray(value: unknown): string[] | null {
@@ -58,6 +63,23 @@ function normalizeStringArray(value: unknown): string[] | null {
     .filter(Boolean);
 
   return [...new Set(normalized)];
+}
+
+const CODEGEN_OVERRIDE_KEYS = ['dataLayer', 'bloomreachSdk', 'bloomreachApi'] as const;
+
+export function normalizeCodegenEventNameOverrides(
+  raw: unknown
+): CodegenEventNameOverrides | null {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const o = raw as Record<string, unknown>;
+  const out: CodegenEventNameOverrides = {};
+  for (const k of CODEGEN_OVERRIDE_KEYS) {
+    const v = o[k];
+    if (v === null || v === undefined) continue;
+    if (typeof v === 'string' && v.trim() !== '') out[k] = v.trim();
+  }
+  return Object.keys(out).length > 0 ? out : null;
 }
 
 function normalizeEventTriggers(value: unknown): EventTriggerEntry[] | null {
@@ -108,6 +130,9 @@ function mapEventRow(row: EventDbRow | null): EventRow | null {
     updated_at: row.updated_at,
     deleted_at: row.deleted_at,
     triggers: normalizeEventTriggers(triggers_json),
+    codegen_event_name_overrides: normalizeCodegenEventNameOverrides(
+      row.codegen_event_name_overrides
+    ),
   };
 }
 
@@ -260,6 +285,8 @@ export async function createEvent(
     categories_json: eventData.categories ?? null,
     tags_json: eventData.tags ?? null,
     triggers_json: eventData.triggers ?? null,
+    codegen_event_name_overrides:
+      normalizeCodegenEventNameOverrides(eventData.codegen_event_name_overrides) ?? null,
     deleted_at: null,
   };
 
@@ -332,6 +359,10 @@ export async function updateEvent(
   }
   if ('triggers' in eventData) {
     row.triggers_json = eventData.triggers ?? null;
+  }
+  if ('codegen_event_name_overrides' in eventData) {
+    row.codegen_event_name_overrides =
+      normalizeCodegenEventNameOverrides(eventData.codegen_event_name_overrides) ?? null;
   }
   if ('source_ids' in eventData && Array.isArray(eventData.source_ids)) {
     sourceIds = await validateSourceIds(workspaceId, eventData.source_ids);

@@ -24,6 +24,7 @@ import {
 import { isAttachedPropertyRequiredForTrigger } from '@/src/lib/effectiveEventSchema';
 import {
   EVENT_TYPES,
+  type CodegenEventNameOverrides,
   type CreateEventInput,
   type EventPropertyDefinitionUpsertPayload,
   type EventPropertyPresence,
@@ -247,8 +248,23 @@ export function EventEditorSheet({
   const [attachPropertyPickerOpen, setAttachPropertyPickerOpen] = useState(false);
   const [variants, setVariants] = useState<EventVariantRow[]>([]);
   const [pendingVariantOpenId, setPendingVariantOpenId] = useState<string | null>(null);
+  const [codegenNameDataLayer, setCodegenNameDataLayer] = useState('');
+  const [codegenNameBloomreachSdk, setCodegenNameBloomreachSdk] = useState('');
+  const [codegenNameBloomreachApi, setCodegenNameBloomreachApi] = useState('');
 
   const isCreateMode = eventId === null && currentEventId === null;
+
+  const codegenOverridesPayload = useMemo((): CodegenEventNameOverrides | null => {
+    const dl = codegenNameDataLayer.trim();
+    const sdk = codegenNameBloomreachSdk.trim();
+    const api = codegenNameBloomreachApi.trim();
+    if (!dl && !sdk && !api) return null;
+    return {
+      ...(dl ? { dataLayer: dl } : {}),
+      ...(sdk ? { bloomreachSdk: sdk } : {}),
+      ...(api ? { bloomreachApi: api } : {}),
+    };
+  }, [codegenNameDataLayer, codegenNameBloomreachSdk, codegenNameBloomreachApi]);
 
   const propertyById = useMemo(() => {
     const m = new Map<string, PropertyRow>();
@@ -294,9 +310,16 @@ export function EventEditorSheet({
       setSelectedEventSourceIds(result.source_ids ?? []);
       setAttached(result.attached_properties);
       setVariants(result.variants ?? []);
+      const cg = result.event.codegen_event_name_overrides;
+      setCodegenNameDataLayer(cg?.dataLayer?.trim() ?? '');
+      setCodegenNameBloomreachSdk(cg?.bloomreachSdk?.trim() ?? '');
+      setCodegenNameBloomreachApi(cg?.bloomreachApi?.trim() ?? '');
     } else {
       setSelectedEventSourceIds([]);
       setVariants([]);
+      setCodegenNameDataLayer('');
+      setCodegenNameBloomreachSdk('');
+      setCodegenNameBloomreachApi('');
     }
   }, [getEventWithProperties]);
 
@@ -320,6 +343,9 @@ export function EventEditorSheet({
       setSelectedEventSourceIds([]);
       setAttached([]);
       setVariants([]);
+      setCodegenNameDataLayer('');
+      setCodegenNameBloomreachSdk('');
+      setCodegenNameBloomreachApi('');
     }
     setAddPresence('always_sent');
     setAttachedDescExpandedId(null);
@@ -399,6 +425,10 @@ export function EventEditorSheet({
 
     if (result.success) {
       setCurrentEventId(result.data.id);
+      const cg = result.data.codegen_event_name_overrides;
+      setCodegenNameDataLayer(cg?.dataLayer?.trim() ?? '');
+      setCodegenNameBloomreachSdk(cg?.bloomreachSdk?.trim() ?? '');
+      setCodegenNameBloomreachApi(cg?.bloomreachApi?.trim() ?? '');
       onEventCreated?.(result.data.id);
     }
   };
@@ -422,6 +452,7 @@ export function EventEditorSheet({
       tags: normalizeTokenList(tagsText),
       triggers: normalizedTriggers,
       source_ids: selectedEventSourceIds,
+      codegen_event_name_overrides: codegenOverridesPayload,
     };
 
     const result = await updateEvent(currentEventId, payload);
@@ -799,6 +830,48 @@ export function EventEditorSheet({
             placeholder="Comma-separated tags"
             disabled={saving}
           />
+        </div>
+
+        <div className="space-y-3 rounded-md border border-gray-200 bg-gray-50/80 p-3">
+          <div>
+            <label className="text-sm font-medium text-gray-800">
+              Codegen output event names (optional)
+            </label>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Override the event name shown only in generated snippets (GTM dataLayer, Bloomreach SDK, Bloomreach API).
+              The canonical event name above is unchanged.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-gray-600">Data Layer</label>
+            <Input
+              value={codegenNameDataLayer}
+              onChange={(e) => setCodegenNameDataLayer(e.target.value)}
+              placeholder="e.g. add_to_cart"
+              className="font-mono text-sm"
+              disabled={saving}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-gray-600">Bloomreach SDK</label>
+            <Input
+              value={codegenNameBloomreachSdk}
+              onChange={(e) => setCodegenNameBloomreachSdk(e.target.value)}
+              placeholder="e.g. add_to_cart"
+              className="font-mono text-sm"
+              disabled={saving}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-gray-600">Bloomreach API</label>
+            <Input
+              value={codegenNameBloomreachApi}
+              onChange={(e) => setCodegenNameBloomreachApi(e.target.value)}
+              placeholder="e.g. add_to_cart"
+              className="font-mono text-sm"
+              disabled={saving}
+            />
+          </div>
         </div>
 
         <div className="space-y-2">

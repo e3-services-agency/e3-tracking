@@ -25,15 +25,6 @@ const CODEGEN_LABELS: Record<CodegenStyleId, string> = {
   bloomreachApi: 'Bloomreach Tracking API',
 };
 
-/** Compact REQUIRED column: canonical rule only (`isAttachedPropertyRequiredForTrigger`). */
-function propertyRequiredForTriggerCellHtml(required: boolean): string {
-  const v = required ? 'true' : 'false';
-  const cls = required
-    ? 'export-props-req export-props-req--yes export-props-trigger-primary'
-    : 'export-props-req export-props-req--no export-props-trigger-primary';
-  return `<span class="${cls}">${escapeHtml(v)}</span>`;
-}
-
 function sortPropertyRowsForExport(
   rows: EventPropertyWithDetails[],
 ): EventPropertyWithDetails[] {
@@ -323,16 +314,10 @@ function buildPropertyDetailsTable(attached: EventPropertyWithDetails[]): string
       const exampleCell = formatPropertyExamplesForExportHtml(
         p.property_example_values_json ?? null
       );
-      const reqForTrigger = isAttachedPropertyRequiredForTrigger(
-        p.presence,
-        p.property_required_override
-      );
-      const triggerCell = propertyRequiredForTriggerCellHtml(reqForTrigger);
       return `<tr>
   <td><code class="export-inline-code">${escapeHtml(p.property_name || '')}</code></td>
-  <td class="export-props-req-cell">${triggerCell}</td>
-  <td>${escapeHtml(presenceLabel((p as any).presence))}</td>
-  <td>${typeLabel}</td>
+  <td class="export-props-presence-cell">${escapeHtml(presenceLabel((p as any).presence))}</td>
+  <td class="export-props-type-cell">${typeLabel}</td>
   <td class="export-props-example-cell">${exampleCell}</td>
   <td class="export-props-desc-cell">${desc}</td>
 </tr>`;
@@ -345,8 +330,6 @@ function buildPropertyDetailsTable(attached: EventPropertyWithDetails[]): string
       <thead>
         <tr>
           <th>Property</th>
-          <th>For trigger</th>
-          <th>Why</th>
           <th>Presence</th>
           <th>Type</th>
           <th>Example</th>
@@ -1060,32 +1043,30 @@ export async function generateJourneyHtmlExport(
     }
     .export-props-table th:nth-child(2),
     .export-props-table td:nth-child(2) {
-      min-width: 148px;
-      max-width: 180px;
-    }
-    .export-props-table th:nth-child(3),
-    .export-props-table td:nth-child(3) {
       min-width: 88px;
       max-width: 120px;
     }
+    .export-props-table th:nth-child(3),
+    .export-props-table td:nth-child(3) {
+      min-width: 120px;
+      max-width: 240px;
+    }
     .export-props-table th:nth-child(4),
     .export-props-table td:nth-child(4) {
-      min-width: 108px;
+      min-width: 120px;
+      max-width: 320px;
     }
     .export-props-table th:nth-child(5),
     .export-props-table td:nth-child(5) {
-      min-width: 120px;
-    }
-    .export-props-table th:nth-child(6),
-    .export-props-table td:nth-child(6) {
       min-width: 200px;
-      max-width: 300px;
+      max-width: 380px;
     }
-    .export-props-req { font-weight: 600; font-size: 0.8rem; }
-    .export-props-trigger-primary { font-size: 0.88rem; line-height: 1.25; display: inline-block; }
-    .export-props-req--yes { color: #059669; }
-    .export-props-req--no { color: #64748b; }
-    .export-props-req--unset { color: #94a3b8; font-weight: 500; }
+    .export-props-table .export-props-presence-cell { white-space: nowrap; }
+    .export-props-table .export-props-type-cell {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.8rem;
+      color: #334155;
+    }
     .export-props-table .export-props-example-cell { hyphens: auto; font-size: 0.82rem; color: #475569; }
     .export-props-table .export-props-desc-cell { hyphens: auto; }
     .export-props-table th {

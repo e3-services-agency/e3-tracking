@@ -8,6 +8,7 @@ import { Sheet } from '@/src/components/ui/Sheet';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { IconSelect, type IconSelectOption } from '@/src/components/ui/IconSelect';
+import { EventAttachPropertyPicker } from '@/src/features/events/components/EventAttachPropertyPicker';
 import {
   EventPropertyOverridesSection,
   type EventPropertyOverridesSectionProps,
@@ -27,17 +28,23 @@ import {
   type EventType,
   type EventTriggerEntry,
   type SourceRow,
+  type PropertyRow,
 } from '@/src/types/schema';
 import type { ApiError, EventWithPropertiesResponse } from '@/src/features/events/hooks/useEvents';
 import { useProperties } from '@/src/features/properties/hooks/useProperties';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
-import { Activity, AlertCircle, Layout, Plus, UserRound, X } from 'lucide-react';
+import { Activity, AlertCircle, Layout, UserRound, X } from 'lucide-react';
 
 const PRESENCE_OPTIONS: { value: EventPropertyPresence; label: string }[] = [
   { value: 'always_sent', label: 'Always sent' },
   { value: 'sometimes_sent', label: 'Sometimes sent' },
   { value: 'never_sent', label: 'Never sent' },
 ];
+
+/** ~20% wider than legacy 520px; capped on narrow viewports. */
+const EVENT_EDITOR_SHEET_WIDTH_CLASS = 'w-[min(624px,calc(100vw-1rem))]';
+
+const ATTACHED_DESC_PREVIEW_CHARS = 50;
 
 /**
  * Maps API `event_type` into editor state without defaulting to `track`.
@@ -189,7 +196,6 @@ export function EventEditorSheet({
   const [currentEventId, setCurrentEventId] = useState<string | null>(eventId);
   const [attached, setAttached] = useState<EventWithPropertiesResponse['attached_properties']>([]);
   const [loadingEvent, setLoadingEvent] = useState(false);
-  const [selectedPropertyId, setSelectedPropertyId] = useState('');
   const [addPresence, setAddPresence] = useState<EventPropertyPresence>('always_sent');
   const [addingProperty, setAddingProperty] = useState(false);
   const [removingPropertyId, setRemovingPropertyId] = useState<string | null>(null);
@@ -205,8 +211,15 @@ export function EventEditorSheet({
   const [createSourceName, setCreateSourceName] = useState('');
   const [createSourceError, setCreateSourceError] = useState<string | null>(null);
   const [isCreatingSource, setIsCreatingSource] = useState(false);
+  const [attachedDescExpandedId, setAttachedDescExpandedId] = useState<string | null>(null);
 
   const isCreateMode = eventId === null && currentEventId === null;
+
+  const propertyById = useMemo(() => {
+    const m = new Map<string, PropertyRow>();
+    for (const p of allProperties) m.set(p.id, p);
+    return m;
+  }, [allProperties]);
 
   const eventTypeSelectOptions = useMemo((): IconSelectOption<EventType>[] => {
     const core: IconSelectOption<EventType>[] = [
@@ -265,8 +278,8 @@ export function EventEditorSheet({
       setTriggers([]);
       setAttached([]);
     }
-    setSelectedPropertyId('');
     setAddPresence('always_sent');
+    setAttachedDescExpandedId(null);
   }, [isOpen, eventId, clearMutationError, loadEvent]);
 
   const loadWorkspaceSources = useCallback(async () => {
@@ -368,17 +381,28 @@ export function EventEditorSheet({
     }
   };
 
-  const handleAddProperty = async () => {
-    if (!hasValidWorkspaceContext) return;
-    if (!currentEventId || !selectedPropertyId) return;
+  const handleAddSelectedProperties = async (
+    propertyIds: string[]
+  ): Promise<boolean> => {
+    if (!hasValidWorkspaceContext || !currentEventId || propertyIds.length === 0) {
+      return false;
+    }
     setAddingProperty(true);
     clearMutationError();
-    const result = await attachProperty(currentEventId, selectedPropertyId, addPresence);
-    setAddingProperty(false);
-    if (result.success) {
+    try {
+      for (const propertyId of propertyIds) {
+        const result = await attachProperty(currentEventId, propertyId, addPresence);
+        if (!result.success) {
+          const synced = await getEventWithProperties(currentEventId);
+          if (synced) setAttached(synced.attached_properties);
+          return false;
+        }
+      }
       const updated = await getEventWithProperties(currentEventId);
       if (updated) setAttached(updated.attached_properties);
-      setSelectedPropertyId('');
+      return true;
+    } finally {
+      setAddingProperty(false);
     }
   };
 
@@ -571,7 +595,7 @@ export function EventEditorSheet({
       : 'New Event';
 
   return (
-    <Sheet isOpen={isOpen} onClose={onClose} title={title} className="w-[520px]">
+    <Sheet isOpen={isOpen} onClose={onClose} title={title} className={EVENT_EDITOR_SHEET_WIDTH_CLASS}>
       <div className="space-y-6 pb-32">
         {mutationError && (
           <div
@@ -717,103 +741,104 @@ export function EventEditorSheet({
                 (Always / Sometimes / Never sent).
               </p>
 
-              <div className="flex flex-wrap gap-2">
-                <select
-                  value={selectedPropertyId}
-                  onChange={(e) => setSelectedPropertyId(e.target.value)}
-                  className="rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-w-[200px]"
-                >
-                  <option value="">Select a property…</option>
-                  {availableProperties.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.data_type})
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={addPresence}
-                  onChange={(e) =>
-                    setAddPresence(e.target.value as EventPropertyPresence)
-                  }
-                  className="rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {PRESENCE_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddProperty}
-                  disabled={
-                    !selectedPropertyId || addingProperty || !hasValidWorkspaceContext
-                  }
-                  title={
-                    !hasValidWorkspaceContext
-                      ? 'Select a valid workspace from the header before changing attachments.'
-                      : undefined
-                  }
-                  className="gap-1"
-                >
-                  <Plus className="w-4 h-4" /> Add
-                </Button>
-              </div>
+              <EventAttachPropertyPicker
+                key={currentEventId}
+                availableProperties={availableProperties}
+                attachedIds={attachedIds}
+                addPresence={addPresence}
+                onAddPresenceChange={setAddPresence}
+                onAddSelected={handleAddSelectedProperties}
+                adding={addingProperty}
+                workspaceActionsDisabled={!hasValidWorkspaceContext}
+              />
 
               <ul className="border rounded-lg divide-y divide-gray-100">
                 {attached.length === 0 ? (
-                  <li className="px-4 py-3 text-sm text-gray-500">
+                  <li className="px-3 py-2 text-xs text-gray-500">
                     No properties attached yet.
                   </li>
                 ) : (
-                  attached.map((a) => (
-                    <li
-                      key={a.property_id}
-                      className="flex items-center justify-between gap-4 px-4 py-3"
-                    >
-                      <span className="font-mono text-sm text-gray-900 truncate">
-                        {a.property_name || a.property_id}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={a.presence}
-                          onChange={(e) =>
-                            handlePresenceChange(
-                              a.property_id,
-                              e.target.value as EventPropertyPresence
-                            )
-                          }
-                          className="rounded-md border border-input bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          disabled={
-                            removingPropertyId === a.property_id ||
-                            !hasValidWorkspaceContext
-                          }
-                        >
-                          {PRESENCE_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>
-                              {o.label}
-                            </option>
-                          ))}
-                        </select>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDetachProperty(a.property_id)}
-                          disabled={
-                            removingPropertyId === a.property_id ||
-                            !hasValidWorkspaceContext
-                          }
-                          className="h-8 px-2 text-gray-500 hover:text-red-600"
-                          aria-label={`Remove ${a.property_name || a.property_id}`}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </li>
-                  ))
+                  attached.map((a) => {
+                    const meta = propertyById.get(a.property_id);
+                    const descRaw = meta?.description?.trim() ?? '';
+                    const expanded = attachedDescExpandedId === a.property_id;
+                    const needsTruncate = descRaw.length > ATTACHED_DESC_PREVIEW_CHARS;
+                    const descShown =
+                      !descRaw
+                        ? null
+                        : expanded || !needsTruncate
+                          ? descRaw
+                          : `${descRaw.slice(0, ATTACHED_DESC_PREVIEW_CHARS)}…`;
+                    return (
+                      <li
+                        key={a.property_id}
+                        className="flex items-start justify-between gap-3 px-3 py-2"
+                      >
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <div className="font-mono text-xs font-medium text-gray-900 truncate">
+                            {a.property_name || a.property_id}
+                          </div>
+                          <div className="text-[11px] text-gray-500">
+                            {meta?.data_type ?? '—'}
+                          </div>
+                          {descShown !== null && (
+                            <p className="text-[11px] text-gray-600 leading-snug break-words">
+                              {descShown}
+                            </p>
+                          )}
+                          {descRaw && needsTruncate && (
+                            <button
+                              type="button"
+                              className="text-[11px] font-medium text-[var(--brand-primary)] hover:underline"
+                              onClick={() =>
+                                setAttachedDescExpandedId((id) =>
+                                  id === a.property_id ? null : a.property_id
+                                )
+                              }
+                            >
+                              {expanded ? 'Show less' : 'Show more'}
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+                          <select
+                            value={a.presence}
+                            onChange={(e) =>
+                              handlePresenceChange(
+                                a.property_id,
+                                e.target.value as EventPropertyPresence
+                              )
+                            }
+                            className="h-8 rounded-md border border-input bg-background px-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-w-[9.5rem]"
+                            disabled={
+                              removingPropertyId === a.property_id ||
+                              !hasValidWorkspaceContext
+                            }
+                          >
+                            {PRESENCE_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDetachProperty(a.property_id)}
+                            disabled={
+                              removingPropertyId === a.property_id ||
+                              !hasValidWorkspaceContext
+                            }
+                            className="h-8 w-8 p-0 text-gray-500 hover:text-red-600"
+                            aria-label={`Remove ${a.property_name || a.property_id}`}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </li>
+                    );
+                  })
                 )}
               </ul>
             </div>
@@ -831,7 +856,9 @@ export function EventEditorSheet({
         )}
       </div>
 
-      <div className="fixed bottom-0 right-0 w-[520px] p-6 bg-white border-t flex justify-end gap-2 z-10">
+      <div
+        className={`fixed bottom-0 right-0 ${EVENT_EDITOR_SHEET_WIDTH_CLASS} p-6 bg-white border-t flex justify-end gap-2 z-10 max-w-[calc(100vw-1rem)]`}
+      >
         <Button variant="outline" onClick={onClose} disabled={saving}>
           {currentEventId ? 'Close' : 'Cancel'}
         </Button>

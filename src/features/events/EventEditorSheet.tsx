@@ -176,6 +176,9 @@ export interface EventEditorSheetProps {
   mutationError: ApiError | null;
   clearMutationError: () => void;
   onEventCreated?: (eventId: string) => void;
+  /** When opening the sheet for a base event, optionally open this variant’s edit modal after load. */
+  initialVariantIdToOpen?: string | null;
+  onInitialVariantIdConsumed?: () => void;
 }
 
 export function EventEditorSheet({
@@ -197,6 +200,8 @@ export function EventEditorSheet({
   mutationError,
   clearMutationError,
   onEventCreated,
+  initialVariantIdToOpen = null,
+  onInitialVariantIdConsumed,
 }: EventEditorSheetProps) {
   const { activeWorkspaceId, hasValidWorkspaceContext } = useWorkspaceShell();
   const { properties: allProperties } = useProperties();
@@ -239,6 +244,7 @@ export function EventEditorSheet({
   const [attachedDescExpandedId, setAttachedDescExpandedId] = useState<string | null>(null);
   const [attachPropertyPickerOpen, setAttachPropertyPickerOpen] = useState(false);
   const [variants, setVariants] = useState<EventVariantRow[]>([]);
+  const [pendingVariantOpenId, setPendingVariantOpenId] = useState<string | null>(null);
 
   const isCreateMode = eventId === null && currentEventId === null;
 
@@ -268,6 +274,7 @@ export function EventEditorSheet({
 
   const loadEvent = useCallback(async (id: string) => {
     setLoadingEvent(true);
+    setVariants([]);
     ownerTeamIdPersistedRef.current = null;
     const result = await getEventWithProperties(id);
     setLoadingEvent(false);
@@ -283,6 +290,9 @@ export function EventEditorSheet({
       setTagsText((result.event.tags ?? []).join(', '));
       setTriggers(sortTriggersForEditor(result.event.triggers ?? []));
       setAttached(result.attached_properties);
+      setVariants(result.variants ?? []);
+    } else {
+      setVariants([]);
     }
   }, [getEventWithProperties]);
 
@@ -310,6 +320,16 @@ export function EventEditorSheet({
     setAttachedDescExpandedId(null);
     setAttachPropertyPickerOpen(false);
   }, [isOpen, eventId, clearMutationError, loadEvent]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setPendingVariantOpenId(null);
+      return;
+    }
+    if (initialVariantIdToOpen) {
+      setPendingVariantOpenId(initialVariantIdToOpen);
+    }
+  }, [isOpen, initialVariantIdToOpen]);
 
   useEffect(() => {
     if (!isOpen) setAttachPropertyPickerOpen(false);
@@ -783,6 +803,29 @@ export function EventEditorSheet({
         {currentEventId && (
           <>
             <hr className="border-gray-200" />
+            {variants.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Variants
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Quick open a scenario variant; full create/edit stays below.
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {variants.map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => setPendingVariantOpenId(v.id)}
+                      className="inline-flex max-w-[min(100%,12rem)] truncate rounded-full border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-medium text-purple-900 hover:bg-purple-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      title={v.description ? `${v.name} — ${v.description}` : v.name}
+                    >
+                      {v.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <EventVariantsApiSection
               eventId={currentEventId}
               baseEventName={name.trim() || '—'}
@@ -793,6 +836,11 @@ export function EventEditorSheet({
               updateEventVariant={updateEventVariant}
               deleteEventVariant={deleteEventVariant}
               workspaceMutationsDisabled={!hasValidWorkspaceContext}
+              variantIdToOpenOnLoad={loadingEvent ? null : pendingVariantOpenId}
+              onConsumedVariantOpen={() => {
+                setPendingVariantOpenId(null);
+                onInitialVariantIdConsumed?.();
+              }}
             />
           </>
         )}

@@ -1,7 +1,7 @@
 /**
  * Event variants v1 — persisted under base event; effective schema via shared resolver.
  */
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Modal } from '@/src/components/ui/Modal';
@@ -87,6 +87,9 @@ type EventVariantsApiSectionProps = {
     variantId: string
   ) => Promise<{ success: true } | { success: false; error: ApiError }>;
   workspaceMutationsDisabled?: boolean;
+  /** Open the edit modal for this variant once after variants are loaded (e.g. list row or chip). */
+  variantIdToOpenOnLoad?: string | null;
+  onConsumedVariantOpen?: () => void;
 };
 
 export function EventVariantsApiSection({
@@ -99,6 +102,8 @@ export function EventVariantsApiSection({
   updateEventVariant,
   deleteEventVariant,
   workspaceMutationsDisabled,
+  variantIdToOpenOnLoad = null,
+  onConsumedVariantOpen,
 }: EventVariantsApiSectionProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState('');
@@ -146,6 +151,26 @@ export function EventVariantsApiSection({
     },
     [eventId, getEffectivePropertyDefinitions]
   );
+
+  const consumedOpenIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!variantIdToOpenOnLoad) {
+      consumedOpenIdRef.current = null;
+      return;
+    }
+    if (consumedOpenIdRef.current === variantIdToOpenOnLoad) return;
+    const v = variants.find((x) => x.id === variantIdToOpenOnLoad);
+    if (!v) {
+      consumedOpenIdRef.current = variantIdToOpenOnLoad;
+      onConsumedVariantOpen?.();
+      return;
+    }
+    consumedOpenIdRef.current = variantIdToOpenOnLoad;
+    void openEdit(v).finally(() => {
+      onConsumedVariantOpen?.();
+    });
+  }, [variantIdToOpenOnLoad, variants, openEdit, onConsumedVariantOpen]);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;

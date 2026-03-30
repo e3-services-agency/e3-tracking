@@ -10,6 +10,9 @@ import { Plus } from 'lucide-react';
 export function Events() {
   const { selectedItemIdToEdit, setSelectedItemIdToEdit } = useStore();
   const [apiEventSheetEventId, setApiEventSheetEventId] = useState<string | null>(null);
+  const [apiEventSheetInitialVariantId, setApiEventSheetInitialVariantId] = useState<string | null>(
+    null
+  );
   const [isApiEventSheetOpen, setIsApiEventSheetOpen] = useState(false);
   const eventsApi = useEvents();
   const { hasValidWorkspaceContext } = useWorkspaceShell();
@@ -43,6 +46,7 @@ export function Events() {
             <Button
               onClick={() => {
                 setApiEventSheetEventId(null);
+                setApiEventSheetInitialVariantId(null);
                 setIsApiEventSheetOpen(true);
               }}
               size="sm"
@@ -68,8 +72,9 @@ export function Events() {
               setIsApiEventSheetOpen(true);
             }}
             allowCreate={hasValidWorkspaceContext}
-            onOpenEvent={(id) => {
-              setApiEventSheetEventId(id);
+            onOpenEvent={(eventId, variantId) => {
+              setApiEventSheetEventId(eventId);
+              setApiEventSheetInitialVariantId(variantId ?? null);
               setIsApiEventSheetOpen(true);
             }}
             events={eventsApi.events}
@@ -84,8 +89,13 @@ export function Events() {
 
       <ApiEventEditorSheet
         isOpen={isApiEventSheetOpen}
-        onClose={() => setIsApiEventSheetOpen(false)}
+        onClose={() => {
+          setIsApiEventSheetOpen(false);
+          setApiEventSheetInitialVariantId(null);
+        }}
         eventId={apiEventSheetEventId}
+        initialVariantIdToOpen={apiEventSheetInitialVariantId}
+        onInitialVariantIdConsumed={() => setApiEventSheetInitialVariantId(null)}
         createEvent={eventsApi.createEvent}
         updateEvent={eventsApi.updateEvent}
         attachProperty={eventsApi.attachProperty}

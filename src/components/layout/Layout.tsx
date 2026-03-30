@@ -221,20 +221,19 @@ function LayoutInner() {
             .catch(() => {});
         }
       }
-      const parsed = syncJourneysRouteFromLocation();
-      if (!parsed) return;
+      const route = mainRouteStateFromRestPath(parsedWs.restPath);
       if (
         activeTabRef.current === 'journeys' &&
         dirtyRef.current &&
-        (parsed.tab !== 'journeys' || parsed.journeyId !== selectedJourneyIdRef.current)
+        (route.tab !== 'journeys' || route.journeyId !== selectedJourneyIdRef.current)
       ) {
         const ok = window.confirm(
           'You have unsaved changes. Are you sure you want to leave?',
         );
         if (!ok) return;
       }
-      setActiveTab(parsed.tab);
-      setSelectedJourneyId(parsed.journeyId);
+      setActiveTab(route.tab);
+      setSelectedJourneyId(route.journeyId);
     };
     applyFromLocation();
     window.addEventListener('popstate', applyFromLocation);

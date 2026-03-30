@@ -15,6 +15,8 @@ import type {
   EventVariantOverridesV1,
   EventVariantRow,
   EventVariantSummary,
+  PropertyDataFormat,
+  PropertyExampleValue,
 } from '@/src/types/schema';
 
 export interface ApiError {
@@ -40,6 +42,12 @@ export interface EventPropertyWithDetails {
   created_at: string;
   updated_at: string;
   property_name: string;
+  property_description?: string | null;
+  property_data_type?: string | null;
+  property_data_formats?: PropertyDataFormat[] | null;
+  property_example_values_json?: PropertyExampleValue[] | null;
+  /** `event_property_definitions.required`; null when no row or unset. */
+  property_required_override?: boolean | null;
 }
 
 export interface EventWithPropertiesResponse {

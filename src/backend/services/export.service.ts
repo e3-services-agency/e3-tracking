@@ -7,21 +7,24 @@ import path from 'path';
 import * as JourneyDAL from '../dal/journey.dal';
 import { getEventWithProperties } from '../dal/event.dal';
 import type { EventPropertyWithDetails } from '../dal/event.dal';
-import type { PropertyExampleValue } from '../../types/schema';
+import type { EventPropertyPresence, PropertyExampleValue } from '../../types/schema';
 import { NotFoundError } from '../errors';
+import {
+  describeAttachedTriggerRequirement,
+  isAttachedPropertyRequiredForTrigger,
+} from '../../lib/effectiveEventSchema';
 import { buildCodegenSnippetsFromPresence } from './codegen.service';
 
 /** Lucide-style Zap — matches Journey trigger node header icon treatment in export CSS. */
 const EXPORT_TRIGGER_ZAP_SVG = `<svg class="export-trigger-zap" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>`;
 
-function requiredCellForExport(override: boolean | null | undefined): string {
-  if (override === true) {
-    return '<span class="export-props-req export-props-req--yes">Yes</span>';
-  }
-  if (override === false) {
-    return '<span class="export-props-req export-props-req--no">No</span>';
-  }
-  return '<span class="export-props-req export-props-req--unset" title="Not set in event property definitions">—</span>';
+function triggerPrimaryCellHtml(
+  d: ReturnType<typeof describeAttachedTriggerRequirement>
+): string {
+  const cls = d.requiredForTrigger
+    ? 'export-props-req export-props-req--yes export-props-trigger-primary'
+    : 'export-props-req export-props-req--no export-props-trigger-primary';
+  return `<span class="${cls}">${escapeHtml(d.primaryLabel)}</span>`;
 }
 
 function sortPropertyRowsForExport(
@@ -29,8 +32,18 @@ function sortPropertyRowsForExport(
 ): EventPropertyWithDetails[] {
   const indexed = rows.map((r, i) => ({ r, i }));
   indexed.sort((a, b) => {
-    const ar = a.r.property_required_override === true ? 0 : 1;
-    const br = b.r.property_required_override === true ? 0 : 1;
+    const ar = isAttachedPropertyRequiredForTrigger(
+      a.r.presence,
+      a.r.property_required_override
+    )
+      ? 0
+      : 1;
+    const br = isAttachedPropertyRequiredForTrigger(
+      b.r.presence,
+      b.r.property_required_override
+    )
+      ? 0
+      : 1;
     if (ar !== br) return ar - br;
     return a.i - b.i;
   });
@@ -303,12 +316,18 @@ function buildPropertyDetailsTable(attached: EventPropertyWithDetails[]): string
       const exampleCell = formatPropertyExamplesForExportHtml(
         p.property_example_values_json ?? null
       );
-      const reqCell = requiredCellForExport(p.property_required_override);
+      const triggerDisp = describeAttachedTriggerRequirement(
+        p.presence,
+        p.property_required_override
+      );
+      const triggerCell = triggerPrimaryCellHtml(triggerDisp);
+      const whyCell = escapeHtml(triggerDisp.reasonNote);
       return `<tr>
   <td><code class="export-inline-code">${escapeHtml(p.property_name || '')}</code></td>
+  <td class="export-props-req-cell">${triggerCell}</td>
+  <td class="export-props-why-cell">${whyCell}</td>
   <td>${escapeHtml(presenceLabel((p as any).presence))}</td>
   <td>${typeLabel}</td>
-  <td class="export-props-req-cell">${reqCell}</td>
   <td class="export-props-example-cell">${exampleCell}</td>
   <td class="export-props-desc-cell">${desc}</td>
 </tr>`;
@@ -321,9 +340,10 @@ function buildPropertyDetailsTable(attached: EventPropertyWithDetails[]): string
       <thead>
         <tr>
           <th>Property</th>
+          <th>For trigger</th>
+          <th>Why</th>
           <th>Presence</th>
           <th>Type</th>
-          <th>Required</th>
           <th>Example</th>
           <th>Description</th>
         </tr>
@@ -1033,31 +1053,38 @@ export async function generateJourneyHtmlExport(
     }
     .export-props-table th:nth-child(2),
     .export-props-table td:nth-child(2) {
-      min-width: 108px;
+      min-width: 148px;
+      max-width: 180px;
     }
     .export-props-table th:nth-child(3),
     .export-props-table td:nth-child(3) {
-      min-width: 120px;
+      min-width: 88px;
+      max-width: 140px;
     }
     .export-props-table th:nth-child(4),
     .export-props-table td:nth-child(4) {
-      min-width: 88px;
-      max-width: 104px;
+      min-width: 108px;
     }
     .export-props-table th:nth-child(5),
     .export-props-table td:nth-child(5) {
-      min-width: 140px;
-      max-width: 200px;
+      min-width: 120px;
     }
     .export-props-table th:nth-child(6),
     .export-props-table td:nth-child(6) {
+      min-width: 140px;
+      max-width: 200px;
+    }
+    .export-props-table th:nth-child(7),
+    .export-props-table td:nth-child(7) {
       min-width: 200px;
       max-width: 300px;
     }
     .export-props-req { font-weight: 600; font-size: 0.8rem; }
+    .export-props-trigger-primary { font-size: 0.88rem; line-height: 1.25; display: inline-block; }
     .export-props-req--yes { color: #059669; }
     .export-props-req--no { color: #64748b; }
     .export-props-req--unset { color: #94a3b8; font-weight: 500; }
+    .export-props-table .export-props-why-cell { font-size: 0.78rem; color: #64748b; }
     .export-props-table .export-props-example-cell { hyphens: auto; font-size: 0.82rem; color: #475569; }
     .export-props-table .export-props-desc-cell { hyphens: auto; }
     .export-props-table th {

@@ -14,7 +14,11 @@ import { Button } from '@/src/components/ui/Button';
 import { useActiveData } from '@/src/store';
 import type { Event as TrackingEvent, EventVariant } from '@/src/types';
 import { useEvents, type ApiError } from '@/src/features/events/hooks/useEvents';
-import { isPropertyRequiredForTrigger } from '@/src/lib/effectiveEventSchema';
+import {
+  describeEffectiveTriggerRequirement,
+  sortEffectiveDefinitionsForTriggerDisplay,
+  type TriggerRequirementDisplay,
+} from '@/src/lib/effectiveEventSchema';
 import {
   TriggerFlowNode,
   JourneyFlowNode,
@@ -44,7 +48,9 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
   } = useEvents(eventsWorkspaceArg);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [requiredPropertyNames, setRequiredPropertyNames] = useState<string[] | null>(null);
+  const [triggerPropertyRows, setTriggerPropertyRows] = useState<
+    { name: string; display: TriggerRequirementDisplay }[] | null
+  >(null);
   const [schemaMessage, setSchemaMessage] = useState<string | null>(null);
 
   const isQAMode = !!data.activeQARunId;
@@ -87,7 +93,7 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
   useEffect(() => {
     const ce = data.connectedEvent;
     if (!ce?.eventId || eventsWorkspaceArg === null) {
-      setRequiredPropertyNames(null);
+      setTriggerPropertyRows(null);
       setSchemaMessage(null);
       return;
     }
@@ -99,13 +105,16 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
       if (cancelled) return;
       if (r.success) {
         setSchemaMessage(null);
-        const names = r.items
-          .filter((d) => isPropertyRequiredForTrigger(d))
-          .map((d) => d.property.name);
-        setRequiredPropertyNames(names);
+        const sorted = sortEffectiveDefinitionsForTriggerDisplay(r.items);
+        setTriggerPropertyRows(
+          sorted.map((d) => ({
+            name: d.property.name,
+            display: describeEffectiveTriggerRequirement(d),
+          }))
+        );
         return;
       }
-      setRequiredPropertyNames(null);
+      setTriggerPropertyRows(null);
       const err = (r as { success: false; error: ApiError }).error;
       setSchemaMessage(
         ce.variantId && (err.code === 'NOT_FOUND' || err.message.toLowerCase().includes('variant'))
@@ -330,9 +339,51 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
               </div>
             )}
 
-            {requiredPropertyNames && requiredPropertyNames.length > 0 && (
-              <div className="mt-2 text-[10px] text-gray-700 leading-snug">
-                <span className="font-semibold">Required properties:</span> {requiredPropertyNames.join(', ')}
+            {triggerPropertyRows && triggerPropertyRows.length > 0 && (
+              <div className="mt-2 overflow-x-auto max-h-44 overflow-y-auto rounded border border-blue-100 bg-white/80">
+                <table className="w-full min-w-[240px] text-[10px] text-left border-collapse">
+                  <thead>
+                    <tr className="text-gray-500 border-b border-blue-100 bg-blue-50/50">
+                      <th className="px-2 py-1 font-medium">Property</th>
+                      <th className="px-2 py-1 font-medium whitespace-nowrap">For trigger</th>
+                      <th className="px-2 py-1 font-medium whitespace-nowrap">Why</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {triggerPropertyRows.map((row) => {
+                      const { display: d } = row;
+                      const showSub =
+                        d.requiredForTrigger ||
+                        d.secondaryExplanation !== d.primaryLabel;
+                      return (
+                        <tr key={row.name} className="border-b border-blue-50 last:border-0">
+                          <td className="px-2 py-1 font-mono text-gray-800 break-all align-top">
+                            {row.name}
+                          </td>
+                          <td className="px-2 py-1 align-top min-w-[7.5rem]">
+                            <div
+                              className={
+                                d.requiredForTrigger
+                                  ? 'text-[11px] font-semibold text-amber-900 leading-tight'
+                                  : 'text-[11px] font-semibold text-slate-600 leading-tight'
+                              }
+                            >
+                              {d.primaryLabel}
+                            </div>
+                            {showSub && (
+                              <div className="text-gray-500 mt-0.5 leading-snug max-w-[11rem]">
+                                {d.secondaryExplanation}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-2 py-1 text-gray-500 align-top whitespace-nowrap">
+                            {d.reasonNote}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

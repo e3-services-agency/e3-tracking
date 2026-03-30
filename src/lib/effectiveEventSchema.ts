@@ -5,6 +5,7 @@
  */
 import type {
   EffectiveEventPropertyDefinition,
+  EventPropertyPresence,
   EventVariantOverridesV1,
 } from '@/src/types/schema';
 
@@ -66,6 +67,112 @@ function applyVariantOverridesToEffectiveDefinitions(
 
 export function isPropertyRequiredForTrigger(def: EffectiveEventPropertyDefinition): boolean {
   return def.presence === 'always_sent' || def.effective.required === true;
+}
+
+/**
+ * Same rule as `isPropertyRequiredForTrigger` for attached rows when you only have
+ * `event_properties.presence` + `event_property_definitions.required` (no full effective row).
+ * Use this for event list / export sorting — not a second source of truth.
+ */
+export function isAttachedPropertyRequiredForTrigger(
+  presence: EventPropertyPresence | null | undefined,
+  requiredOverride: boolean | null | undefined
+): boolean {
+  return presence === 'always_sent' || requiredOverride === true;
+}
+
+/** UI / export copy derived from the same rule as `isAttachedPropertyRequiredForTrigger` — no extra business logic. */
+export type TriggerRequirementDisplay = {
+  requiredForTrigger: boolean;
+  /** Primary, prominent status */
+  primaryLabel: 'Required for trigger' | 'Optional for trigger';
+  /** Secondary sentence (differs from primary when extra context helps) */
+  secondaryExplanation: string;
+  /** Short note for a narrow “why” column */
+  reasonNote: string;
+};
+
+function buildTriggerRequirementDisplay(
+  requiredForTrigger: boolean,
+  fromAlwaysSentPresence: boolean,
+  fromDefinitionRequired: boolean
+): TriggerRequirementDisplay {
+  if (!requiredForTrigger) {
+    return {
+      requiredForTrigger: false,
+      primaryLabel: 'Optional for trigger',
+      secondaryExplanation: 'Optional for trigger',
+      reasonNote: '—',
+    };
+  }
+
+  if (fromAlwaysSentPresence && fromDefinitionRequired) {
+    return {
+      requiredForTrigger: true,
+      primaryLabel: 'Required for trigger',
+      secondaryExplanation:
+        'Required for trigger because presence is Always sent and the event definition is Required',
+      reasonNote: 'Always sent; definition',
+    };
+  }
+  if (fromAlwaysSentPresence) {
+    return {
+      requiredForTrigger: true,
+      primaryLabel: 'Required for trigger',
+      secondaryExplanation: 'Required for trigger because presence is Always sent',
+      reasonNote: 'Always sent',
+    };
+  }
+  if (fromDefinitionRequired) {
+    return {
+      requiredForTrigger: true,
+      primaryLabel: 'Required for trigger',
+      secondaryExplanation: 'Required for trigger because event definition is Required',
+      reasonNote: 'Event definition',
+    };
+  }
+
+  return {
+    requiredForTrigger: true,
+    primaryLabel: 'Required for trigger',
+    secondaryExplanation: 'Required for trigger',
+    reasonNote: '—',
+  };
+}
+
+export function describeAttachedTriggerRequirement(
+  presence: EventPropertyPresence | null | undefined,
+  requiredOverride: boolean | null | undefined
+): TriggerRequirementDisplay {
+  return buildTriggerRequirementDisplay(
+    isAttachedPropertyRequiredForTrigger(presence, requiredOverride),
+    presence === 'always_sent',
+    requiredOverride === true
+  );
+}
+
+export function describeEffectiveTriggerRequirement(
+  def: EffectiveEventPropertyDefinition
+): TriggerRequirementDisplay {
+  return buildTriggerRequirementDisplay(
+    isPropertyRequiredForTrigger(def),
+    def.presence === 'always_sent',
+    def.effective.required === true
+  );
+}
+
+/** Stable sort: required-for-trigger first, then original order. */
+export function sortEffectiveDefinitionsForTriggerDisplay(
+  defs: EffectiveEventPropertyDefinition[]
+): EffectiveEventPropertyDefinition[] {
+  const indexed = defs.map((d, i) => ({ d, i }));
+  indexed.sort((a, b) => {
+    const ar = isPropertyRequiredForTrigger(a.d) ? 0 : 1;
+    const br = isPropertyRequiredForTrigger(b.d) ? 0 : 1;
+    if (ar !== br) return ar - br;
+    return a.i - b.i;
+  });
+  return indexed.map(({ d }) => d);
 }
 
 /**

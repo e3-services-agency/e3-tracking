@@ -21,9 +21,11 @@ import {
   createWorkspaceSource,
   listWorkspaceSources,
 } from '@/src/features/events/lib/eventTriggerSourcesApi';
+import { describeAttachedTriggerRequirement } from '@/src/lib/effectiveEventSchema';
 import {
   EVENT_TYPES,
   type CreateEventInput,
+  type EventPropertyDefinitionUpsertPayload,
   type EventPropertyPresence,
   type EventRow,
   type EventType,
@@ -219,6 +221,9 @@ export function EventEditorSheet({
   const [addPresence, setAddPresence] = useState<EventPropertyPresence>('always_sent');
   const [addingProperty, setAddingProperty] = useState(false);
   const [removingPropertyId, setRemovingPropertyId] = useState<string | null>(null);
+  const [updatingRequirementPropertyId, setUpdatingRequirementPropertyId] = useState<string | null>(
+    null
+  );
   const [isTriggerModalOpen, setIsTriggerModalOpen] = useState(false);
   const [editingTriggerIndex, setEditingTriggerIndex] = useState<number | null>(null);
   const [triggerDraft, setTriggerDraft] = useState<EventTriggerEntry>(createEmptyTrigger(0));
@@ -444,6 +449,28 @@ export function EventEditorSheet({
     if (result.success) {
       const updated = await getEventWithProperties(currentEventId);
       if (updated) setAttached(updated.attached_properties);
+    }
+  };
+
+  const handlePropertyRequirementOverrideChange = async (
+    propertyId: string,
+    required: boolean
+  ) => {
+    if (!hasValidWorkspaceContext || !currentEventId) return;
+    setUpdatingRequirementPropertyId(propertyId);
+    clearMutationError();
+    try {
+      const payload: EventPropertyDefinitionUpsertPayload = {
+        property_id: propertyId,
+        required,
+      };
+      const result = await putEventPropertyDefinitions(currentEventId, [payload]);
+      if (result.success) {
+        const updated = await getEventWithProperties(currentEventId);
+        if (updated) setAttached(updated.attached_properties);
+      }
+    } finally {
+      setUpdatingRequirementPropertyId(null);
     }
   };
 
@@ -782,8 +809,9 @@ export function EventEditorSheet({
                 Attached properties
               </h3>
               <p className="text-xs text-gray-500">
-                Add properties to define the payload for this event. Set presence
-                (Always / Sometimes / Never sent).
+                Each row highlights{' '}
+                <span className="font-medium text-gray-700">required for trigger</span> (derived from presence plus
+                the event definition flag). Presence and the definition flag are edited separately on the right.
               </p>
 
               <Button
@@ -840,15 +868,37 @@ export function EventEditorSheet({
                         : expanded || !needsTruncate
                           ? descRaw
                           : `${descRaw.slice(0, ATTACHED_DESC_PREVIEW_CHARS)}…`;
+                    const triggerDisplay = describeAttachedTriggerRequirement(
+                      a.presence,
+                      a.property_required_override
+                    );
+                    const definitionRequired = a.property_required_override === true;
+                    const showSecondaryDetail =
+                      triggerDisplay.requiredForTrigger ||
+                      triggerDisplay.secondaryExplanation !== triggerDisplay.primaryLabel;
                     return (
                       <li
                         key={a.property_id}
                         className="flex items-start justify-between gap-3 px-3 py-2"
                       >
-                        <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="min-w-0 flex-1 space-y-1">
                           <div className="font-mono text-xs font-medium text-gray-900 truncate">
                             {a.property_name || a.property_id}
                           </div>
+                          <div
+                            className={
+                              triggerDisplay.requiredForTrigger
+                                ? 'text-sm font-semibold text-amber-900'
+                                : 'text-sm font-semibold text-slate-600'
+                            }
+                          >
+                            {triggerDisplay.primaryLabel}
+                          </div>
+                          {showSecondaryDetail && (
+                            <p className="text-[11px] text-gray-500 leading-snug max-w-[20rem]">
+                              {triggerDisplay.secondaryExplanation}
+                            </p>
+                          )}
                           <div className="text-[11px] text-gray-500">
                             {meta?.data_type ?? '—'}
                           </div>
@@ -871,27 +921,58 @@ export function EventEditorSheet({
                             </button>
                           )}
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-                          <select
-                            value={a.presence}
-                            onChange={(e) =>
-                              handlePresenceChange(
-                                a.property_id,
-                                e.target.value as EventPropertyPresence
-                              )
-                            }
-                            className="h-8 rounded-md border border-input bg-background px-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-w-[9.5rem]"
-                            disabled={
-                              removingPropertyId === a.property_id ||
-                              !hasValidWorkspaceContext
-                            }
-                          >
-                            {PRESENCE_OPTIONS.map((o) => (
-                              <option key={o.value} value={o.value}>
-                                {o.label}
-                              </option>
-                            ))}
-                          </select>
+                        <div className="flex flex-col items-end gap-2 shrink-0 pt-0.5">
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-[9px] font-medium uppercase tracking-wide text-gray-400">
+                              Presence
+                            </span>
+                            <select
+                              value={a.presence}
+                              onChange={(e) =>
+                                handlePresenceChange(
+                                  a.property_id,
+                                  e.target.value as EventPropertyPresence
+                                )
+                              }
+                              className="h-8 rounded-md border border-input bg-background px-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-w-[9.5rem]"
+                              disabled={
+                                removingPropertyId === a.property_id ||
+                                !hasValidWorkspaceContext
+                              }
+                              aria-label={`Presence for ${a.property_name || a.property_id}`}
+                            >
+                              {PRESENCE_OPTIONS.map((o) => (
+                                <option key={o.value} value={o.value}>
+                                  {o.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-[9px] font-medium uppercase tracking-wide text-gray-400 max-w-[10rem] text-right leading-tight">
+                              Event definition (required flag)
+                            </span>
+                            <select
+                              value={definitionRequired ? 'required' : 'optional'}
+                              onChange={(e) =>
+                                handlePropertyRequirementOverrideChange(
+                                  a.property_id,
+                                  e.target.value === 'required'
+                                )
+                              }
+                              className="h-8 rounded-md border border-input bg-background px-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-w-[11rem]"
+                              disabled={
+                                removingPropertyId === a.property_id ||
+                                updatingRequirementPropertyId === a.property_id ||
+                                !hasValidWorkspaceContext
+                              }
+                              title="Stored on event_property_definitions.required — separate from presence and from “required for trigger” above"
+                              aria-label={`Event definition required flag for ${a.property_name || a.property_id}`}
+                            >
+                              <option value="required">Required on definition</option>
+                              <option value="optional">Not required on definition</option>
+                            </select>
+                          </div>
                           <Button
                             type="button"
                             variant="ghost"

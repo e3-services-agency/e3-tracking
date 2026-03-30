@@ -10,7 +10,7 @@ import multer from 'multer';
 import { requireWorkspace } from '../middleware/workspace';
 import { requireAuth } from '../middleware/auth';
 import * as JourneyDAL from '../dal/journey.dal';
-import { getAlwaysSentPropertyKeysForEvent } from '../dal/event.dal';
+import { getTriggerRequiredPayloadKeysForEvent } from '../lib/triggerRequiredPayloadKeys';
 import { getJourneyQARunsCountAndLatest, getJourneyQARuns, upsertJourneyQARuns } from '../dal/qa.dal';
 import { generateJourneyHtmlExport } from '../services/export.service';
 import {
@@ -44,9 +44,14 @@ function isJourneyAssetPath(objectPath: string, workspaceId: string, journeyId: 
 export async function validatePayload(
   workspaceId: string,
   eventId: string,
-  actualJson: string
+  actualJson: string,
+  variantId?: string | null
 ): Promise<{ valid: true } | { valid: false; missing_keys: string[] }> {
-  const requiredKeys = await getAlwaysSentPropertyKeysForEvent(workspaceId, eventId);
+  const requiredKeys = await getTriggerRequiredPayloadKeysForEvent(
+    workspaceId,
+    eventId,
+    variantId
+  );
 
   const parsed = tryParseEventPayloadObject(actualJson);
   if (!parsed) {
@@ -768,12 +773,19 @@ router.post(
     }
     const journeyId = req.params.id;
     const eventId = req.params.eventId;
-    const body = req.body as { actualJson?: string };
+    const body = req.body as { actualJson?: string; variant_id?: string | null };
     const actualJson = typeof body.actualJson === 'string' ? body.actualJson : '{}';
+    const variantIdRaw = body.variant_id;
+    const variantId =
+      typeof variantIdRaw === 'string' && variantIdRaw.trim() !== ''
+        ? variantIdRaw.trim()
+        : variantIdRaw === null
+          ? null
+          : undefined;
 
     try {
       await JourneyDAL.getJourneyById(workspaceId, journeyId);
-      const result = await validatePayload(workspaceId, eventId, actualJson);
+      const result = await validatePayload(workspaceId, eventId, actualJson, variantId);
       res.status(200).json(result);
     } catch (err) {
       if (err instanceof NotFoundError) {

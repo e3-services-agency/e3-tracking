@@ -206,25 +206,30 @@ export async function renameJourneyApi(
 }
 
 /**
- * Validates payload JSON against the event's always_sent properties.
+ * Validates payload JSON against effective required properties (base event or variant).
  * POST /api/journeys/:id/events/:eventId/qa/validate.
  */
 export async function validatePayloadApi(
   journeyId: string,
   eventId: string,
   actualJson: string,
-  workspaceId: string
+  workspaceId: string,
+  variantId?: string | null
 ): Promise<
   | { success: true; result: ValidatePayloadResult }
   | { success: false; error: string }
 > {
   try {
+    const body: { actualJson: string; variant_id?: string | null } = { actualJson };
+    if (variantId !== undefined) {
+      body.variant_id = variantId;
+    }
     const res = await fetchWithAuth(
       `${API_BASE}/api/journeys/${journeyId}/events/${eventId}/qa/validate`,
       {
         method: 'POST',
         headers: { 'x-workspace-id': workspaceId },
-        body: JSON.stringify({ actualJson }),
+        body: JSON.stringify(body),
       }
     );
     if (!res.ok) {

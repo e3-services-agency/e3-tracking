@@ -58,7 +58,8 @@ export interface EventPropertyOverridesSectionProps {
   attached: EventPropertyWithDetails[];
   allProperties: PropertyRow[];
   getEffectivePropertyDefinitions: (
-    eventId: string
+    eventId: string,
+    options?: { variantId?: string | null }
   ) => Promise<
     { success: true; items: EffectiveEventPropertyDefinition[] } | { success: false; error: ApiError }
   >;

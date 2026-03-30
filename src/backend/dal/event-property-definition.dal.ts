@@ -17,8 +17,10 @@ import type {
   PropertyRow,
 } from '../../types/schema';
 import { BadRequestError, DatabaseError, NotFoundError } from '../errors';
+import { resolveEffectiveEventSchema } from '../../lib/effectiveEventSchema';
 import { getEventById } from './event.dal';
 import { getPropertyRow } from './property.dal';
+import { getEventVariantById } from './event-variant.dal';
 
 type DefinitionDbRow = {
   id: string;
@@ -497,4 +499,28 @@ export async function upsertEventPropertyDefinitionsBatch(
     out.push(row);
   }
   return out.sort((a, b) => a.property_id.localeCompare(b.property_id));
+}
+
+/**
+ * Base effective definitions merged with optional variant overrides (same resolver as UI).
+ */
+export async function listEffectiveEventPropertyDefinitionsWithVariant(
+  workspaceId: string,
+  eventId: string,
+  opts?: { propertyId?: string; variantId?: string | null }
+): Promise<EffectiveEventPropertyDefinition[]> {
+  const base = await listEffectiveEventPropertyDefinitions(
+    workspaceId,
+    eventId,
+    opts?.propertyId?.trim() ? { propertyId: opts.propertyId.trim() } : undefined
+  );
+  const vid = opts?.variantId?.trim();
+  if (!vid) {
+    return base;
+  }
+  const variant = await getEventVariantById(workspaceId, vid);
+  if (!variant || variant.base_event_id !== eventId) {
+    throw new NotFoundError('Event variant not found for this event.', 'event_variant');
+  }
+  return resolveEffectiveEventSchema(base, variant);
 }

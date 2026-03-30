@@ -487,3 +487,45 @@ export async function getJourneyByShareToken(token: string): Promise<{
     edges: row.canvas_edges_json ?? [],
   };
 }
+
+type TriggerNodeLike = {
+  type?: string;
+  data?: {
+    connectedEvent?: { eventId?: string; variantId?: string | null };
+  };
+};
+
+/**
+ * Count journeys whose canvas references a trigger connected to this event variant.
+ */
+export async function countJourneysUsingEventVariant(
+  workspaceId: string,
+  variantId: string
+): Promise<number> {
+  if (!variantId.trim()) return 0;
+  const supabase = getSupabaseOrThrow();
+  const { data, error } = await supabase
+    .from('journeys')
+    .select('canvas_nodes_json')
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null);
+
+  if (error) {
+    throw new DatabaseError(`Failed to scan journeys for variant usage: ${error.message}`, error);
+  }
+
+  let count = 0;
+  for (const row of data ?? []) {
+    const nodes = (row as { canvas_nodes_json: unknown }).canvas_nodes_json;
+    if (!Array.isArray(nodes)) continue;
+    for (const node of nodes as TriggerNodeLike[]) {
+      if (node?.type !== 'triggerNode') continue;
+      const vid = node?.data?.connectedEvent?.variantId;
+      if (typeof vid === 'string' && vid === variantId) {
+        count += 1;
+        break;
+      }
+    }
+  }
+  return count;
+}

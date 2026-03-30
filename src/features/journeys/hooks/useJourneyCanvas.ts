@@ -912,11 +912,13 @@ export function useJourneyCanvas({
     }
     setIsValidatingPayload(true);
     setPayloadValidationResult(null);
+    const variantId = selectedNode.data.connectedEvent?.variantId;
     const result = await validatePayloadApi(
       journey.id,
       eventId,
       jsonToValidate,
       valWid,
+      variantId,
     );
     setIsValidatingPayload(false);
     if (result.success) {

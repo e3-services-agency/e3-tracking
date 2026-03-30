@@ -337,6 +337,41 @@ export interface EventPropertyRow {
 }
 
 /**
+ * Event variant v1 — child of a base event; overrides_json is delta vs base event_properties + definitions.
+ */
+export type EventVariantOverridesV1 = {
+  properties?: Record<
+    string,
+    {
+      presence?: EventPropertyPresence | null;
+      required?: boolean | null;
+      /** When true, property is omitted from effective trigger schema for this variant. */
+      excluded?: boolean;
+    }
+  >;
+};
+
+export interface EventVariantRow {
+  id: string;
+  workspace_id: string;
+  base_event_id: string;
+  name: string;
+  description: string | null;
+  overrides_json: EventVariantOverridesV1;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+/** Lightweight variant row for event lists and trigger picker. */
+export interface EventVariantSummary {
+  id: string;
+  base_event_id: string;
+  name: string;
+  description: string | null;
+}
+
+/**
  * Per-event overrides for a workspace property (same `property_id` on many events, different semantics).
  *
  * Why not `PropertyContext` or extra `properties` rows? Context classifies event vs user vs system definitions

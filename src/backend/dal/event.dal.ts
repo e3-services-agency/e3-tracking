@@ -15,9 +15,12 @@ import type {
   PropertyDataFormat,
   PropertyNameMapping,
   PropertyExampleValue,
+  EventVariantRow,
+  EventVariantSummary,
 } from '../../types/schema';
 import { PROPERTY_DATA_FORMATS } from '../../types/schema';
 import { ConflictError, DatabaseError, NotFoundError } from '../errors';
+import { listEventVariantSummariesForBaseEventIds, listEventVariantsByBaseEvent } from './event-variant.dal';
 
 const UNIQUE_VIOLATION_CODE = '23505';
 
@@ -505,6 +508,8 @@ export async function detachPropertyFromEvent(
 /** Event with attached property count (only non–soft-deleted properties). */
 export interface EventWithPropertyCount extends EventRow {
   attached_property_count: number;
+  /** Non-deleted variants for this base event (trigger picker + list). */
+  variants: EventVariantSummary[];
 }
 
 /**
@@ -584,9 +589,12 @@ export async function listEvents(
     }
   }
 
+  const variantByEventId = await listEventVariantSummariesForBaseEventIds(workspaceId, eventIds);
+
   return eventList.map((event) => ({
     ...event,
     attached_property_count: countByEventId.get(event.id) ?? 0,
+    variants: variantByEventId.get(event.id) ?? [],
   }));
 }
 
@@ -617,6 +625,7 @@ export async function getEventWithProperties(
   event: EventRow;
   attached_properties: EventPropertyWithDetails[];
   source_ids: string[];
+  variants: EventVariantRow[];
 }> {
   const event = await getEventById(workspaceId, eventId);
   if (event === null) {
@@ -640,12 +649,15 @@ export async function getEventWithProperties(
     );
   }
 
+  const variants = await listEventVariantsByBaseEvent(workspaceId, eventId);
+
   const rows = (links ?? []) as EventPropertyRow[];
   if (rows.length === 0) {
     return {
       event,
       attached_properties: [],
       source_ids: await listEventSourceIds(workspaceId, eventId),
+      variants,
     };
   }
 
@@ -730,6 +742,7 @@ export async function getEventWithProperties(
     event,
     attached_properties,
     source_ids: await listEventSourceIds(workspaceId, eventId),
+    variants,
   };
 }
 

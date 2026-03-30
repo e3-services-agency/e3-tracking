@@ -10,6 +10,7 @@ import { createAuditValidator } from '../middleware/auditValidator';
 import { getWorkspaceSettings } from '../dal/workspace.dal';
 import * as EventDAL from '../dal/event.dal';
 import * as EventPropertyDefinitionDAL from '../dal/event-property-definition.dal';
+import * as EventVariantDAL from '../dal/event-variant.dal';
 import { getSupabaseOrThrow } from '../db/supabase';
 import { BadRequestError, ConflictError, DatabaseError, NotFoundError } from '../errors';
 import type {
@@ -287,6 +288,261 @@ router.get('/:id', requireWorkspace, async (req: Request, res: Response): Promis
 });
 
 /**
+ * GET /api/events/:id/variants
+ * List non-deleted variants for the base event.
+ */
+router.get('/:id/variants', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
+  const workspaceId = req.workspaceId;
+  if (!workspaceId) {
+    res.status(403).json({
+      error: 'Workspace context required.',
+      code: 'WORKSPACE_REQUIRED',
+    });
+    return;
+  }
+  const eventId = req.params.id;
+  try {
+    const event = await EventDAL.getEventById(workspaceId, eventId);
+    if (!event) {
+      res.status(404).json({
+        error: 'Event not found.',
+        code: 'NOT_FOUND',
+        resource: 'event',
+      });
+      return;
+    }
+    const variants = await EventVariantDAL.listEventVariantsByBaseEvent(workspaceId, eventId);
+    res.status(200).json({ variants });
+  } catch (err) {
+    console.error(err);
+    if (err instanceof DatabaseError) {
+      res.status(500).json({
+        error: 'Failed to list variants.',
+        code: err.code,
+      });
+      return;
+    }
+    res.status(500).json({
+      error: 'An unexpected error occurred.',
+      code: 'INTERNAL_ERROR',
+    });
+  }
+});
+
+/**
+ * POST /api/events/:id/variants
+ * Body: { name, description?, overrides_json? }
+ */
+router.post('/:id/variants', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
+  const workspaceId = req.workspaceId;
+  if (!workspaceId) {
+    res.status(403).json({
+      error: 'Workspace context required.',
+      code: 'WORKSPACE_REQUIRED',
+    });
+    return;
+  }
+  const eventId = req.params.id;
+  const body = req.body as Record<string, unknown>;
+  const name = typeof body.name === 'string' ? body.name : '';
+  const description =
+    body.description === null || body.description === undefined
+      ? undefined
+      : typeof body.description === 'string'
+        ? body.description
+        : null;
+  const overrides_json = body.overrides_json ?? body.overridesJson;
+
+  try {
+    const row = await EventVariantDAL.createEventVariant(workspaceId, eventId, {
+      name,
+      description: description === undefined ? undefined : description,
+      overrides_json,
+    });
+    res.status(201).json(row);
+  } catch (err) {
+    console.error(err);
+    if (err instanceof NotFoundError) {
+      res.status(404).json({
+        error: err.message,
+        code: err.code,
+        resource: err.resource,
+      });
+      return;
+    }
+    if (err instanceof BadRequestError) {
+      res.status(400).json({
+        error: err.message,
+        code: err.code,
+        field: err.field,
+      });
+      return;
+    }
+    if (err instanceof ConflictError) {
+      res.status(409).json({
+        error: err.message,
+        code: err.code,
+        details: err.details,
+      });
+      return;
+    }
+    if (err instanceof DatabaseError) {
+      res.status(500).json({
+        error: 'Failed to create variant.',
+        code: err.code,
+      });
+      return;
+    }
+    res.status(500).json({
+      error: 'An unexpected error occurred.',
+      code: 'INTERNAL_ERROR',
+    });
+  }
+});
+
+/**
+ * PATCH /api/events/:id/variants/:variantId
+ */
+router.patch('/:id/variants/:variantId', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
+  const workspaceId = req.workspaceId;
+  if (!workspaceId) {
+    res.status(403).json({
+      error: 'Workspace context required.',
+      code: 'WORKSPACE_REQUIRED',
+    });
+    return;
+  }
+  const eventId = req.params.id;
+  const variantId = req.params.variantId;
+  const body = req.body as Record<string, unknown>;
+
+  try {
+    const existing = await EventVariantDAL.getEventVariantById(workspaceId, variantId);
+    if (!existing || existing.base_event_id !== eventId) {
+      res.status(404).json({
+        error: 'Event variant not found.',
+        code: 'NOT_FOUND',
+        resource: 'event_variant',
+      });
+      return;
+    }
+
+    const patch: {
+      name?: string;
+      description?: string | null;
+      overrides_json?: unknown;
+    } = {};
+    if ('name' in body && typeof body.name === 'string') patch.name = body.name;
+    if ('description' in body) {
+      patch.description =
+        body.description === null ? null : typeof body.description === 'string' ? body.description : null;
+    }
+    if ('overrides_json' in body || 'overridesJson' in body) {
+      patch.overrides_json = 'overrides_json' in body ? body.overrides_json : body.overridesJson;
+    }
+
+    const row = await EventVariantDAL.updateEventVariant(workspaceId, variantId, patch);
+    res.status(200).json(row);
+  } catch (err) {
+    console.error(err);
+    if (err instanceof NotFoundError) {
+      res.status(404).json({
+        error: err.message,
+        code: err.code,
+        resource: err.resource,
+      });
+      return;
+    }
+    if (err instanceof BadRequestError) {
+      res.status(400).json({
+        error: err.message,
+        code: err.code,
+        field: err.field,
+      });
+      return;
+    }
+    if (err instanceof ConflictError) {
+      res.status(409).json({
+        error: err.message,
+        code: err.code,
+        details: err.details,
+      });
+      return;
+    }
+    if (err instanceof DatabaseError) {
+      res.status(500).json({
+        error: 'Failed to update variant.',
+        code: err.code,
+      });
+      return;
+    }
+    res.status(500).json({
+      error: 'An unexpected error occurred.',
+      code: 'INTERNAL_ERROR',
+    });
+  }
+});
+
+/**
+ * DELETE /api/events/:id/variants/:variantId (soft delete)
+ */
+router.delete('/:id/variants/:variantId', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
+  const workspaceId = req.workspaceId;
+  if (!workspaceId) {
+    res.status(403).json({
+      error: 'Workspace context required.',
+      code: 'WORKSPACE_REQUIRED',
+    });
+    return;
+  }
+  const eventId = req.params.id;
+  const variantId = req.params.variantId;
+
+  try {
+    const existing = await EventVariantDAL.getEventVariantById(workspaceId, variantId);
+    if (!existing || existing.base_event_id !== eventId) {
+      res.status(404).json({
+        error: 'Event variant not found.',
+        code: 'NOT_FOUND',
+        resource: 'event_variant',
+      });
+      return;
+    }
+    const { deleted } = await EventVariantDAL.softDeleteEventVariant(workspaceId, variantId);
+    if (!deleted) {
+      res.status(404).json({
+        error: 'Event variant not found.',
+        code: 'NOT_FOUND',
+        resource: 'event_variant',
+      });
+      return;
+    }
+    res.status(204).send('');
+  } catch (err) {
+    console.error(err);
+    if (err instanceof ConflictError) {
+      res.status(409).json({
+        error: err.message,
+        code: err.code,
+        details: err.details,
+      });
+      return;
+    }
+    if (err instanceof DatabaseError) {
+      res.status(500).json({
+        error: 'Failed to delete variant.',
+        code: err.code,
+      });
+      return;
+    }
+    res.status(500).json({
+      error: 'An unexpected error occurred.',
+      code: 'INTERNAL_ERROR',
+    });
+  }
+});
+
+/**
  * GET /api/events/:id/codegen
  * Returns code snippets for the event (dataLayer, Bloomreach SDK, Bloomreach API).
  */
@@ -355,12 +611,21 @@ router.get(
     const propertyIdRaw = req.query.property_id;
     const propertyId =
       typeof propertyIdRaw === 'string' && propertyIdRaw.trim() ? propertyIdRaw.trim() : undefined;
+    const variantIdRaw = req.query.variant_id;
+    const variantId =
+      typeof variantIdRaw === 'string' && variantIdRaw.trim() ? variantIdRaw.trim() : undefined;
     try {
-      const items = await EventPropertyDefinitionDAL.listEffectiveEventPropertyDefinitions(
-        workspaceId,
-        eventId,
-        propertyId ? { propertyId } : undefined
-      );
+      const items = variantId
+        ? await EventPropertyDefinitionDAL.listEffectiveEventPropertyDefinitionsWithVariant(
+            workspaceId,
+            eventId,
+            { propertyId, variantId }
+          )
+        : await EventPropertyDefinitionDAL.listEffectiveEventPropertyDefinitions(
+            workspaceId,
+            eventId,
+            propertyId ? { propertyId } : undefined
+          );
       res.status(200).json({ items });
     } catch (err) {
       console.error(err);

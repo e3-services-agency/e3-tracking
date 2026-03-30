@@ -95,6 +95,9 @@ export function Events() {
         getEffectivePropertyDefinitions={eventsApi.getEffectivePropertyDefinitions}
         putEventPropertyDefinitions={eventsApi.putEventPropertyDefinitions}
         deleteEventPropertyDefinition={eventsApi.deleteEventPropertyDefinition}
+        createEventVariant={eventsApi.createEventVariant}
+        updateEventVariant={eventsApi.updateEventVariant}
+        deleteEventVariant={eventsApi.deleteEventVariant}
         mutationError={eventsApi.mutationError}
         clearMutationError={eventsApi.clearMutationError}
         onEventCreated={(id) => {

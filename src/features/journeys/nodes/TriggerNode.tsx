@@ -13,7 +13,8 @@ import {
 import { Button } from '@/src/components/ui/Button';
 import { useActiveData } from '@/src/store';
 import type { Event as TrackingEvent, EventVariant } from '@/src/types';
-import { useEvents } from '@/src/features/events/hooks/useEvents';
+import { useEvents, type ApiError } from '@/src/features/events/hooks/useEvents';
+import { isPropertyRequiredForTrigger } from '@/src/lib/effectiveEventSchema';
 import {
   TriggerFlowNode,
   JourneyFlowNode,
@@ -35,10 +36,16 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
       : typeof data.workspaceId === 'string' && data.workspaceId.trim() !== ''
         ? data.workspaceId.trim()
         : undefined;
-  const { events: apiEvents, isLoading: isLoadingEvents, refetch: refetchEvents } =
-    useEvents(eventsWorkspaceArg);
+  const {
+    events: apiEvents,
+    isLoading: isLoadingEvents,
+    refetch: refetchEvents,
+    getEffectivePropertyDefinitions,
+  } = useEvents(eventsWorkspaceArg);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [requiredPropertyNames, setRequiredPropertyNames] = useState<string[] | null>(null);
+  const [schemaMessage, setSchemaMessage] = useState<string | null>(null);
 
   const isQAMode = !!data.activeQARunId;
   const isReadOnly = !!(data as TriggerNodeData & { readOnly?: boolean }).readOnly;
@@ -58,11 +65,58 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
       tags: [],
       sources: [],
       actions: [],
-      variants: [],
+      variants: (e.variants ?? []).map((v) => ({
+        id: v.id,
+        name: v.name,
+        description: v.description ?? '',
+        propertyOverrides: {},
+      })),
       stakeholderTeamIds: [],
       customFields: {},
     })) as TrackingEvent[];
   }, [activeData.events, apiEvents]);
+
+  const variantSelectionInvalid = useMemo(() => {
+    const ce = data.connectedEvent;
+    if (!ce?.eventId || !ce.variantId) return false;
+    const ev = mergedEvents.find((e) => e.id === ce.eventId);
+    if (!ev?.variants?.length) return true;
+    return !ev.variants.some((v) => v.id === ce.variantId);
+  }, [data.connectedEvent, mergedEvents]);
+
+  useEffect(() => {
+    const ce = data.connectedEvent;
+    if (!ce?.eventId || eventsWorkspaceArg === null) {
+      setRequiredPropertyNames(null);
+      setSchemaMessage(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const r = await getEffectivePropertyDefinitions(ce.eventId, {
+        variantId: ce.variantId ?? undefined,
+      });
+      if (cancelled) return;
+      if (r.success) {
+        setSchemaMessage(null);
+        const names = r.items
+          .filter((d) => isPropertyRequiredForTrigger(d))
+          .map((d) => d.property.name);
+        setRequiredPropertyNames(names);
+        return;
+      }
+      setRequiredPropertyNames(null);
+      const err = (r as { success: false; error: ApiError }).error;
+      setSchemaMessage(
+        ce.variantId && (err.code === 'NOT_FOUND' || err.message.toLowerCase().includes('variant'))
+          ? 'Selected variant is missing or was removed. Pick the base event or another variant.'
+          : err.message
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [data.connectedEvent, eventsWorkspaceArg, getEffectivePropertyDefinitions]);
 
   const filteredEvents = useMemo(
     () =>
@@ -261,6 +315,24 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
             {data.connectedEvent.description && (
               <div className="text-xs text-gray-600 line-clamp-2">
                 {data.connectedEvent.description}
+              </div>
+            )}
+
+            {variantSelectionInvalid && (
+              <div className="mt-2 text-[10px] text-red-800 bg-red-50 border border-red-200 rounded px-2 py-1">
+                This variant is no longer available. Reconnect the trigger or pick the base event or another variant.
+              </div>
+            )}
+
+            {schemaMessage && !variantSelectionInvalid && (
+              <div className="mt-2 text-[10px] text-amber-900 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                {schemaMessage}
+              </div>
+            )}
+
+            {requiredPropertyNames && requiredPropertyNames.length > 0 && (
+              <div className="mt-2 text-[10px] text-gray-700 leading-snug">
+                <span className="font-semibold">Required properties:</span> {requiredPropertyNames.join(', ')}
               </div>
             )}
           </div>

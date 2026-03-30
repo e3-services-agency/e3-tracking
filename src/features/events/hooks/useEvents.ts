@@ -12,6 +12,9 @@ import type {
   EventPropertyDefinitionUpsertPayload,
   EventPropertyPresence,
   EventRow,
+  EventVariantOverridesV1,
+  EventVariantRow,
+  EventVariantSummary,
 } from '@/src/types/schema';
 
 export interface ApiError {
@@ -26,6 +29,7 @@ export interface ApiError {
 /** Event with attached property count (from GET /api/events). */
 export interface EventWithPropertyCount extends EventRow {
   attached_property_count: number;
+  variants: EventVariantSummary[];
 }
 
 /** Attached property with name (from GET /api/events/:id). */
@@ -42,6 +46,7 @@ export interface EventWithPropertiesResponse {
   event: EventRow;
   attached_properties: EventPropertyWithDetails[];
   source_ids: string[];
+  variants: EventVariantRow[];
 }
 
 async function parseErrorResponse(res: Response): Promise<ApiError> {
@@ -96,11 +101,25 @@ export interface UseEventsResult {
     eventId: string
   ) => Promise<EventWithPropertiesResponse | null>;
   getEffectivePropertyDefinitions: (
-    eventId: string
+    eventId: string,
+    options?: { variantId?: string | null }
   ) => Promise<
     | { success: true; items: EffectiveEventPropertyDefinition[] }
     | { success: false; error: ApiError }
   >;
+  createEventVariant: (
+    eventId: string,
+    payload: { name: string; description?: string | null; overrides_json?: EventVariantOverridesV1 }
+  ) => Promise<{ success: true; data: EventVariantRow } | { success: false; error: ApiError }>;
+  updateEventVariant: (
+    eventId: string,
+    variantId: string,
+    patch: { name?: string; description?: string | null; overrides_json?: EventVariantOverridesV1 }
+  ) => Promise<{ success: true; data: EventVariantRow } | { success: false; error: ApiError }>;
+  deleteEventVariant: (
+    eventId: string,
+    variantId: string
+  ) => Promise<{ success: true } | { success: false; error: ApiError }>;
   putEventPropertyDefinitions: (
     eventId: string,
     definitions: EventPropertyDefinitionUpsertPayload[]
@@ -202,7 +221,7 @@ export function useEvents(explicitWorkspaceId?: string | null): UseEventsResult 
         if (res.status === 201 && body?.id) {
           const created = body as EventRow;
           setEvents((prev) =>
-            [...prev, { ...created, attached_property_count: 0 }].sort((a, b) =>
+            [...prev, { ...created, attached_property_count: 0, variants: [] }].sort((a, b) =>
               a.name.localeCompare(b.name)
             )
           );
@@ -260,7 +279,7 @@ export function useEvents(explicitWorkspaceId?: string | null): UseEventsResult 
             prev
               .map((event) =>
                 event.id === eventId
-                  ? { ...event, ...updated }
+                  ? { ...event, ...updated, variants: event.variants ?? [] }
                   : event
               )
               .sort((a, b) => a.name.localeCompare(b.name))
@@ -494,7 +513,8 @@ export function useEvents(explicitWorkspaceId?: string | null): UseEventsResult 
 
   const getEffectivePropertyDefinitions = useCallback(
     async (
-      eventId: string
+      eventId: string,
+      options?: { variantId?: string | null }
     ): Promise<
       | { success: true; items: EffectiveEventPropertyDefinition[] }
       | { success: false; error: ApiError }
@@ -503,8 +523,14 @@ export function useEvents(explicitWorkspaceId?: string | null): UseEventsResult 
         return { success: false, error: noWorkspaceError() };
       }
       try {
+        const params = new URLSearchParams();
+        const vid = options?.variantId?.trim();
+        if (vid) {
+          params.set('variant_id', vid);
+        }
+        const qs = params.toString();
         const res = await fetchWithAuth(
-          `${API_BASE}/api/events/${eventId}/property-definitions/effective`,
+          `${API_BASE}/api/events/${eventId}/property-definitions/effective${qs ? `?${qs}` : ''}`,
           {
             headers: { 'x-workspace-id': effectiveWorkspaceId },
           }
@@ -529,6 +555,147 @@ export function useEvents(explicitWorkspaceId?: string | null): UseEventsResult 
       }
     },
     [effectiveWorkspaceId]
+  );
+
+  const createEventVariant = useCallback(
+    async (
+      eventId: string,
+      payload: { name: string; description?: string | null; overrides_json?: EventVariantOverridesV1 }
+    ): Promise<{ success: true; data: EventVariantRow } | { success: false; error: ApiError }> => {
+      setMutationError(null);
+      if (!effectiveWorkspaceId) {
+        const err = noWorkspaceError();
+        setMutationError(err);
+        return { success: false, error: err };
+      }
+      try {
+        const res = await fetchWithAuth(`${API_BASE}/api/events/${eventId}/variants`, {
+          method: 'POST',
+          headers: {
+            'x-workspace-id': effectiveWorkspaceId,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (res.status === 201 && body?.id) {
+          await refetch();
+          return { success: true, data: body as EventVariantRow };
+        }
+        const apiError: ApiError = {
+          status: res.status,
+          code: body?.code ?? 'UNKNOWN',
+          message: typeof body?.error === 'string' ? body.error : res.statusText || 'Request failed',
+          details: body?.details,
+        };
+        setMutationError(apiError);
+        return { success: false, error: apiError };
+      } catch (err) {
+        const apiError: ApiError = {
+          status: 0,
+          code: 'NETWORK_ERROR',
+          message: err instanceof Error ? err.message : 'Failed to create variant.',
+        };
+        setMutationError(apiError);
+        return { success: false, error: apiError };
+      }
+    },
+    [effectiveWorkspaceId, refetch]
+  );
+
+  const updateEventVariant = useCallback(
+    async (
+      eventId: string,
+      variantId: string,
+      patch: { name?: string; description?: string | null; overrides_json?: EventVariantOverridesV1 }
+    ): Promise<{ success: true; data: EventVariantRow } | { success: false; error: ApiError }> => {
+      setMutationError(null);
+      if (!effectiveWorkspaceId) {
+        const err = noWorkspaceError();
+        setMutationError(err);
+        return { success: false, error: err };
+      }
+      try {
+        const res = await fetchWithAuth(
+          `${API_BASE}/api/events/${eventId}/variants/${variantId}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'x-workspace-id': effectiveWorkspaceId,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(patch),
+          }
+        );
+        const body = await res.json().catch(() => ({}));
+        if (res.ok && body?.id) {
+          await refetch();
+          return { success: true, data: body as EventVariantRow };
+        }
+        const apiError: ApiError = {
+          status: res.status,
+          code: body?.code ?? 'UNKNOWN',
+          message: typeof body?.error === 'string' ? body.error : res.statusText || 'Request failed',
+          details: body?.details,
+        };
+        setMutationError(apiError);
+        return { success: false, error: apiError };
+      } catch (err) {
+        const apiError: ApiError = {
+          status: 0,
+          code: 'NETWORK_ERROR',
+          message: err instanceof Error ? err.message : 'Failed to update variant.',
+        };
+        setMutationError(apiError);
+        return { success: false, error: apiError };
+      }
+    },
+    [effectiveWorkspaceId, refetch]
+  );
+
+  const deleteEventVariant = useCallback(
+    async (
+      eventId: string,
+      variantId: string
+    ): Promise<{ success: true } | { success: false; error: ApiError }> => {
+      setMutationError(null);
+      if (!effectiveWorkspaceId) {
+        const err = noWorkspaceError();
+        setMutationError(err);
+        return { success: false, error: err };
+      }
+      try {
+        const res = await fetchWithAuth(
+          `${API_BASE}/api/events/${eventId}/variants/${variantId}`,
+          {
+            method: 'DELETE',
+            headers: { 'x-workspace-id': effectiveWorkspaceId },
+          }
+        );
+        if (res.status === 204) {
+          await refetch();
+          return { success: true };
+        }
+        const body = await res.json().catch(() => ({}));
+        const apiError: ApiError = {
+          status: res.status,
+          code: body?.code ?? 'UNKNOWN',
+          message: typeof body?.error === 'string' ? body.error : res.statusText || 'Request failed',
+          details: body?.details,
+        };
+        setMutationError(apiError);
+        return { success: false, error: apiError };
+      } catch (err) {
+        const apiError: ApiError = {
+          status: 0,
+          code: 'NETWORK_ERROR',
+          message: err instanceof Error ? err.message : 'Failed to delete variant.',
+        };
+        setMutationError(apiError);
+        return { success: false, error: apiError };
+      }
+    },
+    [effectiveWorkspaceId, refetch]
   );
 
   const putEventPropertyDefinitions = useCallback(
@@ -634,6 +801,9 @@ export function useEvents(explicitWorkspaceId?: string | null): UseEventsResult 
     updatePresence,
     getEventWithProperties,
     getEffectivePropertyDefinitions,
+    createEventVariant,
+    updateEventVariant,
+    deleteEventVariant,
     putEventPropertyDefinitions,
     deleteEventPropertyDefinition,
     mutationError,

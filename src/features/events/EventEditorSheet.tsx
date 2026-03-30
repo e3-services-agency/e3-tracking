@@ -28,9 +28,12 @@ import {
   type EventRow,
   type EventType,
   type EventTriggerEntry,
+  type EventVariantOverridesV1,
+  type EventVariantRow,
   type SourceRow,
   type PropertyRow,
 } from '@/src/types/schema';
+import { EventVariantsApiSection } from '@/src/features/events/components/EventVariantsApiSection';
 import type { ApiError, EventWithPropertiesResponse } from '@/src/features/events/hooks/useEvents';
 import { useProperties } from '@/src/features/properties/hooks/useProperties';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
@@ -155,6 +158,19 @@ export interface EventEditorSheetProps {
   getEffectivePropertyDefinitions: EventPropertyOverridesSectionProps['getEffectivePropertyDefinitions'];
   putEventPropertyDefinitions: EventPropertyOverridesSectionProps['putEventPropertyDefinitions'];
   deleteEventPropertyDefinition: EventPropertyOverridesSectionProps['deleteEventPropertyDefinition'];
+  createEventVariant: (
+    eventId: string,
+    payload: { name: string; description?: string | null; overrides_json?: EventVariantOverridesV1 }
+  ) => Promise<{ success: true; data: EventVariantRow } | { success: false; error: ApiError }>;
+  updateEventVariant: (
+    eventId: string,
+    variantId: string,
+    patch: { name?: string; description?: string | null; overrides_json?: EventVariantOverridesV1 }
+  ) => Promise<{ success: true; data: EventVariantRow } | { success: false; error: ApiError }>;
+  deleteEventVariant: (
+    eventId: string,
+    variantId: string
+  ) => Promise<{ success: true } | { success: false; error: ApiError }>;
   mutationError: ApiError | null;
   clearMutationError: () => void;
   onEventCreated?: (eventId: string) => void;
@@ -173,6 +189,9 @@ export function EventEditorSheet({
   getEffectivePropertyDefinitions,
   putEventPropertyDefinitions,
   deleteEventPropertyDefinition,
+  createEventVariant,
+  updateEventVariant,
+  deleteEventVariant,
   mutationError,
   clearMutationError,
   onEventCreated,
@@ -214,6 +233,7 @@ export function EventEditorSheet({
   const [isCreatingSource, setIsCreatingSource] = useState(false);
   const [attachedDescExpandedId, setAttachedDescExpandedId] = useState<string | null>(null);
   const [attachPropertyPickerOpen, setAttachPropertyPickerOpen] = useState(false);
+  const [variants, setVariants] = useState<EventVariantRow[]>([]);
 
   const isCreateMode = eventId === null && currentEventId === null;
 
@@ -279,6 +299,7 @@ export function EventEditorSheet({
       setTagsText('');
       setTriggers([]);
       setAttached([]);
+      setVariants([]);
     }
     setAddPresence('always_sent');
     setAttachedDescExpandedId(null);
@@ -731,6 +752,23 @@ export function EventEditorSheet({
           onEditTrigger={openTriggerModalForEdit}
           onRemoveTrigger={removeTrigger}
         />
+
+        {currentEventId && (
+          <>
+            <hr className="border-gray-200" />
+            <EventVariantsApiSection
+              eventId={currentEventId}
+              baseEventName={name.trim() || '—'}
+              variants={variants}
+              onReload={() => void loadEvent(currentEventId)}
+              getEffectivePropertyDefinitions={getEffectivePropertyDefinitions}
+              createEventVariant={createEventVariant}
+              updateEventVariant={updateEventVariant}
+              deleteEventVariant={deleteEventVariant}
+              workspaceMutationsDisabled={!hasValidWorkspaceContext}
+            />
+          </>
+        )}
 
         {loadingEvent && currentEventId && (
           <p className="text-sm text-gray-500">Loading event…</p>

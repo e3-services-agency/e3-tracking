@@ -507,8 +507,18 @@ export async function generateJourneyHtmlExport(
             : '<span class="export-badge export-badge-fix">Fix</span>';
 
       const meta = [
-        step.actionType ? `<span class="export-meta"><strong>Action:</strong> ${escapeHtml(step.actionType)}</span>` : '',
-        step.targetElement ? `<span class="export-meta"><strong>Target element:</strong> <code class="export-block-code">${escapeHtml(step.targetElement)}</code></span>` : '',
+        step.actionType
+          ? `<div class="export-step-meta-field">
+  <div class="export-step-meta-label">Action</div>
+  <div class="export-step-meta-value">${escapeHtml(step.actionType)}</div>
+</div>`
+          : '',
+        step.targetElement
+          ? `<div class="export-step-meta-field">
+  <div class="export-step-meta-label">Target element</div>
+  <div class="export-step-meta-value export-step-meta-value--code"><code class="export-meta-target-code">${escapeHtml(step.targetElement)}</code></div>
+</div>`
+          : '',
       ]
         .filter(Boolean)
         .join('');
@@ -731,7 +741,40 @@ export async function generateJourneyHtmlExport(
     .export-anno-layer { position: absolute; inset: 0; pointer-events: none; }
     .export-anno { position: absolute; border: 2px dashed; border-radius: 4px; opacity: 0.14; }
     .export-step-no-img { padding: 24px; text-align: center; color: #9ca3af; background: #f9fafb; }
-    .export-step-meta { margin: 12px 0; font-size: 0.85rem; color: #6b7280; }
+    .export-step-meta { margin: 12px 0; display: flex; flex-direction: column; gap: 12px; min-width: 0; max-width: 100%; }
+    .export-step-meta-field { min-width: 0; max-width: 100%; }
+    .export-step-meta-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin: 0 0 4px;
+    }
+    .export-step-meta-value {
+      color: #374151;
+      font-size: 0.9rem;
+      line-height: 1.45;
+      min-width: 0;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .export-step-meta-value--code {
+      padding: 8px 10px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+    .export-meta-target-code {
+      display: block;
+      margin: 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.82rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
     .export-meta { display: inline-block; margin-right: 16px; }
     .export-meta code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; }
     .export-block-code { display: block; white-space: pre-wrap; word-break: break-all; margin-top: 4px; }

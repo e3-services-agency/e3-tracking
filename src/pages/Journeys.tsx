@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import {
   updateJourneyTestingInstructionsApi,
+  updateJourneyCodegenPreferredStyleApi,
   downloadJourneyHtmlExportApi,
   useActiveWorkspaceId,
   renameJourneyApi,
@@ -273,6 +274,22 @@ export function Journeys({
       });
       setInstructionsSaveSuccess(true);
       setTimeout(() => setInstructionsSaveSuccess(false), 2000);
+    }
+  };
+
+  const handleChangeCodegenPreferredStyle = async (
+    style: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi'
+  ) => {
+    if (!selectedJourney) return;
+    const previousStyle = selectedJourney.codegen_preferred_style ?? null;
+    updateJourney(selectedJourney.id, { codegen_preferred_style: style });
+    const result = await updateJourneyCodegenPreferredStyleApi(
+      selectedJourney.id,
+      style,
+      activeWorkspaceId
+    );
+    if (!result.success) {
+      updateJourney(selectedJourney.id, { codegen_preferred_style: previousStyle });
     }
   };
 
@@ -850,6 +867,7 @@ export function Journeys({
                 activeQARunId={activeQARunId}
                 qaLocked={qaLocked}
                 onEndQA={handleEndQA}
+                onCodegenPreferredStyleChange={handleChangeCodegenPreferredStyle}
                 hideFloatingSave
                 onSaveLayoutState={setSaveLayoutState}
               />

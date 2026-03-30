@@ -180,6 +180,8 @@ export interface Journey {
   type_counts?: { new?: number; enrichment?: number; fix?: number } | null;
   /** Global testing instructions for AI/human testers (Markdown). Synced to API. */
   testing_instructions_markdown?: string | null;
+  /** Preferred codegen tab/style shown in trigger/docs context. */
+  codegen_preferred_style?: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null;
   /**
    * Public sharing toggle is derived from this:
    * - null => not publicly shareable

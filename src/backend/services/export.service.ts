@@ -11,9 +11,19 @@ import type { EventPropertyPresence, PropertyExampleValue } from '../../types/sc
 import { NotFoundError } from '../errors';
 import { isAttachedPropertyRequiredForTrigger } from '../../lib/effectiveEventSchema';
 import { buildCodegenSnippetsFromPresence } from './codegen.service';
+import {
+  codegenLanguageForStyle,
+  highlightCodeToHtml,
+  type CodegenStyleId,
+} from '../../lib/codeHighlight';
 
 /** Lucide-style Zap — matches Journey trigger node header icon treatment in export CSS. */
 const EXPORT_TRIGGER_ZAP_SVG = `<svg class="export-trigger-zap" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>`;
+const CODEGEN_LABELS: Record<CodegenStyleId, string> = {
+  dataLayer: 'GTM dataLayer',
+  bloomreachSdk: 'Bloomreach Web SDK',
+  bloomreachApi: 'Bloomreach Tracking API',
+};
 
 /** Compact REQUIRED column: canonical rule only (`isAttachedPropertyRequiredForTrigger`). */
 function propertyRequiredForTriggerCellHtml(required: boolean): string {
@@ -390,6 +400,12 @@ export async function generateJourneyHtmlExport(
 
   const nodes = (journey.canvas_nodes_json as CanvasNode[] | null) ?? [];
   const edges = (journey.canvas_edges_json as CanvasEdge[] | null) ?? [];
+  const preferredCodegenStyle: CodegenStyleId =
+    journey.codegen_preferred_style === 'dataLayer' ||
+    journey.codegen_preferred_style === 'bloomreachSdk' ||
+    journey.codegen_preferred_style === 'bloomreachApi'
+      ? journey.codegen_preferred_style
+      : 'dataLayer';
 
   const stepNodes = nodes.filter((n) => n?.type === 'journeyStepNode') as CanvasNode[];
   const triggerNodes = nodes.filter((n) => n?.type === 'triggerNode') as CanvasNode[];
@@ -638,6 +654,10 @@ export async function generateJourneyHtmlExport(
                 ? `<div class="export-presence-note"><strong>Always Sent:</strong> ${t.alwaysSent.length ? escapeHtml(t.alwaysSent.join(', ')) : '—'} &nbsp;|&nbsp; <strong>Sometimes Sent:</strong> ${t.sometimesSent.length ? escapeHtml(t.sometimesSent.join(', ')) : '—'}</div>`
                 : '';
             const propsTable = buildPropertyDetailsTable((t as any).attached_properties || []);
+            const highlightedSnippet = highlightCodeToHtml(
+              snippets[preferredCodegenStyle],
+              codegenLanguageForStyle(preferredCodegenStyle)
+            );
             return `
         <div class="export-tracking-block">
           <div class="export-tracking-bar">
@@ -651,24 +671,10 @@ export async function generateJourneyHtmlExport(
           <div class="export-implementation-examples">
             <div class="export-examples-title">Implementation examples</div>
             <div class="export-example-group">
-              <div class="export-example-label">GTM dataLayer</div>
+              <div class="export-example-label">${CODEGEN_LABELS[preferredCodegenStyle]}</div>
               <div class="export-code-wrap">
                 <button class="export-copy" type="button" data-copy-from="next">Copy</button>
-                <pre class="export-code"><code>${escapeHtml(snippets.dataLayer)}</code></pre>
-              </div>
-            </div>
-            <div class="export-example-group">
-              <div class="export-example-label">Bloomreach Web SDK</div>
-              <div class="export-code-wrap">
-                <button class="export-copy" type="button" data-copy-from="next">Copy</button>
-                <pre class="export-code"><code>${escapeHtml(snippets.bloomreachSdk)}</code></pre>
-              </div>
-            </div>
-            <div class="export-example-group">
-              <div class="export-example-label">Bloomreach Tracking API</div>
-              <div class="export-code-wrap">
-                <button class="export-copy" type="button" data-copy-from="next">Copy</button>
-                <pre class="export-code"><code>${escapeHtml(snippets.bloomreachApi)}</code></pre>
+                <pre class="export-code"><code class="code-highlight">${highlightedSnippet}</code></pre>
               </div>
             </div>
           </div>
@@ -982,6 +988,12 @@ export async function generateJourneyHtmlExport(
     .export-example-group { margin-bottom: 12px; }
     .export-example-group:last-child { margin-bottom: 0; }
     .export-example-label { font-size: 0.75rem; color: #64748b; margin-bottom: 4px; }
+    .export-code .code-highlight .ch-kw { color: #93c5fd; }
+    .export-code .code-highlight .ch-str { color: #86efac; }
+    .export-code .code-highlight .ch-num { color: #fca5a5; }
+    .export-code .code-highlight .ch-lit { color: #c4b5fd; }
+    .export-code .code-highlight .ch-com { color: #94a3b8; font-style: italic; }
+    .export-code .code-highlight .ch-key { color: #fcd34d; }
     .export-code-wrap { position: relative; }
     .export-copy {
       position: absolute;

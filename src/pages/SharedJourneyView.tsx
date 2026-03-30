@@ -17,6 +17,7 @@ type SharedResponse = {
   name: string;
   description: string | null;
   testing_instructions_markdown: string | null;
+  codegen_preferred_style?: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null;
   nodes: unknown;
   edges: unknown;
   eventSnippets?: Record<
@@ -103,6 +104,7 @@ export function SharedJourneyView({
           id: j.id,
           name: j.name,
           testing_instructions_markdown: j.testing_instructions_markdown ?? undefined,
+          codegen_preferred_style: j.codegen_preferred_style ?? null,
           nodes: enrichedNodes,
           edges: Array.isArray(j.edges) ? j.edges : [],
           qaRuns: enrichedQaRuns,

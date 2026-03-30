@@ -772,17 +772,41 @@ router.patch(
       return;
     }
     const journeyId = req.params.id;
-    const body = req.body as { testing_instructions_markdown?: unknown; name?: unknown };
+    const body = req.body as {
+      testing_instructions_markdown?: unknown;
+      name?: unknown;
+      codegen_preferred_style?: unknown;
+    };
     const testing_instructions_markdown =
       typeof body.testing_instructions_markdown === 'string'
         ? body.testing_instructions_markdown
         : undefined;
     const name = typeof body.name === 'string' ? body.name.trim() : undefined;
+    const codegen_preferred_style =
+      body.codegen_preferred_style === null
+        ? null
+        : body.codegen_preferred_style === 'dataLayer' ||
+            body.codegen_preferred_style === 'bloomreachSdk' ||
+            body.codegen_preferred_style === 'bloomreachApi'
+          ? body.codegen_preferred_style
+          : undefined;
+    if (
+      body.codegen_preferred_style !== undefined &&
+      body.codegen_preferred_style !== null &&
+      codegen_preferred_style === undefined
+    ) {
+      res.status(400).json({
+        error: 'Invalid codegen_preferred_style value.',
+        code: 'INVALID_CODEGEN_PREFERRED_STYLE',
+      });
+      return;
+    }
 
     try {
       const updated = await JourneyDAL.updateJourney(workspaceId, journeyId, {
         testing_instructions_markdown,
         name,
+        codegen_preferred_style,
       });
       res.status(200).json(updated);
     } catch (err) {

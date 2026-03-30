@@ -86,6 +86,7 @@ export async function createJourneyIfMissing(
     canvas_nodes_json: null,
     canvas_edges_json: null,
     testing_instructions_markdown: null,
+    codegen_preferred_style: null,
     share_token: null,
     type_counts: null,
     created_at: now,
@@ -248,7 +249,11 @@ export async function saveJourneyCanvas(
 export async function updateJourney(
   workspaceId: string,
   journeyId: string,
-  patch: { testing_instructions_markdown?: string | null; name?: string }
+  patch: {
+    testing_instructions_markdown?: string | null;
+    name?: string;
+    codegen_preferred_style?: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null;
+  }
 ): Promise<JourneyRow> {
   const journey = await getJourneyById(workspaceId, journeyId);
   if (journey === null) {
@@ -267,6 +272,9 @@ export async function updateJourney(
   }
   if (patch.testing_instructions_markdown !== undefined) {
     updates.testing_instructions_markdown = patch.testing_instructions_markdown;
+  }
+  if (patch.codegen_preferred_style !== undefined) {
+    updates.codegen_preferred_style = patch.codegen_preferred_style;
   }
 
   const { error } = await supabase
@@ -388,6 +396,7 @@ export async function getJourneyByShareId(journeyId: string): Promise<{
   name: string;
   description: string | null;
   testing_instructions_markdown: string | null;
+  codegen_preferred_style: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null;
   nodes: unknown;
   edges: unknown;
 }> {
@@ -395,7 +404,7 @@ export async function getJourneyByShareId(journeyId: string): Promise<{
   const { data, error } = await supabase
     .from('journeys')
     .select(
-      'workspace_id, id, name, description, testing_instructions_markdown, canvas_nodes_json, canvas_edges_json, share_token'
+      'workspace_id, id, name, description, testing_instructions_markdown, codegen_preferred_style, canvas_nodes_json, canvas_edges_json, share_token'
     )
     .eq('id', journeyId)
     .is('deleted_at', null)
@@ -415,6 +424,7 @@ export async function getJourneyByShareId(journeyId: string): Promise<{
     name: string;
     description: string | null;
     testing_instructions_markdown: string | null;
+    codegen_preferred_style: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null;
     canvas_nodes_json: unknown;
     canvas_edges_json: unknown;
     share_token: string | null;
@@ -426,6 +436,7 @@ export async function getJourneyByShareId(journeyId: string): Promise<{
     name: row.name,
     description: row.description,
     testing_instructions_markdown: row.testing_instructions_markdown,
+    codegen_preferred_style: row.codegen_preferred_style ?? null,
     nodes: row.canvas_nodes_json ?? [],
     edges: row.canvas_edges_json ?? [],
   };
@@ -443,13 +454,14 @@ export async function getJourneyByShareToken(token: string): Promise<{
   name: string;
   description: string | null;
   testing_instructions_markdown: string | null;
+  codegen_preferred_style: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null;
   nodes: unknown;
   edges: unknown;
 }> {
   const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('journeys')
-    .select('workspace_id, id, name, description, testing_instructions_markdown, canvas_nodes_json, canvas_edges_json')
+    .select('workspace_id, id, name, description, testing_instructions_markdown, codegen_preferred_style, canvas_nodes_json, canvas_edges_json')
     .eq('share_token', token)
     .is('deleted_at', null)
     .maybeSingle();
@@ -474,6 +486,7 @@ export async function getJourneyByShareToken(token: string): Promise<{
     name: string;
     description: string | null;
     testing_instructions_markdown: string | null;
+    codegen_preferred_style: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null;
     canvas_nodes_json: unknown;
     canvas_edges_json: unknown;
   };
@@ -484,6 +497,7 @@ export async function getJourneyByShareToken(token: string): Promise<{
     name: row.name,
     description: row.description,
     testing_instructions_markdown: row.testing_instructions_markdown,
+    codegen_preferred_style: row.codegen_preferred_style ?? null,
     nodes: row.canvas_nodes_json ?? [],
     edges: row.canvas_edges_json ?? [],
   };

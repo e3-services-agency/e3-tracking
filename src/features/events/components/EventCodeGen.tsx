@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Copy, Check, Code } from 'lucide-react';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
+import { codegenLanguageForStyle, highlightCodeToHtml } from '@/src/lib/codeHighlight';
 
 export type CodegenStyle = 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi';
 
@@ -22,6 +23,8 @@ type EventCodeGenProps = {
   compact?: boolean;
   /** Section title. */
   title?: string;
+  /** Journey-level preferred default method (if set, shown as the active code block). */
+  preferredStyle?: CodegenStyle | null;
 };
 
 const STYLE_LABELS: Record<CodegenStyle, string> = {
@@ -36,12 +39,19 @@ export function EventCodeGen({
   prefetchedSnippets = null,
   compact = false,
   title = 'Code Snippets',
+  preferredStyle = null,
 }: EventCodeGenProps) {
   const [snippets, setSnippets] = useState<CodegenSnippets | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeStyle, setActiveStyle] = useState<CodegenStyle>('dataLayer');
+  const [activeStyle, setActiveStyle] = useState<CodegenStyle>(preferredStyle ?? 'dataLayer');
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (preferredStyle) {
+      setActiveStyle(preferredStyle);
+    }
+  }, [preferredStyle]);
 
   useEffect(() => {
     if (prefetchedSnippets) {
@@ -83,12 +93,13 @@ export function EventCodeGen({
 
   const copyToClipboard = useCallback(() => {
     if (!snippets) return;
-    const text = snippets[activeStyle];
+    const style = preferredStyle ?? activeStyle;
+    const text = snippets[style];
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
-  }, [snippets, activeStyle]);
+  }, [snippets, activeStyle, preferredStyle]);
 
   if (!eventId) {
     return (
@@ -132,7 +143,10 @@ export function EventCodeGen({
     );
   }
 
-  const currentSnippet = snippets[activeStyle];
+  const currentStyle = preferredStyle ?? activeStyle;
+  const currentSnippet = snippets[currentStyle];
+  const language = codegenLanguageForStyle(currentStyle);
+  const highlighted = highlightCodeToHtml(currentSnippet, language);
 
   return (
     <div className={compact ? '' : 'space-y-4'}>
@@ -141,27 +155,29 @@ export function EventCodeGen({
         <h3 className="text-[15px] font-bold text-gray-800">{title}</h3>
       </div>
 
-      <div className="flex gap-1 p-1 bg-gray-100 rounded-lg border border-gray-200">
-        {(Object.keys(STYLE_LABELS) as CodegenStyle[]).map((style) => (
-          <button
-            key={style}
-            type="button"
-            onClick={() => setActiveStyle(style)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-              activeStyle === style
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            {STYLE_LABELS[style]}
-          </button>
-        ))}
-      </div>
+      {!preferredStyle && (
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-lg border border-gray-200">
+          {(Object.keys(STYLE_LABELS) as CodegenStyle[]).map((style) => (
+            <button
+              key={style}
+              type="button"
+              onClick={() => setActiveStyle(style)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                activeStyle === style
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              {STYLE_LABELS[style]}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="bg-[var(--surface-code)] rounded-xl overflow-hidden shadow-sm border border-[var(--border-code)]">
         <div className="px-4 py-2 bg-[var(--surface-code-header)] border-b border-[var(--border-code)] flex justify-between items-center">
           <span className="text-[12px] font-semibold text-gray-300">
-            {STYLE_LABELS[activeStyle]}
+            {STYLE_LABELS[currentStyle]}
           </span>
           <button
             type="button"
@@ -180,9 +196,21 @@ export function EventCodeGen({
           </button>
         </div>
         <pre className="p-4 text-[13px] font-mono text-[var(--text-code)] overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-[320px] overflow-y-auto">
-          <code>{currentSnippet}</code>
+          <code
+            className="code-highlight"
+            data-language={language}
+            dangerouslySetInnerHTML={{ __html: highlighted }}
+          />
         </pre>
       </div>
+      <style>{`
+        .code-highlight .ch-kw { color: #93c5fd; }
+        .code-highlight .ch-str { color: #86efac; }
+        .code-highlight .ch-num { color: #fca5a5; }
+        .code-highlight .ch-lit { color: #c4b5fd; }
+        .code-highlight .ch-com { color: #94a3b8; font-style: italic; }
+        .code-highlight .ch-key { color: #fcd34d; }
+      `}</style>
     </div>
   );
 }

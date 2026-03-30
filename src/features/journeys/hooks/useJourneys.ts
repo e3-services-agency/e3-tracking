@@ -19,6 +19,7 @@ function mapJourneyRowToUi(j: JourneyRow & { qaRunsCount?: number; latestQARun?:
     latestQARun: (j.latestQARun ?? null) as any,
     type_counts: j.type_counts ?? null,
     testing_instructions_markdown: j.testing_instructions_markdown ?? null,
+    codegen_preferred_style: j.codegen_preferred_style ?? null,
     share_token: j.share_token ?? null,
   };
 }

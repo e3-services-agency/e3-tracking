@@ -456,6 +456,8 @@ export interface JourneyRow {
   canvas_edges_json: unknown | null;
   /** Global testing instructions for AI/human testers. */
   testing_instructions_markdown: string | null;
+  /** Preferred existing codegen method in trigger/docs context. */
+  codegen_preferred_style: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null;
   /** Public UUID for read-only share link. Null until generated. */
   share_token: string | null;
   /** Counts of step implementation types: new, enrichment, fix. Updated on canvas save. */

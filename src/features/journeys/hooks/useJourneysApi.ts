@@ -317,7 +317,7 @@ export async function setJourneyShareEnabledApi(
 export async function getSharedJourneyByIdApi(
   journeyId: string
 ): Promise<
-  | { success: true; journey: { id: string; name: string; description: string | null; testing_instructions_markdown: string | null; nodes: unknown; edges: unknown; eventSnippets?: Record<string, { eventName: string; snippets: { dataLayer: string; bloomreachSdk: string; bloomreachApi: string } }>; qaRuns?: unknown } }
+  | { success: true; journey: { id: string; name: string; description: string | null; testing_instructions_markdown: string | null; codegen_preferred_style?: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null; nodes: unknown; edges: unknown; eventSnippets?: Record<string, { eventName: string; snippets: { dataLayer: string; bloomreachSdk: string; bloomreachApi: string } }>; qaRuns?: unknown } }
   | { success: false; error: string }
 > {
   try {
@@ -456,7 +456,7 @@ export async function getSharedJourneysHubListApi(
 export async function getSharedJourneyByTokenApi(
   token: string
 ): Promise<
-  | { success: true; journey: { id: string; name: string; description: string | null; testing_instructions_markdown: string | null; nodes: unknown; edges: unknown; eventSnippets?: Record<string, { eventName: string; snippets: { dataLayer: string; bloomreachSdk: string; bloomreachApi: string } }>; qaRuns?: unknown } }
+  | { success: true; journey: { id: string; name: string; description: string | null; testing_instructions_markdown: string | null; codegen_preferred_style?: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null; nodes: unknown; edges: unknown; eventSnippets?: Record<string, { eventName: string; snippets: { dataLayer: string; bloomreachSdk: string; bloomreachApi: string } }>; qaRuns?: unknown } }
   | { success: false; error: string }
 > {
   try {
@@ -531,6 +531,33 @@ export async function updateJourneyTestingInstructionsApi(
       method: 'PATCH',
       headers: { 'x-workspace-id': workspaceId },
       body: JSON.stringify({ testing_instructions_markdown }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        error: typeof body?.error === 'string' ? body.error : res.statusText || 'Update failed',
+      };
+    }
+    return { success: true };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'Network error',
+    };
+  }
+}
+
+export async function updateJourneyCodegenPreferredStyleApi(
+  journeyId: string,
+  codegen_preferred_style: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null,
+  workspaceId: string
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const res = await fetchWithAuth(`${API_BASE}/api/journeys/${journeyId}`, {
+      method: 'PATCH',
+      headers: { 'x-workspace-id': workspaceId },
+      body: JSON.stringify({ codegen_preferred_style }),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));

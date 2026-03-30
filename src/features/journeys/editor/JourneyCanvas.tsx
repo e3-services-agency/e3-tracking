@@ -17,7 +17,7 @@ import { TriggerNode } from '@/src/features/journeys/nodes/TriggerNode';
 import { NoteNode } from '@/src/features/journeys/nodes/NoteNode';
 import { AnnotationNode } from '@/src/features/journeys/nodes/AnnotationNode';
 import { JourneyProofViewer } from '@/src/features/journeys/overlays/JourneyProofViewer';
-import { EventCodeGen } from '@/src/features/events/components/EventCodeGen';
+import { EventCodeGen, type CodegenStyle } from '@/src/features/events/components/EventCodeGen';
 import { useJourneyCanvas } from '@/src/features/journeys/hooks/useJourneyCanvas';
 import {
   computeQARunStatusForRun,
@@ -147,6 +147,7 @@ export function JourneyCanvas({
   readOnly = false,
   qaLocked = false,
   onEndQA,
+  onCodegenPreferredStyleChange,
   hideFloatingSave = false,
   onSaveLayoutState,
 }: {
@@ -157,6 +158,7 @@ export function JourneyCanvas({
   readOnly?: boolean;
   qaLocked?: boolean;
   onEndQA?: (endedAt: string) => void;
+  onCodegenPreferredStyleChange?: (style: CodegenStyle) => void;
   hideFloatingSave?: boolean;
   onSaveLayoutState?: (s: {
     save: () => void;
@@ -924,9 +926,30 @@ export function JourneyCanvas({
               {isTriggerNode(selectedNode) &&
                 selectedNode.data.connectedEvent?.eventId && (
                   <div className="pt-2 border-t border-gray-200">
+                    {!effectiveReadOnly && (
+                      <div className="mb-3">
+                        <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                          Default codegen method
+                        </label>
+                        <select
+                          value={journey.codegen_preferred_style ?? 'dataLayer'}
+                          onChange={(e) =>
+                            onCodegenPreferredStyleChange?.(
+                              e.target.value as CodegenStyle
+                            )
+                          }
+                          className="w-full h-8 rounded-md border border-gray-300 bg-white px-2 text-xs text-gray-800"
+                        >
+                          <option value="dataLayer">Data Layer</option>
+                          <option value="bloomreachSdk">Bloomreach SDK</option>
+                          <option value="bloomreachApi">Bloomreach API</option>
+                        </select>
+                      </div>
+                    )}
                     <EventCodeGen
                       eventId={selectedTriggerEventIdForCodegen}
                       prefetchedSnippets={selectedTriggerPrefetchedSnippets}
+                      preferredStyle={journey.codegen_preferred_style ?? null}
                       compact
                       title="Code Snippets"
                       workspaceId={workspaceId}

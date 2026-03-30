@@ -1015,7 +1015,7 @@ export async function generateJourneyHtmlExport(
       word-break: break-word;
       box-sizing: border-box;
     }
-    /* Sticky identity block: Property | Presence | Type (widths sum for left offsets) */
+    /* Sticky: Property name column only (row identity while scrolling) */
     .export-props-table th:nth-child(1),
     .export-props-table td:nth-child(1) {
       position: sticky;
@@ -1025,7 +1025,7 @@ export async function generateJourneyHtmlExport(
       min-width: 156px;
       max-width: 156px;
       background: #fff;
-      box-shadow: 3px 0 6px -2px rgba(15, 23, 42, 0.12);
+      box-shadow: 4px 0 10px -2px rgba(15, 23, 42, 0.14);
     }
     .export-props-table thead th:nth-child(1) {
       z-index: 5;
@@ -1033,33 +1033,11 @@ export async function generateJourneyHtmlExport(
     }
     .export-props-table th:nth-child(2),
     .export-props-table td:nth-child(2) {
-      position: sticky;
-      left: 156px;
-      z-index: 3;
-      width: 120px;
-      min-width: 120px;
-      max-width: 120px;
-      background: #fff;
-      box-shadow: 3px 0 6px -2px rgba(15, 23, 42, 0.12);
-    }
-    .export-props-table thead th:nth-child(2) {
-      z-index: 5;
-      background: #f8fafc;
+      min-width: 108px;
     }
     .export-props-table th:nth-child(3),
     .export-props-table td:nth-child(3) {
-      position: sticky;
-      left: 276px;
-      z-index: 3;
-      width: 132px;
-      min-width: 132px;
-      max-width: 132px;
-      background: #fff;
-      box-shadow: 4px 0 10px -2px rgba(15, 23, 42, 0.14);
-    }
-    .export-props-table thead th:nth-child(3) {
-      z-index: 5;
-      background: #f8fafc;
+      min-width: 120px;
     }
     .export-props-table th:nth-child(4),
     .export-props-table td:nth-child(4) {

@@ -24,6 +24,7 @@ import {
 import { buildProofFromFile } from '@/src/features/journeys/lib/proofs';
 import { StrictHandles, QAStatusBadge } from '@/src/features/journeys/nodes/NodeHandles';
 import { JourneyQuickAddMenu } from '@/src/features/journeys/overlays/JourneyQuickAddMenu';
+import { JourneyDescriptionEditor } from '@/src/features/journeys/components/JourneyDescriptionEditor';
 
 export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
   const { setNodes } = useReactFlow<JourneyFlowNode, JourneyFlowEdge>();
@@ -146,15 +147,15 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
         <span className="text-sm font-bold text-amber-900">Trigger</span>
       </div>
 
-      <div className="p-3 space-y-3">
-        <textarea
+      <div className="p-3 space-y-3 min-w-0">
+        <JourneyDescriptionEditor
+          anchorId={id}
+          value={data.description ?? ''}
+          onCommit={(description) => updateNodeData({ description })}
+          readOnly={disabled}
           placeholder="Trigger Description..."
-          value={data.description}
-          onChange={(e) =>
-            !disabled && updateNodeData({ description: e.target.value })
-          }
-          disabled={disabled}
-          className="w-full text-xs text-gray-600 bg-white border rounded p-2 resize-none h-16 disabled:bg-gray-50 nodrag"
+          textareaClassName="w-full text-xs text-gray-600 bg-white border rounded p-2 resize-none h-16 nodrag disabled:bg-gray-50"
+          readOnlyContainerClassName="w-full text-xs text-gray-700 bg-white border rounded p-2 min-h-[3.5rem] min-w-0 max-w-full overflow-hidden"
         />
 
         {!data.connectedEvent ? (

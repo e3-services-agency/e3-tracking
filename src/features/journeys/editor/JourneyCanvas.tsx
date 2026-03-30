@@ -25,6 +25,7 @@ import {
   hasPendingStepsForRun,
 } from '@/src/features/journeys/lib/qaRunUtils';
 import { JourneyPendingQAWarnModal } from '@/src/features/journeys/overlays/JourneyPendingQAWarnModal';
+import { JourneyDescriptionMarkdown } from '@/src/features/journeys/components/JourneyDescriptionMarkdown';
 import {
   AlertTriangle,
   CircleDashed,
@@ -759,7 +760,7 @@ export function JourneyCanvas({
         selectedPanel === 'node' &&
         selectedNode &&
         (isJourneyStepNode(selectedNode) || isTriggerNode(selectedNode)) && (
-          <div className="w-[420px] border-l bg-white flex flex-col shadow-xl z-20 absolute right-0 top-0 bottom-0">
+          <div className="w-[420px] min-w-0 max-w-[420px] border-l bg-white flex flex-col shadow-xl z-20 absolute right-0 top-0 bottom-0">
             <div className="p-4 border-b bg-gray-50 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0 flex-1 flex-wrap">
                 <h3 className="font-bold text-gray-900 flex items-center gap-2 min-w-0">
@@ -789,7 +790,7 @@ export function JourneyCanvas({
               </button>
             </div>
 
-            <div className="p-4 flex-1 overflow-y-auto space-y-6 min-h-0">
+            <div className="p-4 flex-1 overflow-y-auto overflow-x-hidden space-y-6 min-h-0 min-w-0">
               <div>
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                   Node Details
@@ -808,6 +809,22 @@ export function JourneyCanvas({
                     )}
                 </div>
               </div>
+
+              {effectiveReadOnly &&
+                isTriggerNode(selectedNode) &&
+                (selectedNode.data.description ?? '').trim() && (
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Trigger description
+                    </div>
+                    <div className="bg-white border rounded-md p-2 text-sm text-gray-800 min-w-0 max-w-full overflow-hidden">
+                      <JourneyDescriptionMarkdown
+                        text={selectedNode.data.description ?? ''}
+                        className="text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
 
               {effectiveReadOnly && isJourneyStepNode(selectedNode) && (
                 <div className="space-y-4">
@@ -862,7 +879,7 @@ export function JourneyCanvas({
                       <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
                         Target element
                       </div>
-                      <pre className="bg-white border rounded-md p-2 text-xs text-gray-700 whitespace-pre-wrap break-all">
+                      <pre className="bg-white border rounded-md p-2 text-xs text-gray-700 whitespace-pre-wrap break-all min-w-0 max-w-full overflow-x-auto">
                         {selectedNode.data.targetElement}
                       </pre>
                     </div>
@@ -873,7 +890,7 @@ export function JourneyCanvas({
                       <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
                         Test data
                       </div>
-                      <pre className="bg-white border rounded-md p-2 text-xs text-gray-700 whitespace-pre-wrap break-all">
+                      <pre className="bg-white border rounded-md p-2 text-xs text-gray-700 whitespace-pre-wrap break-all min-w-0 max-w-full overflow-x-auto">
                         {selectedNode.data.testDataJson}
                       </pre>
                     </div>
@@ -1257,7 +1274,7 @@ export function JourneyCanvas({
                             </div>
 
                             <div className="space-y-2">
-                              <pre className="text-xs bg-white border rounded p-2 overflow-auto max-h-64 whitespace-pre-wrap">
+                              <pre className="text-xs bg-white border rounded p-2 overflow-x-auto max-h-64 max-w-full min-w-0 whitespace-pre-wrap break-words">
                                 {proof.content}
                               </pre>
 

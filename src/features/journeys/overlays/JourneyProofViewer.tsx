@@ -20,7 +20,7 @@ export const JourneyProofViewer = ({
       onClick={onClose}
     >
       <div
-        className="relative w-full h-full max-w-6xl max-h-[95vh] bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col"
+        className="relative w-full min-w-0 max-w-6xl max-h-[95vh] bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
@@ -45,7 +45,7 @@ export const JourneyProofViewer = ({
           </Button>
         </div>
 
-        <div className="flex-1 overflow-auto bg-gray-100 p-4">
+        <div className="flex-1 min-h-0 min-w-0 overflow-auto bg-gray-100 p-4">
           {proof.type === 'image' ? (
             <img
               src={proof.content}
@@ -53,7 +53,7 @@ export const JourneyProofViewer = ({
               className="max-w-full max-h-full mx-auto rounded border bg-white"
             />
           ) : (
-            <pre className="text-sm bg-white border rounded p-4 whitespace-pre-wrap break-words min-h-full">
+            <pre className="text-sm bg-white border rounded p-4 max-w-full min-w-0 whitespace-pre-wrap break-words [overflow-wrap:anywhere] overflow-x-auto">
               {proof.content}
             </pre>
           )}

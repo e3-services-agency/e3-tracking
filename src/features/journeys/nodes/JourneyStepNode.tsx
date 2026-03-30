@@ -17,6 +17,7 @@ import { buildProofFromFile } from '@/src/features/journeys/lib/proofs';
 import { uploadJourneyStepImage } from '@/src/features/journeys/lib/journeyImageStorage';
 import { StrictHandles, QAStatusBadge } from '@/src/features/journeys/nodes/NodeHandles';
 import { JourneyQuickAddMenu } from '@/src/features/journeys/overlays/JourneyQuickAddMenu';
+import { JourneyDescriptionEditor } from '@/src/features/journeys/components/JourneyDescriptionEditor';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 
@@ -231,21 +232,13 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
           />
         </div>
 
-        {isReadOnly ? (
-          <div className="w-full text-xs text-gray-700 bg-white border rounded p-2 min-h-[3.5rem] whitespace-pre-wrap">
-            {(data.description ?? '').trim() ? data.description : '—'}
-          </div>
-        ) : (
-          <textarea
-            placeholder="Step Description..."
-            value={data.description}
-            onChange={(e) =>
-              !disabled && updateNodeData({ description: e.target.value })
-            }
-            disabled={disabled}
-            className="w-full text-xs text-gray-600 bg-white border rounded p-1 resize-none h-16 disabled:bg-gray-50 nodrag"
-          />
-        )}
+        <JourneyDescriptionEditor
+          anchorId={id}
+          value={data.description ?? ''}
+          onCommit={(description) => updateNodeData({ description })}
+          readOnly={disabled}
+          placeholder="Step Description..."
+        />
 
         {isReadOnly ? (
           (data.url ?? '').trim() ? (

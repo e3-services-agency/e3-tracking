@@ -35,12 +35,43 @@ function parseWorkspaceFromPath(pathname: string): { workspaceKey: string | null
   return { workspaceKey: m[1] ?? null, restPath: m[2] ?? '/' };
 }
 
-function syncJourneysRouteFromLocation(): { tab: string; journeyId: string | null } | null {
-  if (typeof window === 'undefined') return null;
-  const { restPath: path } = parseWorkspaceFromPath(window.location.pathname);
-  const match = path.match(/^\/journeys(?:\/([^/]+))?\/?$/);
-  if (!match) return null;
-  return { tab: match[1] ? 'journeys' : 'journeysList', journeyId: match[1] ?? null };
+/**
+ * Maps the path after optional `/w/:workspaceKey` to the main shell tab.
+ * Per-entity segments (e.g. `/events/:id`) are not supported in this pass — unknown paths fall back to Events.
+ */
+function mainRouteStateFromRestPath(restPath: string): { tab: string; journeyId: string | null } {
+  const raw = (restPath.replace(/\/$/, '') || '/').trim() || '/';
+  const journeyMatch = raw.match(/^\/journeys(?:\/([^/]+))?\/?$/);
+  if (journeyMatch) {
+    return journeyMatch[1]
+      ? { tab: 'journeys', journeyId: journeyMatch[1] }
+      : { tab: 'journeysList', journeyId: null };
+  }
+  switch (raw) {
+    case '/':
+    case '/events':
+      return { tab: 'events', journeyId: null };
+    case '/properties':
+      return { tab: 'properties', journeyId: null };
+    case '/catalogs':
+      return { tab: 'catalogs', journeyId: null };
+    case '/sources':
+      return { tab: 'sources', journeyId: null };
+    case '/settings':
+      return { tab: 'settings', journeyId: null };
+    case '/documentation':
+      return { tab: 'documentation', journeyId: null };
+    case '/audit-config':
+      return { tab: 'auditConfig', journeyId: null };
+    default:
+      return { tab: 'events', journeyId: null };
+  }
+}
+
+function getInitialMainRouteState(): { tab: string; journeyId: string | null } {
+  if (typeof window === 'undefined') return { tab: 'events', journeyId: null };
+  const { restPath } = parseWorkspaceFromPath(window.location.pathname);
+  return mainRouteStateFromRestPath(restPath);
 }
 
 /** `workspaceKeyForUrl` is the short workspace_key segment (not UUID). Pass null to drop /w/... from the path. */
@@ -74,8 +105,10 @@ function LayoutInner() {
   } = useWorkspaceShell();
   const clearActiveWorkspace = useStore((s) => s.clearActiveWorkspace);
 
-  const [activeTab, setActiveTab] = useState('events');
-  const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState(() => getInitialMainRouteState().tab);
+  const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(
+    () => getInitialMainRouteState().journeyId,
+  );
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const activeWorkspaceKey = useStore((s) => s.activeWorkspaceKey);
   const setActiveWorkspace = useStore((s) => s.setActiveWorkspace);
@@ -220,6 +253,10 @@ function LayoutInner() {
 
   // Keep URL in sync when navigating inside the app.
   useEffect(() => {
+    // Avoid pushing workspace-less URLs before `workspace_key` is known (e.g. before /w/:key resolution
+    // or header selection). Otherwise first paint can replace /w/.../properties with /events.
+    if (!activeWorkspaceKey) return;
+
     if (activeTab === 'journeysList') {
       pushPath('/journeys', activeWorkspaceKey);
       return;

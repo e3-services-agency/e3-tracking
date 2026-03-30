@@ -22,6 +22,7 @@ import {
 } from '@/src/types/schema';
 import {
   PropertyExampleValuesEditor,
+  type PropertyExampleValuesEditorHandle,
   PropertyNameMappingsEditor,
   PropertyValueSchemaEditor,
   serializeExampleValuesForSave,
@@ -187,6 +188,7 @@ export function PropertyEditorSheet({
   /** True after user changes linked sources; blocks stale async hydration from overwriting the selection. */
   const linkedSourcesUserTouchedRef = useRef(false);
   const linkedSourcesHydrationSeqRef = useRef(0);
+  const exampleValuesEditorRef = useRef<PropertyExampleValuesEditorHandle>(null);
 
   const markLinkedSourcesUserTouched = useCallback(() => {
     linkedSourcesUserTouchedRef.current = true;
@@ -380,13 +382,21 @@ export function PropertyEditorSheet({
     const value_schema_json =
       dataType === 'object' || dataType === 'array' ? valueSchemaDraft : null;
 
-    const exampleCheck = validateExampleValuesForSave(exampleValuesDraft);
+    const flushExamples = exampleValuesEditorRef.current?.flushPendingForSave();
+    if (flushExamples && !flushExamples.ok) {
+      setEditorError(flushExamples.error);
+      setSaving(false);
+      return;
+    }
+    const exampleValuesForSave = flushExamples?.ok ? flushExamples.entries : exampleValuesDraft;
+
+    const exampleCheck = validateExampleValuesForSave(exampleValuesForSave);
     if (!exampleCheck.ok) {
       setEditorError(exampleCheck.error);
       setSaving(false);
       return;
     }
-    const example_values_json = serializeExampleValuesForSave(exampleValuesDraft);
+    const example_values_json = serializeExampleValuesForSave(exampleValuesForSave);
     const name_mappings_json = serializeNameMappingsForSave(nameMappingsDraft);
 
     if (isEdit && initialProperty && updateProperty) {
@@ -647,10 +657,13 @@ export function PropertyEditorSheet({
         <div className="space-y-2">
           <label className="text-sm font-medium text-gray-700">Example values</label>
           <p className="text-xs text-gray-500">
-            Sample payloads (each entry requires a JSON <span className="font-mono">value</span>; optional{' '}
-            <span className="font-mono">label</span> and <span className="font-mono">notes</span>).
+            Sample values for this property (each row has a <span className="font-mono">value</span> plus optional{' '}
+            <span className="font-mono">label</span> and <span className="font-mono">notes</span>). Primitives use simple
+            fields; object/array types use JSON.
           </p>
           <PropertyExampleValuesEditor
+            ref={exampleValuesEditorRef}
+            propertyDataType={dataType}
             entries={exampleValuesDraft}
             onChange={setExampleValuesDraft}
             disabled={isMutating}

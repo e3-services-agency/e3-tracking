@@ -2,7 +2,16 @@
  * Structured editors for property JSON fields (value_schema_json, example_values_json, name_mappings_json).
  * Shapes match src/types/schema.ts and backend property.dal / routes/properties validation.
  */
-import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useMemo,
+  forwardRef,
+  useRef,
+  useState,
+} from 'react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import {
@@ -578,112 +587,337 @@ function valueKey(v: unknown): string {
   }
 }
 
-function ExampleValueRow({
-  index,
-  entry,
-  onChange,
-  onRemove,
-  disabled,
-}: {
+/** JSON textarea for object/array property types, or legacy object/array-shaped example values. */
+export function shouldUseJsonValueEditor(
+  propertyDataType: PropertyDataType,
+  value: unknown
+): boolean {
+  if (propertyDataType === 'object' || propertyDataType === 'array') return true;
+  if (value !== null && typeof value === 'object') return true;
+  return false;
+}
+
+function isoToDatetimeLocal(iso: unknown): string {
+  if (typeof iso !== 'string') return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function numberToDisplayString(v: unknown): string {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'number') return String(v);
+  if (typeof v === 'string') return v;
+  return String(v);
+}
+
+export type ExampleValueRowHandle = {
+  flushValue: () => { ok: true; value: unknown } | { ok: false; error: string };
+};
+
+type ExampleValueRowProps = {
   index: number;
   entry: PropertyExampleValue;
+  propertyDataType: PropertyDataType;
   onChange: (next: PropertyExampleValue) => void;
   onRemove: () => void;
   disabled?: boolean;
-}) {
-  const [valueText, setValueText] = useState(() => stringifyExampleValue(entry.value));
-  const [valueError, setValueError] = useState<string | null>(null);
-  const vk = valueKey(entry.value);
+};
 
-  useEffect(() => {
-    setValueText(stringifyExampleValue(entry.value));
-    setValueError(null);
-  }, [vk]);
+const ExampleValueRow = forwardRef<ExampleValueRowHandle, ExampleValueRowProps>(
+  function ExampleValueRow(
+    { index, entry, propertyDataType, onChange, onRemove, disabled },
+    ref
+  ) {
+    const jsonMode = shouldUseJsonValueEditor(propertyDataType, entry.value);
+    const [valueText, setValueText] = useState(() => stringifyExampleValue(entry.value));
+    const [valueError, setValueError] = useState<string | null>(null);
+    const [numberText, setNumberText] = useState(() => numberToDisplayString(entry.value));
+    const [numberError, setNumberError] = useState<string | null>(null);
+    const vk = valueKey(entry.value);
 
-  const commitValue = () => {
-    const t = valueText.trim();
-    if (t === '') {
-      setValueError('Enter valid JSON (e.g. null, "text", 123, {}, []).');
-      return;
-    }
-    try {
-      const parsed = JSON.parse(t) as unknown;
-      setValueError(null);
-      onChange({ ...entry, value: parsed });
-    } catch {
-      setValueError('Invalid JSON. Fix the value or remove this row.');
-    }
-  };
+    useEffect(() => {
+      if (jsonMode) {
+        setValueText(stringifyExampleValue(entry.value));
+        setValueError(null);
+      }
+      if (propertyDataType === 'number' && !jsonMode) {
+        setNumberText(numberToDisplayString(entry.value));
+        setNumberError(null);
+      }
+    }, [jsonMode, vk, propertyDataType]);
 
-  return (
-    <div className="rounded-md border border-gray-200 bg-gray-50/80 p-3 space-y-2">
-      <div className="flex justify-between items-center">
-        <span className="text-[11px] font-semibold text-gray-600">Example {index + 1}</span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-red-600 h-8"
-          onClick={onRemove}
-          disabled={disabled}
-        >
-          <Trash2 className="w-4 h-4" />
-        </Button>
-      </div>
-      <div>
-        <label className="text-[11px] text-gray-600">Value (JSON)</label>
-        <textarea
-          value={valueText}
-          onChange={(e) => {
-            setValueText(e.target.value);
-            setValueError(null);
-          }}
-          onBlur={commitValue}
-          rows={3}
-          className="mt-0.5 w-full rounded-md border border-input bg-white px-2 py-1.5 text-xs font-mono"
-          placeholder='e.g. "cart" or 123 or {"a":1}'
-          disabled={disabled}
-        />
-        {valueError && <p className="text-[11px] text-red-600 mt-1">{valueError}</p>}
-        <p className="text-[10px] text-gray-500 mt-0.5">
-          Blur the field to apply. Use JSON syntax (double-quoted strings).
-        </p>
-      </div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <div>
-          <label className="text-[11px] text-gray-600">Label (optional)</label>
-          <Input
-            value={entry.label ?? ''}
-            onChange={(e) => onChange({ ...entry, label: e.target.value || undefined })}
-            className="text-xs h-8"
+    useImperativeHandle(
+      ref,
+      () => ({
+        flushValue: (): { ok: true; value: unknown } | { ok: false; error: string } => {
+          if (jsonMode) {
+            const t = valueText.trim();
+            if (t === '') return { ok: true, value: null };
+            try {
+              return { ok: true, value: JSON.parse(t) as unknown };
+            } catch {
+              return { ok: false, error: 'Invalid JSON in value field.' };
+            }
+          }
+          if (propertyDataType === 'number') {
+            const t = numberText.trim();
+            if (t === '') return { ok: true, value: null };
+            const n = Number(t);
+            if (Number.isNaN(n)) {
+              return { ok: false, error: 'Enter a valid number.' };
+            }
+            return { ok: true, value: n };
+          }
+          return { ok: true, value: entry.value };
+        },
+      }),
+      [jsonMode, valueText, numberText, entry.value, propertyDataType]
+    );
+
+    const commitJson = () => {
+      const t = valueText.trim();
+      if (t === '') {
+        setValueError(null);
+        onChange({ ...entry, value: null });
+        return;
+      }
+      try {
+        const parsed = JSON.parse(t) as unknown;
+        setValueError(null);
+        onChange({ ...entry, value: parsed });
+      } catch {
+        setValueError('Invalid JSON. Fix the value or remove this row.');
+      }
+    };
+
+    const renderValueControl = () => {
+      if (jsonMode) {
+        return (
+          <div>
+            <label className="text-[11px] text-gray-600">Value (JSON)</label>
+            <textarea
+              value={valueText}
+              onChange={(e) => {
+                setValueText(e.target.value);
+                setValueError(null);
+              }}
+              onBlur={commitJson}
+              rows={4}
+              className="mt-0.5 w-full rounded-md border border-input bg-white px-2 py-1.5 text-xs font-mono"
+              placeholder='e.g. {"a":1} or [1,2]'
+              disabled={disabled}
+            />
+            {valueError && <p className="text-[11px] text-red-600 mt-1">{valueError}</p>}
+            <p className="text-[10px] text-gray-500 mt-0.5">
+              Use JSON for objects, arrays, or nested values. Blur applies edits.
+            </p>
+          </div>
+        );
+      }
+
+      if (propertyDataType === 'string') {
+        const str =
+          entry.value === null || entry.value === undefined
+            ? ''
+            : typeof entry.value === 'string'
+              ? entry.value
+              : String(entry.value);
+        return (
+          <div>
+            <label className="text-[11px] text-gray-600">Value</label>
+            <Input
+              value={str}
+              onChange={(e) => onChange({ ...entry, value: e.target.value })}
+              className="mt-0.5 text-xs h-9"
+              placeholder="e.g. cart_abandoned"
+              disabled={disabled}
+            />
+          </div>
+        );
+      }
+
+      if (propertyDataType === 'number') {
+        return (
+          <div>
+            <label className="text-[11px] text-gray-600">Value</label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={numberText}
+              onChange={(e) => {
+                const t = e.target.value;
+                setNumberText(t);
+                const trimmed = t.trim();
+                if (trimmed === '') {
+                  setNumberError(null);
+                  onChange({ ...entry, value: null });
+                  return;
+                }
+                const n = Number(trimmed);
+                if (Number.isNaN(n)) {
+                  setNumberError('Enter a valid number.');
+                  return;
+                }
+                setNumberError(null);
+                onChange({ ...entry, value: n });
+              }}
+              className="mt-0.5 text-xs h-9 font-mono"
+              placeholder="e.g. 42"
+              disabled={disabled}
+            />
+            {numberError && <p className="text-[11px] text-red-600 mt-1">{numberError}</p>}
+          </div>
+        );
+      }
+
+      if (propertyDataType === 'boolean') {
+        const v = entry.value;
+        const sel =
+          v === true || v === 'true'
+            ? 'true'
+            : v === false || v === 'false'
+              ? 'false'
+              : '';
+        return (
+          <div>
+            <label className="text-[11px] text-gray-600">Value</label>
+            <select
+              value={sel}
+              onChange={(e) => {
+                const t = e.target.value;
+                if (t === '') onChange({ ...entry, value: null });
+                else onChange({ ...entry, value: t === 'true' });
+              }}
+              className="mt-0.5 w-full rounded-md border border-input bg-white px-2 py-2 text-xs"
+              disabled={disabled}
+            >
+              <option value="">(unset)</option>
+              <option value="true">true</option>
+              <option value="false">false</option>
+            </select>
+          </div>
+        );
+      }
+
+      if (propertyDataType === 'timestamp') {
+        const local = isoToDatetimeLocal(entry.value);
+        return (
+          <div>
+            <label className="text-[11px] text-gray-600">Value (date &amp; time)</label>
+            <Input
+              type="datetime-local"
+              value={local}
+              onChange={(e) => {
+                const t = e.target.value;
+                if (!t.trim()) {
+                  onChange({ ...entry, value: null });
+                  return;
+                }
+                const d = new Date(t);
+                if (Number.isNaN(d.getTime())) {
+                  return;
+                }
+                onChange({ ...entry, value: d.toISOString() });
+              }}
+              className="mt-0.5 text-xs h-9"
+              disabled={disabled}
+            />
+            <p className="text-[10px] text-gray-500 mt-0.5">
+              Stored as ISO 8601 string (e.g. in <span className="font-mono">example_values_json</span>).
+            </p>
+          </div>
+        );
+      }
+
+      return null;
+    };
+
+    return (
+      <div className="rounded-md border border-gray-200 bg-gray-50/80 p-3 space-y-2">
+        <div className="flex justify-between items-center">
+          <span className="text-[11px] font-semibold text-gray-600">Example {index + 1}</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-red-600 h-8"
+            onClick={onRemove}
             disabled={disabled}
-          />
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
         </div>
-        <div>
-          <label className="text-[11px] text-gray-600">Notes (optional)</label>
-          <Input
-            value={entry.notes ?? ''}
-            onChange={(e) => onChange({ ...entry, notes: e.target.value || undefined })}
-            className="text-xs h-8"
-            disabled={disabled}
-          />
+        {renderValueControl()}
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div>
+            <label className="text-[11px] text-gray-600">Label (optional)</label>
+            <Input
+              value={entry.label ?? ''}
+              onChange={(e) => onChange({ ...entry, label: e.target.value || undefined })}
+              className="text-xs h-8"
+              disabled={disabled}
+            />
+          </div>
+          <div>
+            <label className="text-[11px] text-gray-600">Notes (optional)</label>
+            <Input
+              value={entry.notes ?? ''}
+              onChange={(e) => onChange({ ...entry, notes: e.target.value || undefined })}
+              className="text-xs h-8"
+              disabled={disabled}
+            />
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
+);
+
+export type PropertyExampleValuesEditorHandle = {
+  /** Merge pending JSON textarea edits into entries (primitives are already live). */
+  flushPendingForSave: () =>
+    | { ok: true; entries: PropertyExampleValue[] }
+    | { ok: false; error: string };
+};
 
 export type PropertyExampleValuesEditorProps = {
+  propertyDataType: PropertyDataType;
   entries: PropertyExampleValue[];
   onChange: (entries: PropertyExampleValue[]) => void;
   disabled?: boolean;
 };
 
-export function PropertyExampleValuesEditor({
-  entries,
-  onChange,
-  disabled,
-}: PropertyExampleValuesEditorProps) {
+export const PropertyExampleValuesEditor = forwardRef<
+  PropertyExampleValuesEditorHandle,
+  PropertyExampleValuesEditorProps
+>(function PropertyExampleValuesEditor(
+  { propertyDataType, entries, onChange, disabled },
+  ref
+) {
+  const rowRefs = useRef<Array<ExampleValueRowHandle | null>>([]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      flushPendingForSave: () => {
+        const next: PropertyExampleValue[] = entries.map((row, i) => ({ ...row }));
+        for (let i = 0; i < next.length; i++) {
+          const handle = rowRefs.current[i];
+          if (!handle) continue;
+          const r = handle.flushValue();
+          if (!r.ok) {
+            return { ok: false, error: `Example ${i + 1}: ${r.error}` };
+          }
+          next[i] = { ...next[i], value: r.value };
+        }
+        return { ok: true, entries: next };
+      },
+    }),
+    [entries, propertyDataType]
+  );
+
   const addRow = () => {
     onChange([...entries, { value: null }]);
   };
@@ -704,8 +938,12 @@ export function PropertyExampleValuesEditor({
       {entries.map((row, i) => (
         <ExampleValueRow
           key={i}
+          ref={(el) => {
+            rowRefs.current[i] = el;
+          }}
           index={i}
           entry={row}
+          propertyDataType={propertyDataType}
           onChange={(next) => updateRow(i, next)}
           onRemove={() => removeRow(i)}
           disabled={disabled}
@@ -716,7 +954,7 @@ export function PropertyExampleValuesEditor({
       </Button>
     </div>
   );
-}
+});
 
 // ----- Name mappings -----
 

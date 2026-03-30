@@ -16,9 +16,18 @@ import {
   type PropertyNameMapping,
   type PropertyRow,
   type PropertyMappingType,
+  type PropertyValueSchema,
   type SourceRow,
   PROPERTY_DATA_FORMATS,
 } from '@/src/types/schema';
+import {
+  PropertyExampleValuesEditor,
+  PropertyNameMappingsEditor,
+  PropertyValueSchemaEditor,
+  serializeExampleValuesForSave,
+  serializeNameMappingsForSave,
+  validateExampleValuesForSave,
+} from '@/src/features/properties/components/PropertyJsonFieldEditors';
 import type { ApiError } from '@/src/features/properties/hooks/useProperties';
 import type { PropertyUpdatePayload } from '@/src/features/properties/hooks/useProperties';
 import { useCatalogs } from '@/src/features/catalogs/hooks/useCatalogs';
@@ -110,23 +119,6 @@ const DATA_FORMAT_LABELS: Record<PropertyDataFormat, string> = {
   language_code: 'Language code',
 };
 
-function formatJson(value: unknown): string {
-  return value === null || value === undefined ? '' : JSON.stringify(value, null, 2);
-}
-
-function parseOptionalJson<T>(value: string, fieldLabel: string): { value: T | null; error?: string } {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return { value: null };
-  }
-
-  try {
-    return { value: JSON.parse(trimmed) as T };
-  } catch {
-    return { value: null, error: `${fieldLabel} must be valid JSON.` };
-  }
-}
-
 export interface PropertyEditorSheetProps {
   isOpen: boolean;
   onClose: () => void;
@@ -171,9 +163,9 @@ export function PropertyEditorSheet({
   const [dataType, setDataType] = useState<PropertyDataType>('string');
   const [pii, setPii] = useState(false);
   const [dataFormats, setDataFormats] = useState<PropertyDataFormat[]>([]);
-  const [valueSchemaJson, setValueSchemaJson] = useState('');
-  const [exampleValuesJson, setExampleValuesJson] = useState('');
-  const [nameMappingsJson, setNameMappingsJson] = useState('');
+  const [valueSchemaDraft, setValueSchemaDraft] = useState<PropertyValueSchema | null>(null);
+  const [exampleValuesDraft, setExampleValuesDraft] = useState<PropertyExampleValue[]>([]);
+  const [nameMappingsDraft, setNameMappingsDraft] = useState<PropertyNameMapping[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editorError, setEditorError] = useState<string | null>(null);
@@ -219,9 +211,9 @@ export function PropertyEditorSheet({
         setDataType(initialProperty.data_type);
         setPii(initialProperty.pii);
         setDataFormats(initialProperty.data_formats ?? []);
-        setValueSchemaJson(formatJson(initialProperty.value_schema_json));
-        setExampleValuesJson(formatJson(initialProperty.example_values_json));
-        setNameMappingsJson(formatJson(initialProperty.name_mappings_json));
+        setValueSchemaDraft(initialProperty.value_schema_json ?? null);
+        setExampleValuesDraft(initialProperty.example_values_json ?? []);
+        setNameMappingsDraft(initialProperty.name_mappings_json ?? []);
         setMappingEnabled(Boolean(initialProperty.mapped_catalog_id && initialProperty.mapped_catalog_field_id));
         setMappedCatalogId(initialProperty.mapped_catalog_id ?? '');
         setMappedFieldId(initialProperty.mapped_catalog_field_id ?? '');
@@ -247,9 +239,9 @@ export function PropertyEditorSheet({
         setDataType('string');
         setPii(false);
         setDataFormats([]);
-        setValueSchemaJson('');
-        setExampleValuesJson('');
-        setNameMappingsJson('');
+        setValueSchemaDraft(null);
+        setExampleValuesDraft([]);
+        setNameMappingsDraft([]);
         setMappingEnabled(false);
         setMappedCatalogId('');
         setMappedFieldId('');
@@ -385,35 +377,17 @@ export function PropertyEditorSheet({
     setSaving(true);
     clearMutationError();
 
-    const parsedValueSchema = parseOptionalJson<CreatePropertyInput['value_schema_json']>(
-      valueSchemaJson,
-      'Value schema'
-    );
-    if (parsedValueSchema.error) {
-      setEditorError(parsedValueSchema.error);
-      setSaving(false);
-      return;
-    }
+    const value_schema_json =
+      dataType === 'object' || dataType === 'array' ? valueSchemaDraft : null;
 
-    const parsedExampleValues = parseOptionalJson<PropertyExampleValue[]>(
-      exampleValuesJson,
-      'Example values'
-    );
-    if (parsedExampleValues.error) {
-      setEditorError(parsedExampleValues.error);
+    const exampleCheck = validateExampleValuesForSave(exampleValuesDraft);
+    if (!exampleCheck.ok) {
+      setEditorError(exampleCheck.error);
       setSaving(false);
       return;
     }
-
-    const parsedNameMappings = parseOptionalJson<PropertyNameMapping[]>(
-      nameMappingsJson,
-      'Name mappings'
-    );
-    if (parsedNameMappings.error) {
-      setEditorError(parsedNameMappings.error);
-      setSaving(false);
-      return;
-    }
+    const example_values_json = serializeExampleValuesForSave(exampleValuesDraft);
+    const name_mappings_json = serializeNameMappingsForSave(nameMappingsDraft);
 
     if (isEdit && initialProperty && updateProperty) {
       const payload: PropertyUpdatePayload = {
@@ -424,9 +398,9 @@ export function PropertyEditorSheet({
         pii,
         data_type: dataType,
         data_formats: dataFormats.length > 0 ? dataFormats : null,
-        value_schema_json: parsedValueSchema.value ?? null,
-        example_values_json: parsedExampleValues.value ?? null,
-        name_mappings_json: parsedNameMappings.value ?? null,
+        value_schema_json,
+        example_values_json,
+        name_mappings_json,
         source_ids: selectedSourceIds,
       };
       if (mappingEnabled && mappedCatalogId && mappedFieldId) {
@@ -452,9 +426,9 @@ export function PropertyEditorSheet({
       pii,
       data_type: dataType,
       data_formats: dataFormats.length > 0 ? dataFormats : null,
-      value_schema_json: parsedValueSchema.value ?? null,
-      example_values_json: parsedExampleValues.value ?? null,
-      name_mappings_json: parsedNameMappings.value ?? null,
+      value_schema_json,
+      example_values_json,
+      name_mappings_json,
       mapped_catalog_id: null,
       mapped_catalog_field_id: null,
       mapping_type: null,
@@ -535,7 +509,11 @@ export function PropertyEditorSheet({
           <IconSelect<PropertyDataType>
             value={dataType}
             onChange={(next) => {
-              if (next) setDataType(next);
+              if (!next) return;
+              setDataType(next);
+              if (next !== 'object' && next !== 'array') {
+                setValueSchemaDraft(null);
+              }
             }}
             options={DATA_TYPE_SELECT_OPTIONS}
             disabled={isMutating}
@@ -653,40 +631,43 @@ export function PropertyEditorSheet({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Value schema JSON</label>
-          <textarea
-            value={valueSchemaJson}
-            onChange={(e) => setValueSchemaJson(e.target.value)}
-            placeholder={dataType === 'array'
-              ? '{\n  "type": "array",\n  "items": { "type": "string" }\n}'
-              : '{\n  "type": "object",\n  "properties": {\n    "id": { "type": "string", "required": true }\n  }\n}'}
-            rows={8}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          />
+          <label className="text-sm font-medium text-gray-700">Value schema</label>
           <p className="text-xs text-gray-500">
-            Optional. Use for object and array property shapes.
+            Optional. Describes shape for <span className="font-mono">object</span> and{' '}
+            <span className="font-mono">array</span> property types (matches API v1 contract).
           </p>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Example values JSON</label>
-          <textarea
-            value={exampleValuesJson}
-            onChange={(e) => setExampleValuesJson(e.target.value)}
-            placeholder='[{"value":"abc-123","label":"Primary example"}]'
-            rows={6}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          <PropertyValueSchemaEditor
+            dataType={dataType}
+            value={valueSchemaDraft}
+            onChange={setValueSchemaDraft}
+            disabled={isMutating}
           />
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Name mappings JSON</label>
-          <textarea
-            value={nameMappingsJson}
-            onChange={(e) => setNameMappingsJson(e.target.value)}
-            placeholder='[{"system":"gtm","name":"user_id","role":"payload_key"}]'
-            rows={6}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          <label className="text-sm font-medium text-gray-700">Example values</label>
+          <p className="text-xs text-gray-500">
+            Sample payloads (each entry requires a JSON <span className="font-mono">value</span>; optional{' '}
+            <span className="font-mono">label</span> and <span className="font-mono">notes</span>).
+          </p>
+          <PropertyExampleValuesEditor
+            entries={exampleValuesDraft}
+            onChange={setExampleValuesDraft}
+            disabled={isMutating}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Name mappings</label>
+          <p className="text-xs text-gray-500">
+            How this property appears in external systems (<span className="font-mono">system</span>,{' '}
+            <span className="font-mono">name</span>, <span className="font-mono">role</span>, optional{' '}
+            <span className="font-mono">notes</span>).
+          </p>
+          <PropertyNameMappingsEditor
+            entries={nameMappingsDraft}
+            onChange={setNameMappingsDraft}
+            disabled={isMutating}
           />
         </div>
 

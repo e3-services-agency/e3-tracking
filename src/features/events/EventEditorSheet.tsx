@@ -5,6 +5,7 @@
  */
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Sheet } from '@/src/components/ui/Sheet';
+import { Modal } from '@/src/components/ui/Modal';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { IconSelect, type IconSelectOption } from '@/src/components/ui/IconSelect';
@@ -33,7 +34,7 @@ import {
 import type { ApiError, EventWithPropertiesResponse } from '@/src/features/events/hooks/useEvents';
 import { useProperties } from '@/src/features/properties/hooks/useProperties';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
-import { Activity, AlertCircle, Layout, UserRound, X } from 'lucide-react';
+import { Activity, AlertCircle, Layout, Plus, UserRound, X } from 'lucide-react';
 
 const PRESENCE_OPTIONS: { value: EventPropertyPresence; label: string }[] = [
   { value: 'always_sent', label: 'Always sent' },
@@ -212,6 +213,7 @@ export function EventEditorSheet({
   const [createSourceError, setCreateSourceError] = useState<string | null>(null);
   const [isCreatingSource, setIsCreatingSource] = useState(false);
   const [attachedDescExpandedId, setAttachedDescExpandedId] = useState<string | null>(null);
+  const [attachPropertyPickerOpen, setAttachPropertyPickerOpen] = useState(false);
 
   const isCreateMode = eventId === null && currentEventId === null;
 
@@ -280,7 +282,12 @@ export function EventEditorSheet({
     }
     setAddPresence('always_sent');
     setAttachedDescExpandedId(null);
+    setAttachPropertyPickerOpen(false);
   }, [isOpen, eventId, clearMutationError, loadEvent]);
+
+  useEffect(() => {
+    if (!isOpen) setAttachPropertyPickerOpen(false);
+  }, [isOpen]);
 
   const loadWorkspaceSources = useCallback(async () => {
     if (!activeWorkspaceId) {
@@ -741,16 +748,42 @@ export function EventEditorSheet({
                 (Always / Sometimes / Never sent).
               </p>
 
-              <EventAttachPropertyPicker
-                key={currentEventId}
-                availableProperties={availableProperties}
-                attachedIds={attachedIds}
-                addPresence={addPresence}
-                onAddPresenceChange={setAddPresence}
-                onAddSelected={handleAddSelectedProperties}
-                adding={addingProperty}
-                workspaceActionsDisabled={!hasValidWorkspaceContext}
-              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1 w-fit"
+                onClick={() => setAttachPropertyPickerOpen(true)}
+                disabled={!hasValidWorkspaceContext}
+                title={
+                  !hasValidWorkspaceContext
+                    ? 'Select a valid workspace from the header before changing attachments.'
+                    : undefined
+                }
+              >
+                <Plus className="w-4 h-4" aria-hidden />
+                Add Property
+              </Button>
+
+              <Modal
+                isOpen={attachPropertyPickerOpen}
+                onClose={() => setAttachPropertyPickerOpen(false)}
+                title="Add properties"
+                backdropClassName="z-[60]"
+                className="z-[70] max-w-[min(560px,calc(100vw-1.5rem))] max-h-[min(90vh,720px)] flex flex-col"
+                bodyClassName="p-4 min-h-0 flex-1 overflow-y-auto"
+              >
+                <EventAttachPropertyPicker
+                  key={currentEventId}
+                  availableProperties={availableProperties}
+                  attachedIds={attachedIds}
+                  addPresence={addPresence}
+                  onAddPresenceChange={setAddPresence}
+                  onAddSelected={handleAddSelectedProperties}
+                  adding={addingProperty}
+                  workspaceActionsDisabled={!hasValidWorkspaceContext}
+                />
+              </Modal>
 
               <ul className="border rounded-lg divide-y divide-gray-100">
                 {attached.length === 0 ? (

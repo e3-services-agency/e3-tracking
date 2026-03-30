@@ -80,6 +80,18 @@ export function EventAttachPropertyPicker({
     });
   };
 
+  const handleRowClick = (e: React.MouseEvent, p: PropertyRow) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('input[type="checkbox"]')) {
+      setFocusedId(p.id);
+      return;
+    }
+    setFocusedId(p.id);
+    if (!attachedIds.has(p.id) && !workspaceActionsDisabled) {
+      toggleChecked(p.id);
+    }
+  };
+
   const handleAddSelected = async () => {
     const ids = [...checkedIds].filter((id) => !attachedIds.has(id));
     if (ids.length === 0) return;
@@ -155,10 +167,12 @@ export function EventAttachPropertyPicker({
               return (
                 <div
                   key={p.id}
-                  className={`flex items-start gap-2 px-2 py-1.5 cursor-pointer text-left transition-colors ${
-                    isFocused ? 'bg-gray-50' : 'hover:bg-gray-50/80'
-                  } ${isAttached ? 'opacity-60' : ''}`}
-                  onClick={() => setFocusedId(p.id)}
+                  className={`flex items-start gap-2 px-2 py-1.5 text-left transition-colors ${
+                    isAttached || workspaceActionsDisabled
+                      ? 'cursor-default'
+                      : 'cursor-pointer'
+                  } ${isFocused ? 'bg-gray-50' : 'hover:bg-gray-50/80'} ${isAttached ? 'opacity-60' : ''}`}
+                  onClick={(e) => handleRowClick(e, p)}
                 >
                   <input
                     type="checkbox"
@@ -166,7 +180,6 @@ export function EventAttachPropertyPicker({
                     checked={isChecked && !isAttached}
                     disabled={isAttached || workspaceActionsDisabled}
                     onChange={() => toggleChecked(p.id)}
-                    onClick={(e) => e.stopPropagation()}
                     aria-label={isAttached ? `${p.name} (already attached)` : `Select ${p.name}`}
                   />
                   <div className="min-w-0 flex-1">

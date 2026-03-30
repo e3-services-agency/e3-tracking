@@ -73,7 +73,7 @@ export function IconSelect<V extends string>({
         disabled={disabled}
         onClick={() => !disabled && setOpen((o) => !o)}
         className={cn(
-          'relative flex h-10 w-full items-center gap-2 rounded-md border border-input bg-background pl-3 pr-8 text-left text-sm ring-offset-background',
+          'relative flex h-10 w-full items-center gap-2 rounded-md border border-input bg-[var(--surface-panel)] pl-3 pr-8 text-left text-sm ring-offset-[var(--surface-panel)]',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
           'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
           buttonClassName
@@ -94,7 +94,7 @@ export function IconSelect<V extends string>({
         <ul
           role="listbox"
           aria-labelledby={ariaLabelledBy}
-          className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-input bg-background py-1 shadow-lg"
+          className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-input bg-[var(--surface-panel)] py-1 shadow-lg"
         >
           {allowEmpty && (
             <li role="presentation">

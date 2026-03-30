@@ -3,6 +3,13 @@
 
 @theme {
   --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  /* shadcn-style tokens used by Input / IconSelect / selects: undefined colors were effectively transparent */
+  --color-background: var(--surface-panel);
+  --color-foreground: #111827;
+  --color-muted-foreground: #6b7280;
+  --color-border: var(--border-default);
+  --color-input: var(--border-default);
+  --color-ring: var(--color-info);
 }
 
 :root {

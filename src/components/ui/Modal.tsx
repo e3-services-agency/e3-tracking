@@ -8,14 +8,27 @@ type ModalProps = {
   onClose: () => void;
   title?: string;
   children: React.ReactNode;
+  /** Merged onto the backdrop (e.g. higher z-index when opened above the event Sheet). */
+  backdropClassName?: string;
+  /** Merged onto the dialog panel (width, z-index, max-height). */
   className?: string;
+  /** Merged onto the inner body wrapper (default `p-6`). */
+  bodyClassName?: string;
 };
 
 /**
  * Product modal primitive.
  * Use only for confirmations, destructive actions, and small interactions.
  */
-export function Modal({ isOpen, onClose, title, children, className }: ModalProps) {
+export function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  className,
+  backdropClassName,
+  bodyClassName,
+}: ModalProps) {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -25,7 +38,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
             animate={{ opacity: 0.5 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black z-40"
+            className={cn('fixed inset-0 bg-black z-40', backdropClassName)}
             aria-hidden
           />
           <motion.div
@@ -48,7 +61,7 @@ export function Modal({ isOpen, onClose, title, children, className }: ModalProp
                 </button>
               </div>
             ) : null}
-            <div className="p-6">{children}</div>
+            <div className={cn('p-6', bodyClassName)}>{children}</div>
           </motion.div>
         </>
       )}

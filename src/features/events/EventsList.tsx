@@ -195,14 +195,13 @@ export function EventsList({
       )}
 
       <p className="text-xs text-gray-600 mb-3 max-w-2xl">
-        <span className="font-semibold text-gray-800">Workspace (API).</span> Rows below are loaded from the server for
-        the selected workspace; create and edits persist there.
+        Events for the workspace selected in the header. Create and edits are saved on the server.
       </p>
       <div className="mb-4 flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input
-            placeholder="Filter workspace events..."
+            placeholder="Filter events..."
             value={globalFilter ?? ''}
             onChange={(e) => setGlobalFilter(e.target.value)}
             className="pl-9"
@@ -213,12 +212,9 @@ export function EventsList({
       {isEmpty ? (
         <div className="flex flex-col items-center justify-center py-16 px-6 bg-white border border-dashed border-gray-200 rounded-lg">
           <Calendar className="w-14 h-14 text-gray-300 mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">
-            No workspace events yet
-          </h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">No events yet</h3>
           <p className="text-sm text-gray-500 text-center max-w-sm mb-6">
-            Create a workspace event to persist it for this workspace (API). Use the{' '}
-            <strong className="text-gray-700">Plan</strong> view if you are working in the local plan table only.
+            Create an event to add it to this workspace.
           </p>
           <Button
             onClick={onOpenCreate}
@@ -227,10 +223,10 @@ export function EventsList({
             title={
               !allowCreate
                 ? 'Select a valid workspace in the header before creating an event.'
-                : 'Saved to the workspace via API.'
+                : undefined
             }
           >
-            <Plus className="w-4 h-4" /> Create your first workspace event
+            <Plus className="w-4 h-4" /> Create your first event
           </Button>
         </div>
       ) : (

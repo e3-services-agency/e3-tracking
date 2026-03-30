@@ -3,7 +3,7 @@
  * Form: Name, Description, canonical structured triggers,
  * Property Picker + attached list with Presence.
  */
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -30,9 +30,9 @@ import {
 } from '@/src/types/schema';
 import type { ApiError, EventWithPropertiesResponse } from '@/src/features/events/hooks/useEvents';
 import { useProperties } from '@/src/features/properties/hooks/useProperties';
-import { useActiveData, useStore } from '@/src/store';
+import { useStore } from '@/src/store';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
-import { Activity, AlertCircle, Layout, Plus, UserRound, Users, X } from 'lucide-react';
+import { Activity, AlertCircle, Layout, Plus, UserRound, X } from 'lucide-react';
 
 const PRESENCE_OPTIONS: { value: EventPropertyPresence; label: string }[] = [
   { value: 'always_sent', label: 'Always sent' },
@@ -170,7 +170,6 @@ export function EventEditorSheet({
   clearMutationError,
   onEventCreated,
 }: EventEditorSheetProps) {
-  const activeData = useActiveData();
   const activeWorkspaceId = useStore((state) => state.activeWorkspaceId);
   const { hasValidWorkspaceContext } = useWorkspaceShell();
   const { properties: allProperties } = useProperties();
@@ -180,7 +179,11 @@ export function EventEditorSheet({
   /** '' means persisted null / not set in the API. */
   const [eventTypeSelection, setEventTypeSelection] = useState<EventType | ''>('');
   const [storedUnsupportedEventType, setStoredUnsupportedEventType] = useState<string | null>(null);
-  const [ownerTeamId, setOwnerTeamId] = useState('');
+  /**
+   * Snapshot of `owner_team_id` from the server for the event being edited only. Not user-editable.
+   * Create flow always sends `owner_team_id: null`; updates send this ref so we never rely on mutable form state.
+   */
+  const ownerTeamIdPersistedRef = useRef<string | null>(null);
   const [categoriesText, setCategoriesText] = useState('');
   const [tagsText, setTagsText] = useState('');
   const [triggers, setTriggers] = useState<EventTriggerEntry[]>([]);
@@ -225,27 +228,9 @@ export function EventEditorSheet({
     return core;
   }, [eventTypeSelection]);
 
-  const ownerSelectOptions = useMemo((): IconSelectOption<string>[] => {
-    const fromTeams = activeData.teams.map((team) => ({
-      value: team.id,
-      label: team.name,
-      icon: <Users className="h-4 w-4" />,
-    }));
-    if (ownerTeamId && !fromTeams.some((o) => o.value === ownerTeamId)) {
-      return [
-        {
-          value: ownerTeamId,
-          label: 'Saved owner (not in local list)',
-          icon: <Users className="h-4 w-4" />,
-        },
-        ...fromTeams,
-      ];
-    }
-    return fromTeams;
-  }, [activeData.teams, ownerTeamId]);
-
   const loadEvent = useCallback(async (id: string) => {
     setLoadingEvent(true);
+    ownerTeamIdPersistedRef.current = null;
     const result = await getEventWithProperties(id);
     setLoadingEvent(false);
     if (result) {
@@ -253,7 +238,9 @@ export function EventEditorSheet({
       setDescription(result.event.description ?? '');
       setPurpose(result.event.purpose ?? '');
       applyEventTypeLoad(result.event.event_type, setEventTypeSelection, setStoredUnsupportedEventType);
-      setOwnerTeamId(result.event.owner_team_id ?? '');
+      const ownerRaw = result.event.owner_team_id;
+      ownerTeamIdPersistedRef.current =
+        typeof ownerRaw === 'string' && ownerRaw.trim() !== '' ? ownerRaw.trim() : null;
       setCategoriesText((result.event.categories ?? []).join(', '));
       setTagsText((result.event.tags ?? []).join(', '));
       setTriggers(sortTriggersForEditor(result.event.triggers ?? []));
@@ -274,7 +261,7 @@ export function EventEditorSheet({
       setPurpose('');
       setEventTypeSelection('');
       setStoredUnsupportedEventType(null);
-      setOwnerTeamId('');
+      ownerTeamIdPersistedRef.current = null;
       setCategoriesText('');
       setTagsText('');
       setTriggers([]);
@@ -331,7 +318,7 @@ export function EventEditorSheet({
       description: description.trim() || undefined,
       purpose: purpose.trim() || null,
       event_type: eventTypeSelection === '' ? null : eventTypeSelection,
-      owner_team_id: ownerTeamId || null,
+      owner_team_id: null,
       categories: normalizeTokenList(categoriesText),
       tags: normalizeTokenList(tagsText),
       triggers: normalizedTriggers,
@@ -360,7 +347,7 @@ export function EventEditorSheet({
       description: description.trim() || undefined,
       purpose: purpose.trim() || null,
       event_type: eventTypeSelection === '' ? null : eventTypeSelection,
-      owner_team_id: ownerTeamId || null,
+      owner_team_id: ownerTeamIdPersistedRef.current,
       categories: normalizeTokenList(categoriesText),
       tags: normalizeTokenList(tagsText),
       triggers: normalizedTriggers,
@@ -374,7 +361,9 @@ export function EventEditorSheet({
       setDescription(result.data.description ?? '');
       setPurpose(result.data.purpose ?? '');
       applyEventTypeLoad(result.data.event_type, setEventTypeSelection, setStoredUnsupportedEventType);
-      setOwnerTeamId(result.data.owner_team_id ?? '');
+      const ownerRaw = result.data.owner_team_id;
+      ownerTeamIdPersistedRef.current =
+        typeof ownerRaw === 'string' && ownerRaw.trim() !== '' ? ownerRaw.trim() : null;
       setCategoriesText((result.data.categories ?? []).join(', '));
       setTagsText((result.data.tags ?? []).join(', '));
       setTriggers(sortTriggersForEditor(result.data.triggers ?? []));
@@ -700,21 +689,10 @@ export function EventEditorSheet({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" id="event-owner-label">
-            Owner
-          </label>
-          {activeData.teams.length === 0 && !ownerTeamId && (
-            <p className="text-xs text-gray-500">No workspace owners available.</p>
-          )}
-          <IconSelect<string>
-            value={ownerTeamId}
-            onChange={setOwnerTeamId}
-            options={ownerSelectOptions}
-            allowEmpty
-            emptyLabel="No owner selected"
-            disabled={saving}
-            aria-labelledby="event-owner-label"
-          />
+          <p className="text-xs text-gray-500 leading-relaxed">
+            Owner assignment is not yet supported in Workspace. Existing server values are left unchanged when you save
+            other fields.
+          </p>
         </div>
 
         <EventTriggerCardsSection
@@ -888,14 +866,17 @@ export function EventEditorSheet({
               !currentEventId ||
               hasInvalidTriggers ||
               !hasValidWorkspaceContext ||
-              eventTypeSaveBlocked
+              eventTypeSaveBlocked ||
+              loadingEvent
             }
             title={
               !hasValidWorkspaceContext
                 ? 'Select a valid workspace from the header before saving changes.'
                 : eventTypeSaveBlocked
                   ? 'Choose a supported event type before saving.'
-                  : undefined
+                  : loadingEvent
+                    ? 'Wait until the event has finished loading before saving.'
+                    : undefined
             }
           >
             {saving ? 'Saving…' : 'Save Changes'}

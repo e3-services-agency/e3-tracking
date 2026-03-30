@@ -219,14 +219,13 @@ export function PropertiesList({
       )}
 
       <p className="text-xs text-gray-600 mb-3 max-w-2xl">
-        <span className="font-semibold text-gray-800">Workspace (API).</span> These rows are workspace property
-        definitions; the editor saves to the server.
+        Property definitions for the workspace selected in the header. The editor saves to the server.
       </p>
       <div className="mb-4 flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input
-            placeholder="Filter workspace properties..."
+            placeholder="Filter properties..."
             value={globalFilter ?? ''}
             onChange={(e) => setGlobalFilter(e.target.value)}
             className="pl-9"
@@ -237,10 +236,9 @@ export function PropertiesList({
       {isEmpty ? (
         <div className="flex flex-col items-center justify-center py-16 px-6 bg-white border border-dashed border-gray-200 rounded-lg">
           <FileQuestion className="w-14 h-14 text-gray-300 mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">No workspace properties yet</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">No properties yet</h3>
           <p className="text-sm text-gray-500 text-center max-w-sm mb-6">
-            Create a property for this workspace (API). For local-only grouping, use the{' '}
-            <strong className="text-gray-700">Plan bundles</strong> tab.
+            Create a property to add it to this workspace.
           </p>
           <Button
             onClick={onOpenCreate}
@@ -249,10 +247,10 @@ export function PropertiesList({
             title={
               !allowCreate
                 ? 'Select a valid workspace in the header before creating a property.'
-                : 'Saved to the workspace via API.'
+                : undefined
             }
           >
-            <Plus className="w-4 h-4" /> Create your first workspace property
+            <Plus className="w-4 h-4" /> Create your first property
           </Button>
         </div>
       ) : (

@@ -295,6 +295,8 @@ export function Sidebar({
                           className="text-xs font-medium text-[var(--color-info)] mt-2 hover:underline"
                           onClick={() => {
                             setActiveTab(violation.type === 'event' ? 'events' : 'properties');
+                            // Events/Properties pages open the API editor when this id appears in the workspace list
+                            // (after load). Stale ids are cleared with no silent fallback.
                             setSelectedItemIdToEdit(violation.itemId);
                             setIsAuditOpen(false);
                           }}

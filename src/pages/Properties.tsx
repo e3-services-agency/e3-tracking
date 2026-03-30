@@ -160,8 +160,12 @@ export function Properties() {
     <div className="flex-1 flex flex-col h-full bg-gray-50">
       <div className="p-8 border-b bg-white flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Properties & Bundles</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage global properties and reusable property bundles.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Workspace properties & plan bundles</h1>
+          <p className="text-sm text-gray-500 mt-1 max-w-3xl">
+            <span className="font-medium text-gray-700">Workspace</span> tab: definitions persisted for this workspace
+            (API). <span className="font-medium text-gray-700">Plan bundles</span> tab: local workbench groupings only —
+            not separate API records.
+          </p>
         </div>
         <div className="flex gap-3">
           {activeBranchId !== 'main' && (
@@ -182,14 +186,18 @@ export function Properties() {
               title={
                 !hasValidWorkspaceContext
                   ? 'Select a valid workspace in the header before creating a property.'
-                  : undefined
+                  : 'Creates a property row for this workspace (API).'
               }
             >
-              <Plus className="w-4 h-4" /> New property
+              <Plus className="w-4 h-4" /> New workspace property
             </Button>
           ) : (
-            <Button onClick={handleCreateNewBundle} className="gap-2">
-              <Plus className="w-4 h-4" /> Add Bundle
+            <Button
+              onClick={handleCreateNewBundle}
+              className="gap-2"
+              title="Creates a bundle in your local plan only (not an API entity)."
+            >
+              <Plus className="w-4 h-4" /> New plan bundle
             </Button>
           )}
         </div>
@@ -260,17 +268,23 @@ export function Properties() {
         )}
 
         {activeTab === 'bundles' && (
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-4 shrink-0">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                placeholder="Search bundles..."
-                value={globalFilter ?? ''}
-                onChange={e => setGlobalFilter(e.target.value)}
-                className="pl-9"
-              />
+          <>
+            <p className="text-xs text-gray-600 mb-3 max-w-3xl shrink-0">
+              <span className="font-semibold text-gray-800">Plan only.</span> Bundles organize properties in your local
+              workbench; they are not workspace API entities.
+            </p>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-4 shrink-0">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="Search plan bundles..."
+                  value={globalFilter ?? ''}
+                  onChange={e => setGlobalFilter(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
             </div>
-          </div>
+          </>
         )}
 
         {activeTab === 'properties' ? (
@@ -323,7 +337,10 @@ export function Properties() {
             ))}
             {filteredBundles.length === 0 && (
               <div className="col-span-full py-12 text-center text-gray-500 bg-white border rounded-lg border-dashed">
-                No property bundles found. Create one to group related properties.
+                <p className="font-medium text-gray-700 mb-1">No plan bundles found</p>
+                <p className="text-sm max-w-md mx-auto">
+                  Create one to group related properties in your local workbench only (not an API record).
+                </p>
               </div>
             )}
           </div>

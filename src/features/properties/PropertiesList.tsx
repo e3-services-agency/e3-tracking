@@ -1,6 +1,7 @@
 /**
  * Properties data table (Avo-style). Powered by /api/properties via useProperties.
- * Columns: Name/Description, Type, PII, Catalog Mapping, Presence.
+ * Columns match persisted PropertyRow: name/description, context, data_type/formats, pii, catalog mapping.
+ * (Presence lives on event_properties when a property is attached to an event—not on the property row.)
  */
 import React, { useMemo, useState, useEffect } from 'react';
 import {
@@ -163,13 +164,6 @@ export function PropertiesList({
           );
         },
       },
-      {
-        id: 'presence',
-        header: 'Presence',
-        cell: () => (
-          <span className="text-gray-400 text-sm">—</span>
-        ),
-      },
     ],
     [onOpenProperty, catalogs, fieldsByCatalogId]
   );
@@ -224,11 +218,15 @@ export function PropertiesList({
         </div>
       )}
 
+      <p className="text-xs text-gray-600 mb-3 max-w-2xl">
+        <span className="font-semibold text-gray-800">Workspace (API).</span> These rows are workspace property
+        definitions; the editor saves to the server.
+      </p>
       <div className="mb-4 flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input
-            placeholder="Filter properties..."
+            placeholder="Filter workspace properties..."
             value={globalFilter ?? ''}
             onChange={(e) => setGlobalFilter(e.target.value)}
             className="pl-9"
@@ -239,9 +237,10 @@ export function PropertiesList({
       {isEmpty ? (
         <div className="flex flex-col items-center justify-center py-16 px-6 bg-white border border-dashed border-gray-200 rounded-lg">
           <FileQuestion className="w-14 h-14 text-gray-300 mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">No properties yet</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">No workspace properties yet</h3>
           <p className="text-sm text-gray-500 text-center max-w-sm mb-6">
-            Create your first property to define event, user, or system attributes for your tracking plan.
+            Create a property for this workspace (API). For local-only grouping, use the{' '}
+            <strong className="text-gray-700">Plan bundles</strong> tab.
           </p>
           <Button
             onClick={onOpenCreate}
@@ -250,10 +249,10 @@ export function PropertiesList({
             title={
               !allowCreate
                 ? 'Select a valid workspace in the header before creating a property.'
-                : undefined
+                : 'Saved to the workspace via API.'
             }
           >
-            <Plus className="w-4 h-4" /> Create your first Property
+            <Plus className="w-4 h-4" /> Create your first workspace property
           </Button>
         </div>
       ) : (

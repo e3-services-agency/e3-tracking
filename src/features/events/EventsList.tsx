@@ -1,6 +1,6 @@
 /**
  * Events data table. Powered by /api/events via useEvents.
- * Columns: Name (description under), Triggers, Badge for attached_property_count.
+ * Columns align with persisted EventRow: name, description, purpose, event_type, triggers, attached_property_count.
  */
 import React, { useMemo, useState } from 'react';
 import {
@@ -17,6 +17,12 @@ import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import type { ApiError, EventWithPropertyCount } from '@/src/features/events/hooks/useEvents';
 import { Search, Plus, Calendar, AlertCircle } from 'lucide-react';
+
+const EVENT_TYPE_LABELS: Record<EventType, string> = {
+  track: 'Track',
+  page: 'Page',
+  identify: 'Identify',
+};
 
 type EventsListProps = {
   onOpenCreate: () => void;
@@ -67,7 +73,31 @@ export function EventsList({
                   {e.description}
                 </p>
               ) : null}
+              {e.purpose ? (
+                <p
+                  className="text-xs text-gray-600 mt-0.5 line-clamp-2"
+                  title={e.purpose}
+                >
+                  <span className="font-medium text-gray-700">Purpose</span>
+                  {': '}
+                  {e.purpose}
+                </p>
+              ) : null}
             </div>
+          );
+        },
+      },
+      {
+        id: 'event_type',
+        header: 'Event type',
+        accessorFn: (row) => row.event_type ?? '',
+        cell: ({ row }) => {
+          const t = row.original.event_type;
+          if (!t) return <span className="text-gray-400 text-sm">—</span>;
+          return (
+            <Badge variant="outline" className="font-mono text-xs">
+              {EVENT_TYPE_LABELS[t] ?? t}
+            </Badge>
           );
         },
       },
@@ -164,11 +194,15 @@ export function EventsList({
         </div>
       )}
 
+      <p className="text-xs text-gray-600 mb-3 max-w-2xl">
+        <span className="font-semibold text-gray-800">Workspace (API).</span> Rows below are loaded from the server for
+        the selected workspace; create and edits persist there.
+      </p>
       <div className="mb-4 flex items-center gap-4">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input
-            placeholder="Filter events..."
+            placeholder="Filter workspace events..."
             value={globalFilter ?? ''}
             onChange={(e) => setGlobalFilter(e.target.value)}
             className="pl-9"
@@ -180,11 +214,11 @@ export function EventsList({
         <div className="flex flex-col items-center justify-center py-16 px-6 bg-white border border-dashed border-gray-200 rounded-lg">
           <Calendar className="w-14 h-14 text-gray-300 mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-1">
-            No events yet
+            No workspace events yet
           </h3>
           <p className="text-sm text-gray-500 text-center max-w-sm mb-6">
-            Create your first event to define user actions and map properties for
-            your tracking plan.
+            Create a workspace event to persist it for this workspace (API). Use the{' '}
+            <strong className="text-gray-700">Plan</strong> view if you are working in the local plan table only.
           </p>
           <Button
             onClick={onOpenCreate}
@@ -193,10 +227,10 @@ export function EventsList({
             title={
               !allowCreate
                 ? 'Select a valid workspace in the header before creating an event.'
-                : undefined
+                : 'Saved to the workspace via API.'
             }
           >
-            <Plus className="w-4 h-4" /> Create your first Event
+            <Plus className="w-4 h-4" /> Create your first workspace event
           </Button>
         </div>
       ) : (

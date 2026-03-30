@@ -52,6 +52,7 @@ export function Events() {
   const [viewMode, setViewMode] = useState<'Category' | 'List'>('List');
   const [apiEventSheetEventId, setApiEventSheetEventId] = useState<string | null>(null);
   const [isApiEventSheetOpen, setIsApiEventSheetOpen] = useState(false);
+  const [planTableNotice, setPlanTableNotice] = useState<string | null>(null);
   const eventsApi = useEvents();
   const { hasValidWorkspaceContext } = useWorkspaceShell();
 
@@ -80,10 +81,21 @@ export function Events() {
     }
   }, [selectedItemIdToEdit, data.events, setSelectedItemIdToEdit]);
 
-  const handleOpenEvent = (eventId: string, _variantId?: string) => {
-    setIsSheetOpen(false);
-    setApiEventSheetEventId(eventId);
-    setIsApiEventSheetOpen(true);
+  useEffect(() => {
+    if (!planTableNotice) return;
+    const id = window.setTimeout(() => setPlanTableNotice(null), 10000);
+    return () => clearTimeout(id);
+  }, [planTableNotice]);
+
+  useEffect(() => {
+    if (viewMode === 'List') setPlanTableNotice(null);
+  }, [viewMode]);
+
+  /** Plan table rows are Zustand/local only — do not open the API event editor. */
+  const handlePlanRowClick = () => {
+    setPlanTableNotice(
+      'Plan events are local to this workbench. Switch to Workspace view to open and edit persisted events from the API.',
+    );
   };
 
   const handleCreateNew = () => {
@@ -108,6 +120,9 @@ export function Events() {
       stakeholderFilters,
     });
   }, [data.events, data.teams, showEventVariants, sourceFilters, stakeholderFilters]);
+
+  const headerEventCount =
+    viewMode === 'List' ? eventsApi.events.length : flatTableData.length;
 
   const columns = useMemo<ColumnDef<EventRow>[]>(() => {
     return getEventTableColumns({
@@ -157,7 +172,10 @@ export function Events() {
       <div className={`px-6 py-4 border-b bg-white flex flex-col gap-4 relative ${(isCustomizeOpen || isFilterOpen) ? 'z-50' : 'z-20'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-gray-900">Events <span className="text-gray-400 font-normal text-lg">({flatTableData.length})</span></h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Events{' '}
+              <span className="text-gray-400 font-normal text-lg">({headerEventCount})</span>
+            </h1>
             <Button
               onClick={() => {
                 setApiEventSheetEventId(null);
@@ -169,27 +187,36 @@ export function Events() {
               title={
                 !hasValidWorkspaceContext
                   ? 'Select a valid workspace in the header before creating an event.'
-                  : undefined
+                  : 'Creates an event in the workspace (saved via API).'
               }
             >
-              <Plus className="w-4 h-4" /> New Event
+              <Plus className="w-4 h-4" /> New workspace event
             </Button>
-            <Button onClick={() => setIsCategoryModalOpen(true)} variant="outline" className="h-8 gap-2 bg-white text-gray-600 border-gray-200 shadow-sm rounded-md px-3">
-              <Plus className="w-4 h-4" /> New Category
+            <Button
+              onClick={() => setIsCategoryModalOpen(true)}
+              variant="outline"
+              className="h-8 gap-2 bg-white text-gray-600 border-gray-200 shadow-sm rounded-md px-3"
+              title="Adds a category label to your local plan only (not saved to the workspace API)."
+            >
+              <Plus className="w-4 h-4" /> Add plan category
             </Button>
 
             <div className="flex bg-gray-100 p-0.5 rounded-md ml-4 border border-gray-200 shadow-inner">
-              <button 
+              <button
+                type="button"
                 onClick={() => setViewMode('Category')}
                 className={`px-3 py-1 text-xs font-medium rounded ${viewMode === 'Category' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                title="Local workbench / branch plan table — not the workspace API list."
               >
-                Category
+                Plan
               </button>
-              <button 
+              <button
+                type="button"
                 onClick={() => setViewMode('List')}
                 className={`px-3 py-1 text-xs font-medium rounded ${viewMode === 'List' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+                title="Events persisted for this workspace (API)."
               >
-                List
+                Workspace
               </button>
             </div>
 
@@ -334,8 +361,13 @@ export function Events() {
                  className="mb-6 focus-visible:ring-[var(--color-info)]"
                  placeholder="e.g. Checkout, Search"
                />
+               <p className="text-sm text-amber-900/90 bg-amber-50 border border-amber-100 rounded-md px-3 py-2 mb-3">
+                 <strong className="font-semibold">Plan only.</strong> This label is stored in your local tracking plan
+                 (browser / workbench), not as a workspace record on the server.
+               </p>
                <p className="text-sm text-gray-500 leading-relaxed mb-1">
-                 <strong className="text-gray-700">Categories</strong> are a way to create a organized structure for events and metrics. It is useful to create categories for important features and/or important flows in the product.
+                 Use categories to organize the <strong className="text-gray-700">plan table</strong> view for drafts
+                 and metrics layout.
                </p>
                <a href="#" className="text-sm font-bold text-[var(--color-info)] hover:underline">Docs ↗</a>
             </div>
@@ -353,7 +385,7 @@ export function Events() {
                  }}
                  variant={newCategoryName.trim() ? 'default' : 'secondary'}
                >
-                 Create
+                 Add to plan
                </Button>
             </div>
           </div>
@@ -361,6 +393,16 @@ export function Events() {
       )}
 
       <div className="flex-1 overflow-hidden flex flex-col relative z-10">
+        {viewMode === 'Category' && (
+          <div
+            className="shrink-0 px-6 py-2.5 text-xs text-amber-950 bg-amber-50 border-b border-amber-200"
+            role="note"
+          >
+            <span className="font-semibold">Local plan only.</span> This table is your workbench / branch plan, not the
+            workspace API list. Switch to <strong>Workspace</strong> for persisted events that match the API event
+            editor.
+          </div>
+        )}
         {viewMode === 'List' ? (
           <div className="flex-1 overflow-hidden flex flex-col p-6 bg-[var(--surface-default)]">
             <EventsList
@@ -382,7 +424,23 @@ export function Events() {
             />
           </div>
         ) : (
-        <div className="bg-white flex-1 overflow-auto">
+        <div className="bg-white flex-1 overflow-auto flex flex-col min-h-0">
+          {planTableNotice && (
+            <div
+              className="shrink-0 mx-4 mt-4 mb-2 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950 flex items-start justify-between gap-3"
+              role="status"
+            >
+              <p>{planTableNotice}</p>
+              <button
+                type="button"
+                onClick={() => setPlanTableNotice(null)}
+                className="shrink-0 text-sky-800 hover:text-sky-950 text-xs font-semibold uppercase tracking-wide"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+          <div className="flex-1 overflow-auto">
           <table className="w-full text-left border-collapse min-w-max">
             <thead className="bg-white sticky top-0 z-10 shadow-sm border-b">
               {table.getHeaderGroups().map(headerGroup => (
@@ -418,8 +476,9 @@ export function Events() {
                     {rows.map(row => (
                       <tr 
                         key={row.id} 
-                        onClick={() => handleOpenEvent(row.original.originalEvent.id, row.original.variantId)}
-                        className="hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 cursor-pointer"
+                        onClick={handlePlanRowClick}
+                        className="hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 cursor-default"
+                        title="Plan rows are local only. Use Workspace view to edit API events."
                       >
                         {row.getVisibleCells().map(cell => (
                           <td key={cell.id} className="px-4 py-3 text-sm text-gray-900 align-top">
@@ -434,8 +493,9 @@ export function Events() {
                 table.getRowModel().rows.map(row => (
                   <tr 
                     key={row.id} 
-                    onClick={() => handleOpenEvent(row.original.originalEvent.id, row.original.variantId)}
-                    className="hover:bg-gray-50 transition-colors border-b border-gray-100 cursor-pointer"
+                    onClick={handlePlanRowClick}
+                    className="hover:bg-gray-50 transition-colors border-b border-gray-100 cursor-default"
+                    title="Plan rows are local only. Use Workspace view to edit API events."
                   >
                     {row.getVisibleCells().map(cell => (
                       <td key={cell.id} className="px-4 py-3 text-sm text-gray-900 align-top">
@@ -454,6 +514,7 @@ export function Events() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
         )}
       </div>

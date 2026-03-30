@@ -829,12 +829,15 @@ export function JourneyCanvas({
               {effectiveReadOnly && isJourneyStepNode(selectedNode) && (
                 <div className="space-y-4">
                   {(selectedNode.data.description ?? '').trim() && (
-                    <div>
+                    <div className="min-w-0 max-w-full">
                       <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
                         Description
                       </div>
-                      <div className="bg-white border rounded-md p-2 text-sm text-gray-800 whitespace-pre-wrap">
-                        {selectedNode.data.description}
+                      <div className="bg-white border rounded-md p-2 text-sm text-gray-800 min-w-0 max-w-full overflow-hidden">
+                        <JourneyDescriptionMarkdown
+                          text={selectedNode.data.description ?? ''}
+                          className="text-sm"
+                        />
                       </div>
                     </div>
                   )}

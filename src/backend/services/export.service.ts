@@ -61,6 +61,72 @@ function markdownToHtml(md: string): string {
   return html;
 }
 
+/**
+ * Markdown for journey step descriptions — aligned with frontend {@link JourneyDescriptionMarkdown}
+ * (bold, italic, bullet/ordered lists, paragraphs / line breaks). Used in implementation brief / Docs iframe.
+ */
+function renderJourneyDescriptionForExport(raw: string): string {
+  const text = (raw || '').trim();
+  if (!text) return '';
+
+  const inlineMd = (line: string): string => {
+    let t = escapeHtml(line);
+    const boldHolders: string[] = [];
+    t = t.replace(/\*\*(.+?)\*\*/g, (_, inner) => {
+      boldHolders.push(`<strong>${inner}</strong>`);
+      return `\x7F${boldHolders.length - 1}\x7F`;
+    });
+    t = t.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+    t = t.replace(/\x7F(\d+)\x7F/g, (_, i) => boldHolders[Number(i)]);
+    t = t.replace(/(^|[\s])_([^_\n]+)_([\s]|$)/g, '$1<em>$2</em>$3');
+    return t;
+  };
+
+  const blocks = text.split(/\n\n+/);
+  const parts: string[] = [];
+
+  for (const blockRaw of blocks) {
+    const block = blockRaw.trim();
+    if (!block) continue;
+    const lines = block.split('\n');
+    const trimmedLines = lines.map((l) => l.trim()).filter(Boolean);
+    if (trimmedLines.length === 0) continue;
+
+    const allBullet = trimmedLines.every((l) => /^-\s+/.test(l));
+    if (allBullet) {
+      const items = lines
+        .filter((l) => l.trim())
+        .map((l) => {
+          const m = l.match(/^\s*-\s+(.*)$/);
+          const content = m ? m[1] : l.replace(/^\s*-\s+/, '');
+          return `<li>${inlineMd(content)}</li>`;
+        })
+        .join('');
+      parts.push(`<ul class="export-desc-ul">${items}</ul>`);
+      continue;
+    }
+
+    const allOrdered = trimmedLines.every((l) => /^\d+\.\s+/.test(l));
+    if (allOrdered) {
+      const items = lines
+        .filter((l) => l.trim())
+        .map((l) => {
+          const m = l.trim().match(/^\d+\.\s+(.*)$/);
+          const content = m ? m[1] : l;
+          return `<li>${inlineMd(content)}</li>`;
+        })
+        .join('');
+      parts.push(`<ol class="export-desc-ol">${items}</ol>`);
+      continue;
+    }
+
+    const withBr = lines.map((l) => inlineMd(l)).join('<br>\n');
+    parts.push(`<p class="export-desc-p">${withBr}</p>`);
+  }
+
+  return `<div class="export-step-desc-md">${parts.join('\n')}</div>`;
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -480,7 +546,7 @@ export async function generateJourneyHtmlExport(
           </div>
         </button>
         <div class="export-step-body" data-accordion="body" ${stepNum === 1 ? '' : 'hidden'}>
-          ${step.description ? `<p class="export-step-desc">${escapeHtml(step.description)}</p>` : ''}
+          ${step.description ? renderJourneyDescriptionForExport(step.description) : ''}
           ${imgBlock}
           ${meta ? `<div class="export-step-meta">${meta}</div>` : ''}
           ${triggersBlock}
@@ -593,7 +659,7 @@ export async function generateJourneyHtmlExport(
     @media (min-width: 980px) { .export-step-subtitle { display: inline; } }
     .export-step-chevron { width: 10px; height: 10px; border-right: 2px solid #94a3b8; border-bottom: 2px solid #94a3b8; transform: rotate(45deg); transition: transform 0.12s ease; }
     .export-step-header[aria-expanded="true"] .export-step-chevron { transform: rotate(-135deg); }
-    .export-step-body { padding: 0 18px 18px; }
+    .export-step-body { padding: 0 18px 18px; min-width: 0; overflow-x: hidden; }
     .export-step-footer { margin-top: 14px; display: flex; justify-content: flex-end; }
     .export-step-top { font-size: 0.8rem; color: #2563eb; text-decoration: none; }
     .export-step-top:hover { text-decoration: underline; }
@@ -602,6 +668,24 @@ export async function generateJourneyHtmlExport(
     .export-badge-enrichment { background: #2563eb; }
     .export-badge-fix { background: #d97706; }
     .export-step-desc { margin: 0 0 12px; color: #4b5563; font-size: 0.9rem; }
+    .export-step-desc-md {
+      margin: 0 0 12px;
+      color: #4b5563;
+      font-size: 0.9rem;
+      min-width: 0;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .export-step-desc-md .export-desc-p { margin: 0 0 8px; }
+    .export-step-desc-md .export-desc-p:last-child { margin-bottom: 0; }
+    .export-step-desc-md .export-desc-ul,
+    .export-step-desc-md .export-desc-ol { margin: 8px 0; padding-left: 1.25rem; }
+    .export-step-desc-md .export-desc-ul { list-style: disc; }
+    .export-step-desc-md .export-desc-ol { list-style: decimal; }
+    .export-step-desc-md li { margin: 2px 0; }
+    .export-step-desc-md strong { font-weight: 600; color: #374151; }
+    .export-step-desc-md em { font-style: italic; }
     .export-step-img-wrap { margin: 12px 0; border-radius: 6px; overflow: hidden; border: 1px solid #e5e7eb; }
     .export-step-img-wrap--rel { position: relative; }
     .export-step-img { display: block; max-width: 100%; height: auto; cursor: zoom-in; }

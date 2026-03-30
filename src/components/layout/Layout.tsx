@@ -1,6 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { WorkspaceGateBanner } from './WorkspaceGateBanner';
+import { WorkspaceShellProvider, useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { useActiveData, useStore } from '@/src/store';
 import { getSupabaseClient } from '@/src/lib/supabase';
 import { Events } from '@/src/pages/Events';
@@ -41,9 +43,10 @@ function syncJourneysRouteFromLocation(): { tab: string; journeyId: string | nul
   return { tab: match[1] ? 'journeys' : 'journeysList', journeyId: match[1] ?? null };
 }
 
-function pushPath(nextPath: string, workspaceId?: string | null): void {
+/** `workspaceKeyForUrl` is the short workspace_key segment (not UUID). Pass null to drop /w/... from the path. */
+function pushPath(nextPath: string, workspaceKeyForUrl?: string | null): void {
   try {
-    const wsPrefix = workspaceId ? `/w/${workspaceId}` : '';
+    const wsPrefix = workspaceKeyForUrl ? `/w/${workspaceKeyForUrl}` : '';
     const full = `${BASE}${wsPrefix}${nextPath.startsWith('/') ? nextPath : `/${nextPath}`}`;
     if (typeof window !== 'undefined' && window.location.pathname !== full) {
       window.history.pushState({}, '', full);
@@ -54,6 +57,17 @@ function pushPath(nextPath: string, workspaceId?: string | null): void {
 }
 
 export function Layout() {
+  return (
+    <WorkspaceShellProvider>
+      <LayoutInner />
+    </WorkspaceShellProvider>
+  );
+}
+
+function LayoutInner() {
+  const { isLoading, hasValidWorkspaceContext, gateMessage } = useWorkspaceShell();
+  const clearActiveWorkspace = useStore((s) => s.clearActiveWorkspace);
+
   const [activeTab, setActiveTab] = useState('events');
   const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -122,37 +136,52 @@ export function Layout() {
     };
   }, [settings?.client_primary_color]);
 
-  // Deep-link support: /journeys and /journeys/:id.
+  // After workspace list settles: drop invalid / unknown active ids and strip bogus /w/:key from the URL.
+  useEffect(() => {
+    if (isLoading) return;
+    if (hasValidWorkspaceContext) return;
+    if (!activeWorkspaceId) return;
+
+    clearActiveWorkspace();
+    const { workspaceKey, restPath } = parseWorkspaceFromPath(window.location.pathname);
+    if (workspaceKey) {
+      const dest = restPath === '/' || restPath === '' ? '/events' : restPath;
+      pushPath(dest, null);
+    }
+  }, [isLoading, hasValidWorkspaceContext, activeWorkspaceId, clearActiveWorkspace]);
+
+  // Deep-link support: /journeys and /journeys/:id; resolve /w/:workspaceKey via Supabase.
   useEffect(() => {
     const applyFromLocation = () => {
       const parsedWs = parseWorkspaceFromPath(window.location.pathname);
       if (parsedWs.workspaceKey) {
         const current = useStore.getState();
-        // If URL already matches current workspace key, don't re-resolve (prevents loops).
-        if (current.activeWorkspaceKey === parsedWs.workspaceKey) {
-          // still continue to sync route tab/journey
-        } else {
-        // Resolve key -> full workspace UUID via Supabase (RLS ensures membership).
-        const key = parsedWs.workspaceKey;
-        const seq = ++resolveSeq.current;
-        const supabase = getSupabaseClient();
-        supabase
-          .from('workspaces')
-          .select('id, workspace_key')
-          .eq('workspace_key', key)
-          .is('deleted_at', null)
-          .maybeSingle()
-          .then(({ data }) => {
-            if (seq !== resolveSeq.current) return; // ignore stale resolve
-            const id = (data as any)?.id as string | undefined;
-            const wk = (data as any)?.workspace_key as string | undefined;
-            if (!id) return;
-            const latest = useStore.getState();
-            if (id !== latest.activeWorkspaceId || (wk ?? key) !== latest.activeWorkspaceKey) {
-              setActiveWorkspace({ id, key: wk ?? key });
-            }
-          })
-          .catch(() => {});
+        if (current.activeWorkspaceKey !== parsedWs.workspaceKey) {
+          const key = parsedWs.workspaceKey;
+          const seq = ++resolveSeq.current;
+          const supabase = getSupabaseClient();
+          void supabase
+            .from('workspaces')
+            .select('id, workspace_key')
+            .eq('workspace_key', key)
+            .is('deleted_at', null)
+            .maybeSingle()
+            .then(({ data }) => {
+              if (seq !== resolveSeq.current) return;
+              const id = (data as { id?: string } | null)?.id;
+              const wk = (data as { workspace_key?: string } | null)?.workspace_key;
+              if (!id) {
+                useStore.getState().clearActiveWorkspace();
+                const rest = parsedWs.restPath === '/' || parsedWs.restPath === '' ? '/events' : parsedWs.restPath;
+                pushPath(rest, null);
+                return;
+              }
+              const latest = useStore.getState();
+              if (id !== latest.activeWorkspaceId || (wk ?? key) !== latest.activeWorkspaceKey) {
+                setActiveWorkspace({ id, key: wk ?? key });
+              }
+            })
+            .catch(() => {});
         }
       }
       const parsed = syncJourneysRouteFromLocation();
@@ -203,17 +232,26 @@ export function Layout() {
     if (activeTab === 'auditConfig') pushPath('/audit-config', activeWorkspaceKey);
   }, [activeTab, selectedJourneyId, activeWorkspaceKey]);
 
-  return (
-    <div className="flex h-screen font-sans">
-      <Sidebar
-        activeTab={activeTab}
-        setActiveTab={confirmUnsavedAndNavigate}
-        isCollapsed={isSidebarCollapsed}
-        onToggleCollapsed={() => setIsSidebarCollapsed((v) => !v)}
-      />
-      <div className="flex-1 overflow-hidden flex flex-col bg-[var(--surface-default)] text-gray-900">
-        <Header />
-        <main className="flex-1 overflow-hidden flex flex-col">
+  const showFullPageWorkspaceGate = !isLoading && !hasValidWorkspaceContext;
+
+  const mainContent =
+    isLoading ? (
+      <div
+        className="flex-1 flex items-center justify-center text-sm text-gray-500"
+        role="status"
+      >
+        Loading workspaces…
+      </div>
+    ) : !hasValidWorkspaceContext ? (
+      <div
+        className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-lg mx-auto"
+        role="alert"
+      >
+        <p className="text-base font-semibold text-gray-900 mb-3">Workspace required</p>
+        <p className="text-sm text-gray-600 leading-relaxed">{gateMessage}</p>
+      </div>
+    ) : (
+      <>
         {activeTab === 'events' && <Events />}
         {activeTab === 'properties' && <Properties />}
         {activeTab === 'catalogs' && <Catalogs />}
@@ -245,7 +283,21 @@ export function Layout() {
         {activeTab === 'settings' && <Settings />}
         {activeTab === 'documentation' && <Documentation />}
         {activeTab === 'auditConfig' && <TrackingPlanAuditConfig />}
-        </main>
+      </>
+    );
+
+  return (
+    <div className="flex h-screen font-sans">
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={confirmUnsavedAndNavigate}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapsed={() => setIsSidebarCollapsed((v) => !v)}
+      />
+      <div className="flex-1 overflow-hidden flex flex-col bg-[var(--surface-default)] text-gray-900">
+        <Header />
+        <WorkspaceGateBanner suppress={showFullPageWorkspaceGate} />
+        <main className="flex-1 overflow-hidden flex flex-col">{mainContent}</main>
       </div>
     </div>
   );

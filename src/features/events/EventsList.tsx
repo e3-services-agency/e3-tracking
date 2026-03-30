@@ -20,6 +20,8 @@ import { Search, Plus, Calendar, AlertCircle } from 'lucide-react';
 
 type EventsListProps = {
   onOpenCreate: () => void;
+  /** When false, empty-state create is disabled (e.g. invalid workspace). */
+  allowCreate?: boolean;
   onOpenEvent: (id: string) => void;
   events: EventWithPropertyCount[];
   isLoading: boolean;
@@ -31,6 +33,7 @@ type EventsListProps = {
 
 export function EventsList({
   onOpenCreate,
+  allowCreate = true,
   onOpenEvent,
   events,
   isLoading,
@@ -183,7 +186,16 @@ export function EventsList({
             Create your first event to define user actions and map properties for
             your tracking plan.
           </p>
-          <Button onClick={onOpenCreate} className="gap-2">
+          <Button
+            onClick={onOpenCreate}
+            className="gap-2"
+            disabled={!allowCreate}
+            title={
+              !allowCreate
+                ? 'Select a valid workspace in the header before creating an event.'
+                : undefined
+            }
+          >
             <Plus className="w-4 h-4" /> Create your first Event
           </Button>
         </div>

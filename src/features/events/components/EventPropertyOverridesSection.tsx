@@ -72,6 +72,8 @@ export interface EventPropertyOverridesSectionProps {
     eventId: string,
     propertyId: string
   ) => Promise<{ success: true } | { success: false; error: ApiError }>;
+  /** When true, override edits/deletes are disabled (e.g. active workspace not in loaded list). */
+  workspaceMutationsDisabled?: boolean;
 }
 
 export function EventPropertyOverridesSection({
@@ -81,6 +83,7 @@ export function EventPropertyOverridesSection({
   getEffectivePropertyDefinitions,
   putEventPropertyDefinitions,
   deleteEventPropertyDefinition,
+  workspaceMutationsDisabled = false,
 }: EventPropertyOverridesSectionProps) {
   const [items, setItems] = useState<EffectiveEventPropertyDefinition[]>([]);
   const [loading, setLoading] = useState(false);
@@ -131,11 +134,19 @@ export function EventPropertyOverridesSection({
     setTouched(new Set());
   };
 
+  useEffect(() => {
+    if (!workspaceMutationsDisabled) return;
+    setEditingPropertyId(null);
+    setFormError(null);
+    setTouched(new Set());
+  }, [workspaceMutationsDisabled]);
+
   const markTouched = (field: string) => {
     setTouched((prev) => new Set(prev).add(field));
   };
 
   const handleSaveEdit = async () => {
+    if (workspaceMutationsDisabled) return;
     if (!editingPropertyId) return;
     if (touched.size === 0) {
       cancelEdit();
@@ -191,6 +202,7 @@ export function EventPropertyOverridesSection({
   };
 
   const handleDeleteOverride = async (propertyId: string) => {
+    if (workspaceMutationsDisabled) return;
     setDeletingId(propertyId);
     setFormError(null);
     const result = await deleteEventPropertyDefinition(eventId, propertyId);
@@ -272,7 +284,11 @@ export function EventPropertyOverridesSection({
                         variant="ghost"
                         size="sm"
                         className="h-8 text-xs text-gray-600"
-                        disabled={deletingId === a.property_id || saving}
+                        disabled={
+                          workspaceMutationsDisabled ||
+                          deletingId === a.property_id ||
+                          saving
+                        }
                         onClick={() => void handleDeleteOverride(a.property_id)}
                       >
                         {deletingId === a.property_id ? 'Removing…' : 'Remove override'}
@@ -283,7 +299,11 @@ export function EventPropertyOverridesSection({
                       variant="outline"
                       size="sm"
                       className="h-8 gap-1 text-xs"
-                      disabled={saving || deletingId === a.property_id}
+                      disabled={
+                        workspaceMutationsDisabled ||
+                        saving ||
+                        deletingId === a.property_id
+                      }
                       onClick={() => (expanded ? cancelEdit() : startEdit(a.property_id))}
                     >
                       {expanded ? (
@@ -398,7 +418,9 @@ export function EventPropertyOverridesSection({
                       <Button
                         type="button"
                         size="sm"
-                        disabled={saving || touched.size === 0}
+                        disabled={
+                          workspaceMutationsDisabled || saving || touched.size === 0
+                        }
                         onClick={() => void handleSaveEdit()}
                       >
                         {saving ? 'Saving…' : 'Save override'}

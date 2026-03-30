@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ChevronDown, Plus } from 'lucide-react';
 import { useStore } from '@/src/store';
-import { useWorkspaces } from '@/src/features/workspaces/hooks/useWorkspaces';
+import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import type { WorkspaceItem } from '@/src/features/workspaces/hooks/useWorkspaces';
 import { NewWorkspaceModal } from '@/src/features/workspaces/components/NewWorkspaceModal';
 
@@ -27,7 +27,7 @@ function groupWorkspacesByClient(workspaces: WorkspaceItem[]): { groupLabel: str
 
 export function WorkspaceSwitcher() {
   const { activeWorkspaceId, setActiveWorkspace } = useStore();
-  const { workspaces, fetchWorkspaces } = useWorkspaces();
+  const { workspaces, fetchWorkspaces } = useWorkspaceShell();
   const [isOpen, setIsOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -40,10 +40,6 @@ export function WorkspaceSwitcher() {
         ? `${currentWorkspace.client_name.trim()} › ${currentWorkspace.name}`
         : currentWorkspace.name)
     : 'Workspace';
-
-  useEffect(() => {
-    fetchWorkspaces();
-  }, [fetchWorkspaces]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

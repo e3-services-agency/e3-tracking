@@ -23,11 +23,13 @@ import { BundleEditor } from '@/src/features/properties/editor/BundleEditor';
 import { PropertiesList } from '@/src/features/properties/PropertiesList';
 import { PropertyEditorSheet } from '@/src/features/properties/PropertyEditorSheet';
 import { useProperties } from '@/src/features/properties/hooks/useProperties';
+import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 
 export function Properties() {
   const data = useActiveData();
   const { activeBranchId, branches, mergeBranch, approveBranch, selectedItemIdToEdit, setSelectedItemIdToEdit } = useStore();
-  
+  const { hasValidWorkspaceContext } = useWorkspaceShell();
+
   const [activeTab, setActiveTab] = useState<'properties' | 'bundles'>('properties');
   
   // API-powered properties (new)
@@ -173,7 +175,16 @@ export function Properties() {
             </Button>
           )}
           {activeTab === 'properties' ? (
-            <Button onClick={() => setIsNewPropertySheetOpen(true)} className="gap-2">
+            <Button
+              onClick={() => setIsNewPropertySheetOpen(true)}
+              className="gap-2"
+              disabled={!hasValidWorkspaceContext}
+              title={
+                !hasValidWorkspaceContext
+                  ? 'Select a valid workspace in the header before creating a property.'
+                  : undefined
+              }
+            >
               <Plus className="w-4 h-4" /> New property
             </Button>
           ) : (
@@ -265,6 +276,7 @@ export function Properties() {
         {activeTab === 'properties' ? (
           <PropertiesList
             onOpenCreate={handleCreateNewApiProperty}
+            allowCreate={hasValidWorkspaceContext}
             onOpenProperty={handleOpenApiProperty}
             properties={apiProperties}
             isLoading={apiPropertiesLoading}

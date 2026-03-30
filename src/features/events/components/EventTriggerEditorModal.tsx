@@ -6,6 +6,8 @@ import { Image as ImageIcon, Plus, UploadCloud, X, Zap } from 'lucide-react';
 
 type EventTriggerEditorModalProps = {
   isOpen: boolean;
+  /** When false, hide inline “New source” create UI (e.g. invalid active workspace). */
+  allowInlineSourceCreate?: boolean;
   trigger: EventTriggerEntry;
   sources: SourceRow[];
   sourcesLoading: boolean;
@@ -30,6 +32,7 @@ type EventTriggerEditorModalProps = {
 
 export function EventTriggerEditorModal({
   isOpen,
+  allowInlineSourceCreate = true,
   trigger,
   sources,
   sourcesLoading,
@@ -51,6 +54,7 @@ export function EventTriggerEditorModal({
   onSave,
   onClose,
 }: EventTriggerEditorModalProps) {
+  const canInlineCreateSource = allowInlineSourceCreate;
   useEffect(() => {
     if (!isOpen || !imageUploadEnabled) return;
     const handlePaste = (e: ClipboardEvent) => {
@@ -173,7 +177,7 @@ export function EventTriggerEditorModal({
             <div>
               <div className="mb-2 flex items-center justify-between gap-2">
                 <label className="block text-sm font-medium text-gray-700">Source</label>
-                {!isInlineSourceCreateOpen ? (
+                {!isInlineSourceCreateOpen && canInlineCreateSource ? (
                   <button
                     type="button"
                     onClick={onOpenInlineSourceCreate}
@@ -206,7 +210,7 @@ export function EventTriggerEditorModal({
                 <p className="mt-1 text-xs text-red-600">{sourcesError}</p>
               ) : null}
 
-              {isInlineSourceCreateOpen ? (
+              {isInlineSourceCreateOpen && canInlineCreateSource ? (
                 <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
                   <label className="mb-2 block text-xs font-medium uppercase tracking-wide text-amber-800">
                     Create workspace source

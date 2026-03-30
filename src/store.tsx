@@ -79,6 +79,8 @@ interface StoreState {
   activeWorkspaceId: string;
   activeWorkspaceKey: string | null;
   setActiveWorkspace: (args: { id: string; key?: string | null }) => void;
+  /** Clears workspace context (no workspace open). Used when route or membership rejects the current workspace. */
+  clearActiveWorkspace: () => void;
 }
 
 export const useStore = create<StoreState>((set, get) => {
@@ -314,6 +316,12 @@ export const useStore = create<StoreState>((set, get) => {
       set({
         activeWorkspaceId: id,
         activeWorkspaceKey: key ?? null,
+      }),
+
+    clearActiveWorkspace: () =>
+      set({
+        activeWorkspaceId: '',
+        activeWorkspaceKey: null,
       }),
   };
 });

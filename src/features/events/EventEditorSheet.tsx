@@ -29,6 +29,7 @@ import type {
 import type { ApiError, EventWithPropertiesResponse } from '@/src/features/events/hooks/useEvents';
 import { useProperties } from '@/src/features/properties/hooks/useProperties';
 import { useActiveData, useStore } from '@/src/store';
+import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { AlertCircle, Plus, X } from 'lucide-react';
 
 const PRESENCE_OPTIONS: { value: EventPropertyPresence; label: string }[] = [
@@ -138,6 +139,7 @@ export function EventEditorSheet({
 }: EventEditorSheetProps) {
   const activeData = useActiveData();
   const activeWorkspaceId = useStore((state) => state.activeWorkspaceId);
+  const { hasValidWorkspaceContext } = useWorkspaceShell();
   const { properties: allProperties } = useProperties();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -236,7 +238,15 @@ export function EventEditorSheet({
     void loadWorkspaceSources();
   }, [isOpen, loadWorkspaceSources]);
 
+  useEffect(() => {
+    if (hasValidWorkspaceContext) return;
+    setIsInlineSourceCreateOpen(false);
+    setCreateSourceName('');
+    setCreateSourceError(null);
+  }, [hasValidWorkspaceContext]);
+
   const handleSaveNewEvent = async () => {
+    if (!hasValidWorkspaceContext) return;
     const trimmedName = name.trim();
     if (!trimmedName) return;
 
@@ -264,6 +274,7 @@ export function EventEditorSheet({
   };
 
   const handleSaveExistingEvent = async () => {
+    if (!hasValidWorkspaceContext) return;
     if (!currentEventId) return;
     const trimmedName = name.trim();
     if (!trimmedName) return;
@@ -298,6 +309,7 @@ export function EventEditorSheet({
   };
 
   const handleAddProperty = async () => {
+    if (!hasValidWorkspaceContext) return;
     if (!currentEventId || !selectedPropertyId) return;
     setAddingProperty(true);
     clearMutationError();
@@ -314,6 +326,7 @@ export function EventEditorSheet({
     propertyId: string,
     presence: EventPropertyPresence
   ) => {
+    if (!hasValidWorkspaceContext) return;
     if (!currentEventId) return;
     const result = await updatePresence(currentEventId, propertyId, presence);
     if (result.success) {
@@ -323,6 +336,7 @@ export function EventEditorSheet({
   };
 
   const handleDetachProperty = async (propertyId: string) => {
+    if (!hasValidWorkspaceContext) return;
     if (!currentEventId) return;
     setRemovingPropertyId(propertyId);
     clearMutationError();
@@ -411,6 +425,10 @@ export function EventEditorSheet({
   };
 
   const handleTriggerImageUpload = async (file: File) => {
+    if (!hasValidWorkspaceContext) {
+      setTriggerImageError('Select a valid workspace from the header before uploading.');
+      return;
+    }
     if (!currentEventId) {
       setTriggerImageError('Save the event first before uploading a trigger image.');
       return;
@@ -442,6 +460,10 @@ export function EventEditorSheet({
   };
 
   const handleCreateTriggerSource = async () => {
+    if (!hasValidWorkspaceContext) {
+      setCreateSourceError('Select a valid workspace from the header before creating a source.');
+      return;
+    }
     if (!activeWorkspaceId) {
       setCreateSourceError('Workspace context missing. Please refresh and try again.');
       return;
@@ -649,7 +671,14 @@ export function EventEditorSheet({
                   variant="outline"
                   size="sm"
                   onClick={handleAddProperty}
-                  disabled={!selectedPropertyId || addingProperty}
+                  disabled={
+                    !selectedPropertyId || addingProperty || !hasValidWorkspaceContext
+                  }
+                  title={
+                    !hasValidWorkspaceContext
+                      ? 'Select a valid workspace from the header before changing attachments.'
+                      : undefined
+                  }
                   className="gap-1"
                 >
                   <Plus className="w-4 h-4" /> Add
@@ -680,7 +709,10 @@ export function EventEditorSheet({
                             )
                           }
                           className="rounded-md border border-input bg-background px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          disabled={removingPropertyId === a.property_id}
+                          disabled={
+                            removingPropertyId === a.property_id ||
+                            !hasValidWorkspaceContext
+                          }
                         >
                           {PRESENCE_OPTIONS.map((o) => (
                             <option key={o.value} value={o.value}>
@@ -693,7 +725,10 @@ export function EventEditorSheet({
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDetachProperty(a.property_id)}
-                          disabled={removingPropertyId === a.property_id}
+                          disabled={
+                            removingPropertyId === a.property_id ||
+                            !hasValidWorkspaceContext
+                          }
                           className="h-8 px-2 text-gray-500 hover:text-red-600"
                           aria-label={`Remove ${a.property_name || a.property_id}`}
                         >
@@ -713,6 +748,7 @@ export function EventEditorSheet({
               getEffectivePropertyDefinitions={getEffectivePropertyDefinitions}
               putEventPropertyDefinitions={putEventPropertyDefinitions}
               deleteEventPropertyDefinition={deleteEventPropertyDefinition}
+              workspaceMutationsDisabled={!hasValidWorkspaceContext}
             />
           </>
         )}
@@ -725,14 +761,32 @@ export function EventEditorSheet({
         {isCreateMode && !currentEventId ? (
           <Button
             onClick={handleSaveNewEvent}
-            disabled={saving || !name.trim() || hasInvalidTriggers}
+            disabled={
+              saving || !name.trim() || hasInvalidTriggers || !hasValidWorkspaceContext
+            }
+            title={
+              !hasValidWorkspaceContext
+                ? 'Select a valid workspace from the header before creating events.'
+                : undefined
+            }
           >
             {saving ? 'Creating…' : 'Create Event'}
           </Button>
         ) : (
           <Button
             onClick={handleSaveExistingEvent}
-            disabled={saving || !name.trim() || !currentEventId || hasInvalidTriggers}
+            disabled={
+              saving ||
+              !name.trim() ||
+              !currentEventId ||
+              hasInvalidTriggers ||
+              !hasValidWorkspaceContext
+            }
+            title={
+              !hasValidWorkspaceContext
+                ? 'Select a valid workspace from the header before saving changes.'
+                : undefined
+            }
           >
             {saving ? 'Saving…' : 'Save Changes'}
           </Button>
@@ -741,6 +795,7 @@ export function EventEditorSheet({
 
       <EventTriggerEditorModal
         isOpen={isTriggerModalOpen}
+        allowInlineSourceCreate={hasValidWorkspaceContext}
         trigger={triggerDraft}
         sources={workspaceSources}
         sourcesLoading={sourcesLoading}

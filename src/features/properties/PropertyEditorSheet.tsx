@@ -27,6 +27,7 @@ import {
 } from '@/src/features/events/lib/eventTriggerSourcesApi';
 import { fetchPropertySourceIds } from '@/src/features/properties/lib/propertySourcesApi';
 import { useStore } from '@/src/store';
+import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import {
   AlertCircle,
   Braces,
@@ -129,6 +130,7 @@ export function PropertyEditorSheet({
   clearMutationError,
 }: PropertyEditorSheetProps) {
   const activeWorkspaceId = useStore((s) => s.activeWorkspaceId);
+  const { hasValidWorkspaceContext } = useWorkspaceShell();
   const { catalogs, fetchCatalogFields } = useCatalogs();
   const [catalogFields, setCatalogFields] = useState<
     { id: string; name: string; data_type: string; is_lookup_key: boolean }[]
@@ -300,6 +302,10 @@ export function PropertyEditorSheet({
   }, [isOpen, activeWorkspaceId, initialProperty?.id]);
 
   const handleCreateInlineSource = async () => {
+    if (!hasValidWorkspaceContext) {
+      setCreateSourceError('Select a valid workspace in the header before creating a source.');
+      return;
+    }
     const trimmed = newSourceName.trim();
     if (!trimmed || !activeWorkspaceId) return;
     setCreatingSource(true);
@@ -326,6 +332,7 @@ export function PropertyEditorSheet({
 
   const handleDelete = async () => {
     if (!isEdit || !initialProperty || !deleteProperty) return;
+    if (!hasValidWorkspaceContext) return;
 
     const ok = window.confirm(`Delete property "${initialProperty.name}"?`);
     if (!ok) return;
@@ -343,6 +350,7 @@ export function PropertyEditorSheet({
   const handleSave = async () => {
     const trimmedName = name.trim();
     if (!trimmedName) return;
+    if (!hasValidWorkspaceContext) return;
 
     setEditorError(null);
     setSaving(true);
@@ -775,7 +783,7 @@ export function PropertyEditorSheet({
           <select
             key={[...selectedSourceIds].sort().join(',')}
             value=""
-            disabled={sourcesLoading || !activeWorkspaceId}
+            disabled={sourcesLoading || !activeWorkspaceId || !hasValidWorkspaceContext}
             onChange={(e) => {
               const id = e.target.value;
               if (id) {
@@ -808,7 +816,7 @@ export function PropertyEditorSheet({
                   }
                 }}
                 placeholder="Source name"
-                disabled={creatingSource || !activeWorkspaceId}
+                disabled={creatingSource || !activeWorkspaceId || !hasValidWorkspaceContext}
                 className="flex-1 min-w-[140px]"
                 aria-label="New source name"
               />
@@ -818,7 +826,12 @@ export function PropertyEditorSheet({
                 size="sm"
                 className="gap-1 shrink-0"
                 onClick={() => void handleCreateInlineSource()}
-                disabled={creatingSource || !newSourceName.trim() || !activeWorkspaceId}
+                disabled={
+                  creatingSource ||
+                  !newSourceName.trim() ||
+                  !activeWorkspaceId ||
+                  !hasValidWorkspaceContext
+                }
               >
                 <Plus className="w-4 h-4" />
                 {creatingSource ? 'Adding…' : 'Add'}
@@ -838,7 +851,12 @@ export function PropertyEditorSheet({
           <Button
             variant="destructive"
             onClick={handleDelete}
-            disabled={isMutating}
+            disabled={isMutating || !hasValidWorkspaceContext}
+            title={
+              !hasValidWorkspaceContext
+                ? 'Select a valid workspace in the header before deleting this property.'
+                : undefined
+            }
             className="gap-2"
           >
             <Trash2 className="w-4 h-4" />
@@ -851,7 +869,15 @@ export function PropertyEditorSheet({
           <Button variant="outline" onClick={onClose} disabled={isMutating}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isMutating || !name.trim()}>
+          <Button
+            onClick={handleSave}
+            disabled={isMutating || !name.trim() || !hasValidWorkspaceContext}
+            title={
+              !hasValidWorkspaceContext
+                ? 'Select a valid workspace in the header before saving this property.'
+                : undefined
+            }
+          >
             {saving ? 'Saving…' : 'Save Property'}
           </Button>
         </div>

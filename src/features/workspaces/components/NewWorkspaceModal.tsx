@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
-import { useWorkspaces } from '../hooks/useWorkspaces';
+import { useWorkspaceShell } from '../context/WorkspaceShellContext';
 
 const SPACE_BLUE = 'var(--e3-space-blue)';
 const E3_WHITE = 'var(--e3-white)';
@@ -24,7 +24,7 @@ export function NewWorkspaceModal({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const { workspaces, isLoading, fetchWorkspaces, createWorkspace } = useWorkspaces();
+  const { workspaces, isLoading, fetchWorkspaces, createWorkspace } = useWorkspaceShell();
 
   useEffect(() => {
     if (isOpen) {

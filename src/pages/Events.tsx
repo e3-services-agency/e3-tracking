@@ -9,6 +9,7 @@ import { EventEditorSheet } from '@/src/features/events/editor/EventEditorSheet'
 import { EventsList } from '@/src/features/events/EventsList';
 import { EventEditorSheet as ApiEventEditorSheet } from '@/src/features/events/EventEditorSheet';
 import { useEvents } from '@/src/features/events/hooks/useEvents';
+import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
@@ -52,6 +53,7 @@ export function Events() {
   const [apiEventSheetEventId, setApiEventSheetEventId] = useState<string | null>(null);
   const [isApiEventSheetOpen, setIsApiEventSheetOpen] = useState(false);
   const eventsApi = useEvents();
+  const { hasValidWorkspaceContext } = useWorkspaceShell();
 
   // Popover / Modal states
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -163,6 +165,12 @@ export function Events() {
               }}
               size="sm"
               className="gap-2"
+              disabled={!hasValidWorkspaceContext}
+              title={
+                !hasValidWorkspaceContext
+                  ? 'Select a valid workspace in the header before creating an event.'
+                  : undefined
+              }
             >
               <Plus className="w-4 h-4" /> New Event
             </Button>
@@ -360,6 +368,7 @@ export function Events() {
                 setApiEventSheetEventId(null);
                 setIsApiEventSheetOpen(true);
               }}
+              allowCreate={hasValidWorkspaceContext}
               onOpenEvent={(id) => {
                 setApiEventSheetEventId(id);
                 setIsApiEventSheetOpen(true);

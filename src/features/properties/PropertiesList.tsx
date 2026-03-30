@@ -29,6 +29,8 @@ const CONTEXT_LABELS: Record<PropertyContext, string> = {
 
 type PropertiesListProps = {
   onOpenCreate: () => void;
+  /** When false, empty-state create is disabled (e.g. invalid workspace). */
+  allowCreate?: boolean;
   onOpenProperty: (id: string) => void;
   properties: PropertyRow[];
   isLoading: boolean;
@@ -40,6 +42,7 @@ type PropertiesListProps = {
 
 export function PropertiesList({
   onOpenCreate,
+  allowCreate = true,
   onOpenProperty,
   properties,
   isLoading,
@@ -240,7 +243,16 @@ export function PropertiesList({
           <p className="text-sm text-gray-500 text-center max-w-sm mb-6">
             Create your first property to define event, user, or system attributes for your tracking plan.
           </p>
-          <Button onClick={onOpenCreate} className="gap-2">
+          <Button
+            onClick={onOpenCreate}
+            className="gap-2"
+            disabled={!allowCreate}
+            title={
+              !allowCreate
+                ? 'Select a valid workspace in the header before creating a property.'
+                : undefined
+            }
+          >
             <Plus className="w-4 h-4" /> Create your first Property
           </Button>
         </div>

@@ -1,9 +1,9 @@
 /**
  * Workspace admin: General (name, client_primary_color) and Members (list + invite by email).
- * Requires authenticated user and current workspace from store.
+ * Requires authenticated user and WorkspaceShellProvider (active workspace id).
  */
 import React, { useState, useCallback, useEffect } from 'react';
-import { useStore } from '@/src/store';
+import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { Button } from '@/src/components/ui/Button';
@@ -39,7 +39,7 @@ interface MemberRow {
 }
 
 export function WorkspaceSettings() {
-  const activeWorkspaceId = useStore((s) => s.activeWorkspaceId);
+  const { activeWorkspaceId, applyWorkspaceShellSettingsFromSave } = useWorkspaceShell();
   const [tab, setTab] = useState<'general' | 'members'>('general');
 
   const [workspace, setWorkspace] = useState<WorkspaceInfo | null>(null);
@@ -121,10 +121,11 @@ export function WorkspaceSettings() {
 
   const handleSaveGeneral = async () => {
     if (!activeWorkspaceId) return;
+    const savedForWorkspaceId = activeWorkspaceId;
     setSaving(true);
     setError(null);
     try {
-      const res = await fetchWithAuth(`${API_BASE}/api/workspaces/${activeWorkspaceId}`, {
+      const res = await fetchWithAuth(`${API_BASE}/api/workspaces/${savedForWorkspaceId}`, {
         method: 'PATCH',
         headers: { Accept: 'application/json' },
         body: JSON.stringify({
@@ -141,6 +142,9 @@ export function WorkspaceSettings() {
       }
       if (data.workspace) setWorkspace(data.workspace);
       if (data.settings) setSettings(data.settings);
+      if (data.settings !== undefined) {
+        applyWorkspaceShellSettingsFromSave(savedForWorkspaceId, data.settings);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Network error');
     } finally {

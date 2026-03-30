@@ -2,7 +2,7 @@
  * API hooks for Events. Uses centralized fetchWithAuth (adds Bearer token, handles 401 → redirect to login).
  */
 import { useState, useCallback, useEffect } from 'react';
-import { useStore } from '@/src/store';
+import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import type {
@@ -121,7 +121,7 @@ export interface UseEventsResult {
 export function useEvents(
   workspaceId?: string
 ): UseEventsResult {
-  const activeWorkspaceId = useStore((s) => s.activeWorkspaceId);
+  const { activeWorkspaceId } = useWorkspaceShell();
   const effectiveWorkspaceId = workspaceId ?? activeWorkspaceId ?? MOCK_WORKSPACE_ID;
 
   const [events, setEvents] = useState<EventWithPropertyCount[]>([]);

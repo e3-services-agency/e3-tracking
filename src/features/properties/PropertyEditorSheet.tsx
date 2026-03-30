@@ -27,7 +27,6 @@ import {
   listWorkspaceSources,
 } from '@/src/features/events/lib/eventTriggerSourcesApi';
 import { fetchPropertySourceIds } from '@/src/features/properties/lib/propertySourcesApi';
-import { useStore } from '@/src/store';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import {
   AlertCircle,
@@ -158,8 +157,7 @@ export function PropertyEditorSheet({
   mutationError,
   clearMutationError,
 }: PropertyEditorSheetProps) {
-  const activeWorkspaceId = useStore((s) => s.activeWorkspaceId);
-  const { hasValidWorkspaceContext } = useWorkspaceShell();
+  const { activeWorkspaceId, hasValidWorkspaceContext } = useWorkspaceShell();
   const { catalogs, fetchCatalogFields } = useCatalogs();
   const [catalogFields, setCatalogFields] = useState<
     { id: string; name: string; data_type: string; is_lookup_key: boolean }[]

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useActiveData } from '@/src/store';
 import { AGENCY_CONFIG } from '@/src/config/agency';
+import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
 const SPACE_BLUE = 'var(--e3-space-blue)';
@@ -9,10 +9,11 @@ const E3_WHITE = 'var(--e3-white)';
 const LOGO_SRC = `${window.location.origin}/tracking-plan/branding/agency-logo.png`;
 
 export function Header() {
-  const { settings } = useActiveData();
-  const clientLogoUrl = settings?.client_logo_url ?? null;
-  const clientName = settings?.client_name ?? null;
-  const hasClientBranding = !!(clientLogoUrl && clientName);
+  const { workspaceShellSettings, activeWorkspaceDisplayName } = useWorkspaceShell();
+  const clientLogoUrl = workspaceShellSettings?.client_logo_url ?? null;
+  const clientName =
+    workspaceShellSettings?.client_name?.trim() || activeWorkspaceDisplayName || null;
+  const hasClientBranding = !!(clientLogoUrl || clientName);
   const [logoError, setLogoError] = useState(false);
 
   return (

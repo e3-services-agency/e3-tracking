@@ -3,7 +3,7 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { WorkspaceGateBanner } from './WorkspaceGateBanner';
 import { WorkspaceShellProvider, useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
-import { useActiveData, useStore } from '@/src/store';
+import { useStore } from '@/src/store';
 import { getSupabaseClient } from '@/src/lib/supabase';
 import { Events } from '@/src/pages/Events';
 import { Properties } from '@/src/pages/Properties';
@@ -65,14 +65,18 @@ export function Layout() {
 }
 
 function LayoutInner() {
-  const { isLoading, hasValidWorkspaceContext, gateMessage } = useWorkspaceShell();
+  const {
+    isLoading,
+    hasValidWorkspaceContext,
+    gateMessage,
+    activeWorkspaceId,
+    workspaceShellSettings,
+  } = useWorkspaceShell();
   const clearActiveWorkspace = useStore((s) => s.clearActiveWorkspace);
 
   const [activeTab, setActiveTab] = useState('events');
   const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const { settings } = useActiveData();
-  const activeWorkspaceId = useStore((s) => s.activeWorkspaceId);
   const activeWorkspaceKey = useStore((s) => s.activeWorkspaceKey);
   const setActiveWorkspace = useStore((s) => s.setActiveWorkspace);
   const journeyCanvasHasUnsavedChanges = useStore(
@@ -129,12 +133,12 @@ function LayoutInner() {
   useEffect(() => {
     const root = document.documentElement;
     const primary =
-      settings?.client_primary_color?.trim() || DEFAULT_BRAND_PRIMARY;
+      workspaceShellSettings?.client_primary_color?.trim() || DEFAULT_BRAND_PRIMARY;
     root.style.setProperty('--brand-primary', primary);
     return () => {
       root.style.removeProperty('--brand-primary');
     };
-  }, [settings?.client_primary_color]);
+  }, [activeWorkspaceId, workspaceShellSettings?.client_primary_color]);
 
   // After workspace list settles: drop invalid / unknown active ids and strip bogus /w/:key from the URL.
   useEffect(() => {

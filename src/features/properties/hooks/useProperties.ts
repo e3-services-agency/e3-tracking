@@ -2,7 +2,7 @@
  * API hooks for Properties. Uses centralized fetchWithAuth (adds Bearer token, handles 401 → redirect to login).
  */
 import { useState, useCallback, useEffect } from 'react';
-import { useStore } from '@/src/store';
+import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import type { PropertyRow, CreatePropertyInput, PropertyMappingType } from '@/src/types/schema';
@@ -54,7 +54,7 @@ async function parseErrorResponse(res: Response): Promise<ApiError> {
 }
 
 export function useProperties(workspaceId?: string): UsePropertiesResult {
-  const activeWorkspaceId = useStore((s) => s.activeWorkspaceId);
+  const { activeWorkspaceId } = useWorkspaceShell();
   const effectiveWorkspaceId = workspaceId ?? activeWorkspaceId ?? MOCK_WORKSPACE_ID;
 
   const [properties, setProperties] = useState<PropertyRow[]>([]);

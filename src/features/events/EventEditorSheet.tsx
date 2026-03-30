@@ -30,7 +30,6 @@ import {
 } from '@/src/types/schema';
 import type { ApiError, EventWithPropertiesResponse } from '@/src/features/events/hooks/useEvents';
 import { useProperties } from '@/src/features/properties/hooks/useProperties';
-import { useStore } from '@/src/store';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { Activity, AlertCircle, Layout, Plus, UserRound, X } from 'lucide-react';
 
@@ -170,8 +169,7 @@ export function EventEditorSheet({
   clearMutationError,
   onEventCreated,
 }: EventEditorSheetProps) {
-  const activeWorkspaceId = useStore((state) => state.activeWorkspaceId);
-  const { hasValidWorkspaceContext } = useWorkspaceShell();
+  const { activeWorkspaceId, hasValidWorkspaceContext } = useWorkspaceShell();
   const { properties: allProperties } = useProperties();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');

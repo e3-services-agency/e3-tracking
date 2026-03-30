@@ -2,7 +2,7 @@
  * Catalogs API hook. Uses centralized fetchWithAuth (adds Bearer token, handles 401 → redirect to login).
  */
 import { useState, useCallback, useEffect } from 'react';
-import { useStore } from '@/src/store';
+import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import type {
@@ -36,7 +36,7 @@ export type CatalogFieldCreateInput = {
 };
 
 export function useCatalogs() {
-  const workspaceId = useStore((s) => s.activeWorkspaceId);
+  const { activeWorkspaceId: workspaceId } = useWorkspaceShell();
   const [catalogs, setCatalogs] = useState<CatalogRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

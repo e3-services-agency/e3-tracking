@@ -23,6 +23,164 @@ import { ConflictError, DatabaseError, NotFoundError } from '../errors';
 
 const UNIQUE_VIOLATION_CODE = '23505';
 
+/** Property row updates; `source_ids` replaces property_sources when provided (not a DB column on properties). */
+export type PropertyUpdateInput = Partial<
+  Pick<
+    PropertyRow,
+    | 'context'
+    | 'mapped_catalog_id'
+    | 'mapped_catalog_field_id'
+    | 'mapping_type'
+    | 'name'
+    | 'description'
+    | 'category'
+    | 'pii'
+    | 'data_type'
+    | 'data_formats'
+    | 'value_schema_json'
+    | 'example_values_json'
+    | 'name_mappings_json'
+  >
+> & {
+  source_ids?: string[] | null;
+};
+
+/** Validates that every id is a non-deleted source in the workspace; returns deduplicated ids in stable order. */
+async function validateSourceIdsInWorkspace(
+  workspaceId: string,
+  sourceIds: string[]
+): Promise<string[]> {
+  const uniqueSourceIds = [...new Set(sourceIds.map((value) => value.trim()).filter(Boolean))];
+  if (uniqueSourceIds.length === 0) {
+    return [];
+  }
+
+  const supabase = getSupabaseOrThrow();
+  const { data, error } = await supabase
+    .from('sources')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .in('id', uniqueSourceIds)
+    .is('deleted_at', null);
+
+  if (error) {
+    throw new DatabaseError(`Failed to validate sources: ${error.message}`, error);
+  }
+
+  const foundIds = new Set((data ?? []).map((row: { id: string }) => row.id));
+  if (foundIds.size !== uniqueSourceIds.length) {
+    throw new NotFoundError('One or more sources were not found in this workspace.', 'source');
+  }
+
+  return uniqueSourceIds;
+}
+
+/**
+ * Lists source ids linked to a property (workspace-scoped).
+ */
+export async function listPropertySourceIds(
+  workspaceId: string,
+  propertyId: string
+): Promise<string[]> {
+  const supabase = getSupabaseOrThrow();
+  const { data: existing, error: fetchErr } = await supabase
+    .from('properties')
+    .select('id')
+    .eq('id', propertyId)
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (fetchErr) {
+    throw new DatabaseError(`Failed to fetch property: ${fetchErr.message}`, fetchErr);
+  }
+  if (!existing) {
+    throw new NotFoundError('Property not found.', 'property');
+  }
+
+  const { data, error } = await supabase
+    .from('property_sources')
+    .select('source_id')
+    .eq('property_id', propertyId);
+
+  if (error) {
+    throw new DatabaseError(`Failed to list property sources: ${error.message}`, error);
+  }
+
+  const ids = (data ?? []).map((row: { source_id: string }) => row.source_id);
+  return [...new Set(ids)];
+}
+
+/**
+ * Syncs property_sources to match `sourceIds` (deduped, workspace-validated).
+ * Uses insert-then-delete so a failed insert does not wipe existing links. Deletes run after adds; if delete fails,
+ * extra legacy links may remain until the next successful save (no cross-workspace IDs: PK + prior validation).
+ */
+export async function replacePropertySources(
+  workspaceId: string,
+  propertyId: string,
+  sourceIds: string[]
+): Promise<void> {
+  const validSourceIds = await validateSourceIdsInWorkspace(workspaceId, sourceIds);
+  const supabase = getSupabaseOrThrow();
+
+  const { data: existing, error: fetchErr } = await supabase
+    .from('properties')
+    .select('id')
+    .eq('id', propertyId)
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (fetchErr) {
+    throw new DatabaseError(`Failed to fetch property: ${fetchErr.message}`, fetchErr);
+  }
+  if (!existing) {
+    throw new NotFoundError('Property not found.', 'property');
+  }
+
+  const { data: linkRows, error: listErr } = await supabase
+    .from('property_sources')
+    .select('source_id')
+    .eq('property_id', propertyId);
+
+  if (listErr) {
+    throw new DatabaseError(`Failed to read property sources: ${listErr.message}`, listErr);
+  }
+
+  const current = [...new Set((linkRows ?? []).map((row: { source_id: string }) => row.source_id))];
+  const desiredSet = new Set(validSourceIds);
+  const currentSet = new Set(current);
+
+  const toAdd = validSourceIds.filter((id) => !currentSet.has(id));
+  const toRemove = current.filter((id) => !desiredSet.has(id));
+
+  if (toAdd.length > 0) {
+    const { error: insertError } = await supabase.from('property_sources').insert(
+      toAdd.map((sourceId) => ({
+        property_id: propertyId,
+        source_id: sourceId,
+      }))
+    );
+
+    if (insertError) {
+      throw new DatabaseError(`Failed to save property sources: ${insertError.message}`, insertError);
+    }
+  }
+
+  if (toRemove.length > 0) {
+    const { error: deleteError } = await supabase
+      .from('property_sources')
+      .delete()
+      .eq('property_id', propertyId)
+      .in('source_id', toRemove);
+
+    if (deleteError) {
+      throw new DatabaseError(`Failed to update property sources: ${deleteError.message}`, deleteError);
+    }
+  }
+}
+
 type PropertyDbRow = {
   id: string;
   workspace_id: string;
@@ -283,6 +441,32 @@ export async function listProperties(workspaceId: string): Promise<PropertyRow[]
 }
 
 /**
+ * Full property row for workspace-scoped reads (e.g. effective event–property resolution).
+ * Prefer over event.dal’s minimal getPropertyById when you need PropertyRow fields.
+ */
+export async function getPropertyRow(
+  workspaceId: string,
+  propertyId: string
+): Promise<PropertyRow | null> {
+  const supabase = getSupabaseOrThrow();
+  const { data, error } = await supabase
+    .from('properties')
+    .select('*')
+    .eq('id', propertyId)
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (error) {
+    throw new DatabaseError(`Failed to fetch property: ${error.message}`, error);
+  }
+  if (!data) {
+    return null;
+  }
+  return mapPropertyRow(data as PropertyDbRow);
+}
+
+/**
  * Inserts a new property for the given workspace.
  * Enforces workspace_id in the insert; never relies on RLS.
  *
@@ -294,29 +478,34 @@ export async function createProperty(
   propertyData: CreatePropertyInput
 ): Promise<PropertyRow> {
   const supabase = getSupabaseOrThrow();
+  const { source_ids: sourceIds, ...propertyRowInput } = propertyData;
+
+  if (sourceIds !== undefined && sourceIds !== null && sourceIds.length > 0) {
+    await validateSourceIdsInWorkspace(workspaceId, sourceIds);
+  }
 
   const row: Record<string, unknown> = {
     workspace_id: workspaceId,
-    context: propertyData.context,
-    name: propertyData.name.trim(),
-    description: propertyData.description?.trim() ?? null,
-    category: propertyData.category?.trim() ?? null,
-    pii: propertyData.pii,
-    data_type: propertyData.data_type,
-    data_formats_json: toDbJsonValue(propertyData.data_formats),
-    value_schema_json: toDbJsonValue(propertyData.value_schema_json),
-    example_values_json: toDbJsonValue(propertyData.example_values_json),
-    name_mappings_json: toDbJsonValue(propertyData.name_mappings_json),
+    context: propertyRowInput.context,
+    name: propertyRowInput.name.trim(),
+    description: propertyRowInput.description?.trim() ?? null,
+    category: propertyRowInput.category?.trim() ?? null,
+    pii: propertyRowInput.pii,
+    data_type: propertyRowInput.data_type,
+    data_formats_json: toDbJsonValue(propertyRowInput.data_formats),
+    value_schema_json: toDbJsonValue(propertyRowInput.value_schema_json),
+    example_values_json: toDbJsonValue(propertyRowInput.example_values_json),
+    name_mappings_json: toDbJsonValue(propertyRowInput.name_mappings_json),
     deleted_at: null,
   };
-  if (propertyData.mapped_catalog_id !== undefined) {
-    row.mapped_catalog_id = propertyData.mapped_catalog_id ?? null;
+  if (propertyRowInput.mapped_catalog_id !== undefined) {
+    row.mapped_catalog_id = propertyRowInput.mapped_catalog_id ?? null;
   }
-  if (propertyData.mapped_catalog_field_id !== undefined) {
-    row.mapped_catalog_field_id = propertyData.mapped_catalog_field_id ?? null;
+  if (propertyRowInput.mapped_catalog_field_id !== undefined) {
+    row.mapped_catalog_field_id = propertyRowInput.mapped_catalog_field_id ?? null;
   }
-  if (propertyData.mapping_type !== undefined) {
-    row.mapping_type = (propertyData.mapping_type as PropertyMappingType) ?? null;
+  if (propertyRowInput.mapping_type !== undefined) {
+    row.mapping_type = (propertyRowInput.mapping_type as PropertyMappingType) ?? null;
   }
 
   const { data, error } = await supabase
@@ -342,7 +531,25 @@ export async function createProperty(
     throw new DatabaseError('Create property returned no row.');
   }
 
-  return mapPropertyRow(data as PropertyDbRow);
+  const created = mapPropertyRow(data as PropertyDbRow);
+
+  if (sourceIds !== undefined && sourceIds !== null && sourceIds.length > 0) {
+    try {
+      await replacePropertySources(workspaceId, created.id, sourceIds);
+    } catch (linkErr) {
+      try {
+        await deleteProperty(workspaceId, created.id);
+      } catch (cleanupErr) {
+        console.error(
+          '[property.dal] Failed to soft-delete property after property_sources failure; orphan property may exist.',
+          { propertyId: created.id, workspaceId, cleanupErr }
+        );
+      }
+      throw linkErr;
+    }
+  }
+
+  return created;
 }
 
 /**
@@ -351,24 +558,11 @@ export async function createProperty(
 export async function updateProperty(
   workspaceId: string,
   propertyId: string,
-  updates: Partial<Pick<
-    PropertyRow,
-    | 'context'
-    | 'mapped_catalog_id'
-    | 'mapped_catalog_field_id'
-    | 'mapping_type'
-    | 'name'
-    | 'description'
-    | 'category'
-    | 'pii'
-    | 'data_type'
-    | 'data_formats'
-    | 'value_schema_json'
-    | 'example_values_json'
-    | 'name_mappings_json'
-  >>
+  updates: PropertyUpdateInput
 ): Promise<PropertyRow> {
   const supabase = getSupabaseOrThrow();
+  const sourceIdsUpdate =
+    Object.prototype.hasOwnProperty.call(updates, 'source_ids') ? updates.source_ids : undefined;
   const { data: existing, error: fetchErr } = await supabase
     .from('properties')
     .select('id')
@@ -431,6 +625,19 @@ export async function updateProperty(
   if (!data) {
     throw new NotFoundError('Property not found after update.', 'property');
   }
+
+  if (sourceIdsUpdate !== undefined) {
+    try {
+      await replacePropertySources(workspaceId, propertyId, sourceIdsUpdate ?? []);
+    } catch (linkErr) {
+      console.error(
+        '[property.dal] Property row updated but property_sources sync failed; client may retry PATCH with source_ids.',
+        { propertyId, workspaceId, linkErr }
+      );
+      throw linkErr;
+    }
+  }
+
   return mapPropertyRow(data as PropertyDbRow);
 }
 

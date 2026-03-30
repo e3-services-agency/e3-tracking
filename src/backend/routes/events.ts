@@ -9,10 +9,12 @@ import { requireAuth } from '../middleware/auth';
 import { createAuditValidator } from '../middleware/auditValidator';
 import { getWorkspaceSettings } from '../dal/workspace.dal';
 import * as EventDAL from '../dal/event.dal';
+import * as EventPropertyDefinitionDAL from '../dal/event-property-definition.dal';
 import { getSupabaseOrThrow } from '../db/supabase';
-import { ConflictError, DatabaseError, NotFoundError } from '../errors';
+import { BadRequestError, ConflictError, DatabaseError, NotFoundError } from '../errors';
 import type {
   CreateEventInput,
+  EventPropertyDefinitionUpsertPayload,
   EventPropertyPresence,
   EventType,
   EventTriggerEntry,
@@ -332,6 +334,290 @@ router.get('/:id/codegen', requireWorkspace, async (req: Request, res: Response)
     });
   }
 });
+
+/**
+ * GET /api/events/:id/property-definitions/effective
+ * Merged global property + per-event override (query: ?property_id=uuid for a single row).
+ */
+router.get(
+  '/:id/property-definitions/effective',
+  requireWorkspace,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = req.workspaceId;
+    if (!workspaceId) {
+      res.status(403).json({
+        error: 'Workspace context required.',
+        code: 'WORKSPACE_REQUIRED',
+      });
+      return;
+    }
+    const eventId = req.params.id;
+    const propertyIdRaw = req.query.property_id;
+    const propertyId =
+      typeof propertyIdRaw === 'string' && propertyIdRaw.trim() ? propertyIdRaw.trim() : undefined;
+    try {
+      const items = await EventPropertyDefinitionDAL.listEffectiveEventPropertyDefinitions(
+        workspaceId,
+        eventId,
+        propertyId ? { propertyId } : undefined
+      );
+      res.status(200).json({ items });
+    } catch (err) {
+      console.error(err);
+      if (err instanceof NotFoundError) {
+        res.status(404).json({
+          error: err.message,
+          code: err.code,
+          resource: err.resource,
+        });
+        return;
+      }
+      if (err instanceof DatabaseError) {
+        res.status(500).json({
+          error: 'Failed to load effective property definitions.',
+          code: err.code,
+        });
+        return;
+      }
+      res.status(500).json({
+        error: 'An unexpected error occurred.',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+);
+
+/**
+ * DELETE /api/events/:id/property-definitions/:propertyId
+ * Removes override row only; does not detach from event_properties.
+ */
+router.delete(
+  '/:id/property-definitions/:propertyId',
+  requireWorkspace,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = req.workspaceId;
+    if (!workspaceId) {
+      res.status(403).json({
+        error: 'Workspace context required.',
+        code: 'WORKSPACE_REQUIRED',
+      });
+      return;
+    }
+    const eventId = req.params.id;
+    const propertyId = req.params.propertyId;
+    try {
+      const { deleted } = await EventPropertyDefinitionDAL.deleteEventPropertyDefinition(
+        workspaceId,
+        eventId,
+        propertyId
+      );
+      if (!deleted) {
+        res.status(404).json({
+          error: 'Event property definition override not found.',
+          code: 'NOT_FOUND',
+          resource: 'event_property_definition',
+        });
+        return;
+      }
+      res.status(204).send('');
+    } catch (err) {
+      console.error(err);
+      if (err instanceof NotFoundError) {
+        res.status(404).json({
+          error: err.message,
+          code: err.code,
+          resource: err.resource,
+        });
+        return;
+      }
+      if (err instanceof DatabaseError) {
+        res.status(500).json({
+          error: err.message,
+          code: err.code,
+        });
+        return;
+      }
+      res.status(500).json({
+        error: 'An unexpected error occurred.',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/events/:id/property-definitions
+ * Per-event scoped property metadata (enum_values, required, etc.); does not replace global `properties` rows.
+ */
+router.get(
+  '/:id/property-definitions',
+  requireWorkspace,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = req.workspaceId;
+    if (!workspaceId) {
+      res.status(403).json({
+        error: 'Workspace context required.',
+        code: 'WORKSPACE_REQUIRED',
+      });
+      return;
+    }
+    const eventId = req.params.id;
+    try {
+      const rows = await EventPropertyDefinitionDAL.getEventPropertyDefinitions(workspaceId, eventId);
+      res.status(200).json(rows);
+    } catch (err) {
+      console.error(err);
+      if (err instanceof NotFoundError) {
+        res.status(404).json({
+          error: err.message,
+          code: err.code,
+          resource: err.resource,
+        });
+        return;
+      }
+      if (err instanceof DatabaseError) {
+        res.status(500).json({
+          error: 'Failed to load event property definitions.',
+          code: err.code,
+        });
+        return;
+      }
+      res.status(500).json({
+        error: 'An unexpected error occurred.',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+);
+
+/**
+ * PUT /api/events/:id/property-definitions
+ * Body: { definitions: EventPropertyDefinitionUpsertPayload[] }. Batch upsert; omitted keys preserve existing values.
+ */
+router.put(
+  '/:id/property-definitions',
+  requireWorkspace,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = req.workspaceId;
+    if (!workspaceId) {
+      res.status(403).json({
+        error: 'Workspace context required.',
+        code: 'WORKSPACE_REQUIRED',
+      });
+      return;
+    }
+    const eventId = req.params.id;
+    const body = req.body as Record<string, unknown>;
+    const raw = body.definitions;
+    if (!Array.isArray(raw)) {
+      res.status(400).json({
+        error: 'definitions must be an array.',
+        code: 'INVALID_BODY',
+        field: 'definitions',
+      });
+      return;
+    }
+
+    const items: EventPropertyDefinitionUpsertPayload[] = [];
+    for (let i = 0; i < raw.length; i += 1) {
+      const entry = raw[i];
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        res.status(400).json({
+          error: `definitions[${i}] must be an object.`,
+          code: 'INVALID_BODY',
+          field: 'definitions',
+        });
+        return;
+      }
+      const o = entry as Record<string, unknown>;
+      const pid = typeof o.property_id === 'string' ? o.property_id.trim() : '';
+      if (!pid) {
+        res.status(400).json({
+          error: `definitions[${i}].property_id is required.`,
+          code: 'INVALID_BODY',
+          field: 'definitions',
+        });
+        return;
+      }
+      const payload: EventPropertyDefinitionUpsertPayload = { property_id: pid };
+      if (Object.prototype.hasOwnProperty.call(o, 'description_override')) {
+        const d = o.description_override;
+        if (d !== null && typeof d !== 'string') {
+          res.status(400).json({
+            error: `definitions[${i}].description_override must be a string or null.`,
+            code: 'INVALID_BODY',
+            field: 'definitions',
+          });
+          return;
+        }
+        payload.description_override = d === null ? null : (d as string);
+      }
+      if (Object.prototype.hasOwnProperty.call(o, 'enum_values')) {
+        payload.enum_values = o.enum_values as EventPropertyDefinitionUpsertPayload['enum_values'];
+      }
+      if (Object.prototype.hasOwnProperty.call(o, 'required')) {
+        const r = o.required;
+        if (r !== null && typeof r !== 'boolean') {
+          res.status(400).json({
+            error: `definitions[${i}].required must be a boolean or null.`,
+            code: 'INVALID_BODY',
+            field: 'definitions',
+          });
+          return;
+        }
+        payload.required = r as boolean | null;
+      }
+      if (Object.prototype.hasOwnProperty.call(o, 'example_values')) {
+        payload.example_values = o.example_values;
+      }
+      items.push(payload);
+    }
+
+    try {
+      const rows = await EventPropertyDefinitionDAL.upsertEventPropertyDefinitionsBatch(
+        workspaceId,
+        eventId,
+        items
+      );
+      res.status(200).json({ definitions: rows });
+    } catch (err) {
+      if (err instanceof BadRequestError) {
+        res.status(400).json({
+          error: err.message,
+          message: err.message,
+          code: err.code,
+          ...(err.field && { field: err.field }),
+          ...(err.details && {
+            property_id: err.details.property_id,
+            value: err.details.value,
+            allowed: err.details.allowed,
+          }),
+        });
+        return;
+      }
+      console.error(err);
+      if (err instanceof NotFoundError) {
+        res.status(404).json({
+          error: err.message,
+          code: err.code,
+          resource: err.resource,
+        });
+        return;
+      }
+      if (err instanceof DatabaseError) {
+        res.status(500).json({
+          error: err.message,
+          code: err.code,
+        });
+        return;
+      }
+      res.status(500).json({
+        error: 'An unexpected error occurred.',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+);
 
 /**
  * POST /api/events

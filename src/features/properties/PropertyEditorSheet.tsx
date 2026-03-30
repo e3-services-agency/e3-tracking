@@ -2,7 +2,7 @@
  * Create/Edit Property slide-out sheet (Avo-style). Phase 1 schema + catalog mapping.
  * Save calls API via createProperty or updateProperty; API errors shown as red alert.
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -15,11 +15,18 @@ import {
   type PropertyNameMapping,
   type PropertyRow,
   type PropertyMappingType,
+  type SourceRow,
   PROPERTY_DATA_FORMATS,
 } from '@/src/types/schema';
 import type { ApiError } from '@/src/features/properties/hooks/useProperties';
 import type { PropertyUpdatePayload } from '@/src/features/properties/hooks/useProperties';
 import { useCatalogs } from '@/src/features/catalogs/hooks/useCatalogs';
+import {
+  createWorkspaceSource,
+  listWorkspaceSources,
+} from '@/src/features/events/lib/eventTriggerSourcesApi';
+import { fetchPropertySourceIds } from '@/src/features/properties/lib/propertySourcesApi';
+import { useStore } from '@/src/store';
 import {
   AlertCircle,
   Braces,
@@ -27,11 +34,14 @@ import {
   Clock3,
   Hash,
   Link2,
+  Plus,
   ToggleLeft,
   Trash2,
   Type,
+  X,
 } from 'lucide-react';
 
+/** Model: one row per (workspace, context, name). Not for per-event property variants—see event_properties / separate rows. */
 const CONTEXTS: { value: PropertyContext; label: string }[] = [
   { value: 'event_property', label: 'Event Property' },
   { value: 'user_property', label: 'User Property' },
@@ -46,6 +56,20 @@ const UI_DATA_TYPES: { value: PropertyDataType; label: string }[] = [
   { value: 'object', label: 'object {}' },
   { value: 'array', label: 'array []' },
 ];
+
+/** Display labels for PropertyDataFormat chips (allowed values are fixed in schema + API validation). */
+const DATA_FORMAT_LABELS: Record<PropertyDataFormat, string> = {
+  uuid: 'UUID',
+  iso8601_datetime: 'ISO 8601 datetime',
+  iso8601_date: 'ISO 8601 date',
+  unix_seconds: 'Unix seconds',
+  unix_milliseconds: 'Unix milliseconds',
+  email: 'Email',
+  uri: 'URI',
+  currency_code: 'Currency code',
+  country_code: 'Country code',
+  language_code: 'Language code',
+};
 
 function dataTypeIcon(t: PropertyDataType): React.ReactNode {
   if (t === 'array') return <Brackets className="w-4 h-4" />;
@@ -104,6 +128,7 @@ export function PropertyEditorSheet({
   mutationError,
   clearMutationError,
 }: PropertyEditorSheetProps) {
+  const activeWorkspaceId = useStore((s) => s.activeWorkspaceId);
   const { catalogs, fetchCatalogFields } = useCatalogs();
   const [catalogFields, setCatalogFields] = useState<
     { id: string; name: string; data_type: string; is_lookup_key: boolean }[]
@@ -128,6 +153,23 @@ export function PropertyEditorSheet({
   const [mappedFieldId, setMappedFieldId] = useState('');
   const [mappingType, setMappingType] = useState<PropertyMappingType>('mapped_value');
 
+  const [workspaceSources, setWorkspaceSources] = useState<SourceRow[]>([]);
+  const [sourcesLoading, setSourcesLoading] = useState(false);
+  const [sourcesError, setSourcesError] = useState<string | null>(null);
+  const [propertySourceIdsError, setPropertySourceIdsError] = useState<string | null>(null);
+  const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
+  const [newSourceName, setNewSourceName] = useState('');
+  const [creatingSource, setCreatingSource] = useState(false);
+  const [createSourceError, setCreateSourceError] = useState<string | null>(null);
+
+  /** True after user changes linked sources; blocks stale async hydration from overwriting the selection. */
+  const linkedSourcesUserTouchedRef = useRef(false);
+  const linkedSourcesHydrationSeqRef = useRef(0);
+
+  const markLinkedSourcesUserTouched = useCallback(() => {
+    linkedSourcesUserTouchedRef.current = true;
+  }, []);
+
   const isEdit = Boolean(initialProperty?.id);
 
   useEffect(() => {
@@ -135,6 +177,9 @@ export function PropertyEditorSheet({
       setSaving(false);
       setDeleting(false);
       setEditorError(null);
+      setCreateSourceError(null);
+      setNewSourceName('');
+      linkedSourcesUserTouchedRef.current = false;
       clearMutationError();
       if (initialProperty) {
         setName(initialProperty.name);
@@ -203,6 +248,82 @@ export function PropertyEditorSheet({
     }
   }, [mappedCatalogId, fetchCatalogFields]);
 
+  useEffect(() => {
+    if (!isOpen || !activeWorkspaceId) {
+      return;
+    }
+    let cancelled = false;
+    setSourcesLoading(true);
+    setSourcesError(null);
+    listWorkspaceSources(activeWorkspaceId).then((result) => {
+      if (cancelled) return;
+      setSourcesLoading(false);
+      if (result.success === false) {
+        setSourcesError(result.error);
+        setWorkspaceSources([]);
+        return;
+      }
+      setWorkspaceSources(result.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, activeWorkspaceId]);
+
+  useEffect(() => {
+    if (!isOpen || !activeWorkspaceId) {
+      return;
+    }
+    if (!initialProperty?.id) {
+      setSelectedSourceIds([]);
+      setPropertySourceIdsError(null);
+      return;
+    }
+    let cancelled = false;
+    const hydrationSeq = ++linkedSourcesHydrationSeqRef.current;
+    setPropertySourceIdsError(null);
+    fetchPropertySourceIds(activeWorkspaceId, initialProperty.id).then((result) => {
+      if (cancelled) return;
+      if (hydrationSeq !== linkedSourcesHydrationSeqRef.current) return;
+      if (linkedSourcesUserTouchedRef.current) return;
+      if (result.success === false) {
+        setPropertySourceIdsError(result.error);
+        setSelectedSourceIds([]);
+        return;
+      }
+      setSelectedSourceIds(result.source_ids);
+      setPropertySourceIdsError(null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, activeWorkspaceId, initialProperty?.id]);
+
+  const handleCreateInlineSource = async () => {
+    const trimmed = newSourceName.trim();
+    if (!trimmed || !activeWorkspaceId) return;
+    setCreatingSource(true);
+    setCreateSourceError(null);
+    const result = await createWorkspaceSource({
+      workspaceId: activeWorkspaceId,
+      name: trimmed,
+    });
+    setCreatingSource(false);
+    if (result.success === false) {
+      setCreateSourceError(result.error);
+      return;
+    }
+    const created = result.data;
+    markLinkedSourcesUserTouched();
+    setWorkspaceSources((prev) =>
+      [...prev, created].sort((a, b) => a.name.localeCompare(b.name))
+    );
+    setSelectedSourceIds((prev) =>
+      prev.includes(created.id) ? prev : [...prev, created.id]
+    );
+    setNewSourceName('');
+  };
+
   const handleDelete = async () => {
     if (!isEdit || !initialProperty || !deleteProperty) return;
 
@@ -269,6 +390,7 @@ export function PropertyEditorSheet({
         value_schema_json: parsedValueSchema.value ?? null,
         example_values_json: parsedExampleValues.value ?? null,
         name_mappings_json: parsedNameMappings.value ?? null,
+        source_ids: selectedSourceIds,
       };
       if (mappingEnabled && mappedCatalogId && mappedFieldId) {
         payload.mapped_catalog_id = mappedCatalogId;
@@ -299,6 +421,7 @@ export function PropertyEditorSheet({
       mapped_catalog_id: null,
       mapped_catalog_field_id: null,
       mapping_type: null,
+      ...(selectedSourceIds.length > 0 ? { source_ids: selectedSourceIds } : {}),
     };
     if (mappingEnabled && mappedCatalogId && mappedFieldId) {
       payload.mapped_catalog_id = mappedCatalogId;
@@ -382,21 +505,28 @@ export function PropertyEditorSheet({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Property value type</label>
-          <div className="flex gap-4 items-center flex-wrap">
+          <label className="text-sm font-medium text-gray-700" id="property-value-type-label">
+            Property value type
+          </label>
+          <div className="relative">
+            <span
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none flex shrink-0"
+              aria-hidden
+            >
+              {dataTypeIcon(dataType)}
+            </span>
             <select
               value={dataType}
               onChange={(e) => setDataType(e.target.value as PropertyDataType)}
-              className="rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-labelledby="property-value-type-label"
+              className="w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {UI_DATA_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
               ))}
             </select>
-            <span className="inline-flex items-center gap-2 text-sm text-gray-600 bg-gray-50 border rounded-md px-2 py-1">
-              {dataTypeIcon(dataType)}
-              <span className="font-mono">{dataType === 'array' ? 'array []' : dataType === 'object' ? 'object {}' : dataType}</span>
-            </span>
           </div>
         </div>
 
@@ -411,6 +541,11 @@ export function PropertyEditorSheet({
               <option key={c.value} value={c.value}>{c.label}</option>
             ))}
           </select>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            Workspace-wide definition. The same name may exist once per context (event vs user vs system). This is not
+            “variants”: there is no per-event override on this row—use separate property rows or event-level metadata
+            (e.g. event_properties) instead of overloading Context.
+          </p>
         </div>
 
         <div className="space-y-2">
@@ -427,26 +562,52 @@ export function PropertyEditorSheet({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Data formats (optional)</label>
+          <label className="text-sm font-medium text-gray-700" id="data-formats-label">
+            Data formats (optional)
+          </label>
+          <p className="text-xs text-gray-500">
+            Allowed values are fixed in the product schema and API. Reusable workspace presets would need new settings
+            storage and validation—deferred until the backend accepts custom format tokens.
+          </p>
+          {dataFormats.length > 0 && (
+            <div className="flex flex-wrap gap-2" aria-labelledby="data-formats-label">
+              {dataFormats.map((format) => (
+                <span
+                  key={format}
+                  className="inline-flex items-center gap-1 rounded-md border border-input bg-gray-50 px-2 py-1 text-xs text-gray-800"
+                >
+                  <span>{DATA_FORMAT_LABELS[format]}</span>
+                  <button
+                    type="button"
+                    onClick={() => setDataFormats((prev) => prev.filter((f) => f !== format))}
+                    className="rounded p-0.5 text-gray-500 hover:text-gray-900 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={`Remove ${DATA_FORMAT_LABELS[format]}`}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
           <select
-            multiple
-            value={dataFormats}
-            onChange={(e) =>
-              setDataFormats(
-                Array.from(e.target.selectedOptions, (option) => option.value as PropertyDataFormat)
-              )
-            }
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-32 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            key={dataFormats.join('|')}
+            value=""
+            onChange={(e) => {
+              const v = e.target.value as PropertyDataFormat;
+              if (v && PROPERTY_DATA_FORMATS.includes(v) && !dataFormats.includes(v)) {
+                setDataFormats((prev) => [...prev, v]);
+              }
+            }}
+            aria-label="Add a data format"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            {PROPERTY_DATA_FORMATS.map((format) => (
+            <option value="">Add format…</option>
+            {PROPERTY_DATA_FORMATS.filter((f) => !dataFormats.includes(f)).map((format) => (
               <option key={format} value={format}>
-                {format}
+                {DATA_FORMAT_LABELS[format]}
               </option>
             ))}
           </select>
-          <p className="text-xs text-gray-500">
-            Hold Ctrl/Cmd to select multiple starter formats.
-          </p>
         </div>
 
         <div className="space-y-2">
@@ -563,9 +724,111 @@ export function PropertyEditorSheet({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Sources</label>
-          <div className="rounded-md border border-dashed border-gray-200 bg-gray-50 px-3 py-4 text-sm text-gray-500">
-            Configure sources when attaching this property to events.
+          <label className="text-sm font-medium text-gray-700" id="property-sources-label">
+            Sources
+          </label>
+          <p className="text-xs text-gray-500">
+            Link workspace sources to this property definition. You can still attach the property to events separately.
+          </p>
+          {sourcesLoading && (
+            <p className="text-xs text-gray-500" role="status">
+              Loading sources…
+            </p>
+          )}
+          {sourcesError && !sourcesLoading && (
+            <p className="text-xs text-red-600" role="alert">
+              {sourcesError}
+            </p>
+          )}
+          {propertySourceIdsError && !sourcesLoading && (
+            <p className="text-xs text-red-600" role="alert">
+              {propertySourceIdsError}
+            </p>
+          )}
+          {selectedSourceIds.length > 0 && (
+            <div className="flex flex-wrap gap-2" aria-labelledby="property-sources-label">
+              {selectedSourceIds.map((id) => {
+                const src = workspaceSources.find((s) => s.id === id);
+                const label = src?.name ?? id;
+                return (
+                  <span
+                    key={id}
+                    className="inline-flex items-center gap-1 rounded-md border border-input bg-gray-50 px-2 py-1 text-xs text-gray-800 max-w-full"
+                  >
+                    <span className="truncate">{label}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        markLinkedSourcesUserTouched();
+                        setSelectedSourceIds((prev) => prev.filter((x) => x !== id));
+                      }}
+                      className="rounded p-0.5 text-gray-500 hover:text-gray-900 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0"
+                      aria-label={`Remove source ${label}`}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+          <select
+            key={[...selectedSourceIds].sort().join(',')}
+            value=""
+            disabled={sourcesLoading || !activeWorkspaceId}
+            onChange={(e) => {
+              const id = e.target.value;
+              if (id) {
+                markLinkedSourcesUserTouched();
+                setSelectedSourceIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+              }
+            }}
+            aria-label="Add a source"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+          >
+            <option value="">Add source…</option>
+            {workspaceSources
+              .filter((s) => !selectedSourceIds.includes(s.id))
+              .map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+          </select>
+          <div className="rounded-md border border-gray-200 bg-gray-50/80 p-3 space-y-2">
+            <p className="text-xs font-medium text-gray-600">New source</p>
+            <div className="flex gap-2 flex-wrap">
+              <Input
+                value={newSourceName}
+                onChange={(e) => setNewSourceName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void handleCreateInlineSource();
+                  }
+                }}
+                placeholder="Source name"
+                disabled={creatingSource || !activeWorkspaceId}
+                className="flex-1 min-w-[140px]"
+                aria-label="New source name"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1 shrink-0"
+                onClick={() => void handleCreateInlineSource()}
+                disabled={creatingSource || !newSourceName.trim() || !activeWorkspaceId}
+              >
+                <Plus className="w-4 h-4" />
+                {creatingSource ? 'Adding…' : 'Add'}
+              </Button>
+            </div>
+            {createSourceError && (
+              <p className="text-xs text-red-600" role="alert">
+                {createSourceError}
+              </p>
+            )}
           </div>
         </div>
       </div>

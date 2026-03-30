@@ -19,6 +19,26 @@ export class DatabaseError extends Error {
   }
 }
 
+/** Optional structured context for enum / field validation (HTTP 400 body). */
+export type BadRequestDetails = {
+  property_id: string;
+  value: unknown;
+  allowed: string[];
+};
+
+/** Invalid client payload (400). */
+export class BadRequestError extends Error {
+  readonly code = 'BAD_REQUEST';
+  constructor(
+    message: string,
+    public readonly field?: string,
+    public readonly details?: BadRequestDetails
+  ) {
+    super(message);
+    this.name = 'BadRequestError';
+  }
+}
+
 /** Use when a resource is not found or does not belong to the workspace (404). */
 export class NotFoundError extends Error {
   readonly code = 'NOT_FOUND';

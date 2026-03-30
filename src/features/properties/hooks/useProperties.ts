@@ -22,7 +22,13 @@ export type PropertyUpdatePayload = Partial<Pick<
   'context' | 'name' | 'description' | 'category' | 'pii' | 'data_type' | 'data_formats'
   | 'value_schema_json' | 'example_values_json' | 'name_mappings_json'
   | 'mapped_catalog_id' | 'mapped_catalog_field_id' | 'mapping_type'
->>;
+>> & {
+  /**
+   * When this key is present on PATCH, server replaces property_sources (deduped).
+   * Omit the key to leave links unchanged. `[]` clears all links.
+   */
+  source_ids?: string[] | null;
+};
 
 export interface UsePropertiesResult {
   properties: PropertyRow[];

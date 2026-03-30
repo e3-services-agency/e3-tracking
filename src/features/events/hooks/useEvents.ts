@@ -6,9 +6,12 @@ import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import type {
-  EventRow,
   CreateEventInput,
+  EffectiveEventPropertyDefinition,
+  EventPropertyDefinitionRow,
+  EventPropertyDefinitionUpsertPayload,
   EventPropertyPresence,
+  EventRow,
 } from '@/src/types/schema';
 
 export const MOCK_WORKSPACE_ID = '00000000-0000-0000-0000-000000000001';
@@ -19,6 +22,7 @@ export interface ApiError {
   message: string;
   details?: string;
   resource?: string;
+  field?: string;
 }
 
 /** Event with attached property count (from GET /api/events). */
@@ -93,6 +97,23 @@ export interface UseEventsResult {
   getEventWithProperties: (
     eventId: string
   ) => Promise<EventWithPropertiesResponse | null>;
+  getEffectivePropertyDefinitions: (
+    eventId: string
+  ) => Promise<
+    | { success: true; items: EffectiveEventPropertyDefinition[] }
+    | { success: false; error: ApiError }
+  >;
+  putEventPropertyDefinitions: (
+    eventId: string,
+    definitions: EventPropertyDefinitionUpsertPayload[]
+  ) => Promise<
+    | { success: true; definitions: EventPropertyDefinitionRow[] }
+    | { success: false; error: ApiError }
+  >;
+  deleteEventPropertyDefinition: (
+    eventId: string,
+    propertyId: string
+  ) => Promise<{ success: true } | { success: false; error: ApiError }>;
   mutationError: ApiError | null;
   clearMutationError: () => void;
 }
@@ -423,6 +444,127 @@ export function useEvents(
 
   const clearMutationError = useCallback(() => setMutationError(null), []);
 
+  const getEffectivePropertyDefinitions = useCallback(
+    async (
+      eventId: string
+    ): Promise<
+      | { success: true; items: EffectiveEventPropertyDefinition[] }
+      | { success: false; error: ApiError }
+    > => {
+      try {
+        const res = await fetchWithAuth(
+          `${API_BASE}/api/events/${eventId}/property-definitions/effective`,
+          {
+            headers: { 'x-workspace-id': effectiveWorkspaceId },
+          }
+        );
+        if (!res.ok) {
+          return { success: false, error: await parseErrorResponse(res) };
+        }
+        const body = (await res.json()) as { items?: unknown };
+        const raw = body.items;
+        const items = Array.isArray(raw) ? (raw as EffectiveEventPropertyDefinition[]) : [];
+        return { success: true, items };
+      } catch (err) {
+        return {
+          success: false,
+          error: {
+            status: 0,
+            code: 'NETWORK_ERROR',
+            message:
+              err instanceof Error ? err.message : 'Failed to load effective property definitions.',
+          },
+        };
+      }
+    },
+    [effectiveWorkspaceId]
+  );
+
+  const putEventPropertyDefinitions = useCallback(
+    async (
+      eventId: string,
+      definitions: EventPropertyDefinitionUpsertPayload[]
+    ): Promise<
+      { success: true; definitions: EventPropertyDefinitionRow[] } | { success: false; error: ApiError }
+    > => {
+      setMutationError(null);
+      try {
+        const res = await fetchWithAuth(
+          `${API_BASE}/api/events/${eventId}/property-definitions`,
+          {
+            method: 'PUT',
+            headers: {
+              'x-workspace-id': effectiveWorkspaceId,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ definitions }),
+          }
+        );
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const apiError: ApiError = {
+            status: res.status,
+            code: body?.code ?? 'UNKNOWN',
+            message:
+              typeof body?.error === 'string' ? body.error : res.statusText || 'Request failed',
+            details: body?.details,
+            field: body?.field,
+          };
+          setMutationError(apiError);
+          return { success: false, error: apiError };
+        }
+        const defs = Array.isArray(body.definitions)
+          ? (body.definitions as EventPropertyDefinitionRow[])
+          : [];
+        return { success: true, definitions: defs };
+      } catch (err) {
+        const apiError: ApiError = {
+          status: 0,
+          code: 'NETWORK_ERROR',
+          message:
+            err instanceof Error ? err.message : 'Failed to save property definitions.',
+        };
+        setMutationError(apiError);
+        return { success: false, error: apiError };
+      }
+    },
+    [effectiveWorkspaceId]
+  );
+
+  const deleteEventPropertyDefinition = useCallback(
+    async (
+      eventId: string,
+      propertyId: string
+    ): Promise<{ success: true } | { success: false; error: ApiError }> => {
+      setMutationError(null);
+      try {
+        const res = await fetchWithAuth(
+          `${API_BASE}/api/events/${eventId}/property-definitions/${propertyId}`,
+          {
+            method: 'DELETE',
+            headers: { 'x-workspace-id': effectiveWorkspaceId },
+          }
+        );
+        if (res.status === 204) {
+          return { success: true };
+        }
+        const apiError = await parseErrorResponse(res);
+        setMutationError(apiError);
+        return { success: false, error: apiError };
+      } catch (err) {
+        const apiError: ApiError = {
+          status: 0,
+          code: 'NETWORK_ERROR',
+          message:
+            err instanceof Error ? err.message : 'Failed to delete property definition override.',
+        };
+        setMutationError(apiError);
+        return { success: false, error: apiError };
+      }
+    },
+    [effectiveWorkspaceId]
+  );
+
   return {
     events,
     isLoading,
@@ -435,6 +577,9 @@ export function useEvents(
     detachProperty,
     updatePresence,
     getEventWithProperties,
+    getEffectivePropertyDefinitions,
+    putEventPropertyDefinitions,
+    deleteEventPropertyDefinition,
     mutationError,
     clearMutationError,
   };

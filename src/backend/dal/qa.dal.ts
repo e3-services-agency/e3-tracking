@@ -6,6 +6,7 @@
  * node verification as JSON in `qa_run_payloads.expected_json`.
  */
 import { getSupabaseOrThrow } from '../db/supabase';
+import { assertEnumValuesForQaRunPayloads } from '../lib/eventPayloadEnumValidation';
 import { DatabaseError, NotFoundError } from '../errors';
 
 type QAStatusUi = 'Pending' | 'Passed' | 'Failed';
@@ -78,6 +79,11 @@ export async function upsertJourneyQARuns(
   if (!journey) {
     throw new NotFoundError('Journey not found or does not belong to this workspace.', 'journey');
   }
+
+  // Invalid payload = QA failure.
+  // Payload must match event_property_definitions (effective enum_values).
+  // Hard validation gate, not advisory — runs before any qa_runs / qa_run_payloads writes.
+  await assertEnumValuesForQaRunPayloads(workspaceId, qaRuns ?? []);
 
   const runIds = (qaRuns ?? [])
     .map((r) => r?.id)

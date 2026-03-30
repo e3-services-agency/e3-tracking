@@ -1,6 +1,7 @@
 /**
  * Workspace creation and cloning service.
- * Clones only core schema: workspace_settings, sources, properties, property_sources, events, event_sources, event_properties.
+ * Clones only core schema: workspace_settings, sources, properties, property_sources, events, event_sources,
+ * event_properties, event_property_definitions.
  * Does NOT clone: journeys, journey_events, qa_runs, qa_run_evidence, qa_run_payloads.
  */
 import { getSupabaseOrThrow } from '../db/supabase';
@@ -19,7 +20,8 @@ export interface CreateWorkspaceInput {
 
 /**
  * Creates a new workspace. If cloneFromWorkspaceId is provided, deep-copies
- * workspace_settings, sources, properties, property_sources, events, event_sources, event_properties
+ * workspace_settings, sources, properties, property_sources, events, event_sources, event_properties,
+ * event_property_definitions
  * into the new workspace with new UUIDs. Journeys and QA data are not cloned.
  */
 export async function createWorkspace(
@@ -237,6 +239,49 @@ export async function createWorkspace(
       }));
     if (newRows.length > 0) {
       await supabase.from('event_properties').insert(newRows);
+    }
+  }
+
+  let eventPropertyDefinitions: Record<string, unknown>[] | null = null;
+  if (eventIdMap.size > 0 && propertyIdMap.size > 0) {
+    const { data } = await supabase
+      .from('event_property_definitions')
+      .select('*')
+      .in('event_id', [...eventIdMap.keys()]);
+    eventPropertyDefinitions = (data as Record<string, unknown>[]) ?? null;
+  }
+
+  if (eventPropertyDefinitions && eventPropertyDefinitions.length > 0) {
+    const newDefRows = eventPropertyDefinitions
+      .filter(
+        (r) =>
+          eventIdMap.has(r.event_id as string) && propertyIdMap.has(r.property_id as string)
+      )
+      .map((r) => {
+        const {
+          id: _id,
+          workspace_id: _w,
+          created_at: _ca,
+          updated_at: _ua,
+          event_id: eid,
+          property_id: pid,
+          ...rest
+        } = r;
+        return {
+          ...rest,
+          workspace_id: newWorkspaceId,
+          event_id: eventIdMap.get(eid as string),
+          property_id: propertyIdMap.get(pid as string),
+        };
+      });
+    if (newDefRows.length > 0) {
+      const { error: epdError } = await supabase.from('event_property_definitions').insert(newDefRows);
+      if (epdError) {
+        throw new DatabaseError(
+          `Failed to clone event_property_definitions: ${epdError.message}`,
+          epdError
+        );
+      }
     }
   }
 

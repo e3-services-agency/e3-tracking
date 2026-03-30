@@ -21,7 +21,7 @@ import sourcesRouter from './routes/sources';
 import journeysRouter from './routes/journeys';
 import sharedRouter from './routes/shared';
 import { optionalAuth } from './middleware/auth';
-import { ConfigError } from './errors';
+import { BadRequestError, ConfigError } from './errors';
 
 function getCorsOrigin(): string | string[] | boolean {
   const raw = process.env.CORS_ORIGIN;
@@ -61,15 +61,31 @@ export function createApp(): express.Express {
 
   // Global error handler: expose error.message and error.stack in JSON so the Network tab shows the real error.
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction): void => {
-    console.error(err);
+    if (!(err instanceof BadRequestError)) {
+      console.error(err);
+    }
     if (res.headersSent) return;
     const message = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : undefined;
-    const code = err instanceof ConfigError ? err.code : 'INTERNAL_ERROR';
-    const status = err instanceof ConfigError ? 503 : 500;
+    const code =
+      err instanceof ConfigError
+        ? err.code
+        : err instanceof BadRequestError
+          ? err.code
+          : 'INTERNAL_ERROR';
+    const status =
+      err instanceof ConfigError ? 503 : err instanceof BadRequestError ? 400 : 500;
     res.status(status).json({
       error: message,
       code,
+      ...(err instanceof BadRequestError && { message }),
+      ...(err instanceof BadRequestError && err.field && { field: err.field }),
+      ...(err instanceof BadRequestError &&
+        err.details && {
+          property_id: err.details.property_id,
+          value: err.details.value,
+          allowed: err.details.allowed,
+        }),
       ...(stack && { stack }),
     });
   });

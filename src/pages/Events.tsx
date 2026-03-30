@@ -459,6 +459,9 @@ export function Events() {
         detachProperty={eventsApi.detachProperty}
         updatePresence={eventsApi.updatePresence}
         getEventWithProperties={eventsApi.getEventWithProperties}
+        getEffectivePropertyDefinitions={eventsApi.getEffectivePropertyDefinitions}
+        putEventPropertyDefinitions={eventsApi.putEventPropertyDefinitions}
+        deleteEventPropertyDefinition={eventsApi.deleteEventPropertyDefinition}
         mutationError={eventsApi.mutationError}
         clearMutationError={eventsApi.clearMutationError}
         onEventCreated={(id) => {

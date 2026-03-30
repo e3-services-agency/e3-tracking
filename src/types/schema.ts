@@ -241,7 +241,14 @@ export type CreatePropertyInput = Pick<
   | 'mapped_catalog_id'
   | 'mapped_catalog_field_id'
   | 'mapping_type'
->;
+> & {
+  /**
+   * Optional workspace source ids to link via property_sources after the property row exists.
+   * On create: omit or null or [] → no links. On PATCH: include `source_ids` to replace links; [] clears all.
+   * Not for event-scoped variants—only workspace sources validated against `sources.workspace_id`.
+   */
+  source_ids?: string[] | null;
+};
 
 export interface PropertySourceRow {
   property_id: string;
@@ -327,6 +334,77 @@ export interface EventPropertyRow {
   presence: EventPropertyPresence;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Per-event overrides for a workspace property (same `property_id` on many events, different semantics).
+ *
+ * Why not `PropertyContext` or extra `properties` rows? Context classifies event vs user vs system definitions
+ * globally; it must not be misused as a per-event “variant” axis. Duplicating `properties` would split identity
+ * and break reuse. This table is the correct join: (event_id, property_id) → scoped meaning only.
+ *
+ * Canonical name/type/global rules remain on `properties`; this layer is optional metadata.
+ */
+export interface EventPropertyDefinitionRow {
+  id: string;
+  workspace_id: string;
+  event_id: string;
+  property_id: string;
+  description_override: string | null;
+  enum_values: string[] | null;
+  required: boolean | null;
+  example_values: unknown | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Payload for upserting one event–property definition (batch PUT). Omitted keys preserve existing values on update. */
+export type EventPropertyDefinitionUpsertPayload = {
+  property_id: string;
+  description_override?: string | null;
+  enum_values?: string[] | null;
+  required?: boolean | null;
+  example_values?: unknown | null;
+};
+
+/**
+ * Read model: global `PropertyRow` + optional `event_property_definitions` override merged in memory only.
+ *
+ * Precedence: for each overridable field, a non-null value on the override row wins; null on the override means
+ * “inherit from global” for description and example_values. `enum_values` and `required` exist only on the override
+ * table—when the override row is missing or the field is null, effective_enum_values / effective_required stay null
+ * (there is no global enum list on `properties`).
+ */
+export interface EffectiveEventPropertyDefinition {
+  property_id: string;
+  event_id: string;
+  /** Canonical workspace property (not mutated). */
+  property: Pick<
+    PropertyRow,
+    | 'id'
+    | 'name'
+    | 'context'
+    | 'description'
+    | 'category'
+    | 'data_type'
+    | 'data_formats'
+    | 'pii'
+    | 'value_schema_json'
+    | 'example_values_json'
+  >;
+  /** Stored override row, if any. */
+  override: EventPropertyDefinitionRow | null;
+  /** Merged view for consumers (not persisted). */
+  effective: {
+    description: string | null;
+    enum_values: string[] | null;
+    required: boolean | null;
+    example_values: unknown | null;
+  };
+  /** From event_properties when the property is attached to this event. */
+  presence: EventPropertyPresence | null;
+  /** Non-blocking hints (e.g. override without event_properties link). */
+  warnings: string[];
 }
 
 export interface JourneyRow {

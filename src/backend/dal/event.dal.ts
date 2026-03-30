@@ -720,6 +720,94 @@ export async function updatePropertyPresenceOnEvent(
 const ALWAYS_SENT = 'always_sent';
 
 /**
+ * JSON payload key for a property row (payload_key mapping when set, else canonical name).
+ */
+export function resolvePayloadKeyForPropertyRow(row: {
+  name: string;
+  name_mappings_json: unknown;
+}): string {
+  let key = row.name;
+  if (Array.isArray(row.name_mappings_json)) {
+    const typedMappings = row.name_mappings_json.filter(
+      (mapping): mapping is PropertyNameMapping =>
+        Boolean(mapping) &&
+        typeof mapping === 'object' &&
+        typeof (mapping as PropertyNameMapping).system === 'string' &&
+        typeof (mapping as PropertyNameMapping).name === 'string'
+    );
+    const preferredMapping =
+      typedMappings.find((mapping) => mapping.role === 'payload_key') ?? typedMappings[0];
+
+    if (preferredMapping?.name) {
+      key = String(preferredMapping.name);
+    }
+  }
+  return key;
+}
+
+/**
+ * All attached event_properties rows with resolved payload keys (any presence).
+ * First binding wins when two properties share the same payload key (rare).
+ *
+ * @throws NotFoundError when event is not in workspace.
+ */
+export async function listPayloadKeyPropertyBindingsForEvent(
+  workspaceId: string,
+  eventId: string
+): Promise<Array<{ property_id: string; payload_key: string }>> {
+  const event = await getEventById(workspaceId, eventId);
+  if (event === null) {
+    throw new NotFoundError(
+      'Event not found or does not belong to this workspace.',
+      'event'
+    );
+  }
+
+  const supabase = getSupabaseOrThrow();
+
+  const { data: links, error: linkError } = await supabase
+    .from('event_properties')
+    .select('property_id')
+    .eq('event_id', eventId);
+
+  if (linkError) {
+    throw new DatabaseError(
+      `Failed to fetch event properties: ${linkError.message}`,
+      linkError
+    );
+  }
+
+  const rows = links ?? [];
+  if (rows.length === 0) return [];
+
+  const propertyIds = [...new Set(rows.map((r: { property_id: string }) => r.property_id))];
+
+  const { data: props, error: propsError } = await supabase
+    .from('properties')
+    .select('id, name, name_mappings_json')
+    .in('id', propertyIds)
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null);
+
+  if (propsError) {
+    throw new DatabaseError(
+      `Failed to fetch properties: ${propsError.message}`,
+      propsError
+    );
+  }
+
+  const out: Array<{ property_id: string; payload_key: string }> = [];
+  for (const p of props ?? []) {
+    const row = p as { id: string; name: string; name_mappings_json: unknown };
+    out.push({
+      property_id: row.id,
+      payload_key: resolvePayloadKeyForPropertyRow(row),
+    });
+  }
+  return out;
+}
+
+/**
  * Returns the list of payload keys that must be present for the event's "always_sent" properties.
  * Each key is either the property's canonical name or the first payload_key/alias mapping.
  * Used by validatePayload (journey QA) to check actualJson.
@@ -775,24 +863,7 @@ export async function getAlwaysSentPropertyKeysForEvent(
   const keys: string[] = [];
   for (const p of props ?? []) {
     const row = p as { id: string; name: string; name_mappings_json: unknown };
-    let key = row.name;
-    if (Array.isArray(row.name_mappings_json)) {
-      const typedMappings = row.name_mappings_json.filter(
-        (mapping): mapping is PropertyNameMapping =>
-          Boolean(mapping) &&
-          typeof mapping === 'object' &&
-          typeof (mapping as PropertyNameMapping).system === 'string' &&
-          typeof (mapping as PropertyNameMapping).name === 'string'
-      );
-      const preferredMapping =
-        typedMappings.find((mapping) => mapping.role === 'payload_key') ??
-        typedMappings[0];
-
-      if (preferredMapping?.name) {
-        key = String(preferredMapping.name);
-      }
-    }
-    keys.push(key);
+    keys.push(resolvePayloadKeyForPropertyRow(row));
   }
   return keys;
 }

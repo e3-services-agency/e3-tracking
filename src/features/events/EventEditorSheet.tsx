@@ -7,6 +7,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
+import {
+  EventPropertyOverridesSection,
+  type EventPropertyOverridesSectionProps,
+} from '@/src/features/events/components/EventPropertyOverridesSection';
 import { EventTriggerCardsSection } from '@/src/features/events/components/EventTriggerCardsSection';
 import { EventTriggerEditorModal } from '@/src/features/events/components/EventTriggerEditorModal';
 import { uploadEventTriggerImage } from '@/src/features/events/lib/eventTriggerImageStorage';
@@ -107,6 +111,9 @@ export interface EventEditorSheetProps {
     presence: EventPropertyPresence
   ) => Promise<{ success: true } | { success: false; error: ApiError }>;
   getEventWithProperties: (eventId: string) => Promise<EventWithPropertiesResponse | null>;
+  getEffectivePropertyDefinitions: EventPropertyOverridesSectionProps['getEffectivePropertyDefinitions'];
+  putEventPropertyDefinitions: EventPropertyOverridesSectionProps['putEventPropertyDefinitions'];
+  deleteEventPropertyDefinition: EventPropertyOverridesSectionProps['deleteEventPropertyDefinition'];
   mutationError: ApiError | null;
   clearMutationError: () => void;
   onEventCreated?: (eventId: string) => void;
@@ -122,6 +129,9 @@ export function EventEditorSheet({
   detachProperty,
   updatePresence,
   getEventWithProperties,
+  getEffectivePropertyDefinitions,
+  putEventPropertyDefinitions,
+  deleteEventPropertyDefinition,
   mutationError,
   clearMutationError,
   onEventCreated,
@@ -695,6 +705,15 @@ export function EventEditorSheet({
                 )}
               </ul>
             </div>
+
+            <EventPropertyOverridesSection
+              eventId={currentEventId}
+              attached={attached}
+              allProperties={allProperties}
+              getEffectivePropertyDefinitions={getEffectivePropertyDefinitions}
+              putEventPropertyDefinitions={putEventPropertyDefinitions}
+              deleteEventPropertyDefinition={deleteEventPropertyDefinition}
+            />
           </>
         )}
       </div>

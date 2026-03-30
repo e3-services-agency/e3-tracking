@@ -138,19 +138,36 @@ function getEventIdsFromNodes(nodes: unknown): string[] {
   return ids;
 }
 
+export type SaveJourneyCanvasOptions = {
+  /** Must be true: caller has already run assertEnumValuesForJourneyCanvasNodes (or equivalent). */
+  enumValidated?: boolean;
+};
+
 /**
  * Saves canvas state to JSONB columns and syncs journey_events from trigger nodes.
  * - Writes nodes and edges to canvas_nodes_json and canvas_edges_json.
  * - Deletes existing journey_events for this journey, then UPSERTs one row per trigger node (by eventId) with sort_order.
  *
+ * **Validation contract:** Trigger JSON enum checks are required before persistence. This function assumes
+ * validated `nodes`; it does not re-run enum validation. The HTTP route PUT /api/journeys/:id/canvas is
+ * responsible for calling assertEnumValuesForJourneyCanvasNodes first and passing `{ enumValidated: true }`.
+ *
+ * @throws Error when `options.enumValidated` is not true (developer misuse).
  * @throws NotFoundError when journey is not in workspace.
  */
 export async function saveJourneyCanvas(
   workspaceId: string,
   journeyId: string,
   nodes: unknown,
-  edges: unknown
+  edges: unknown,
+  options?: SaveJourneyCanvasOptions
 ): Promise<JourneyRow> {
+  if (!options?.enumValidated) {
+    throw new Error(
+      'saveJourneyCanvas called without enum validation. Validation must be executed before persistence.'
+    );
+  }
+
   const journey = await getJourneyById(workspaceId, journeyId);
   if (journey === null) {
     throw new NotFoundError(

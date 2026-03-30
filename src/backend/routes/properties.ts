@@ -35,6 +35,28 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+/** Strict: every element must be a string (no silent coercion). */
+function parseSourceIdsField(
+  value: unknown
+): { ok: true; value: string[] | null | undefined } | { ok: false; error: string } {
+  if (typeof value === 'undefined') {
+    return { ok: true, value: undefined };
+  }
+  if (value === null) {
+    return { ok: true, value: null };
+  }
+  if (!Array.isArray(value)) {
+    return { ok: false, error: 'source_ids must be an array of strings when provided.' };
+  }
+  for (let i = 0; i < value.length; i += 1) {
+    if (typeof value[i] !== 'string') {
+      return { ok: false, error: 'source_ids must be an array of strings.' };
+    }
+  }
+  const normalized = value.map((entry) => entry.trim()).filter(Boolean);
+  return { ok: true, value: [...new Set(normalized)] };
+}
+
 function normalizePii(pii: unknown, required: boolean): { value?: boolean; error?: string } {
   if (typeof pii === 'boolean') {
     return { value: pii };
@@ -410,6 +432,16 @@ function buildCreatePropertyInput(
     };
   }
 
+  const sourceIds = parseSourceIdsField(body.source_ids);
+  if (sourceIds.ok === false) {
+    return {
+      error: {
+        message: sourceIds.error,
+        field: 'source_ids',
+      },
+    };
+  }
+
   return {
     value: {
       context: context as PropertyContext,
@@ -432,14 +464,15 @@ function buildCreatePropertyInput(
         body.mapping_type === 'lookup_key' || body.mapping_type === 'mapped_value'
           ? (body.mapping_type as PropertyMappingType)
           : null,
+      ...(sourceIds.value !== undefined ? { source_ids: sourceIds.value } : {}),
     },
   };
 }
 
 function buildUpdatePropertyInput(
   body: Record<string, unknown>
-): { value?: Parameters<typeof PropertyDAL.updateProperty>[2]; error?: { message: string; field: string } } {
-  const updates: Parameters<typeof PropertyDAL.updateProperty>[2] = {};
+): { value?: PropertyDAL.PropertyUpdateInput; error?: { message: string; field: string } } {
+  const updates: PropertyDAL.PropertyUpdateInput = {};
 
   if (body.context !== undefined) {
     if (
@@ -577,6 +610,19 @@ function buildUpdatePropertyInput(
     updates.mapping_type = body.mapping_type as PropertyMappingType | null;
   }
 
+  if (Object.prototype.hasOwnProperty.call(body, 'source_ids')) {
+    const parsed = parseSourceIdsField(body.source_ids);
+    if (parsed.ok === false) {
+      return {
+        error: {
+          message: parsed.error,
+          field: 'source_ids',
+        },
+      };
+    }
+    updates.source_ids = parsed.value ?? [];
+  }
+
   return { value: updates };
 }
 
@@ -597,6 +643,33 @@ router.get('/', requireWorkspace, async (req: Request, res: Response, next: impo
     next(err);
   }
 });
+
+/**
+ * GET /api/properties/:id/sources
+ * Linked source ids for the property (workspace-scoped; cross-workspace ids are rejected on write).
+ */
+router.get(
+  '/:id/sources',
+  requireWorkspace,
+  async (req: Request, res: Response, next: import('express').NextFunction): Promise<void> => {
+    const workspaceId = req.workspaceId;
+    if (!workspaceId) {
+      res.status(403).json({ error: 'Workspace context required.', code: 'WORKSPACE_REQUIRED' });
+      return;
+    }
+    const propertyId = req.params.id;
+    try {
+      const sourceIds = await PropertyDAL.listPropertySourceIds(workspaceId, propertyId);
+      res.status(200).json({ source_ids: sourceIds });
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        res.status(404).json({ error: err.message, code: err.code });
+        return;
+      }
+      next(err);
+    }
+  }
+);
 
 /**
  * POST /api/properties

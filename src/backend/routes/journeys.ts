@@ -13,7 +13,11 @@ import * as JourneyDAL from '../dal/journey.dal';
 import { getAlwaysSentPropertyKeysForEvent } from '../dal/event.dal';
 import { getJourneyQARunsCountAndLatest, getJourneyQARuns, upsertJourneyQARuns } from '../dal/qa.dal';
 import { generateJourneyHtmlExport } from '../services/export.service';
-import { ConflictError, DatabaseError, NotFoundError, ConfigError } from '../errors';
+import {
+  assertEnumValuesForJourneyCanvasNodes,
+  tryParseEventPayloadObject,
+} from '../lib/eventPayloadEnumValidation';
+import { BadRequestError, ConflictError, DatabaseError, NotFoundError, ConfigError } from '../errors';
 import { getSupabaseOrThrow } from '../db/supabase';
 
 const router = Router();
@@ -28,9 +32,14 @@ function isJourneyAssetPath(objectPath: string, workspaceId: string, journeyId: 
 }
 
 /**
- * validatePayload(eventId, actualJson): checks that all always_sent property keys exist in actualJson.
+ * validatePayload(eventId, actualJson): checks always_sent keys only.
  * actualJson: JSON string (will be parsed). Must be a JSON object (key/value).
  * Returns { valid: true } or { valid: false, missing_keys: string[] }.
+ *
+ * NOTE: This validation is NOT enforced for production ingestion here.
+ * Enum and payload rules are enforced on PUT /api/journeys/:id/canvas and in upsertJourneyQARuns
+ * (assertEnumValuesForJourneyCanvasNodes / assertEnumValuesForQaRunPayloads).
+ * Do not assume runtime protection from this helper or POST .../qa/validate alone.
  */
 export async function validatePayload(
   workspaceId: string,
@@ -38,19 +47,14 @@ export async function validatePayload(
   actualJson: string
 ): Promise<{ valid: true } | { valid: false; missing_keys: string[] }> {
   const requiredKeys = await getAlwaysSentPropertyKeysForEvent(workspaceId, eventId);
-  if (requiredKeys.length === 0) {
-    return { valid: true };
+
+  const parsed = tryParseEventPayloadObject(actualJson);
+  if (!parsed) {
+    return { valid: false, missing_keys: requiredKeys };
   }
 
-  let parsed: Record<string, unknown>;
-  try {
-    const value = JSON.parse(actualJson);
-    if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-      return { valid: false, missing_keys: requiredKeys };
-    }
-    parsed = value as Record<string, unknown>;
-  } catch {
-    return { valid: false, missing_keys: requiredKeys };
+  if (requiredKeys.length === 0) {
+    return { valid: true };
   }
 
   const actualKeys = new Set(Object.keys(parsed));
@@ -476,6 +480,8 @@ router.patch(
  * PUT /api/journeys/:id/qa
  * Persists QA runs + per-node verifications so shared URL can render QA.
  * Body: { qaRuns: Array<{ id: string; verifications?: Record<string, any> }> }
+ *
+ * Invalid JSON payload (enum mismatch) → 400 BadRequestError; upsertJourneyQARuns does not write.
  */
 router.put(
   '/:id/qa',
@@ -499,6 +505,20 @@ router.put(
       await upsertJourneyQARuns(workspaceId, journeyId, qaRuns as any);
       res.status(200).json({ success: true });
     } catch (err) {
+      if (err instanceof BadRequestError) {
+        res.status(400).json({
+          error: err.message,
+          message: err.message,
+          code: err.code,
+          ...(err.field && { field: err.field }),
+          ...(err.details && {
+            property_id: err.details.property_id,
+            value: err.details.value,
+            allowed: err.details.allowed,
+          }),
+        });
+        return;
+      }
       if (err instanceof NotFoundError) {
         res.status(404).json({
           error: err.message,
@@ -599,6 +619,8 @@ router.get('/:id', requireWorkspace, async (req: Request, res: Response): Promis
  * PUT /api/journeys/:id/canvas
  * Save canvas state (nodes, edges) to JSONB and sync journey_events from trigger nodes.
  * Body: { nodes: unknown[], edges: unknown[] }.
+ *
+ * Invalid trigger JSON payload (enum mismatch) → 400 BadRequestError; no journey row is created and saveJourneyCanvas is not called.
  */
 router.put(
   '/:id/canvas',
@@ -614,21 +636,38 @@ router.put(
     }
     const journeyId = req.params.id;
     const body = req.body as { nodes?: unknown; edges?: unknown; name?: unknown };
-    const nodes = body.nodes;
+    const nodes = body.nodes ?? [];
     const edges = body.edges;
     const name = typeof body.name === 'string' ? body.name : 'New Journey';
 
     try {
+      // Sole enum gate for canvas save (saveJourneyCanvas does not re-validate).
+      await assertEnumValuesForJourneyCanvasNodes(workspaceId, nodes);
       // Safety net: if the UI created the journey client-side, persist the row on first save.
       await JourneyDAL.createJourneyIfMissing(workspaceId, journeyId, name);
       const updated = await JourneyDAL.saveJourneyCanvas(
         workspaceId,
         journeyId,
-        nodes ?? [],
-        edges ?? []
+        nodes,
+        edges ?? [],
+        { enumValidated: true }
       );
       res.status(200).json(updated);
     } catch (err) {
+      if (err instanceof BadRequestError) {
+        res.status(400).json({
+          error: err.message,
+          message: err.message,
+          code: err.code,
+          ...(err.field && { field: err.field }),
+          ...(err.details && {
+            property_id: err.details.property_id,
+            value: err.details.value,
+            allowed: err.details.allowed,
+          }),
+        });
+        return;
+      }
       if (err instanceof NotFoundError) {
         res.status(404).json({
           error: err.message,
@@ -711,6 +750,9 @@ router.patch(
  * Validate a payload JSON string against the event's always_sent properties.
  * Body: { actualJson: string } — the raw JSON string (e.g. pasted payload).
  * Returns { valid: boolean, missing_keys?: string[] }.
+ *
+ * NOTE: This endpoint is advisory / QA-debug only. Enum enforcement happens when
+ * journey canvas or QA data is persisted, not here. Do not assume runtime protection from this route.
  */
 router.post(
   '/:id/events/:eventId/qa/validate',

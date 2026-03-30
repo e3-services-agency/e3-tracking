@@ -61,11 +61,13 @@ export function SharedJourneyBriefView({ journeyId }: { journeyId: string }) {
   }
 
   return (
-    <iframe
-      title="Docs"
-      className="w-full h-screen border-0 bg-white"
-      srcDoc={html}
-    />
+    <div className="h-screen w-full min-w-0 overflow-hidden bg-white">
+      <iframe
+        title="Docs"
+        className="block h-full w-full min-w-0 max-w-full border-0 bg-white"
+        srcDoc={html}
+      />
+    </div>
   );
 }
 

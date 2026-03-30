@@ -183,7 +183,7 @@ export function SharedJourneyView({
   }
 
   return (
-    <div className="flex h-screen w-full flex-col bg-[var(--surface-default)]">
+    <div className="flex h-screen w-full min-w-0 flex-col bg-[var(--surface-default)]">
       <div className="shrink-0 px-4 py-3 border-b bg-white shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -317,7 +317,11 @@ export function SharedJourneyView({
               </div>
             </div>
           ) : (
-            <iframe title="Docs" className="w-full h-full border-0 bg-white" srcDoc={briefHtml} />
+            <iframe
+              title="Docs"
+              className="block h-full w-full min-w-0 max-w-full border-0 bg-white"
+              srcDoc={briefHtml}
+            />
           )
         ) : (
           <ReactFlowProvider>

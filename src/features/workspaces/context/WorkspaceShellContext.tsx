@@ -235,3 +235,8 @@ export function useWorkspaceShell(): WorkspaceShellContextValue {
   }
   return ctx;
 }
+
+/** Same context value as {@link useWorkspaceShell}, or `null` outside the provider (e.g. public shared journey routes). */
+export function useOptionalWorkspaceShell(): WorkspaceShellContextValue | null {
+  return useContext(WorkspaceShellContext);
+}

@@ -6,7 +6,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import type { EventPropertyPresence, PropertyRow } from '@/src/types/schema';
-import { Plus } from 'lucide-react';
+import { Loader2, Plus } from 'lucide-react';
 
 const PRESENCE_OPTIONS: { value: EventPropertyPresence; label: string }[] = [
   { value: 'always_sent', label: 'Always sent' },
@@ -37,6 +37,11 @@ export function EventAttachPropertyPicker({
   const [search, setSearch] = useState('');
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(() => new Set());
+  /** Local: set synchronously on click so the button disables before parent re-renders. */
+  const [isAdding, setIsAdding] = useState(false);
+  const [addingBatchSize, setAddingBatchSize] = useState(0);
+
+  const busyAdding = isAdding || adding;
 
   const q = search.trim().toLowerCase();
   const filtered = useMemo(
@@ -87,16 +92,24 @@ export function EventAttachPropertyPicker({
       return;
     }
     setFocusedId(p.id);
-    if (!attachedIds.has(p.id) && !workspaceActionsDisabled) {
+    if (!attachedIds.has(p.id) && !workspaceActionsDisabled && !busyAdding) {
       toggleChecked(p.id);
     }
   };
 
   const handleAddSelected = async () => {
+    if (isAdding) return;
     const ids = [...checkedIds].filter((id) => !attachedIds.has(id));
     if (ids.length === 0) return;
-    const ok = await onAddSelected(ids);
-    if (ok) setCheckedIds(new Set());
+    setAddingBatchSize(ids.length);
+    setIsAdding(true);
+    try {
+      const ok = await onAddSelected(ids);
+      if (ok) setCheckedIds(new Set());
+    } finally {
+      setIsAdding(false);
+      setAddingBatchSize(0);
+    }
   };
 
   return (
@@ -134,20 +147,35 @@ export function EventAttachPropertyPicker({
           type="button"
           variant="outline"
           size="sm"
-          className="h-9 gap-1 shrink-0"
+          className="h-9 gap-1.5 shrink-0 min-w-[8.5rem]"
           onClick={() => void handleAddSelected()}
           disabled={
-            selectableCheckedCount === 0 || adding || workspaceActionsDisabled
+            selectableCheckedCount === 0 || busyAdding || workspaceActionsDisabled
           }
+          aria-busy={busyAdding}
           title={
             workspaceActionsDisabled
               ? 'Select a valid workspace from the header before changing attachments.'
               : undefined
           }
         >
-          <Plus className="w-4 h-4" />
-          Add selected
-          {selectableCheckedCount > 0 ? ` (${selectableCheckedCount})` : ''}
+          {busyAdding ? (
+            <>
+              <Loader2 className="w-4 h-4 shrink-0 animate-spin" aria-hidden />
+              <span>
+                Adding
+                {addingBatchSize > 0 ? ` (${addingBatchSize})` : ''}…
+              </span>
+            </>
+          ) : (
+            <>
+              <Plus className="w-4 h-4 shrink-0" aria-hidden />
+              <span>
+                Add selected
+                {selectableCheckedCount > 0 ? ` (${selectableCheckedCount})` : ''}
+              </span>
+            </>
+          )}
         </Button>
       </div>
 
@@ -168,7 +196,7 @@ export function EventAttachPropertyPicker({
                 <div
                   key={p.id}
                   className={`flex items-start gap-2 px-2 py-1.5 text-left transition-colors ${
-                    isAttached || workspaceActionsDisabled
+                    isAttached || workspaceActionsDisabled || busyAdding
                       ? 'cursor-default'
                       : 'cursor-pointer'
                   } ${isFocused ? 'bg-gray-50' : 'hover:bg-gray-50/80'} ${isAttached ? 'opacity-60' : ''}`}
@@ -178,7 +206,7 @@ export function EventAttachPropertyPicker({
                     type="checkbox"
                     className="mt-1 rounded border-gray-300 shrink-0"
                     checked={isChecked && !isAttached}
-                    disabled={isAttached || workspaceActionsDisabled}
+                    disabled={isAttached || workspaceActionsDisabled || busyAdding}
                     onChange={() => toggleChecked(p.id)}
                     aria-label={isAttached ? `${p.name} (already attached)` : `Select ${p.name}`}
                   />

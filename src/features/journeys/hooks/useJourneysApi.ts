@@ -2,15 +2,22 @@
  * Journey API helpers. Uses centralized fetchWithAuth (adds Bearer token, handles 401 → redirect to login).
  * Shared journey by token uses plain fetch (public endpoint).
  */
-import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
+import { useOptionalWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { MOCK_WORKSPACE_ID } from '@/src/features/events/hooks/useEvents';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
+import { useStore } from '@/src/store';
 
-/** Hook to use when calling journey APIs so they target the active workspace. Requires WorkspaceShellProvider. */
+/**
+ * Resolves workspace id for journey API headers. Prefers shell context when inside Layout; falls back to
+ * Zustand `activeWorkspaceId` or mock when outside WorkspaceShellProvider (e.g. SharedJourneyView).
+ */
 export function useActiveWorkspaceId(): string {
-  const { activeWorkspaceId } = useWorkspaceShell();
-  return activeWorkspaceId?.trim() ? activeWorkspaceId : MOCK_WORKSPACE_ID;
+  const shell = useOptionalWorkspaceShell();
+  const storeWorkspaceId = useStore((s) => s.activeWorkspaceId);
+  const fromShell = shell?.activeWorkspaceId?.trim();
+  const fromStore = storeWorkspaceId?.trim();
+  return (fromShell || fromStore) || MOCK_WORKSPACE_ID;
 }
 
 export interface ValidatePayloadResult {

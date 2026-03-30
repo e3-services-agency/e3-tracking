@@ -45,7 +45,7 @@ export function Documentation() {
   }, [file]);
 
   return (
-    <div className="flex flex-1 overflow-hidden bg-[var(--surface-default)]">
+    <div className="flex flex-1 min-w-0 overflow-hidden bg-[var(--surface-default)]">
       <aside className="w-56 shrink-0 border-r border-gray-200 bg-white flex flex-col">
         <div className="p-4 border-b border-gray-100">
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -87,12 +87,14 @@ export function Documentation() {
             </div>
           )}
           {!loading && !error && content && (
-            <ReactMarkdown
-              rehypePlugins={[rehypeRaw]}
-              className="prose prose-e3 max-w-none"
-            >
-              {content}
-            </ReactMarkdown>
+            <div className="min-w-0 max-w-full [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_code]:break-words [&_table]:block [&_table]:w-full [&_table]:max-w-full [&_table]:overflow-x-auto">
+              <ReactMarkdown
+                rehypePlugins={[rehypeRaw]}
+                className="prose prose-e3 max-w-none min-w-0 break-words"
+              >
+                {content}
+              </ReactMarkdown>
+            </div>
           )}
         </div>
       </div>

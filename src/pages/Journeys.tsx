@@ -342,12 +342,16 @@ export function Journeys({
       );
     }
     return (
-      <iframe title="Docs preview" className="w-full h-full border-0 bg-white" srcDoc={html} />
+      <iframe
+        title="Docs preview"
+        className="block h-full w-full min-w-0 max-w-full border-0 bg-white"
+        srcDoc={html}
+      />
     );
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white">
+    <div className="flex-1 flex flex-col h-full min-w-0 bg-white">
       <div className="p-4 border-b bg-white flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
@@ -837,11 +841,11 @@ export function Journeys({
         </div>
       )}
 
-      <div className="flex-1 relative">
+      <div className="flex-1 relative min-w-0 overflow-hidden">
         {selectedJourney ? (
           <ReactFlowProvider>
             {isBriefPreview ? (
-              <div className="h-full w-full">
+              <div className="h-full w-full min-w-0 overflow-hidden">
                 <JourneyBriefPreview journeyId={selectedJourney.id} />
               </div>
             ) : (

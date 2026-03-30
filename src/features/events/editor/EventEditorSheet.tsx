@@ -16,6 +16,7 @@ import { CreateVariantModal } from '@/src/features/events/overlays/CreateVariant
 import { AddTriggerModal } from '@/src/features/events/overlays/AddTriggerModal';
 import { AddPropertyModal } from '@/src/features/events/overlays/AddPropertyModal';
 import { useEventEditor } from '@/src/features/events/hooks/useEventEditor';
+import { useActiveWorkspaceId } from '@/src/features/journeys/hooks/useJourneysApi';
 
 type EventEditorSheetProps = {
   event: Event | null | undefined;
@@ -39,6 +40,7 @@ export function EventEditorSheet({
   onSwitchVariant,
   deleteEvent,
 }: EventEditorSheetProps) {
+  const activeWorkspaceId = useActiveWorkspaceId();
   const { data, form, ui, actions, derived } = useEventEditor({
     event,
     variantId,
@@ -252,7 +254,7 @@ export function EventEditorSheet({
 
         <EventTrackingCodeSection codegen={generateCodegen()} />
 
-        <EventCodeGen eventId={event?.id} title="Code Snippets" />
+        <EventCodeGen eventId={event?.id} title="Code Snippets" workspaceId={activeWorkspaceId} />
 
         <EventActivityLogSection activityLog={activityLog} />
       </div>

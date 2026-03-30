@@ -19,7 +19,6 @@ import { AnnotationNode } from '@/src/features/journeys/nodes/AnnotationNode';
 import { JourneyProofViewer } from '@/src/features/journeys/overlays/JourneyProofViewer';
 import { EventCodeGen } from '@/src/features/events/components/EventCodeGen';
 import { useJourneyCanvas } from '@/src/features/journeys/hooks/useJourneyCanvas';
-import { useActiveWorkspaceId } from '@/src/features/journeys/hooks/useJourneysApi';
 import {
   computeQARunStatusForRun,
   getQARunDisplayName,
@@ -142,6 +141,7 @@ function TestingProfilesEditor({
 
 export function JourneyCanvas({
   journey,
+  workspaceId,
   activeQARunId,
   readOnly = false,
   qaLocked = false,
@@ -150,6 +150,8 @@ export function JourneyCanvas({
   onSaveLayoutState,
 }: {
   journey: Journey;
+  /** Real workspace UUID in app shell; `null` on public shared routes (read-only, no workspace headers). */
+  workspaceId: string | null;
   activeQARunId: string | null;
   readOnly?: boolean;
   qaLocked?: boolean;
@@ -163,7 +165,6 @@ export function JourneyCanvas({
   }) => void;
 }) {
   const effectiveReadOnly = readOnly || qaLocked;
-  const activeWorkspaceId = useActiveWorkspaceId();
   const [readOnlyImagePreview, setReadOnlyImagePreview] = React.useState<string | null>(null);
   const [isPendingQAWarnOpen, setIsPendingQAWarnOpen] = React.useState(false);
   const [isSaveConfirmOpen, setIsSaveConfirmOpen] = React.useState(false);
@@ -236,7 +237,12 @@ export function JourneyCanvas({
     verificationProofs,
     pendingNodeProofs,
     hasUnsavedChanges,
-  } = useJourneyCanvas({ journey, activeQARunId, readOnly: effectiveReadOnly });
+  } = useJourneyCanvas({
+    journey,
+    workspaceId,
+    activeQARunId,
+    readOnly: effectiveReadOnly,
+  });
 
   // Native navigation guard: warn on refresh/tab-close while layout has unsaved edits.
   React.useEffect(() => {
@@ -903,7 +909,7 @@ export function JourneyCanvas({
                       prefetchedSnippets={selectedTriggerPrefetchedSnippets}
                       compact
                       title="Code Snippets"
-                      workspaceId={activeWorkspaceId}
+                      workspaceId={workspaceId}
                     />
                   </div>
                 )}

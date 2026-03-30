@@ -325,7 +325,12 @@ export function SharedJourneyView({
           )
         ) : (
           <ReactFlowProvider>
-            <JourneyCanvas journey={journey} activeQARunId={view === 'qa' ? activeQARunId : null} readOnly />
+            <JourneyCanvas
+              journey={journey}
+              workspaceId={null}
+              activeQARunId={view === 'qa' ? activeQARunId : null}
+              readOnly
+            />
           </ReactFlowProvider>
         )}
       </div>

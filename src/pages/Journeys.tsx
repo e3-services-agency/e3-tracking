@@ -21,7 +21,6 @@ import {
 import {
   updateJourneyTestingInstructionsApi,
   downloadJourneyHtmlExportApi,
-  getJourneyShareTokenApi,
   useActiveWorkspaceId,
   renameJourneyApi,
   setJourneyShareEnabledApi,
@@ -851,6 +850,7 @@ export function Journeys({
             ) : (
               <JourneyCanvas
                 journey={selectedJourney}
+                workspaceId={activeWorkspaceId}
                 activeQARunId={activeQARunId}
                 qaLocked={qaLocked}
                 onEndQA={handleEndQA}

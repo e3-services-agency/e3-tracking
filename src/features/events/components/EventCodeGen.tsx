@@ -3,8 +3,6 @@ import { Copy, Check, Code } from 'lucide-react';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 
-const MOCK_WORKSPACE_ID = '00000000-0000-0000-0000-000000000001';
-
 export type CodegenStyle = 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi';
 
 export interface CodegenSnippets {
@@ -16,7 +14,8 @@ export interface CodegenSnippets {
 type EventCodeGenProps = {
   /** Event ID to fetch snippets for (GET /api/events/:id/codegen). */
   eventId: string | null | undefined;
-  workspaceId?: string;
+  /** Required for live fetch when `prefetchedSnippets` is not set. Omit or pass `null` on public shared views (snippets come from prefetch only). */
+  workspaceId?: string | null;
   /** Optional: precomputed snippets (e.g. in public shared view). */
   prefetchedSnippets?: CodegenSnippets | null;
   /** Optional: show a compact header (e.g. in Journey sidebar). */
@@ -33,7 +32,7 @@ const STYLE_LABELS: Record<CodegenStyle, string> = {
 
 export function EventCodeGen({
   eventId,
-  workspaceId = MOCK_WORKSPACE_ID,
+  workspaceId,
   prefetchedSnippets = null,
   compact = false,
   title = 'Code Snippets',
@@ -56,10 +55,17 @@ export function EventCodeGen({
       setError(null);
       return;
     }
+    const wid = typeof workspaceId === 'string' ? workspaceId.trim() : '';
+    if (!wid) {
+      setSnippets(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     fetchWithAuth(`${API_BASE}/api/events/${eventId}/codegen`, {
-      headers: { 'x-workspace-id': workspaceId },
+      headers: { 'x-workspace-id': wid },
     })
       .then((res) => {
         if (!res.ok) throw new Error(res.statusText || 'Failed to load codegen');

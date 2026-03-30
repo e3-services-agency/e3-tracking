@@ -2,22 +2,21 @@
  * Journey API helpers. Uses centralized fetchWithAuth (adds Bearer token, handles 401 → redirect to login).
  * Shared journey by token uses plain fetch (public endpoint).
  */
-import { useOptionalWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
-import { MOCK_WORKSPACE_ID } from '@/src/features/events/hooks/useEvents';
+import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
-import { useStore } from '@/src/store';
 
 /**
- * Resolves workspace id for journey API headers. Prefers shell context when inside Layout; falls back to
- * Zustand `activeWorkspaceId` or mock when outside WorkspaceShellProvider (e.g. SharedJourneyView).
+ * Active workspace UUID for authenticated journey routes (requires WorkspaceShellProvider).
+ * Public shared journey views must not use this hook; pass `workspaceId={null}` into JourneyCanvas instead.
  */
 export function useActiveWorkspaceId(): string {
-  const shell = useOptionalWorkspaceShell();
-  const storeWorkspaceId = useStore((s) => s.activeWorkspaceId);
-  const fromShell = shell?.activeWorkspaceId?.trim();
-  const fromStore = storeWorkspaceId?.trim();
-  return (fromShell || fromStore) || MOCK_WORKSPACE_ID;
+  const { activeWorkspaceId } = useWorkspaceShell();
+  const t = activeWorkspaceId?.trim();
+  if (!t) {
+    throw new Error('useActiveWorkspaceId requires a non-empty active workspace from WorkspaceShellProvider');
+  }
+  return t;
 }
 
 export interface ValidatePayloadResult {
@@ -33,7 +32,7 @@ export async function saveJourneyCanvasApi(
   journeyName: string,
   nodes: unknown,
   edges: unknown,
-  workspaceId: string = MOCK_WORKSPACE_ID
+  workspaceId: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const res = await fetchWithAuth(`${API_BASE}/api/journeys/${journeyId}/canvas`, {
@@ -64,7 +63,7 @@ export async function saveJourneyCanvasApi(
 export async function saveJourneyQARunsApi(
   journeyId: string,
   qaRuns: Array<{ id: string; verifications?: Record<string, any> } & Record<string, any>>,
-  workspaceId: string = MOCK_WORKSPACE_ID
+  workspaceId: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const res = await fetchWithAuth(`${API_BASE}/api/journeys/${journeyId}/qa`, {
@@ -94,7 +93,7 @@ export async function saveJourneyQARunsApi(
  */
 export async function getJourneyQARunsApi(
   journeyId: string,
-  workspaceId: string = MOCK_WORKSPACE_ID
+  workspaceId: string
 ): Promise<
   | { success: true; qaRuns: any[] }
   | { success: false; error: string }
@@ -124,7 +123,7 @@ export async function getJourneyQARunsApi(
 export async function createJourneyApi(
   journeyId: string,
   name: string,
-  workspaceId: string = MOCK_WORKSPACE_ID
+  workspaceId: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const res = await fetchWithAuth(`${API_BASE}/api/journeys`, {
@@ -153,7 +152,7 @@ export async function createJourneyApi(
  */
 export async function deleteJourneyApi(
   journeyId: string,
-  workspaceId: string = MOCK_WORKSPACE_ID
+  workspaceId: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const res = await fetchWithAuth(`${API_BASE}/api/journeys/${journeyId}`, {
@@ -182,7 +181,7 @@ export async function deleteJourneyApi(
 export async function renameJourneyApi(
   journeyId: string,
   name: string,
-  workspaceId: string = MOCK_WORKSPACE_ID
+  workspaceId: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const res = await fetchWithAuth(`${API_BASE}/api/journeys/${journeyId}`, {
@@ -214,7 +213,7 @@ export async function validatePayloadApi(
   journeyId: string,
   eventId: string,
   actualJson: string,
-  workspaceId: string = MOCK_WORKSPACE_ID
+  workspaceId: string
 ): Promise<
   | { success: true; result: ValidatePayloadResult }
   | { success: false; error: string }
@@ -251,7 +250,7 @@ export async function validatePayloadApi(
  */
 export async function getJourneyShareTokenApi(
   journeyId: string,
-  workspaceId: string = MOCK_WORKSPACE_ID
+  workspaceId: string
 ): Promise<{ success: true; token: string } | { success: false; error: string }> {
   try {
     const res = await fetchWithAuth(`${API_BASE}/api/journeys/${journeyId}/share`, {
@@ -282,7 +281,7 @@ export async function getJourneyShareTokenApi(
 export async function setJourneyShareEnabledApi(
   journeyId: string,
   enabled: boolean,
-  workspaceId: string = MOCK_WORKSPACE_ID
+  workspaceId: string
 ): Promise<{ success: true; enabled: boolean; token?: string } | { success: false; error: string }> {
   try {
     const res = await fetchWithAuth(`${API_BASE}/api/journeys/${journeyId}/share`, {
@@ -370,7 +369,7 @@ export async function getSharedJourneyByTokenApi(
 export async function downloadJourneyHtmlExportApi(
   journeyId: string,
   filename: string = 'journey-export.html',
-  workspaceId: string = MOCK_WORKSPACE_ID
+  workspaceId: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const res = await fetchWithAuth(
@@ -409,7 +408,7 @@ export async function downloadJourneyHtmlExportApi(
 export async function updateJourneyTestingInstructionsApi(
   journeyId: string,
   testing_instructions_markdown: string | null,
-  workspaceId: string = MOCK_WORKSPACE_ID
+  workspaceId: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const res = await fetchWithAuth(`${API_BASE}/api/journeys/${journeyId}`, {

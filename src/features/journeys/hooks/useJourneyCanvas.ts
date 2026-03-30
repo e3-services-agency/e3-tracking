@@ -10,7 +10,6 @@ import {
 } from '@xyflow/react';
 
 import { useStore } from '@/src/store';
-import { useAuth } from '@/src/contexts/AuthContext';
 import type {
   Journey,
   QAProof,
@@ -23,7 +22,6 @@ import {
   saveJourneyCanvasApi,
   saveJourneyQARunsApi,
   validatePayloadApi,
-  useActiveWorkspaceId,
   type ValidatePayloadResult,
 } from '@/src/features/journeys/hooks/useJourneysApi';
 import {
@@ -45,18 +43,19 @@ import { SUPABASE_URL } from '@/src/config/env';
 
 type UseJourneyCanvasArgs = {
   journey: Journey;
+  /** Authenticated shell: real workspace UUID. Public shared canvas: `null` (no workspace-scoped API calls). */
+  workspaceId: string | null;
   activeQARunId: string | null;
   readOnly?: boolean;
 };
 
 export function useJourneyCanvas({
   journey,
+  workspaceId,
   activeQARunId,
   readOnly = false,
 }: UseJourneyCanvasArgs) {
   const { updateJourney, setJourneyCanvasHasUnsavedChanges } = useStore();
-  const { getAccessToken } = useAuth();
-  const activeWorkspaceId = useActiveWorkspaceId();
   const { screenToFlowPosition } =
     useReactFlow<JourneyFlowNode, JourneyFlowEdge>();
 
@@ -156,7 +155,7 @@ export function useJourneyCanvas({
           data: {
             ...node.data,
             journeyId: journey.id,
-            workspaceId: activeWorkspaceId,
+            workspaceId,
             activeQARunId: null,
             qaVerification: undefined,
             readOnly: readOnly || undefined,
@@ -175,7 +174,7 @@ export function useJourneyCanvas({
       setSelectedNodeId(null);
       setSelectedPanel('summary');
     }
-  }, [activeQARunId, journey.id, journey.nodes, journey.edges, readOnly, activeWorkspaceId, setNodes, setEdges]);
+  }, [activeQARunId, journey.id, journey.nodes, journey.edges, readOnly, workspaceId, setNodes, setEdges]);
 
   const markDirty = useCallback(() => {
     if (activeQARunId) return;
@@ -280,7 +279,7 @@ export function useJourneyCanvas({
           ...mergedData,
           activeQARunId,
           qaVerification: activeQARun.verifications?.[node.id],
-          workspaceId: activeWorkspaceId,
+          workspaceId,
           // In QA mode we rebuild node.data from the snapshot, so we must
           // re-apply readOnly; otherwise node components may think they are
           // editable and show upload-proof controls on shared links.
@@ -310,7 +309,7 @@ export function useJourneyCanvas({
     journey.nodes,
     journey.edges,
     selectedNodeId,
-    activeWorkspaceId,
+    workspaceId,
     readOnly,
     setNodes,
     setEdges,
@@ -429,6 +428,13 @@ export function useJourneyCanvas({
   };
 
   const handleSaveLayout = async () => {
+    const wid = typeof workspaceId === 'string' ? workspaceId.trim() : '';
+    if (!wid) {
+      setSaveError('No workspace selected — cannot save layout.');
+      console.error('handleSaveLayout: missing workspaceId');
+      return;
+    }
+
     setIsSaving(true);
     setSaveError(null);
     // Migrate any embedded base64 screenshots to Supabase Storage URLs before saving.
@@ -485,7 +491,7 @@ export function useJourneyCanvas({
             journeyId: journey.id,
             nodeId: n.id,
             file,
-            workspaceId: activeWorkspaceId,
+            workspaceId: wid,
           });
           if (!result.success) return n;
           migratedCount += 1;
@@ -501,7 +507,7 @@ export function useJourneyCanvas({
       journey.name,
       nodesWithUploadedImages,
       edges,
-      activeWorkspaceId
+      wid
     );
     setIsSaving(false);
     if (result.success) {
@@ -535,6 +541,12 @@ export function useJourneyCanvas({
   ): Promise<boolean> => {
     if (!activeQARunId) return false;
 
+    const wid = typeof workspaceId === 'string' ? workspaceId.trim() : '';
+    if (!wid) {
+      console.error('handleSaveQA: missing workspaceId');
+      return false;
+    }
+
     setIsSavingQA(true);
     try {
       // Persist full run data (meta + snapshot) so the QA selector can reload
@@ -558,7 +570,7 @@ export function useJourneyCanvas({
       const result = await saveJourneyQARunsApi(
         journey.id,
         payloadRuns,
-        activeWorkspaceId,
+        wid,
       );
       if (result.success) {
         setSaveQASuccess(true);
@@ -715,6 +727,7 @@ export function useJourneyCanvas({
     if (!activeQARunId) return;
 
     const migrateAndUpdate = async (): Promise<void> => {
+      const qaWid = typeof workspaceId === 'string' ? workspaceId.trim() : '';
       const node = nodes.find((candidate) => candidate.id === nodeId);
       const pendingProofs = node?.data.pendingProofs || [];
 
@@ -729,13 +742,14 @@ export function useJourneyCanvas({
         pendingProofs.map(async (p) => {
           if (p.type !== 'image') return p;
           if (typeof p.content !== 'string' || !p.content.startsWith('data:image/')) return p;
+          if (!qaWid) return p;
           try {
             const file = await dataUrlToFile(p.content, `qa-proof-${nodeId}-${Date.now()}`);
             const result = await uploadJourneyStepImage({
               journeyId: journey.id,
               nodeId,
               file,
-              workspaceId: activeWorkspaceId,
+              workspaceId: qaWid,
             });
             if (!result.success) return p;
             return { ...p, content: result.url };
@@ -888,13 +902,21 @@ export function useJourneyCanvas({
     }
     const jsonToValidate =
       payloadDraft.trim() || (verificationProofs[0]?.content ?? '{}');
+    const valWid = typeof workspaceId === 'string' ? workspaceId.trim() : '';
+    if (!valWid) {
+      setPayloadValidationResult({
+        valid: false,
+        missing_keys: ['Workspace context is required to validate payload against event definitions.'],
+      });
+      return;
+    }
     setIsValidatingPayload(true);
     setPayloadValidationResult(null);
     const result = await validatePayloadApi(
       journey.id,
       eventId,
       jsonToValidate,
-      activeWorkspaceId,
+      valWid,
     );
     setIsValidatingPayload(false);
     if (result.success) {

@@ -14,7 +14,6 @@ import { Button } from '@/src/components/ui/Button';
 import { useActiveData } from '@/src/store';
 import type { Event as TrackingEvent, EventVariant } from '@/src/types';
 import { useEvents } from '@/src/features/events/hooks/useEvents';
-import { useActiveWorkspaceId } from '@/src/features/journeys/hooks/useJourneysApi';
 import {
   TriggerFlowNode,
   JourneyFlowNode,
@@ -29,9 +28,14 @@ import { JourneyQuickAddMenu } from '@/src/features/journeys/overlays/JourneyQui
 export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
   const { setNodes } = useReactFlow<JourneyFlowNode, JourneyFlowEdge>();
   const activeData = useActiveData();
-  const activeWorkspaceId = useActiveWorkspaceId();
+  const eventsWorkspaceArg =
+    data.workspaceId === null
+      ? null
+      : typeof data.workspaceId === 'string' && data.workspaceId.trim() !== ''
+        ? data.workspaceId.trim()
+        : undefined;
   const { events: apiEvents, isLoading: isLoadingEvents, refetch: refetchEvents } =
-    useEvents(activeWorkspaceId);
+    useEvents(eventsWorkspaceArg);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 

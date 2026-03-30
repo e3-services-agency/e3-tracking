@@ -1,8 +1,8 @@
 /**
  * API hooks for Events. Uses centralized fetchWithAuth (adds Bearer token, handles 401 → redirect to login).
  */
-import { useState, useCallback, useEffect } from 'react';
-import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useOptionalWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import type {
@@ -13,8 +13,6 @@ import type {
   EventPropertyPresence,
   EventRow,
 } from '@/src/types/schema';
-
-export const MOCK_WORKSPACE_ID = '00000000-0000-0000-0000-000000000001';
 
 export interface ApiError {
   status: number;
@@ -118,11 +116,20 @@ export interface UseEventsResult {
   clearMutationError: () => void;
 }
 
-export function useEvents(
-  workspaceId?: string
-): UseEventsResult {
-  const { activeWorkspaceId } = useWorkspaceShell();
-  const effectiveWorkspaceId = workspaceId ?? activeWorkspaceId ?? MOCK_WORKSPACE_ID;
+/**
+ * @param explicitWorkspaceId - `undefined`: use WorkspaceShellProvider’s active id (authenticated app).
+ * `string`: use that id for API headers. `null`: no workspace (e.g. public shared journey canvas) — no list fetch, no mock id.
+ */
+export function useEvents(explicitWorkspaceId?: string | null): UseEventsResult {
+  const shell = useOptionalWorkspaceShell();
+  const effectiveWorkspaceId = useMemo((): string | null => {
+    if (explicitWorkspaceId === null) return null;
+    if (typeof explicitWorkspaceId === 'string' && explicitWorkspaceId.trim() !== '') {
+      return explicitWorkspaceId.trim();
+    }
+    const fromShell = shell?.activeWorkspaceId?.trim();
+    return fromShell && fromShell !== '' ? fromShell : null;
+  }, [explicitWorkspaceId, shell?.activeWorkspaceId]);
 
   const [events, setEvents] = useState<EventWithPropertyCount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -131,6 +138,11 @@ export function useEvents(
 
   const refetch = useCallback(async () => {
     setError(null);
+    if (!effectiveWorkspaceId) {
+      setEvents([]);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const res = await fetchWithAuth(`${API_BASE}/api/events`, {
@@ -160,6 +172,12 @@ export function useEvents(
     refetch();
   }, [refetch]);
 
+  const noWorkspaceError = (): ApiError => ({
+    status: 0,
+    code: 'NO_WORKSPACE',
+    message: 'No workspace selected.',
+  });
+
   const createEvent = useCallback(
     async (
       payload: CreateEventInput
@@ -168,6 +186,11 @@ export function useEvents(
       | { success: false; error: ApiError }
     > => {
       setMutationError(null);
+      if (!effectiveWorkspaceId) {
+        const err = noWorkspaceError();
+        setMutationError(err);
+        return { success: false, error: err };
+      }
       try {
         const res = await fetchWithAuth(`${API_BASE}/api/events`, {
           method: 'POST',
@@ -218,6 +241,11 @@ export function useEvents(
       | { success: false; error: ApiError }
     > => {
       setMutationError(null);
+      if (!effectiveWorkspaceId) {
+        const err = noWorkspaceError();
+        setMutationError(err);
+        return { success: false, error: err };
+      }
       try {
         const res = await fetchWithAuth(`${API_BASE}/api/events/${eventId}`, {
           method: 'PATCH',
@@ -269,6 +297,11 @@ export function useEvents(
       eventId: string
     ): Promise<{ success: true } | { success: false; error: ApiError }> => {
       setMutationError(null);
+      if (!effectiveWorkspaceId) {
+        const err = noWorkspaceError();
+        setMutationError(err);
+        return { success: false, error: err };
+      }
       try {
         const res = await fetchWithAuth(`${API_BASE}/api/events/${eventId}`, {
           method: 'DELETE',
@@ -312,6 +345,11 @@ export function useEvents(
       presence: EventPropertyPresence
     ): Promise<{ success: true } | { success: false; error: ApiError }> => {
       setMutationError(null);
+      if (!effectiveWorkspaceId) {
+        const err = noWorkspaceError();
+        setMutationError(err);
+        return { success: false, error: err };
+      }
       try {
         const res = await fetchWithAuth(`${API_BASE}/api/events/${eventId}/properties`, {
           method: 'POST',
@@ -356,6 +394,11 @@ export function useEvents(
       presence: EventPropertyPresence
     ): Promise<{ success: true } | { success: false; error: ApiError }> => {
       setMutationError(null);
+      if (!effectiveWorkspaceId) {
+        const err = noWorkspaceError();
+        setMutationError(err);
+        return { success: false, error: err };
+      }
       try {
         const res = await fetchWithAuth(`${API_BASE}/api/events/${eventId}/properties`, {
           method: 'PATCH',
@@ -397,6 +440,11 @@ export function useEvents(
       propertyId: string
     ): Promise<{ success: true } | { success: false; error: ApiError }> => {
       setMutationError(null);
+      if (!effectiveWorkspaceId) {
+        const err = noWorkspaceError();
+        setMutationError(err);
+        return { success: false, error: err };
+      }
       try {
         const res = await fetchWithAuth(`${API_BASE}/api/events/${eventId}/properties`, {
           method: 'DELETE',
@@ -451,6 +499,9 @@ export function useEvents(
       | { success: true; items: EffectiveEventPropertyDefinition[] }
       | { success: false; error: ApiError }
     > => {
+      if (!effectiveWorkspaceId) {
+        return { success: false, error: noWorkspaceError() };
+      }
       try {
         const res = await fetchWithAuth(
           `${API_BASE}/api/events/${eventId}/property-definitions/effective`,
@@ -537,6 +588,11 @@ export function useEvents(
       propertyId: string
     ): Promise<{ success: true } | { success: false; error: ApiError }> => {
       setMutationError(null);
+      if (!effectiveWorkspaceId) {
+        const err = noWorkspaceError();
+        setMutationError(err);
+        return { success: false, error: err };
+      }
       try {
         const res = await fetchWithAuth(
           `${API_BASE}/api/events/${eventId}/property-definitions/${propertyId}`,

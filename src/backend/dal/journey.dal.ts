@@ -6,6 +6,7 @@
 import { getSupabaseOrThrow } from '../db/supabase';
 import type { JourneyRow } from '../../types/schema';
 import { ConflictError, DatabaseError, NotFoundError } from '../errors';
+import { getJourneyQARunsCountAndLatest } from './qa.dal';
 
 type NodeLike = { type?: string; data?: { connectedEvent?: { eventId?: string }; implementationType?: string } };
 
@@ -530,16 +531,26 @@ export async function countJourneysUsingEventVariant(
   return count;
 }
 
+/** Public hub list row: mirrors internal journeys list fields needed for the homepage table. */
+export type ShareHubJourneyListItem = {
+  id: string;
+  name: string;
+  updated_at: string;
+  nodesCount: number;
+  type_counts: { new?: number; enrichment?: number; fix?: number } | null;
+  qaRunsCount: number;
+  latestQARun: Awaited<ReturnType<typeof getJourneyQARunsCountAndLatest>>['latestQARun'];
+};
+
 /**
  * Journeys visible on the stakeholder hub: same workspace, individually shared (share_token set).
+ * Enriched with node count, scope counts, and QA summary (same sourcing as GET /api/journeys).
  */
-export async function listJourneysForShareHub(workspaceId: string): Promise<
-  { id: string; name: string; description: string | null; updated_at: string }[]
-> {
+export async function listJourneysForShareHub(workspaceId: string): Promise<ShareHubJourneyListItem[]> {
   const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('journeys')
-    .select('id, name, description, updated_at')
+    .select('id, name, updated_at, canvas_nodes_json, type_counts')
     .eq('workspace_id', workspaceId)
     .not('share_token', 'is', null)
     .is('deleted_at', null)
@@ -548,10 +559,39 @@ export async function listJourneysForShareHub(workspaceId: string): Promise<
   if (error) {
     throw new DatabaseError(`Failed to list shared journeys for hub: ${error.message}`, error);
   }
-  return (data ?? []) as {
+
+  const rows = (data ?? []) as Array<{
     id: string;
     name: string;
-    description: string | null;
     updated_at: string;
-  }[];
+    canvas_nodes_json: unknown | null;
+    type_counts: { new?: number; enrichment?: number; fix?: number } | null;
+  }>;
+
+  const enriched = await Promise.all(
+    rows.map(async (row) => {
+      const nodes = Array.isArray(row.canvas_nodes_json) ? row.canvas_nodes_json : [];
+      const type_counts = row.type_counts ?? computeTypeCounts(nodes);
+      let qaRunsCount = 0;
+      let latestQARun: ShareHubJourneyListItem['latestQARun'] = null;
+      try {
+        const summary = await getJourneyQARunsCountAndLatest(workspaceId, row.id);
+        qaRunsCount = summary.qaRunsCount;
+        latestQARun = summary.latestQARun;
+      } catch (e) {
+        console.error('[listJourneysForShareHub] QA summary failed for journey', row.id, e);
+      }
+      return {
+        id: row.id,
+        name: row.name,
+        updated_at: row.updated_at,
+        nodesCount: nodes.length,
+        type_counts,
+        qaRunsCount,
+        latestQARun,
+      };
+    }),
+  );
+
+  return enriched;
 }

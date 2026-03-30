@@ -342,11 +342,15 @@ export async function getSharedJourneyByIdApi(
 /**
  * Fetch shared journey by token (public). GET /api/shared/journeys/:token.
  */
+/** Public hub list row — aligned with internal journeys table (GET /api/journeys enrichment). */
 export interface SharedJourneysHubRow {
   id: string;
   name: string;
-  description: string | null;
   updated_at: string;
+  nodesCount: number;
+  type_counts: { new?: number; enrichment?: number; fix?: number } | null;
+  qaRunsCount: number;
+  latestQARun: unknown | null;
 }
 
 /**

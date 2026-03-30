@@ -9,6 +9,8 @@ import {
   type SharedJourneysHubRow,
 } from '@/src/features/journeys/hooks/useJourneysApi';
 import { buildAppPageUrl } from '@/src/config/env';
+import { computeQARunStatusForRun } from '@/src/features/journeys/lib/qaRunUtils';
+import type { QARun } from '@/src/types';
 
 function formatUpdated(iso: string): string {
   const d = new Date(iso);
@@ -48,7 +50,9 @@ export function SharedJourneysHubView({ token }: { token: string }) {
   }, [token]);
 
   const openJourney = (id: string) => {
-    window.location.href = buildAppPageUrl(`share/journey/${encodeURIComponent(id)}`);
+    window.location.href = buildAppPageUrl(
+      `share/journey/${encodeURIComponent(id)}?hub=${encodeURIComponent(token)}`,
+    );
   };
 
   return (
@@ -96,37 +100,90 @@ export function SharedJourneysHubView({ token }: { token: string }) {
               <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                 <tr>
                   <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">
-                    Journey name
+                    Journey Name
                   </th>
                   <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">
-                    Description
+                    Scope
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">
+                    Nodes
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">
+                    QA Runs
+                  </th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">
+                    QA Status
                   </th>
                   <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b whitespace-nowrap">
-                    Updated
+                    Last Updated
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {sorted.map((row) => (
+                {sorted.map((row) => {
+                  const tc = row.type_counts ?? { new: 0, enrichment: 0, fix: 0 };
+                  const scopeParts = [
+                    tc.new ? { n: tc.new, label: 'New', cls: 'text-emerald-600' } : null,
+                    tc.enrichment ? { n: tc.enrichment, label: 'Enr', cls: 'text-blue-600' } : null,
+                    tc.fix ? { n: tc.fix, label: 'Fix', cls: 'text-amber-600' } : null,
+                  ].filter(Boolean) as { n: number; label: string; cls: string }[];
+                  const latestRun = row.latestQARun as QARun | null;
+                  return (
                   <tr
                     key={row.id}
                     className="hover:bg-gray-50 transition-colors cursor-pointer"
                     onClick={() => openJourney(row.id)}
                   >
-                    <td className="px-6 py-4 text-sm text-gray-900">
+                    <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <GitMerge className="w-4 h-4 text-[var(--color-info)] shrink-0" />
                         <span className="font-medium text-[var(--color-info)]">{row.name}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 max-w-md">
-                      <span className="line-clamp-2">{row.description?.trim() || '—'}</span>
+                    <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                      {scopeParts.length ? (
+                        <span className="flex items-center gap-2 flex-wrap">
+                          {scopeParts.map(({ n, label, cls }) => (
+                            <span key={label} className={`font-medium ${cls}`} title={label === 'Enr' ? 'Enrichment' : label}>
+                              {n}<span className="text-gray-400 font-normal"> {label}</span>
+                            </span>
+                          ))}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                      {row.nodesCount} nodes
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                      {row.qaRunsCount} runs
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
+                      {row.qaRunsCount > 0 && latestRun ? (
+                        (() => {
+                          const status = computeQARunStatusForRun(latestRun);
+                          const cls =
+                            status === 'PASSED'
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                              : status === 'FAILED'
+                                ? 'bg-red-100 text-red-800 border-red-200'
+                                : 'bg-amber-100 text-amber-800 border-amber-200';
+                          return (
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold border ${cls}`}>
+                              {status}
+                            </span>
+                          );
+                        })()
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                       {formatUpdated(row.updated_at)}
                     </td>
                   </tr>
-                ))}
+                );})}
               </tbody>
             </table>
           </div>

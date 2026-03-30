@@ -8,9 +8,9 @@ import '@xyflow/react/dist/style.css';
 import { JourneyCanvas } from '@/src/features/journeys/editor/JourneyCanvas';
 import { getSharedJourneyByIdApi, getSharedJourneyByTokenApi } from '@/src/features/journeys/hooks/useJourneysApi';
 import type { Journey } from '@/src/types';
-import { API_BASE } from '@/src/config/env';
+import { API_BASE, buildAppPageUrl } from '@/src/config/env';
 import { computeQARunStatusForRun, getQARunDisplayName } from '@/src/features/journeys/lib/qaRunUtils';
-import { Check, ChevronDown, FileText, Lock, LockOpen, PenTool } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, FileText, Lock, LockOpen, PenTool } from 'lucide-react';
 
 type SharedResponse = {
   id: string;
@@ -37,9 +37,12 @@ export function SharedJourneyView({
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'journey' | 'brief' | 'qa'>(() => {
     if (typeof window === 'undefined') return 'journey';
-    const v = new URL(window.location.href).searchParams.get('view');
+    const params = new URL(window.location.href).searchParams;
+    const v = params.get('view');
     if (v === 'brief') return 'brief';
     if (v === 'qa') return 'qa';
+    if (v === 'journey') return 'journey';
+    if (params.get('hub')) return 'brief';
     return 'journey';
   });
   const [activeQARunId, setActiveQARunId] = useState<string | null>(() => {
@@ -51,6 +54,9 @@ export function SharedJourneyView({
   const [briefLoading, setBriefLoading] = useState(false);
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const modeMenuRef = React.useRef<HTMLDivElement | null>(null);
+  const [sharedHubReturnToken] = useState(() =>
+    typeof window !== 'undefined' ? new URL(window.location.href).searchParams.get('hub') : null,
+  );
   const sortedQARuns = useMemo(() => {
     const runs = journey?.qaRuns || [];
     return [...runs].sort((a: any, b: any) => {
@@ -96,14 +102,13 @@ export function SharedJourneyView({
         setJourney({
           id: j.id,
           name: j.name,
-          description: j.description ?? undefined,
           testing_instructions_markdown: j.testing_instructions_markdown ?? undefined,
           nodes: enrichedNodes,
           edges: Array.isArray(j.edges) ? j.edges : [],
           qaRuns: enrichedQaRuns,
         });
       } else {
-        setError(result.error ?? 'Failed to load journey');
+        setError('error' in result ? result.error : 'Failed to load journey');
       }
     });
     return () => {
@@ -186,11 +191,22 @@ export function SharedJourneyView({
     <div className="flex h-screen w-full min-w-0 flex-col bg-[var(--surface-default)]">
       <div className="shrink-0 px-4 py-3 border-b bg-white shadow-sm">
         <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-lg font-bold text-gray-900 truncate">{journey.name}</h1>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Read-only view — design, docs, and QA runs
-            </p>
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            {sharedHubReturnToken && typeof journeyId === 'string' && journeyId.length > 0 ? (
+              <a
+                href={buildAppPageUrl(`share/hub/${encodeURIComponent(sharedHubReturnToken)}`)}
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-md border border-[var(--border-default)] bg-[var(--surface-panel)] px-2.5 py-1.5 text-xs font-medium text-gray-900 hover:bg-[var(--surface-default)]"
+              >
+                <ArrowLeft className="w-3.5 h-3.5 text-[var(--color-info)]" />
+                Back to Shared Journey Homepage
+              </a>
+            ) : null}
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold text-gray-900 truncate">{journey.name}</h1>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Read-only view — design, docs, and QA runs
+              </p>
+            </div>
           </div>
           {journeyId && (
             <div className="relative" ref={modeMenuRef}>

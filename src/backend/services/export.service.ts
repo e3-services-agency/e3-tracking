@@ -167,6 +167,14 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/** Allow only common safe href schemes for exported links. */
+function safeHrefForExport(raw: string): string | null {
+  const u = (raw || '').trim();
+  if (!u) return null;
+  if (/^https?:\/\//i.test(u) || u.startsWith('/') || /^mailto:/i.test(u)) return u;
+  return null;
+}
+
 function normalizeStepImageUrlForExport(raw: string): string {
   const url = (raw || '').trim();
   if (!url) return url;
@@ -278,6 +286,8 @@ export interface StepExportItem {
   label: string;
   description: string;
   imageUrl: string | null;
+  /** Step URL from canvas node data when set. */
+  url: string | null;
   actionType: string;
   targetElement: string | null;
   implementationType: 'new' | 'enrichment' | 'fix';
@@ -401,6 +411,8 @@ export async function generateJourneyHtmlExport(
         typeof data.imageUrl === 'string' && data.imageUrl.trim()
           ? normalizeStepImageUrlForExport(data.imageUrl.trim())
           : null,
+      url:
+        typeof data.url === 'string' && data.url.trim() ? data.url.trim() : null,
       actionType:
         typeof data.actionType === 'string' && data.actionType
           ? data.actionType
@@ -506,6 +518,20 @@ export async function generateJourneyHtmlExport(
             ? '<span class="export-badge export-badge-enrichment">Enrichment</span>'
             : '<span class="export-badge export-badge-fix">Fix</span>';
 
+      const stepUrlField = step.url
+        ? (() => {
+            const raw = step.url;
+            const href = safeHrefForExport(raw);
+            const valueInner = href
+              ? `<a class="export-step-url-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(raw)}</a>`
+              : escapeHtml(raw);
+            return `<div class="export-step-meta-field">
+  <div class="export-step-meta-label">Step URL</div>
+  <div class="export-step-meta-value">${valueInner}</div>
+</div>`;
+          })()
+        : '';
+
       const meta = [
         step.actionType
           ? `<div class="export-step-meta-field">
@@ -523,11 +549,9 @@ export async function generateJourneyHtmlExport(
         .filter(Boolean)
         .join('');
 
-      const triggersSummary =
+      const headerEventHint =
         step.triggers.length > 0
-          ? `<div class="export-step-subtitle">${step.triggers
-              .map((t) => escapeHtml(t.eventName))
-              .join('<span class="export-step-subtitle-sep">·</span>')}</div>`
+          ? `<span class="export-step-header-events">${step.triggers.length} event${step.triggers.length === 1 ? '' : 's'}</span>`
           : '';
 
       let triggersBlock = '';
@@ -578,20 +602,45 @@ export async function generateJourneyHtmlExport(
           .join('\n');
       }
 
+      const stepDetailsSection = `<div class="export-step-block export-step-block--step">
+  <div class="export-step-block-title">Step details</div>
+  ${step.description ? renderJourneyDescriptionForExport(step.description) : ''}
+  ${imgBlock}
+  ${stepUrlField}
+</div>`;
+
+      const interactionSection =
+        meta
+          ? `<div class="export-step-block export-step-block--interaction">
+  <div class="export-step-block-title">Interaction</div>
+  <div class="export-step-meta">${meta}</div>
+</div>`
+          : '';
+
+      const trackingSection = triggersBlock
+        ? `<div class="export-step-block export-step-block--tracking">
+  <div class="export-step-block-title">Event tracking</div>
+  ${triggersBlock}
+</div>`
+        : '';
+
       return `
       <section class="export-step" id="step-${stepNum}">
         <button class="export-step-header" type="button" data-accordion="toggle" aria-expanded="${stepNum === 1 ? 'true' : 'false'}">
-          <div class="export-step-title">Step ${stepNum}: ${escapeHtml(step.label)} ${implBadge}</div>
+          <div class="export-step-title">
+            <span class="export-step-kind-badge">Journey step</span>
+            <span class="export-step-title-main">Step ${stepNum}: ${escapeHtml(step.label)}</span>
+            ${implBadge}
+          </div>
           <div class="export-step-header-right">
-            ${triggersSummary}
+            ${headerEventHint}
             <span class="export-step-chevron" aria-hidden="true"></span>
           </div>
         </button>
         <div class="export-step-body" data-accordion="body" ${stepNum === 1 ? '' : 'hidden'}>
-          ${step.description ? renderJourneyDescriptionForExport(step.description) : ''}
-          ${imgBlock}
-          ${meta ? `<div class="export-step-meta">${meta}</div>` : ''}
-          ${triggersBlock}
+          ${stepDetailsSection}
+          ${interactionSection}
+          ${trackingSection}
           <div class="export-step-footer">
             <a class="export-step-top" href="#top">Back to top</a>
           </div>
@@ -696,13 +745,50 @@ export async function generateJourneyHtmlExport(
     }
     .export-step-header:focus { outline: 2px solid #2563eb33; outline-offset: 2px; border-radius: 8px; }
     .export-step-title { margin: 0; font-size: 1.05rem; color: #111; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .export-step-kind-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #475569;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      padding: 3px 8px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .export-step-title-main { min-width: 0; }
     .export-step-header-right { display: flex; align-items: center; gap: 10px; }
+    .export-step-header-events { font-size: 0.75rem; color: #64748b; white-space: nowrap; }
     .export-step-subtitle { display: none; color: #6b7280; font-size: 0.78rem; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .export-step-subtitle-sep { margin: 0 6px; opacity: 0.8; }
     @media (min-width: 980px) { .export-step-subtitle { display: inline; } }
     .export-step-chevron { width: 10px; height: 10px; border-right: 2px solid #94a3b8; border-bottom: 2px solid #94a3b8; transform: rotate(45deg); transition: transform 0.12s ease; }
     .export-step-header[aria-expanded="true"] .export-step-chevron { transform: rotate(-135deg); }
     .export-step-body { padding: 0 18px 18px; min-width: 0; overflow-x: hidden; }
+    .export-step-block {
+      margin-top: 0;
+      padding-top: 16px;
+      border-top: 1px solid #e5e7eb;
+      min-width: 0;
+      max-width: 100%;
+    }
+    .export-step-block:first-child {
+      padding-top: 0;
+      border-top: 0;
+    }
+    .export-step-block-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin: 0 0 10px;
+    }
+    .export-step-block .export-step-meta { margin-top: 0; }
+    .export-step-block--tracking .export-tracking-block:first-child { margin-top: 0; }
+    .export-step-url-link { color: #2563eb; text-decoration: underline; word-break: break-all; }
+    .export-step-url-link:hover { color: #1d4ed8; }
     .export-step-footer { margin-top: 14px; display: flex; justify-content: flex-end; }
     .export-step-top { font-size: 0.8rem; color: #2563eb; text-decoration: none; }
     .export-step-top:hover { text-decoration: underline; }

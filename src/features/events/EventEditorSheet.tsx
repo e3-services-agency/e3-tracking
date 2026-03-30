@@ -3,10 +3,11 @@
  * Form: Name, Description, canonical structured triggers,
  * Property Picker + attached list with Presence.
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
+import { IconSelect, type IconSelectOption } from '@/src/components/ui/IconSelect';
 import {
   EventPropertyOverridesSection,
   type EventPropertyOverridesSectionProps,
@@ -18,19 +19,20 @@ import {
   createWorkspaceSource,
   listWorkspaceSources,
 } from '@/src/features/events/lib/eventTriggerSourcesApi';
-import type {
-  CreateEventInput,
-  EventPropertyPresence,
-  EventRow,
-  EventType,
-  EventTriggerEntry,
-  SourceRow,
+import {
+  EVENT_TYPES,
+  type CreateEventInput,
+  type EventPropertyPresence,
+  type EventRow,
+  type EventType,
+  type EventTriggerEntry,
+  type SourceRow,
 } from '@/src/types/schema';
 import type { ApiError, EventWithPropertiesResponse } from '@/src/features/events/hooks/useEvents';
 import { useProperties } from '@/src/features/properties/hooks/useProperties';
 import { useActiveData, useStore } from '@/src/store';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
-import { AlertCircle, Plus, X } from 'lucide-react';
+import { Activity, AlertCircle, Layout, Plus, UserRound, Users, X } from 'lucide-react';
 
 const PRESENCE_OPTIONS: { value: EventPropertyPresence; label: string }[] = [
   { value: 'always_sent', label: 'Always sent' },
@@ -38,11 +40,42 @@ const PRESENCE_OPTIONS: { value: EventPropertyPresence; label: string }[] = [
   { value: 'never_sent', label: 'Never sent' },
 ];
 
-const EVENT_TYPE_OPTIONS: { value: EventType; label: string }[] = [
-  { value: 'track', label: 'Track' },
-  { value: 'page', label: 'Page' },
-  { value: 'identify', label: 'Identify' },
-];
+/**
+ * Maps API `event_type` into editor state without defaulting to `track`.
+ * Additional product types (e.g. update customer, anonymize customer) need schema + API support before UI options.
+ */
+function classifyLoadedEventType(
+  raw: string | null | undefined
+):
+  | { kind: 'unset' }
+  | { kind: 'known'; value: EventType }
+  | { kind: 'unsupported'; raw: string } {
+  if (raw === null || raw === undefined) return { kind: 'unset' };
+  const t = typeof raw === 'string' ? raw.trim() : '';
+  if (t === '') return { kind: 'unset' };
+  if ((EVENT_TYPES as readonly string[]).includes(t)) {
+    return { kind: 'known', value: t as EventType };
+  }
+  return { kind: 'unsupported', raw: t };
+}
+
+function applyEventTypeLoad(
+  raw: string | null | undefined,
+  setSelection: (v: EventType | '') => void,
+  setUnsupported: (v: string | null) => void
+) {
+  const c = classifyLoadedEventType(raw);
+  if (c.kind === 'unset') {
+    setSelection('');
+    setUnsupported(null);
+  } else if (c.kind === 'known') {
+    setSelection(c.value);
+    setUnsupported(null);
+  } else {
+    setSelection('');
+    setUnsupported(c.raw);
+  }
+}
 
 function createEmptyTrigger(order: number): EventTriggerEntry {
   return {
@@ -144,7 +177,9 @@ export function EventEditorSheet({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [purpose, setPurpose] = useState('');
-  const [eventType, setEventType] = useState<EventType | ''>('track');
+  /** '' means persisted null / not set in the API. */
+  const [eventTypeSelection, setEventTypeSelection] = useState<EventType | ''>('');
+  const [storedUnsupportedEventType, setStoredUnsupportedEventType] = useState<string | null>(null);
   const [ownerTeamId, setOwnerTeamId] = useState('');
   const [categoriesText, setCategoriesText] = useState('');
   const [tagsText, setTagsText] = useState('');
@@ -172,6 +207,43 @@ export function EventEditorSheet({
 
   const isCreateMode = eventId === null && currentEventId === null;
 
+  const eventTypeSelectOptions = useMemo((): IconSelectOption<EventType>[] => {
+    const core: IconSelectOption<EventType>[] = [
+      { value: 'track', label: 'Track Event', icon: <Activity className="h-4 w-4" /> },
+      { value: 'identify', label: 'Identify Customer', icon: <UserRound className="h-4 w-4" /> },
+    ];
+    if (eventTypeSelection === 'page') {
+      return [
+        {
+          value: 'page',
+          label: 'Page view (legacy)',
+          icon: <Layout className="h-4 w-4" />,
+        },
+        ...core,
+      ];
+    }
+    return core;
+  }, [eventTypeSelection]);
+
+  const ownerSelectOptions = useMemo((): IconSelectOption<string>[] => {
+    const fromTeams = activeData.teams.map((team) => ({
+      value: team.id,
+      label: team.name,
+      icon: <Users className="h-4 w-4" />,
+    }));
+    if (ownerTeamId && !fromTeams.some((o) => o.value === ownerTeamId)) {
+      return [
+        {
+          value: ownerTeamId,
+          label: 'Saved owner (not in local list)',
+          icon: <Users className="h-4 w-4" />,
+        },
+        ...fromTeams,
+      ];
+    }
+    return fromTeams;
+  }, [activeData.teams, ownerTeamId]);
+
   const loadEvent = useCallback(async (id: string) => {
     setLoadingEvent(true);
     const result = await getEventWithProperties(id);
@@ -180,7 +252,7 @@ export function EventEditorSheet({
       setName(result.event.name);
       setDescription(result.event.description ?? '');
       setPurpose(result.event.purpose ?? '');
-      setEventType(result.event.event_type ?? '');
+      applyEventTypeLoad(result.event.event_type, setEventTypeSelection, setStoredUnsupportedEventType);
       setOwnerTeamId(result.event.owner_team_id ?? '');
       setCategoriesText((result.event.categories ?? []).join(', '));
       setTagsText((result.event.tags ?? []).join(', '));
@@ -200,7 +272,8 @@ export function EventEditorSheet({
       setName('');
       setDescription('');
       setPurpose('');
-      setEventType('track');
+      setEventTypeSelection('');
+      setStoredUnsupportedEventType(null);
       setOwnerTeamId('');
       setCategoriesText('');
       setTagsText('');
@@ -257,7 +330,7 @@ export function EventEditorSheet({
       name: trimmedName,
       description: description.trim() || undefined,
       purpose: purpose.trim() || null,
-      event_type: eventType || null,
+      event_type: eventTypeSelection === '' ? null : eventTypeSelection,
       owner_team_id: ownerTeamId || null,
       categories: normalizeTokenList(categoriesText),
       tags: normalizeTokenList(tagsText),
@@ -286,7 +359,7 @@ export function EventEditorSheet({
       name: trimmedName,
       description: description.trim() || undefined,
       purpose: purpose.trim() || null,
-      event_type: eventType || null,
+      event_type: eventTypeSelection === '' ? null : eventTypeSelection,
       owner_team_id: ownerTeamId || null,
       categories: normalizeTokenList(categoriesText),
       tags: normalizeTokenList(tagsText),
@@ -300,7 +373,7 @@ export function EventEditorSheet({
       setName(result.data.name);
       setDescription(result.data.description ?? '');
       setPurpose(result.data.purpose ?? '');
-      setEventType(result.data.event_type ?? '');
+      applyEventTypeLoad(result.data.event_type, setEventTypeSelection, setStoredUnsupportedEventType);
       setOwnerTeamId(result.data.owner_team_id ?? '');
       setCategoriesText((result.data.categories ?? []).join(', '));
       setTagsText((result.data.tags ?? []).join(', '));
@@ -358,6 +431,9 @@ export function EventEditorSheet({
   const hasInvalidTriggers = normalizedTriggers.some(
     (trigger) => !trigger.title || !trigger.description
   );
+  /** Avoid sending null and wiping an API value we cannot represent until the user picks a supported type. */
+  const eventTypeSaveBlocked =
+    Boolean(storedUnsupportedEventType) && eventTypeSelection === '';
 
   const openTriggerModalForCreate = () => {
     setEditingTriggerIndex(null);
@@ -530,14 +606,55 @@ export function EventEditorSheet({
         )}
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Name</label>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Required</h3>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700" htmlFor="event-editor-name">
+            Name
+          </label>
           <Input
+            id="event-editor-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. checkout_completed, page_viewed"
             className="font-mono"
             disabled={saving}
           />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700" id="event-type-label">
+            Event type
+          </label>
+          {storedUnsupportedEventType && (
+            <div
+              className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900"
+              role="status"
+            >
+              Stored value{' '}
+              <span className="font-mono">{storedUnsupportedEventType}</span> is not supported in this editor. Select a
+              supported type below before saving.
+            </div>
+          )}
+          <IconSelect<EventType>
+            value={eventTypeSelection}
+            onChange={(next) => {
+              setEventTypeSelection(next);
+              if (next !== '') setStoredUnsupportedEventType(null);
+            }}
+            options={eventTypeSelectOptions}
+            allowEmpty
+            emptyLabel="Not set"
+            disabled={saving}
+            aria-labelledby="event-type-label"
+          />
+        </div>
+
+        <hr className="border-gray-200" />
+
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Optional</h3>
         </div>
 
         <div className="space-y-2">
@@ -583,37 +700,21 @@ export function EventEditorSheet({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Owner</label>
-          <select
+          <label className="text-sm font-medium text-gray-700" id="event-owner-label">
+            Owner
+          </label>
+          {activeData.teams.length === 0 && !ownerTeamId && (
+            <p className="text-xs text-gray-500">No workspace owners available.</p>
+          )}
+          <IconSelect<string>
             value={ownerTeamId}
-            onChange={(e) => setOwnerTeamId(e.target.value)}
+            onChange={setOwnerTeamId}
+            options={ownerSelectOptions}
+            allowEmpty
+            emptyLabel="No owner selected"
             disabled={saving}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            <option value="">No owner selected</option>
-            {activeData.teams.map((team) => (
-              <option key={team.id} value={team.id}>
-                {team.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Event Type</label>
-          <select
-            value={eventType}
-            onChange={(e) => setEventType(e.target.value as EventType | '')}
-            disabled={saving}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            <option value="">Not set</option>
-            {EVENT_TYPE_OPTIONS.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </select>
+            aria-labelledby="event-owner-label"
+          />
         </div>
 
         <EventTriggerCardsSection
@@ -762,12 +863,18 @@ export function EventEditorSheet({
           <Button
             onClick={handleSaveNewEvent}
             disabled={
-              saving || !name.trim() || hasInvalidTriggers || !hasValidWorkspaceContext
+              saving ||
+              !name.trim() ||
+              hasInvalidTriggers ||
+              !hasValidWorkspaceContext ||
+              eventTypeSaveBlocked
             }
             title={
               !hasValidWorkspaceContext
                 ? 'Select a valid workspace from the header before creating events.'
-                : undefined
+                : eventTypeSaveBlocked
+                  ? 'Choose a supported event type before saving.'
+                  : undefined
             }
           >
             {saving ? 'Creating…' : 'Create Event'}
@@ -780,12 +887,15 @@ export function EventEditorSheet({
               !name.trim() ||
               !currentEventId ||
               hasInvalidTriggers ||
-              !hasValidWorkspaceContext
+              !hasValidWorkspaceContext ||
+              eventTypeSaveBlocked
             }
             title={
               !hasValidWorkspaceContext
                 ? 'Select a valid workspace from the header before saving changes.'
-                : undefined
+                : eventTypeSaveBlocked
+                  ? 'Choose a supported event type before saving.'
+                  : undefined
             }
           >
             {saving ? 'Saving…' : 'Save Changes'}

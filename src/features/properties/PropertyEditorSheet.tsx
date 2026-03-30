@@ -6,6 +6,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
+import { IconSelect, type IconSelectOption } from '@/src/components/ui/IconSelect';
 import {
   type CreatePropertyInput,
   type PropertyContext,
@@ -31,15 +32,18 @@ import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceSh
 import {
   AlertCircle,
   Braces,
-  Brackets,
   Clock3,
   Hash,
   Link2,
+  List,
   Plus,
+  Settings,
   ToggleLeft,
   Trash2,
   Type,
+  User,
   X,
+  Zap,
 } from 'lucide-react';
 
 /** Model: one row per (workspace, context, name). Not for per-event property variants—see event_properties / separate rows. */
@@ -58,6 +62,40 @@ const UI_DATA_TYPES: { value: PropertyDataType; label: string }[] = [
   { value: 'array', label: 'array []' },
 ];
 
+const DATA_TYPE_SELECT_OPTIONS: IconSelectOption<PropertyDataType>[] = UI_DATA_TYPES.map(
+  (t) => ({
+    value: t.value,
+    label: t.label,
+    icon:
+      t.value === 'array' ? (
+        <List className="h-4 w-4" />
+      ) : t.value === 'object' ? (
+        <Braces className="h-4 w-4" />
+      ) : t.value === 'boolean' ? (
+        <ToggleLeft className="h-4 w-4" />
+      ) : t.value === 'number' ? (
+        <Hash className="h-4 w-4" />
+      ) : t.value === 'timestamp' ? (
+        <Clock3 className="h-4 w-4" />
+      ) : (
+        <Type className="h-4 w-4" />
+      ),
+  })
+);
+
+const CONTEXT_SELECT_OPTIONS: IconSelectOption<PropertyContext>[] = CONTEXTS.map((c) => ({
+  value: c.value,
+  label: c.label,
+  icon:
+    c.value === 'user_property' ? (
+      <User className="h-4 w-4" />
+    ) : c.value === 'system_property' ? (
+      <Settings className="h-4 w-4" />
+    ) : (
+      <Zap className="h-4 w-4" />
+    ),
+}));
+
 /** Display labels for PropertyDataFormat chips (allowed values are fixed in schema + API validation). */
 const DATA_FORMAT_LABELS: Record<PropertyDataFormat, string> = {
   uuid: 'UUID',
@@ -71,15 +109,6 @@ const DATA_FORMAT_LABELS: Record<PropertyDataFormat, string> = {
   country_code: 'Country code',
   language_code: 'Language code',
 };
-
-function dataTypeIcon(t: PropertyDataType): React.ReactNode {
-  if (t === 'array') return <Brackets className="w-4 h-4" />;
-  if (t === 'object') return <Braces className="w-4 h-4" />;
-  if (t === 'boolean') return <ToggleLeft className="w-4 h-4" />;
-  if (t === 'number') return <Hash className="w-4 h-4" />;
-  if (t === 'timestamp') return <Clock3 className="w-4 h-4" />;
-  return <Type className="w-4 h-4" />;
-}
 
 function formatJson(value: unknown): string {
   return value === null || value === undefined ? '' : JSON.stringify(value, null, 2);
@@ -483,13 +512,62 @@ export function PropertyEditorSheet({
         )}
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Name</label>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Required</h3>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700" htmlFor="property-editor-name">
+            Name
+          </label>
           <Input
+            id="property-editor-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. user_id, checkout_completed"
             className="font-mono"
           />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700" id="property-value-type-label">
+            Property value type
+          </label>
+          <IconSelect<PropertyDataType>
+            value={dataType}
+            onChange={(next) => {
+              if (next) setDataType(next);
+            }}
+            options={DATA_TYPE_SELECT_OPTIONS}
+            disabled={isMutating}
+            aria-labelledby="property-value-type-label"
+            buttonClassName="font-mono"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700" id="property-context-label">
+            Context
+          </label>
+          <IconSelect<PropertyContext>
+            value={context}
+            onChange={(next) => {
+              if (next) setContext(next);
+            }}
+            options={CONTEXT_SELECT_OPTIONS}
+            disabled={isMutating}
+            aria-labelledby="property-context-label"
+          />
+          <p className="text-xs text-gray-500 leading-relaxed">
+            Workspace-wide definition. The same name may exist once per context (event vs user vs system). This is not
+            “variants”: there is no per-event override on this row—use separate property rows or event-level metadata
+            (e.g. event_properties) instead of overloading Context.
+          </p>
+        </div>
+
+        <hr className="border-gray-200" />
+
+        <div className="space-y-2">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Optional</h3>
         </div>
 
         <div className="space-y-2">
@@ -510,50 +588,6 @@ export function PropertyEditorSheet({
             onChange={(e) => setCategory(e.target.value)}
             placeholder="Optional grouping label"
           />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" id="property-value-type-label">
-            Property value type
-          </label>
-          <div className="relative">
-            <span
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none flex shrink-0"
-              aria-hidden
-            >
-              {dataTypeIcon(dataType)}
-            </span>
-            <select
-              value={dataType}
-              onChange={(e) => setDataType(e.target.value as PropertyDataType)}
-              aria-labelledby="property-value-type-label"
-              className="w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {UI_DATA_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Context</label>
-          <select
-            value={context}
-            onChange={(e) => setContext(e.target.value as PropertyContext)}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {CONTEXTS.map((c) => (
-              <option key={c.value} value={c.value}>{c.label}</option>
-            ))}
-          </select>
-          <p className="text-xs text-gray-500 leading-relaxed">
-            Workspace-wide definition. The same name may exist once per context (event vs user vs system). This is not
-            “variants”: there is no per-event override on this row—use separate property rows or event-level metadata
-            (e.g. event_properties) instead of overloading Context.
-          </p>
         </div>
 
         <div className="space-y-2">

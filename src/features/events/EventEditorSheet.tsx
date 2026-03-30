@@ -236,6 +236,7 @@ export function EventEditorSheet({
   const [triggerImageUploading, setTriggerImageUploading] = useState(false);
   const [triggerImageError, setTriggerImageError] = useState<string | null>(null);
   const [workspaceSources, setWorkspaceSources] = useState<SourceRow[]>([]);
+  const [selectedEventSourceIds, setSelectedEventSourceIds] = useState<string[]>([]);
   const [sourcesLoading, setSourcesLoading] = useState(false);
   const [sourcesError, setSourcesError] = useState<string | null>(null);
   const [isInlineSourceCreateOpen, setIsInlineSourceCreateOpen] = useState(false);
@@ -290,9 +291,11 @@ export function EventEditorSheet({
       setCategoriesText((result.event.categories ?? []).join(', '));
       setTagsText((result.event.tags ?? []).join(', '));
       setTriggers(sortTriggersForEditor(result.event.triggers ?? []));
+      setSelectedEventSourceIds(result.source_ids ?? []);
       setAttached(result.attached_properties);
       setVariants(result.variants ?? []);
     } else {
+      setSelectedEventSourceIds([]);
       setVariants([]);
     }
   }, [getEventWithProperties]);
@@ -314,6 +317,7 @@ export function EventEditorSheet({
       setCategoriesText('');
       setTagsText('');
       setTriggers([]);
+      setSelectedEventSourceIds([]);
       setAttached([]);
       setVariants([]);
     }
@@ -387,6 +391,7 @@ export function EventEditorSheet({
       categories: normalizeTokenList(categoriesText),
       tags: normalizeTokenList(tagsText),
       triggers: normalizedTriggers,
+      source_ids: selectedEventSourceIds,
     };
 
     const result = await createEvent(payload);
@@ -416,6 +421,7 @@ export function EventEditorSheet({
       categories: normalizeTokenList(categoriesText),
       tags: normalizeTokenList(tagsText),
       triggers: normalizedTriggers,
+      source_ids: selectedEventSourceIds,
     };
 
     const result = await updateEvent(currentEventId, payload);
@@ -658,10 +664,19 @@ export function EventEditorSheet({
     setWorkspaceSources((prev) =>
       [...prev, result.data].sort((a, b) => a.name.localeCompare(b.name))
     );
+    useStore.getState().upsertSourceFromApi(result.data);
     setTriggerDraft((prev) => ({ ...prev, source: result.data.name }));
     setCreateSourceName('');
     setCreateSourceError(null);
     setIsInlineSourceCreateOpen(false);
+  };
+
+  const toggleEventSourceId = (sourceId: string) => {
+    setSelectedEventSourceIds((prev) =>
+      prev.includes(sourceId)
+        ? prev.filter((id) => id !== sourceId)
+        : [...prev, sourceId]
+    );
   };
 
   const title = isCreateMode && !currentEventId
@@ -784,6 +799,42 @@ export function EventEditorSheet({
             placeholder="Comma-separated tags"
             disabled={saving}
           />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Sources</label>
+          <p className="text-xs text-gray-500">
+            Attach workspace sources to this event.
+          </p>
+          {sourcesError && (
+            <p className="text-xs text-red-600">{sourcesError}</p>
+          )}
+          {workspaceSources.length === 0 ? (
+            <p className="text-xs text-gray-500">
+              {sourcesLoading ? 'Loading sources…' : 'No workspace sources found.'}
+            </p>
+          ) : (
+            <div className="max-h-40 overflow-auto rounded-md border border-gray-200 bg-white divide-y divide-gray-100">
+              {workspaceSources.map((source) => {
+                const checked = selectedEventSourceIds.includes(source.id);
+                return (
+                  <label
+                    key={source.id}
+                    className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50"
+                  >
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300"
+                      checked={checked}
+                      onChange={() => toggleEventSourceId(source.id)}
+                      disabled={saving || !hasValidWorkspaceContext}
+                    />
+                    <span className="text-gray-800">{source.name}</span>
+                  </label>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">

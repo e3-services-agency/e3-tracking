@@ -33,6 +33,33 @@ router.get('/', requireWorkspace, async (req: Request, res: Response): Promise<v
   }
 });
 
+router.get('/usage', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
+  const workspaceId = req.workspaceId;
+  if (!workspaceId) {
+    res.status(403).json({
+      error: 'Workspace context required.',
+      code: 'WORKSPACE_REQUIRED',
+    });
+    return;
+  }
+  try {
+    const usage = await SourceDAL.getSourceUsage(workspaceId);
+    res.status(200).json(usage);
+  } catch (err) {
+    if (err instanceof DatabaseError) {
+      res.status(500).json({
+        error: err.message,
+        code: err.code,
+      });
+      return;
+    }
+    res.status(500).json({
+      error: 'An unexpected error occurred.',
+      code: 'INTERNAL_ERROR',
+    });
+  }
+});
+
 router.post('/', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
   const workspaceId = req.workspaceId;
   if (!workspaceId) {

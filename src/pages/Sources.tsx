@@ -6,17 +6,30 @@ import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { Search, Plus, Trash2 } from 'lucide-react';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
-import { listWorkspaceSources } from '@/src/features/events/lib/eventTriggerSourcesApi';
+import {
+  getWorkspaceSourceUsage,
+  listWorkspaceSources,
+  type SourceUsageSummary,
+} from '@/src/features/events/lib/eventTriggerSourcesApi';
 
 export function Sources() {
   const data = useActiveData();
   const { addSource, updateSource, deleteSource, syncSourcesFromApi } = useStore();
   const { activeWorkspaceId, hasValidWorkspaceContext } = useWorkspaceShell();
+  const [usageBySourceId, setUsageBySourceId] = useState<Record<string, SourceUsageSummary>>({});
 
   useEffect(() => {
     if (!hasValidWorkspaceContext || !activeWorkspaceId?.trim()) return;
     void listWorkspaceSources(activeWorkspaceId).then((r) => {
       if (r.success) syncSourcesFromApi(r.data);
+    });
+    void getWorkspaceSourceUsage(activeWorkspaceId).then((r) => {
+      if (!r.success) return;
+      const next: Record<string, SourceUsageSummary> = {};
+      for (const row of r.data) {
+        next[row.source_id] = row;
+      }
+      setUsageBySourceId(next);
     });
   }, [hasValidWorkspaceContext, activeWorkspaceId, syncSourcesFromApi]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,7 +89,9 @@ export function Sources() {
             </thead>
             <tbody className="divide-y">
               {filteredSources.map(source => {
-                const usedInCount = data.events.filter(e => e.sources.some(s => s.id === source.id)).length;
+                const usage = usageBySourceId[source.id];
+                const propertyCount = usage?.property_count ?? 0;
+                const eventCount = usage?.event_count ?? 0;
                 return (
                   <tr
                     key={source.id}
@@ -90,7 +105,7 @@ export function Sources() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-gray-500">
-                      {usedInCount} event{usedInCount !== 1 ? 's' : ''}
+                      Properties: {propertyCount} · Events: {eventCount}
                     </td>
                   </tr>
                 );

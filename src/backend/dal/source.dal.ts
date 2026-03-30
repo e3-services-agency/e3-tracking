@@ -154,3 +154,64 @@ export async function getSourceUsage(workspaceId: string): Promise<SourceUsageRo
     event_count: eventCounts.get(source_id) ?? 0,
   }));
 }
+
+/**
+ * Comma-separated source names per property (export HTML property table).
+ */
+export async function getPropertySourceLabelsByPropertyIds(
+  workspaceId: string,
+  propertyIds: string[]
+): Promise<Map<string, string>> {
+  const unique = [...new Set(propertyIds.filter((id) => typeof id === 'string' && id.length > 0))];
+  const out = new Map<string, string>();
+  if (unique.length === 0) return out;
+
+  const supabase = getSupabaseOrThrow();
+  const { data: links, error: linkErr } = await supabase
+    .from('property_sources')
+    .select('property_id, source_id')
+    .in('property_id', unique);
+  if (linkErr) {
+    throw new DatabaseError(`Failed to list property_sources: ${linkErr.message}`, linkErr);
+  }
+
+  const sourceIds = [
+    ...new Set((links ?? []).map((r: { source_id: string }) => r.source_id)),
+  ];
+  if (sourceIds.length === 0) {
+    for (const pid of unique) out.set(pid, '—');
+    return out;
+  }
+
+  const { data: sources, error: srcErr } = await supabase
+    .from('sources')
+    .select('id, name')
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null)
+    .in('id', sourceIds);
+  if (srcErr) {
+    throw new DatabaseError(`Failed to load sources: ${srcErr.message}`, srcErr);
+  }
+
+  const nameById = new Map(
+    (sources ?? []).map((s: { id: string; name: string }) => [s.id, s.name])
+  );
+  const namesByProp = new Map<string, string[]>();
+  for (const row of links ?? []) {
+    const r = row as { property_id: string; source_id: string };
+    const n = nameById.get(r.source_id);
+    if (!n) continue;
+    const arr = namesByProp.get(r.property_id) ?? [];
+    arr.push(n);
+    namesByProp.set(r.property_id, arr);
+  }
+
+  for (const pid of unique) {
+    const list = namesByProp.get(pid);
+    out.set(
+      pid,
+      list && list.length > 0 ? [...new Set(list)].sort().join(', ') : '—'
+    );
+  }
+  return out;
+}

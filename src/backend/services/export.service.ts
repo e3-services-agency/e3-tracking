@@ -7,6 +7,7 @@ import path from 'path';
 import * as JourneyDAL from '../dal/journey.dal';
 import { getEventWithProperties } from '../dal/event.dal';
 import type { EventPropertyWithDetails } from '../dal/event.dal';
+import { getPropertySourceLabelsByPropertyIds } from '../dal/source.dal';
 import type { EventPropertyPresence, PropertyExampleValue } from '../../types/schema';
 import { NotFoundError } from '../errors';
 import { isAttachedPropertyRequiredForTrigger } from '../../lib/effectiveEventSchema';
@@ -24,6 +25,15 @@ const CODEGEN_LABELS: Record<CodegenStyleId, string> = {
   bloomreachSdk: 'Bloomreach Web SDK',
   bloomreachApi: 'Bloomreach Tracking API',
 };
+
+/** Required column: canonical `isAttachedPropertyRequiredForTrigger` (true/false). */
+function propertyRequiredForTriggerCellHtml(required: boolean): string {
+  const v = required ? 'true' : 'false';
+  const cls = required
+    ? 'export-props-req export-props-req--yes export-props-trigger-primary'
+    : 'export-props-req export-props-req--no export-props-trigger-primary';
+  return `<span class="${cls}">${escapeHtml(v)}</span>`;
+}
 
 function sortPropertyRowsForExport(
   rows: EventPropertyWithDetails[],
@@ -302,7 +312,10 @@ function presenceLabel(presence: string | undefined): string {
   return '—';
 }
 
-function buildPropertyDetailsTable(attached: EventPropertyWithDetails[]): string {
+function buildPropertyDetailsTable(
+  attached: EventPropertyWithDetails[],
+  sourceLabelsByPropertyId: Map<string, string>
+): string {
   if (!attached || attached.length === 0) return '';
   const sorted = sortPropertyRowsForExport(attached);
   const rows = sorted
@@ -314,10 +327,20 @@ function buildPropertyDetailsTable(attached: EventPropertyWithDetails[]): string
       const exampleCell = formatPropertyExamplesForExportHtml(
         p.property_example_values_json ?? null
       );
+      const req = isAttachedPropertyRequiredForTrigger(
+        p.presence,
+        p.property_required_override
+      );
+      const requiredCell = propertyRequiredForTriggerCellHtml(req);
+      const sourceText = escapeHtml(
+        sourceLabelsByPropertyId.get(p.property_id) ?? '—'
+      );
       return `<tr>
   <td><code class="export-inline-code">${escapeHtml(p.property_name || '')}</code></td>
+  <td class="export-props-req-cell">${requiredCell}</td>
   <td class="export-props-presence-cell">${escapeHtml(presenceLabel((p as any).presence))}</td>
   <td class="export-props-type-cell">${typeLabel}</td>
+  <td class="export-props-source-cell">${sourceText}</td>
   <td class="export-props-example-cell">${exampleCell}</td>
   <td class="export-props-desc-cell">${desc}</td>
 </tr>`;
@@ -329,10 +352,12 @@ function buildPropertyDetailsTable(attached: EventPropertyWithDetails[]): string
     <table class="export-props-table">
       <thead>
         <tr>
-          <th>Property</th>
+          <th>Name</th>
+          <th>Required</th>
           <th>Presence</th>
           <th>Type</th>
-          <th>Example</th>
+          <th>Source</th>
+          <th>Example Value</th>
           <th>Description</th>
         </tr>
       </thead>
@@ -362,6 +387,7 @@ export interface StepExportItem {
     alwaysSent: string[];
     sometimesSent: string[];
     attached_properties: EventPropertyWithDetails[];
+    sourceLabelsByPropertyId: Map<string, string>;
   }[];
 }
 
@@ -414,6 +440,7 @@ export async function generateJourneyHtmlExport(
       alwaysSent: string[];
       sometimesSent: string[];
       attached_properties: EventPropertyWithDetails[];
+      sourceLabelsByPropertyId: Map<string, string>;
     }
   >();
 
@@ -436,12 +463,25 @@ export async function generateJourneyHtmlExport(
             eventId
           );
           const doc = buildPayloadDoc(attached_properties);
+          let sourceLabelsByPropertyId = new Map<string, string>();
+          try {
+            sourceLabelsByPropertyId = await getPropertySourceLabelsByPropertyIds(
+              workspaceId,
+              attached_properties.map((p) => p.property_id)
+            );
+          } catch (srcErr) {
+            console.error(
+              '[export] getPropertySourceLabelsByPropertyIds failed; Source column will show —.',
+              srcErr
+            );
+          }
           cached = {
             eventName: event.name,
             jsonExample: doc.jsonExample,
             alwaysSent: doc.alwaysSent,
             sometimesSent: doc.sometimesSent,
             attached_properties,
+            sourceLabelsByPropertyId,
           };
           eventPayloadCache.set(eventId, cached);
         } catch {
@@ -451,6 +491,7 @@ export async function generateJourneyHtmlExport(
             alwaysSent: [],
             sometimesSent: [],
             attached_properties: [],
+            sourceLabelsByPropertyId: new Map(),
           };
           eventPayloadCache.set(eventId, cached);
         }
@@ -462,6 +503,7 @@ export async function generateJourneyHtmlExport(
         alwaysSent: cached.alwaysSent,
         sometimesSent: cached.sometimesSent,
         attached_properties: cached.attached_properties,
+        sourceLabelsByPropertyId: cached.sourceLabelsByPropertyId,
       });
     }
 
@@ -636,7 +678,10 @@ export async function generateJourneyHtmlExport(
               t.alwaysSent.length > 0 || t.sometimesSent.length > 0
                 ? `<div class="export-presence-note"><strong>Always Sent:</strong> ${t.alwaysSent.length ? escapeHtml(t.alwaysSent.join(', ')) : '—'} &nbsp;|&nbsp; <strong>Sometimes Sent:</strong> ${t.sometimesSent.length ? escapeHtml(t.sometimesSent.join(', ')) : '—'}</div>`
                 : '';
-            const propsTable = buildPropertyDetailsTable((t as any).attached_properties || []);
+            const propsTable = buildPropertyDetailsTable(
+              (t as any).attached_properties || [],
+              (t as any).sourceLabelsByPropertyId ?? new Map()
+            );
             const highlightedSnippet = highlightCodeToHtml(
               snippets[preferredCodegenStyle],
               codegenLanguageForStyle(preferredCodegenStyle)
@@ -1043,30 +1088,47 @@ export async function generateJourneyHtmlExport(
     }
     .export-props-table th:nth-child(2),
     .export-props-table td:nth-child(2) {
-      min-width: 88px;
-      max-width: 120px;
+      min-width: 72px;
+      max-width: 96px;
+      text-align: center;
     }
     .export-props-table th:nth-child(3),
     .export-props-table td:nth-child(3) {
-      min-width: 120px;
-      max-width: 240px;
+      min-width: 88px;
+      max-width: 120px;
     }
     .export-props-table th:nth-child(4),
     .export-props-table td:nth-child(4) {
       min-width: 120px;
-      max-width: 320px;
+      max-width: 220px;
     }
     .export-props-table th:nth-child(5),
     .export-props-table td:nth-child(5) {
-      min-width: 200px;
+      min-width: 100px;
+      max-width: 200px;
+    }
+    .export-props-table th:nth-child(6),
+    .export-props-table td:nth-child(6) {
+      min-width: 120px;
+      max-width: 280px;
+    }
+    .export-props-table th:nth-child(7),
+    .export-props-table td:nth-child(7) {
+      min-width: 180px;
       max-width: 380px;
     }
+    .export-props-req { font-weight: 600; font-size: 0.8rem; }
+    .export-props-trigger-primary { font-size: 0.88rem; line-height: 1.25; display: inline-block; }
+    .export-props-req--yes { color: #059669; }
+    .export-props-req--no { color: #64748b; }
+    .export-props-req--unset { color: #94a3b8; font-weight: 500; }
     .export-props-table .export-props-presence-cell { white-space: nowrap; }
     .export-props-table .export-props-type-cell {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 0.8rem;
       color: #334155;
     }
+    .export-props-table .export-props-source-cell { font-size: 0.82rem; color: #475569; }
     .export-props-table .export-props-example-cell { hyphens: auto; font-size: 0.82rem; color: #475569; }
     .export-props-table .export-props-desc-cell { hyphens: auto; }
     .export-props-table th {

@@ -10,16 +10,23 @@
 import type {
   CodegenEventNameOverrides,
   EventPropertyPresence,
+  ObjectChildFieldSnapshot,
   PropertyDataFormat,
   PropertyExampleValue,
+  PropertyValueSchema,
 } from '../../types/schema';
 
 export interface AttachedPropertyForCodegen {
   property_name: string;
   presence: EventPropertyPresence;
+  /** Catalog property id (attached row); used for nested resolution. */
+  property_id?: string;
   property_data_type?: string | null;
   property_data_formats?: string[] | null;
   property_example_values_json?: PropertyExampleValue[] | null;
+  property_value_schema_json?: PropertyValueSchema | null;
+  property_object_child_property_refs_json?: Record<string, string> | null;
+  object_child_snapshots_by_field?: Record<string, ObjectChildFieldSnapshot> | null;
 }
 
 export interface CodegenSnippets {
@@ -60,10 +67,17 @@ export function jsonSampleValueForProperty(p: AttachedPropertyForCodegen): unkno
   const dt = (p.property_data_type || 'string').toLowerCase();
   const fmts = p.property_data_formats ?? [];
 
+  if (dt === 'object') {
+    const nested = buildNestedObjectSampleFromSnapshots(p);
+    if (nested !== undefined) {
+      return nested;
+    }
+    return {};
+  }
+
   if (dt === 'number') return 123;
   if (dt === 'boolean') return true;
   if (dt === 'array') return [];
-  if (dt === 'object') return {};
   if (dt === 'timestamp') {
     return '2025-01-01T00:00:00.000Z';
   }
@@ -82,19 +96,95 @@ export function jsonSampleValueForProperty(p: AttachedPropertyForCodegen): unkno
   return 'string';
 }
 
+function buildNestedObjectSampleFromSnapshots(
+  p: AttachedPropertyForCodegen
+): Record<string, unknown> | undefined {
+  const schema = p.property_value_schema_json;
+  const snaps = p.object_child_snapshots_by_field;
+  if (!schema || schema.type !== 'object' || !schema.properties || !snaps) {
+    return undefined;
+  }
+
+  const out: Record<string, unknown> = {};
+  for (const [key] of Object.entries(schema.properties)) {
+    const snap = snaps[key];
+    if (!snap) {
+      continue;
+    }
+    if (snap.missing) {
+      out[key] = null;
+      continue;
+    }
+    if (snap.cycle_break) {
+      out[key] = {};
+      continue;
+    }
+    const childAttached: AttachedPropertyForCodegen = {
+      property_name: key,
+      presence: 'always_sent',
+      property_id: snap.property_id,
+      property_data_type: snap.property_data_type ?? null,
+      property_data_formats: snap.property_data_formats ?? null,
+      property_example_values_json: snap.property_example_values_json ?? null,
+      property_value_schema_json: snap.property_value_schema_json ?? null,
+      property_object_child_property_refs_json: snap.property_object_child_property_refs_json ?? null,
+      object_child_snapshots_by_field: snap.object_child_snapshots_by_field ?? null,
+    };
+    out[key] = jsonSampleValueForProperty(childAttached);
+  }
+  return out;
+}
+
 /**
  * JS/TS literal text for object property values in dataLayer / SDK snippets.
  */
-function jsLiteralForSample(value: unknown): string {
+function jsLiteralForSample(value: unknown, indent: string = '  '): string {
   if (value === null) return 'null';
   if (value === undefined) return 'undefined';
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   if (typeof value === 'string') {
     return JSON.stringify(value);
   }
-  if (Array.isArray(value)) return '[]';
-  if (typeof value === 'object') return '{}';
+  if (Array.isArray(value)) {
+    return JSON.stringify(value);
+  }
+  if (typeof value === 'object') {
+    const o = value as Record<string, unknown>;
+    const keys = Object.keys(o);
+    if (keys.length === 0) return '{}';
+    const innerIndent = indent + '  ';
+    const lines = keys.map(
+      (k) => `${innerIndent}${k}: ${jsLiteralForSample(o[k], innerIndent)}`
+    );
+    return `{\n${lines.join(',\n')}\n${indent}}`;
+  }
   return JSON.stringify(String(value));
+}
+
+function formatJsObjectBodyFromSchema(
+  schema: PropertyValueSchema,
+  value: Record<string, unknown>,
+  baseIndent: string
+): string[] {
+  const props = schema.properties ?? {};
+  const keys = Object.keys(props);
+  const requiredKeys = keys.filter((k) => props[k]?.required !== false);
+  const optionalKeys = keys.filter((k) => props[k]?.required === false);
+
+  const lines: string[] = [];
+  const inner = `${baseIndent}  `;
+  for (const k of requiredKeys) {
+    if (!Object.prototype.hasOwnProperty.call(value, k)) continue;
+    lines.push(`${inner}${k}: ${jsLiteralForSample(value[k], inner)},`);
+  }
+  if (optionalKeys.length > 0) {
+    lines.push(`${inner}// Optional:`);
+    for (const k of optionalKeys) {
+      if (!Object.prototype.hasOwnProperty.call(value, k)) continue;
+      lines.push(`${inner}${k}: ${jsLiteralForSample(value[k], inner)},`);
+    }
+  }
+  return lines;
 }
 
 /**
@@ -145,15 +235,41 @@ export function buildCodegenSnippetsFromPresence(
   return buildCodegenSnippets(eventName, attached, overrides);
 }
 
-function formatPropLine(
+function formatPropLines(
   p: AttachedPropertyForCodegen,
   optional: boolean
-): { comment?: string; line: string } {
+): { comment?: string; lines: string[] } {
+  const useNested =
+    p.property_data_type === 'object' &&
+    p.property_value_schema_json?.type === 'object' &&
+    p.property_value_schema_json.properties &&
+    p.object_child_snapshots_by_field &&
+    Object.keys(p.object_child_snapshots_by_field).length > 0;
+
+  if (useNested) {
+    const sample = jsonSampleValueForProperty(p);
+    if (sample && typeof sample === 'object' && !Array.isArray(sample)) {
+      const bodyLines = formatJsObjectBodyFromSchema(
+        p.property_value_schema_json!,
+        sample as Record<string, unknown>,
+        '  '
+      );
+      const lines: string[] = [];
+      if (optional) {
+        lines.push('  // Optional:');
+      }
+      lines.push(`  ${p.property_name}: {`);
+      lines.push(...bodyLines);
+      lines.push(`  },`);
+      return { lines };
+    }
+  }
+
   const sample = jsonSampleValueForProperty(p);
   const lit = jsLiteralForSample(sample);
   const line = `  ${p.property_name}: ${lit}`;
-  if (optional) return { comment: '  // Optional:', line };
-  return { line };
+  if (optional) return { comment: '  // Optional:', lines: [line + ','] };
+  return { lines: [line + ','] };
 }
 
 function buildDataLayerSnippet(
@@ -168,9 +284,9 @@ function buildDataLayerSnippet(
     `  event: '${eventName}',`,
   ];
   for (const p of props) {
-    const { comment, line } = formatPropLine(p, p.presence === 'sometimes_sent');
+    const { comment, lines: propLines } = formatPropLines(p, p.presence === 'sometimes_sent');
     if (comment) lines.push(comment);
-    lines.push(line + ',');
+    lines.push(...propLines);
   }
   lines.push('});');
   return lines.join('\n');
@@ -184,9 +300,9 @@ function buildBloomreachSdkSnippet(
   const eventName = resolveOutputEventName(canonicalEventName, 'bloomreachSdk', overrides);
   const lines: string[] = [`exponea.track('${eventName}', {`];
   for (const p of props) {
-    const { comment, line } = formatPropLine(p, p.presence === 'sometimes_sent');
+    const { comment, lines: propLines } = formatPropLines(p, p.presence === 'sometimes_sent');
     if (comment) lines.push(comment);
-    lines.push(line + ',');
+    lines.push(...propLines);
   }
   lines.push('});');
   return lines.join('\n');

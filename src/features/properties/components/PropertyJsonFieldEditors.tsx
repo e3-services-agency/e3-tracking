@@ -305,6 +305,12 @@ export type PropertyValueSchemaEditorProps = {
   value: PropertyValueSchema | null;
   onChange: (value: PropertyValueSchema | null) => void;
   disabled?: boolean;
+  /** Maps object field keys to workspace property ids (object parent only). */
+  objectChildRefs?: Record<string, string>;
+  onObjectChildRefsChange?: (next: Record<string, string>) => void;
+  linkPropertyOptions?: { id: string; name: string }[];
+  /** When editing, exclude this property id from link targets (no self-reference). */
+  excludePropertyId?: string | null;
 };
 
 export function PropertyValueSchemaEditor({
@@ -312,6 +318,10 @@ export function PropertyValueSchemaEditor({
   value,
   onChange,
   disabled,
+  objectChildRefs = {},
+  onObjectChildRefsChange,
+  linkPropertyOptions = [],
+  excludePropertyId = null,
 }: PropertyValueSchemaEditorProps) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [advancedText, setAdvancedText] = useState('');
@@ -416,6 +426,15 @@ export function PropertyValueSchemaEditor({
                         ...value,
                         properties: { ...rest, [nk]: v },
                       });
+                      if (onObjectChildRefsChange) {
+                        const rid = objectChildRefs[key];
+                        if (rid !== undefined) {
+                          const next = { ...objectChildRefs };
+                          delete next[key];
+                          next[nk] = rid;
+                          onObjectChildRefsChange(next);
+                        }
+                      }
                     }}
                     onChildChange={(next) => {
                       if (!value || value.type !== 'object' || !value.properties) return;
@@ -431,7 +450,25 @@ export function PropertyValueSchemaEditor({
                         ...value,
                         properties: Object.keys(rest).length > 0 ? rest : {},
                       });
+                      if (onObjectChildRefsChange && objectChildRefs[key] !== undefined) {
+                        const next = { ...objectChildRefs };
+                        delete next[key];
+                        onObjectChildRefsChange(next);
+                      }
                     }}
+                    objectChildRefId={objectChildRefs[key]}
+                    onObjectChildRefChange={(id) => {
+                      if (!onObjectChildRefsChange) return;
+                      const next = { ...objectChildRefs };
+                      if (!id) {
+                        delete next[key];
+                      } else {
+                        next[key] = id;
+                      }
+                      onObjectChildRefsChange(next);
+                    }}
+                    linkPropertyOptions={linkPropertyOptions}
+                    excludePropertyId={excludePropertyId}
                     disabled={disabled}
                   />
                 ))}
@@ -530,6 +567,10 @@ function ObjectRootFieldRow({
   onRename,
   onChildChange,
   onRemove,
+  objectChildRefId,
+  onObjectChildRefChange,
+  linkPropertyOptions,
+  excludePropertyId,
   disabled,
 }: {
   fieldKey: string;
@@ -537,8 +578,19 @@ function ObjectRootFieldRow({
   onRename: (next: string) => void;
   onChildChange: (n: PropertyValueSchemaNode) => void;
   onRemove: () => void;
+  objectChildRefId?: string;
+  onObjectChildRefChange?: (id: string | null) => void;
+  linkPropertyOptions?: { id: string; name: string }[];
+  excludePropertyId?: string | null;
   disabled?: boolean;
 }) {
+  const pickerOptions = useMemo(
+    () =>
+      (linkPropertyOptions ?? []).filter(
+        (o) => !excludePropertyId || o.id !== excludePropertyId
+      ),
+    [linkPropertyOptions, excludePropertyId]
+  );
   return (
     <div className="rounded border border-gray-200 bg-white p-2 space-y-2">
       <div className="flex gap-2 items-start">
@@ -564,6 +616,28 @@ function ObjectRootFieldRow({
         </Button>
       </div>
       <SchemaNodeEditor node={child} onChange={onChildChange} depth={0} disabled={disabled} />
+      {onObjectChildRefChange && pickerOptions.length > 0 && (
+        <div>
+          <label className="text-[10px] text-gray-500">Canonical property (nested field)</label>
+          <select
+            className="mt-0.5 w-full rounded-md border border-input bg-white px-2 py-1.5 text-xs"
+            value={objectChildRefId ?? ''}
+            onChange={(e) => {
+              const v = e.target.value.trim();
+              onObjectChildRefChange(v ? v : null);
+            }}
+            disabled={disabled}
+            aria-label={`Link field ${fieldKey} to workspace property`}
+          >
+            <option value="">— None —</option>
+            {pickerOptions.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   );
 }

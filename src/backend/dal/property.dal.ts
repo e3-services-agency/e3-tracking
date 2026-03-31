@@ -19,7 +19,7 @@ import {
   PROPERTY_DATA_FORMATS,
   PROPERTY_DATA_TYPES,
 } from '../../types/schema';
-import { ConflictError, DatabaseError, NotFoundError } from '../errors';
+import { BadRequestError, ConflictError, DatabaseError, NotFoundError } from '../errors';
 
 const UNIQUE_VIOLATION_CODE = '23505';
 
@@ -38,6 +38,7 @@ export type PropertyUpdateInput = Partial<
     | 'data_type'
     | 'data_formats'
     | 'value_schema_json'
+    | 'object_child_property_refs_json'
     | 'example_values_json'
     | 'name_mappings_json'
   >
@@ -192,6 +193,7 @@ type PropertyDbRow = {
   data_type: PropertyDataType;
   data_formats_json?: unknown | null;
   value_schema_json?: unknown | null;
+  object_child_property_refs_json?: unknown | null;
   example_values_json?: unknown | null;
   name_mappings_json?: unknown | null;
   created_at: string;
@@ -399,6 +401,99 @@ function toDbJsonValue(value: unknown): unknown | null {
   return value;
 }
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * Normalizes object field key → property id map. Invalid entries are dropped.
+ * Exported for API routes and event DAL.
+ */
+export function normalizeObjectChildPropertyRefs(raw: unknown): Record<string, string> | null {
+  if (raw === undefined || raw === null || raw === '') {
+    return null;
+  }
+  if (!isRecord(raw)) {
+    return null;
+  }
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const key = k.trim();
+    if (!key) {
+      continue;
+    }
+    if (typeof v !== 'string') {
+      continue;
+    }
+    const id = v.trim();
+    if (!UUID_RE.test(id)) {
+      continue;
+    }
+    out[key] = id;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+async function assertObjectChildRefsValid(
+  workspaceId: string,
+  refs: Record<string, string> | null,
+  selfPropertyId: string | undefined,
+  valueSchema: PropertyValueSchema | null,
+  dataType: PropertyDataType
+): Promise<void> {
+  if (dataType !== 'object') {
+    if (refs && Object.keys(refs).length > 0) {
+      throw new BadRequestError(
+        'object_child_property_refs_json is only for object-type properties.',
+        'object_child_property_refs_json'
+      );
+    }
+    return;
+  }
+  if (!refs || Object.keys(refs).length === 0) {
+    return;
+  }
+
+  for (const id of Object.values(refs)) {
+    if (selfPropertyId && id === selfPropertyId) {
+      throw new BadRequestError(
+        'object_child_property_refs_json cannot reference the same property.',
+        'object_child_property_refs_json'
+      );
+    }
+  }
+
+  if (valueSchema?.type === 'object' && valueSchema.properties) {
+    for (const key of Object.keys(refs)) {
+      if (!valueSchema.properties[key]) {
+        throw new BadRequestError(
+          `object_child_property_refs_json key "${key}" has no matching value_schema_json.properties entry.`,
+          'object_child_property_refs_json'
+        );
+      }
+    }
+  }
+
+  const ids = [...new Set(Object.values(refs))];
+  const supabase = getSupabaseOrThrow();
+  const { data, error } = await supabase
+    .from('properties')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .in('id', ids)
+    .is('deleted_at', null);
+
+  if (error) {
+    throw new DatabaseError(`Failed to validate child property refs: ${error.message}`, error);
+  }
+  const found = new Set((data ?? []).map((r: { id: string }) => r.id));
+  if (found.size !== ids.length) {
+    throw new BadRequestError(
+      'One or more object_child_property_refs_json ids do not exist in this workspace.',
+      'object_child_property_refs_json'
+    );
+  }
+}
+
 function mapPropertyRow(row: PropertyDbRow): PropertyRow {
   return {
     id: row.id,
@@ -411,6 +506,9 @@ function mapPropertyRow(row: PropertyDbRow): PropertyRow {
     data_type: PROPERTY_DATA_TYPES.includes(row.data_type) ? row.data_type : 'string',
     data_formats: normalizeDataFormats(row.data_formats_json),
     value_schema_json: normalizePropertyValueSchema(row.value_schema_json),
+    object_child_property_refs_json: normalizeObjectChildPropertyRefs(
+      row.object_child_property_refs_json
+    ),
     example_values_json: normalizeExampleValues(row.example_values_json),
     name_mappings_json: normalizeNameMappings(row.name_mappings_json),
     created_at: row.created_at,
@@ -420,6 +518,14 @@ function mapPropertyRow(row: PropertyDbRow): PropertyRow {
     mapped_catalog_field_id: row.mapped_catalog_field_id ?? null,
     mapping_type: row.mapping_type ?? null,
   };
+}
+
+/** Maps a Supabase `properties` row to {@link PropertyRow} (for event DAL closure loads). */
+export function mapPropertyDbRowToRow(row: unknown): PropertyRow | null {
+  if (!row || typeof row !== 'object') {
+    return null;
+  }
+  return mapPropertyRow(row as PropertyDbRow);
 }
 
 /**
@@ -484,6 +590,17 @@ export async function createProperty(
     await validateSourceIdsInWorkspace(workspaceId, sourceIds);
   }
 
+  const normalizedChildRefs = normalizeObjectChildPropertyRefs(
+    propertyRowInput.object_child_property_refs_json
+  );
+  await assertObjectChildRefsValid(
+    workspaceId,
+    normalizedChildRefs,
+    undefined,
+    propertyRowInput.value_schema_json ?? null,
+    propertyRowInput.data_type
+  );
+
   const row: Record<string, unknown> = {
     workspace_id: workspaceId,
     context: propertyRowInput.context,
@@ -494,6 +611,7 @@ export async function createProperty(
     data_type: propertyRowInput.data_type,
     data_formats_json: toDbJsonValue(propertyRowInput.data_formats),
     value_schema_json: toDbJsonValue(propertyRowInput.value_schema_json),
+    object_child_property_refs_json: toDbJsonValue(normalizedChildRefs),
     example_values_json: toDbJsonValue(propertyRowInput.example_values_json),
     name_mappings_json: toDbJsonValue(propertyRowInput.name_mappings_json),
     deleted_at: null,
@@ -563,9 +681,9 @@ export async function updateProperty(
   const supabase = getSupabaseOrThrow();
   const sourceIdsUpdate =
     Object.prototype.hasOwnProperty.call(updates, 'source_ids') ? updates.source_ids : undefined;
-  const { data: existing, error: fetchErr } = await supabase
+  const { data: existingRow, error: fetchErr } = await supabase
     .from('properties')
-    .select('id')
+    .select('*')
     .eq('id', propertyId)
     .eq('workspace_id', workspaceId)
     .is('deleted_at', null)
@@ -574,9 +692,11 @@ export async function updateProperty(
   if (fetchErr) {
     throw new DatabaseError(`Failed to fetch property: ${fetchErr.message}`, fetchErr);
   }
-  if (!existing) {
+  if (!existingRow) {
     throw new NotFoundError('Property not found.', 'property');
   }
+
+  const existing = mapPropertyRow(existingRow as PropertyDbRow);
 
   const patch: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
@@ -609,6 +729,36 @@ export async function updateProperty(
   }
   if (updates.mapping_type !== undefined) {
     patch.mapping_type = updates.mapping_type ?? null;
+  }
+
+  const mergedDataType = (updates.data_type !== undefined
+    ? updates.data_type
+    : existing.data_type) as PropertyDataType;
+  const mergedSchema =
+    updates.value_schema_json !== undefined
+      ? updates.value_schema_json
+      : existing.value_schema_json;
+  let mergedRefs = existing.object_child_property_refs_json;
+  if (updates.object_child_property_refs_json !== undefined) {
+    mergedRefs = normalizeObjectChildPropertyRefs(updates.object_child_property_refs_json);
+  }
+  if (mergedDataType !== 'object' || mergedSchema === null) {
+    mergedRefs = null;
+  }
+  await assertObjectChildRefsValid(
+    workspaceId,
+    mergedRefs,
+    propertyId,
+    mergedSchema,
+    mergedDataType
+  );
+
+  const refsAffected =
+    updates.object_child_property_refs_json !== undefined ||
+    updates.data_type !== undefined ||
+    updates.value_schema_json !== undefined;
+  if (refsAffected) {
+    patch.object_child_property_refs_json = toDbJsonValue(mergedRefs);
   }
 
   const { data, error } = await supabase

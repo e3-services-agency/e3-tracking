@@ -564,9 +564,14 @@ router.get('/:id/codegen', requireWorkspace, async (req: Request, res: Response)
     const attached = attached_properties.map((p) => ({
       property_name: p.property_name || '',
       presence: p.presence,
+      property_id: p.property_id,
       property_data_type: p.property_data_type,
       property_data_formats: p.property_data_formats,
       property_example_values_json: p.property_example_values_json,
+      property_value_schema_json: p.property_value_schema_json ?? null,
+      property_object_child_property_refs_json:
+        p.property_object_child_property_refs_json ?? null,
+      object_child_snapshots_by_field: p.object_child_snapshots_by_field ?? null,
     }));
     const snippets = buildCodegenSnippets(
       event.name,

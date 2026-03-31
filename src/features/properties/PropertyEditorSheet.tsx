@@ -125,6 +125,8 @@ export interface PropertyEditorSheetProps {
   onClose: () => void;
   /** When set, sheet is in edit mode and uses updateProperty. */
   initialProperty?: PropertyRow | null;
+  /** Workspace catalog list for linking object fields to existing properties. */
+  workspaceProperties?: PropertyRow[];
   createProperty: (payload: CreatePropertyInput) => Promise<
     | { success: true; data: unknown }
     | { success: false; error: ApiError }
@@ -145,6 +147,7 @@ export function PropertyEditorSheet({
   isOpen,
   onClose,
   initialProperty,
+  workspaceProperties = [],
   createProperty,
   updateProperty,
   deleteProperty,
@@ -165,6 +168,7 @@ export function PropertyEditorSheet({
   const [pii, setPii] = useState(false);
   const [dataFormats, setDataFormats] = useState<PropertyDataFormat[]>([]);
   const [valueSchemaDraft, setValueSchemaDraft] = useState<PropertyValueSchema | null>(null);
+  const [objectChildRefsDraft, setObjectChildRefsDraft] = useState<Record<string, string>>({});
   const [exampleValuesDraft, setExampleValuesDraft] = useState<PropertyExampleValue[]>([]);
   const [nameMappingsDraft, setNameMappingsDraft] = useState<PropertyNameMapping[]>([]);
   const [saving, setSaving] = useState(false);
@@ -214,6 +218,11 @@ export function PropertyEditorSheet({
         setPii(initialProperty.pii);
         setDataFormats(initialProperty.data_formats ?? []);
         setValueSchemaDraft(initialProperty.value_schema_json ?? null);
+        setObjectChildRefsDraft(
+          initialProperty.object_child_property_refs_json
+            ? { ...initialProperty.object_child_property_refs_json }
+            : {}
+        );
         setExampleValuesDraft(initialProperty.example_values_json ?? []);
         setNameMappingsDraft(initialProperty.name_mappings_json ?? []);
         setMappingEnabled(Boolean(initialProperty.mapped_catalog_id && initialProperty.mapped_catalog_field_id));
@@ -242,6 +251,7 @@ export function PropertyEditorSheet({
         setPii(false);
         setDataFormats([]);
         setValueSchemaDraft(null);
+        setObjectChildRefsDraft({});
         setExampleValuesDraft([]);
         setNameMappingsDraft([]);
         setMappingEnabled(false);
@@ -252,6 +262,24 @@ export function PropertyEditorSheet({
       }
     }
   }, [isOpen, clearMutationError, initialProperty, fetchCatalogFields]);
+
+  useEffect(() => {
+    if (!valueSchemaDraft || valueSchemaDraft.type !== 'object' || !valueSchemaDraft.properties) {
+      return;
+    }
+    const keys = new Set(Object.keys(valueSchemaDraft.properties));
+    setObjectChildRefsDraft((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const k of Object.keys(next)) {
+        if (!keys.has(k)) {
+          delete next[k];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [valueSchemaDraft]);
 
   useEffect(() => {
     if (mappedCatalogId) {
@@ -382,6 +410,19 @@ export function PropertyEditorSheet({
     const value_schema_json =
       dataType === 'object' || dataType === 'array' ? valueSchemaDraft : null;
 
+    const object_child_property_refs_json = ((): Record<string, string> | null => {
+      if (dataType !== 'object') return null;
+      const props = valueSchemaDraft?.type === 'object' ? valueSchemaDraft.properties : undefined;
+      if (!props) return null;
+      const out: Record<string, string> = {};
+      const selfId = initialProperty?.id;
+      for (const key of Object.keys(props)) {
+        const id = objectChildRefsDraft[key]?.trim();
+        if (id && id !== selfId) out[key] = id;
+      }
+      return Object.keys(out).length > 0 ? out : null;
+    })();
+
     const flushExamples = exampleValuesEditorRef.current?.flushPendingForSave();
     if (flushExamples && !flushExamples.ok) {
       setEditorError(flushExamples.error);
@@ -437,6 +478,7 @@ export function PropertyEditorSheet({
       data_type: dataType,
       data_formats: dataFormats.length > 0 ? dataFormats : null,
       value_schema_json,
+      object_child_property_refs_json,
       example_values_json,
       name_mappings_json,
       mapped_catalog_id: null,
@@ -651,6 +693,10 @@ export function PropertyEditorSheet({
             value={valueSchemaDraft}
             onChange={setValueSchemaDraft}
             disabled={isMutating}
+            objectChildRefs={objectChildRefsDraft}
+            onObjectChildRefsChange={setObjectChildRefsDraft}
+            linkPropertyOptions={workspaceProperties.map((p) => ({ id: p.id, name: p.name }))}
+            excludePropertyId={initialProperty?.id ?? null}
           />
         </div>
 

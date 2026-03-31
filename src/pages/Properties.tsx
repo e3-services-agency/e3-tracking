@@ -95,6 +95,7 @@ export function Properties() {
         isOpen={isNewPropertySheetOpen}
         onClose={handleCloseApiPropertySheet}
         initialProperty={apiPropertyEditId ? apiProperties.find((p) => p.id === apiPropertyEditId) ?? null : null}
+        workspaceProperties={apiProperties}
         createProperty={createProperty}
         updateProperty={updateProperty}
         deleteProperty={deleteProperty}

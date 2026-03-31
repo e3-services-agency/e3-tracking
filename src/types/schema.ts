@@ -223,6 +223,11 @@ export interface PropertyRow {
   data_type: PropertyDataType;
   data_formats: PropertyDataFormat[] | null;
   value_schema_json: PropertyValueSchema | null;
+  /**
+   * When `data_type` is `object`: maps keys in `value_schema_json.properties` to existing
+   * workspace property ids (canonical registry). Used only for nested docs/export/codegen.
+   */
+  object_child_property_refs_json: Record<string, string> | null;
   example_values_json: PropertyExampleValue[] | null;
   name_mappings_json: PropertyNameMapping[] | null;
   created_at: string;
@@ -245,6 +250,7 @@ export type CreatePropertyInput = Pick<
   | 'data_type'
   | 'data_formats'
   | 'value_schema_json'
+  | 'object_child_property_refs_json'
   | 'example_values_json'
   | 'name_mappings_json'
   | 'mapped_catalog_id'
@@ -524,6 +530,26 @@ export interface PropertyValueSchema {
   properties?: Record<string, PropertyValueSchemaNode>;
   items?: PropertyValueSchemaNode;
   allow_additional_properties?: boolean;
+}
+
+/**
+ * Resolved nested field for a parent object property (docs/export/codegen). Children remain
+ * canonical `PropertyRow` entities; this is a read-only snapshot for rendering.
+ */
+export interface ObjectChildFieldSnapshot {
+  property_id: string;
+  property_name: string;
+  property_description?: string | null;
+  property_data_type?: PropertyDataType | null;
+  property_data_formats?: PropertyDataFormat[] | null;
+  property_example_values_json?: PropertyExampleValue[] | null;
+  property_value_schema_json?: PropertyValueSchema | null;
+  property_object_child_property_refs_json?: Record<string, string> | null;
+  object_child_snapshots_by_field?: Record<string, ObjectChildFieldSnapshot> | null;
+  /** Referenced property row was deleted or not in workspace. */
+  missing?: boolean;
+  /** Stopped recursion to avoid a cycle in object ref graph. */
+  cycle_break?: boolean;
 }
 
 export interface PropertyExampleValue {

@@ -7,7 +7,7 @@ import { requireWorkspace } from '../middleware/workspace';
 import { createAuditValidator } from '../middleware/auditValidator';
 import { getWorkspaceSettings } from '../dal/workspace.dal';
 import * as PropertyDAL from '../dal/property.dal';
-import { ConflictError, DatabaseError, NotFoundError } from '../errors';
+import { BadRequestError, ConflictError, DatabaseError, NotFoundError } from '../errors';
 import type {
   CreatePropertyInput,
   PropertyContext,
@@ -452,6 +452,11 @@ function buildCreatePropertyInput(
       data_type: dataType.value,
       data_formats: dataFormats.value ?? null,
       value_schema_json: valueSchema.value ?? null,
+      object_child_property_refs_json: PropertyDAL.normalizeObjectChildPropertyRefs(
+        body.object_child_property_refs_json !== undefined
+          ? body.object_child_property_refs_json
+          : null
+      ),
       example_values_json: exampleValues.value ?? null,
       name_mappings_json: nameMappings.value ?? null,
       mapped_catalog_id:
@@ -610,6 +615,12 @@ function buildUpdatePropertyInput(
     updates.mapping_type = body.mapping_type as PropertyMappingType | null;
   }
 
+  if (body.object_child_property_refs_json !== undefined) {
+    updates.object_child_property_refs_json = PropertyDAL.normalizeObjectChildPropertyRefs(
+      body.object_child_property_refs_json
+    );
+  }
+
   if (Object.prototype.hasOwnProperty.call(body, 'source_ids')) {
     const parsed = parseSourceIdsField(body.source_ids);
     if (parsed.ok === false) {
@@ -766,6 +777,14 @@ router.patch(
       res.status(200).json(updated);
     } catch (err) {
       console.error(err);
+      if (err instanceof BadRequestError) {
+        res.status(400).json({
+          error: err.message,
+          code: err.code,
+          field: err.field,
+        });
+        return;
+      }
       if (err instanceof NotFoundError) {
         res.status(404).json({ error: err.message, code: err.code });
         return;

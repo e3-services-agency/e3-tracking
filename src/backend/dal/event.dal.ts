@@ -18,12 +18,83 @@ import type {
   EventVariantRow,
   EventVariantSummary,
   CodegenEventNameOverrides,
+  ObjectChildFieldSnapshot,
+  PropertyRow,
+  PropertyValueSchema,
 } from '../../types/schema';
 import { PROPERTY_DATA_FORMATS } from '../../types/schema';
 import { ConflictError, DatabaseError, NotFoundError } from '../errors';
 import { listEventVariantSummariesForBaseEventIds, listEventVariantsByBaseEvent } from './event-variant.dal';
+import { mapPropertyDbRowToRow } from './property.dal';
 
 const UNIQUE_VIOLATION_CODE = '23505';
+
+const OBJECT_CHILD_REF_FETCH_ROUNDS = 24;
+
+function buildObjectChildFieldSnapshots(
+  parent: PropertyRow,
+  propertyById: Map<string, PropertyRow>,
+  stack: Set<string>
+): Record<string, ObjectChildFieldSnapshot> | null {
+  const refs = parent.object_child_property_refs_json;
+  const schema = parent.value_schema_json;
+  if (!refs || Object.keys(refs).length === 0) {
+    return null;
+  }
+  if (!schema || schema.type !== 'object') {
+    return null;
+  }
+
+  const out: Record<string, ObjectChildFieldSnapshot> = {};
+  for (const [fieldKey, childId] of Object.entries(refs)) {
+    const child = propertyById.get(childId);
+    if (!child) {
+      out[fieldKey] = {
+        property_id: childId,
+        property_name: '(missing property)',
+        missing: true,
+      };
+      continue;
+    }
+    if (stack.has(childId)) {
+      out[fieldKey] = {
+        property_id: child.id,
+        property_name: child.name,
+        property_description: child.description ?? null,
+        property_data_type: child.data_type,
+        property_data_formats: child.data_formats,
+        property_example_values_json: normalizePropertyExampleValues(
+          child.example_values_json ?? null
+        ),
+        property_value_schema_json: child.value_schema_json,
+        property_object_child_property_refs_json: child.object_child_property_refs_json,
+        object_child_snapshots_by_field: null,
+        cycle_break: true,
+      };
+      continue;
+    }
+    const nextStack = new Set(stack);
+    nextStack.add(parent.id);
+    let nested: Record<string, ObjectChildFieldSnapshot> | null = null;
+    if (child.data_type === 'object' && child.object_child_property_refs_json) {
+      nested = buildObjectChildFieldSnapshots(child, propertyById, nextStack);
+    }
+    out[fieldKey] = {
+      property_id: child.id,
+      property_name: child.name,
+      property_description: child.description ?? null,
+      property_data_type: child.data_type,
+      property_data_formats: child.data_formats,
+      property_example_values_json: normalizePropertyExampleValues(
+        child.example_values_json ?? null
+      ),
+      property_value_schema_json: child.value_schema_json,
+      property_object_child_property_refs_json: child.object_child_property_refs_json,
+      object_child_snapshots_by_field: nested,
+    };
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
 
 function normalizePropertyExampleValues(
   raw: unknown
@@ -637,6 +708,15 @@ export interface EventPropertyWithDetails extends EventPropertyRow {
   property_data_formats?: PropertyDataFormat[] | null;
   /** From `properties.example_values_json` (catalog examples). */
   property_example_values_json?: PropertyExampleValue[] | null;
+  /** From `properties.value_schema_json` when attached property is object/array. */
+  property_value_schema_json?: PropertyValueSchema | null;
+  /** From `properties.object_child_property_refs_json` for object types. */
+  property_object_child_property_refs_json?: Record<string, string> | null;
+  /**
+   * Pre-resolved nested fields for object properties (canonical child properties).
+   * Built server-side for export/codegen; not a separate registry.
+   */
+  object_child_snapshots_by_field?: Record<string, ObjectChildFieldSnapshot> | null;
   /**
    * From `event_property_definitions.required` when a row exists for this (event, property).
    * `null` means no override row or `required` unset — not the same as "optional".
@@ -720,7 +800,7 @@ export async function getEventWithProperties(
 
   const { data: props, error: propsError } = await supabase
     .from('properties')
-    .select('id, name, description, data_type, data_formats_json, example_values_json')
+    .select('*')
     .in('id', propertyIds)
     .eq('workspace_id', workspaceId)
     .is('deleted_at', null);
@@ -732,38 +812,80 @@ export async function getEventWithProperties(
     );
   }
 
-  const snapshotById = new Map(
-    (props ?? []).map((p: any) => [
-      p.id,
-      {
-        name: p.name,
-        description: p.description ?? null,
-        data_type: p.data_type ?? null,
-        data_formats: Array.isArray(p.data_formats_json)
-          ? (p.data_formats_json.filter(
-              (value: unknown): value is PropertyDataFormat =>
-                typeof value === 'string' &&
-                PROPERTY_DATA_FORMATS.includes(value as PropertyDataFormat)
-            ))
-          : null,
-        example_values_json: p.example_values_json ?? null,
-      },
-    ])
-  );
+  const propertyById = new Map<string, PropertyRow>();
+  for (const raw of props ?? []) {
+    const pr = mapPropertyDbRowToRow(raw);
+    if (pr) {
+      propertyById.set(pr.id, pr);
+    }
+  }
+
+  let frontier: string[] = [];
+  for (const pr of propertyById.values()) {
+    if (pr.data_type === 'object' && pr.object_child_property_refs_json) {
+      for (const pid of Object.values(pr.object_child_property_refs_json)) {
+        if (!propertyById.has(pid)) {
+          frontier.push(pid);
+        }
+      }
+    }
+  }
+
+  for (let round = 0; round < OBJECT_CHILD_REF_FETCH_ROUNDS && frontier.length > 0; round += 1) {
+    const unique = [...new Set(frontier)];
+    frontier = [];
+    const { data: moreRows, error: moreErr } = await supabase
+      .from('properties')
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .in('id', unique)
+      .is('deleted_at', null);
+
+    if (moreErr) {
+      throw new DatabaseError(
+        `Failed to fetch nested property refs: ${moreErr.message}`,
+        moreErr
+      );
+    }
+
+    for (const raw of moreRows ?? []) {
+      const pr = mapPropertyDbRowToRow(raw);
+      if (!pr) {
+        continue;
+      }
+      if (!propertyById.has(pr.id)) {
+        propertyById.set(pr.id, pr);
+        if (pr.data_type === 'object' && pr.object_child_property_refs_json) {
+          for (const pid of Object.values(pr.object_child_property_refs_json)) {
+            if (!propertyById.has(pid)) {
+              frontier.push(pid);
+            }
+          }
+        }
+      }
+    }
+  }
 
   const attached_properties: EventPropertyWithDetails[] = rows
-    .filter((r) => snapshotById.has(r.property_id))
+    .filter((r) => propertyById.has(r.property_id))
     .map((r) => {
-      const s = snapshotById.get(r.property_id);
+      const pr = propertyById.get(r.property_id);
+      const snapshots =
+        pr && pr.data_type === 'object'
+          ? buildObjectChildFieldSnapshots(pr, propertyById, new Set())
+          : null;
       return {
         ...r,
-        property_name: s?.name ?? '',
-        property_description: s?.description ?? null,
-        property_data_type: s?.data_type ?? null,
-        property_data_formats: s?.data_formats ?? null,
+        property_name: pr?.name ?? '',
+        property_description: pr?.description ?? null,
+        property_data_type: pr?.data_type ?? null,
+        property_data_formats: pr?.data_formats ?? null,
         property_example_values_json: normalizePropertyExampleValues(
-          s?.example_values_json ?? null
+          pr?.example_values_json ?? null
         ),
+        property_value_schema_json: pr?.value_schema_json ?? null,
+        property_object_child_property_refs_json: pr?.object_child_property_refs_json ?? null,
+        object_child_snapshots_by_field: snapshots,
         property_required_override:
           requiredByPropertyId.get(r.property_id) ?? null,
       };

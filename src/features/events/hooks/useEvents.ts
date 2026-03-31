@@ -15,8 +15,10 @@ import type {
   EventVariantOverridesV1,
   EventVariantRow,
   EventVariantSummary,
+  ObjectChildFieldSnapshot,
   PropertyDataFormat,
   PropertyExampleValue,
+  PropertyValueSchema,
 } from '@/src/types/schema';
 
 export interface ApiError {
@@ -48,6 +50,9 @@ export interface EventPropertyWithDetails {
   property_example_values_json?: PropertyExampleValue[] | null;
   /** `event_property_definitions.required`; null when no row or unset. */
   property_required_override?: boolean | null;
+  property_value_schema_json?: PropertyValueSchema | null;
+  property_object_child_property_refs_json?: Record<string, string> | null;
+  object_child_snapshots_by_field?: Record<string, ObjectChildFieldSnapshot> | null;
 }
 
 export interface EventWithPropertiesResponse {

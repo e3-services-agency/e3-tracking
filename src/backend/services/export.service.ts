@@ -8,7 +8,12 @@ import * as JourneyDAL from '../dal/journey.dal';
 import { getEventWithProperties } from '../dal/event.dal';
 import type { EventPropertyWithDetails } from '../dal/event.dal';
 import { getPropertySourceLabelsByPropertyIds } from '../dal/source.dal';
-import type { CodegenEventNameOverrides, PropertyExampleValue } from '../../types/schema';
+import type {
+  CodegenEventNameOverrides,
+  ObjectChildFieldSnapshot,
+  PropertyExampleValue,
+  PropertyValueSchemaNode,
+} from '../../types/schema';
 import { NotFoundError } from '../errors';
 import { isAttachedPropertyRequiredForTrigger } from '../../lib/effectiveEventSchema';
 import {
@@ -29,6 +34,22 @@ const CODEGEN_LABELS: Record<CodegenStyleId, string> = {
   bloomreachSdk: 'Bloomreach Web SDK',
   bloomreachApi: 'Bloomreach Tracking API',
 };
+
+function collectPropertyIdsForSourceLabels(attached: EventPropertyWithDetails[]): string[] {
+  const ids = new Set<string>();
+  const walk = (snap: Record<string, ObjectChildFieldSnapshot> | null | undefined) => {
+    if (!snap) return;
+    for (const s of Object.values(snap)) {
+      if (s.property_id) ids.add(s.property_id);
+      if (s.object_child_snapshots_by_field) walk(s.object_child_snapshots_by_field);
+    }
+  };
+  for (const p of attached) {
+    ids.add(p.property_id);
+    walk(p.object_child_snapshots_by_field);
+  }
+  return [...ids];
+}
 
 /** Required column: canonical `isAttachedPropertyRequiredForTrigger` (true/false). */
 function propertyRequiredForTriggerCellHtml(required: boolean): string {
@@ -295,9 +316,14 @@ function buildPayloadDoc(
     const ap: AttachedPropertyForCodegen = {
       property_name: name,
       presence: p.presence,
+      property_id: p.property_id,
       property_data_type: p.property_data_type,
       property_data_formats: p.property_data_formats,
       property_example_values_json: p.property_example_values_json,
+      property_value_schema_json: p.property_value_schema_json ?? null,
+      property_object_child_property_refs_json:
+        p.property_object_child_property_refs_json ?? null,
+      object_child_snapshots_by_field: p.object_child_snapshots_by_field ?? null,
     };
     example[name] = jsonSampleValueForProperty(ap);
     if (p.presence === 'always_sent') alwaysSent.push(name);
@@ -323,40 +349,126 @@ function presenceLabel(presence: string | undefined): string {
   return '—';
 }
 
+function buildOnePropertyTableRow(
+  p: EventPropertyWithDetails,
+  sourceLabelsByPropertyId: Map<string, string>,
+  opts: {
+    nested: boolean;
+    nameOverride: string | null;
+    schemaNode: PropertyValueSchemaNode | null;
+    snapshot: ObjectChildFieldSnapshot | null;
+  }
+): string {
+  const nested = opts.nested;
+  const snap = opts.snapshot;
+
+  const nameDisplay = opts.nameOverride ?? p.property_name ?? '';
+  const dtype =
+    nested && snap
+      ? snap.property_data_type
+        ? String(snap.property_data_type)
+        : '—'
+      : p.property_data_type
+        ? String(p.property_data_type)
+        : '—';
+  const fmt =
+    nested && snap
+      ? Array.isArray(snap.property_data_formats)
+        ? snap.property_data_formats.join(', ')
+        : ''
+      : Array.isArray(p.property_data_formats)
+        ? p.property_data_formats.join(', ')
+        : '';
+  const typeLabel = escapeHtml(dtype + (fmt ? ` · ${fmt}` : ''));
+
+  let desc: string;
+  if (nested && snap) {
+    if (snap.missing) {
+      desc = escapeHtml('Referenced property is missing or was deleted.');
+    } else if (snap.cycle_break) {
+      desc = escapeHtml(
+        'Nested object (cycle in reference graph; sample omitted in codegen).'
+      );
+    } else {
+      desc = snap.property_description ? escapeHtml(snap.property_description) : '—';
+    }
+  } else {
+    desc = p.property_description ? escapeHtml(p.property_description) : '—';
+  }
+
+  const exampleCell = formatPropertyExamplesForExportHtml(
+    nested && snap ? snap.property_example_values_json ?? null : p.property_example_values_json ?? null
+  );
+
+  const req =
+    nested && opts.schemaNode
+      ? opts.schemaNode.required !== false
+      : isAttachedPropertyRequiredForTrigger(p.presence, p.property_required_override);
+
+  const requiredCell = propertyRequiredForTriggerCellHtml(req);
+
+  const sourcePropertyId = nested && snap ? snap.property_id : p.property_id;
+  const sourceText = escapeHtml(
+    sourceLabelsByPropertyId.get(sourcePropertyId) ?? '—'
+  );
+
+  const rowClass = nested ? 'export-props-row export-props-row--nested' : 'export-props-row';
+  const nameCellClass = nested
+    ? 'export-props-name-cell export-props-name-cell--nested'
+    : 'export-props-name-cell';
+
+  return `<tr class="${rowClass}">
+  <td class="${nameCellClass}"><code class="export-inline-code">${escapeHtml(nameDisplay)}</code></td>
+  <td class="export-props-req-cell">${requiredCell}</td>
+  <td class="export-props-presence-cell">${escapeHtml(presenceLabel(p.presence))}</td>
+  <td class="export-props-type-cell">${typeLabel}</td>
+  <td class="export-props-source-cell">${sourceText}</td>
+  <td class="export-props-example-cell">${exampleCell}</td>
+  <td class="export-props-desc-cell">${desc}</td>
+</tr>`;
+}
+
 function buildPropertyDetailsTable(
   attached: EventPropertyWithDetails[],
   sourceLabelsByPropertyId: Map<string, string>
 ): string {
   if (!attached || attached.length === 0) return '';
   const sorted = sortPropertyRowsForExport(attached);
-  const rows = sorted
-    .map((p) => {
-      const dtype = p.property_data_type ? String(p.property_data_type) : '—';
-      const fmt = Array.isArray(p.property_data_formats) ? p.property_data_formats.join(', ') : '';
-      const typeLabel = escapeHtml(dtype + (fmt ? ` · ${fmt}` : ''));
-      const desc = p.property_description ? escapeHtml(p.property_description) : '—';
-      const exampleCell = formatPropertyExamplesForExportHtml(
-        p.property_example_values_json ?? null
-      );
-      const req = isAttachedPropertyRequiredForTrigger(
-        p.presence,
-        p.property_required_override
-      );
-      const requiredCell = propertyRequiredForTriggerCellHtml(req);
-      const sourceText = escapeHtml(
-        sourceLabelsByPropertyId.get(p.property_id) ?? '—'
-      );
-      return `<tr>
-  <td><code class="export-inline-code">${escapeHtml(p.property_name || '')}</code></td>
-  <td class="export-props-req-cell">${requiredCell}</td>
-  <td class="export-props-presence-cell">${escapeHtml(presenceLabel((p as any).presence))}</td>
-  <td class="export-props-type-cell">${typeLabel}</td>
-  <td class="export-props-source-cell">${sourceText}</td>
-  <td class="export-props-example-cell">${exampleCell}</td>
-  <td class="export-props-desc-cell">${desc}</td>
-</tr>`;
-    })
-    .join('');
+  const rowChunks: string[] = [];
+  for (const p of sorted) {
+    rowChunks.push(
+      buildOnePropertyTableRow(p, sourceLabelsByPropertyId, {
+        nested: false,
+        nameOverride: null,
+        schemaNode: null,
+        snapshot: null,
+      })
+    );
+    const schema = p.property_value_schema_json;
+    const snaps = p.object_child_snapshots_by_field;
+    if (
+      p.property_data_type === 'object' &&
+      schema &&
+      schema.type === 'object' &&
+      schema.properties &&
+      snaps
+    ) {
+      for (const fieldKey of Object.keys(schema.properties)) {
+        const node = schema.properties[fieldKey];
+        const snap = snaps[fieldKey];
+        if (!node || !snap) continue;
+        rowChunks.push(
+          buildOnePropertyTableRow(p, sourceLabelsByPropertyId, {
+            nested: true,
+            nameOverride: `${p.property_name || ''}.${fieldKey}`,
+            schemaNode: node,
+            snapshot: snap,
+          })
+        );
+      }
+    }
+  }
+  const rows = rowChunks.join('');
   return `<div class="export-props">
   <div class="export-props-title">Event properties</div>
   <div class="export-props-wrap">
@@ -480,7 +592,7 @@ export async function generateJourneyHtmlExport(
           try {
             sourceLabelsByPropertyId = await getPropertySourceLabelsByPropertyIds(
               workspaceId,
-              attached_properties.map((p) => p.property_id)
+              collectPropertyIdsForSourceLabels(attached_properties)
             );
           } catch (srcErr) {
             console.error(
@@ -690,9 +802,14 @@ export async function generateJourneyHtmlExport(
               t.attached_properties.map((p) => ({
                 property_name: p.property_name || '',
                 presence: p.presence,
+                property_id: p.property_id,
                 property_data_type: p.property_data_type,
                 property_data_formats: p.property_data_formats,
                 property_example_values_json: p.property_example_values_json,
+                property_value_schema_json: p.property_value_schema_json ?? null,
+                property_object_child_property_refs_json:
+                  p.property_object_child_property_refs_json ?? null,
+                object_child_snapshots_by_field: p.object_child_snapshots_by_field ?? null,
               })),
               t.codegen_event_name_overrides
             );
@@ -1107,6 +1224,12 @@ export async function generateJourneyHtmlExport(
     .export-props-table thead th:nth-child(1) {
       z-index: 5;
       background: #f8fafc;
+    }
+    .export-props-table tr.export-props-row--nested td {
+      background: #fafafa;
+    }
+    .export-props-table tr.export-props-row--nested td:nth-child(1) {
+      padding-left: 22px;
     }
     .export-props-table th:nth-child(2),
     .export-props-table td:nth-child(2) {

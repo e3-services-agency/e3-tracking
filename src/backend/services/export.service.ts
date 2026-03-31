@@ -424,7 +424,8 @@ function buildOnePropertyTableRow(
   const nested = opts.nested;
   const snap = opts.snapshot;
 
-  const nameDisplay = opts.nameOverride ?? p.property_name ?? '';
+  const baseNameDisplay = opts.nameOverride ?? p.property_name ?? '';
+  const nameDisplay = nested ? `↳ ${baseNameDisplay}` : baseNameDisplay;
   const dtype =
     nested && snap
       ? snap.property_data_type
@@ -477,12 +478,7 @@ function buildOnePropertyTableRow(
     sourceLabelsByPropertyId.get(sourcePropertyId) ?? '—'
   );
 
-  const isGroupParent = !nested && (p.property_data_type === 'object' || p.property_data_type === 'array');
-  const rowClass = nested
-    ? 'export-props-row export-props-row--nested'
-    : isGroupParent
-      ? 'export-props-row export-props-row--group-parent'
-      : 'export-props-row';
+  const rowClass = nested ? 'export-props-row export-props-row--nested' : 'export-props-row';
   const nameCellClass = nested
     ? 'export-props-name-cell export-props-name-cell--nested'
     : 'export-props-name-cell';
@@ -1320,28 +1316,8 @@ export async function generateJourneyHtmlExport(
       z-index: 5;
       background: #f8fafc;
     }
-    .export-props-table tr.export-props-row--nested td {
-      background: #fafafa;
-    }
     .export-props-table tr.export-props-row--nested td:nth-child(1) {
-      padding-left: 34px;
-      position: relative;
-    }
-    .export-props-table tr.export-props-row--nested td:nth-child(1)::before {
-      content: '';
-      position: absolute;
-      left: 14px;
-      top: 0;
-      bottom: 0;
-      width: 2px;
-      background: #e2e8f0;
-    }
-    .export-props-table tr.export-props-row--group-parent td {
-      background: #f8fafc;
-      font-weight: 600;
-    }
-    .export-props-table tr.export-props-row--group-parent td:nth-child(1) {
-      border-left: 3px solid #94a3b8;
+      padding-left: 26px;
     }
     .export-props-table th:nth-child(2),
     .export-props-table td:nth-child(2) {

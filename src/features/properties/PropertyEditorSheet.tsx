@@ -424,7 +424,7 @@ export function PropertyEditorSheet({
     })();
 
     const flushExamples = exampleValuesEditorRef.current?.flushPendingForSave();
-    if (flushExamples && !flushExamples.ok) {
+    if (flushExamples && flushExamples.ok === false) {
       setEditorError(flushExamples.error);
       setSaving(false);
       return;
@@ -432,7 +432,7 @@ export function PropertyEditorSheet({
     const exampleValuesForSave = flushExamples?.ok ? flushExamples.entries : exampleValuesDraft;
 
     const exampleCheck = validateExampleValuesForSave(exampleValuesForSave);
-    if (!exampleCheck.ok) {
+    if (exampleCheck.ok === false) {
       setEditorError(exampleCheck.error);
       setSaving(false);
       return;
@@ -695,7 +695,11 @@ export function PropertyEditorSheet({
             disabled={isMutating}
             objectChildRefs={objectChildRefsDraft}
             onObjectChildRefsChange={setObjectChildRefsDraft}
-            linkPropertyOptions={workspaceProperties.map((p) => ({ id: p.id, name: p.name }))}
+            linkPropertyOptions={workspaceProperties.map((p) => ({
+              id: p.id,
+              name: p.name,
+              data_type: p.data_type,
+            }))}
             excludePropertyId={initialProperty?.id ?? null}
           />
         </div>

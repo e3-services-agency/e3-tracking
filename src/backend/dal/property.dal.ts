@@ -517,6 +517,12 @@ async function assertObjectChildRefsValid(
       if (!child) {
         continue;
       }
+      if (child.data_type === 'object' || child.data_type === 'array') {
+        throw new BadRequestError(
+          `object_child_property_refs_json field "${fieldKey}": linked property "${child.name}" has unsupported data_type "${child.data_type}" (object/array cannot be nested field refs).`,
+          'object_child_property_refs_json'
+        );
+      }
       if (child.data_type !== schemaFieldType) {
         throw new BadRequestError(
           `object_child_property_refs_json field "${fieldKey}": value_schema_json has type "${schemaFieldType}" but linked property "${child.name}" has data_type "${child.data_type}".`,

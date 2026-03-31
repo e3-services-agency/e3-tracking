@@ -308,7 +308,7 @@ export type PropertyValueSchemaEditorProps = {
   /** Maps object field keys to workspace property ids (object parent only). */
   objectChildRefs?: Record<string, string>;
   onObjectChildRefsChange?: (next: Record<string, string>) => void;
-  linkPropertyOptions?: { id: string; name: string }[];
+  linkPropertyOptions?: { id: string; name: string; data_type: PropertyDataType }[];
   /** When editing, exclude this property id from link targets (no self-reference). */
   excludePropertyId?: string | null;
 };
@@ -580,16 +580,22 @@ function ObjectRootFieldRow({
   onRemove: () => void;
   objectChildRefId?: string;
   onObjectChildRefChange?: (id: string | null) => void;
-  linkPropertyOptions?: { id: string; name: string }[];
+  linkPropertyOptions?: { id: string; name: string; data_type: PropertyDataType }[];
   excludePropertyId?: string | null;
   disabled?: boolean;
 }) {
   const pickerOptions = useMemo(
     () =>
-      (linkPropertyOptions ?? []).filter(
-        (o) => !excludePropertyId || o.id !== excludePropertyId
-      ),
+      (linkPropertyOptions ?? []).filter((o) => {
+        if (excludePropertyId && o.id === excludePropertyId) return false;
+        if (o.data_type === 'object' || o.data_type === 'array') return false;
+        return true;
+      }),
     [linkPropertyOptions, excludePropertyId]
+  );
+  const linked = useMemo(
+    () => (objectChildRefId ? pickerOptions.find((o) => o.id === objectChildRefId) ?? null : null),
+    [objectChildRefId, pickerOptions]
   );
   return (
     <div className="rounded border border-gray-200 bg-white p-2 space-y-2">
@@ -632,10 +638,21 @@ function ObjectRootFieldRow({
             <option value="">— None —</option>
             {pickerOptions.map((o) => (
               <option key={o.id} value={o.id}>
-                {o.name}
+                {o.name} · {o.data_type}
               </option>
             ))}
           </select>
+          <p className="text-[10px] text-gray-500 mt-1">
+            {linked ? (
+              <>
+                Linked: <span className="font-mono">{linked.name}</span> ({linked.data_type})
+              </>
+            ) : objectChildRefId ? (
+              <>Linked: <span className="font-mono">(missing)</span></>
+            ) : (
+              'Linked: —'
+            )}
+          </p>
         </div>
       )}
     </div>
@@ -981,7 +998,7 @@ export const PropertyExampleValuesEditor = forwardRef<
           const handle = rowRefs.current[i];
           if (!handle) continue;
           const r = handle.flushValue();
-          if (!r.ok) {
+          if (r.ok === false) {
             return { ok: false, error: `Example ${i + 1}: ${r.error}` };
           }
           next[i] = { ...next[i], value: r.value };

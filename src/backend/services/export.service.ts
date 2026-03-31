@@ -460,7 +460,9 @@ function buildPropertyDetailsTable(
         rowChunks.push(
           buildOnePropertyTableRow(p, sourceLabelsByPropertyId, {
             nested: true,
-            nameOverride: `${p.property_name || ''}.${fieldKey}`,
+            nameOverride: snap.missing
+              ? `${p.property_name || ''}.${fieldKey}`
+              : `${fieldKey} → ${snap.property_name}`,
             schemaNode: node,
             snapshot: snap,
           })

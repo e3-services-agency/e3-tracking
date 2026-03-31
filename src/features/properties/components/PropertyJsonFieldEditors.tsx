@@ -14,6 +14,7 @@ import React, {
 } from 'react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
+import { Modal } from '@/src/components/ui/Modal';
 import {
   PROPERTY_DATA_FORMATS,
   PROPERTY_DATA_TYPES,
@@ -27,6 +28,7 @@ import {
   type PropertyValueSchemaNode,
 } from '@/src/types/schema';
 import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { PropertySingleSelectPicker } from '@/src/features/properties/components/PropertySingleSelectPicker';
 
 const DATA_FORMAT_LABELS: Record<PropertyDataFormat, string> = {
   uuid: 'UUID',
@@ -597,6 +599,7 @@ function ObjectRootFieldRow({
     () => (objectChildRefId ? pickerOptions.find((o) => o.id === objectChildRefId) ?? null : null),
     [objectChildRefId, pickerOptions]
   );
+  const [pickerOpen, setPickerOpen] = useState(false);
   return (
     <div className="rounded border border-gray-200 bg-white p-2 space-y-2">
       <div className="flex gap-2 items-start">
@@ -625,23 +628,27 @@ function ObjectRootFieldRow({
       {onObjectChildRefChange && pickerOptions.length > 0 && (
         <div>
           <label className="text-[10px] text-gray-500">Canonical property (nested field)</label>
-          <select
-            className="mt-0.5 w-full rounded-md border border-input bg-white px-2 py-1.5 text-xs"
-            value={objectChildRefId ?? ''}
-            onChange={(e) => {
-              const v = e.target.value.trim();
-              onObjectChildRefChange(v ? v : null);
-            }}
-            disabled={disabled}
-            aria-label={`Link field ${fieldKey} to workspace property`}
-          >
-            <option value="">— None —</option>
-            {pickerOptions.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name} · {o.data_type}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2 mt-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setPickerOpen(true)}
+              disabled={disabled}
+            >
+              {linked ? 'Change…' : 'Choose…'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-red-700"
+              onClick={() => onObjectChildRefChange(null)}
+              disabled={disabled || !objectChildRefId}
+            >
+              Clear
+            </Button>
+          </div>
           <p className="text-[10px] text-gray-500 mt-1">
             {linked ? (
               <>
@@ -653,6 +660,24 @@ function ObjectRootFieldRow({
               'Linked: —'
             )}
           </p>
+          <Modal
+            isOpen={pickerOpen}
+            onClose={() => setPickerOpen(false)}
+            title="Select canonical property"
+            backdropClassName="z-[80]"
+            className="z-[90] max-w-[min(720px,calc(100vw-1.5rem))] max-h-[min(90vh,720px)] flex flex-col"
+            bodyClassName="p-4 min-h-0 flex-1 overflow-y-auto"
+          >
+            <PropertySingleSelectPicker
+              availableProperties={pickerOptions as any}
+              selectedId={objectChildRefId ?? null}
+              onSelect={(id) => {
+                onObjectChildRefChange(id);
+                setPickerOpen(false);
+              }}
+              disabled={disabled}
+            />
+          </Modal>
         </div>
       )}
     </div>

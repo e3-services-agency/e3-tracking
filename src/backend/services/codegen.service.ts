@@ -60,6 +60,10 @@ export function jsonSampleValueForProperty(p: AttachedPropertyForCodegen): unkno
   if (Array.isArray(ex) && ex.length > 0) {
     const v = ex[0]?.value;
     if (v === null) return null;
+    // Guardrail: highlighted HTML must never leak into raw codegen output.
+    if (typeof v === 'string' && /<\s*span\b/i.test(v) && /ch-(num|str|kw|lit|com|key)/.test(v)) {
+      // Treat as invalid example payload; fall back to typed sample below.
+    } else {
     // Legacy tolerance: example value stored as string but data_type is number/boolean.
     if (dt === 'number' && typeof v === 'string') {
       const n = Number(v.trim());
@@ -72,6 +76,7 @@ export function jsonSampleValueForProperty(p: AttachedPropertyForCodegen): unkno
     }
     if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
       return v;
+    }
     }
   }
 

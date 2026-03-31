@@ -223,7 +223,7 @@ export function PropertyEditorSheet({
             ? { ...initialProperty.object_child_property_refs_json }
             : {}
         );
-        setExampleValuesDraft(initialProperty.example_values_json ?? []);
+        setExampleValuesDraft((initialProperty.example_values_json ?? []).slice(0, 1));
         setNameMappingsDraft(initialProperty.name_mappings_json ?? []);
         setMappingEnabled(Boolean(initialProperty.mapped_catalog_id && initialProperty.mapped_catalog_field_id));
         setMappedCatalogId(initialProperty.mapped_catalog_id ?? '');

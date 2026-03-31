@@ -1347,40 +1347,33 @@ export const PropertyExampleValuesEditor = forwardRef<
     [entries, propertyDataType]
   );
 
-  const addRow = () => {
-    onChange([...entries, { value: null }]);
-  };
-
-  const updateRow = (index: number, next: PropertyExampleValue) => {
-    onChange(entries.map((e, i) => (i === index ? next : e)));
-  };
-
-  const removeRow = (index: number) => {
-    onChange(entries.filter((_, i) => i !== index));
+  const entry = entries[0] ?? { value: null };
+  const setEntry = (next: PropertyExampleValue) => {
+    // Single canonical example: store as 1-entry array (or empty when value is null).
+    if (next.value === null || next.value === undefined) {
+      onChange([]);
+      return;
+    }
+    onChange([next]);
   };
 
   return (
     <div className="space-y-3">
-      {entries.length === 0 && (
-        <p className="text-xs text-gray-500 italic">No examples. Add one to document sample values.</p>
-      )}
-      {entries.map((row, i) => (
-        <ExampleValueRow
-          key={i}
-          ref={(el) => {
-            rowRefs.current[i] = el;
-          }}
-          index={i}
-          entry={row}
-          propertyDataType={propertyDataType}
-          onChange={(next) => updateRow(i, next)}
-          onRemove={() => removeRow(i)}
-          disabled={disabled}
-        />
-      ))}
-      <Button type="button" variant="outline" size="sm" onClick={addRow} disabled={disabled}>
-        <Plus className="w-3.5 h-3.5 mr-1" /> Add example
-      </Button>
+      <ExampleValueRow
+        key="single-example"
+        ref={(el) => {
+          rowRefs.current[0] = el;
+        }}
+        index={0}
+        entry={entry}
+        propertyDataType={propertyDataType}
+        onChange={setEntry}
+        onRemove={() => onChange([])}
+        disabled={disabled}
+      />
+      <p className="text-xs text-gray-500">
+        One canonical example value is supported. Clear the value to remove the example.
+      </p>
     </div>
   );
 });
@@ -1530,6 +1523,7 @@ export function serializeExampleValuesForSave(rows: PropertyExampleValue[]): Pro
   const out: PropertyExampleValue[] = [];
   for (const row of rows) {
     if (!Object.prototype.hasOwnProperty.call(row, 'value')) continue;
+    if (row.value === null || row.value === undefined) continue;
     const entry: PropertyExampleValue = { value: row.value };
     if (typeof row.label === 'string' && row.label.trim()) entry.label = row.label.trim();
     if (typeof row.notes === 'string' && row.notes.trim()) entry.notes = row.notes.trim();

@@ -827,7 +827,10 @@ export async function updateProperty(
   if (updates.object_child_property_refs_json !== undefined) {
     mergedRefs = normalizeObjectChildPropertyRefs(updates.object_child_property_refs_json);
   }
-  if (mergedDataType !== 'object' || mergedSchema === null) {
+  if (
+    (mergedDataType !== 'object' && mergedDataType !== 'array') ||
+    mergedSchema === null
+  ) {
     mergedRefs = null;
   }
   await assertObjectChildRefsValid(

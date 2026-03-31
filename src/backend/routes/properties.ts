@@ -235,8 +235,79 @@ function normalizeValueSchema(
   return { value: parsed as PropertyValueSchema };
 }
 
+const HIGHLIGHT_TOKEN_RE = /\bch-(num|str|key|kw|lit|com)\b/i;
+const HTML_TAG_RE = /<[^>]+>/;
+const HTML_ESCAPED_SPAN_RE = /&lt;\s*span\b/i;
+const EXACT_NUMERIC_RE = /^[+-]?\d+(\.\d+)?$/;
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function rejectIfArtifactString(raw: string): string | null {
+  const s = raw;
+  if (HTML_TAG_RE.test(s)) return 'Example value must not contain HTML.';
+  if (HTML_ESCAPED_SPAN_RE.test(s)) return 'Example value must not contain HTML-escaped markup.';
+  if (HIGHLIGHT_TOKEN_RE.test(s)) return 'Example value must not contain syntax-highlighter tokens.';
+  return null;
+}
+
+function normalizeExampleValueForType(
+  v: unknown,
+  dataType: PropertyDataType
+): { ok: true; value: unknown } | { ok: false; error: string } {
+  if (dataType === 'string') {
+    if (typeof v !== 'string') return { ok: false, error: 'must be a string.' };
+    const artifactErr = rejectIfArtifactString(v);
+    if (artifactErr) return { ok: false, error: artifactErr };
+    return { ok: true, value: v };
+  }
+  if (dataType === 'number') {
+    if (typeof v === 'number' && Number.isFinite(v)) return { ok: true, value: v };
+    if (typeof v === 'string') {
+      const artifactErr = rejectIfArtifactString(v);
+      if (artifactErr) return { ok: false, error: artifactErr };
+      const t = v.trim();
+      if (!EXACT_NUMERIC_RE.test(t)) return { ok: false, error: 'must be a number.' };
+      const n = Number(t);
+      if (!Number.isFinite(n)) return { ok: false, error: 'must be a finite number.' };
+      return { ok: true, value: n };
+    }
+    return { ok: false, error: 'must be a number.' };
+  }
+  if (dataType === 'boolean') {
+    if (typeof v === 'boolean') return { ok: true, value: v };
+    if (typeof v === 'string') {
+      const artifactErr = rejectIfArtifactString(v);
+      if (artifactErr) return { ok: false, error: artifactErr };
+      const t = v.trim();
+      if (t === 'true') return { ok: true, value: true };
+      if (t === 'false') return { ok: true, value: false };
+      return { ok: false, error: 'must be true or false.' };
+    }
+    return { ok: false, error: 'must be a boolean.' };
+  }
+  if (dataType === 'object') {
+    if (!isPlainObject(v)) return { ok: false, error: 'must be a JSON object.' };
+    return { ok: true, value: v };
+  }
+  if (dataType === 'array') {
+    if (!Array.isArray(v)) return { ok: false, error: 'must be a JSON array.' };
+    return { ok: true, value: v };
+  }
+  // timestamp: treat as string ISO value only (consistent with existing UI expectation).
+  if (dataType === 'timestamp') {
+    if (typeof v !== 'string') return { ok: false, error: 'must be an ISO 8601 string.' };
+    const artifactErr = rejectIfArtifactString(v);
+    if (artifactErr) return { ok: false, error: artifactErr };
+    return { ok: true, value: v };
+  }
+  return { ok: false, error: 'has unsupported data_type.' };
+}
+
 function normalizeExampleValues(
-  rawExampleValues: unknown
+  rawExampleValues: unknown,
+  dataType: PropertyDataType
 ): { value?: PropertyExampleValue[] | null; error?: string } {
   if (rawExampleValues === undefined) {
     return {};
@@ -252,7 +323,8 @@ function normalizeExampleValues(
 
   const normalized: PropertyExampleValue[] = [];
 
-  for (const entry of rawExampleValues) {
+  for (let i = 0; i < rawExampleValues.length; i += 1) {
+    const entry = rawExampleValues[i];
     if (!isRecord(entry) || !Object.prototype.hasOwnProperty.call(entry, 'value')) {
       return { error: 'example_values_json entries must be objects with a value field.' };
     }
@@ -266,8 +338,13 @@ function normalizeExampleValues(
       };
     }
 
+    const coerced = normalizeExampleValueForType(entry.value, dataType);
+    if (coerced.ok === false) {
+      return { error: `Example ${i + 1} value ${coerced.error}` };
+    }
+
     const normalizedEntry: PropertyExampleValue = {
-      value: entry.value,
+      value: coerced.value,
     };
 
     if (typeof entry.label === 'string' && entry.label.trim()) {
@@ -421,7 +498,7 @@ function buildCreatePropertyInput(
     };
   }
 
-  const exampleValues = normalizeExampleValues(body.example_values_json);
+  const exampleValues = normalizeExampleValues(body.example_values_json, dataType.value);
   if (exampleValues.error) {
     return {
       error: {
@@ -576,19 +653,7 @@ function buildUpdatePropertyInput(
     updates.value_schema_json = null;
   }
 
-  if (body.example_values_json !== undefined) {
-    const exampleValues = normalizeExampleValues(body.example_values_json);
-    if (exampleValues.error) {
-      return {
-        error: {
-          message: exampleValues.error,
-          field: 'example_values_json',
-        },
-      };
-    }
-
-    updates.example_values_json = exampleValues.value ?? null;
-  }
+  // example_values_json is validated in the PATCH handler because we may need existing data_type.
 
   if (body.name_mappings_json !== undefined) {
     const nameMappings = normalizeNameMappings(body.name_mappings_json);
@@ -780,6 +845,36 @@ router.patch(
     if (Object.keys(updates).length === 0) {
       res.status(400).json({ error: 'No valid fields to update.', code: 'NO_UPDATES' });
       return;
+    }
+    // example_values_json: strict validation/normalization requires effective data_type.
+    if (Object.prototype.hasOwnProperty.call(body, 'example_values_json')) {
+      try {
+        const existing = await PropertyDAL.getPropertyRow(workspaceId, propertyId);
+        if (!existing) {
+          res.status(404).json({ error: 'Property not found.', code: 'NOT_FOUND' });
+          return;
+        }
+        const dt =
+          (updates as any).data_type !== undefined ? (updates as any).data_type : existing.data_type;
+        const exampleValues = normalizeExampleValues(body.example_values_json, dt);
+        if (exampleValues.error) {
+          res.status(400).json({
+            error: exampleValues.error,
+            code: 'PROPERTY_PAYLOAD_INVALID',
+            field: 'example_values_json',
+          });
+          return;
+        }
+        (updates as any).example_values_json = exampleValues.value ?? null;
+      } catch (err) {
+        console.error(err);
+        if (err instanceof DatabaseError) {
+          res.status(500).json({ error: 'Failed to validate property examples.', code: err.code });
+          return;
+        }
+        res.status(500).json({ error: 'An unexpected error occurred.', code: 'INTERNAL_ERROR' });
+        return;
+      }
     }
     try {
       const updated = await PropertyDAL.updateProperty(workspaceId, propertyId, updates);

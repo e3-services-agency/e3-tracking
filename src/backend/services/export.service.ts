@@ -101,6 +101,53 @@ function formatPropertyExamplesForExportHtml(
   return escapeHtml(text);
 }
 
+function jsLiteralForDocsExample(value: unknown): string {
+  if (value === null) return 'null';
+  if (value === undefined) return '—';
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (typeof value === 'string') {
+    const escaped = value
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/\r/g, '\\r')
+      .replace(/\n/g, '\\n')
+      .replace(/\t/g, '\\t');
+    return `'${escaped}'`;
+  }
+  if (Array.isArray(value)) return JSON.stringify(value);
+  if (typeof value === 'object') return JSON.stringify(value);
+  return `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+}
+
+function deriveObjectExampleForDocs(
+  schema: PropertyValueSchemaNode | null,
+  snaps: Record<string, ObjectChildFieldSnapshot> | null | undefined
+): string | null {
+  if (!schema || (schema as any).type !== 'object') return null;
+  const props = (schema as any).properties as Record<string, PropertyValueSchemaNode> | undefined;
+  if (!props || !snaps) return null;
+  const lines: string[] = [];
+  for (const fieldKey of Object.keys(props)) {
+    const snap = snaps[fieldKey];
+    if (!snap || snap.missing || snap.cycle_break) continue;
+    const childAttached: AttachedPropertyForCodegen = {
+      property_name: snap.property_name,
+      presence: 'always_sent',
+      property_id: snap.property_id,
+      property_data_type: snap.property_data_type ?? null,
+      property_data_formats: snap.property_data_formats ?? null,
+      property_example_values_json: snap.property_example_values_json ?? null,
+      property_value_schema_json: snap.property_value_schema_json ?? null,
+      property_object_child_property_refs_json: snap.property_object_child_property_refs_json ?? null,
+      object_child_snapshots_by_field: snap.object_child_snapshots_by_field ?? null,
+    };
+    const sample = jsonSampleValueForProperty(childAttached);
+    lines.push(`  ${snap.property_name}: ${jsLiteralForDocsExample(sample)}`);
+  }
+  if (lines.length === 0) return null;
+  return `{\n${lines.join(',\n')}\n}`;
+}
+
 type CanvasNode = {
   id: string;
   type?: string;
@@ -356,6 +403,7 @@ function buildOnePropertyTableRow(
     nameOverride: string | null;
     schemaNode: PropertyValueSchemaNode | null;
     snapshot: ObjectChildFieldSnapshot | null;
+    exampleOverrideHtml?: string | null;
   }
 ): string {
   const nested = opts.nested;
@@ -395,9 +443,12 @@ function buildOnePropertyTableRow(
     desc = p.property_description ? escapeHtml(p.property_description) : '—';
   }
 
-  const exampleCell = formatPropertyExamplesForExportHtml(
-    nested && snap ? snap.property_example_values_json ?? null : p.property_example_values_json ?? null
-  );
+  const exampleCell =
+    typeof opts.exampleOverrideHtml === 'string' && opts.exampleOverrideHtml
+      ? opts.exampleOverrideHtml
+      : formatPropertyExamplesForExportHtml(
+          nested && snap ? snap.property_example_values_json ?? null : p.property_example_values_json ?? null
+        );
 
   const req =
     nested && opts.schemaNode
@@ -411,7 +462,12 @@ function buildOnePropertyTableRow(
     sourceLabelsByPropertyId.get(sourcePropertyId) ?? '—'
   );
 
-  const rowClass = nested ? 'export-props-row export-props-row--nested' : 'export-props-row';
+  const isGroupParent = !nested && (p.property_data_type === 'object' || p.property_data_type === 'array');
+  const rowClass = nested
+    ? 'export-props-row export-props-row--nested'
+    : isGroupParent
+      ? 'export-props-row export-props-row--group-parent'
+      : 'export-props-row';
   const nameCellClass = nested
     ? 'export-props-name-cell export-props-name-cell--nested'
     : 'export-props-name-cell';
@@ -440,26 +496,34 @@ function buildPropertyDetailsTable(
   const sorted = sortPropertyRowsForExport(attached);
   const rowChunks: string[] = [];
   for (const p of sorted) {
+    const schema = p.property_value_schema_json;
+    const snaps = p.object_child_snapshots_by_field;
+
+    const hasObjectChildren =
+      p.property_data_type === 'object' &&
+      schema &&
+      schema.type === 'object' &&
+      schema.properties &&
+      snaps &&
+      Object.keys(schema.properties).some((k) => Boolean(snaps[k]));
+
+    const derivedObjectExample =
+      hasObjectChildren ? deriveObjectExampleForDocs(schema as any, snaps) : null;
+
     rowChunks.push(
       buildOnePropertyTableRow(p, sourceLabelsByPropertyId, {
         nested: false,
         nameOverride: null,
         schemaNode: null,
         snapshot: null,
+        exampleOverrideHtml: derivedObjectExample ? escapeHtml(derivedObjectExample) : null,
       })
     );
-    const schema = p.property_value_schema_json;
-    const snaps = p.object_child_snapshots_by_field;
-    if (
-      p.property_data_type === 'object' &&
-      schema &&
-      schema.type === 'object' &&
-      schema.properties &&
-      snaps
-    ) {
-      for (const fieldKey of Object.keys(schema.properties)) {
-        const node = schema.properties[fieldKey];
-        const snap = snaps[fieldKey];
+
+    if (hasObjectChildren) {
+      for (const fieldKey of Object.keys((schema as any).properties ?? {})) {
+        const node = (schema as any).properties?.[fieldKey] as PropertyValueSchemaNode | undefined;
+        const snap = snaps?.[fieldKey];
         if (!node || !snap) continue;
         rowChunks.push(
           buildOnePropertyTableRow(p, sourceLabelsByPropertyId, {
@@ -469,6 +533,7 @@ function buildPropertyDetailsTable(
               : `${snap.property_name}`,
             schemaNode: node,
             snapshot: snap,
+            exampleOverrideHtml: null,
           })
         );
       }
@@ -1229,7 +1294,24 @@ export async function generateJourneyHtmlExport(
       background: #fafafa;
     }
     .export-props-table tr.export-props-row--nested td:nth-child(1) {
-      padding-left: 22px;
+      padding-left: 34px;
+      position: relative;
+    }
+    .export-props-table tr.export-props-row--nested td:nth-child(1)::before {
+      content: '';
+      position: absolute;
+      left: 14px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #e2e8f0;
+    }
+    .export-props-table tr.export-props-row--group-parent td {
+      background: #f8fafc;
+      font-weight: 600;
+    }
+    .export-props-table tr.export-props-row--group-parent td:nth-child(1) {
+      border-left: 3px solid #94a3b8;
     }
     .export-props-table th:nth-child(2),
     .export-props-table td:nth-child(2) {

@@ -851,7 +851,7 @@ export async function deleteProperty(
   const supabase = getSupabaseOrThrow();
   const { data: existing, error: fetchErr } = await supabase
     .from('properties')
-    .select('id')
+    .select('id, name')
     .eq('id', propertyId)
     .eq('workspace_id', workspaceId)
     .is('deleted_at', null)
@@ -862,6 +862,74 @@ export async function deleteProperty(
   }
   if (!existing) {
     throw new NotFoundError('Property not found.', 'property');
+  }
+
+  // Guard: block delete when property is still referenced (contract integrity).
+  // 1) Event attachments (event_properties)
+  const { data: links, error: linkErr } = await supabase
+    .from('event_properties')
+    .select('event_id')
+    .eq('property_id', propertyId);
+  if (linkErr) {
+    throw new DatabaseError(`Failed to check event property links: ${linkErr.message}`, linkErr);
+  }
+  const linkedEventIds = [...new Set((links ?? []).map((r: { event_id: string }) => r.event_id))];
+  let activeEventCount = 0;
+  if (linkedEventIds.length > 0) {
+    const { data: events, error: evErr } = await supabase
+      .from('events')
+      .select('id')
+      .eq('workspace_id', workspaceId)
+      .in('id', linkedEventIds)
+      .is('deleted_at', null);
+    if (evErr) {
+      throw new DatabaseError(`Failed to check linked events: ${evErr.message}`, evErr);
+    }
+    activeEventCount = (events ?? []).length;
+  }
+
+  // 2) Nested child refs (properties.object_child_property_refs_json values contain property ids)
+  const { data: parents, error: parentErr } = await supabase
+    .from('properties')
+    .select('id, name, object_child_property_refs_json')
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null)
+    .not('object_child_property_refs_json', 'is', null);
+  if (parentErr) {
+    throw new DatabaseError(
+      `Failed to check nested property refs: ${parentErr.message}`,
+      parentErr
+    );
+  }
+  const parentRows = (parents ?? []) as Array<{
+    id: string;
+    name: string;
+    object_child_property_refs_json: unknown;
+  }>;
+  const nestedParents = parentRows.filter((p) => {
+    const refs = normalizeObjectChildPropertyRefs(p.object_child_property_refs_json);
+    if (!refs) return false;
+    return Object.values(refs).includes(propertyId);
+  });
+
+  const nestedParentCount = nestedParents.length;
+  if (activeEventCount > 0 || nestedParentCount > 0) {
+    const propName = (existing as any).name ? String((existing as any).name) : propertyId;
+    const details = JSON.stringify(
+      {
+        property_id: propertyId,
+        property_name: propName,
+        used_in_events: activeEventCount,
+        used_in_nested_object_properties: nestedParentCount,
+        nested_parent_properties: nestedParents.slice(0, 10).map((p) => ({ id: p.id, name: p.name })),
+      },
+      null,
+      2
+    );
+    throw new ConflictError(
+      `Property cannot be deleted because it is used in ${activeEventCount} event(s) and ${nestedParentCount} nested object propert${nestedParentCount === 1 ? 'y' : 'ies'}.`,
+      details
+    );
   }
 
   const now = new Date().toISOString();

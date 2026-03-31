@@ -925,6 +925,14 @@ router.delete(
       res.status(204).send('');
     } catch (err) {
       console.error(err);
+      if (err instanceof ConflictError) {
+        res.status(409).json({
+          error: err.message,
+          code: err.code,
+          details: err.details,
+        });
+        return;
+      }
       if (err instanceof NotFoundError) {
         res.status(404).json({
           error: err.message,

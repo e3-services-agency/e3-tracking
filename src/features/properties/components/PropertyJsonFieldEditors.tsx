@@ -15,6 +15,7 @@ import React, {
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Modal } from '@/src/components/ui/Modal';
+import type { EventPropertyPresence, PropertyNameMapping } from '@/src/types/schema';
 import {
   PROPERTY_DATA_FORMATS,
   PROPERTY_DATA_TYPES,
@@ -22,7 +23,6 @@ import {
   type PropertyDataFormat,
   type PropertyDataType,
   type PropertyExampleValue,
-  type PropertyNameMapping,
   type PropertyNameMappingRole,
   type PropertyValueSchema,
   type PropertyValueSchemaNode,
@@ -310,7 +310,12 @@ export type PropertyValueSchemaEditorProps = {
   /** Maps object field keys to workspace property ids (object parent only). */
   objectChildRefs?: Record<string, string>;
   onObjectChildRefsChange?: (next: Record<string, string>) => void;
-  linkPropertyOptions?: { id: string; name: string; data_type: PropertyDataType }[];
+  linkPropertyOptions?: {
+    id: string;
+    name: string;
+    data_type: PropertyDataType;
+    name_mappings_json?: PropertyNameMapping[] | null;
+  }[];
   /** When editing, exclude this property id from link targets (no self-reference). */
   excludePropertyId?: string | null;
 };
@@ -408,91 +413,51 @@ export function PropertyValueSchemaEditor({
               </label>
               <div className="space-y-2">
                 <span className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
-                  Properties
+                  Nested properties
                 </span>
                 {Object.keys(value?.properties ?? {}).length === 0 && (
-                  <p className="text-xs text-gray-500 italic">No fields yet — add a field below.</p>
+                  <p className="text-xs text-gray-500 italic">
+                    No nested properties yet — add canonical properties below.
+                  </p>
                 )}
-                {Object.entries(value?.properties ?? {}).map(([key, child]) => (
-                  <ObjectRootFieldRow
+                {Object.entries(objectChildRefs ?? {}).map(([key, propertyId]) => (
+                  <NestedAttachedChildRow
                     key={key}
                     fieldKey={key}
-                    child={child}
-                    onRename={(newKey) => {
-                      if (!value || value.type !== 'object' || !value.properties) return;
-                      const nk = newKey.trim();
-                      if (!nk || nk === key || value.properties[nk] !== undefined) return;
-                      const { [key]: v, ...rest } = value.properties;
-                      if (!v) return;
-                      onChange({
-                        ...value,
-                        properties: { ...rest, [nk]: v },
-                      });
-                      if (onObjectChildRefsChange) {
-                        const rid = objectChildRefs[key];
-                        if (rid !== undefined) {
-                          const next = { ...objectChildRefs };
-                          delete next[key];
-                          next[nk] = rid;
-                          onObjectChildRefsChange(next);
-                        }
-                      }
-                    }}
-                    onChildChange={(next) => {
-                      if (!value || value.type !== 'object' || !value.properties) return;
-                      onChange({
-                        ...value,
-                        properties: { ...value.properties, [key]: next },
-                      });
+                    propertyId={propertyId}
+                    schemaNode={
+                      value?.type === 'object' && value.properties ? value.properties[key] : null
+                    }
+                    onSchemaNodeChange={(nextNode) => {
+                      if (!value || value.type !== 'object') return;
+                      const props = { ...(value.properties ?? {}) };
+                      props[key] = nextNode;
+                      onChange({ ...value, properties: props });
                     }}
                     onRemove={() => {
-                      if (!value || value.type !== 'object' || !value.properties) return;
-                      const { [key]: _, ...rest } = value.properties;
-                      onChange({
-                        ...value,
-                        properties: Object.keys(rest).length > 0 ? rest : {},
-                      });
-                      if (onObjectChildRefsChange && objectChildRefs[key] !== undefined) {
-                        const next = { ...objectChildRefs };
-                        delete next[key];
-                        onObjectChildRefsChange(next);
-                      }
-                    }}
-                    objectChildRefId={objectChildRefs[key]}
-                    onObjectChildRefChange={(id) => {
                       if (!onObjectChildRefsChange) return;
-                      const next = { ...objectChildRefs };
-                      if (!id) {
-                        delete next[key];
-                      } else {
-                        next[key] = id;
+                      const nextRefs = { ...(objectChildRefs ?? {}) };
+                      delete nextRefs[key];
+                      onObjectChildRefsChange(nextRefs);
+                      if (value?.type === 'object') {
+                        const nextProps = { ...(value.properties ?? {}) };
+                        delete nextProps[key];
+                        onChange({ ...value, properties: nextProps });
                       }
-                      onObjectChildRefsChange(next);
                     }}
-                    linkPropertyOptions={linkPropertyOptions}
-                    excludePropertyId={excludePropertyId}
+                    resolveProperty={(id) => linkPropertyOptions.find((p) => p.id === id) ?? null}
                     disabled={disabled}
                   />
                 ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const base = value && value.type === 'object' ? value : defaultObjectSchema();
-                    const props = { ...(base.properties ?? {}) };
-                    let k = 'field';
-                    let i = 1;
-                    while (props[k] !== undefined) {
-                      k = `field_${i++}`;
-                    }
-                    props[k] = defaultLeafNode('string');
-                    onChange({ ...base, type: 'object', properties: props });
-                  }}
+                <NestedAttachControls
+                  value={value}
+                  onChange={onChange}
+                  objectChildRefs={objectChildRefs}
+                  onObjectChildRefsChange={onObjectChildRefsChange}
+                  linkPropertyOptions={linkPropertyOptions}
+                  excludePropertyId={excludePropertyId}
                   disabled={disabled}
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1" /> Add field
-                </Button>
+                />
               </div>
             </>
           )}
@@ -558,6 +523,354 @@ export function PropertyValueSchemaEditor({
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function resolvePayloadKeyFromNameMappingsJson(
+  name: string,
+  nameMappings: PropertyNameMapping[] | null | undefined
+): string {
+  if (Array.isArray(nameMappings)) {
+    const payloadKey = nameMappings.find((m) => m?.role === 'payload_key') ?? nameMappings[0];
+    const mapped = payloadKey?.name ? String(payloadKey.name).trim() : '';
+    if (mapped) return mapped;
+  }
+  return name;
+}
+
+function ensureUniqueKey(base: string, existing: Set<string>): string {
+  const trimmed = base.trim();
+  const safe = trimmed ? trimmed : 'property';
+  if (!existing.has(safe)) return safe;
+  let i = 2;
+  while (existing.has(`${safe}_${i}`)) i += 1;
+  return `${safe}_${i}`;
+}
+
+function NestedAttachControls({
+  value,
+  onChange,
+  objectChildRefs,
+  onObjectChildRefsChange,
+  linkPropertyOptions,
+  excludePropertyId,
+  disabled,
+}: {
+  value: PropertyValueSchema | null;
+  onChange: (value: PropertyValueSchema | null) => void;
+  objectChildRefs: Record<string, string>;
+  onObjectChildRefsChange?: (next: Record<string, string>) => void;
+  linkPropertyOptions: Array<{
+    id: string;
+    name: string;
+    data_type: PropertyDataType;
+    name_mappings_json?: PropertyNameMapping[] | null;
+  }>;
+  excludePropertyId: string | null;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [addPresence, setAddPresence] = useState<EventPropertyPresence>('always_sent');
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(() => new Set());
+
+  const selectable = useMemo(() => {
+    const attachedIds = new Set(Object.values(objectChildRefs ?? {}));
+    return linkPropertyOptions.filter((p) => {
+      if (excludePropertyId && p.id === excludePropertyId) return false;
+      if (p.data_type === 'object' || p.data_type === 'array') return false;
+      if (attachedIds.has(p.id)) return false;
+      return true;
+    });
+  }, [linkPropertyOptions, objectChildRefs, excludePropertyId]);
+
+  if (!onObjectChildRefsChange) return null;
+  if (!value || value.type !== 'object') return null;
+
+  const attachedIds = new Set(Object.values(objectChildRefs ?? {}));
+
+  const onAddSelected = async (propertyIds: string[]): Promise<boolean> => {
+    const base = value && value.type === 'object' ? value : defaultObjectSchema();
+    const nextProps: Record<string, PropertyValueSchemaNode> = { ...(base.properties ?? {}) };
+    const nextRefs: Record<string, string> = { ...(objectChildRefs ?? {}) };
+    const existingKeys = new Set(Object.keys(nextProps));
+
+    for (const pid of propertyIds) {
+      const pr = linkPropertyOptions.find((p) => p.id === pid);
+      if (!pr) continue;
+      const key = ensureUniqueKey(
+        resolvePayloadKeyFromNameMappingsJson(pr.name, pr.name_mappings_json),
+        existingKeys
+      );
+      existingKeys.add(key);
+      nextRefs[key] = pid;
+      nextProps[key] = {
+        type: pr.data_type,
+        required: true,
+        presence: addPresence,
+      };
+    }
+
+    onObjectChildRefsChange(nextRefs);
+    onChange({ ...base, type: 'object', properties: nextProps });
+    return true;
+  };
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setOpen(true)}
+        disabled={disabled}
+      >
+        <Plus className="w-3.5 h-3.5 mr-1" /> Add nested properties
+      </Button>
+      <Modal
+        isOpen={open}
+        onClose={() => {
+          setOpen(false);
+          setCheckedIds(new Set());
+        }}
+        title="Add nested properties"
+        backdropClassName="z-[80]"
+        className="z-[90] max-w-[min(720px,calc(100vw-1.5rem))] max-h-[min(90vh,720px)] flex flex-col"
+        bodyClassName="p-4 min-h-0 flex-1 overflow-y-auto"
+      >
+        <EventLikeAttachPicker
+          availableProperties={selectable}
+          attachedIds={attachedIds}
+          addPresence={addPresence}
+          onAddPresenceChange={setAddPresence}
+          checkedIds={checkedIds}
+          onCheckedIdsChange={setCheckedIds}
+          onAddSelected={onAddSelected}
+          disabled={disabled}
+        />
+      </Modal>
+    </>
+  );
+}
+
+function EventLikeAttachPicker({
+  availableProperties,
+  attachedIds,
+  addPresence,
+  onAddPresenceChange,
+  checkedIds,
+  onCheckedIdsChange,
+  onAddSelected,
+  disabled,
+}: {
+  availableProperties: Array<{ id: string; name: string; data_type: PropertyDataType }>;
+  attachedIds: ReadonlySet<string>;
+  addPresence: EventPropertyPresence;
+  onAddPresenceChange: (p: EventPropertyPresence) => void;
+  checkedIds: Set<string>;
+  onCheckedIdsChange: (s: Set<string>) => void;
+  onAddSelected: (ids: string[]) => Promise<boolean>;
+  disabled?: boolean;
+}) {
+  // Lightweight inline reuse of the event picker mental model: search + checkboxes + preview + add.
+  // (We keep it here to avoid touching event flows.)
+  const [search, setSearch] = useState('');
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const q = search.trim().toLowerCase();
+  const filtered = useMemo(
+    () => (q ? availableProperties.filter((p) => p.name.toLowerCase().includes(q)) : availableProperties),
+    [availableProperties, q]
+  );
+  useEffect(() => {
+    if (filtered.length === 0) {
+      setFocusedId(null);
+      return;
+    }
+    if (!focusedId || !filtered.some((p) => p.id === focusedId)) {
+      setFocusedId(filtered[0].id);
+    }
+  }, [filtered, focusedId]);
+  const focused = useMemo(() => filtered.find((p) => p.id === focusedId) ?? null, [filtered, focusedId]);
+
+  const toggleChecked = (id: string) => {
+    if (attachedIds.has(id)) return;
+    onCheckedIdsChange((() => {
+      const next = new Set(checkedIds);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    })());
+  };
+
+  const selectableCheckedCount = useMemo(() => {
+    let n = 0;
+    for (const id of checkedIds) {
+      if (!attachedIds.has(id)) n += 1;
+    }
+    return n;
+  }, [checkedIds, attachedIds]);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="flex-1 min-w-[160px] space-y-1">
+          <label className="text-xs font-medium text-gray-600">Search properties</label>
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Filter by name…"
+            disabled={disabled}
+            className="h-9 text-sm"
+          />
+        </div>
+        <div className="space-y-1">
+          <span className="text-xs font-medium text-gray-600 block">Presence for new nested</span>
+          <select
+            value={addPresence}
+            onChange={(e) => onAddPresenceChange(e.target.value as EventPropertyPresence)}
+            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+            disabled={disabled}
+          >
+            <option value="always_sent">Always</option>
+            <option value="sometimes_sent">Sometimes</option>
+            <option value="never_sent">Never</option>
+          </select>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-9 gap-1.5 shrink-0 min-w-[8.5rem]"
+          onClick={() => void onAddSelected([...checkedIds].filter((id) => !attachedIds.has(id)))}
+          disabled={selectableCheckedCount === 0 || disabled}
+        >
+          <Plus className="w-4 h-4 shrink-0" aria-hidden />
+          <span>Add selected{selectableCheckedCount > 0 ? ` (${selectableCheckedCount})` : ''}</span>
+        </Button>
+      </div>
+
+      <div className="flex flex-col min-[420px]:flex-row border rounded-lg overflow-hidden min-h-[220px] max-h-[320px]">
+        <div className="min-[420px]:w-[55%] min-[420px]:min-w-0 min-[420px]:border-r border-gray-200 overflow-y-auto divide-y divide-gray-100 bg-white">
+          {filtered.length === 0 ? (
+            <div className="px-3 py-6 text-sm text-gray-500 text-center">No matches.</div>
+          ) : (
+            filtered.map((p) => {
+              const isChecked = checkedIds.has(p.id);
+              const isFocused = focusedId === p.id;
+              return (
+                <div
+                  key={p.id}
+                  className={`flex items-start gap-2 px-2 py-1.5 text-left transition-colors ${
+                    disabled ? 'cursor-default' : 'cursor-pointer'
+                  } ${isFocused ? 'bg-gray-50' : 'hover:bg-gray-50/80'}`}
+                  onClick={() => {
+                    setFocusedId(p.id);
+                    if (!disabled) toggleChecked(p.id);
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-1 rounded border-gray-300 shrink-0"
+                    checked={isChecked}
+                    disabled={disabled}
+                    onChange={() => toggleChecked(p.id)}
+                    aria-label={`Select ${p.name}`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-mono text-xs text-gray-900 truncate">{p.name}</div>
+                    <div className="text-[11px] text-gray-500">{p.data_type}</div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+        <div className="min-[420px]:w-[45%] min-[420px]:min-w-0 bg-gray-50 p-3 overflow-y-auto">
+          {focused ? (
+            <div className="space-y-2">
+              <div className="font-mono text-xs font-semibold text-gray-900 break-words">{focused.name}</div>
+              <div className="text-[11px] text-gray-600">Type: {focused.data_type}</div>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-500">Select a property to preview.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NestedAttachedChildRow({
+  fieldKey,
+  propertyId,
+  schemaNode,
+  onSchemaNodeChange,
+  onRemove,
+  resolveProperty,
+  disabled,
+}: {
+  fieldKey: string;
+  propertyId: string;
+  schemaNode: PropertyValueSchemaNode | null;
+  onSchemaNodeChange: (next: PropertyValueSchemaNode) => void;
+  onRemove: () => void;
+  resolveProperty: (id: string) => { id: string; name: string; data_type: PropertyDataType } | null;
+  disabled?: boolean;
+}) {
+  const pr = resolveProperty(propertyId);
+  const required = schemaNode?.required !== false;
+  const presence = (schemaNode as any)?.presence as EventPropertyPresence | undefined;
+  return (
+    <div className="rounded border border-gray-200 bg-white p-2 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] text-gray-500">Object key</div>
+          <div className="font-mono text-xs text-gray-900 truncate">{fieldKey}</div>
+          <div className="text-[10px] text-gray-500 mt-1">Canonical property</div>
+          <div className="font-mono text-xs text-gray-900 truncate">
+            {pr ? pr.name : '(missing)'} {pr ? `· ${pr.data_type}` : ''}
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-red-600 h-8"
+          onClick={onRemove}
+          disabled={disabled}
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+      <div className="flex flex-wrap gap-3 items-center">
+        <label className="flex items-center gap-2 text-xs text-gray-700">
+          <input
+            type="checkbox"
+            checked={required}
+            onChange={(e) =>
+              onSchemaNodeChange({ ...(schemaNode ?? { type: pr?.data_type ?? 'string' }), required: e.target.checked ? true : false })
+            }
+            disabled={disabled}
+            className="rounded border-gray-300"
+          />
+          Required
+        </label>
+        <div className="flex items-center gap-2 text-xs text-gray-700">
+          <span className="text-[11px] text-gray-600">Presence</span>
+          <select
+            value={presence ?? 'always_sent'}
+            onChange={(e) =>
+              onSchemaNodeChange({ ...(schemaNode ?? { type: pr?.data_type ?? 'string' }), presence: e.target.value as any })
+            }
+            disabled={disabled}
+            className="h-8 rounded-md border border-input bg-white px-2 text-xs"
+          >
+            <option value="always_sent">Always</option>
+            <option value="sometimes_sent">Sometimes</option>
+            <option value="never_sent">Never</option>
+          </select>
+        </div>
       </div>
     </div>
   );

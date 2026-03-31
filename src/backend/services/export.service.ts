@@ -417,10 +417,15 @@ function buildOnePropertyTableRow(
     ? 'export-props-name-cell export-props-name-cell--nested'
     : 'export-props-name-cell';
 
+  const presenceForRow =
+    nested && opts.schemaNode && (opts.schemaNode as any).presence
+      ? String((opts.schemaNode as any).presence)
+      : p.presence;
+
   return `<tr class="${rowClass}">
   <td class="${nameCellClass}"><code class="export-inline-code">${escapeHtml(nameDisplay)}</code></td>
   <td class="export-props-req-cell">${requiredCell}</td>
-  <td class="export-props-presence-cell">${escapeHtml(presenceLabel(p.presence))}</td>
+  <td class="export-props-presence-cell">${escapeHtml(presenceLabel(presenceForRow))}</td>
   <td class="export-props-type-cell">${typeLabel}</td>
   <td class="export-props-source-cell">${sourceText}</td>
   <td class="export-props-example-cell">${exampleCell}</td>

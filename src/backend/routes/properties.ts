@@ -148,6 +148,15 @@ function validateValueSchemaNode(value: unknown): value is PropertyValueSchemaNo
     return false;
   }
 
+  if (
+    (value as any).presence !== undefined &&
+    (value as any).presence !== 'always_sent' &&
+    (value as any).presence !== 'sometimes_sent' &&
+    (value as any).presence !== 'never_sent'
+  ) {
+    return false;
+  }
+
   if (value.data_formats !== undefined) {
     if (
       !Array.isArray(value.data_formats) ||

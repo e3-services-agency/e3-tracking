@@ -183,8 +183,13 @@ function formatJsObjectBodyFromSchema(
 ): string[] {
   const props = schema.properties ?? {};
   const keys = Object.keys(props);
-  const requiredKeys = keys.filter((k) => props[k]?.required !== false);
-  const optionalKeys = keys.filter((k) => props[k]?.required === false);
+  const includedKeys = keys.filter((k) => props[k]?.presence !== 'never_sent');
+  const requiredKeys = includedKeys.filter(
+    (k) => props[k]?.presence === 'always_sent' || props[k]?.required !== false
+  );
+  const optionalKeys = includedKeys.filter(
+    (k) => props[k]?.presence === 'sometimes_sent' || props[k]?.required === false
+  );
 
   const lines: string[] = [];
   const inner = `${baseIndent}  `;

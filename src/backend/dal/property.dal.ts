@@ -8,6 +8,7 @@ import type {
   CreatePropertyInput,
   PropertyDataFormat,
   PropertyDataType,
+  EventPropertyPresence,
   PropertyExampleValue,
   PropertyMappingType,
   PropertyNameMapping,
@@ -247,6 +248,13 @@ function normalizePropertyValueSchemaNode(value: unknown): PropertyValueSchemaNo
   }
   if (typeof value.required === 'boolean') {
     normalized.required = value.required;
+  }
+  if (
+    value.presence === 'always_sent' ||
+    value.presence === 'sometimes_sent' ||
+    value.presence === 'never_sent'
+  ) {
+    normalized.presence = value.presence as EventPropertyPresence;
   }
   if (typeof value.allow_additional_properties === 'boolean') {
     normalized.allow_additional_properties = value.allow_additional_properties;

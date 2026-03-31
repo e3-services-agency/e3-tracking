@@ -700,6 +700,7 @@ export function PropertyEditorSheet({
               id: p.id,
               name: p.name,
               data_type: p.data_type,
+              name_mappings_json: p.name_mappings_json ?? null,
             }))}
             excludePropertyId={initialProperty?.id ?? null}
           />

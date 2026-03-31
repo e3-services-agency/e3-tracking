@@ -95,9 +95,21 @@ export function jsonSampleValueForProperty(p: AttachedPropertyForCodegen): unkno
     return {};
   }
 
+  if (dt === 'array') {
+    // Array examples are derived from linked canonical element property identity.
+    // The array builder persists object_child_property_refs_json = { "$items": "<id>" } and
+    // event hydration resolves that into object_child_snapshots_by_field["$items"].
+    const snaps = p.object_child_snapshots_by_field;
+    const itemSnap = snaps ? snaps['$items'] : undefined;
+    if (itemSnap && !itemSnap.missing && !itemSnap.cycle_break) {
+      const name = typeof itemSnap.property_name === 'string' ? itemSnap.property_name.trim() : '';
+      if (name) return [name];
+    }
+    return [];
+  }
+
   if (dt === 'number') return 123;
   if (dt === 'boolean') return true;
-  if (dt === 'array') return [];
   if (dt === 'timestamp') {
     return '2025-01-01T00:00:00.000Z';
   }

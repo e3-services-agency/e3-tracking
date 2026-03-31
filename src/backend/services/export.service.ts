@@ -148,6 +148,19 @@ function deriveObjectExampleForDocs(
   return `{\n${lines.join(',\n')}\n}`;
 }
 
+function deriveArrayExampleForDocs(
+  schema: PropertyValueSchemaNode | null,
+  snaps: Record<string, ObjectChildFieldSnapshot> | null | undefined
+): string | null {
+  if (!schema || (schema as any).type !== 'array') return null;
+  const itemSnap = snaps ? snaps['$items'] : undefined;
+  if (!itemSnap || itemSnap.missing || itemSnap.cycle_break) return null;
+  const name = typeof itemSnap.property_name === 'string' ? itemSnap.property_name.trim() : '';
+  if (!name) return null;
+  // Product rule: arrays use canonical property identity/name representation.
+  return `['${name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}']`;
+}
+
 type CanvasNode = {
   id: string;
   type?: string;
@@ -510,13 +523,28 @@ function buildPropertyDetailsTable(
     const derivedObjectExample =
       hasObjectChildren ? deriveObjectExampleForDocs(schema as any, snaps) : null;
 
+    const hasArrayItem =
+      p.property_data_type === 'array' &&
+      schema &&
+      schema.type === 'array' &&
+      Boolean(schema.items) &&
+      snaps &&
+      Boolean((snaps as any)['$items']);
+
+    const derivedArrayExample = hasArrayItem ? deriveArrayExampleForDocs(schema as any, snaps) : null;
+
     rowChunks.push(
       buildOnePropertyTableRow(p, sourceLabelsByPropertyId, {
         nested: false,
         nameOverride: null,
         schemaNode: null,
         snapshot: null,
-        exampleOverrideHtml: derivedObjectExample ? escapeHtml(derivedObjectExample) : null,
+        exampleOverrideHtml:
+          derivedObjectExample
+            ? escapeHtml(derivedObjectExample)
+            : derivedArrayExample
+              ? escapeHtml(derivedArrayExample)
+              : null,
       })
     );
 

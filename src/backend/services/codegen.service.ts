@@ -102,6 +102,9 @@ export function jsonSampleValueForProperty(p: AttachedPropertyForCodegen): unkno
     const snaps = p.object_child_snapshots_by_field;
     const itemSnap = snaps ? snaps['$items'] : undefined;
     if (itemSnap && !itemSnap.missing && !itemSnap.cycle_break) {
+      const ex = itemSnap.property_example_values_json;
+      const v = Array.isArray(ex) && ex.length > 0 ? ex[0]?.value : undefined;
+      if (typeof v === 'string' && v.trim()) return [v.trim()];
       const name = typeof itemSnap.property_name === 'string' ? itemSnap.property_name.trim() : '';
       if (name) return [name];
     }

@@ -837,7 +837,10 @@ export async function getEventWithProperties(
 
   let frontier: string[] = [];
   for (const pr of propertyById.values()) {
-    if (pr.data_type === 'object' && pr.object_child_property_refs_json) {
+    if (
+      (pr.data_type === 'object' || pr.data_type === 'array') &&
+      pr.object_child_property_refs_json
+    ) {
       for (const pid of Object.values(pr.object_child_property_refs_json)) {
         if (!propertyById.has(pid)) {
           frontier.push(pid);
@@ -870,7 +873,10 @@ export async function getEventWithProperties(
       }
       if (!propertyById.has(pr.id)) {
         propertyById.set(pr.id, pr);
-        if (pr.data_type === 'object' && pr.object_child_property_refs_json) {
+        if (
+          (pr.data_type === 'object' || pr.data_type === 'array') &&
+          pr.object_child_property_refs_json
+        ) {
           for (const pid of Object.values(pr.object_child_property_refs_json)) {
             if (!propertyById.has(pid)) {
               frontier.push(pid);
@@ -886,7 +892,7 @@ export async function getEventWithProperties(
     .map((r) => {
       const pr = propertyById.get(r.property_id);
       const snapshots =
-        pr && pr.data_type === 'object'
+        pr && (pr.data_type === 'object' || pr.data_type === 'array')
           ? buildObjectChildFieldSnapshots(pr, propertyById, new Set())
           : null;
       return {

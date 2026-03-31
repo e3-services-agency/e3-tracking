@@ -155,10 +155,12 @@ function deriveArrayExampleForDocs(
   if (!schema || (schema as any).type !== 'array') return null;
   const itemSnap = snaps ? snaps['$items'] : undefined;
   if (!itemSnap || itemSnap.missing || itemSnap.cycle_break) return null;
-  const name = typeof itemSnap.property_name === 'string' ? itemSnap.property_name.trim() : '';
-  if (!name) return null;
+  const ex = itemSnap.property_example_values_json;
+  const v = Array.isArray(ex) && ex.length > 0 ? ex[0]?.value : undefined;
+  const raw = typeof v === 'string' && v.trim() ? v.trim() : itemSnap.property_name?.trim();
+  if (!raw) return null;
   // Product rule: arrays use canonical property identity/name representation.
-  return `['${name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}']`;
+  return `['${raw.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}']`;
 }
 
 type CanvasNode = {

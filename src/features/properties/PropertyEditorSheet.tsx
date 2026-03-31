@@ -734,11 +734,9 @@ export function PropertyEditorSheet({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Example values</label>
+          <label className="text-sm font-medium text-gray-700">Example value</label>
           <p className="text-xs text-gray-500">
-            Sample values for this property (each row has a <span className="font-mono">value</span> plus optional{' '}
-            <span className="font-mono">label</span> and <span className="font-mono">notes</span>). Primitives use simple
-            fields; object/array types use JSON.
+            One canonical example value for this property. Primitives use simple fields; object/array types use JSON.
           </p>
           <PropertyExampleValuesEditor
             ref={exampleValuesEditorRef}

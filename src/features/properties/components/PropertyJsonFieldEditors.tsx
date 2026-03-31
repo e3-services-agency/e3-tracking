@@ -1265,8 +1265,8 @@ const ExampleValueRow = forwardRef<ExampleValueRowHandle, ExampleValueRowProps>(
 
     return (
       <div className="rounded-md border border-gray-200 bg-gray-50/80 p-3 space-y-2">
-        <div className="flex justify-between items-center">
-          <span className="text-[11px] font-semibold text-gray-600">Example {index + 1}</span>
+        {renderValueControl()}
+        <div className="flex justify-end">
           <Button
             type="button"
             variant="ghost"
@@ -1275,29 +1275,8 @@ const ExampleValueRow = forwardRef<ExampleValueRowHandle, ExampleValueRowProps>(
             onClick={onRemove}
             disabled={disabled}
           >
-            <Trash2 className="w-4 h-4" />
+            Clear example
           </Button>
-        </div>
-        {renderValueControl()}
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <div>
-            <label className="text-[11px] text-gray-600">Label (optional)</label>
-            <Input
-              value={entry.label ?? ''}
-              onChange={(e) => onChange({ ...entry, label: e.target.value || undefined })}
-              className="text-xs h-8"
-              disabled={disabled}
-            />
-          </div>
-          <div>
-            <label className="text-[11px] text-gray-600">Notes (optional)</label>
-            <Input
-              value={entry.notes ?? ''}
-              onChange={(e) => onChange({ ...entry, notes: e.target.value || undefined })}
-              className="text-xs h-8"
-              disabled={disabled}
-            />
-          </div>
         </div>
       </div>
     );
@@ -1337,7 +1316,7 @@ export const PropertyExampleValuesEditor = forwardRef<
           if (!handle) continue;
           const r = handle.flushValue();
           if (r.ok === false) {
-            return { ok: false, error: `Example ${i + 1}: ${r.error}` };
+            return { ok: false, error: `Example value: ${r.error}` };
           }
           next[i] = { ...next[i], value: r.value };
         }
@@ -1496,40 +1475,20 @@ export function PropertyNameMappingsEditor({
 
 /** Validates example rows for API contract; returns error if any row is invalid for save. */
 export function validateExampleValuesForSave(rows: PropertyExampleValue[]): { ok: true } | { ok: false; error: string } {
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    if (!Object.prototype.hasOwnProperty.call(row, 'value')) {
-      return { ok: false, error: `Example ${i + 1} is missing a value.` };
-    }
-    if (
-      row.label !== undefined &&
-      row.label !== null &&
-      typeof row.label !== 'string'
-    ) {
-      return { ok: false, error: `Example ${i + 1}: label must be a string when set.` };
-    }
-    if (
-      row.notes !== undefined &&
-      row.notes !== null &&
-      typeof row.notes !== 'string'
-    ) {
-      return { ok: false, error: `Example ${i + 1}: notes must be a string when set.` };
-    }
+  const row = rows[0];
+  if (!row) return { ok: true };
+  if (!Object.prototype.hasOwnProperty.call(row, 'value')) {
+    return { ok: false, error: `Example value is missing a value.` };
   }
   return { ok: true };
 }
 
 export function serializeExampleValuesForSave(rows: PropertyExampleValue[]): PropertyExampleValue[] | null {
-  const out: PropertyExampleValue[] = [];
-  for (const row of rows) {
-    if (!Object.prototype.hasOwnProperty.call(row, 'value')) continue;
-    if (row.value === null || row.value === undefined) continue;
-    const entry: PropertyExampleValue = { value: row.value };
-    if (typeof row.label === 'string' && row.label.trim()) entry.label = row.label.trim();
-    if (typeof row.notes === 'string' && row.notes.trim()) entry.notes = row.notes.trim();
-    out.push(entry);
-  }
-  return out.length > 0 ? out : null;
+  const first = rows[0];
+  if (!first || !Object.prototype.hasOwnProperty.call(first, 'value')) return null;
+  if (first.value === null || first.value === undefined) return null;
+  // Product decision: exactly one canonical example value; label/notes are not persisted from this editor UI.
+  return [{ value: first.value }];
 }
 
 export function serializeNameMappingsForSave(rows: PropertyNameMapping[]): PropertyNameMapping[] | null {

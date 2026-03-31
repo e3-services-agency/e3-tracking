@@ -828,10 +828,22 @@ export async function generateJourneyHtmlExport(
               (t as any).attached_properties || [],
               (t as any).sourceLabelsByPropertyId ?? new Map()
             );
-            const highlightedSnippet = highlightCodeToHtml(
-              snippets[preferredCodegenStyle],
-              codegenLanguageForStyle(preferredCodegenStyle)
-            );
+            const rawSnippet = snippets[preferredCodegenStyle];
+            // Contract: export renders highlighted HTML derived from raw code only.
+            // If an upstream caller ever provides already-highlighted HTML (or escaped HTML),
+            // do not re-highlight it (it will corrupt markup into fragments like `"ch-num">123`).
+            const hasHighlightArtifacts =
+              typeof rawSnippet === 'string' &&
+              (rawSnippet.includes('<span') ||
+                rawSnippet.includes('class="ch-') ||
+                rawSnippet.includes('&lt;span') ||
+                /\bch-(num|str|key|kw|lit|com)\b/i.test(rawSnippet));
+            const highlightedSnippet = hasHighlightArtifacts
+              ? escapeHtml(rawSnippet)
+              : highlightCodeToHtml(
+                  rawSnippet,
+                  codegenLanguageForStyle(preferredCodegenStyle)
+                );
             return `
         <div class="export-tracking-block">
           <div class="export-tracking-bar">

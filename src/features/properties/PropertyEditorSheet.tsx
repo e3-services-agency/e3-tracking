@@ -448,16 +448,23 @@ export function PropertyEditorSheet({
       dataType === 'object' || dataType === 'array' ? valueSchemaDraft : null;
 
     const object_child_property_refs_json = ((): Record<string, string> | null => {
-      if (dataType !== 'object') return null;
-      const props = valueSchemaDraft?.type === 'object' ? valueSchemaDraft.properties : undefined;
-      if (!props) return null;
-      const out: Record<string, string> = {};
       const selfId = initialProperty?.id;
-      for (const key of Object.keys(props)) {
-        const id = objectChildRefsDraft[key]?.trim();
-        if (id && id !== selfId) out[key] = id;
+      if (dataType === 'object') {
+        const props = valueSchemaDraft?.type === 'object' ? valueSchemaDraft.properties : undefined;
+        if (!props) return null;
+        const out: Record<string, string> = {};
+        for (const key of Object.keys(props)) {
+          const id = objectChildRefsDraft[key]?.trim();
+          if (id && id !== selfId) out[key] = id;
+        }
+        return Object.keys(out).length > 0 ? out : null;
       }
-      return Object.keys(out).length > 0 ? out : null;
+      if (dataType === 'array') {
+        const id = objectChildRefsDraft['$items']?.trim();
+        if (id && id !== selfId) return { $items: id };
+        return null;
+      }
+      return null;
     })();
 
     const isPrimitiveType =

@@ -465,16 +465,51 @@ export function PropertyValueSchemaEditor({
           {dataType === 'array' && value?.type === 'array' && (
             <div>
               <span className="text-[11px] font-semibold text-gray-600 uppercase tracking-wide">
-                Element schema
+                Element property
               </span>
-              <div className="mt-1">
-                <SchemaNodeEditor
-                  node={value.items ?? defaultLeafNode('string')}
-                  onChange={(items) => onChange({ type: 'array', items })}
-                  depth={0}
-                  disabled={disabled}
-                />
-              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Choose exactly one canonical <span className="font-mono">primitive</span> property to define the array element.
+              </p>
+              {(() => {
+                if (!onObjectChildRefsChange) {
+                  return (
+                    <p className="text-xs text-gray-500 italic mt-2">
+                      Element linking is unavailable in this editor context.
+                    </p>
+                  );
+                }
+
+                const elementId = objectChildRefs?.['$items'] ?? null;
+                const pickerOptions = linkPropertyOptions.filter((p) => {
+                  if (excludePropertyId && p.id === excludePropertyId) return false;
+                  return p.data_type !== 'object' && p.data_type !== 'array';
+                });
+                const linked = elementId ? pickerOptions.find((p) => p.id === elementId) ?? null : null;
+
+                return (
+                  <ArrayElementPickerRow
+                    elementId={elementId}
+                    linkedName={linked?.name ?? null}
+                    linkedType={linked?.data_type ?? null}
+                    pickerOptions={pickerOptions}
+                    disabled={disabled}
+                    onPick={(id) => {
+                      if (!id) {
+                        const next = { ...(objectChildRefs ?? {}) };
+                        delete next['$items'];
+                        onObjectChildRefsChange(next);
+                        onChange({ type: 'array', items: value.items ?? defaultLeafNode('string') });
+                        return;
+                      }
+                      const pr = pickerOptions.find((p) => p.id === id);
+                      const next = { ...(objectChildRefs ?? {}) };
+                      next['$items'] = id;
+                      onObjectChildRefsChange(next);
+                      onChange({ type: 'array', items: { type: pr?.data_type ?? 'string' } });
+                    }}
+                  />
+                );
+              })()}
             </div>
           )}
         </div>
@@ -524,6 +559,85 @@ export function PropertyValueSchemaEditor({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function ArrayElementPickerRow({
+  elementId,
+  linkedName,
+  linkedType,
+  pickerOptions,
+  onPick,
+  disabled,
+}: {
+  elementId: string | null;
+  linkedName: string | null;
+  linkedType: PropertyDataType | null;
+  pickerOptions: Array<{
+    id: string;
+    name: string;
+    data_type: PropertyDataType;
+    name_mappings_json?: PropertyNameMapping[] | null;
+  }>;
+  onPick: (propertyId: string | null) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const available = pickerOptions as any;
+
+  return (
+    <div className="mt-2 rounded border border-gray-200 bg-white p-2 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[10px] text-gray-500">Linked canonical element property</div>
+          <div className="text-xs text-gray-800">
+            {linkedName ? (
+              <>
+                <span className="font-mono">{linkedName}</span> <span className="text-gray-500">({linkedType})</span>
+              </>
+            ) : elementId ? (
+              <span className="font-mono">(missing)</span>
+            ) : (
+              '—'
+            )}
+          </div>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)} disabled={disabled}>
+            {elementId ? 'Change…' : 'Choose…'}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-red-700"
+            onClick={() => onPick(null)}
+            disabled={disabled || !elementId}
+          >
+            Clear
+          </Button>
+        </div>
+      </div>
+
+      <Modal
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        title="Select canonical element property"
+        backdropClassName="z-[80]"
+        className="z-[90] max-w-[min(720px,calc(100vw-1.5rem))] max-h-[min(90vh,720px)] flex flex-col"
+        bodyClassName="p-4 min-h-0 flex-1 overflow-y-auto"
+      >
+        <PropertySingleSelectPicker
+          availableProperties={available}
+          selectedId={elementId}
+          onSelect={(id) => {
+            onPick(id);
+            setOpen(false);
+          }}
+          disabled={disabled}
+        />
+      </Modal>
     </div>
   );
 }

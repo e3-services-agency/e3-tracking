@@ -448,10 +448,10 @@ async function assertObjectChildRefsValid(
   valueSchema: PropertyValueSchema | null,
   dataType: PropertyDataType
 ): Promise<void> {
-  if (dataType !== 'object') {
+  if (dataType !== 'object' && dataType !== 'array') {
     if (refs && Object.keys(refs).length > 0) {
       throw new BadRequestError(
-        'object_child_property_refs_json is only for object-type properties.',
+        'object_child_property_refs_json is only for object- or array-type properties.',
         'object_child_property_refs_json'
       );
     }
@@ -470,14 +470,31 @@ async function assertObjectChildRefsValid(
     }
   }
 
-  if (valueSchema?.type === 'object' && valueSchema.properties) {
-    for (const key of Object.keys(refs)) {
-      if (!valueSchema.properties[key]) {
-        throw new BadRequestError(
-          `object_child_property_refs_json key "${key}" has no matching value_schema_json.properties entry.`,
-          'object_child_property_refs_json'
-        );
+  if (dataType === 'object') {
+    if (valueSchema?.type === 'object' && valueSchema.properties) {
+      for (const key of Object.keys(refs)) {
+        if (!valueSchema.properties[key]) {
+          throw new BadRequestError(
+            `object_child_property_refs_json key "${key}" has no matching value_schema_json.properties entry.`,
+            'object_child_property_refs_json'
+          );
+        }
       }
+    }
+  } else {
+    // array: exactly one element link, stored under "$items"
+    const keys = Object.keys(refs);
+    if (keys.length !== 1 || keys[0] !== '$items') {
+      throw new BadRequestError(
+        'object_child_property_refs_json for array properties must contain exactly one key: "$items".',
+        'object_child_property_refs_json'
+      );
+    }
+    if (!valueSchema || valueSchema.type !== 'array' || !valueSchema.items) {
+      throw new BadRequestError(
+        'Array element linking requires value_schema_json.type="array" with an items schema.',
+        'object_child_property_refs_json'
+      );
     }
   }
 
@@ -511,32 +528,53 @@ async function assertObjectChildRefsValid(
     })
   );
 
-  if (valueSchema?.type === 'object' && valueSchema.properties) {
-    for (const [fieldKey, childId] of Object.entries(refs)) {
-      const node = valueSchema.properties[fieldKey];
-      const schemaFieldType = node?.type;
-      if (
-        typeof schemaFieldType !== 'string' ||
-        !PROPERTY_DATA_TYPES.includes(schemaFieldType as PropertyDataType)
-      ) {
-        continue;
+  if (dataType === 'object') {
+    if (valueSchema?.type === 'object' && valueSchema.properties) {
+      for (const [fieldKey, childId] of Object.entries(refs)) {
+        const node = valueSchema.properties[fieldKey];
+        const schemaFieldType = node?.type;
+        if (
+          typeof schemaFieldType !== 'string' ||
+          !PROPERTY_DATA_TYPES.includes(schemaFieldType as PropertyDataType)
+        ) {
+          continue;
+        }
+        const child = childById.get(childId);
+        if (!child) {
+          continue;
+        }
+        if (child.data_type === 'object' || child.data_type === 'array') {
+          throw new BadRequestError(
+            `object_child_property_refs_json field "${fieldKey}": linked property "${child.name}" has unsupported data_type "${child.data_type}" (object/array cannot be nested field refs).`,
+            'object_child_property_refs_json'
+          );
+        }
+        if (child.data_type !== schemaFieldType) {
+          throw new BadRequestError(
+            `object_child_property_refs_json field "${fieldKey}": value_schema_json has type "${schemaFieldType}" but linked property "${child.name}" has data_type "${child.data_type}".`,
+            'object_child_property_refs_json'
+          );
+        }
       }
-      const child = childById.get(childId);
-      if (!child) {
-        continue;
-      }
-      if (child.data_type === 'object' || child.data_type === 'array') {
-        throw new BadRequestError(
-          `object_child_property_refs_json field "${fieldKey}": linked property "${child.name}" has unsupported data_type "${child.data_type}" (object/array cannot be nested field refs).`,
-          'object_child_property_refs_json'
-        );
-      }
-      if (child.data_type !== schemaFieldType) {
-        throw new BadRequestError(
-          `object_child_property_refs_json field "${fieldKey}": value_schema_json has type "${schemaFieldType}" but linked property "${child.name}" has data_type "${child.data_type}".`,
-          'object_child_property_refs_json'
-        );
-      }
+    }
+  } else {
+    const childId = refs['$items'];
+    const child = childById.get(childId);
+    const schemaFieldType = valueSchema?.type === 'array' ? valueSchema.items?.type : undefined;
+    if (!child || typeof schemaFieldType !== 'string') {
+      return;
+    }
+    if (child.data_type === 'object' || child.data_type === 'array') {
+      throw new BadRequestError(
+        `object_child_property_refs_json "$items": linked property "${child.name}" has unsupported data_type "${child.data_type}" (array elements must be primitive).`,
+        'object_child_property_refs_json'
+      );
+    }
+    if (child.data_type !== schemaFieldType) {
+      throw new BadRequestError(
+        `object_child_property_refs_json "$items": value_schema_json.items has type "${schemaFieldType}" but linked property "${child.name}" has data_type "${child.data_type}".`,
+        'object_child_property_refs_json'
+      );
     }
   }
 }

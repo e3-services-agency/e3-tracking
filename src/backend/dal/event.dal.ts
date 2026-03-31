@@ -41,12 +41,27 @@ function buildObjectChildFieldSnapshots(
   if (!refs || Object.keys(refs).length === 0) {
     return null;
   }
-  if (!schema || schema.type !== 'object') {
+  if (!schema || (schema.type !== 'object' && schema.type !== 'array')) {
     return null;
+  }
+  if (parent.data_type === 'array') {
+    const childId = refs['$items'];
+    if (!childId || !schema.items || schema.type !== 'array') {
+      return null;
+    }
+  } else {
+    if (schema.type !== 'object') {
+      return null;
+    }
   }
 
   const out: Record<string, ObjectChildFieldSnapshot> = {};
-  for (const [fieldKey, childId] of Object.entries(refs)) {
+  const entries =
+    parent.data_type === 'array'
+      ? ([['$items', refs['$items']] as const] as const)
+      : (Object.entries(refs) as Array<[string, string]>);
+  for (const [fieldKey, childId] of entries) {
+    if (!childId) continue;
     const child = propertyById.get(childId);
     if (!child) {
       out[fieldKey] = {

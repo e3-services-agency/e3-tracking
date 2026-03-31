@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Copy, Check, Code } from 'lucide-react';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
-import { codegenLanguageForStyle, highlightCodeToHtml } from '@/src/lib/codeHighlight';
+import { codegenLanguageForStyle } from '@/src/lib/codeHighlight';
 
 export type CodegenStyle = 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi';
 
@@ -158,7 +158,6 @@ export function EventCodeGen({
   const currentStyle = preferredStyle ?? activeStyle;
   const currentSnippet = snippets[currentStyle];
   const language = codegenLanguageForStyle(currentStyle);
-  const highlighted = highlightCodeToHtml(currentSnippet, language);
 
   return (
     <div className={compact ? '' : 'space-y-4'}>
@@ -208,21 +207,9 @@ export function EventCodeGen({
           </button>
         </div>
         <pre className="p-4 text-[13px] font-mono text-[var(--text-code)] overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-[320px] overflow-y-auto">
-          <code
-            className="code-highlight"
-            data-language={language}
-            dangerouslySetInnerHTML={{ __html: highlighted }}
-          />
+          <code data-language={language}>{currentSnippet}</code>
         </pre>
       </div>
-      <style>{`
-        .code-highlight .ch-kw { color: #93c5fd; }
-        .code-highlight .ch-str { color: #86efac; }
-        .code-highlight .ch-num { color: #fca5a5; }
-        .code-highlight .ch-lit { color: #c4b5fd; }
-        .code-highlight .ch-com { color: #94a3b8; font-style: italic; }
-        .code-highlight .ch-key { color: #fcd34d; }
-      `}</style>
     </div>
   );
 }

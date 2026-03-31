@@ -23,7 +23,6 @@ import {
 } from './codegen.service';
 import {
   codegenLanguageForStyle,
-  highlightCodeToHtml,
   type CodegenStyleId,
 } from '../../lib/codeHighlight';
 
@@ -829,21 +828,8 @@ export async function generateJourneyHtmlExport(
               (t as any).sourceLabelsByPropertyId ?? new Map()
             );
             const rawSnippet = snippets[preferredCodegenStyle];
-            // Contract: export renders highlighted HTML derived from raw code only.
-            // If an upstream caller ever provides already-highlighted HTML (or escaped HTML),
-            // do not re-highlight it (it will corrupt markup into fragments like `"ch-num">123`).
-            const hasHighlightArtifacts =
-              typeof rawSnippet === 'string' &&
-              (rawSnippet.includes('<span') ||
-                rawSnippet.includes('class="ch-') ||
-                rawSnippet.includes('&lt;span') ||
-                /\bch-(num|str|key|kw|lit|com)\b/i.test(rawSnippet));
-            const highlightedSnippet = hasHighlightArtifacts
-              ? escapeHtml(rawSnippet)
-              : highlightCodeToHtml(
-                  rawSnippet,
-                  codegenLanguageForStyle(preferredCodegenStyle)
-                );
+            // Product decision: render raw code only (no syntax highlighting).
+            const escapedSnippet = escapeHtml(rawSnippet);
             return `
         <div class="export-tracking-block">
           <div class="export-tracking-bar">
@@ -860,7 +846,7 @@ export async function generateJourneyHtmlExport(
               <div class="export-example-label">${CODEGEN_LABELS[preferredCodegenStyle]}</div>
               <div class="export-code-wrap">
                 <button class="export-copy" type="button" data-copy-from="next">Copy</button>
-                <pre class="export-code"><code class="code-highlight">${highlightedSnippet}</code></pre>
+                <pre class="export-code"><code data-language="${codegenLanguageForStyle(preferredCodegenStyle)}">${escapedSnippet}</code></pre>
               </div>
             </div>
           </div>
@@ -1174,12 +1160,7 @@ export async function generateJourneyHtmlExport(
     .export-example-group { margin-bottom: 12px; }
     .export-example-group:last-child { margin-bottom: 0; }
     .export-example-label { font-size: 0.75rem; color: #64748b; margin-bottom: 4px; }
-    .export-code .code-highlight .ch-kw { color: #93c5fd; }
-    .export-code .code-highlight .ch-str { color: #86efac; }
-    .export-code .code-highlight .ch-num { color: #fca5a5; }
-    .export-code .code-highlight .ch-lit { color: #c4b5fd; }
-    .export-code .code-highlight .ch-com { color: #94a3b8; font-style: italic; }
-    .export-code .code-highlight .ch-key { color: #fcd34d; }
+    /* Syntax highlighting removed: code blocks render raw escaped text only. */
     .export-code-wrap { position: relative; }
     .export-copy {
       position: absolute;

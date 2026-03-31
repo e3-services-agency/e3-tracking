@@ -223,7 +223,17 @@ export function PropertyEditorSheet({
             ? { ...initialProperty.object_child_property_refs_json }
             : {}
         );
-        setExampleValuesDraft((initialProperty.example_values_json ?? []).slice(0, 1));
+        // Contract: only primitive properties manually own example values in this editor UI.
+        if (
+          initialProperty.data_type === 'string' ||
+          initialProperty.data_type === 'number' ||
+          initialProperty.data_type === 'boolean' ||
+          initialProperty.data_type === 'timestamp'
+        ) {
+          setExampleValuesDraft((initialProperty.example_values_json ?? []).slice(0, 1));
+        } else {
+          setExampleValuesDraft([]);
+        }
         setNameMappingsDraft(initialProperty.name_mappings_json ?? []);
         setMappingEnabled(Boolean(initialProperty.mapped_catalog_id && initialProperty.mapped_catalog_field_id));
         setMappedCatalogId(initialProperty.mapped_catalog_id ?? '');
@@ -450,21 +460,33 @@ export function PropertyEditorSheet({
       return Object.keys(out).length > 0 ? out : null;
     })();
 
-    const flushExamples = exampleValuesEditorRef.current?.flushPendingForSave();
-    if (flushExamples && flushExamples.ok === false) {
-      setEditorError(flushExamples.error);
-      setSaving(false);
-      return;
-    }
-    const exampleValuesForSave = flushExamples?.ok ? flushExamples.entries : exampleValuesDraft;
+    const isPrimitiveType =
+      dataType === 'string' ||
+      dataType === 'number' ||
+      dataType === 'boolean' ||
+      dataType === 'timestamp';
 
-    const exampleCheck = validateExampleValuesForSave(exampleValuesForSave);
-    if (exampleCheck.ok === false) {
-      setEditorError(exampleCheck.error);
-      setSaving(false);
-      return;
-    }
-    const example_values_json = serializeExampleValuesForSave(exampleValuesForSave);
+    const example_values_json = await (async () => {
+      // Contract: object/array examples are derived from linked child primitive properties.
+      if (!isPrimitiveType) return null;
+
+      const flushExamples = exampleValuesEditorRef.current?.flushPendingForSave();
+      if (flushExamples && flushExamples.ok === false) {
+        setEditorError(flushExamples.error);
+        setSaving(false);
+        return undefined;
+      }
+      const exampleValuesForSave = flushExamples?.ok ? flushExamples.entries : exampleValuesDraft;
+
+      const exampleCheck = validateExampleValuesForSave(exampleValuesForSave);
+      if (exampleCheck.ok === false) {
+        setEditorError(exampleCheck.error);
+        setSaving(false);
+        return undefined;
+      }
+      return serializeExampleValuesForSave(exampleValuesForSave);
+    })();
+    if (example_values_json === undefined) return;
     const name_mappings_json = serializeNameMappingsForSave(nameMappingsDraft);
 
     if (isEdit && initialProperty && updateProperty) {
@@ -733,19 +755,31 @@ export function PropertyEditorSheet({
           />
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Example value</label>
-          <p className="text-xs text-gray-500">
-            One canonical example value for this property. Primitives use simple fields; object/array types use JSON.
-          </p>
-          <PropertyExampleValuesEditor
-            ref={exampleValuesEditorRef}
-            propertyDataType={dataType}
-            entries={exampleValuesDraft}
-            onChange={setExampleValuesDraft}
-            disabled={isMutating}
-          />
-        </div>
+        {(dataType === 'string' ||
+          dataType === 'number' ||
+          dataType === 'boolean' ||
+          dataType === 'timestamp') && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Example value</label>
+            <p className="text-xs text-gray-500">One canonical example value for this property.</p>
+            <PropertyExampleValuesEditor
+              ref={exampleValuesEditorRef}
+              propertyDataType={dataType}
+              entries={exampleValuesDraft}
+              onChange={setExampleValuesDraft}
+              disabled={isMutating}
+            />
+          </div>
+        )}
+
+        {(dataType === 'object' || dataType === 'array') && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Example value</label>
+            <p className="text-xs text-gray-500">
+              Example values are defined on linked primitive properties and propagated into complex structures automatically.
+            </p>
+          </div>
+        )}
 
         <div className="space-y-2">
           <label className="text-sm font-medium text-gray-700">Name mappings</label>

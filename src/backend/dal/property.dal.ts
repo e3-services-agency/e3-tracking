@@ -477,7 +477,7 @@ async function assertObjectChildRefsValid(
   const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from('properties')
-    .select('id')
+    .select('id, data_type, name')
     .eq('workspace_id', workspaceId)
     .in('id', ids)
     .is('deleted_at', null);
@@ -485,12 +485,45 @@ async function assertObjectChildRefsValid(
   if (error) {
     throw new DatabaseError(`Failed to validate child property refs: ${error.message}`, error);
   }
-  const found = new Set((data ?? []).map((r: { id: string }) => r.id));
+  const rows = (data ?? []) as { id: string; data_type: string; name: string }[];
+  const found = new Set(rows.map((r) => r.id));
   if (found.size !== ids.length) {
     throw new BadRequestError(
       'One or more object_child_property_refs_json ids do not exist in this workspace.',
       'object_child_property_refs_json'
     );
+  }
+
+  const childById = new Map(
+    rows.map((r) => {
+      const dt = PROPERTY_DATA_TYPES.includes(r.data_type as PropertyDataType)
+        ? (r.data_type as PropertyDataType)
+        : ('string' as PropertyDataType);
+      return [r.id, { data_type: dt, name: r.name || r.id }] as const;
+    })
+  );
+
+  if (valueSchema?.type === 'object' && valueSchema.properties) {
+    for (const [fieldKey, childId] of Object.entries(refs)) {
+      const node = valueSchema.properties[fieldKey];
+      const schemaFieldType = node?.type;
+      if (
+        typeof schemaFieldType !== 'string' ||
+        !PROPERTY_DATA_TYPES.includes(schemaFieldType as PropertyDataType)
+      ) {
+        continue;
+      }
+      const child = childById.get(childId);
+      if (!child) {
+        continue;
+      }
+      if (child.data_type !== schemaFieldType) {
+        throw new BadRequestError(
+          `object_child_property_refs_json field "${fieldKey}": value_schema_json has type "${schemaFieldType}" but linked property "${child.name}" has data_type "${child.data_type}".`,
+          'object_child_property_refs_json'
+        );
+      }
+    }
   }
 }
 

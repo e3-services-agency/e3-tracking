@@ -56,15 +56,25 @@ function hasFormat(formats: string[] | null | undefined, f: PropertyDataFormat):
  */
 export function jsonSampleValueForProperty(p: AttachedPropertyForCodegen): unknown {
   const ex = p.property_example_values_json;
+  const dt = (p.property_data_type || 'string').toLowerCase();
   if (Array.isArray(ex) && ex.length > 0) {
     const v = ex[0]?.value;
     if (v === null) return null;
+    // Legacy tolerance: example value stored as string but data_type is number/boolean.
+    if (dt === 'number' && typeof v === 'string') {
+      const n = Number(v.trim());
+      if (!Number.isNaN(n)) return n;
+    }
+    if (dt === 'boolean' && typeof v === 'string') {
+      const t = v.trim().toLowerCase();
+      if (t === 'true') return true;
+      if (t === 'false') return false;
+    }
     if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
       return v;
     }
   }
 
-  const dt = (p.property_data_type || 'string').toLowerCase();
   const fmts = p.property_data_formats ?? [];
 
   if (dt === 'object') {

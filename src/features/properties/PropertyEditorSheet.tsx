@@ -450,6 +450,7 @@ export function PropertyEditorSheet({
         data_type: dataType,
         data_formats: dataFormats.length > 0 ? dataFormats : null,
         value_schema_json,
+        object_child_property_refs_json,
         example_values_json,
         name_mappings_json,
         source_ids: selectedSourceIds,

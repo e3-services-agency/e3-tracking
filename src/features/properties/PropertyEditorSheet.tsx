@@ -389,13 +389,40 @@ export function PropertyEditorSheet({
     if (!ok) return;
 
     setDeleting(true);
+    setEditorError(null);
     clearMutationError();
     const result = await deleteProperty(initialProperty.id);
     setDeleting(false);
 
-    if (result.success) {
+    if (result.success === true) {
       onClose();
+      return;
     }
+    // Explicitly surface delete conflicts (e.g. property still referenced).
+    const err = result.error;
+    if (err.status === 409) {
+      let detailMsg = '';
+      try {
+        const parsed = err.details ? (JSON.parse(err.details) as any) : null;
+        if (parsed && typeof parsed === 'object') {
+          const ev = typeof parsed.used_in_events === 'number' ? parsed.used_in_events : null;
+          const nested =
+            typeof parsed.used_in_nested_object_properties === 'number'
+              ? parsed.used_in_nested_object_properties
+              : null;
+          if (ev !== null || nested !== null) {
+            detailMsg = ` It is used in ${ev ?? 0} event(s) and ${nested ?? 0} nested object propert${
+              (nested ?? 0) === 1 ? 'y' : 'ies'
+            }.`;
+          }
+        }
+      } catch {
+        // ignore JSON parse errors; message fallback below
+      }
+      setEditorError(`Cannot delete property.${detailMsg || ` ${err.message}`}`);
+      return;
+    }
+    setEditorError(err.message || 'Failed to delete property.');
   };
 
   const handleSave = async () => {

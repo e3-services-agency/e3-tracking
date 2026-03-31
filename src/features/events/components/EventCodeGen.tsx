@@ -54,7 +54,19 @@ export function EventCodeGen({
   }, [preferredStyle]);
 
   useEffect(() => {
-    if (prefetchedSnippets) {
+    const looksLikeHighlightedHtml = (sn: CodegenSnippets | null | undefined): boolean => {
+      if (!sn) return false;
+      const vals = [sn.dataLayer, sn.bloomreachSdk, sn.bloomreachApi];
+      return vals.some(
+        (v) =>
+          typeof v === 'string' &&
+          (v.includes('<span') || v.includes('class="ch-') || v.includes('&lt;span') || v.includes('ch-num'))
+      );
+    };
+
+    // Contract: snippets must be raw plain-text. If a caller accidentally supplies highlighted HTML
+    // (e.g. from persisted canvas snapshots), ignore it and fetch raw code from the API instead.
+    if (prefetchedSnippets && !looksLikeHighlightedHtml(prefetchedSnippets)) {
       setSnippets(prefetchedSnippets);
       setError(null);
       setLoading(false);

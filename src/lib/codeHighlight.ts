@@ -17,15 +17,7 @@ export function codegenLanguageForStyle(style: CodegenStyleId): CodeLanguage {
  * This is intentionally small and dependency-free for docs readability.
  */
 export function highlightCodeToHtml(code: string, language: CodeLanguage): string {
-  const raw = code ?? '';
-  // Guardrail: if we are accidentally asked to "highlight" already-highlighted HTML,
-  // a second pass will corrupt markup (e.g. it will highlight `"ch-num"` inside attributes).
-  // In that case, treat the input as already-highlighted and return it as-is.
-  if (/<\s*span\b[^>]*\bclass\s*=\s*["']ch-(num|str|key|kw|lit|com)\b/i.test(raw)) {
-    return raw;
-  }
-
-  const escaped = escapeHtml(raw);
+  const escaped = escapeHtml(code ?? '');
 
   if (language === 'json') {
     return escaped

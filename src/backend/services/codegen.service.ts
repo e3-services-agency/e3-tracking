@@ -61,7 +61,12 @@ export function jsonSampleValueForProperty(p: AttachedPropertyForCodegen): unkno
     const v = ex[0]?.value;
     if (v === null) return null;
     // Guardrail: highlighted HTML must never leak into raw codegen output.
-    if (typeof v === 'string' && /<\s*span\b/i.test(v) && /ch-(num|str|kw|lit|com|key)/.test(v)) {
+    if (
+      typeof v === 'string' &&
+      ((/<\s*span\b/i.test(v) && /ch-(num|str|kw|lit|com|key)/.test(v)) ||
+        /ch-(num|str|kw|lit|com|key)"?>/i.test(v) ||
+        /ch-(num|str|kw|lit|com|key)\b/i.test(v))
+    ) {
       // Treat as invalid example payload; fall back to typed sample below.
     } else {
     // Legacy tolerance: example value stored as string but data_type is number/boolean.

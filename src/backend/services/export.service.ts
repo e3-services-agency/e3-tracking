@@ -467,7 +467,7 @@ function buildPropertyDetailsTable(
             nested: true,
             nameOverride: snap.missing
               ? `${p.property_name || ''}.${fieldKey}`
-              : `${fieldKey} → ${snap.property_name}`,
+              : `${snap.property_name}`,
             schemaNode: node,
             snapshot: snap,
           })

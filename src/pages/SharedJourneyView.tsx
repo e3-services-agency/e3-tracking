@@ -11,6 +11,7 @@ import type { Journey } from '@/src/types';
 import { API_BASE, buildAppPageUrl } from '@/src/config/env';
 import { computeQARunStatusForRun, getQARunDisplayName } from '@/src/features/journeys/lib/qaRunUtils';
 import { ArrowLeft, Check, ChevronDown, FileText, Lock, LockOpen, PenTool } from 'lucide-react';
+import type { QARun, QAVerification, QAStatus } from '@/src/types';
 
 type SharedResponse = {
   id: string;
@@ -25,6 +26,191 @@ type SharedResponse = {
     { eventName: string; snippets: { dataLayer: string; bloomreachSdk: string; bloomreachApi: string } }
   >;
 };
+
+function qaStatusChipClass(status: QAStatus): string {
+  if (status === 'Passed') return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+  if (status === 'Failed') return 'bg-red-100 text-red-800 border-red-200';
+  return 'bg-amber-100 text-amber-800 border-amber-200';
+}
+
+type QaReportNode = {
+  id: string;
+  type: string;
+  label: string;
+  connectedEvent?: { eventId?: string; name?: string } | null;
+};
+
+function isQaReportNodeType(t: unknown): t is 'journeyStepNode' | 'triggerNode' {
+  return t === 'journeyStepNode' || t === 'triggerNode';
+}
+
+function toQaReportNodesFromRun(qaRun: QARun | null | undefined): QaReportNode[] {
+  const nodes = Array.isArray(qaRun?.nodes) ? (qaRun?.nodes as any[]) : [];
+  const out: QaReportNode[] = [];
+  for (const n of nodes) {
+    const id = typeof n?.id === 'string' ? n.id : '';
+    const type = typeof n?.type === 'string' ? n.type : '';
+    if (!id || !isQaReportNodeType(type)) continue;
+    const label =
+      typeof n?.data?.label === 'string' && n.data.label.trim()
+        ? n.data.label.trim()
+        : type === 'triggerNode'
+          ? 'Trigger'
+          : 'Step';
+    const connectedEvent =
+      type === 'triggerNode' && n?.data?.connectedEvent ? (n.data.connectedEvent as any) : null;
+    out.push({ id, type, label, connectedEvent });
+  }
+  return out;
+}
+
+function getVerificationForNode(
+  qaRun: QARun,
+  nodeId: string
+): QAVerification {
+  const v = qaRun.verifications?.[nodeId];
+  return v ?? { nodeId, status: 'Pending', proofs: [] };
+}
+
+function SharedJourneyQaReport({
+  qaRun,
+}: {
+  qaRun: QARun;
+}) {
+  const derived = computeQARunStatusForRun(qaRun);
+  const reportNodes = useMemo(() => toQaReportNodesFromRun(qaRun), [qaRun]);
+  const [activeNodeId, setActiveNodeId] = useState<string | null>(() => reportNodes[0]?.id ?? null);
+
+  useEffect(() => {
+    if (!activeNodeId && reportNodes.length > 0) setActiveNodeId(reportNodes[0].id);
+    if (activeNodeId && !reportNodes.some((n) => n.id === activeNodeId)) {
+      setActiveNodeId(reportNodes[0]?.id ?? null);
+    }
+  }, [activeNodeId, reportNodes]);
+
+  const counts = useMemo(() => {
+    let passed = 0;
+    let failed = 0;
+    let pending = 0;
+    for (const n of reportNodes) {
+      const st = getVerificationForNode(qaRun, n.id).status;
+      if (st === 'Passed') passed += 1;
+      else if (st === 'Failed') failed += 1;
+      else pending += 1;
+    }
+    return { passed, failed, pending, total: reportNodes.length };
+  }, [qaRun, reportNodes]);
+
+  const activeNode = reportNodes.find((n) => n.id === activeNodeId) ?? null;
+
+  return (
+    <div className="flex h-full min-h-0 w-full min-w-0">
+      <div className="w-[300px] shrink-0 border-r bg-white flex flex-col min-h-0">
+        <div className="p-4 border-b">
+          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">QA Report</div>
+          <div className="mt-1 text-sm font-semibold text-gray-900">{getQARunDisplayName(qaRun)}</div>
+          <div className="mt-2 flex items-center gap-2">
+            <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold border ${derived === 'PASSED' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : derived === 'FAILED' ? 'bg-red-100 text-red-800 border-red-200' : 'bg-amber-100 text-amber-800 border-amber-200'}`}>
+              {derived}
+            </span>
+            <span className="text-xs text-gray-600">
+              {counts.failed} failed · {counts.pending} pending · {counts.passed} passed
+            </span>
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto divide-y">
+          {reportNodes.map((n) => {
+            const v = getVerificationForNode(qaRun, n.id);
+            const active = n.id === activeNodeId;
+            return (
+              <button
+                key={n.id}
+                type="button"
+                onClick={() => setActiveNodeId(n.id)}
+                className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${active ? 'bg-gray-50' : ''}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-gray-900 truncate">{n.label}</div>
+                    <div className="text-[11px] text-gray-500">
+                      {n.type === 'triggerNode' ? 'Trigger' : 'Step'}
+                    </div>
+                  </div>
+                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold border ${qaStatusChipClass(v.status)}`}>
+                    {v.status}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+          {reportNodes.length === 0 && (
+            <div className="p-4 text-sm text-gray-500">No QA-eligible nodes in this run.</div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 min-w-0 min-h-0 overflow-y-auto bg-[var(--surface-default)]">
+        <div className="max-w-[980px] mx-auto p-6 space-y-4">
+          {activeNode ? (
+            (() => {
+              const v = getVerificationForNode(qaRun, activeNode.id);
+              return (
+                <div className="bg-white border rounded-lg p-5 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-gray-900">{activeNode.label}</div>
+                      <div className="text-xs text-gray-500">
+                        {activeNode.type === 'triggerNode' ? 'Trigger' : 'Step'} · Node ID: <span className="font-mono">{activeNode.id}</span>
+                      </div>
+                      {activeNode.type === 'triggerNode' && activeNode.connectedEvent?.eventId && (
+                        <div className="text-xs text-gray-600 mt-1">
+                          Event: <span className="font-mono">{activeNode.connectedEvent.name ?? activeNode.connectedEvent.eventId}</span>
+                        </div>
+                      )}
+                    </div>
+                    <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold border ${qaStatusChipClass(v.status)}`}>
+                      {v.status}
+                    </span>
+                  </div>
+
+                  {v.notes?.trim() && (
+                    <div>
+                      <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Notes</div>
+                      <div className="text-sm text-gray-800 whitespace-pre-wrap mt-1">{v.notes}</div>
+                    </div>
+                  )}
+
+                  {Array.isArray(v.proofs) && v.proofs.length > 0 && (
+                    <div>
+                      <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Proofs</div>
+                      <div className="mt-2 space-y-2">
+                        {v.proofs.map((p) => (
+                          <div key={p.id} className="border rounded p-3 bg-gray-50">
+                            <div className="text-xs font-semibold text-gray-900">{p.name}</div>
+                            <div className="text-[11px] text-gray-600 mt-0.5">{p.type}</div>
+                            {p.type === 'image' ? (
+                              <a className="text-xs text-blue-700 break-all" href={p.content} target="_blank" rel="noreferrer">
+                                {p.content}
+                              </a>
+                            ) : (
+                              <pre className="mt-2 text-xs font-mono whitespace-pre-wrap text-gray-800">{p.content}</pre>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()
+          ) : (
+            <div className="bg-white border rounded-lg p-5 text-sm text-gray-600">Select an item to view QA details.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function SharedJourneyView({
   token,
@@ -381,12 +567,28 @@ export function SharedJourneyView({
           )
         ) : (
           <ReactFlowProvider>
-            <JourneyCanvas
-              journey={journey}
-              workspaceId={null}
-              activeQARunId={view === 'qa' ? activeQARunId : null}
-              readOnly
-            />
+            {view === 'qa' && activeQARunId ? (
+              (() => {
+                const run = (journey.qaRuns || []).find((r: any) => r?.id === activeQARunId) as QARun | undefined;
+                return run ? (
+                  <SharedJourneyQaReport qaRun={run} />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-[var(--surface-default)]">
+                    <div className="text-center max-w-md px-4">
+                      <p className="text-red-600 font-medium">QA run not found</p>
+                      <p className="text-sm text-gray-600 mt-1">This run may have been deleted or is unavailable.</p>
+                    </div>
+                  </div>
+                );
+              })()
+            ) : (
+              <JourneyCanvas
+                journey={journey}
+                workspaceId={null}
+                activeQARunId={null}
+                readOnly
+              />
+            )}
           </ReactFlowProvider>
         )}
       </div>

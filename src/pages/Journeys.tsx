@@ -361,6 +361,21 @@ export function Journeys({
       return out;
     }, [stepNodes, selectedJourney?.step_order, triggersCountByStepId]);
 
+    const persistOrder = async (nextIds: string[]) => {
+      if (!selectedJourney) return;
+      setIsSavingOrder(true);
+      setOrderError(null);
+      updateJourney(selectedJourney.id, { step_order: nextIds });
+      const result = await updateJourneyStepOrderApi(selectedJourney.id, nextIds, activeWorkspaceId);
+      setIsSavingOrder(false);
+      if (!result.success) {
+        setOrderError(result.error);
+        return;
+      }
+      updateJourney(selectedJourney.id, { step_order: result.step_order ?? null });
+      setRefreshNonce((n) => n + 1);
+    };
+
     const enhanceEditorExportDoc = React.useCallback(() => {
       const doc = iframeRef.current?.contentDocument;
       if (!doc?.documentElement) return;
@@ -426,21 +441,6 @@ export function Journeys({
         a.parentNode?.replaceChild(b, a);
       }
     }, [orderedSteps, persistOrder]);
-
-    const persistOrder = async (nextIds: string[]) => {
-      if (!selectedJourney) return;
-      setIsSavingOrder(true);
-      setOrderError(null);
-      updateJourney(selectedJourney.id, { step_order: nextIds });
-      const result = await updateJourneyStepOrderApi(selectedJourney.id, nextIds, activeWorkspaceId);
-      setIsSavingOrder(false);
-      if (!result.success) {
-        setOrderError(result.error);
-        return;
-      }
-      updateJourney(selectedJourney.id, { step_order: result.step_order ?? null });
-      setRefreshNonce((n) => n + 1);
-    };
 
     React.useEffect(() => {
       let cancelled = false;

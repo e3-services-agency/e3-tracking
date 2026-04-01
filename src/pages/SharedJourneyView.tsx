@@ -67,30 +67,28 @@ export function SharedJourneyView({
     });
   }, [journey?.qaRuns]);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    const fetcher = journeyId ? getSharedJourneyByIdApi(journeyId) : getSharedJourneyByTokenApi(token ?? '');
-    fetcher.then((result) => {
-      if (cancelled) return;
-      setLoading(false);
-      if (result.success) {
-        const j = result.journey as SharedResponse;
-        const snippetMap = j.eventSnippets ?? {};
-        const nodes = Array.isArray(j.nodes) ? j.nodes : [];
-        const enrichedNodes = nodes.map((n: any) => {
-          if (n?.type !== 'triggerNode') return n;
-          const eventId = n?.data?.connectedEvent?.eventId;
-          if (typeof eventId !== 'string') return n;
-          const sn = snippetMap[eventId]?.snippets;
-          if (!sn) return n;
-          return { ...n, data: { ...n.data, codegenSnippets: sn } };
-        });
-        const rawQaRuns = Array.isArray((j as any).qaRuns) ? ((j as any).qaRuns as any[]) : [];
-        const enrichedQaRuns = rawQaRuns.map((run: any) => {
-          if (!Array.isArray(run?.nodes)) return run;
-          const runNodes = run.nodes.map((n: any) => {
+  const inFlightRef = React.useRef(false);
+  const fetchSharedJourney = React.useCallback(
+    async ({ showLoadingScreen }: { showLoadingScreen: boolean }) => {
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
+      let cancelled = false;
+      try {
+        if (showLoadingScreen) {
+          setLoading(true);
+          setError(null);
+        }
+        const fetcher = journeyId
+          ? getSharedJourneyByIdApi(journeyId)
+          : getSharedJourneyByTokenApi(token ?? '');
+        const result = await fetcher;
+        if (cancelled) return;
+        if (showLoadingScreen) setLoading(false);
+        if (result.success) {
+          const j = result.journey as SharedResponse;
+          const snippetMap = j.eventSnippets ?? {};
+          const nodes = Array.isArray(j.nodes) ? j.nodes : [];
+          const enrichedNodes = nodes.map((n: any) => {
             if (n?.type !== 'triggerNode') return n;
             const eventId = n?.data?.connectedEvent?.eventId;
             if (typeof eventId !== 'string') return n;
@@ -98,25 +96,65 @@ export function SharedJourneyView({
             if (!sn) return n;
             return { ...n, data: { ...n.data, codegenSnippets: sn } };
           });
-          return { ...run, nodes: runNodes };
-        });
-        setJourney({
-          id: j.id,
-          name: j.name,
-          testing_instructions_markdown: j.testing_instructions_markdown ?? undefined,
-          codegen_preferred_style: j.codegen_preferred_style ?? null,
-          nodes: enrichedNodes,
-          edges: Array.isArray(j.edges) ? j.edges : [],
-          qaRuns: enrichedQaRuns,
-        });
-      } else {
-        setError('error' in result ? result.error : 'Failed to load journey');
+          const rawQaRuns = Array.isArray((j as any).qaRuns) ? ((j as any).qaRuns as any[]) : [];
+          const enrichedQaRuns = rawQaRuns.map((run: any) => {
+            if (!Array.isArray(run?.nodes)) return run;
+            const runNodes = run.nodes.map((n: any) => {
+              if (n?.type !== 'triggerNode') return n;
+              const eventId = n?.data?.connectedEvent?.eventId;
+              if (typeof eventId !== 'string') return n;
+              const sn = snippetMap[eventId]?.snippets;
+              if (!sn) return n;
+              return { ...n, data: { ...n.data, codegenSnippets: sn } };
+            });
+            return { ...run, nodes: runNodes };
+          });
+          setJourney({
+            id: j.id,
+            name: j.name,
+            testing_instructions_markdown: j.testing_instructions_markdown ?? undefined,
+            codegen_preferred_style: j.codegen_preferred_style ?? null,
+            nodes: enrichedNodes,
+            edges: Array.isArray(j.edges) ? j.edges : [],
+            qaRuns: enrichedQaRuns,
+          });
+          setError(null);
+          if (showLoadingScreen) setLoading(false);
+        } else {
+          setError('error' in result ? result.error : 'Failed to load journey');
+          if (showLoadingScreen) setLoading(false);
+        }
+      } finally {
+        inFlightRef.current = false;
       }
-    });
-    return () => {
-      cancelled = true;
+      return () => {
+        cancelled = true;
+      };
+    },
+    [journeyId, token]
+  );
+
+  useEffect(() => {
+    void fetchSharedJourney({ showLoadingScreen: true });
+  }, [fetchSharedJourney]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      // Refresh shared payload (QA runs, snippets, nodes) when user returns.
+      void fetchSharedJourney({ showLoadingScreen: false });
     };
-  }, [token, journeyId]);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchSharedJourney({ showLoadingScreen: false });
+      }
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [fetchSharedJourney]);
 
   useEffect(() => {
     if (!journeyId) return;

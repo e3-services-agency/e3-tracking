@@ -26,6 +26,7 @@ interface WorkspaceSettingsInfo {
   client_primary_color: string | null;
   client_name: string | null;
   client_logo_url: string | null;
+  bloomreach_api_customer_id_key: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -53,6 +54,7 @@ export function WorkspaceSettings() {
   const [clientPrimaryColor, setClientPrimaryColor] = useState('');
   const [clientName, setClientName] = useState('');
   const [clientLogoUrl, setClientLogoUrl] = useState('');
+  const [bloomreachApiCustomerIdKey, setBloomreachApiCustomerIdKey] = useState('');
 
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<WorkspaceMemberRole>('member');
@@ -85,6 +87,7 @@ export function WorkspaceSettings() {
       setClientPrimaryColor(data.settings?.client_primary_color ?? '');
       setClientName(data.settings?.client_name ?? '');
       setClientLogoUrl(data.settings?.client_logo_url ?? '');
+      setBloomreachApiCustomerIdKey(data.settings?.bloomreach_api_customer_id_key ?? '');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Network error');
       setWorkspace(null);
@@ -133,6 +136,7 @@ export function WorkspaceSettings() {
           client_primary_color: clientPrimaryColor.trim() || null,
           client_name: clientName.trim() || null,
           client_logo_url: clientLogoUrl.trim() || null,
+          bloomreach_api_customer_id_key: bloomreachApiCustomerIdKey.trim() || null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -277,6 +281,21 @@ export function WorkspaceSettings() {
                 placeholder="https://…"
                 className="max-w-md"
               />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Bloomreach API customer identifier (optional)
+              </label>
+              <Input
+                value={bloomreachApiCustomerIdKey}
+                onChange={(e) => setBloomreachApiCustomerIdKey(e.target.value)}
+                placeholder="registered"
+                className="max-w-md font-mono"
+              />
+              <p className="text-xs text-gray-500 max-w-md">
+                Used as the key inside <span className="font-mono">customer_ids</span> for Bloomreach Tracking API codegen.
+                Default is <span className="font-mono">registered</span>.
+              </p>
             </div>
             <Button onClick={handleSaveGeneral} disabled={saving} style={{ backgroundColor: EMERALD }}>
               {saving ? 'Saving…' : 'Save changes'}

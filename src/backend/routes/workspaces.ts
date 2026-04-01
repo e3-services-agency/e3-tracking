@@ -153,16 +153,28 @@ router.patch('/:id', requireAuth, async (req: Request, res: Response): Promise<v
   const client_primary_color = typeof body.client_primary_color === 'string' ? body.client_primary_color.trim() || null : undefined;
   const client_name = typeof body.client_name === 'string' ? body.client_name.trim() || null : undefined;
   const client_logo_url = typeof body.client_logo_url === 'string' ? body.client_logo_url.trim() || null : undefined;
+  const bloomreach_api_customer_id_key =
+    typeof body.bloomreach_api_customer_id_key === 'string'
+      ? body.bloomreach_api_customer_id_key.trim() || null
+      : body.bloomreach_api_customer_id_key === null
+        ? null
+        : undefined;
 
   try {
     if (name !== undefined) {
       await WorkspaceDAL.updateWorkspace(workspaceId, { name });
     }
-    if (client_primary_color !== undefined || client_name !== undefined || client_logo_url !== undefined) {
+    if (
+      client_primary_color !== undefined ||
+      client_name !== undefined ||
+      client_logo_url !== undefined ||
+      bloomreach_api_customer_id_key !== undefined
+    ) {
       await WorkspaceDAL.updateWorkspaceSettings(workspaceId, {
         client_primary_color: client_primary_color ?? undefined,
         client_name: client_name ?? undefined,
         client_logo_url: client_logo_url ?? undefined,
+        bloomreach_api_customer_id_key: bloomreach_api_customer_id_key ?? undefined,
       });
     }
     const workspace = await WorkspaceDAL.getWorkspaceById(workspaceId);

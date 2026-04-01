@@ -6,7 +6,7 @@
  */
 import { Router, type Request, type Response } from 'express';
 import { getJourneyByShareId, getJourneyByShareToken, listJourneysForShareHub } from '../dal/journey.dal';
-import { getWorkspaceIdByJourneysShareHubToken } from '../dal/workspace.dal';
+import { getWorkspaceIdByJourneysShareHubToken, getWorkspaceSettings } from '../dal/workspace.dal';
 import { getEventWithProperties } from '../dal/event.dal';
 import { DatabaseError, NotFoundError } from '../errors';
 import { buildCodegenSnippets } from '../services/codegen.service';
@@ -56,6 +56,11 @@ async function buildSharedEventSnippets(
   workspaceId: string,
   nodes: unknown
 ): Promise<Record<string, { eventName: string; snippets: { dataLayer: string; bloomreachSdk: string; bloomreachApi: string } }>> {
+  const workspaceSettings = await getWorkspaceSettings(workspaceId);
+  const bloomreachApiCustomerIdKey =
+    typeof (workspaceSettings as any)?.bloomreach_api_customer_id_key === 'string'
+      ? String((workspaceSettings as any).bloomreach_api_customer_id_key)
+      : null;
   const list = Array.isArray(nodes) ? (nodes as CanvasNode[]) : [];
   const eventIds = [...new Set(
     list
@@ -84,7 +89,8 @@ async function buildSharedEventSnippets(
         snippets: buildCodegenSnippets(
           event.name,
           attached,
-          event.codegen_event_name_overrides ?? null
+          event.codegen_event_name_overrides ?? null,
+          { bloomreachApiCustomerIdKey }
         ),
       };
     } catch {

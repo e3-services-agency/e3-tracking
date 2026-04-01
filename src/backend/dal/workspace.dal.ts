@@ -68,6 +68,8 @@ export async function getWorkspaceSettings(
     client_primary_color: (row.client_primary_color as string | null) ?? null,
     client_name: (row.client_name as string | null) ?? null,
     client_logo_url: (row.client_logo_url as string | null) ?? null,
+    bloomreach_api_customer_id_key:
+      (row.bloomreach_api_customer_id_key as string | null | undefined) ?? null,
     journeys_share_hub_token:
       (row.journeys_share_hub_token as string | null | undefined) ?? null,
     created_at: row.created_at as string,
@@ -168,13 +170,21 @@ export async function updateWorkspace(
 
 export async function updateWorkspaceSettings(
   workspaceId: string,
-  updates: { client_primary_color?: string | null; client_name?: string | null; client_logo_url?: string | null }
+  updates: {
+    client_primary_color?: string | null;
+    client_name?: string | null;
+    client_logo_url?: string | null;
+    bloomreach_api_customer_id_key?: string | null;
+  }
 ): Promise<void> {
   const supabase = getSupabaseOrThrow();
   const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (updates.client_primary_color !== undefined) payload.client_primary_color = updates.client_primary_color;
   if (updates.client_name !== undefined) payload.client_name = updates.client_name;
   if (updates.client_logo_url !== undefined) payload.client_logo_url = updates.client_logo_url;
+  if (updates.bloomreach_api_customer_id_key !== undefined) {
+    payload.bloomreach_api_customer_id_key = updates.bloomreach_api_customer_id_key;
+  }
   const { error } = await supabase
     .from('workspace_settings')
     .update(payload)

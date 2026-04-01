@@ -819,6 +819,11 @@ export async function generateJourneyHtmlExport(
     null;
 
   const workspace = await WorkspaceDAL.getWorkspaceById(workspaceId);
+  const workspaceSettings = await WorkspaceDAL.getWorkspaceSettings(workspaceId);
+  const bloomreachApiCustomerIdKey =
+    typeof (workspaceSettings as any)?.bloomreach_api_customer_id_key === 'string'
+      ? String((workspaceSettings as any).bloomreach_api_customer_id_key)
+      : null;
   const workspaceName = typeof workspace?.name === 'string' ? workspace.name : '';
   const utmCampaign =
     (workspaceName || 'unknown')
@@ -964,7 +969,8 @@ export async function generateJourneyHtmlExport(
                   p.property_object_child_property_refs_json ?? null,
                 object_child_snapshots_by_field: p.object_child_snapshots_by_field ?? null,
               })),
-              t.codegen_event_name_overrides
+              t.codegen_event_name_overrides,
+              { bloomreachApiCustomerIdKey }
             );
             const presence =
               t.alwaysSent.length > 0 || t.sometimesSent.length > 0

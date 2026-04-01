@@ -37,6 +37,14 @@ export interface CodegenSnippets {
 
 type CodegenMethodKey = keyof CodegenEventNameOverrides;
 
+export type CodegenWorkspaceConfig = {
+  /**
+   * Bloomreach Tracking API customer identifier key inside `customer_ids`.
+   * Default (back-compat): "registered"
+   */
+  bloomreachApiCustomerIdKey?: string | null;
+};
+
 function resolveOutputEventName(
   canonicalTrimmed: string,
   method: CodegenMethodKey,
@@ -274,7 +282,8 @@ function formatJsObjectBodyFromSchema(
 export function buildCodegenSnippets(
   canonicalEventName: string,
   attached: AttachedPropertyForCodegen[],
-  overrides?: CodegenEventNameOverrides | null
+  overrides?: CodegenEventNameOverrides | null,
+  workspaceConfig?: CodegenWorkspaceConfig
 ): CodegenSnippets {
   const safeCanonical = canonicalEventName?.trim() || 'event_name';
   const props = attached.filter(
@@ -283,7 +292,7 @@ export function buildCodegenSnippets(
 
   const dataLayer = buildDataLayerSnippet(safeCanonical, props, overrides);
   const bloomreachSdk = buildBloomreachSdkSnippet(safeCanonical, props, overrides);
-  const bloomreachApi = buildBloomreachApiSnippet(safeCanonical, props, overrides);
+  const bloomreachApi = buildBloomreachApiSnippet(safeCanonical, props, overrides, workspaceConfig);
 
   return { dataLayer, bloomreachSdk, bloomreachApi };
 }
@@ -393,15 +402,21 @@ function buildBloomreachSdkSnippet(
 function buildBloomreachApiSnippet(
   canonicalEventName: string,
   props: AttachedPropertyForCodegen[],
-  overrides: CodegenEventNameOverrides | null | undefined
+  overrides: CodegenEventNameOverrides | null | undefined,
+  workspaceConfig?: CodegenWorkspaceConfig
 ): string {
   const eventName = resolveOutputEventName(canonicalEventName, 'bloomreachApi', overrides);
+  const rawKey =
+    typeof workspaceConfig?.bloomreachApiCustomerIdKey === 'string'
+      ? workspaceConfig.bloomreachApiCustomerIdKey.trim()
+      : '';
+  const customerIdKey = rawKey || 'registered';
   const properties: Record<string, unknown> = {};
   for (const p of props) {
     properties[p.property_name] = jsonSampleValueForProperty(p);
   }
   const body = {
-    customer_ids: { registered: '<customer_id>' },
+    customer_ids: { [customerIdKey]: '<customer_id>' },
     event_type: eventName,
     ...(Object.keys(properties).length > 0 ? { properties } : {}),
   };

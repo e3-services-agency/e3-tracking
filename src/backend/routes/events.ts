@@ -561,6 +561,11 @@ router.get('/:id/codegen', requireWorkspace, async (req: Request, res: Response)
       workspaceId,
       eventId
     );
+    const workspaceSettings = await getWorkspaceSettings(workspaceId);
+    const bloomreachApiCustomerIdKey =
+      typeof (workspaceSettings as any)?.bloomreach_api_customer_id_key === 'string'
+        ? String((workspaceSettings as any).bloomreach_api_customer_id_key)
+        : null;
     const attached = attached_properties.map((p) => ({
       property_name: p.property_name || '',
       presence: p.presence,
@@ -576,7 +581,8 @@ router.get('/:id/codegen', requireWorkspace, async (req: Request, res: Response)
     const snippets = buildCodegenSnippets(
       event.name,
       attached,
-      event.codegen_event_name_overrides ?? null
+      event.codegen_event_name_overrides ?? null,
+      { bloomreachApiCustomerIdKey }
     );
     res.status(200).json(snippets);
   } catch (err) {

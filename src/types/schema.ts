@@ -196,6 +196,8 @@ export interface WorkspaceSettingsRow {
   client_primary_color: string | null;
   client_name: string | null;
   client_logo_url: string | null;
+  /** Bloomreach Tracking API customer_ids key (default: "registered"). */
+  bloomreach_api_customer_id_key: string | null;
   /** Public hub token; null = stakeholder hub link disabled. */
   journeys_share_hub_token: string | null;
   created_at: string;

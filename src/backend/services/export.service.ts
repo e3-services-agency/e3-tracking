@@ -973,10 +973,6 @@ export async function generateJourneyHtmlExport(
               t.codegen_event_name_overrides,
               { bloomreachApiCustomerIdKey }
             );
-            const presence =
-              t.alwaysSent.length > 0 || t.sometimesSent.length > 0
-                ? `<div class="export-presence-note"><strong>Always Sent:</strong> ${t.alwaysSent.length ? escapeHtml(t.alwaysSent.join(', ')) : '—'} &nbsp;|&nbsp; <strong>Sometimes Sent:</strong> ${t.sometimesSent.length ? escapeHtml(t.sometimesSent.join(', ')) : '—'}</div>`
-                : '';
             const propsTable = buildPropertyDetailsTable(
               (t as any).attached_properties || [],
               (t as any).sourceLabelsByPropertyId ?? new Map()
@@ -992,7 +988,6 @@ export async function generateJourneyHtmlExport(
           </div>
           <div class="export-tracking-body">
           <div class="export-tracking-title">Event: ${escapeHtml(t.eventName)} <span class="export-tracking-id">(${escapeHtml(t.eventId)})</span></div>
-          ${presence}
           ${propsTable}
           <div class="export-implementation-examples">
             <div class="export-examples-title">Implementation examples</div>
@@ -1308,7 +1303,6 @@ export async function generateJourneyHtmlExport(
     }
     .export-tracking-title { font-weight: 600; margin: 0 0 8px; color: #334155; font-size: 0.95rem; }
     .export-tracking-id { font-weight: 500; color: #64748b; font-size: 0.85em; }
-    .export-presence-note { font-size: 0.8rem; color: #64748b; margin-bottom: 12px; }
     .export-implementation-examples { margin-top: 12px; }
     .export-examples-title { font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em; }
     .export-example-group { margin-bottom: 12px; }

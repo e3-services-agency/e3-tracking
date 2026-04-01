@@ -53,7 +53,8 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
   .qa-proof { border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; background:#f8fafc; margin-top:8px; }
   .qa-proof-name { font-size:12px; font-weight:700; color:#0f172a; }
   .qa-proof-meta { font-size:11px; color:#64748b; margin-top:2px; }
-  .qa-proof-content { margin-top:6px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; white-space: pre-wrap; color:#0f172a; }
+  .qa-codeblock { margin-top:6px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; overflow-x:auto; }
+  .qa-codeblock code { display:block; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; line-height: 1.45; white-space: pre; color:#0f172a; }
   .qa-proof-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-top: 8px; }
   .qa-proof-thumb { display:block; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; background:#fff; text-decoration:none; }
   .qa-proof-thumb img { display:block; width:100%; height:110px; object-fit:cover; background:#f1f5f9; }
@@ -124,11 +125,13 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
       var ptLabel = document.createElement('div');
       ptLabel.className = 'qa-field-label';
       ptLabel.textContent = (opts && opts.proofTextLabel) ? opts.proofTextLabel : 'Proof payload';
-      var pt = document.createElement('div');
-      pt.className = 'qa-proof-content';
-      pt.textContent = proofText;
+      var pre0 = document.createElement('pre');
+      pre0.className = 'qa-codeblock';
+      var code0 = document.createElement('code');
+      code0.textContent = proofText;
+      pre0.appendChild(code0);
       ptWrap.appendChild(ptLabel);
-      ptWrap.appendChild(pt);
+      ptWrap.appendChild(pre0);
       block.appendChild(ptWrap);
     }
     if (testingProfileIds.length > 0){
@@ -264,9 +267,11 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
         }
       }
       if (p && p.content){
-        var pre = document.createElement('div');
-        pre.className = 'qa-proof-content';
-        pre.textContent = String(p.content);
+        var pre = document.createElement('pre');
+        pre.className = 'qa-codeblock';
+        var code = document.createElement('code');
+        code.textContent = String(p.content);
+        pre.appendChild(code);
         wrap.appendChild(pre);
       }
       block.appendChild(wrap);
@@ -424,6 +429,37 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
       renderVerificationSection(blk.querySelector('.export-tracking-body') || blk, v2, { title: 'QA Verification (Trigger)', proofTextLabel: 'Proof payload' });
     }
   }
+
+  // Shared QA docs UX tweaks:
+  // - expand all steps by default
+  // - make TOC navigation scroll smoothly without reload/jank
+  (function(){
+    // Expand all accordion step bodies.
+    for (var i=0;i<stepSections.length;i++){
+      var sec = stepSections[i];
+      var btn = sec.querySelector('button.export-step-header[data-accordion="toggle"]');
+      var body = sec.querySelector('.export-step-body[data-accordion="body"]');
+      if (btn) btn.setAttribute('aria-expanded', 'true');
+      if (body && body.hasAttribute('hidden')) body.removeAttribute('hidden');
+    }
+
+    // Smooth in-page scroll for the export TOC.
+    var links = document.querySelectorAll('a.export-toc-link[href^="#step-"]');
+    for (var j=0;j<links.length;j++){
+      (function(a){
+        a.addEventListener('click', function(e){
+          e.preventDefault();
+          var href = a.getAttribute('href') || '';
+          var id = href.replace('#', '');
+          if (!id) return;
+          var target = document.getElementById(id);
+          if (!target) return;
+          try { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+          catch { target.scrollIntoView(); }
+        });
+      })(links[j]);
+    }
+  })();
 })();
 </script>`;
 

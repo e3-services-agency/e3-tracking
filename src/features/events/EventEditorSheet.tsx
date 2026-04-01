@@ -348,7 +348,6 @@ export function EventEditorSheet({
       setCodegenNameBloomreachSdk('');
       setCodegenNameBloomreachApi('');
     }
-    setAddPresence('always_sent');
     setAttachedDescExpandedId(null);
     setAttachPropertyPickerOpen(false);
   }, [isOpen, eventId, clearMutationError, loadEvent]);

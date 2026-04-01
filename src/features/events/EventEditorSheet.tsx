@@ -21,7 +21,10 @@ import {
   createWorkspaceSource,
   listWorkspaceSources,
 } from '@/src/features/events/lib/eventTriggerSourcesApi';
-import { isAttachedPropertyRequiredForTrigger } from '@/src/lib/effectiveEventSchema';
+import {
+  describeAttachedTriggerRequirement,
+  isAttachedPropertyRequiredForTrigger,
+} from '@/src/lib/effectiveEventSchema';
 import {
   EVENT_TYPES,
   type CodegenEventNameOverrides,
@@ -1046,6 +1049,10 @@ export function EventEditorSheet({
                       a.presence,
                       a.property_required_override
                     );
+                    const triggerReq = describeAttachedTriggerRequirement(
+                      a.presence,
+                      a.property_required_override
+                    );
                     return (
                       <li key={a.property_id} className="px-3 py-2 border-b border-gray-50 last:border-0">
                         <div className="flex items-start justify-between gap-2">
@@ -1062,8 +1069,16 @@ export function EventEditorSheet({
                                     : 'font-medium text-slate-600'
                                 }
                               >
-                                {requiredForTrigger ? 'required' : 'not required'}
+                                {requiredForTrigger
+                                  ? triggerReq.primaryLabel.toLowerCase()
+                                  : 'not required'}
                               </span>
+                              {requiredForTrigger && triggerReq.reasonNote !== '—' ? (
+                                <span className="text-[11px] text-gray-500">
+                                  {' '}
+                                  ({triggerReq.reasonNote})
+                                </span>
+                              ) : null}
                             </p>
                             <div className="text-[11px] text-gray-500">{meta?.data_type ?? '—'}</div>
                             {descShown !== null && (
@@ -1087,7 +1102,7 @@ export function EventEditorSheet({
                           </div>
                           <div className="flex items-center gap-2 shrink-0 pt-0.5">
                             <span className="text-[10px] font-medium text-gray-500 whitespace-nowrap">
-                              Required
+                              Definition required
                             </span>
                             <button
                               type="button"

@@ -306,7 +306,9 @@ export function Journeys({
     const [orderError, setOrderError] = React.useState<string | null>(null);
     const dragFromIndexRef = React.useRef<number | null>(null);
     const iframeRef = React.useRef<HTMLIFrameElement | null>(null);
-    const pendingRefreshAfterDragRef = React.useRef(false);
+    const isDraggingRef = React.useRef(false);
+    const pendingNextOrderRef = React.useRef<string[] | null>(null);
+    const iframeReloadCountRef = React.useRef(0);
 
     const stepNodes = React.useMemo(() => {
       const nodes = (selectedJourney?.nodes ?? []) as any[];
@@ -366,7 +368,6 @@ export function Journeys({
       if (!selectedJourney) return;
       setIsSavingOrder(true);
       setOrderError(null);
-      updateJourney(selectedJourney.id, { step_order: nextIds });
       const result = await updateJourneyStepOrderApi(selectedJourney.id, nextIds, activeWorkspaceId);
       setIsSavingOrder(false);
       if (!result.success) {
@@ -374,8 +375,7 @@ export function Journeys({
         return;
       }
       updateJourney(selectedJourney.id, { step_order: result.step_order ?? null });
-      // Defer iframe reload until drag completes to avoid replacing the document mid-drag (stability).
-      pendingRefreshAfterDragRef.current = true;
+      setRefreshNonce((n) => n + 1);
     };
 
     const enhanceEditorExportDoc = React.useCallback(() => {
@@ -426,12 +426,15 @@ export function Journeys({
         });
 
         b.addEventListener('dragstart', () => {
+          isDraggingRef.current = true;
           dragFromIndexRef.current = i;
         });
         b.addEventListener('dragend', () => {
-          if (pendingRefreshAfterDragRef.current) {
-            pendingRefreshAfterDragRef.current = false;
-            setRefreshNonce((n) => n + 1);
+          isDraggingRef.current = false;
+          const pending = pendingNextOrderRef.current;
+          pendingNextOrderRef.current = null;
+          if (pending && pending.length > 0) {
+            void persistOrder(pending);
           }
         });
         b.addEventListener('dragover', (e) => e.preventDefault());
@@ -443,7 +446,9 @@ export function Journeys({
           const next = [...ids];
           const [moved] = next.splice(from, 1);
           next.splice(i, 0, moved);
-          void persistOrder(next);
+          // Stability: do not touch React state / iframe during active drag.
+          // Defer persistence + refresh to dragend.
+          pendingNextOrderRef.current = next;
         });
 
         a.parentNode?.replaceChild(b, a);
@@ -517,7 +522,16 @@ export function Journeys({
           title="Docs preview"
           className="block h-full w-full min-w-0 max-w-full border-0 bg-white"
           srcDoc={html}
-          onLoad={enhanceEditorExportDoc}
+          onLoad={() => {
+            iframeReloadCountRef.current += 1;
+            if (isDraggingRef.current) {
+              // This should never happen now; keep it as a guardrail for debugging.
+              console.debug('[docs] iframe reloaded during drag', {
+                reloadCount: iframeReloadCountRef.current,
+              });
+            }
+            enhanceEditorExportDoc();
+          }}
         />
       </div>
     );

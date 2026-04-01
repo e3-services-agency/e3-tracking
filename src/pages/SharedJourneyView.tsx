@@ -520,6 +520,8 @@ export function SharedJourneyView({
   const [qaBriefLoading, setQaBriefLoading] = useState(false);
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const modeMenuRef = React.useRef<HTMLDivElement | null>(null);
+  const docsIframeRef = React.useRef<HTMLIFrameElement | null>(null);
+  const qaIframeRef = React.useRef<HTMLIFrameElement | null>(null);
   const [sharedHubReturnToken] = useState(() =>
     typeof window !== 'undefined' ? new URL(window.location.href).searchParams.get('hub') : null,
   );
@@ -656,6 +658,79 @@ export function SharedJourneyView({
       cancelled = true;
     };
   }, [view, journeyId]);
+
+  const enhanceExportDoc = React.useCallback(
+    (iframe: HTMLIFrameElement | null, label: 'docs' | 'qa') => {
+      if (!iframe) return;
+      const doc = iframe.contentDocument;
+      if (!doc?.documentElement) {
+        console.debug('[shared-docs] enhanceExportDoc: no document', { label });
+        return;
+      }
+
+      const root = doc.documentElement;
+      if (root.getAttribute('data-e3-shared-enhanced') === '1') {
+        console.debug('[shared-docs] enhanceExportDoc: already enhanced', { label });
+        return;
+      }
+      root.setAttribute('data-e3-shared-enhanced', '1');
+
+      const stepSections = doc.querySelectorAll('section.export-step');
+      const tocLinks = doc.querySelectorAll('a.export-toc-link[href^="#step-"]');
+      console.debug('[shared-docs] enhanceExportDoc: found', {
+        label,
+        steps: stepSections.length,
+        tocLinks: tocLinks.length,
+      });
+
+      const expandAllSteps = () => {
+        for (let i = 0; i < stepSections.length; i += 1) {
+          const sec = stepSections[i] as HTMLElement;
+          const btn = sec.querySelector(
+            'button.export-step-header[data-accordion="toggle"]'
+          );
+          const body = sec.querySelector('.export-step-body[data-accordion="body"]');
+          if (btn) btn.setAttribute('aria-expanded', 'true');
+          if (body && body.hasAttribute('hidden')) body.removeAttribute('hidden');
+        }
+      };
+
+      const scrollToStepId = (id: string) => {
+        if (!id) return;
+        const target = doc.getElementById(id);
+        if (!target) return;
+        try {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch {
+          target.scrollIntoView();
+        }
+      };
+
+      // Eliminate hash/anchor navigation: replace TOC anchors with buttons.
+      for (let i = 0; i < tocLinks.length; i += 1) {
+        const a = tocLinks[i] as HTMLAnchorElement;
+        const href = a.getAttribute('href') || '';
+        const id = href.replace('#', '');
+        const b = doc.createElement('button');
+        b.type = 'button';
+        b.className = a.className;
+        b.setAttribute('data-export-step-target', id);
+        b.innerHTML = a.innerHTML;
+        b.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          expandAllSteps();
+          scrollToStepId(b.getAttribute('data-export-step-target') || '');
+        });
+        a.parentNode?.replaceChild(b, a);
+      }
+
+      // Expand deterministically (twice to win over any accordion init).
+      expandAllSteps();
+      setTimeout(expandAllSteps, 0);
+    },
+    []
+  );
 
   useEffect(() => {
     if (view !== 'qa') return;
@@ -880,7 +955,9 @@ export function SharedJourneyView({
             <iframe
               title="Docs"
               className="block h-full w-full min-w-0 max-w-full border-0 bg-white"
+              ref={docsIframeRef}
               srcDoc={briefHtml}
+              onLoad={() => enhanceExportDoc(docsIframeRef.current, 'docs')}
             />
           )
         ) : view === 'qa' && activeQARunId ? (
@@ -902,7 +979,9 @@ export function SharedJourneyView({
             <iframe
               title="QA Report"
               className="block h-full w-full min-w-0 max-w-full border-0 bg-white"
+              ref={qaIframeRef}
               srcDoc={qaBriefHtml}
+              onLoad={() => enhanceExportDoc(qaIframeRef.current, 'qa')}
             />
           )
         ) : (

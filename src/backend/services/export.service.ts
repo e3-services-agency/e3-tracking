@@ -992,7 +992,7 @@ export async function generateJourneyHtmlExport(
 
       return `
       <section class="export-step" id="step-${stepNum}">
-        <button class="export-step-header" type="button" data-accordion="toggle" aria-expanded="${stepNum === 1 ? 'true' : 'false'}">
+        <button class="export-step-header" type="button" data-accordion="toggle" aria-expanded="true">
           <div class="export-step-title">
             <span class="export-step-kind-badge">Journey step</span>
             <span class="export-step-title-main">Step ${stepNum}: ${escapeHtml(step.label)}</span>
@@ -1003,7 +1003,7 @@ export async function generateJourneyHtmlExport(
             <span class="export-step-chevron" aria-hidden="true"></span>
           </div>
         </button>
-        <div class="export-step-body" data-accordion="body" ${stepNum === 1 ? '' : 'hidden'}>
+        <div class="export-step-body" data-accordion="body">
           ${stepDetailsSection}
           ${interactionSection}
           ${trackingSection}

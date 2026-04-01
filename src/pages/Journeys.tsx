@@ -306,6 +306,7 @@ export function Journeys({
     const [orderError, setOrderError] = React.useState<string | null>(null);
     const dragFromIndexRef = React.useRef<number | null>(null);
     const iframeRef = React.useRef<HTMLIFrameElement | null>(null);
+    const pendingRefreshAfterDragRef = React.useRef(false);
 
     const stepNodes = React.useMemo(() => {
       const nodes = (selectedJourney?.nodes ?? []) as any[];
@@ -373,7 +374,8 @@ export function Journeys({
         return;
       }
       updateJourney(selectedJourney.id, { step_order: result.step_order ?? null });
-      setRefreshNonce((n) => n + 1);
+      // Defer iframe reload until drag completes to avoid replacing the document mid-drag (stability).
+      pendingRefreshAfterDragRef.current = true;
     };
 
     const enhanceEditorExportDoc = React.useCallback(() => {
@@ -425,6 +427,12 @@ export function Journeys({
 
         b.addEventListener('dragstart', () => {
           dragFromIndexRef.current = i;
+        });
+        b.addEventListener('dragend', () => {
+          if (pendingRefreshAfterDragRef.current) {
+            pendingRefreshAfterDragRef.current = false;
+            setRefreshNonce((n) => n + 1);
+          }
         });
         b.addEventListener('dragover', (e) => e.preventDefault());
         b.addEventListener('drop', () => {

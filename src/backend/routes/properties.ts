@@ -295,12 +295,30 @@ function normalizeExampleValueForType(
     if (!Array.isArray(v)) return { ok: false, error: 'must be a JSON array.' };
     return { ok: true, value: v };
   }
-  // timestamp: treat as string ISO value only (consistent with existing UI expectation).
+  // timestamp: unix seconds (number). Legacy ISO strings are accepted but normalized to unix seconds.
   if (dataType === 'timestamp') {
-    if (typeof v !== 'string') return { ok: false, error: 'must be an ISO 8601 string.' };
-    const artifactErr = rejectIfArtifactString(v);
-    if (artifactErr) return { ok: false, error: artifactErr };
-    return { ok: true, value: v };
+    if (typeof v === 'number' && Number.isFinite(v)) {
+      return { ok: true, value: Math.floor(v) };
+    }
+    if (typeof v === 'string') {
+      const artifactErr = rejectIfArtifactString(v);
+      if (artifactErr) return { ok: false, error: artifactErr };
+      const t = v.trim();
+      if (!t) return { ok: false, error: 'must be a unix timestamp in seconds.' };
+      // Numeric string → unix seconds
+      if (EXACT_NUMERIC_RE.test(t)) {
+        const n = Number(t);
+        if (!Number.isFinite(n)) return { ok: false, error: 'must be a finite unix timestamp in seconds.' };
+        return { ok: true, value: Math.floor(n) };
+      }
+      // ISO-like string → normalize to unix seconds
+      const d = new Date(t);
+      if (!Number.isNaN(d.getTime())) {
+        return { ok: true, value: Math.floor(d.getTime() / 1000) };
+      }
+      return { ok: false, error: 'must be a unix timestamp in seconds.' };
+    }
+    return { ok: false, error: 'must be a unix timestamp in seconds.' };
   }
   return { ok: false, error: 'has unsupported data_type.' };
 }

@@ -361,6 +361,72 @@ export function Journeys({
       return out;
     }, [stepNodes, selectedJourney?.step_order, triggersCountByStepId]);
 
+    const enhanceEditorExportDoc = React.useCallback(() => {
+      const doc = iframeRef.current?.contentDocument;
+      if (!doc?.documentElement) return;
+      const root = doc.documentElement;
+      if (root.getAttribute('data-e3-editor-enhanced') === '1') return;
+      root.setAttribute('data-e3-editor-enhanced', '1');
+
+      // Add minimal editor-only styles (no layout changes; just drag affordance).
+      const style = doc.createElement('style');
+      style.textContent = `
+        .export-toc-link[data-e3-reorderable="1"] { cursor: move; }
+      `;
+      doc.head?.appendChild(style);
+
+      const tocLinks = Array.from(
+        doc.querySelectorAll('a.export-toc-link[href^="#step-"]')
+      ) as HTMLAnchorElement[];
+
+      // Replace anchors with buttons to prevent hash navigation. Keep the exact same class + inner HTML.
+      for (let i = 0; i < tocLinks.length; i += 1) {
+        const a = tocLinks[i];
+        const href = a.getAttribute('href') || '';
+        const stepId = href.replace('#', '');
+        const nodeId = orderedSteps[i]?.id ?? '';
+
+        const b = doc.createElement('button');
+        b.type = 'button';
+        b.className = a.className;
+        b.innerHTML = a.innerHTML;
+        b.setAttribute('data-e3-reorderable', '1');
+        b.setAttribute('data-step-target', stepId);
+        if (nodeId) b.setAttribute('data-step-node-id', nodeId);
+        b.setAttribute('data-step-index', String(i));
+        b.draggable = true;
+
+        b.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const target = doc.getElementById(stepId);
+          if (!target) return;
+          try {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          } catch {
+            target.scrollIntoView();
+          }
+        });
+
+        b.addEventListener('dragstart', () => {
+          dragFromIndexRef.current = i;
+        });
+        b.addEventListener('dragover', (e) => e.preventDefault());
+        b.addEventListener('drop', () => {
+          const from = dragFromIndexRef.current;
+          dragFromIndexRef.current = null;
+          if (from === null || from === i) return;
+          const ids = orderedSteps.map((s) => s.id);
+          const next = [...ids];
+          const [moved] = next.splice(from, 1);
+          next.splice(i, 0, moved);
+          void persistOrder(next);
+        });
+
+        a.parentNode?.replaceChild(b, a);
+      }
+    }, [orderedSteps, persistOrder]);
+
     const persistOrder = async (nextIds: string[]) => {
       if (!selectedJourney) return;
       setIsSavingOrder(true);
@@ -397,11 +463,7 @@ export function Journeys({
         })
         .then((t) => {
           if (cancelled) return;
-          const hideTocCss = '<style>.export-toc{display:none !important;}</style>';
-          const next = t.includes('</head>')
-            ? t.replace('</head>', `${hideTocCss}\n</head>`)
-            : `${hideTocCss}\n${t}`;
-          setHtml(next);
+          setHtml(t);
         })
         .catch((e) => {
           if (cancelled) return;
@@ -433,71 +495,22 @@ export function Journeys({
       );
     }
     return (
-      <div className="h-full w-full min-w-0 overflow-hidden flex">
-        <div className="w-[320px] shrink-0 border-r bg-white overflow-y-auto">
-          <div className="p-4">
-            <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
-              Steps
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              {isSavingOrder ? 'Saving…' : orderError ? 'Save failed' : ' '}
-            </div>
-            {orderError && (
-              <div className="text-xs text-red-600 mt-1">{orderError}</div>
-            )}
-            <div className="mt-3 flex flex-col gap-2">
-              {orderedSteps.map((s, idx) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  draggable
-                  onDragStart={() => {
-                    dragFromIndexRef.current = idx;
-                  }}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => {
-                    const from = dragFromIndexRef.current;
-                    dragFromIndexRef.current = null;
-                    if (from === null || from === idx) return;
-                    const next = [...orderedSteps];
-                    const [moved] = next.splice(from, 1);
-                    next.splice(idx, 0, moved);
-                    void persistOrder(next.map((x) => x.id));
-                  }}
-                  onClick={() => {
-                    const doc = iframeRef.current?.contentDocument;
-                    const el = doc?.getElementById(`step-${idx + 1}`);
-                    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }}
-                  className="w-full text-left rounded-lg border border-transparent hover:border-gray-200 hover:bg-gray-50 px-3 py-2 cursor-move"
-                  title="Drag to reorder; click to scroll"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-[11px] font-bold text-gray-900">
-                      Step {idx + 1}
-                    </div>
-                    {s.triggersCount > 0 && (
-                      <div className="text-[11px] text-gray-500 whitespace-nowrap">
-                        {s.triggersCount} event{s.triggersCount === 1 ? '' : 's'}
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-xs text-gray-700 mt-0.5 truncate">
-                    {s.label}
-                  </div>
-                </button>
-              ))}
+      <div className="h-full w-full min-w-0 overflow-hidden flex flex-col">
+        <div className="shrink-0 border-b bg-white px-4 py-2">
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-gray-500">
+              {isSavingOrder ? 'Saving step order…' : orderError ? 'Step order save failed.' : ' '}
             </div>
           </div>
+          {orderError && <div className="text-xs text-red-600 mt-1">{orderError}</div>}
         </div>
-        <div className="flex-1 min-w-0 overflow-hidden">
-          <iframe
-            ref={iframeRef}
-            title="Docs preview"
-            className="block h-full w-full min-w-0 max-w-full border-0 bg-white"
-            srcDoc={html}
-          />
-        </div>
+        <iframe
+          ref={iframeRef}
+          title="Docs preview"
+          className="block h-full w-full min-w-0 max-w-full border-0 bg-white"
+          srcDoc={html}
+          onLoad={enhanceEditorExportDoc}
+        />
       </div>
     );
   };

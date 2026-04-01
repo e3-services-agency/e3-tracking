@@ -185,7 +185,7 @@ export async function validatePayload(
     const objectChildren =
       def.property.data_type === 'object' && schema?.type === 'object' && schema.properties
         ? (() => {
-            const refs = (def as any)?.property?.object_child_property_refs_json as
+            const refs = def.property.object_child_property_refs_json as
               | Record<string, string>
               | null
               | undefined;

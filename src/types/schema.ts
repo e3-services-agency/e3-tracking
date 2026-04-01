@@ -443,6 +443,7 @@ export interface EffectiveEventPropertyDefinition {
     | 'data_formats'
     | 'pii'
     | 'value_schema_json'
+    | 'object_child_property_refs_json'
     | 'example_values_json'
   >;
   /** Stored override row, if any. */

@@ -204,6 +204,7 @@ function buildEffectiveSnapshot(
       data_formats: property.data_formats,
       pii: property.pii,
       value_schema_json: property.value_schema_json,
+      object_child_property_refs_json: property.object_child_property_refs_json,
       example_values_json: property.example_values_json,
     },
     override,

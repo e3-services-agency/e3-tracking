@@ -149,8 +149,9 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
           a.href = prof.url;
           a.target = '_blank';
           a.rel = 'noreferrer';
-          a.textContent = prof.label ? String(prof.label) : id;
+          a.textContent = (prof.label ? String(prof.label) : id) + ' (Open)';
           a.style.color = '#1d4ed8';
+          a.style.textDecoration = 'underline';
           li.appendChild(a);
           if (prof.note){
             var note = document.createElement('div');
@@ -323,11 +324,29 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
       pWrap.appendChild(pl);
       for (var pi=0;pi<profiles.length;pi++){
         var pr = profiles[pi] || {};
-        var row = document.createElement('div');
-        row.className = 'qa-field-value';
         var label = pr.label ? String(pr.label) : 'Profile';
         var url = pr.url ? String(pr.url) : '';
-        row.textContent = url ? (label + ' — ' + url) : label;
+        var row = document.createElement('div');
+        row.className = 'qa-field-value';
+        if (url){
+          var a = document.createElement('a');
+          a.href = url;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.textContent = label ? (label + ' (Open)') : 'Open';
+          a.style.color = '#1d4ed8';
+          a.style.textDecoration = 'underline';
+          row.appendChild(a);
+          if (!label){
+            var muted = document.createElement('div');
+            muted.className = 'qa-field-value qa-field-mono';
+            muted.style.color = '#64748b';
+            muted.textContent = url;
+            row.appendChild(muted);
+          }
+        } else {
+          row.textContent = label;
+        }
         pWrap.appendChild(row);
       }
       grid.appendChild(pWrap);

@@ -305,15 +305,33 @@ export function Journeys({
     const [isSavingOrder, setIsSavingOrder] = React.useState(false);
     const [orderError, setOrderError] = React.useState<string | null>(null);
     const dragFromIndexRef = React.useRef<number | null>(null);
+    const iframeRef = React.useRef<HTMLIFrameElement | null>(null);
 
     const stepNodes = React.useMemo(() => {
       const nodes = (selectedJourney?.nodes ?? []) as any[];
       return nodes.filter((n) => n?.type === 'journeyStepNode' && typeof n?.id === 'string');
     }, [selectedJourney?.nodes]);
 
+    const triggersCountByStepId = React.useMemo(() => {
+      const nodes = (selectedJourney?.nodes ?? []) as any[];
+      const edges = (selectedJourney?.edges ?? []) as any[];
+      const triggersById = new Set(
+        nodes.filter((n) => n?.type === 'triggerNode' && typeof n?.id === 'string').map((n) => String(n.id))
+      );
+      const out = new Map<string, number>();
+      for (const e of edges) {
+        const source = typeof e?.source === 'string' ? e.source : '';
+        const target = typeof e?.target === 'string' ? e.target : '';
+        if (!source || !target) continue;
+        if (!triggersById.has(target)) continue;
+        out.set(source, (out.get(source) ?? 0) + 1);
+      }
+      return out;
+    }, [selectedJourney?.nodes, selectedJourney?.edges]);
+
     const orderedSteps = React.useMemo(() => {
       const byId = new Map(stepNodes.map((n: any) => [String(n.id), n]));
-      const out: Array<{ id: string; label: string }> = [];
+      const out: Array<{ id: string; label: string; triggersCount: number }> = [];
       const seen = new Set<string>();
       const ids = Array.isArray(selectedJourney?.step_order)
         ? (selectedJourney?.step_order ?? [])
@@ -324,7 +342,11 @@ export function Journeys({
         const node = byId.get(id);
         if (!node || seen.has(id)) continue;
         seen.add(id);
-        out.push({ id, label: typeof node?.data?.label === 'string' ? node.data.label : 'Step' });
+        out.push({
+          id,
+          label: typeof node?.data?.label === 'string' ? node.data.label : 'Step',
+          triggersCount: triggersCountByStepId.get(id) ?? 0,
+        });
       }
       for (const node of stepNodes) {
         const id = String((node as any).id);
@@ -333,10 +355,11 @@ export function Journeys({
         out.push({
           id,
           label: typeof (node as any)?.data?.label === 'string' ? (node as any).data.label : 'Step',
+          triggersCount: triggersCountByStepId.get(id) ?? 0,
         });
       }
       return out;
-    }, [stepNodes, selectedJourney?.step_order]);
+    }, [stepNodes, selectedJourney?.step_order, triggersCountByStepId]);
 
     const persistOrder = async (nextIds: string[]) => {
       if (!selectedJourney) return;
@@ -374,7 +397,11 @@ export function Journeys({
         })
         .then((t) => {
           if (cancelled) return;
-          setHtml(t);
+          const hideTocCss = '<style>.export-toc{display:none !important;}</style>';
+          const next = t.includes('</head>')
+            ? t.replace('</head>', `${hideTocCss}\n</head>`)
+            : `${hideTocCss}\n${t}`;
+          setHtml(next);
         })
         .catch((e) => {
           if (cancelled) return;
@@ -406,53 +433,71 @@ export function Journeys({
       );
     }
     return (
-      <div className="h-full w-full min-w-0 overflow-hidden flex flex-col">
-        <div className="shrink-0 border-b bg-white px-4 py-2">
-          <div className="flex items-center justify-between gap-3">
+      <div className="h-full w-full min-w-0 overflow-hidden flex">
+        <div className="w-[320px] shrink-0 border-r bg-white overflow-y-auto">
+          <div className="p-4">
             <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
-              Step order (drag to reorder)
+              Steps
             </div>
-            <div className="text-xs text-gray-500">
-              {isSavingOrder ? 'Saving…' : ' '}
+            <div className="text-xs text-gray-500 mt-1">
+              {isSavingOrder ? 'Saving…' : orderError ? 'Save failed' : ' '}
             </div>
-          </div>
-          {orderError && (
-            <div className="text-xs text-red-600 mt-1">{orderError}</div>
-          )}
-          <div className="mt-2 flex flex-wrap gap-2">
-            {orderedSteps.map((s, idx) => (
-              <div
-                key={s.id}
-                draggable
-                onDragStart={() => {
-                  dragFromIndexRef.current = idx;
-                }}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => {
-                  const from = dragFromIndexRef.current;
-                  dragFromIndexRef.current = null;
-                  if (from === null || from === idx) return;
-                  const next = [...orderedSteps];
-                  const [moved] = next.splice(from, 1);
-                  next.splice(idx, 0, moved);
-                  void persistOrder(next.map((x) => x.id));
-                }}
-                className="cursor-move select-none rounded-md border bg-gray-50 px-2 py-1 text-xs text-gray-800 hover:bg-gray-100"
-                title="Drag to reorder"
-              >
-                <span className="font-semibold mr-1">{idx + 1}.</span>
-                <span className="max-w-[220px] inline-block align-bottom truncate">
-                  {s.label}
-                </span>
-              </div>
-            ))}
+            {orderError && (
+              <div className="text-xs text-red-600 mt-1">{orderError}</div>
+            )}
+            <div className="mt-3 flex flex-col gap-2">
+              {orderedSteps.map((s, idx) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  draggable
+                  onDragStart={() => {
+                    dragFromIndexRef.current = idx;
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => {
+                    const from = dragFromIndexRef.current;
+                    dragFromIndexRef.current = null;
+                    if (from === null || from === idx) return;
+                    const next = [...orderedSteps];
+                    const [moved] = next.splice(from, 1);
+                    next.splice(idx, 0, moved);
+                    void persistOrder(next.map((x) => x.id));
+                  }}
+                  onClick={() => {
+                    const doc = iframeRef.current?.contentDocument;
+                    const el = doc?.getElementById(`step-${idx + 1}`);
+                    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}
+                  className="w-full text-left rounded-lg border border-transparent hover:border-gray-200 hover:bg-gray-50 px-3 py-2 cursor-move"
+                  title="Drag to reorder; click to scroll"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-[11px] font-bold text-gray-900">
+                      Step {idx + 1}
+                    </div>
+                    {s.triggersCount > 0 && (
+                      <div className="text-[11px] text-gray-500 whitespace-nowrap">
+                        {s.triggersCount} event{s.triggersCount === 1 ? '' : 's'}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-700 mt-0.5 truncate">
+                    {s.label}
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-        <iframe
-          title="Docs preview"
-          className="block h-full w-full min-w-0 max-w-full border-0 bg-white"
-          srcDoc={html}
-        />
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <iframe
+            ref={iframeRef}
+            title="Docs preview"
+            className="block h-full w-full min-w-0 max-w-full border-0 bg-white"
+            srcDoc={html}
+          />
+        </div>
       </div>
     );
   };

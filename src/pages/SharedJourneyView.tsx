@@ -37,22 +37,38 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
   .qa-chip--Pending { background:#fef3c7; color:#92400e; border-color:#fde68a; }
   .qa-block { margin-top: 10px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #ffffff; }
   .qa-block-title { font-size: 12px; font-weight: 700; color: #475569; letter-spacing: 0.03em; text-transform: uppercase; margin-bottom: 8px; }
-  .qa-run-details { margin: 0 0 16px; padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; }
+  .qa-run-details { margin: 0 0 16px; padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; border-left-width: 5px; }
+  .qa-run-details--PASSED { border-left-color: #22c55e; }
+  .qa-run-details--FAILED { border-left-color: #ef4444; }
+  .qa-run-details--PENDING { border-left-color: #f59e0b; }
   .qa-run-details h2 { margin: 0 0 10px; font-size: 1rem; color: #0f172a; }
   .qa-run-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
   @media (min-width: 720px) { .qa-run-grid { grid-template-columns: 1fr 1fr; } }
   .qa-field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #64748b; margin-bottom: 2px; }
   .qa-field-value { font-size: 13px; color: #0f172a; white-space: pre-wrap; }
   .qa-field-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  .qa-inline-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .qa-list { margin: 6px 0 0; padding-left: 18px; color:#0f172a; font-size: 13px; }
+  .qa-list li { margin: 2px 0; }
   .qa-proof { border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; background:#f8fafc; margin-top:8px; }
   .qa-proof-name { font-size:12px; font-weight:700; color:#0f172a; }
   .qa-proof-meta { font-size:11px; color:#64748b; margin-top:2px; }
   .qa-proof-content { margin-top:6px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; white-space: pre-wrap; color:#0f172a; }
+  .qa-proof-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-top: 8px; }
+  .qa-proof-thumb { display:block; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; background:#fff; text-decoration:none; }
+  .qa-proof-thumb img { display:block; width:100%; height:110px; object-fit:cover; background:#f1f5f9; }
+  .qa-proof-thumb .qa-proof-name { padding:8px 10px; }
 </style>`;
   const script = `
 <script>
 (function(){
   var qaRun = ${safeJson};
+  var runProfiles = Array.isArray(qaRun && qaRun.testingProfiles) ? qaRun.testingProfiles : [];
+  var runProfileById = {};
+  for (var rpi=0;rpi<runProfiles.length;rpi++){
+    var rp = runProfiles[rpi];
+    if (rp && rp.id) runProfileById[String(rp.id)] = rp;
+  }
   function statusFor(nodeId){
     var v = qaRun && qaRun.verifications ? qaRun.verifications[nodeId] : null;
     return (v && (v.status === 'Passed' || v.status === 'Failed' || v.status === 'Pending')) ? v.status : 'Pending';
@@ -121,11 +137,34 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
       var tpLabel = document.createElement('div');
       tpLabel.className = 'qa-field-label';
       tpLabel.textContent = 'Linked testing profiles';
-      var tpVal = document.createElement('div');
-      tpVal.className = 'qa-field-value qa-field-mono';
-      tpVal.textContent = testingProfileIds.join(', ');
       tp.appendChild(tpLabel);
-      tp.appendChild(tpVal);
+      var ul = document.createElement('ul');
+      ul.className = 'qa-list';
+      for (var tpi=0;tpi<testingProfileIds.length;tpi++){
+        var id = String(testingProfileIds[tpi]);
+        var prof = runProfileById[id];
+        var li = document.createElement('li');
+        if (prof && prof.url){
+          var a = document.createElement('a');
+          a.href = prof.url;
+          a.target = '_blank';
+          a.rel = 'noreferrer';
+          a.textContent = prof.label ? String(prof.label) : id;
+          a.style.color = '#1d4ed8';
+          li.appendChild(a);
+          if (prof.note){
+            var note = document.createElement('div');
+            note.className = 'qa-field-value';
+            note.style.color = '#64748b';
+            note.textContent = String(prof.note);
+            li.appendChild(note);
+          }
+        } else {
+          li.textContent = (prof && prof.label) ? String(prof.label) : id;
+        }
+        ul.appendChild(li);
+      }
+      tp.appendChild(ul);
       block.appendChild(tp);
     }
     if (extraProfiles.length > 0){
@@ -146,8 +185,44 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
       }
       block.appendChild(ep);
     }
-    for (var i=0;i<proofs.length;i++){
-      var p = proofs[i];
+    var imageProofs = [];
+    var otherProofs = [];
+    for (var pi=0;pi<proofs.length;pi++){
+      var prf = proofs[pi];
+      if (prf && prf.type === 'image') imageProofs.push(prf);
+      else otherProofs.push(prf);
+    }
+    if (imageProofs.length > 0){
+      var galLabel = document.createElement('div');
+      galLabel.className = 'qa-field-label';
+      galLabel.style.marginTop = '10px';
+      galLabel.textContent = 'Proof images';
+      block.appendChild(galLabel);
+      var gal = document.createElement('div');
+      gal.className = 'qa-proof-gallery';
+      for (var gi=0;gi<imageProofs.length;gi++){
+        var pimg = imageProofs[gi];
+        if (!pimg || !pimg.content) continue;
+        var a2 = document.createElement('a');
+        a2.className = 'qa-proof-thumb';
+        a2.href = pimg.content;
+        a2.target = '_blank';
+        a2.rel = 'noreferrer';
+        var im = document.createElement('img');
+        im.src = pimg.content;
+        im.alt = pimg.name ? String(pimg.name) : 'Proof image';
+        a2.appendChild(im);
+        var nm2 = document.createElement('div');
+        nm2.className = 'qa-proof-name';
+        nm2.textContent = pimg.name ? String(pimg.name) : 'Image proof';
+        a2.appendChild(nm2);
+        gal.appendChild(a2);
+      }
+      block.appendChild(gal);
+    }
+
+    for (var i=0;i<otherProofs.length;i++){
+      var p = otherProofs[i];
       var wrap = document.createElement('div');
       wrap.className = 'qa-proof';
       var nm = document.createElement('div');
@@ -158,17 +233,7 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
       meta.className = 'qa-proof-meta';
       meta.textContent = (p && p.type) ? String(p.type) : '';
       wrap.appendChild(meta);
-      if (p && p.type === 'image' && p.content){
-        var a = document.createElement('a');
-        a.href = p.content;
-        a.target = '_blank';
-        a.rel = 'noreferrer';
-        a.textContent = p.content;
-        a.style.fontSize = '12px';
-        a.style.color = '#1d4ed8';
-        a.style.wordBreak = 'break-all';
-        wrap.appendChild(a);
-      } else if (p && p.content){
+      if (p && p.content){
         var pre = document.createElement('div');
         pre.className = 'qa-proof-content';
         pre.textContent = String(p.content);
@@ -199,7 +264,8 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
     var main = document.querySelector('.export-main');
     if (!main) return;
     var box = document.createElement('section');
-    box.className = 'qa-run-details';
+    var overall = computeOverall();
+    box.className = 'qa-run-details qa-run-details--' + overall;
     var h = document.createElement('h2');
     h.textContent = 'QA Run details';
     box.appendChild(h);
@@ -220,7 +286,6 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
       grid.appendChild(wrap);
     }
 
-    var overall = computeOverall();
     var counts = { Passed:0, Failed:0, Pending:0 };
     for (var k in (qaRun.verifications||{})){
       var st = statusFor(k);
@@ -228,7 +293,22 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
     }
 
     addField('Run', (qaRun.name || qaRun.id || ''), false);
-    addField('Overall status', overall + ' (' + counts.Failed + ' failed · ' + counts.Pending + ' pending · ' + counts.Passed + ' passed)', false);
+    (function(){
+      var wrap = document.createElement('div');
+      var l = document.createElement('div');
+      l.className = 'qa-field-label';
+      l.textContent = 'QA Status';
+      var row = document.createElement('div');
+      row.className = 'qa-inline-row';
+      row.appendChild(chip(overall === 'PASSED' ? 'Passed' : overall === 'FAILED' ? 'Failed' : 'Pending'));
+      var t = document.createElement('div');
+      t.className = 'qa-field-value';
+      t.textContent = counts.Failed + ' failed · ' + counts.Pending + ' pending · ' + counts.Passed + ' passed';
+      row.appendChild(t);
+      wrap.appendChild(l);
+      wrap.appendChild(row);
+      grid.appendChild(wrap);
+    })();
     addField('Tester', qaRun.testerName ? String(qaRun.testerName) : '', false);
     addField('Environment', qaRun.environment ? String(qaRun.environment) : '', false);
     addField('Ended', qaRun.endedAt ? String(qaRun.endedAt) : '', true);

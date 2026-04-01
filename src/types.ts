@@ -177,6 +177,8 @@ export interface Journey {
   name: string;
   nodes: any[]; // ReactFlow nodes
   edges: any[]; // ReactFlow edges
+  /** Explicit journey step order (journeyStepNode ids). */
+  step_order?: string[] | null;
   qaRuns?: QARun[];
   /** Homepage optimization: total QA runs count for this journey. */
   qaRunsCount?: number;

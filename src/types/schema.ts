@@ -471,6 +471,11 @@ export interface JourneyRow {
   canvas_nodes_json: unknown | null;
   /** React Flow edges (JSON). Persisted on Save Layout. Null until first save. */
   canvas_edges_json: unknown | null;
+  /**
+   * Explicit order for journeyStepNode ids (docs/export source of truth).
+   * When null/empty, consumers should fall back to the current canvas_nodes_json step-node order.
+   */
+  step_order_json?: string[] | null;
   /** Global testing instructions for AI/human testers. */
   testing_instructions_markdown: string | null;
   /** Preferred existing codegen method in trigger/docs context. */

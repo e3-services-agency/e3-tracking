@@ -637,11 +637,32 @@ export async function generateJourneyHtmlExport(
       ? journey.codegen_preferred_style
       : 'dataLayer';
 
-  const stepNodes = nodes.filter((n) => n?.type === 'journeyStepNode') as CanvasNode[];
+  const stepNodesRaw = nodes.filter((n) => n?.type === 'journeyStepNode') as CanvasNode[];
+  const stepByIdRaw = new Map(stepNodesRaw.map((n) => [n.id, n]));
+  const canvasStepNodesInOrder = stepNodesRaw;
+  const stepOrderIds = Array.isArray((journey as any).step_order_json)
+    ? ((journey as any).step_order_json as unknown[]).filter((x): x is string => typeof x === 'string' && x.trim() !== '').map((s) => s.trim())
+    : [];
+  const orderedStepNodes: CanvasNode[] = [];
+  const seenStepIds = new Set<string>();
+  for (const id of stepOrderIds) {
+    const n = stepByIdRaw.get(id);
+    if (!n) continue;
+    if (seenStepIds.has(id)) continue;
+    seenStepIds.add(id);
+    orderedStepNodes.push(n);
+  }
+  for (const n of canvasStepNodesInOrder) {
+    const id = n.id;
+    if (!id) continue;
+    if (seenStepIds.has(id)) continue;
+    seenStepIds.add(id);
+    orderedStepNodes.push(n);
+  }
   const triggerNodes = nodes.filter((n) => n?.type === 'triggerNode') as CanvasNode[];
   const annotationNodes = nodes.filter((n) => n?.type === 'annotationNode') as CanvasNode[];
   const triggerById = new Map(triggerNodes.map((n) => [n.id, n]));
-  const stepById = new Map(stepNodes.map((n) => [n.id, n]));
+  const stepById = new Map(orderedStepNodes.map((n) => [n.id, n]));
 
   const edgesFromStep = new Map<string, string[]>();
   for (const e of edges) {
@@ -666,7 +687,7 @@ export async function generateJourneyHtmlExport(
     }
   >();
 
-  for (const step of stepNodes) {
+  for (const step of orderedStepNodes) {
     const stepId = step.id ?? '';
     const data = step.data ?? {};
     const targetIds = edgesFromStep.get(stepId) ?? [];

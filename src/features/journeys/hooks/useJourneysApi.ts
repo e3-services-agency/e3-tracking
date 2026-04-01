@@ -584,3 +584,38 @@ export async function updateJourneyCodegenPreferredStyleApi(
     };
   }
 }
+
+export async function updateJourneyStepOrderApi(
+  journeyId: string,
+  step_order: string[],
+  workspaceId: string
+): Promise<{ success: true; step_order: string[] | null } | { success: false; error: string }> {
+  try {
+    const res = await fetchWithAuth(`${API_BASE}/api/journeys/${journeyId}/step-order`, {
+      method: 'PATCH',
+      headers: { 'x-workspace-id': workspaceId },
+      body: JSON.stringify({ step_order }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        error: typeof body?.error === 'string' ? body.error : res.statusText || 'Update failed',
+      };
+    }
+    const data = (await res.json().catch(() => ({}))) as { step_order?: unknown };
+    return {
+      success: true,
+      step_order: Array.isArray(data.step_order)
+        ? (data.step_order as unknown[])
+            .filter((x): x is string => typeof x === 'string' && x.trim() !== '')
+            .map((s) => s.trim())
+        : null,
+    };
+  } catch (e) {
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'Network error',
+    };
+  }
+}

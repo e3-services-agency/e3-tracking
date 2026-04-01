@@ -14,6 +14,11 @@ function mapJourneyRowToUi(j: JourneyRow & { qaRunsCount?: number; latestQARun?:
     name: j.name,
     nodes: (Array.isArray(j.canvas_nodes_json) ? j.canvas_nodes_json : []) as any[],
     edges: (Array.isArray(j.canvas_edges_json) ? j.canvas_edges_json : []) as any[],
+    step_order: Array.isArray((j as any).step_order_json)
+      ? ((j as any).step_order_json as unknown[])
+          .filter((x): x is string => typeof x === 'string' && x.trim() !== '')
+          .map((s) => s.trim())
+      : null,
     qaRuns: [],
     qaRunsCount: typeof j.qaRunsCount === 'number' ? j.qaRunsCount : undefined,
     latestQARun: (j.latestQARun ?? null) as any,

@@ -792,6 +792,109 @@ router.patch(
 );
 
 /**
+ * PATCH /api/journeys/:id/step-order
+ * Persists explicit step order for journeyStepNode ids.
+ * Body: { step_order: string[] }
+ */
+router.patch(
+  '/:id/step-order',
+  requireWorkspace,
+  requireAuth,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = req.workspaceId;
+    if (!workspaceId) {
+      res.status(403).json({
+        error: 'Workspace context required.',
+        code: 'WORKSPACE_REQUIRED',
+      });
+      return;
+    }
+
+    const journeyId = req.params.id;
+    const body = req.body as { step_order?: unknown };
+    const raw = body.step_order;
+    if (!Array.isArray(raw)) {
+      res.status(400).json({
+        error: 'step_order must be an array of step node ids.',
+        code: 'INVALID_STEP_ORDER',
+      });
+      return;
+    }
+
+    const step_order = raw
+      .filter((x): x is string => typeof x === 'string')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    // Dedupe while preserving order.
+    const seen = new Set<string>();
+    const deduped: string[] = [];
+    for (const id of step_order) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      deduped.push(id);
+    }
+
+    try {
+      const journey = await JourneyDAL.getJourneyById(workspaceId, journeyId);
+      if (!journey) {
+        res.status(404).json({
+          error: 'Journey not found.',
+          code: 'NOT_FOUND',
+          resource: 'journey',
+        });
+        return;
+      }
+
+      const nodes = Array.isArray(journey.canvas_nodes_json)
+        ? (journey.canvas_nodes_json as any[])
+        : [];
+      const stepNodeIds = new Set(
+        nodes
+          .filter((n) => n?.type === 'journeyStepNode' && typeof n?.id === 'string')
+          .map((n) => String(n.id))
+      );
+
+      for (const id of deduped) {
+        if (!stepNodeIds.has(id)) {
+          res.status(400).json({
+            error: `Unknown step id in step_order: ${id}`,
+            code: 'INVALID_STEP_ORDER',
+          });
+          return;
+        }
+      }
+
+      const updated = await JourneyDAL.updateJourney(workspaceId, journeyId, {
+        step_order_json: deduped,
+      });
+
+      res.status(200).json({ success: true, step_order: updated.step_order_json ?? null });
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        res.status(404).json({
+          error: err.message,
+          code: err.code,
+          resource: err.resource,
+        });
+        return;
+      }
+      if (err instanceof DatabaseError) {
+        res.status(500).json({
+          error: 'Failed to update step order.',
+          code: err.code,
+        });
+        return;
+      }
+      res.status(500).json({
+        error: 'An unexpected error occurred.',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+);
+
+/**
  * PUT /api/journeys/:id/qa
  * Persists QA runs + per-node verifications so shared URL can render QA.
  * Body: { qaRuns: Array<{ id: string; verifications?: Record<string, any> }> }

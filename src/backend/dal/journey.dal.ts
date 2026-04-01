@@ -253,6 +253,7 @@ export async function updateJourney(
     testing_instructions_markdown?: string | null;
     name?: string;
     codegen_preferred_style?: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null;
+    step_order_json?: string[] | null;
   }
 ): Promise<JourneyRow> {
   const journey = await getJourneyById(workspaceId, journeyId);
@@ -275,6 +276,9 @@ export async function updateJourney(
   }
   if (patch.codegen_preferred_style !== undefined) {
     updates.codegen_preferred_style = patch.codegen_preferred_style;
+  }
+  if (patch.step_order_json !== undefined) {
+    updates.step_order_json = patch.step_order_json;
   }
 
   const { error } = await supabase

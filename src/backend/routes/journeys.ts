@@ -152,16 +152,33 @@ export async function validatePayload(
   const pidToKey = new Map(bindings.map((b) => [b.property_id, b.payload_key]));
   const requiredTypeByKey = new Map<
     string,
-    { dataType: string; dataFormats: string[] | null; propertyName: string }
+    {
+      dataType: string;
+      dataFormats: string[] | null;
+      propertyName: string;
+      arrayItemType?: string;
+      arrayItemFormats?: string[] | null;
+    }
   >();
   for (const def of effective) {
     if (!isPropertyRequiredForTrigger(def)) continue;
     const k = pidToKey.get(def.property_id);
     if (!k) continue;
+    const schema = def.property.value_schema_json;
+    const arrayItemType =
+      def.property.data_type === 'array' && schema?.type === 'array'
+        ? schema.items?.type
+        : undefined;
+    const arrayItemFormats =
+      def.property.data_type === 'array' && schema?.type === 'array'
+        ? (schema.items?.data_formats ?? null)
+        : null;
     requiredTypeByKey.set(k, {
       dataType: def.property.data_type,
       dataFormats: def.property.data_formats ?? null,
       propertyName: def.property.name,
+      ...(typeof arrayItemType === 'string' ? { arrayItemType } : {}),
+      arrayItemFormats,
     });
   }
 
@@ -192,6 +209,10 @@ export async function validatePayload(
     return true;
   }
 
+  function isPrimitiveType(dt: string | undefined): boolean {
+    return dt === 'string' || dt === 'number' || dt === 'boolean' || dt === 'timestamp';
+  }
+
   const typeIssues: string[] = [];
   for (const [payloadKey, spec] of requiredTypeByKey.entries()) {
     if (!actualKeys.has(payloadKey)) continue;
@@ -201,6 +222,24 @@ export async function validatePayload(
       typeIssues.push(
         `Property "${payloadKey}" must be ${expectedTypeLabel(spec.dataType)} (got ${actualTypeLabel(raw)}).`
       );
+      continue;
+    }
+
+    // Bounded shallow schema: for arrays, validate primitive item types only when explicitly provided by schema.
+    if (spec.dataType === 'array' && Array.isArray(raw) && raw.length > 0) {
+      const itemType = spec.arrayItemType;
+      if (isPrimitiveType(itemType)) {
+        for (let i = 0; i < raw.length; i += 1) {
+          const item = raw[i];
+          const okItem = isValidForExpected(itemType!, spec.arrayItemFormats ?? null, item);
+          if (!okItem) {
+            typeIssues.push(
+              `Property "${payloadKey}[${i}]" must be ${expectedTypeLabel(itemType!)} (got ${actualTypeLabel(item)}).`
+            );
+            break;
+          }
+        }
+      }
     }
   }
 

@@ -435,30 +435,50 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
   // - make TOC navigation scroll smoothly without reload/jank
   (function(){
     // Expand all accordion step bodies.
-    for (var i=0;i<stepSections.length;i++){
-      var sec = stepSections[i];
-      var btn = sec.querySelector('button.export-step-header[data-accordion="toggle"]');
-      var body = sec.querySelector('.export-step-body[data-accordion="body"]');
-      if (btn) btn.setAttribute('aria-expanded', 'true');
-      if (body && body.hasAttribute('hidden')) body.removeAttribute('hidden');
+    function expandAllSteps(){
+      for (var i=0;i<stepSections.length;i++){
+        var sec = stepSections[i];
+        var btn = sec.querySelector('button.export-step-header[data-accordion="toggle"]');
+        var body = sec.querySelector('.export-step-body[data-accordion="body"]');
+        if (btn) btn.setAttribute('aria-expanded', 'true');
+        if (body && body.hasAttribute('hidden')) body.removeAttribute('hidden');
+      }
     }
 
-    // Smooth in-page scroll for the export TOC.
-    var links = document.querySelectorAll('a.export-toc-link[href^="#step-"]');
-    for (var j=0;j<links.length;j++){
-      (function(a){
-        a.addEventListener('click', function(e){
-          e.preventDefault();
-          var href = a.getAttribute('href') || '';
-          var id = href.replace('#', '');
-          if (!id) return;
-          var target = document.getElementById(id);
-          if (!target) return;
-          try { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-          catch { target.scrollIntoView(); }
-        });
-      })(links[j]);
+    function scrollToStepId(id){
+      if (!id) return;
+      var target = document.getElementById(id);
+      if (!target) return;
+      try { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+      catch { target.scrollIntoView(); }
     }
+
+    // Make navigation single-model + deterministic: replace TOC <a> with <button>.
+    // This avoids hash navigation (which can cause inconsistent state in iframes).
+    var tocLinks = document.querySelectorAll('a.export-toc-link[href^="#step-"]');
+    for (var j=0;j<tocLinks.length;j++){
+      var a = tocLinks[j];
+      var href = a.getAttribute('href') || '';
+      var id = href.replace('#', '');
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = a.className;
+      b.setAttribute('data-export-step-target', id);
+      b.innerHTML = a.innerHTML;
+      b.addEventListener('click', function(e){
+        e.preventDefault();
+        e.stopPropagation();
+        // Ensure the target step is expanded before scrolling.
+        expandAllSteps();
+        scrollToStepId(this.getAttribute('data-export-step-target') || '');
+      });
+      a.parentNode && a.parentNode.replaceChild(b, a);
+    }
+
+    // Expand all steps by default (run after TOC swap).
+    expandAllSteps();
+    // Run again on next tick in case export accordion wiring toggles bodies post-injection.
+    setTimeout(expandAllSteps, 0);
   })();
 })();
 </script>`;

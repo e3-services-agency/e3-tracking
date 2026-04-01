@@ -284,6 +284,11 @@ export interface EventRow {
   categories: string[] | null;
   tags: string[] | null;
   /**
+   * Computed (not stored on events): how many non-deleted journeys in this workspace reference this event.
+   * Present in list/detail API responses to support safe delete UX.
+   */
+  used_in_journeys_count?: number;
+  /**
    * Canonical structured trigger entries for the event.
    * Stored durably in the backend.
    */

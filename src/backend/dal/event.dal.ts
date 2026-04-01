@@ -31,6 +31,84 @@ const UNIQUE_VIOLATION_CODE = '23505';
 
 const OBJECT_CHILD_REF_FETCH_ROUNDS = 24;
 
+async function countJourneysUsingEvents(
+  workspaceId: string,
+  eventIds: string[]
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>();
+  for (const id of eventIds) counts.set(id, 0);
+  if (eventIds.length === 0) return counts;
+
+  const supabase = getSupabaseOrThrow();
+
+  const { data: joinRows, error: joinError } = await supabase
+    .from('journey_events')
+    .select('journey_id, event_id')
+    .in('event_id', eventIds);
+
+  if (joinError) {
+    throw new DatabaseError(
+      `Failed to fetch journey-event links: ${joinError.message}`,
+      joinError
+    );
+  }
+
+  const journeyIds = [
+    ...new Set(
+      (joinRows ?? [])
+        .map((r: any) => String(r?.journey_id ?? '').trim())
+        .filter(Boolean)
+    ),
+  ];
+
+  if (journeyIds.length === 0) return counts;
+
+  const { data: journeys, error: journeysError } = await supabase
+    .from('journeys')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null)
+    .in('id', journeyIds);
+
+  if (journeysError) {
+    throw new DatabaseError(
+      `Failed to fetch journeys for usage: ${journeysError.message}`,
+      journeysError
+    );
+  }
+
+  const validJourneyIds = new Set(
+    (journeys ?? [])
+      .map((j: any) => String(j?.id ?? '').trim())
+      .filter(Boolean)
+  );
+
+  const journeyIdSetByEventId = new Map<string, Set<string>>();
+  for (const id of eventIds) journeyIdSetByEventId.set(id, new Set());
+  for (const raw of joinRows ?? []) {
+    const r = raw as any;
+    const eid = String(r?.event_id ?? '').trim();
+    const jid = String(r?.journey_id ?? '').trim();
+    if (!eid || !jid) continue;
+    if (!validJourneyIds.has(jid)) continue;
+    if (!journeyIdSetByEventId.has(eid)) continue;
+    journeyIdSetByEventId.get(eid)!.add(jid);
+  }
+
+  for (const [eid, set] of journeyIdSetByEventId.entries()) {
+    counts.set(eid, set.size);
+  }
+  return counts;
+}
+
+async function countJourneysUsingEvent(
+  workspaceId: string,
+  eventId: string
+): Promise<number> {
+  const map = await countJourneysUsingEvents(workspaceId, [eventId]);
+  return map.get(eventId) ?? 0;
+}
+
 function buildObjectChildFieldSnapshots(
   parent: PropertyRow,
   propertyById: Map<string, PropertyRow>,
@@ -504,6 +582,16 @@ export async function deleteEvent(
     );
   }
 
+  const usedInJourneysCount = await countJourneysUsingEvent(workspaceId, eventId);
+  if (usedInJourneysCount > 0) {
+    throw new ConflictError(
+      `Event cannot be deleted because it is used in ${usedInJourneysCount} journey${
+        usedInJourneysCount === 1 ? '' : 's'
+      }.`,
+      `used_in_journeys_count=${usedInJourneysCount}`
+    );
+  }
+
   const supabase = getSupabaseOrThrow();
   const now = new Date().toISOString();
   const { error } = await supabase
@@ -707,11 +795,13 @@ export async function listEvents(
   }
 
   const variantByEventId = await listEventVariantSummariesForBaseEventIds(workspaceId, eventIds);
+  const usedInJourneysCountByEventId = await countJourneysUsingEvents(workspaceId, eventIds);
 
   return eventList.map((event) => ({
     ...event,
     attached_property_count: countByEventId.get(event.id) ?? 0,
     variants: variantByEventId.get(event.id) ?? [],
+    used_in_journeys_count: usedInJourneysCountByEventId.get(event.id) ?? 0,
   }));
 }
 
@@ -761,6 +851,9 @@ export async function getEventWithProperties(
     );
   }
 
+  const usedInJourneysCount = await countJourneysUsingEvent(workspaceId, eventId);
+  const eventWithUsage = { ...event, used_in_journeys_count: usedInJourneysCount };
+
   const supabase = getSupabaseOrThrow();
 
   const { data: links, error: linkError } = await supabase
@@ -780,7 +873,7 @@ export async function getEventWithProperties(
   const rows = (links ?? []) as EventPropertyRow[];
   if (rows.length === 0) {
     return {
-      event,
+      event: eventWithUsage,
       attached_properties: [],
       source_ids: await listEventSourceIds(workspaceId, eventId),
       variants,
@@ -921,7 +1014,7 @@ export async function getEventWithProperties(
     });
 
   return {
-    event,
+    event: eventWithUsage,
     attached_properties,
     source_ids: await listEventSourceIds(workspaceId, eventId),
     variants,

@@ -98,6 +98,7 @@ export function Events() {
         onInitialVariantIdConsumed={() => setApiEventSheetInitialVariantId(null)}
         createEvent={eventsApi.createEvent}
         updateEvent={eventsApi.updateEvent}
+        deleteEvent={eventsApi.deleteEvent}
         attachProperty={eventsApi.attachProperty}
         detachProperty={eventsApi.detachProperty}
         updatePresence={eventsApi.updatePresence}

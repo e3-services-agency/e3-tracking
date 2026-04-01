@@ -1257,6 +1257,14 @@ router.delete(
         });
         return;
       }
+      if (err instanceof ConflictError) {
+        res.status(409).json({
+          error: err.message,
+          code: err.code,
+          details: err.details,
+        });
+        return;
+      }
       if (err instanceof DatabaseError) {
         res.status(500).json({
           error: 'Failed to delete event.',

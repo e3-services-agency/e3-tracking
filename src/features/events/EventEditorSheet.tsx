@@ -143,6 +143,7 @@ export interface EventEditorSheetProps {
     | { success: true; data: EventRow }
     | { success: false; error: ApiError }
   >;
+  deleteEvent: (eventId: string) => Promise<{ success: true } | { success: false; error: ApiError }>;
   attachProperty: (
     eventId: string,
     propertyId: string,
@@ -188,6 +189,7 @@ export function EventEditorSheet({
   eventId,
   createEvent,
   updateEvent,
+  deleteEvent,
   attachProperty,
   detachProperty,
   updatePresence: _updatePresence,
@@ -222,6 +224,9 @@ export function EventEditorSheet({
   const [triggers, setTriggers] = useState<EventTriggerEntry[]>([]);
   const [saving, setSaving] = useState(false);
   const [currentEventId, setCurrentEventId] = useState<string | null>(eventId);
+  const [usedInJourneysCount, setUsedInJourneysCount] = useState<number | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [attached, setAttached] = useState<EventWithPropertiesResponse['attached_properties']>([]);
   const [loadingEvent, setLoadingEvent] = useState(false);
   // UI simplification: Presence is no longer user-facing. New attachments default to optional.
@@ -294,6 +299,7 @@ export function EventEditorSheet({
     setLoadingEvent(true);
     setVariants([]);
     ownerTeamIdPersistedRef.current = null;
+    setUsedInJourneysCount(null);
     const result = await getEventWithProperties(id);
     setLoadingEvent(false);
     if (result) {
@@ -310,6 +316,11 @@ export function EventEditorSheet({
       setSelectedEventSourceIds(result.source_ids ?? []);
       setAttached(result.attached_properties);
       setVariants(result.variants ?? []);
+      setUsedInJourneysCount(
+        typeof (result.event as any)?.used_in_journeys_count === 'number'
+          ? (result.event as any).used_in_journeys_count
+          : 0
+      );
       const cg = result.event.codegen_event_name_overrides;
       setCodegenNameDataLayer(cg?.dataLayer?.trim() ?? '');
       setCodegenNameBloomreachSdk(cg?.bloomreachSdk?.trim() ?? '');
@@ -320,6 +331,7 @@ export function EventEditorSheet({
       setCodegenNameDataLayer('');
       setCodegenNameBloomreachSdk('');
       setCodegenNameBloomreachApi('');
+      setUsedInJourneysCount(null);
     }
   }, [getEventWithProperties]);
 
@@ -337,6 +349,7 @@ export function EventEditorSheet({
       setEventTypeSelection('');
       setStoredUnsupportedEventType(null);
       ownerTeamIdPersistedRef.current = null;
+      setUsedInJourneysCount(null);
       setCategoriesText('');
       setTagsText('');
       setTriggers([]);
@@ -349,7 +362,42 @@ export function EventEditorSheet({
     }
     setAttachedDescExpandedId(null);
     setAttachPropertyPickerOpen(false);
+    setDeleteConfirmOpen(false);
+    setDeleting(false);
   }, [isOpen, eventId, clearMutationError, loadEvent]);
+
+  const canDeleteEvent =
+    !!currentEventId &&
+    hasValidWorkspaceContext &&
+    !saving &&
+    !loadingEvent &&
+    usedInJourneysCount === 0;
+
+  const deleteDisabledReason = !currentEventId
+    ? 'Save the event first before deleting.'
+    : !hasValidWorkspaceContext
+      ? 'Select a valid workspace from the header before deleting.'
+      : loadingEvent || usedInJourneysCount === null
+        ? 'Loading usage…'
+        : usedInJourneysCount > 0
+          ? `Used in ${usedInJourneysCount} journey${usedInJourneysCount === 1 ? '' : 's'}.`
+          : null;
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!currentEventId) return;
+    if (!canDeleteEvent) return;
+    setDeleting(true);
+    const result = await deleteEvent(currentEventId);
+    setDeleting(false);
+    if (!result.success) {
+      window.alert(result.error?.message ?? 'Failed to delete event.');
+      setDeleteConfirmOpen(false);
+      void loadEvent(currentEventId);
+      return;
+    }
+    setDeleteConfirmOpen(false);
+    onClose();
+  }, [canDeleteEvent, currentEventId, deleteEvent, loadEvent, onClose]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -1165,6 +1213,26 @@ export function EventEditorSheet({
       <div
         className={`fixed bottom-0 right-0 ${EVENT_EDITOR_SHEET_WIDTH_CLASS} p-6 bg-white border-t flex justify-end gap-2 z-10 max-w-[calc(100vw-1rem)]`}
       >
+        {currentEventId && (
+          <div className="mr-auto flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="border-red-200 text-red-700 hover:bg-red-50"
+              disabled={!canDeleteEvent}
+              onClick={() => {
+                if (!canDeleteEvent) return;
+                setDeleteConfirmOpen(true);
+              }}
+              title={deleteDisabledReason ?? undefined}
+            >
+              Delete event
+            </Button>
+            {!canDeleteEvent && deleteDisabledReason ? (
+              <span className="text-xs text-gray-500">{deleteDisabledReason}</span>
+            ) : null}
+          </div>
+        )}
         <Button variant="outline" onClick={onClose} disabled={saving}>
           {currentEventId ? 'Close' : 'Cancel'}
         </Button>
@@ -1257,6 +1325,40 @@ export function EventEditorSheet({
         onSave={saveTriggerDraft}
         onClose={closeTriggerModal}
       />
+
+      <Modal
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        title="Delete event"
+        backdropClassName="z-[80]"
+        className="z-[90] max-w-[min(520px,calc(100vw-1.5rem))]"
+        bodyClassName="p-4"
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-gray-700">
+            This will soft-delete the event. This action cannot be undone.
+          </p>
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteConfirmOpen(false)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleConfirmDelete()}
+              disabled={deleting || !canDeleteEvent}
+              className="bg-red-600 hover:bg-red-700"
+              title={!canDeleteEvent ? deleteDisabledReason ?? undefined : undefined}
+            >
+              {deleting ? 'Deleting…' : 'Delete'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </Sheet>
   );
 }

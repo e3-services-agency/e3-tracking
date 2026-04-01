@@ -18,7 +18,6 @@ import { AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
 
 type LocalDraft = {
   description: string;
-  enumCsv: string;
   requiredChoice: 'inherit' | 'true' | 'false';
   exampleJson: string;
 };
@@ -29,14 +28,12 @@ function draftFromOverrideRow(
   if (!override) {
     return {
       description: '',
-      enumCsv: '',
       requiredChoice: 'inherit',
       exampleJson: '',
     };
   }
   return {
     description: override.description_override ?? '',
-    enumCsv: override.enum_values?.join(', ') ?? '',
     requiredChoice:
       override.required === true ? 'true' : override.required === false ? 'false' : 'inherit',
     exampleJson:
@@ -162,13 +159,6 @@ export function EventPropertyOverridesSection({
       const t = draft.description.trim();
       payload.description_override = t.length > 0 ? t : null;
     }
-    if (touched.has('enum_values')) {
-      const parts = draft.enumCsv
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-      payload.enum_values = parts.length > 0 ? [...new Set(parts)] : null;
-    }
     if (touched.has('required')) {
       if (draft.requiredChoice === 'inherit') {
         payload.required = null;
@@ -228,7 +218,7 @@ export function EventPropertyOverridesSection({
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-gray-900">Property overrides</h3>
         <p className="text-xs text-gray-500">
-          Optional per-event semantics for attached properties (description, allowed values, required, examples).
+          Optional per-event semantics for attached properties (description, required, examples).
           Shown values are <strong>effective</strong> (global + override); saving only updates the event override
           layer.
         </p>
@@ -335,12 +325,6 @@ export function EventPropertyOverridesSection({
                     {eff?.effective.description ?? '—'}
                   </p>
                   <p>
-                    <span className="text-gray-500">Enum values:</span>{' '}
-                    {eff?.effective.enum_values?.length
-                      ? eff.effective.enum_values.join(', ')
-                      : '—'}
-                  </p>
-                  <p>
                     <span className="text-gray-500">Required:</span>{' '}
                     {eff?.effective.required === true
                       ? 'yes'
@@ -371,17 +355,6 @@ export function EventPropertyOverridesSection({
                         rows={2}
                         className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
                         placeholder="Empty + save with this field touched clears override description"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-gray-700">Enum values (comma-separated)</label>
-                      <InputLike
-                        value={draft.enumCsv}
-                        onChange={(v) => {
-                          setDraft((d) => ({ ...d, enumCsv: v }));
-                          markTouched('enum_values');
-                        }}
-                        placeholder="e.g. click, submit, view"
                       />
                     </div>
                     <div className="space-y-1">

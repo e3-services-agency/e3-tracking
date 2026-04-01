@@ -184,8 +184,6 @@ function buildEffectiveSnapshot(
   const effectiveDescription =
     override?.description_override != null ? override.description_override : property.description ?? null;
 
-  const effectiveEnumValues = override?.enum_values ?? null;
-
   const effectiveRequired = override?.required ?? null;
 
   const effectiveExampleValues =
@@ -210,7 +208,7 @@ function buildEffectiveSnapshot(
     override,
     effective: {
       description: effectiveDescription,
-      enum_values: effectiveEnumValues,
+      enum_values: null,
       required: effectiveRequired,
       example_values: effectiveExampleValues,
     },
@@ -366,7 +364,6 @@ function mergePayloadWithExisting(
       ok: true;
       merged: {
         description_override: string | null;
-        enum_values: string[] | null;
         required: boolean | null;
         example_values: unknown | null;
       };
@@ -375,17 +372,6 @@ function mergePayloadWithExisting(
   const desc = Object.prototype.hasOwnProperty.call(raw, 'description_override')
     ? parseDescriptionOverride(raw.description_override)
     : (existing?.description_override ?? null);
-
-  let enumVals: string[] | null;
-  if (Object.prototype.hasOwnProperty.call(raw, 'enum_values')) {
-    const parsed = parseEnumValuesInput(raw.enum_values);
-    if (parsed.ok === false) {
-      return { ok: false, error: parsed.error };
-    }
-    enumVals = parsed.value;
-  } else {
-    enumVals = existing?.enum_values ?? null;
-  }
 
   let req: boolean | null;
   if (Object.prototype.hasOwnProperty.call(raw, 'required')) {
@@ -408,7 +394,6 @@ function mergePayloadWithExisting(
     ok: true,
     merged: {
       description_override: desc,
-      enum_values: enumVals,
       required: req,
       example_values: examples === undefined ? null : examples,
     },
@@ -456,7 +441,6 @@ export async function upsertEventPropertyDefinition(
     event_id: eventId,
     property_id: propertyId,
     description_override: merged.description_override,
-    enum_values: merged.enum_values,
     required: merged.required,
     example_values: merged.example_values,
     updated_at: now,

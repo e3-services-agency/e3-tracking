@@ -141,52 +141,10 @@ export async function assertEnumValuesForQaRunPayloads(
 }
 
 export async function assertEventPayloadEnumValues(
-  workspaceId: string,
-  eventId: string,
-  parsed: Record<string, unknown>
+  _workspaceId: string,
+  _eventId: string,
+  _parsed: Record<string, unknown>
 ): Promise<void> {
-  const bindings = await listPayloadKeyPropertyBindingsForEvent(workspaceId, eventId);
-  const payloadKeyToPropertyId = new Map<string, string>();
-  for (const b of bindings) {
-    if (!payloadKeyToPropertyId.has(b.payload_key)) {
-      payloadKeyToPropertyId.set(b.payload_key, b.property_id);
-    }
-  }
-
-  const cache = new Map<string, EffectiveEventPropertyDefinition>();
-
-  async function effectiveCached(propertyId: string): Promise<EffectiveEventPropertyDefinition> {
-    const hit = cache.get(propertyId);
-    if (hit) return hit;
-    const def = await getEffectiveEventPropertyDefinition(workspaceId, eventId, propertyId);
-    cache.set(propertyId, def);
-    return def;
-  }
-
-  for (const [payloadKey, rawValue] of Object.entries(parsed)) {
-    const propertyId = payloadKeyToPropertyId.get(payloadKey);
-    if (!propertyId) continue;
-
-    const effective = await effectiveCached(propertyId);
-    const allowed = effective.effective.enum_values;
-    if (allowed == null || allowed.length === 0) continue;
-
-    const propName = effective.property.name;
-
-    if (typeof rawValue !== 'string') {
-      throw new BadRequestError(`Invalid value for property '${propName}'`, payloadKey, {
-        property_id: propertyId,
-        value: rawValue,
-        allowed,
-      });
-    }
-
-    if (!allowed.includes(rawValue)) {
-      throw new BadRequestError(`Invalid value for property '${propName}'`, payloadKey, {
-        property_id: propertyId,
-        value: rawValue,
-        allowed,
-      });
-    }
-  }
+  // Event-level enum overrides are no longer supported; do not enforce enum_values from event_property_definitions.
+  return;
 }

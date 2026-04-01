@@ -76,6 +76,7 @@ async function buildSharedEventSnippets(
       const attached = attached_properties.map((p) => ({
         property_name: p.property_name || '',
         presence: p.presence,
+        property_required_override: p.property_required_override ?? null,
         property_id: p.property_id,
         property_data_type: p.property_data_type,
         property_data_formats: p.property_data_formats,

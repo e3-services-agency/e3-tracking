@@ -15,10 +15,13 @@ import type {
   PropertyExampleValue,
   PropertyValueSchema,
 } from '../../types/schema';
+import { isAttachedPropertyRequiredForTrigger } from '../../lib/effectiveEventSchema';
 
 export interface AttachedPropertyForCodegen {
   property_name: string;
   presence: EventPropertyPresence;
+  /** event_property_definitions.required (nullable). */
+  property_required_override?: boolean | null;
   /** Catalog property id (attached row); used for nested resolution. */
   property_id?: string;
   property_data_type?: string | null;
@@ -421,7 +424,9 @@ function buildBloomreachApiSnippet(
     ...(Object.keys(properties).length > 0 ? { properties } : {}),
   };
   const json = JSON.stringify(body, null, 2);
-  const optionalProps = props.filter((p) => p.presence === 'sometimes_sent');
+  const optionalProps = props.filter(
+    (p) => !isAttachedPropertyRequiredForTrigger(p.presence, p.property_required_override)
+  );
   const curlExample =
     `curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\\n` +
     `  -H "Authorization: Basic YOUR_BASE64_API_KEY" \\\n` +

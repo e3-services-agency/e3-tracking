@@ -1,25 +1,19 @@
 /**
  * In-sheet property chooser: searchable list with checkboxes, detail preview, bulk "Add selected".
- * Does not call APIs directly; parent owns attach flow and presence.
+ * Does not call APIs directly; parent owns attach flow.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
-import type { EventPropertyPresence, PropertyRow } from '@/src/types/schema';
+import type { PropertyRow } from '@/src/types/schema';
 import { Loader2, Plus } from 'lucide-react';
-
-const PRESENCE_OPTIONS: { value: EventPropertyPresence; label: string }[] = [
-  { value: 'always_sent', label: 'Always' },
-  { value: 'sometimes_sent', label: 'Sometimes' },
-  { value: 'never_sent', label: 'Never' },
-];
 
 export interface EventAttachPropertyPickerProps {
   availableProperties: PropertyRow[];
   attachedIds: ReadonlySet<string>;
-  addPresence: EventPropertyPresence;
-  onAddPresenceChange: (presence: EventPropertyPresence) => void;
-  /** Attach each id with current `addPresence`; return true if all succeeded. */
+  addRequired: boolean;
+  onAddRequiredChange: (required: boolean) => void;
+  /** Attach each id with current Required setting; return true if all succeeded. */
   onAddSelected: (propertyIds: string[]) => Promise<boolean>;
   adding: boolean;
   workspaceActionsDisabled: boolean;
@@ -28,8 +22,8 @@ export interface EventAttachPropertyPickerProps {
 export function EventAttachPropertyPicker({
   availableProperties,
   attachedIds,
-  addPresence,
-  onAddPresenceChange,
+  addRequired,
+  onAddRequiredChange,
   onAddSelected,
   adding,
   workspaceActionsDisabled,
@@ -129,19 +123,16 @@ export function EventAttachPropertyPicker({
           />
         </div>
         <div className="space-y-1">
-          <span className="text-xs font-medium text-gray-600 block">Presence for new attachments</span>
-          <select
-            value={addPresence}
-            onChange={(e) => onAddPresenceChange(e.target.value as EventPropertyPresence)}
-            className="h-9 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            disabled={workspaceActionsDisabled}
-          >
-            {PRESENCE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          <label className="flex items-center gap-2 h-9 px-2 rounded-md border border-input bg-background text-sm">
+            <input
+              type="checkbox"
+              checked={addRequired}
+              onChange={(e) => onAddRequiredChange(e.target.checked)}
+              disabled={workspaceActionsDisabled}
+              className="rounded border-gray-300"
+            />
+            <span className="text-xs font-medium text-gray-700">Required</span>
+          </label>
         </div>
         <Button
           type="button"

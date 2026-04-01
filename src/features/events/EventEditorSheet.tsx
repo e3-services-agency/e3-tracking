@@ -224,9 +224,8 @@ export function EventEditorSheet({
   const [currentEventId, setCurrentEventId] = useState<string | null>(eventId);
   const [attached, setAttached] = useState<EventWithPropertiesResponse['attached_properties']>([]);
   const [loadingEvent, setLoadingEvent] = useState(false);
-  // UI simplification: Presence is no longer user-facing. Keep using the existing
-  // backend contract by attaching as "Sometimes" (not always required by default).
-  const [addPresence] = useState<EventPropertyPresence>('sometimes_sent');
+  // UI simplification: Presence is no longer user-facing. New attachments default to optional.
+  const [addRequired, setAddRequired] = useState(false);
   const [addingProperty, setAddingProperty] = useState(false);
   const [removingPropertyId, setRemovingPropertyId] = useState<string | null>(null);
   const [updatingRequirementPropertyId, setUpdatingRequirementPropertyId] = useState<string | null>(
@@ -481,8 +480,9 @@ export function EventEditorSheet({
     setAddingProperty(true);
     clearMutationError();
     try {
+      const presenceForAttach: EventPropertyPresence = addRequired ? 'always_sent' : 'sometimes_sent';
       for (const propertyId of propertyIds) {
-        const result = await attachProperty(currentEventId, propertyId, addPresence);
+        const result = await attachProperty(currentEventId, propertyId, presenceForAttach);
         if (!result.success) {
           const synced = await getEventWithProperties(currentEventId);
           if (synced) setAttached(synced.attached_properties);
@@ -1005,8 +1005,8 @@ export function EventEditorSheet({
                   key={currentEventId}
                   availableProperties={availableProperties}
                   attachedIds={attachedIds}
-                  addPresence={addPresence}
-                  onAddPresenceChange={() => {}}
+                  addRequired={addRequired}
+                  onAddRequiredChange={setAddRequired}
                   onAddSelected={handleAddSelectedProperties}
                   adding={addingProperty}
                   workspaceActionsDisabled={!hasValidWorkspaceContext}

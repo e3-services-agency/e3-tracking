@@ -791,7 +791,7 @@ export async function getEventWithProperties(
 
   const { data: defRows, error: defError } = await supabase
     .from('event_property_definitions')
-    .select('property_id, required')
+    .select('property_id, required, example_values')
     .eq('workspace_id', workspaceId)
     .eq('event_id', eventId)
     .in('property_id', propertyIds);
@@ -804,13 +804,20 @@ export async function getEventWithProperties(
   }
 
   const requiredByPropertyId = new Map<string, boolean | null>();
+  const exampleOverrideByPropertyId = new Map<string, PropertyExampleValue[] | null>();
   for (const raw of defRows ?? []) {
-    const d = raw as { property_id: string; required: unknown };
+    const d = raw as { property_id: string; required: unknown; example_values?: unknown };
     const req = d.required;
     requiredByPropertyId.set(
       d.property_id,
       typeof req === 'boolean' ? req : null
     );
+    // event_property_definitions.example_values is stored as unknown (jsonb); normalize to PropertyExampleValue[].
+    // Precedence rule for codegen: event override (when non-null) > canonical property examples.
+    if (Object.prototype.hasOwnProperty.call(d, 'example_values')) {
+      const normalized = normalizePropertyExampleValues((d as any).example_values ?? null);
+      exampleOverrideByPropertyId.set(d.property_id, normalized);
+    }
   }
 
   const { data: props, error: propsError } = await supabase
@@ -901,9 +908,10 @@ export async function getEventWithProperties(
         property_description: pr?.description ?? null,
         property_data_type: pr?.data_type ?? null,
         property_data_formats: pr?.data_formats ?? null,
-        property_example_values_json: normalizePropertyExampleValues(
-          pr?.example_values_json ?? null
-        ),
+        property_example_values_json:
+          exampleOverrideByPropertyId.has(r.property_id)
+            ? exampleOverrideByPropertyId.get(r.property_id) ?? null
+            : normalizePropertyExampleValues(pr?.example_values_json ?? null),
         property_value_schema_json: pr?.value_schema_json ?? null,
         property_object_child_property_refs_json: pr?.object_child_property_refs_json ?? null,
         object_child_snapshots_by_field: snapshots,

@@ -158,6 +158,14 @@ export async function validatePayload(
       propertyName: string;
       arrayItemType?: string;
       arrayItemFormats?: string[] | null;
+      objectChildren?: Record<
+        string,
+        {
+          type: string;
+          dataFormats: string[] | null;
+          required: boolean;
+        }
+      >;
     }
   >();
   for (const def of effective) {
@@ -173,12 +181,44 @@ export async function validatePayload(
       def.property.data_type === 'array' && schema?.type === 'array'
         ? (schema.items?.data_formats ?? null)
         : null;
+
+    const objectChildren =
+      def.property.data_type === 'object' && schema?.type === 'object' && schema.properties
+        ? (() => {
+            const refs = (def as any)?.property?.object_child_property_refs_json as
+              | Record<string, string>
+              | null
+              | undefined;
+            // Only validate child fields when schema + linkage are explicitly present.
+            if (!refs || Object.keys(refs).length === 0) return undefined;
+            const out: Record<string, { type: string; dataFormats: string[] | null; required: boolean }> = {};
+            for (const [fieldKey, node] of Object.entries(schema.properties)) {
+              if (!fieldKey) continue;
+              if (!node || typeof node !== 'object') continue;
+              if (!refs[fieldKey]) continue;
+              const dt = (node as any).type;
+              if (typeof dt !== 'string') continue;
+              const required =
+                (node as any).required === true || (node as any).presence === 'always_sent';
+              out[fieldKey] = {
+                type: dt,
+                dataFormats: Array.isArray((node as any).data_formats)
+                  ? ((node as any).data_formats as string[])
+                  : null,
+                required,
+              };
+            }
+            return Object.keys(out).length > 0 ? out : undefined;
+          })()
+        : undefined;
+
     requiredTypeByKey.set(k, {
       dataType: def.property.data_type,
       dataFormats: def.property.data_formats ?? null,
       propertyName: def.property.name,
       ...(typeof arrayItemType === 'string' ? { arrayItemType } : {}),
       arrayItemFormats,
+      ...(objectChildren ? { objectChildren } : {}),
     });
   }
 
@@ -238,6 +278,32 @@ export async function validatePayload(
             );
             break;
           }
+        }
+      }
+    }
+
+    // Bounded shallow schema: for objects, validate explicitly-linked required child fields (one level deep).
+    if (spec.dataType === 'object' && raw && typeof raw === 'object' && !Array.isArray(raw) && spec.objectChildren) {
+      const childObj = raw as Record<string, unknown>;
+      for (const [childKey, childSpec] of Object.entries(spec.objectChildren)) {
+        if (!childKey) continue;
+        if (childSpec.required === true) {
+          if (!(childKey in childObj)) {
+            typeIssues.push(`Property "${payloadKey}.${childKey}" is required.`);
+            continue;
+          }
+        } else {
+          if (!(childKey in childObj)) {
+            continue;
+          }
+        }
+
+        const childVal = childObj[childKey];
+        const okChild = isValidForExpected(childSpec.type, childSpec.dataFormats, childVal);
+        if (!okChild) {
+          typeIssues.push(
+            `Property "${payloadKey}.${childKey}" must be ${expectedTypeLabel(childSpec.type)} (got ${actualTypeLabel(childVal)}).`
+          );
         }
       }
     }

@@ -305,6 +305,7 @@ export function Journeys({
     const [isSavingOrder, setIsSavingOrder] = React.useState(false);
     const [orderError, setOrderError] = React.useState<string | null>(null);
     const dragFromIndexRef = React.useRef<number | null>(null);
+    const dragToIndexRef = React.useRef<number | null>(null);
     const iframeRef = React.useRef<HTMLIFrameElement | null>(null);
     const isDraggingRef = React.useRef(false);
     const pendingNextOrderRef = React.useRef<string[] | null>(null);
@@ -389,8 +390,34 @@ export function Journeys({
       const style = doc.createElement('style');
       style.textContent = `
         .export-toc-link[data-e3-reorderable="1"] { cursor: move; }
+        .export-toc-link[data-e3-reorderable="1"][data-e3-dragging="1"] { opacity: 0.55; }
+        .e3-drop-indicator {
+          height: 0;
+          border-top: 2px solid rgba(59, 130, 246, 0.95);
+          border-radius: 999px;
+          margin: 3px 6px;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+          pointer-events: none;
+        }
       `;
       doc.head?.appendChild(style);
+
+      const tocList = doc.querySelector('.export-toc .export-toc-list') as HTMLElement | null;
+      const ensureIndicator = (): HTMLElement | null => {
+        if (!tocList) return null;
+        const existing = doc.getElementById('e3-drop-indicator') as HTMLElement | null;
+        if (existing) return existing;
+        const el = doc.createElement('div');
+        el.id = 'e3-drop-indicator';
+        el.className = 'e3-drop-indicator';
+        el.hidden = true;
+        tocList.appendChild(el);
+        return el;
+      };
+      const hideIndicator = () => {
+        const ind = doc.getElementById('e3-drop-indicator') as HTMLElement | null;
+        if (ind) ind.hidden = true;
+      };
 
       const tocLinks = Array.from(
         doc.querySelectorAll('a.export-toc-link[href^="#step-"]')
@@ -428,30 +455,82 @@ export function Journeys({
         b.addEventListener('dragstart', () => {
           isDraggingRef.current = true;
           dragFromIndexRef.current = i;
+          dragToIndexRef.current = i;
+          b.setAttribute('data-e3-dragging', '1');
         });
         b.addEventListener('dragend', () => {
           isDraggingRef.current = false;
+          dragFromIndexRef.current = null;
+          dragToIndexRef.current = null;
+          hideIndicator();
+          b.removeAttribute('data-e3-dragging');
           const pending = pendingNextOrderRef.current;
           pendingNextOrderRef.current = null;
           if (pending && pending.length > 0) {
             void persistOrder(pending);
           }
         });
-        b.addEventListener('dragover', (e) => e.preventDefault());
+        b.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          if (!isDraggingRef.current) return;
+          const ind = ensureIndicator();
+          if (!ind || !tocList) return;
+
+          const rect = b.getBoundingClientRect();
+          const mid = rect.top + rect.height / 2;
+          const before = typeof e.clientY === 'number' ? e.clientY < mid : true;
+          const insertIndex = i + (before ? 0 : 1);
+          dragToIndexRef.current = insertIndex;
+
+          ind.hidden = false;
+          if (before) tocList.insertBefore(ind, b);
+          else tocList.insertBefore(ind, b.nextSibling);
+        });
         b.addEventListener('drop', () => {
           const from = dragFromIndexRef.current;
+          const rawTo = dragToIndexRef.current;
           dragFromIndexRef.current = null;
-          if (from === null || from === i) return;
+          dragToIndexRef.current = null;
+          hideIndicator();
+          if (from === null) return;
           const ids = orderedSteps.map((s) => s.id);
+          const to0 =
+            typeof rawTo === 'number' && Number.isFinite(rawTo)
+              ? Math.max(0, Math.min(ids.length, rawTo))
+              : i;
+          const to = from < to0 ? to0 - 1 : to0;
+          if (to === from) return;
           const next = [...ids];
           const [moved] = next.splice(from, 1);
-          next.splice(i, 0, moved);
+          next.splice(to, 0, moved);
           // Stability: do not touch React state / iframe during active drag.
           // Defer persistence + refresh to dragend.
           pendingNextOrderRef.current = next;
         });
 
         a.parentNode?.replaceChild(b, a);
+      }
+
+      // Support "drop at end" by showing the insertion marker below the last row when hovering
+      // the TOC list's empty area (not over a specific row).
+      if (tocList) {
+        tocList.addEventListener('dragover', (e) => {
+          if (!isDraggingRef.current) return;
+          e.preventDefault();
+          const ind = ensureIndicator();
+          if (!ind) return;
+          const t = e.target as HTMLElement | null;
+          if (t && typeof t.closest === 'function' && t.closest('button.export-toc-link')) return;
+          ind.hidden = false;
+          tocList.appendChild(ind);
+          dragToIndexRef.current = orderedSteps.length;
+        });
+        tocList.addEventListener('dragleave', (e) => {
+          const related = (e as DragEvent).relatedTarget as Node | null;
+          if (related && tocList.contains(related)) return;
+          hideIndicator();
+        });
+        tocList.addEventListener('drop', () => hideIndicator());
       }
     }, [orderedSteps, persistOrder]);
 

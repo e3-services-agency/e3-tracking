@@ -56,7 +56,7 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
   .qa-codeblock { margin-top:6px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; overflow-x:auto; }
   .qa-codeblock code { display:block; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; line-height: 1.45; white-space: pre; color:#0f172a; }
   .qa-proof-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-top: 8px; }
-  .qa-proof-thumb { display:block; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; background:#fff; text-decoration:none; }
+  .qa-proof-thumb { display:block; width:100%; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; background:#fff; text-decoration:none; padding:0; cursor: zoom-in; }
   .qa-proof-thumb img { display:block; width:100%; height:110px; object-fit:cover; background:#f1f5f9; }
   .qa-proof-thumb .qa-proof-name { padding:8px 10px; }
 </style>`;
@@ -207,14 +207,13 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
       for (var gi=0;gi<imageProofs.length;gi++){
         var pimg = imageProofs[gi];
         if (!pimg || !pimg.content) continue;
-        var a2 = document.createElement('a');
+        var a2 = document.createElement('button');
+        a2.type = 'button';
         a2.className = 'qa-proof-thumb';
-        a2.href = pimg.content;
-        a2.target = '_blank';
-        a2.rel = 'noreferrer';
         var im = document.createElement('img');
         im.src = pimg.content;
         im.alt = pimg.name ? String(pimg.name) : 'Proof image';
+        im.setAttribute('data-export-image', '1');
         a2.appendChild(im);
         var nm2 = document.createElement('div');
         nm2.className = 'qa-proof-name';

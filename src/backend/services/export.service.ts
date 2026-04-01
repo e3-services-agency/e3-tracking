@@ -7,6 +7,7 @@ import path from 'path';
 import * as JourneyDAL from '../dal/journey.dal';
 import { getEventWithProperties } from '../dal/event.dal';
 import type { EventPropertyWithDetails } from '../dal/event.dal';
+import * as WorkspaceDAL from '../dal/workspace.dal';
 import { getPropertySourceLabelsByPropertyIds } from '../dal/source.dal';
 import type {
   CodegenEventNameOverrides,
@@ -795,6 +796,18 @@ export async function generateJourneyHtmlExport(
     (await readPublicAssetAsDataUrl('branding/logo-light.png', 'image/png')) ??
     null;
 
+  const workspace = await WorkspaceDAL.getWorkspaceById(workspaceId);
+  const workspaceName = typeof workspace?.name === 'string' ? workspace.name : '';
+  const utmCampaign =
+    (workspaceName || 'unknown')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '') || 'unknown';
+  const e3LogoHref = `https://e3-services.com/?utm_source=tracking-plan&utm_medium=logo&utm_campaign=${encodeURIComponent(utmCampaign)}`;
+
   const tocHtml =
     steps.length > 0
       ? `<nav class="export-toc" aria-label="Steps">
@@ -1442,7 +1455,9 @@ export async function generateJourneyHtmlExport(
 <body id="top">
   <div class="export-shell">
   <header class="export-header">
-    ${logoDataUrl ? `<img src="${logoDataUrl}" alt="E3" class="export-header-logo" />` : `<div class="export-header-mark" aria-label="E3">E3</div>`}
+    <a href="${escapeHtml(e3LogoHref)}" target="_blank" rel="noopener noreferrer" aria-label="E3 (Open website)">
+      ${logoDataUrl ? `<img src="${logoDataUrl}" alt="E3" class="export-header-logo" />` : `<div class="export-header-mark" aria-label="E3">E3</div>`}
+    </a>
     <div class="export-header-content" role="banner">
       <h1>${escapeHtml(journeyName)}</h1>
       ${journeyDescription ? `<p class="export-desc">${journeyDescription}</p>` : ''}

@@ -843,15 +843,25 @@ export function useJourneyCanvas({
     void migrateAndUpdate();
   };
 
-  const buildTextProof = (content: string, name = 'Payload'): QAProof => ({
+  const buildTextProof = (
+    content: string,
+    name = 'Payload',
+    validation?: { status: 'pass' | 'fail' | 'unknown'; issues: string[] }
+  ): QAProof => ({
     id: `proof-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name,
     type: 'text',
     content,
     createdAt: new Date().toISOString(),
+    ...(validation ? { validation_status: validation.status, validation_issues: validation.issues } : {}),
   });
 
-  const handleAddPayload = () => {
+  const lastValidatedRef = React.useRef<{
+    payloadText: string;
+    result: ValidatePayloadResult;
+  } | null>(null);
+
+  const handleAddPayload = async () => {
     if (!selectedNode || !isTriggerNode(selectedNode)) return;
     if (!payloadDraft.trim()) return;
 
@@ -864,9 +874,63 @@ export function useJourneyCanvas({
       // keep raw text
     }
 
+    // Persist validation evidence alongside this saved payload.
+    // Reuse the most recent validation result only if it matches the exact payload text being saved.
+    const currentValidated =
+      lastValidatedRef.current &&
+      lastValidatedRef.current.payloadText === normalizedContent
+        ? lastValidatedRef.current.result
+        : null;
+
+    let validationStatus: 'pass' | 'fail' | 'unknown' = 'unknown';
+    let validationIssues: string[] = [];
+
+    if (currentValidated) {
+      validationStatus = currentValidated.valid ? 'pass' : 'fail';
+      validationIssues = currentValidated.valid
+        ? []
+        : (currentValidated.issues ??
+            currentValidated.missing_keys ??
+            ['Payload validation failed.']);
+    } else {
+      const eventId = selectedNode.data.connectedEvent?.eventId;
+      const valWid = typeof workspaceId === 'string' ? workspaceId.trim() : '';
+      if (!eventId) {
+        validationStatus = 'unknown';
+        validationIssues = ['Connect an event to this trigger to validate payload.'];
+      } else if (!valWid) {
+        validationStatus = 'unknown';
+        validationIssues = ['Workspace context is required to validate payload against event definitions.'];
+      } else {
+        const variantId = selectedNode.data.connectedEvent?.variantId;
+        const result = await validatePayloadApi(
+          journey.id,
+          eventId,
+          normalizedContent,
+          valWid,
+          variantId,
+        );
+        if (result.success) {
+          validationStatus = result.result.valid ? 'pass' : 'fail';
+          validationIssues = result.result.valid
+            ? []
+            : (result.result.issues ??
+                result.result.missing_keys ??
+                ['Payload validation failed.']);
+          lastValidatedRef.current = { payloadText: normalizedContent, result: result.result };
+          setPayloadValidationResult(result.result);
+        } else {
+          validationStatus = 'unknown';
+          validationIssues = ['Validation could not be completed.', ('error' in result ? result.error : 'Validation failed')];
+          setPayloadValidationResult({ valid: false, missing_keys: validationIssues });
+        }
+      }
+    }
+
     const newProof = buildTextProof(
       normalizedContent,
       `Payload ${new Date().toLocaleTimeString()}`,
+      { status: validationStatus, issues: validationIssues },
     );
 
     updateQAVerification(selectedNode.id, {
@@ -930,6 +994,7 @@ export function useJourneyCanvas({
     setIsValidatingPayload(false);
     if (result.success) {
       setPayloadValidationResult(result.result);
+      lastValidatedRef.current = { payloadText: jsonToValidate, result: result.result };
     } else {
       const msg = 'error' in result ? result.error : 'Validation failed';
       setPayloadValidationResult({ valid: false, missing_keys: [msg] });

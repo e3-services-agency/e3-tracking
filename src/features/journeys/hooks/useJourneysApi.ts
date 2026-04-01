@@ -22,6 +22,8 @@ export function useActiveWorkspaceId(): string {
 export interface ValidatePayloadResult {
   valid: boolean;
   missing_keys?: string[];
+  error_type?: 'invalid_format' | 'missing_keys';
+  issues?: string[];
 }
 
 /**

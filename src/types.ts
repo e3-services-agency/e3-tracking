@@ -103,6 +103,12 @@ export interface QAProof {
   type: 'image' | 'text' | 'json';
   content: string;
   createdAt: string;
+  /**
+   * Optional persisted validation evidence for payload-like proofs.
+   * Stored in QA run payload JSON (not a DB column).
+   */
+  validation_status?: 'pass' | 'fail' | 'unknown';
+  validation_issues?: string[];
 }
 
 export interface QAVerification {

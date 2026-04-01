@@ -47,7 +47,11 @@ export async function validatePayload(
   eventId: string,
   actualJson: string,
   variantId?: string | null
-): Promise<{ valid: true } | { valid: false; missing_keys: string[] }> {
+): Promise<
+  | { valid: true }
+  | { valid: false; error_type: 'invalid_format'; issues: string[] }
+  | { valid: false; error_type: 'missing_keys'; missing_keys: string[] }
+> {
   const requiredKeys = await getTriggerRequiredPayloadKeysForEvent(
     workspaceId,
     eventId,
@@ -56,7 +60,13 @@ export async function validatePayload(
 
   const parsed = tryParseEventPayloadObject(actualJson);
   if (!parsed) {
-    return { valid: false, missing_keys: requiredKeys };
+    return {
+      valid: false,
+      error_type: 'invalid_format',
+      issues: [
+        'Payload must be a raw JSON object (e.g. {"key":"value"}). Wrapper scripts like window.dataLayer.push(...) are not supported.',
+      ],
+    };
   }
 
   if (requiredKeys.length === 0) {
@@ -68,7 +78,7 @@ export async function validatePayload(
   if (missing_keys.length === 0) {
     return { valid: true };
   }
-  return { valid: false, missing_keys };
+  return { valid: false, error_type: 'missing_keys', missing_keys };
 }
 
 /**

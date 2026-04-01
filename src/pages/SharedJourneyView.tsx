@@ -234,6 +234,35 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
       meta.className = 'qa-proof-meta';
       meta.textContent = (p && p.type) ? String(p.type) : '';
       wrap.appendChild(meta);
+      // Persisted payload validation evidence (if available on the proof record).
+      if (p && (p.validation_status || (Array.isArray(p.validation_issues) && p.validation_issues.length > 0))) {
+        var vs = (p.validation_status === 'pass' ? 'Passed' : p.validation_status === 'fail' ? 'Failed' : 'Pending');
+        var row2 = document.createElement('div');
+        row2.className = 'qa-inline-row';
+        row2.style.marginTop = '6px';
+        var lbl = document.createElement('div');
+        lbl.className = 'qa-field-label';
+        lbl.style.marginBottom = '0';
+        lbl.textContent = 'Payload validation';
+        row2.appendChild(lbl);
+        row2.appendChild(chip(vs));
+        wrap.appendChild(row2);
+        if (Array.isArray(p.validation_issues) && p.validation_issues.length > 0) {
+          var issuesLabel = document.createElement('div');
+          issuesLabel.className = 'qa-field-label';
+          issuesLabel.style.marginTop = '8px';
+          issuesLabel.textContent = 'Validation issues';
+          wrap.appendChild(issuesLabel);
+          var ul2 = document.createElement('ul');
+          ul2.className = 'qa-list';
+          for (var ii = 0; ii < p.validation_issues.length; ii++) {
+            var li2 = document.createElement('li');
+            li2.textContent = String(p.validation_issues[ii]);
+            ul2.appendChild(li2);
+          }
+          wrap.appendChild(ul2);
+        }
+      }
       if (p && p.content){
         var pre = document.createElement('div');
         pre.className = 'qa-proof-content';

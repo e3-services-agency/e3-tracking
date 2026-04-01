@@ -1391,7 +1391,7 @@ export function JourneyCanvas({
 
                   <textarea
                     className="w-full h-72 rounded-md border border-input bg-background px-3 py-2 text-xs font-mono"
-                    placeholder="Paste text or JSON payload here..."
+                    placeholder='Paste a raw JSON object payload here (e.g. {"cart_id":"..."}). Wrapper scripts like window.dataLayer.push(...) are not supported.'
                     value={payloadDraft}
                     onPaste={handleTriggerPayloadPaste}
                     onChange={(e) => setPayloadDraft(e.target.value)}
@@ -1446,17 +1446,22 @@ export function JourneyCanvas({
                         <span className="font-medium">Payload valid.</span>
                       ) : (
                         <div>
-                          <span className="font-medium">Missing or invalid: </span>
-                          {payloadValidationResult.missing_keys?.length ? (
+                          <span className="font-medium">
+                            {payloadValidationResult.error_type === 'invalid_format'
+                              ? 'Invalid payload format:'
+                              : 'Missing required keys:'}{' '}
+                          </span>
+                          {(payloadValidationResult.issues?.length ||
+                            payloadValidationResult.missing_keys?.length) ? (
                             <ul className="list-disc pl-4 mt-1">
-                              {payloadValidationResult.missing_keys.map(
-                                (key) => (
-                                  <li key={key}>{key}</li>
-                                )
-                              )}
+                              {(payloadValidationResult.issues ??
+                                payloadValidationResult.missing_keys ??
+                                []).map((item) => (
+                                <li key={item}>{item}</li>
+                              ))}
                             </ul>
                           ) : (
-                            <span>Check payload format.</span>
+                            <span>Validation failed.</span>
                           )}
                         </div>
                       )}
@@ -1464,8 +1469,8 @@ export function JourneyCanvas({
                   )}
 
                   <div className="text-[11px] text-gray-500">
-                    Paste text or JSON here, then click Add Payload. Use Validate
-                    Payload to check against event&apos;s always-sent properties.
+                    Paste a raw JSON object here, then click Add Payload. Validate Payload checks
+                    required always-sent keys. Wrapper scripts (like dataLayer.push) are not supported.
                   </div>
                 </div>
               )}

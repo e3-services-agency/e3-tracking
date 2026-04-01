@@ -880,9 +880,82 @@ router.patch(
         return;
       }
       if (err instanceof DatabaseError) {
+        // Surface concrete DB cause (helps diagnose missing migrations / schema drift).
+        const cause = err.cause as any;
+        const causeMsg = typeof cause?.message === 'string' ? cause.message : '';
+        const causeCode = typeof cause?.code === 'string' ? cause.code : undefined;
+        console.error('[journeys] step-order update failed', {
+          journeyId,
+          workspaceId,
+          message: err.message,
+          causeCode,
+          causeMsg,
+        });
+
+        // Small safety net: if the DB schema is missing the new column, fall back to persisting
+        // the order by reordering journeyStepNode entries in canvas_nodes_json.
+        // This keeps the system usable even if migrations have not been applied yet.
+        const looksLikeMissingColumn =
+          (typeof causeMsg === 'string' &&
+            (causeMsg.includes('column') &&
+              (causeMsg.includes('step_order_json') || causeMsg.includes('step_order')) &&
+              causeMsg.includes('does not exist'))) ||
+          causeCode === '42703';
+
+        if (looksLikeMissingColumn) {
+          try {
+            const nodes = Array.isArray((journey as any).canvas_nodes_json)
+              ? ((journey as any).canvas_nodes_json as any[])
+              : [];
+            const stepById = new Map(
+              nodes
+                .filter((n) => n?.type === 'journeyStepNode' && typeof n?.id === 'string')
+                .map((n) => [String(n.id), n] as const)
+            );
+            const orderedSteps: any[] = [];
+            const seenIds = new Set<string>();
+            for (const id of deduped) {
+              const n = stepById.get(id);
+              if (!n || seenIds.has(id)) continue;
+              seenIds.add(id);
+              orderedSteps.push(n);
+            }
+            for (const n of nodes) {
+              if (n?.type !== 'journeyStepNode') continue;
+              const id = typeof n?.id === 'string' ? String(n.id) : '';
+              if (!id || seenIds.has(id)) continue;
+              seenIds.add(id);
+              orderedSteps.push(n);
+            }
+            const nonSteps = nodes.filter((n) => n?.type !== 'journeyStepNode');
+            const nextNodes = [...orderedSteps, ...nonSteps];
+
+            const supabase = getSupabaseOrThrow();
+            const { error: updateErr } = await supabase
+              .from('journeys')
+              .update({ canvas_nodes_json: nextNodes, updated_at: new Date().toISOString() })
+              .eq('id', journeyId)
+              .eq('workspace_id', workspaceId);
+
+            if (!updateErr) {
+              res.status(200).json({
+                success: true,
+                step_order: deduped,
+                warning: 'step_order_json column missing; persisted by reordering canvas_nodes_json instead.',
+              });
+              return;
+            }
+          } catch (fallbackErr) {
+            console.error('[journeys] step-order fallback failed', fallbackErr);
+          }
+        }
+
         res.status(500).json({
           error: 'Failed to update step order.',
           code: err.code,
+          details: err.message,
+          db_code: causeCode,
+          db_message: causeMsg,
         });
         return;
       }

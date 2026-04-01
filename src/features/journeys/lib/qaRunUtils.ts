@@ -46,12 +46,14 @@ export function computeQARunStatus(stepStatuses: Array<QAStatus | null | undefin
   return 'PENDING';
 }
 
-function getStepNodeIdsFromQARun(qaRun: QARun | null | undefined): string[] {
+function getEligibleNodeIdsFromQARun(qaRun: QARun | null | undefined): string[] {
   if (!qaRun) return [];
   const nodes = Array.isArray(qaRun.nodes) ? qaRun.nodes : [];
   const ids: string[] = [];
   for (const n of nodes as any[]) {
-    if (n?.type !== 'journeyStepNode') continue;
+    // QA-eligible nodes: step nodes + trigger nodes.
+    // Excludes decorative nodes (annotations/notes) so they don't affect overall run status.
+    if (n?.type !== 'journeyStepNode' && n?.type !== 'triggerNode') continue;
     if (typeof n?.id !== 'string' || !n.id.trim()) continue;
     ids.push(n.id);
   }
@@ -70,17 +72,17 @@ function getVerificationStatusForNode(qaRun: QARun, nodeId: string): QAStatus {
  */
 export function computeQARunStatusForRun(qaRun: QARun | null | undefined): DerivedQARunStatus {
   if (!qaRun) return 'PENDING';
-  const stepNodeIds = getStepNodeIdsFromQARun(qaRun);
-  if (stepNodeIds.length === 0) return 'PENDING';
-  const statuses = stepNodeIds.map((id) => getVerificationStatusForNode(qaRun, id));
+  const eligibleNodeIds = getEligibleNodeIdsFromQARun(qaRun);
+  if (eligibleNodeIds.length === 0) return 'PENDING';
+  const statuses = eligibleNodeIds.map((id) => getVerificationStatusForNode(qaRun, id));
   return computeQARunStatus(statuses);
 }
 
 export function hasPendingStepsForRun(qaRun: QARun | null | undefined): boolean {
   if (!qaRun) return false;
-  const stepNodeIds = getStepNodeIdsFromQARun(qaRun);
-  if (stepNodeIds.length === 0) return false;
-  return stepNodeIds.some((id) => getVerificationStatusForNode(qaRun, id) === 'Pending');
+  const eligibleNodeIds = getEligibleNodeIdsFromQARun(qaRun);
+  if (eligibleNodeIds.length === 0) return false;
+  return eligibleNodeIds.some((id) => getVerificationStatusForNode(qaRun, id) === 'Pending');
 }
 
 export function getQARunDisplayName(qaRun: QARun | null | undefined): string {

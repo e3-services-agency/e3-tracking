@@ -856,7 +856,7 @@ export function useJourneyCanvas({
     ...(validation ? { validation_status: validation.status, validation_issues: validation.issues } : {}),
   });
 
-  const lastValidatedRef = React.useRef<{
+  const lastValidatedRef = useRef<{
     payloadText: string;
     result: ValidatePayloadResult;
   } | null>(null);

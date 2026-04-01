@@ -1124,12 +1124,20 @@ export function shouldUseJsonValueEditor(
   return false;
 }
 
-function isoToDatetimeLocal(iso: unknown): string {
-  if (typeof iso !== 'string') return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+function coerceTimestampToUnixSeconds(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number' && Number.isFinite(v)) return Math.floor(v);
+  if (typeof v === 'string') {
+    const t = v.trim();
+    if (!t) return null;
+    if (/^-?\d+(\.\d+)?$/.test(t)) {
+      const n = Number(t);
+      if (Number.isFinite(n)) return Math.floor(n);
+    }
+    const d = new Date(t);
+    if (!Number.isNaN(d.getTime())) return Math.floor(d.getTime() / 1000);
+  }
+  return null;
 }
 
 function numberToDisplayString(v: unknown): string {
@@ -1329,30 +1337,31 @@ const ExampleValueRow = forwardRef<ExampleValueRowHandle, ExampleValueRowProps>(
       }
 
       if (propertyDataType === 'timestamp') {
-        const local = isoToDatetimeLocal(entry.value);
+        const unix = coerceTimestampToUnixSeconds(entry.value);
+        const unixText = unix === null ? '' : String(unix);
         return (
           <div>
-            <label className="text-[11px] text-gray-600">Value (date &amp; time)</label>
+            <label className="text-[11px] text-gray-600">Value (UNIX seconds)</label>
             <Input
-              type="datetime-local"
-              value={local}
+              type="text"
+              inputMode="numeric"
+              value={unixText}
               onChange={(e) => {
                 const t = e.target.value;
-                if (!t.trim()) {
+                const trimmed = t.trim();
+                if (!trimmed) {
                   onChange({ ...entry, value: null });
                   return;
                 }
-                const d = new Date(t);
-                if (Number.isNaN(d.getTime())) {
-                  return;
-                }
-                onChange({ ...entry, value: d.toISOString() });
+                const n = Number(trimmed);
+                if (Number.isNaN(n)) return;
+                onChange({ ...entry, value: Math.floor(n) });
               }}
               className="mt-0.5 text-xs h-9"
               disabled={disabled}
             />
             <p className="text-[10px] text-gray-500 mt-0.5">
-              Stored as ISO 8601 string (e.g. in <span className="font-mono">example_values_json</span>).
+              Timestamp (UNIX seconds).
             </p>
           </div>
         );

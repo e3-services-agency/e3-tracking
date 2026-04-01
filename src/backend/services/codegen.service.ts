@@ -51,6 +51,28 @@ function hasFormat(formats: string[] | null | undefined, f: PropertyDataFormat):
   return Array.isArray(formats) && formats.includes(f);
 }
 
+function coerceIsoLikeToUnixSeconds(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number' && Number.isFinite(v)) {
+    // Assume already unix seconds.
+    return Math.floor(v);
+  }
+  if (typeof v === 'string') {
+    const t = v.trim();
+    if (!t) return null;
+    // Numeric string (seconds)
+    if (/^-?\d+(\.\d+)?$/.test(t)) {
+      const n = Number(t);
+      if (Number.isFinite(n)) return Math.floor(n);
+    }
+    const d = new Date(t);
+    if (!Number.isNaN(d.getTime())) {
+      return Math.floor(d.getTime() / 1000);
+    }
+  }
+  return null;
+}
+
 /**
  * Sample JSON value for a property (codegen / export examples only).
  */
@@ -69,7 +91,7 @@ export function jsonSampleValueForProperty(p: AttachedPropertyForCodegen): unkno
     ) {
       // Treat as invalid example payload; fall back to typed sample below.
     } else {
-    // Legacy tolerance: example value stored as string but data_type is number/boolean.
+    // Legacy tolerance: example value stored as string but data_type is number/boolean/timestamp.
     if (dt === 'number' && typeof v === 'string') {
       const n = Number(v.trim());
       if (!Number.isNaN(n)) return n;
@@ -78,6 +100,10 @@ export function jsonSampleValueForProperty(p: AttachedPropertyForCodegen): unkno
       const t = v.trim().toLowerCase();
       if (t === 'true') return true;
       if (t === 'false') return false;
+    }
+    if (dt === 'timestamp') {
+      const unix = coerceIsoLikeToUnixSeconds(v);
+      if (unix !== null) return unix;
     }
     if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
       return v;
@@ -114,7 +140,8 @@ export function jsonSampleValueForProperty(p: AttachedPropertyForCodegen): unkno
   if (dt === 'number') return 123;
   if (dt === 'boolean') return true;
   if (dt === 'timestamp') {
-    return '2025-01-01T00:00:00.000Z';
+    // Product contract: timestamps are unix seconds (number).
+    return 1735689600; // 2025-01-01T00:00:00Z
   }
 
   if (dt === 'string') {

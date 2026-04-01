@@ -83,18 +83,39 @@ function sortPropertyRowsForExport(
   return indexed.map(({ r }) => r);
 }
 
+function coerceTimestampExampleToUnixSeconds(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number' && Number.isFinite(v)) return Math.floor(v);
+  if (typeof v === 'string') {
+    const t = v.trim();
+    if (!t) return null;
+    if (/^-?\d+(\.\d+)?$/.test(t)) {
+      const n = Number(t);
+      if (Number.isFinite(n)) return Math.floor(n);
+    }
+    const d = new Date(t);
+    if (!Number.isNaN(d.getTime())) return Math.floor(d.getTime() / 1000);
+  }
+  return null;
+}
+
 function formatPropertyExamplesForExportHtml(
   examples: PropertyExampleValue[] | null | undefined,
+  opts?: { dataType?: string }
 ): string {
   if (!examples || examples.length === 0) return '—';
+  const dt = typeof opts?.dataType === 'string' ? opts.dataType.toLowerCase() : '';
   const text = examples
     .map((ex) => {
+      const v = ex.value;
+      const effective =
+        dt === 'timestamp' ? coerceTimestampExampleToUnixSeconds(v) : v;
       const raw =
-        ex.value === undefined || ex.value === null
+        effective === undefined || effective === null
           ? ''
-          : typeof ex.value === 'object'
-            ? JSON.stringify(ex.value)
-            : String(ex.value);
+          : typeof effective === 'object'
+            ? JSON.stringify(effective)
+            : String(effective);
       const label = ex.label ? `${ex.label}: ` : '';
       return `${label}${raw}`;
     })
@@ -464,7 +485,8 @@ function buildOnePropertyTableRow(
     typeof opts.exampleOverrideHtml === 'string' && opts.exampleOverrideHtml
       ? opts.exampleOverrideHtml
       : formatPropertyExamplesForExportHtml(
-          nested && snap ? snap.property_example_values_json ?? null : p.property_example_values_json ?? null
+          nested && snap ? snap.property_example_values_json ?? null : p.property_example_values_json ?? null,
+          { dataType: dtype }
         );
 
   const req =

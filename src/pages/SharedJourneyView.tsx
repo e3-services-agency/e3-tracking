@@ -11,7 +11,7 @@ import type { Journey } from '@/src/types';
 import { API_BASE, buildAppPageUrl } from '@/src/config/env';
 import { computeQARunStatusForRun, getQARunDisplayName } from '@/src/features/journeys/lib/qaRunUtils';
 import { ArrowLeft, Check, ChevronDown, FileText, Lock, LockOpen, PenTool } from 'lucide-react';
-import type { QARun, QAVerification, QAStatus } from '@/src/types';
+import type { QARun, QAStatus } from '@/src/types';
 
 type SharedResponse = {
   id: string;
@@ -27,189 +27,144 @@ type SharedResponse = {
   >;
 };
 
-function qaStatusChipClass(status: QAStatus): string {
-  if (status === 'Passed') return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-  if (status === 'Failed') return 'bg-red-100 text-red-800 border-red-200';
-  return 'bg-amber-100 text-amber-800 border-amber-200';
-}
-
-type QaReportNode = {
-  id: string;
-  type: string;
-  label: string;
-  connectedEvent?: { eventId?: string; name?: string } | null;
-};
-
-function isQaReportNodeType(t: unknown): t is 'journeyStepNode' | 'triggerNode' {
-  return t === 'journeyStepNode' || t === 'triggerNode';
-}
-
-function toQaReportNodesFromRun(qaRun: QARun | null | undefined): QaReportNode[] {
-  const nodes = Array.isArray(qaRun?.nodes) ? (qaRun?.nodes as any[]) : [];
-  const out: QaReportNode[] = [];
-  for (const n of nodes) {
-    const id = typeof n?.id === 'string' ? n.id : '';
-    const type = typeof n?.type === 'string' ? n.type : '';
-    if (!id || !isQaReportNodeType(type)) continue;
-    const label =
-      typeof n?.data?.label === 'string' && n.data.label.trim()
-        ? n.data.label.trim()
-        : type === 'triggerNode'
-          ? 'Trigger'
-          : 'Step';
-    const connectedEvent =
-      type === 'triggerNode' && n?.data?.connectedEvent ? (n.data.connectedEvent as any) : null;
-    out.push({ id, type, label, connectedEvent });
+function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
+  const safeJson = JSON.stringify(qaRun).replace(/<\/script/gi, '<\\/script');
+  const style = `
+<style>
+  .qa-chip { display:inline-flex; align-items:center; gap:6px; padding:2px 8px; border-radius:999px; border:1px solid #e2e8f0; font-size:12px; font-weight:600; line-height:18px; }
+  .qa-chip--Passed { background:#dcfce7; color:#166534; border-color:#bbf7d0; }
+  .qa-chip--Failed { background:#fee2e2; color:#991b1b; border-color:#fecaca; }
+  .qa-chip--Pending { background:#fef3c7; color:#92400e; border-color:#fde68a; }
+  .qa-block { margin-top: 10px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #ffffff; }
+  .qa-block-title { font-size: 12px; font-weight: 700; color: #475569; letter-spacing: 0.03em; text-transform: uppercase; margin-bottom: 8px; }
+  .qa-proof { border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; background:#f8fafc; margin-top:8px; }
+  .qa-proof-name { font-size:12px; font-weight:700; color:#0f172a; }
+  .qa-proof-meta { font-size:11px; color:#64748b; margin-top:2px; }
+  .qa-proof-content { margin-top:6px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; white-space: pre-wrap; color:#0f172a; }
+</style>`;
+  const script = `
+<script>
+(function(){
+  var qaRun = ${safeJson};
+  function statusFor(nodeId){
+    var v = qaRun && qaRun.verifications ? qaRun.verifications[nodeId] : null;
+    return (v && (v.status === 'Passed' || v.status === 'Failed' || v.status === 'Pending')) ? v.status : 'Pending';
   }
-  return out;
-}
-
-function getVerificationForNode(
-  qaRun: QARun,
-  nodeId: string
-): QAVerification {
-  const v = qaRun.verifications?.[nodeId];
-  return v ?? { nodeId, status: 'Pending', proofs: [] };
-}
-
-function SharedJourneyQaReport({
-  qaRun,
-}: {
-  qaRun: QARun;
-}) {
-  const derived = computeQARunStatusForRun(qaRun);
-  const reportNodes = useMemo(() => toQaReportNodesFromRun(qaRun), [qaRun]);
-  const [activeNodeId, setActiveNodeId] = useState<string | null>(() => reportNodes[0]?.id ?? null);
-
-  useEffect(() => {
-    if (!activeNodeId && reportNodes.length > 0) setActiveNodeId(reportNodes[0].id);
-    if (activeNodeId && !reportNodes.some((n) => n.id === activeNodeId)) {
-      setActiveNodeId(reportNodes[0]?.id ?? null);
+  function chip(status){
+    var el = document.createElement('span');
+    el.className = 'qa-chip qa-chip--' + status;
+    el.textContent = status;
+    return el;
+  }
+  function renderDetails(container, verification){
+    if (!verification) return;
+    var notes = typeof verification.notes === 'string' ? verification.notes.trim() : '';
+    var proofs = Array.isArray(verification.proofs) ? verification.proofs : [];
+    if (!notes && proofs.length === 0) return;
+    var block = document.createElement('div');
+    block.className = 'qa-block';
+    var title = document.createElement('div');
+    title.className = 'qa-block-title';
+    title.textContent = 'QA Details';
+    block.appendChild(title);
+    if (notes){
+      var n = document.createElement('div');
+      n.style.whiteSpace = 'pre-wrap';
+      n.style.fontSize = '13px';
+      n.style.color = '#334155';
+      n.textContent = notes;
+      block.appendChild(n);
     }
-  }, [activeNodeId, reportNodes]);
-
-  const counts = useMemo(() => {
-    let passed = 0;
-    let failed = 0;
-    let pending = 0;
-    for (const n of reportNodes) {
-      const st = getVerificationForNode(qaRun, n.id).status;
-      if (st === 'Passed') passed += 1;
-      else if (st === 'Failed') failed += 1;
-      else pending += 1;
+    for (var i=0;i<proofs.length;i++){
+      var p = proofs[i];
+      var wrap = document.createElement('div');
+      wrap.className = 'qa-proof';
+      var nm = document.createElement('div');
+      nm.className = 'qa-proof-name';
+      nm.textContent = (p && p.name) ? p.name : 'Proof';
+      wrap.appendChild(nm);
+      var meta = document.createElement('div');
+      meta.className = 'qa-proof-meta';
+      meta.textContent = (p && p.type) ? String(p.type) : '';
+      wrap.appendChild(meta);
+      if (p && p.type === 'image' && p.content){
+        var a = document.createElement('a');
+        a.href = p.content;
+        a.target = '_blank';
+        a.rel = 'noreferrer';
+        a.textContent = p.content;
+        a.style.fontSize = '12px';
+        a.style.color = '#1d4ed8';
+        a.style.wordBreak = 'break-all';
+        wrap.appendChild(a);
+      } else if (p && p.content){
+        var pre = document.createElement('div');
+        pre.className = 'qa-proof-content';
+        pre.textContent = String(p.content);
+        wrap.appendChild(pre);
+      }
+      block.appendChild(wrap);
     }
-    return { passed, failed, pending, total: reportNodes.length };
-  }, [qaRun, reportNodes]);
+    container.appendChild(block);
+  }
 
-  const activeNode = reportNodes.find((n) => n.id === activeNodeId) ?? null;
+  // Build ordered step node ids from QA run snapshot.
+  var runNodes = Array.isArray(qaRun && qaRun.nodes) ? qaRun.nodes : [];
+  var stepIds = [];
+  var triggerNodesByEventId = {};
+  for (var i=0;i<runNodes.length;i++){
+    var n = runNodes[i];
+    if (!n || typeof n.id !== 'string') continue;
+    if (n.type === 'journeyStepNode') stepIds.push(n.id);
+    if (n.type === 'triggerNode'){
+      var eid = n && n.data && n.data.connectedEvent && n.data.connectedEvent.eventId;
+      if (typeof eid === 'string' && eid) triggerNodesByEventId[eid] = n.id;
+    }
+  }
 
-  return (
-    <div className="flex h-full min-h-0 w-full min-w-0">
-      <div className="w-[300px] shrink-0 border-r bg-white flex flex-col min-h-0">
-        <div className="p-4 border-b">
-          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">QA Report</div>
-          <div className="mt-1 text-sm font-semibold text-gray-900">{getQARunDisplayName(qaRun)}</div>
-          <div className="mt-2 flex items-center gap-2">
-            <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold border ${derived === 'PASSED' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : derived === 'FAILED' ? 'bg-red-100 text-red-800 border-red-200' : 'bg-amber-100 text-amber-800 border-amber-200'}`}>
-              {derived}
-            </span>
-            <span className="text-xs text-gray-600">
-              {counts.failed} failed · {counts.pending} pending · {counts.passed} passed
-            </span>
-          </div>
-        </div>
-        <div className="flex-1 min-h-0 overflow-y-auto divide-y">
-          {reportNodes.map((n) => {
-            const v = getVerificationForNode(qaRun, n.id);
-            const active = n.id === activeNodeId;
-            return (
-              <button
-                key={n.id}
-                type="button"
-                onClick={() => setActiveNodeId(n.id)}
-                className={`w-full text-left px-4 py-3 hover:bg-gray-50 ${active ? 'bg-gray-50' : ''}`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="text-xs font-semibold text-gray-900 truncate">{n.label}</div>
-                    <div className="text-[11px] text-gray-500">
-                      {n.type === 'triggerNode' ? 'Trigger' : 'Step'}
-                    </div>
-                  </div>
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold border ${qaStatusChipClass(v.status)}`}>
-                    {v.status}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-          {reportNodes.length === 0 && (
-            <div className="p-4 text-sm text-gray-500">No QA-eligible nodes in this run.</div>
-          )}
-        </div>
-      </div>
+  // Step sections: map by index (export steps are rendered in canvas stepNodes order).
+  var stepSections = document.querySelectorAll('section.export-step');
+  for (var s=0;s<stepSections.length;s++){
+    var sec = stepSections[s];
+    var nodeId = stepIds[s];
+    if (!nodeId) continue;
+    var header = sec.querySelector('button.export-step-header');
+    if (header){
+      var st = statusFor(nodeId);
+      header.appendChild(chip(st));
+    }
+    var v = qaRun && qaRun.verifications ? qaRun.verifications[nodeId] : null;
+    renderDetails(sec.querySelector('.export-step-body') || sec, v);
 
-      <div className="flex-1 min-w-0 min-h-0 overflow-y-auto bg-[var(--surface-default)]">
-        <div className="max-w-[980px] mx-auto p-6 space-y-4">
-          {activeNode ? (
-            (() => {
-              const v = getVerificationForNode(qaRun, activeNode.id);
-              return (
-                <div className="bg-white border rounded-lg p-5 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-gray-900">{activeNode.label}</div>
-                      <div className="text-xs text-gray-500">
-                        {activeNode.type === 'triggerNode' ? 'Trigger' : 'Step'} · Node ID: <span className="font-mono">{activeNode.id}</span>
-                      </div>
-                      {activeNode.type === 'triggerNode' && activeNode.connectedEvent?.eventId && (
-                        <div className="text-xs text-gray-600 mt-1">
-                          Event: <span className="font-mono">{activeNode.connectedEvent.name ?? activeNode.connectedEvent.eventId}</span>
-                        </div>
-                      )}
-                    </div>
-                    <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold border ${qaStatusChipClass(v.status)}`}>
-                      {v.status}
-                    </span>
-                  </div>
+    // Triggers inside this step: match by eventId shown in the export block.
+    var triggerBlocks = sec.querySelectorAll('.export-tracking-block');
+    for (var tb=0;tb<triggerBlocks.length;tb++){
+      var blk = triggerBlocks[tb];
+      var idEl = blk.querySelector('.export-tracking-id');
+      if (!idEl) continue;
+      var txt = (idEl.textContent || '').trim();
+      // txt looks like "(<eventId>)"
+      var m = txt.match(/\\(([0-9a-f\\-]{8,})\\)/i);
+      if (!m) continue;
+      var eventId = m[1];
+      var trigNodeId = triggerNodesByEventId[eventId];
+      if (!trigNodeId) continue;
+      var st2 = statusFor(trigNodeId);
+      var title = blk.querySelector('.export-tracking-title');
+      if (title){
+        title.appendChild(document.createTextNode(' '));
+        title.appendChild(chip(st2));
+      }
+      var v2 = qaRun && qaRun.verifications ? qaRun.verifications[trigNodeId] : null;
+      renderDetails(blk.querySelector('.export-tracking-body') || blk, v2);
+    }
+  }
+})();
+</script>`;
 
-                  {v.notes?.trim() && (
-                    <div>
-                      <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Notes</div>
-                      <div className="text-sm text-gray-800 whitespace-pre-wrap mt-1">{v.notes}</div>
-                    </div>
-                  )}
-
-                  {Array.isArray(v.proofs) && v.proofs.length > 0 && (
-                    <div>
-                      <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Proofs</div>
-                      <div className="mt-2 space-y-2">
-                        {v.proofs.map((p) => (
-                          <div key={p.id} className="border rounded p-3 bg-gray-50">
-                            <div className="text-xs font-semibold text-gray-900">{p.name}</div>
-                            <div className="text-[11px] text-gray-600 mt-0.5">{p.type}</div>
-                            {p.type === 'image' ? (
-                              <a className="text-xs text-blue-700 break-all" href={p.content} target="_blank" rel="noreferrer">
-                                {p.content}
-                              </a>
-                            ) : (
-                              <pre className="mt-2 text-xs font-mono whitespace-pre-wrap text-gray-800">{p.content}</pre>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()
-          ) : (
-            <div className="bg-white border rounded-lg p-5 text-sm text-gray-600">Select an item to view QA details.</div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  // Inject right before </head> and </body> to keep it self-contained.
+  const withStyle = html.includes('</head>') ? html.replace('</head>', style + '\n</head>') : style + html;
+  return withStyle.includes('</body>') ? withStyle.replace('</body>', script + '\n</body>') : withStyle + script;
 }
 
 export function SharedJourneyView({
@@ -239,6 +194,9 @@ export function SharedJourneyView({
   const [briefHtml, setBriefHtml] = useState<string | null>(null);
   const [briefError, setBriefError] = useState<string | null>(null);
   const [briefLoading, setBriefLoading] = useState(false);
+  const [qaBriefHtml, setQaBriefHtml] = useState<string | null>(null);
+  const [qaBriefError, setQaBriefError] = useState<string | null>(null);
+  const [qaBriefLoading, setQaBriefLoading] = useState(false);
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const modeMenuRef = React.useRef<HTMLDivElement | null>(null);
   const [sharedHubReturnToken] = useState(() =>
@@ -377,6 +335,45 @@ export function SharedJourneyView({
       cancelled = true;
     };
   }, [view, journeyId]);
+
+  useEffect(() => {
+    if (view !== 'qa') return;
+    if (!activeQARunId) return;
+    if (!journey) return;
+    const run = (journey.qaRuns || []).find((r: any) => r?.id === activeQARunId) as QARun | undefined;
+    if (!run) return;
+    let cancelled = false;
+    setQaBriefLoading(true);
+    setQaBriefError(null);
+    setQaBriefHtml(null);
+    fetch(`${API_BASE}/api/shared/journeys/journey/${journey.id}/export/html`)
+      .then(async (res) => {
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          const msg =
+            typeof (body as any)?.error === 'string'
+              ? (body as any).error
+              : res.statusText || 'Failed to load QA docs';
+          throw new Error(msg);
+        }
+        return res.text();
+      })
+      .then((t) => {
+        if (cancelled) return;
+        setQaBriefHtml(injectQaOverlayIntoExportHtml(t, run));
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setQaBriefError(e instanceof Error ? e.message : 'Failed to load QA docs');
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setQaBriefLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [view, activeQARunId, journey]);
 
   useEffect(() => {
     if (!isModeMenuOpen) return;
@@ -565,30 +562,36 @@ export function SharedJourneyView({
               srcDoc={briefHtml}
             />
           )
+        ) : view === 'qa' && activeQARunId ? (
+          qaBriefError ? (
+            <div className="flex h-full w-full items-center justify-center bg-[var(--surface-default)]">
+              <div className="text-center max-w-md px-4">
+                <p className="text-red-600 font-medium">Failed to load QA report</p>
+                <p className="text-sm text-gray-600 mt-1">{qaBriefError}</p>
+              </div>
+            </div>
+          ) : qaBriefLoading || !qaBriefHtml ? (
+            <div className="flex h-full w-full items-center justify-center bg-[var(--surface-default)]">
+              <div className="text-center">
+                <div className="w-8 h-8 border-2 border-[var(--color-info)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-sm text-gray-600">Loading QA report…</p>
+              </div>
+            </div>
+          ) : (
+            <iframe
+              title="QA Report"
+              className="block h-full w-full min-w-0 max-w-full border-0 bg-white"
+              srcDoc={qaBriefHtml}
+            />
+          )
         ) : (
           <ReactFlowProvider>
-            {view === 'qa' && activeQARunId ? (
-              (() => {
-                const run = (journey.qaRuns || []).find((r: any) => r?.id === activeQARunId) as QARun | undefined;
-                return run ? (
-                  <SharedJourneyQaReport qaRun={run} />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-[var(--surface-default)]">
-                    <div className="text-center max-w-md px-4">
-                      <p className="text-red-600 font-medium">QA run not found</p>
-                      <p className="text-sm text-gray-600 mt-1">This run may have been deleted or is unavailable.</p>
-                    </div>
-                  </div>
-                );
-              })()
-            ) : (
-              <JourneyCanvas
-                journey={journey}
-                workspaceId={null}
-                activeQARunId={null}
-                readOnly
-              />
-            )}
+            <JourneyCanvas
+              journey={journey}
+              workspaceId={null}
+              activeQARunId={null}
+              readOnly
+            />
           </ReactFlowProvider>
         )}
       </div>

@@ -165,29 +165,40 @@ function buildEffectiveSnapshot(
 ): EffectiveEventPropertyDefinition {
   const warnings: string[] = [];
 
-  const hasOverrideRow = override !== null;
+  // Treat an override row with all-null override fields as "no override".
+  // This prevents empty rows (e.g. after clearing fields) from being interpreted as active OVERRIDDEN state.
+  const hasActiveOverride =
+    override !== null &&
+    (override.description_override !== null ||
+      override.required !== null ||
+      override.example_values !== null);
+  const activeOverride = hasActiveOverride ? override : null;
   const isLinked = presence !== null;
 
-  if (hasOverrideRow && !isLinked) {
+  if (hasActiveOverride && !isLinked) {
     const msg =
       'event_property_definitions row exists but property is not linked on this event via event_properties.';
     warnings.push(msg);
     console.warn(`[event-property-definition] ${msg}`, { eventId, propertyId: property.id });
   }
 
-  if (!hasOverrideRow && !isLinked) {
+  if (!hasActiveOverride && !isLinked) {
     warnings.push(
       'Property is not attached to this event via event_properties; effective view is global-only.'
     );
   }
 
   const effectiveDescription =
-    override?.description_override != null ? override.description_override : property.description ?? null;
+    activeOverride?.description_override != null
+      ? activeOverride.description_override
+      : property.description ?? null;
 
-  const effectiveRequired = override?.required ?? null;
+  const effectiveRequired = activeOverride?.required ?? null;
 
   const effectiveExampleValues =
-    override?.example_values != null ? override.example_values : property.example_values_json ?? null;
+    activeOverride?.example_values != null
+      ? activeOverride.example_values
+      : property.example_values_json ?? null;
 
   return {
     property_id: property.id,
@@ -205,7 +216,7 @@ function buildEffectiveSnapshot(
       object_child_property_refs_json: property.object_child_property_refs_json,
       example_values_json: property.example_values_json,
     },
-    override,
+    override: activeOverride,
     effective: {
       description: effectiveDescription,
       enum_values: null,

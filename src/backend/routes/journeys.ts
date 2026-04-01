@@ -10,6 +10,7 @@ import multer from 'multer';
 import { requireWorkspace } from '../middleware/workspace';
 import { requireAuth } from '../middleware/auth';
 import * as JourneyDAL from '../dal/journey.dal';
+import * as EventDAL from '../dal/event.dal';
 import * as WorkspaceDAL from '../dal/workspace.dal';
 import { getTriggerRequiredPayloadKeysForEvent } from '../lib/triggerRequiredPayloadKeys';
 import { getJourneyQARunsCountAndLatest, getJourneyQARuns, upsertJourneyQARuns } from '../dal/qa.dal';
@@ -46,12 +47,37 @@ export async function validatePayload(
   workspaceId: string,
   eventId: string,
   actualJson: string,
+  codegenPreferredStyle?: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null,
   variantId?: string | null
 ): Promise<
   | { valid: true }
   | { valid: false; error_type: 'invalid_format'; issues: string[] }
+  | { valid: false; error_type: 'invalid_structure'; issues: string[] }
+  | { valid: false; error_type: 'invalid_event_name'; issues: string[] }
+  | { valid: false; error_type: 'unknown_mode'; issues: string[] }
   | { valid: false; error_type: 'missing_keys'; missing_keys: string[] }
 > {
+  const style = codegenPreferredStyle;
+  if (style !== 'dataLayer' && style !== 'bloomreachSdk' && style !== 'bloomreachApi') {
+    return {
+      valid: false,
+      error_type: 'unknown_mode',
+      issues: [
+        'Validation could not determine payload mode from Default Codegen Method.',
+      ],
+    };
+  }
+
+  const event = await EventDAL.getEventById(workspaceId, eventId);
+  const canonicalEventName = (event?.name ?? '').trim();
+  const overrides = event?.codegen_event_name_overrides ?? null;
+  const expectedEventName =
+    style === 'dataLayer'
+      ? (typeof overrides?.dataLayer === 'string' && overrides.dataLayer.trim() ? overrides.dataLayer.trim() : canonicalEventName)
+      : style === 'bloomreachSdk'
+        ? (typeof overrides?.bloomreachSdk === 'string' && overrides.bloomreachSdk.trim() ? overrides.bloomreachSdk.trim() : canonicalEventName)
+        : (typeof overrides?.bloomreachApi === 'string' && overrides.bloomreachApi.trim() ? overrides.bloomreachApi.trim() : canonicalEventName);
+
   const requiredKeys = await getTriggerRequiredPayloadKeysForEvent(
     workspaceId,
     eventId,
@@ -69,11 +95,49 @@ export async function validatePayload(
     };
   }
 
-  if (requiredKeys.length === 0) {
-    return { valid: true };
+  // Mode-specific shape + event name validation (no auto-detect).
+  if (style === 'dataLayer') {
+    const ev = (parsed as Record<string, unknown>)['event'];
+    if (typeof expectedEventName === 'string' && expectedEventName && typeof ev === 'string' && ev.trim() && ev.trim() !== expectedEventName) {
+      return {
+        valid: false,
+        error_type: 'invalid_event_name',
+        issues: [`Expected event '${expectedEventName}' in top-level "event". Found '${ev}'.`],
+      };
+    }
+  } else {
+    const ty = (parsed as Record<string, unknown>)['type'];
+    const props = (parsed as Record<string, unknown>)['properties'];
+    if (props === undefined) {
+      return {
+        valid: false,
+        error_type: 'invalid_structure',
+        issues: ['Bloomreach payload must include a top-level "properties" object.'],
+      };
+    }
+    if (props === null || typeof props !== 'object' || Array.isArray(props)) {
+      return {
+        valid: false,
+        error_type: 'invalid_structure',
+        issues: ['Bloomreach payload "properties" must be a JSON object.'],
+      };
+    }
+    if (typeof expectedEventName === 'string' && expectedEventName && typeof ty === 'string' && ty.trim() && ty.trim() !== expectedEventName) {
+      return {
+        valid: false,
+        error_type: 'invalid_event_name',
+        issues: [`Expected event '${expectedEventName}' in top-level "type". Found '${ty}'.`],
+      };
+    }
   }
 
-  const actualKeys = new Set(Object.keys(parsed));
+  if (requiredKeys.length === 0) return { valid: true };
+
+  const keyContainer =
+    style === 'dataLayer'
+      ? parsed
+      : ((parsed as Record<string, unknown>)['properties'] as Record<string, unknown>);
+  const actualKeys = new Set(Object.keys(keyContainer));
   const missing_keys = requiredKeys.filter((k) => !actualKeys.has(k));
   if (missing_keys.length === 0) {
     return { valid: true };
@@ -866,8 +930,13 @@ router.post(
     }
     const journeyId = req.params.id;
     const eventId = req.params.eventId;
-    const body = req.body as { actualJson?: string; variant_id?: string | null };
+    const body = req.body as {
+      actualJson?: string;
+      variant_id?: string | null;
+      codegen_preferred_style?: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null;
+    };
     const actualJson = typeof body.actualJson === 'string' ? body.actualJson : '{}';
+    const codegenPreferredStyle = body.codegen_preferred_style;
     const variantIdRaw = body.variant_id;
     const variantId =
       typeof variantIdRaw === 'string' && variantIdRaw.trim() !== ''
@@ -878,7 +947,13 @@ router.post(
 
     try {
       await JourneyDAL.getJourneyById(workspaceId, journeyId);
-      const result = await validatePayload(workspaceId, eventId, actualJson, variantId);
+      const result = await validatePayload(
+        workspaceId,
+        eventId,
+        actualJson,
+        codegenPreferredStyle,
+        variantId
+      );
       res.status(200).json(result);
     } catch (err) {
       if (err instanceof NotFoundError) {

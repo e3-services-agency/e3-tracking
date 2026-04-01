@@ -22,7 +22,7 @@ export function useActiveWorkspaceId(): string {
 export interface ValidatePayloadResult {
   valid: boolean;
   missing_keys?: string[];
-  error_type?: 'invalid_format' | 'missing_keys';
+  error_type?: 'invalid_format' | 'invalid_structure' | 'invalid_event_name' | 'unknown_mode' | 'missing_keys';
   issues?: string[];
 }
 
@@ -216,13 +216,21 @@ export async function validatePayloadApi(
   eventId: string,
   actualJson: string,
   workspaceId: string,
+  codegenPreferredStyle?: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null,
   variantId?: string | null
 ): Promise<
   | { success: true; result: ValidatePayloadResult }
   | { success: false; error: string }
 > {
   try {
-    const body: { actualJson: string; variant_id?: string | null } = { actualJson };
+    const body: {
+      actualJson: string;
+      codegen_preferred_style?: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null;
+      variant_id?: string | null;
+    } = { actualJson };
+    if (codegenPreferredStyle !== undefined) {
+      body.codegen_preferred_style = codegenPreferredStyle;
+    }
     if (variantId !== undefined) {
       body.variant_id = variantId;
     }

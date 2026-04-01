@@ -858,6 +858,7 @@ export function useJourneyCanvas({
 
   const lastValidatedRef = useRef<{
     payloadText: string;
+    codegenPreferredStyle: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null;
     result: ValidatePayloadResult;
   } | null>(null);
 
@@ -876,9 +877,11 @@ export function useJourneyCanvas({
 
     // Persist validation evidence alongside this saved payload.
     // Reuse the most recent validation result only if it matches the exact payload text being saved.
+    const currentCodegenPreferredStyle = journey.codegen_preferred_style ?? null;
     const currentValidated =
       lastValidatedRef.current &&
-      lastValidatedRef.current.payloadText === normalizedContent
+      lastValidatedRef.current.payloadText === normalizedContent &&
+      lastValidatedRef.current.codegenPreferredStyle === currentCodegenPreferredStyle
         ? lastValidatedRef.current.result
         : null;
 
@@ -908,6 +911,7 @@ export function useJourneyCanvas({
           eventId,
           normalizedContent,
           valWid,
+          currentCodegenPreferredStyle,
           variantId,
         );
         if (result.success) {
@@ -917,7 +921,11 @@ export function useJourneyCanvas({
             : (result.result.issues ??
                 result.result.missing_keys ??
                 ['Payload validation failed.']);
-          lastValidatedRef.current = { payloadText: normalizedContent, result: result.result };
+          lastValidatedRef.current = {
+            payloadText: normalizedContent,
+            codegenPreferredStyle: currentCodegenPreferredStyle,
+            result: result.result,
+          };
           setPayloadValidationResult(result.result);
         } else {
           validationStatus = 'unknown';
@@ -989,12 +997,17 @@ export function useJourneyCanvas({
       eventId,
       jsonToValidate,
       valWid,
+      journey.codegen_preferred_style ?? null,
       variantId,
     );
     setIsValidatingPayload(false);
     if (result.success) {
       setPayloadValidationResult(result.result);
-      lastValidatedRef.current = { payloadText: jsonToValidate, result: result.result };
+      lastValidatedRef.current = {
+        payloadText: jsonToValidate,
+        codegenPreferredStyle: journey.codegen_preferred_style ?? null,
+        result: result.result,
+      };
     } else {
       const msg = 'error' in result ? result.error : 'Validation failed';
       setPayloadValidationResult({ valid: false, missing_keys: [msg] });

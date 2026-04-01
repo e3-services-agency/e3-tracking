@@ -1391,7 +1391,11 @@ export function JourneyCanvas({
 
                   <textarea
                     className="w-full h-72 rounded-md border border-input bg-background px-3 py-2 text-xs font-mono"
-                    placeholder='Paste a raw JSON object payload here (e.g. {"cart_id":"..."}). Wrapper scripts like window.dataLayer.push(...) are not supported.'
+                    placeholder={
+                      (journey.codegen_preferred_style ?? 'dataLayer') === 'dataLayer'
+                        ? 'Paste a raw Data Layer JSON object. Event name is expected in "event"; irrelevant keys like "gtm.uniqueEventId" are ignored.'
+                        : 'Paste a raw Bloomreach payload JSON object. Event name is expected in "type"; event fields are validated under "properties".'
+                    }
                     value={payloadDraft}
                     onPaste={handleTriggerPayloadPaste}
                     onChange={(e) => setPayloadDraft(e.target.value)}
@@ -1469,8 +1473,9 @@ export function JourneyCanvas({
                   )}
 
                   <div className="text-[11px] text-gray-500">
-                    Paste a raw JSON object here, then click Add Payload. Validate Payload checks
-                    required always-sent keys. Wrapper scripts (like dataLayer.push) are not supported.
+                    {(journey.codegen_preferred_style ?? 'dataLayer') === 'dataLayer'
+                      ? 'Paste a raw Data Layer JSON object here, then click Add Payload. Validate Payload checks required always-sent keys (top-level) and ignores irrelevant transport keys like gtm.uniqueEventId.'
+                      : 'Paste a raw Bloomreach payload JSON object here, then click Add Payload. Validate Payload checks required always-sent keys under properties and expects the event name in type.'}
                   </div>
                 </div>
               )}

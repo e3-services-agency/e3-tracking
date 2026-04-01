@@ -1,7 +1,7 @@
 /**
  * Create/Edit Event slide-out sheet. API-powered.
  * Form: Name, Description, canonical structured triggers,
- * Property Picker + attached list with Presence.
+ * Property Picker + attached list.
  */
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Sheet } from '@/src/components/ui/Sheet';
@@ -46,11 +46,7 @@ import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceSh
 import { useStore } from '@/src/store';
 import { Activity, AlertCircle, Layout, Plus, UserRound, X } from 'lucide-react';
 
-const PRESENCE_OPTIONS: { value: EventPropertyPresence; label: string }[] = [
-  { value: 'always_sent', label: 'Always' },
-  { value: 'sometimes_sent', label: 'Sometimes' },
-  { value: 'never_sent', label: 'Never' },
-];
+// Presence options intentionally kept out of the simplified UI.
 
 /** ~20% wider than legacy 520px; capped on narrow viewports. */
 const EVENT_EDITOR_SHEET_WIDTH_CLASS = 'w-[min(624px,calc(100vw-1rem))]';
@@ -194,7 +190,7 @@ export function EventEditorSheet({
   updateEvent,
   attachProperty,
   detachProperty,
-  updatePresence,
+  updatePresence: _updatePresence,
   getEventWithProperties,
   getEffectivePropertyDefinitions,
   putEventPropertyDefinitions,
@@ -228,7 +224,9 @@ export function EventEditorSheet({
   const [currentEventId, setCurrentEventId] = useState<string | null>(eventId);
   const [attached, setAttached] = useState<EventWithPropertiesResponse['attached_properties']>([]);
   const [loadingEvent, setLoadingEvent] = useState(false);
-  const [addPresence, setAddPresence] = useState<EventPropertyPresence>('always_sent');
+  // UI simplification: Presence is no longer user-facing. Keep using the existing
+  // backend contract by attaching as "Sometimes" (not always required by default).
+  const [addPresence] = useState<EventPropertyPresence>('sometimes_sent');
   const [addingProperty, setAddingProperty] = useState(false);
   const [removingPropertyId, setRemovingPropertyId] = useState<string | null>(null);
   const [updatingRequirementPropertyId, setUpdatingRequirementPropertyId] = useState<string | null>(
@@ -500,18 +498,7 @@ export function EventEditorSheet({
     }
   };
 
-  const handlePresenceChange = async (
-    propertyId: string,
-    presence: EventPropertyPresence
-  ) => {
-    if (!hasValidWorkspaceContext) return;
-    if (!currentEventId) return;
-    const result = await updatePresence(currentEventId, propertyId, presence);
-    if (result.success) {
-      const updated = await getEventWithProperties(currentEventId);
-      if (updated) setAttached(updated.attached_properties);
-    }
-  };
+  // Presence editing removed from simplified UI.
 
   const handlePropertyRequirementOverrideChange = async (
     propertyId: string,
@@ -986,8 +973,8 @@ export function EventEditorSheet({
               </h3>
               <p className="text-xs text-gray-500">
                 Each row highlights{' '}
-                <span className="font-medium text-gray-700">required for trigger</span> (derived from presence plus
-                the event definition flag). Presence and the definition flag are edited separately on the right.
+                <span className="font-medium text-gray-700">required for trigger</span> (effective rule used by docs
+                and validation). Advanced presence settings are hidden in this simplified UI.
               </p>
 
               <Button
@@ -1020,7 +1007,7 @@ export function EventEditorSheet({
                   availableProperties={availableProperties}
                   attachedIds={attachedIds}
                   addPresence={addPresence}
-                  onAddPresenceChange={setAddPresence}
+                  onAddPresenceChange={() => {}}
                   onAddSelected={handleAddSelectedProperties}
                   adding={addingProperty}
                   workspaceActionsDisabled={!hasValidWorkspaceContext}
@@ -1140,31 +1127,7 @@ export function EventEditorSheet({
                             </button>
                           </div>
                         </div>
-                        <div className="flex flex-wrap items-center justify-between gap-2 mt-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-medium text-gray-500">Presence</span>
-                            <select
-                              value={a.presence}
-                              onChange={(e) =>
-                                handlePresenceChange(
-                                  a.property_id,
-                                  e.target.value as EventPropertyPresence
-                                )
-                              }
-                              className="h-7 rounded-md border border-input bg-background px-1.5 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-w-[8.5rem]"
-                              disabled={
-                                removingPropertyId === a.property_id ||
-                                !hasValidWorkspaceContext
-                              }
-                              aria-label={`Presence for ${a.property_name || a.property_id}`}
-                            >
-                              {PRESENCE_OPTIONS.map((o) => (
-                                <option key={o.value} value={o.value}>
-                                  {o.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
+                        <div className="flex flex-wrap items-center justify-end gap-2 mt-2">
                           <Button
                             type="button"
                             variant="ghost"

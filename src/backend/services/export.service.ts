@@ -492,7 +492,7 @@ function buildOnePropertyTableRow(
   return `<tr class="${rowClass}">
   <td class="${nameCellClass}"><code class="export-inline-code">${escapeHtml(nameDisplay)}</code></td>
   <td class="export-props-req-cell">${requiredCell}</td>
-  <td class="export-props-presence-cell">${escapeHtml(presenceLabel(presenceForRow))}</td>
+  <td class="export-props-presence-cell" data-e3-hidden-presence="1">${escapeHtml(presenceLabel(presenceForRow))}</td>
   <td class="export-props-type-cell">${typeLabel}</td>
   <td class="export-props-source-cell">${sourceText}</td>
   <td class="export-props-example-cell">${exampleCell}</td>
@@ -575,7 +575,7 @@ function buildPropertyDetailsTable(
         <tr>
           <th>Name</th>
           <th>Required</th>
-          <th>Presence</th>
+          <th data-e3-hidden-presence="1">Presence</th>
           <th>Type</th>
           <th>Source</th>
           <th>Example Value</th>
@@ -1359,6 +1359,9 @@ export async function generateJourneyHtmlExport(
       max-width: 96px;
       text-align: center;
     }
+    /* UI simplification: hide Presence column (internal semantics unchanged). */
+    .export-props-table th[data-e3-hidden-presence="1"],
+    .export-props-table td[data-e3-hidden-presence="1"] { display: none; }
     .export-props-table th:nth-child(3),
     .export-props-table td:nth-child(3) {
       min-width: 88px;

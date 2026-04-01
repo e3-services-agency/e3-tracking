@@ -934,7 +934,6 @@ function NestedAttachedChildRow({
 }) {
   const pr = resolveProperty(propertyId);
   const required = schemaNode?.required !== false;
-  const presence = (schemaNode as any)?.presence as EventPropertyPresence | undefined;
   return (
     <div className="rounded border border-gray-200 bg-white p-2 space-y-2">
       <div className="flex items-start justify-between gap-2">
@@ -970,21 +969,6 @@ function NestedAttachedChildRow({
           />
           Required
         </label>
-        <div className="flex items-center gap-2 text-xs text-gray-700">
-          <span className="text-[11px] text-gray-600">Presence</span>
-          <select
-            value={presence ?? 'always_sent'}
-            onChange={(e) =>
-              onSchemaNodeChange({ ...(schemaNode ?? { type: pr?.data_type ?? 'string' }), presence: e.target.value as any })
-            }
-            disabled={disabled}
-            className="h-8 rounded-md border border-input bg-white px-2 text-xs"
-          >
-            <option value="always_sent">Always</option>
-            <option value="sometimes_sent">Sometimes</option>
-            <option value="never_sent">Never</option>
-          </select>
-        </div>
       </div>
     </div>
   );

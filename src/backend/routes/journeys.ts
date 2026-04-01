@@ -11,6 +11,8 @@ import { requireWorkspace } from '../middleware/workspace';
 import { requireAuth } from '../middleware/auth';
 import * as JourneyDAL from '../dal/journey.dal';
 import * as EventDAL from '../dal/event.dal';
+import { listPayloadKeyPropertyBindingsForEvent } from '../dal/event.dal';
+import { listEffectiveEventPropertyDefinitionsWithVariant } from '../dal/event-property-definition.dal';
 import * as WorkspaceDAL from '../dal/workspace.dal';
 import { getTriggerRequiredPayloadKeysForEvent } from '../lib/triggerRequiredPayloadKeys';
 import { getJourneyQARunsCountAndLatest, getJourneyQARuns, upsertJourneyQARuns } from '../dal/qa.dal';
@@ -19,6 +21,7 @@ import {
   assertEnumValuesForJourneyCanvasNodes,
   tryParseEventPayloadObject,
 } from '../lib/eventPayloadEnumValidation';
+import { isPropertyRequiredForTrigger } from '../../lib/effectiveEventSchema';
 import { BadRequestError, ConflictError, DatabaseError, NotFoundError, ConfigError } from '../errors';
 import { getSupabaseOrThrow } from '../db/supabase';
 
@@ -55,6 +58,7 @@ export async function validatePayload(
   | { valid: false; error_type: 'invalid_structure'; issues: string[] }
   | { valid: false; error_type: 'invalid_event_name'; issues: string[] }
   | { valid: false; error_type: 'unknown_mode'; issues: string[] }
+  | { valid: false; error_type: 'invalid_types'; issues: string[]; missing_keys?: string[] }
   | { valid: false; error_type: 'missing_keys'; missing_keys: string[] }
 > {
   const style = codegenPreferredStyle;
@@ -139,9 +143,77 @@ export async function validatePayload(
       : ((parsed as Record<string, unknown>)['properties'] as Record<string, unknown>);
   const actualKeys = new Set(Object.keys(keyContainer));
   const missing_keys = requiredKeys.filter((k) => !actualKeys.has(k));
-  if (missing_keys.length === 0) {
-    return { valid: true };
+
+  // Type validation: validate only properties that are required for trigger (same contract as requiredKeys).
+  const effective = await listEffectiveEventPropertyDefinitionsWithVariant(workspaceId, eventId, {
+    variantId: variantId ?? undefined,
+  });
+  const bindings = await listPayloadKeyPropertyBindingsForEvent(workspaceId, eventId);
+  const pidToKey = new Map(bindings.map((b) => [b.property_id, b.payload_key]));
+  const requiredTypeByKey = new Map<
+    string,
+    { dataType: string; dataFormats: string[] | null; propertyName: string }
+  >();
+  for (const def of effective) {
+    if (!isPropertyRequiredForTrigger(def)) continue;
+    const k = pidToKey.get(def.property_id);
+    if (!k) continue;
+    requiredTypeByKey.set(k, {
+      dataType: def.property.data_type,
+      dataFormats: def.property.data_formats ?? null,
+      propertyName: def.property.name,
+    });
   }
+
+  function expectedTypeLabel(dt: string): string {
+    if (dt === 'timestamp') return 'timestamp';
+    return dt;
+  }
+
+  function actualTypeLabel(v: unknown): string {
+    if (v === null) return 'null';
+    if (Array.isArray(v)) return 'array';
+    return typeof v;
+  }
+
+  function isValidForExpected(dt: string, fmts: string[] | null, v: unknown): boolean {
+    if (v === null) return false;
+    if (dt === 'string') return typeof v === 'string';
+    if (dt === 'number') return typeof v === 'number' && Number.isFinite(v);
+    if (dt === 'boolean') return typeof v === 'boolean';
+    if (dt === 'object') return typeof v === 'object' && !Array.isArray(v);
+    if (dt === 'array') return Array.isArray(v);
+    if (dt === 'timestamp') {
+      const wantsNumber =
+        Array.isArray(fmts) &&
+        (fmts.includes('unix_seconds') || fmts.includes('unix_milliseconds'));
+      return wantsNumber ? typeof v === 'number' && Number.isFinite(v) : typeof v === 'string';
+    }
+    return true;
+  }
+
+  const typeIssues: string[] = [];
+  for (const [payloadKey, spec] of requiredTypeByKey.entries()) {
+    if (!actualKeys.has(payloadKey)) continue;
+    const raw = (keyContainer as Record<string, unknown>)[payloadKey];
+    const ok = isValidForExpected(spec.dataType, spec.dataFormats, raw);
+    if (!ok) {
+      typeIssues.push(
+        `Property "${payloadKey}" must be ${expectedTypeLabel(spec.dataType)} (got ${actualTypeLabel(raw)}).`
+      );
+    }
+  }
+
+  if (typeIssues.length > 0) {
+    return {
+      valid: false,
+      error_type: 'invalid_types',
+      issues: typeIssues,
+      ...(missing_keys.length > 0 ? { missing_keys } : {}),
+    };
+  }
+
+  if (missing_keys.length === 0) return { valid: true };
   return { valid: false, error_type: 'missing_keys', missing_keys };
 }
 

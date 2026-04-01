@@ -22,7 +22,7 @@ export function useActiveWorkspaceId(): string {
 export interface ValidatePayloadResult {
   valid: boolean;
   missing_keys?: string[];
-  error_type?: 'invalid_format' | 'invalid_structure' | 'invalid_event_name' | 'unknown_mode' | 'missing_keys';
+  error_type?: 'invalid_format' | 'invalid_structure' | 'invalid_event_name' | 'unknown_mode' | 'invalid_types' | 'missing_keys';
   issues?: string[];
 }
 

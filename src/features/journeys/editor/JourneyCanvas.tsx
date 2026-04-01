@@ -1451,9 +1451,11 @@ export function JourneyCanvas({
                       ) : (
                         <div>
                           <span className="font-medium">
-                            {payloadValidationResult.error_type === 'invalid_format'
-                              ? 'Invalid payload format:'
-                              : 'Missing required keys:'}{' '}
+                            {payloadValidationResult.error_type === 'missing_keys'
+                              ? 'Missing required keys:'
+                              : payloadValidationResult.error_type === 'invalid_types'
+                                ? 'Invalid property types:'
+                                : 'Invalid payload:'}{' '}
                           </span>
                           {(payloadValidationResult.issues?.length ||
                             payloadValidationResult.missing_keys?.length) ? (

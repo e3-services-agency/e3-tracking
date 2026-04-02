@@ -305,40 +305,6 @@ export function buildCodegenSnippets(
     (p) => p.presence === 'always_sent' || p.presence === 'sometimes_sent'
   );
 
-  if (debugSnippetPropertyName()) {
-    for (const p of props) {
-      if (!matchesDebugSnippetProperty(p.property_name)) continue;
-      const req = isRequiredForCodegenSnippet(p);
-      const att = isAttachedPropertyRequiredForTrigger(
-        p.presence,
-        p.property_required_override
-      );
-      console.warn(
-        '[E3 DEBUG snippet] buildCodegenSnippets input (after presence filter)',
-        JSON.stringify(
-          {
-            property_id: p.property_id,
-            property_name: p.property_name,
-            presence: p.presence,
-            property_required_override: p.property_required_override,
-            required_for_trigger: p.required_for_trigger,
-            typeof_required_for_trigger: typeof p.required_for_trigger,
-            isRequiredForCodegenSnippet: req,
-            isAttachedPropertyRequiredForTrigger_if_fallback: att,
-            branch:
-              typeof p.required_for_trigger === 'boolean'
-                ? 'required_for_trigger'
-                : 'fallback_isAttachedPropertyRequiredForTrigger',
-            property_data_type: p.property_data_type,
-            property_value_schema_json_type: p.property_value_schema_json?.type ?? null,
-          },
-          null,
-          2
-        )
-      );
-    }
-  }
-
   const dataLayer = buildDataLayerSnippet(safeCanonical, props, overrides);
   const bloomreachSdk = buildBloomreachSdkSnippet(safeCanonical, props, overrides);
   const bloomreachApi = buildBloomreachApiSnippet(safeCanonical, props, overrides, workspaceConfig);
@@ -438,23 +404,6 @@ function buildBloomreachSdkSnippet(
   const lines: string[] = [`exponea.track('${eventName}', {`];
   for (const p of props) {
     const optional = !isRequiredForCodegenSnippet(p);
-    if (matchesDebugSnippetProperty(p.property_name)) {
-      const req = isRequiredForCodegenSnippet(p);
-      console.warn(
-        '[E3 DEBUG snippet] buildBloomreachSdkSnippet',
-        JSON.stringify(
-          {
-            property_name: p.property_name,
-            expression: 'optional = !isRequiredForCodegenSnippet(p)',
-            isRequiredForCodegenSnippet: req,
-            optional,
-            formatPropLines_second_arg: optional,
-          },
-          null,
-          2
-        )
-      );
-    }
     const { comment, lines: propLines } = formatPropLines(p, optional);
     if (comment) lines.push(comment);
     lines.push(...propLines);

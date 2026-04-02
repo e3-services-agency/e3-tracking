@@ -214,6 +214,23 @@ export interface SourceRow {
   deleted_at: string | null;
 }
 
+/** Workspace-scoped named bundle of properties (`property_bundle_items` junction). */
+export interface PropertyBundleRow {
+  id: string;
+  workspace_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface PropertyBundleItemRow {
+  bundle_id: string;
+  property_id: string;
+  created_at: string;
+}
+
 export interface PropertyRow {
   id: string;
   workspace_id: string;
@@ -239,6 +256,10 @@ export interface PropertyRow {
   mapped_catalog_id: string | null;
   mapped_catalog_field_id: string | null;
   mapping_type: PropertyMappingType | null;
+  /**
+   * Bundle memberships for this property (API list/detail only; not a column on `properties`).
+   */
+  bundle_ids?: string[];
 }
 
 /** Payload for creating a property (DAL/API). id, workspace_id, timestamps set by DB or DAL. */
@@ -265,6 +286,10 @@ export type CreatePropertyInput = Pick<
    * Not for event-scoped variants—only workspace sources validated against `sources.workspace_id`.
    */
   source_ids?: string[] | null;
+  /**
+   * After insert, server links `property_bundle_items` for this property (bundles must belong to workspace).
+   */
+  bundle_ids?: string[] | null;
 };
 
 export interface PropertySourceRow {

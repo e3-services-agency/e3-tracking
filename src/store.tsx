@@ -73,6 +73,8 @@ interface StoreState {
   addPropertyBundle: (bundle: Omit<PropertyBundle, 'id'>) => void;
   updatePropertyBundle: (id: string, bundle: Partial<PropertyBundle>) => void;
   deletePropertyBundle: (id: string) => void;
+  /** Replace workspace bundles from GET /api/bundles (canonical list). */
+  syncPropertyBundlesFromApi: (bundles: PropertyBundle[]) => void;
 
   addSource: (source: Omit<Source, 'id'>) => void;
   updateSource: (id: string, source: Partial<Source>) => void;
@@ -259,6 +261,12 @@ export const useStore = create<StoreState>((set, get) => {
       updateActiveData((data) => ({
         ...data,
         propertyBundles: data.propertyBundles.filter((bundle) => bundle.id !== id),
+      })),
+
+    syncPropertyBundlesFromApi: (bundles) =>
+      updateActiveData((data) => ({
+        ...data,
+        propertyBundles: [...bundles].sort((a, b) => a.name.localeCompare(b.name)),
       })),
 
     addSource: (source) =>

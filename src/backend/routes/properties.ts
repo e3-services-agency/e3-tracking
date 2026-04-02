@@ -7,6 +7,7 @@ import { requireWorkspace } from '../middleware/workspace';
 import { createAuditValidator } from '../middleware/auditValidator';
 import { getWorkspaceSettings } from '../dal/workspace.dal';
 import * as PropertyDAL from '../dal/property.dal';
+import * as BundleDAL from '../dal/bundle.dal';
 import { BadRequestError, ConflictError, DatabaseError, NotFoundError } from '../errors';
 import type {
   CreatePropertyInput,
@@ -51,6 +52,28 @@ function parseSourceIdsField(
   for (let i = 0; i < value.length; i += 1) {
     if (typeof value[i] !== 'string') {
       return { ok: false, error: 'source_ids must be an array of strings.' };
+    }
+  }
+  const normalized = value.map((entry) => entry.trim()).filter(Boolean);
+  return { ok: true, value: [...new Set(normalized)] };
+}
+
+/** Strict: every element must be a string (bundle ids). */
+function parseBundleIdsField(
+  value: unknown
+): { ok: true; value: string[] | null | undefined } | { ok: false; error: string } {
+  if (typeof value === 'undefined') {
+    return { ok: true, value: undefined };
+  }
+  if (value === null) {
+    return { ok: true, value: null };
+  }
+  if (!Array.isArray(value)) {
+    return { ok: false, error: 'bundle_ids must be an array of strings when provided.' };
+  }
+  for (let i = 0; i < value.length; i += 1) {
+    if (typeof value[i] !== 'string') {
+      return { ok: false, error: 'bundle_ids must be an array of strings.' };
     }
   }
   const normalized = value.map((entry) => entry.trim()).filter(Boolean);
@@ -546,6 +569,16 @@ function buildCreatePropertyInput(
     };
   }
 
+  const bundleIds = parseBundleIdsField(body.bundle_ids);
+  if (bundleIds.ok === false) {
+    return {
+      error: {
+        message: bundleIds.error,
+        field: 'bundle_ids',
+      },
+    };
+  }
+
   return {
     value: {
       context: context as PropertyContext,
@@ -574,6 +607,7 @@ function buildCreatePropertyInput(
           ? (body.mapping_type as PropertyMappingType)
           : null,
       ...(sourceIds.value !== undefined ? { source_ids: sourceIds.value } : {}),
+      ...(bundleIds.value !== undefined ? { bundle_ids: bundleIds.value } : {}),
     },
   };
 }
@@ -726,6 +760,19 @@ function buildUpdatePropertyInput(
     updates.source_ids = parsed.value ?? [];
   }
 
+  if (Object.prototype.hasOwnProperty.call(body, 'bundle_ids')) {
+    const parsed = parseBundleIdsField(body.bundle_ids);
+    if (parsed.ok === false) {
+      return {
+        error: {
+          message: parsed.error,
+          field: 'bundle_ids',
+        },
+      };
+    }
+    updates.bundle_ids = parsed.value ?? [];
+  }
+
   return { value: updates };
 }
 
@@ -741,7 +788,13 @@ router.get('/', requireWorkspace, async (req: Request, res: Response, next: impo
   }
   try {
     const list = await PropertyDAL.listProperties(workspaceId);
-    res.status(200).json(list);
+    const ids = list.map((p) => p.id);
+    const bundleMap = await BundleDAL.listBundleIdsByPropertyIds(workspaceId, ids);
+    const enriched = list.map((p) => ({
+      ...p,
+      bundle_ids: bundleMap.get(p.id) ?? [],
+    }));
+    res.status(200).json(enriched);
   } catch (err) {
     next(err);
   }

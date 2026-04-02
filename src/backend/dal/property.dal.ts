@@ -21,6 +21,7 @@ import {
   PROPERTY_DATA_TYPES,
 } from '../../types/schema';
 import { BadRequestError, ConflictError, DatabaseError, NotFoundError } from '../errors';
+import * as BundleDAL from './bundle.dal';
 
 const UNIQUE_VIOLATION_CODE = '23505';
 
@@ -45,6 +46,8 @@ export type PropertyUpdateInput = Partial<
   >
 > & {
   source_ids?: string[] | null;
+  /** Replaces `property_bundle_items` rows for this property (not a column on `properties`). */
+  bundle_ids?: string[] | null;
 };
 
 /** Validates that every id is a non-deleted source in the workspace; returns deduplicated ids in stable order. */
@@ -669,7 +672,7 @@ export async function createProperty(
   propertyData: CreatePropertyInput
 ): Promise<PropertyRow> {
   const supabase = getSupabaseOrThrow();
-  const { source_ids: sourceIds, ...propertyRowInput } = propertyData;
+  const { source_ids: sourceIds, bundle_ids: bundleIds, ...propertyRowInput } = propertyData;
 
   if (sourceIds !== undefined && sourceIds !== null && sourceIds.length > 0) {
     await validateSourceIdsInWorkspace(workspaceId, sourceIds);
@@ -766,6 +769,9 @@ export async function updateProperty(
   const supabase = getSupabaseOrThrow();
   const sourceIdsUpdate =
     Object.prototype.hasOwnProperty.call(updates, 'source_ids') ? updates.source_ids : undefined;
+  const bundleIdsUpdate = Object.prototype.hasOwnProperty.call(updates, 'bundle_ids')
+    ? updates.bundle_ids
+    : undefined;
   const { data: existingRow, error: fetchErr } = await supabase
     .from('properties')
     .select('*')
@@ -870,6 +876,22 @@ export async function updateProperty(
     } catch (linkErr) {
       console.error(
         '[property.dal] Property row updated but property_sources sync failed; client may retry PATCH with source_ids.',
+        { propertyId, workspaceId, linkErr }
+      );
+      throw linkErr;
+    }
+  }
+
+  if (bundleIdsUpdate !== undefined) {
+    try {
+      await BundleDAL.replacePropertyBundlesForProperty(
+        workspaceId,
+        propertyId,
+        bundleIdsUpdate ?? []
+      );
+    } catch (linkErr) {
+      console.error(
+        '[property.dal] Property row updated but property bundle sync failed; client may retry PATCH with bundle_ids.',
         { propertyId, workspaceId, linkErr }
       );
       throw linkErr;

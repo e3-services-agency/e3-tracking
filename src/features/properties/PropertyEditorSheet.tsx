@@ -37,6 +37,7 @@ import {
   listWorkspaceSources,
 } from '@/src/features/events/lib/eventTriggerSourcesApi';
 import { fetchPropertySourceIds } from '@/src/features/properties/lib/propertySourcesApi';
+import { useBundles } from '@/src/features/properties/hooks/useBundles';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { useStore } from '@/src/store';
 import {
@@ -185,6 +186,8 @@ export function PropertyEditorSheet({
   const [sourcesError, setSourcesError] = useState<string | null>(null);
   const [propertySourceIdsError, setPropertySourceIdsError] = useState<string | null>(null);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
+  const [selectedBundleIds, setSelectedBundleIds] = useState<string[]>([]);
+  const { bundles: workspaceBundles, isLoading: bundlesListLoading } = useBundles();
   const [newSourceName, setNewSourceName] = useState('');
   const [creatingSource, setCreatingSource] = useState(false);
   const [createSourceError, setCreateSourceError] = useState<string | null>(null);
@@ -269,6 +272,9 @@ export function PropertyEditorSheet({
         setMappedFieldId('');
         setMappingType('mapped_value');
         setCatalogFields([]);
+        setSelectedBundleIds(initialProperty.bundle_ids?.slice() ?? []);
+      } else {
+        setSelectedBundleIds([]);
       }
     }
   }, [isOpen, clearMutationError, initialProperty, fetchCatalogFields]);

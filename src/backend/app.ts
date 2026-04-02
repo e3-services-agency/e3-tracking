@@ -19,6 +19,7 @@ import metricsRouter from './routes/metrics';
 import propertiesRouter from './routes/properties';
 import sourcesRouter from './routes/sources';
 import journeysRouter from './routes/journeys';
+import bundlesRouter from './routes/bundles';
 import sharedRouter from './routes/shared';
 import { optionalAuth } from './middleware/auth';
 import { BadRequestError, ConfigError } from './errors';
@@ -51,6 +52,7 @@ export function createApp(): express.Express {
   app.use('/api/properties', propertiesRouter);
   app.use('/api/sources', sourcesRouter);
   app.use('/api/journeys', journeysRouter);
+  app.use('/api/bundles', bundlesRouter);
   app.use('/api/shared', sharedRouter);
 
   // Simple health endpoint. Kept in Express so we don't need a separate

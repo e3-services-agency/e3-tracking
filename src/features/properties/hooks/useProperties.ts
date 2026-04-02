@@ -28,6 +28,10 @@ export type PropertyUpdatePayload = Partial<Pick<
    * Omit the key to leave links unchanged. `[]` clears all links.
    */
   source_ids?: string[] | null;
+  /**
+   * When present, server replaces `property_bundle_items` for this property (membership in named bundles).
+   */
+  bundle_ids?: string[] | null;
 };
 
 export interface UsePropertiesResult {

@@ -606,7 +606,7 @@ function buildPropertyDetailsTable(
   }
   const rows = rowChunks.join('');
   return `<div class="export-props">
-  <div class="export-props-title">Event properties</div>
+  <div class="export-section-ribbon">Event properties</div>
   <div class="export-props-wrap">
     <table class="export-props-table">
       <thead>
@@ -998,8 +998,8 @@ export async function generateJourneyHtmlExport(
             const valueInner = href
               ? `<a class="export-step-url-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(raw)}</a>`
               : escapeHtml(raw);
-            return `<div class="export-step-meta-field">
-  <div class="export-step-meta-label">Step URL</div>
+            return `<div class="export-step-url-section">
+  <div class="export-section-ribbon">Step URL</div>
   <div class="export-step-meta-value">${valueInner}</div>
 </div>`;
           })()
@@ -1008,7 +1008,7 @@ export async function generateJourneyHtmlExport(
       const meta = [
         step.targetElement
           ? `<div class="export-step-meta-field">
-  <div class="export-step-meta-label">Target element</div>
+  <div class="export-section-ribbon">Target element</div>
   <div class="export-step-meta-value export-step-meta-value--code"><code class="export-meta-target-code">${escapeHtml(step.targetElement)}</code></div>
 </div>`
           : '',
@@ -1062,7 +1062,7 @@ export async function generateJourneyHtmlExport(
             const notesMd = (t.notesMarkdown ?? '').trim();
             const triggerNotesBlock =
               notesMd.length > 0
-                ? `<div class="export-trigger-notes-section"><div class="export-props-title">Trigger Notes</div><div class="export-trigger-notes">${renderQaNotesMarkdownToHtml(notesMd)}</div></div>`
+                ? `<div class="export-trigger-notes-section"><div class="export-section-ribbon">Trigger Notes</div><div class="export-trigger-notes">${renderQaNotesMarkdownToHtml(notesMd)}</div></div>`
                 : '';
             const eventDescRaw = (t.eventDescription ?? '').trim();
             const eventDescBlock =
@@ -1088,7 +1088,7 @@ export async function generateJourneyHtmlExport(
           ${triggerNotesBlock}
           ${propsTable}
           <div class="export-implementation-examples">
-            <div class="export-examples-title">Implementation example</div>
+            <div class="export-section-ribbon">Implementation example</div>
             <div class="export-examples-empty-values">
               <div class="export-examples-empty-values-title">Empty Values:</div>
               <p class="export-examples-empty-values-body">If a field is null, undefined, or an empty string &quot;&quot;, omit the key entirely from the payload. Do not send &quot;0&quot; for invalid dates.</p>
@@ -1109,7 +1109,7 @@ export async function generateJourneyHtmlExport(
       }
 
       const stepDetailsSection = `<div class="export-step-block export-step-block--step">
-  <div class="export-step-block-title">Step details</div>
+  <div class="export-section-ribbon">Step details</div>
   ${step.description ? renderJourneyDescriptionForExport(step.description) : ''}
   ${imgBlock}
   ${stepUrlField}
@@ -1118,14 +1118,14 @@ export async function generateJourneyHtmlExport(
       const interactionSection =
         meta
           ? `<div class="export-step-block export-step-block--interaction">
-  <div class="export-step-block-title">Interaction</div>
+  <div class="export-section-ribbon">Interaction</div>
   <div class="export-step-meta">${meta}</div>
 </div>`
           : '';
 
       const trackingSection = triggersBlock
         ? `<div class="export-step-block export-step-block--tracking">
-  <div class="export-step-block-title">Event tracking</div>
+  <div class="export-section-ribbon">Event tracking</div>
   ${triggersBlock}
 </div>`
         : '';
@@ -1146,9 +1146,6 @@ export async function generateJourneyHtmlExport(
           ${stepDetailsSection}
           ${interactionSection}
           ${trackingSection}
-          <div class="export-step-footer">
-            <a class="export-step-top" href="#top">Back to top</a>
-          </div>
         </div>
       </section>`;
       })
@@ -1284,21 +1281,31 @@ export async function generateJourneyHtmlExport(
       padding-top: 0;
       border-top: 0;
     }
-    .export-step-block-title {
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: #64748b;
+    .export-section-ribbon {
+      background-color: #EEEEE3;
+      color: #1A1E38;
+      border-left: 4px solid #0077E3;
+      padding: 6px 12px;
+      margin-top: 24px;
+      margin-bottom: 12px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
       text-transform: uppercase;
-      letter-spacing: 0.03em;
-      margin: 0 0 10px;
+      border-radius: 0 4px 4px 0;
+    }
+    .export-step-block > .export-section-ribbon:first-child {
+      margin-top: 0;
+    }
+    .export-step-meta .export-section-ribbon {
+      margin-top: 0;
+      margin-bottom: 8px;
     }
     .export-step-block .export-step-meta { margin-top: 0; }
     .export-step-block--tracking .export-tracking-block:first-child { margin-top: 0; }
     .export-step-url-link { color: #2563eb; text-decoration: underline; word-break: break-all; }
     .export-step-url-link:hover { color: #1d4ed8; }
-    .export-step-footer { margin-top: 14px; display: flex; justify-content: flex-end; }
-    .export-step-top { font-size: 0.8rem; color: #2563eb; text-decoration: none; }
-    .export-step-top:hover { text-decoration: underline; }
+    .export-step-url-section .export-step-meta-value { margin-top: 0; }
     .export-step-desc { margin: 0 0 12px; color: #4b5563; font-size: 0.9rem; }
     .export-step-desc-md {
       margin: 0 0 12px;
@@ -1430,7 +1437,7 @@ export async function generateJourneyHtmlExport(
     }
     .export-trigger-meta-value--desc .export-step-desc-md { margin: 0; }
     .export-trigger-notes-section { margin: 0 0 12px; }
-    .export-trigger-notes-section .export-props-title { margin-bottom: 8px; }
+    .export-trigger-notes-section > .export-section-ribbon { margin-top: 0; }
     .export-trigger-notes { margin: 0; font-size: 0.95rem; color: #334155; line-height: 1.45; }
     .export-trigger-notes a { color: #1d4ed8; text-decoration: underline; }
     .export-trigger-notes p { margin: 0 0 8px; }
@@ -1438,8 +1445,7 @@ export async function generateJourneyHtmlExport(
     .export-trigger-notes ul, .export-trigger-notes ol { margin: 6px 0; padding-left: 1.25rem; }
     .export-trigger-notes code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; background: #f1f5f9; padding: 1px 4px; border-radius: 4px; }
     .export-trigger-notes .qa-md-h { margin: 8px 0 4px; font-weight: 600; color: #0f172a; }
-    .export-implementation-examples { margin-top: 12px; }
-    .export-examples-title { font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em; }
+    .export-implementation-examples { margin-top: 0; }
     .export-examples-empty-values {
       margin: 0 0 12px;
       padding: 10px 12px;
@@ -1497,8 +1503,7 @@ export async function generateJourneyHtmlExport(
     .hljs-comment { color: #d73a49 !important; font-style: italic; }
     .hljs-string { color: #0A8040 !important; }
 
-    .export-props { margin-top: 12px; }
-    .export-props-title { font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em; }
+    .export-props { margin-top: 0; }
     .export-props-wrap {
       min-width: 0;
       max-width: 100%;

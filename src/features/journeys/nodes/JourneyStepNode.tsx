@@ -187,9 +187,9 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
     <div
       className={`bg-white border-2 ${
         isQAMode && qaStatus === 'Failed'
-          ? 'border-red-400'
+          ? 'border-[#E35010]'
           : isQAMode && qaStatus === 'Passed'
-            ? 'border-emerald-400'
+            ? 'border-[#0DCC96]'
             : 'border-gray-200'
       } rounded-lg shadow-sm min-w-[250px] max-w-[420px] overflow-visible group relative focus:outline-none`}
       onPaste={handlePaste}

@@ -195,9 +195,9 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
     <div
       className={`bg-white border-2 ${
         isQAMode && qaStatus === 'Failed'
-          ? 'border-red-400'
+          ? 'border-[#E35010]'
           : isQAMode && qaStatus === 'Passed'
-            ? 'border-emerald-400'
+            ? 'border-[#0DCC96]'
             : 'border-amber-400'
       } rounded-lg shadow-sm min-w-[280px] max-w-[320px] overflow-visible group relative focus:outline-none`}
       onPaste={handlePaste}

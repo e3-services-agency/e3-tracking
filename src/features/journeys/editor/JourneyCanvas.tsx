@@ -46,6 +46,10 @@ import {
   Zap,
 } from 'lucide-react';
 
+/** Matches exported HTML `.export-section-ribbon` (read-only journey / shared docs panel). */
+const READ_ONLY_SECTION_RIBBON =
+  'bg-[#EEEEE3] text-[#1A1E38] border-l-4 border-[#0077E3] px-3 py-1.5 mb-3 text-xs font-bold tracking-wide uppercase rounded-r';
+
 const nodeTypes = {
   journeyStepNode: JourneyStepNode,
   triggerNode: TriggerNode,
@@ -286,16 +290,16 @@ export function JourneyCanvas({
   const nodeStatus = currentVerification?.status ?? 'Pending';
   const statusChipClass =
     nodeStatus === 'Passed'
-      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+      ? 'bg-[rgba(13,204,150,0.12)] text-[#0DCC96] border-[#0DCC96]'
       : nodeStatus === 'Failed'
-        ? 'bg-red-100 text-red-800 border-red-200'
+        ? 'bg-[rgba(227,80,16,0.08)] text-[#E35010] border-[#E35010]'
         : 'bg-amber-100 text-amber-800 border-amber-200';
 
   const qaRunHeaderChipClass =
     qaRunDerivedStatus === 'PASSED'
-      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+      ? 'bg-[rgba(13,204,150,0.12)] text-[#0DCC96] border-[#0DCC96]'
       : qaRunDerivedStatus === 'FAILED'
-        ? 'bg-red-100 text-red-800 border-red-200'
+        ? 'bg-[rgba(227,80,16,0.08)] text-[#E35010] border-[#E35010]'
         : 'bg-amber-100 text-amber-800 border-amber-200';
 
   const selectedTriggerPrefetchedSnippets = React.useMemo(() => {
@@ -603,7 +607,13 @@ export function JourneyCanvas({
           </div>
 
           <div className="shrink-0 px-4 py-3 border-b bg-white">
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+            <div
+              className={
+                effectiveReadOnly
+                  ? READ_ONLY_SECTION_RIBBON
+                  : 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2'
+              }
+            >
               QA Summary
             </div>
             <div className="text-sm text-gray-700 flex items-center gap-3 flex-wrap">
@@ -620,8 +630,8 @@ export function JourneyCanvas({
                 <span className="text-gray-500">nodes</span>
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span className="font-semibold text-emerald-700">
+                <CheckCircle2 className="w-4 h-4 text-[#0DCC96]" />
+                <span className="font-semibold text-[#0DCC96]">
                   {
                     Object.values(activeVerifications).filter(
                       (verification) => verification.status === 'Passed'
@@ -631,8 +641,8 @@ export function JourneyCanvas({
                 <span className="text-gray-500">passed</span>
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <XCircle className="w-4 h-4 text-red-600" />
-                <span className="font-semibold text-red-700">
+                <XCircle className="w-4 h-4 text-[#E35010]" />
+                <span className="font-semibold text-[#E35010]">
                   {
                     Object.values(activeVerifications).filter(
                       (verification) => verification.status === 'Failed'
@@ -648,7 +658,13 @@ export function JourneyCanvas({
           <div className="p-4 flex-1 overflow-y-auto space-y-6">
             <div className="grid grid-cols-1 gap-3">
               <div>
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                <div
+                  className={
+                    effectiveReadOnly
+                      ? READ_ONLY_SECTION_RIBBON
+                      : 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1'
+                  }
+                >
                   Run Name
                 </div>
                 <Input
@@ -658,7 +674,13 @@ export function JourneyCanvas({
               </div>
 
               <div>
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                <div
+                  className={
+                    effectiveReadOnly
+                      ? READ_ONLY_SECTION_RIBBON
+                      : 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1'
+                  }
+                >
                   Tester
                 </div>
                 <Input
@@ -670,7 +692,13 @@ export function JourneyCanvas({
               </div>
 
               <div>
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                <div
+                  className={
+                    effectiveReadOnly
+                      ? READ_ONLY_SECTION_RIBBON
+                      : 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1'
+                  }
+                >
                   Environment
                 </div>
                 <Input
@@ -685,7 +713,13 @@ export function JourneyCanvas({
             </div>
 
             <div>
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              <div
+                className={
+                  effectiveReadOnly
+                    ? READ_ONLY_SECTION_RIBBON
+                    : 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2'
+                }
+              >
                 Overall QA Notes
               </div>
               <QaNotesMarkdownField
@@ -698,7 +732,13 @@ export function JourneyCanvas({
             </div>
 
             <div>
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              <div
+                className={
+                  effectiveReadOnly
+                    ? READ_ONLY_SECTION_RIBBON
+                    : 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2'
+                }
+              >
                 Testing Profiles
               </div>
               {effectiveReadOnly ? (
@@ -804,7 +844,13 @@ export function JourneyCanvas({
 
             <div className="p-4 flex-1 overflow-y-auto overflow-x-hidden space-y-6 min-h-0 min-w-0">
               <div>
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                <div
+                  className={
+                    effectiveReadOnly
+                      ? READ_ONLY_SECTION_RIBBON
+                      : 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2'
+                  }
+                >
                   Node Details
                 </div>
                 <div className="bg-gray-50 p-3 rounded border text-sm">
@@ -868,8 +914,12 @@ export function JourneyCanvas({
               {isTriggerNode(selectedNode) && (
                 <div className="min-w-0">
                   <div
-                    className="text-[0.8rem] font-semibold text-[#475569] uppercase mb-2"
-                    style={{ letterSpacing: '0.03em' }}
+                    className={
+                      effectiveReadOnly
+                        ? READ_ONLY_SECTION_RIBBON
+                        : 'text-[0.8rem] font-semibold text-[#475569] uppercase mb-2'
+                    }
+                    style={effectiveReadOnly ? undefined : { letterSpacing: '0.03em' }}
                   >
                     Trigger Notes
                   </div>
@@ -895,7 +945,13 @@ export function JourneyCanvas({
                 isTriggerNode(selectedNode) &&
                 (selectedNode.data.description ?? '').trim() && (
                   <div className="min-w-0">
-                    <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                    <div
+                      className={
+                        effectiveReadOnly
+                          ? READ_ONLY_SECTION_RIBBON
+                          : 'text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1'
+                      }
+                    >
                       Trigger description
                     </div>
                     <div className="bg-white border rounded-md p-2 text-sm text-gray-800 min-w-0 max-w-full overflow-hidden">
@@ -911,7 +967,13 @@ export function JourneyCanvas({
                 <div className="space-y-4">
                   {(selectedNode.data.description ?? '').trim() && (
                     <div className="min-w-0 max-w-full">
-                      <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      <div
+                        className={
+                          effectiveReadOnly
+                            ? READ_ONLY_SECTION_RIBBON
+                            : 'text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1'
+                        }
+                      >
                         Description
                       </div>
                       <div className="bg-white border rounded-md p-2 text-sm text-gray-800 min-w-0 max-w-full overflow-hidden">
@@ -925,8 +987,14 @@ export function JourneyCanvas({
 
                   {(selectedNode.data.url ?? '').trim() && (
                     <div>
-                      <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                        URL
+                      <div
+                        className={
+                          effectiveReadOnly
+                            ? READ_ONLY_SECTION_RIBBON
+                            : 'text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1'
+                        }
+                      >
+                        Step URL
                       </div>
                       <a
                         className="block bg-white border rounded-md p-2 text-sm text-[var(--color-info)] break-all hover:underline"
@@ -941,7 +1009,13 @@ export function JourneyCanvas({
 
                   {(selectedNode.data.targetElement ?? '').trim() && (
                     <div>
-                      <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      <div
+                        className={
+                          effectiveReadOnly
+                            ? READ_ONLY_SECTION_RIBBON
+                            : 'text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1'
+                        }
+                      >
                         Target element
                       </div>
                       <pre className="bg-white border rounded-md p-2 text-xs text-gray-700 whitespace-pre-wrap break-all min-w-0 max-w-full overflow-x-auto">
@@ -952,7 +1026,13 @@ export function JourneyCanvas({
 
                   {(selectedNode.data.testDataJson ?? '').trim() && (
                     <div>
-                      <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      <div
+                        className={
+                          effectiveReadOnly
+                            ? READ_ONLY_SECTION_RIBBON
+                            : 'text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1'
+                        }
+                      >
                         Test data
                       </div>
                       <pre className="bg-white border rounded-md p-2 text-xs text-gray-700 whitespace-pre-wrap break-all min-w-0 max-w-full overflow-x-auto">
@@ -963,7 +1043,13 @@ export function JourneyCanvas({
 
                   {(selectedNode.data.imageUrl ?? '').trim() && (
                     <div>
-                      <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      <div
+                        className={
+                          effectiveReadOnly
+                            ? READ_ONLY_SECTION_RIBBON
+                            : 'text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1'
+                        }
+                      >
                         Screenshot
                       </div>
                       <button
@@ -987,7 +1073,13 @@ export function JourneyCanvas({
                 selectedNode.data.connectedEvent?.eventId && (
                   <div className="pt-2 border-t border-gray-200">
                     <div className="mb-3">
-                      <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      <label
+                        className={
+                          effectiveReadOnly
+                            ? `block ${READ_ONLY_SECTION_RIBBON}`
+                            : 'block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1'
+                        }
+                      >
                         Default codegen method
                       </label>
                       <select
@@ -1016,7 +1108,12 @@ export function JourneyCanvas({
                       prefetchedSnippets={selectedTriggerPrefetchedSnippets}
                       preferredStyle={journey.codegen_preferred_style ?? null}
                       compact
-                      title="Code Snippets"
+                      title={
+                        effectiveReadOnly ? 'Implementation example' : 'Code Snippets'
+                      }
+                      titleClassName={
+                        effectiveReadOnly ? READ_ONLY_SECTION_RIBBON : undefined
+                      }
                       workspaceId={workspaceId}
                     />
                   </div>
@@ -1025,7 +1122,13 @@ export function JourneyCanvas({
               {activeQARunId && (
               <>
               <div>
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                <div
+                  className={
+                    effectiveReadOnly
+                      ? READ_ONLY_SECTION_RIBBON
+                      : 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2'
+                  }
+                >
                   QA Notes
                 </div>
                 <QaNotesMarkdownField
@@ -1262,7 +1365,13 @@ export function JourneyCanvas({
                   <div className="space-y-3">
                     {imageProofs.length > 0 && (
                       <div className="space-y-2">
-                        <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                        <div
+                          className={
+                            effectiveReadOnly
+                              ? READ_ONLY_SECTION_RIBBON
+                              : 'text-[11px] font-semibold text-gray-500 uppercase tracking-wider'
+                          }
+                        >
                           Upload Image (QA Proof)
                         </div>
                         {imageProofs.map((proof) => (
@@ -1329,7 +1438,13 @@ export function JourneyCanvas({
 
                     {payloadProofs.length > 0 && (
                       <div className="space-y-2">
-                        <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                        <div
+                          className={
+                            effectiveReadOnly
+                              ? READ_ONLY_SECTION_RIBBON
+                              : 'text-[11px] font-semibold text-gray-500 uppercase tracking-wider'
+                          }
+                        >
                           Payload (Trigger Proof)
                         </div>
                         {payloadProofs.map((proof) => (
@@ -1491,8 +1606,8 @@ export function JourneyCanvas({
                     <div
                       className={`text-xs rounded p-2 ${
                         payloadValidationResult.valid
-                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                          : 'bg-red-50 text-red-800 border border-red-200'
+                          ? 'bg-[rgba(13,204,150,0.12)] text-[#0DCC96] border border-[#0DCC96]'
+                          : 'bg-[rgba(227,80,16,0.08)] text-[#E35010] border border-[#E35010]'
                       }`}
                     >
                       {payloadValidationResult.valid ? (

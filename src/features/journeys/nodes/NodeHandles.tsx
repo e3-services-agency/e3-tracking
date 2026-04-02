@@ -57,7 +57,7 @@ export const QAStatusBadge = ({ status }: { status?: QAStatus }) => {
 
   if (status === 'Passed') {
     return (
-      <div className="absolute -top-3 -right-3 bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm flex items-center gap-1 z-20">
+      <div className="absolute -top-3 -right-3 bg-[rgba(13,204,150,0.12)] text-[#0DCC96] border border-[#0DCC96] rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm flex items-center gap-1 z-20">
         <CheckCircle2 className="w-3 h-3" /> Passed
       </div>
     );
@@ -65,7 +65,7 @@ export const QAStatusBadge = ({ status }: { status?: QAStatus }) => {
 
   if (status === 'Failed') {
     return (
-      <div className="absolute -top-3 -right-3 bg-red-100 text-red-700 border border-red-300 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm flex items-center gap-1 z-20">
+      <div className="absolute -top-3 -right-3 bg-[rgba(227,80,16,0.08)] text-[#E35010] border border-[#E35010] rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm flex items-center gap-1 z-20">
         <X className="w-3 h-3" /> Failed
       </div>
     );

@@ -21,6 +21,8 @@ type EventCodeGenProps = {
   prefetchedSnippets?: CodegenSnippets | null;
   compact?: boolean;
   title?: string;
+  /** When set, replaces the default icon + heading row (e.g. export-style ribbon in read-only journey panel). */
+  titleClassName?: string;
   preferredStyle?: CodegenStyle | null;
 };
 
@@ -37,6 +39,7 @@ export function EventCodeGen({
   prefetchedSnippets = null,
   compact = false,
   title = 'Code Snippets',
+  titleClassName,
   preferredStyle = null,
 }: EventCodeGenProps) {
   const [snippets, setSnippets] = useState<CodegenSnippets | null>(null);
@@ -155,10 +158,14 @@ export function EventCodeGen({
 
   return (
     <div className={compact ? '' : 'space-y-4'}>
-      <div className="flex items-center gap-2 mb-4">
-        <Code className="w-4 h-4 text-gray-400" />
-        <h3 className="text-[15px] font-bold text-gray-800">{title}</h3>
-      </div>
+      {titleClassName ? (
+        <div className={titleClassName}>{title}</div>
+      ) : (
+        <div className="flex items-center gap-2 mb-4">
+          <Code className="w-4 h-4 text-gray-400" />
+          <h3 className="text-[15px] font-bold text-gray-800">{title}</h3>
+        </div>
+      )}
 
       {!preferredStyle && (
         <div className="flex gap-1 p-1 bg-gray-100 rounded-lg border border-gray-200 mb-2">

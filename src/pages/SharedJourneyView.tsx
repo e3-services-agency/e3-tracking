@@ -44,19 +44,33 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
   const style = `
 <style>
   .qa-chip { display:inline-flex; align-items:center; gap:6px; padding:2px 8px; border-radius:999px; border:1px solid #e2e8f0; font-size:12px; font-weight:600; line-height:18px; }
-  .qa-chip--Passed { background:#dcfce7; color:#166534; border-color:#bbf7d0; }
-  .qa-chip--Failed { background:#fee2e2; color:#991b1b; border-color:#fecaca; }
+  .qa-chip--Passed { background: rgba(13, 204, 150, 0.12); color: #0DCC96; border-color: #0DCC96; }
+  .qa-chip--Failed { background: rgba(227, 80, 16, 0.08); color: #E35010; border-color: #E35010; }
   .qa-chip--Pending { background:#fef3c7; color:#92400e; border-color:#fde68a; }
   .qa-block { margin-top: 10px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #ffffff; }
-  .qa-block-title { font-size: 12px; font-weight: 700; color: #475569; letter-spacing: 0.03em; text-transform: uppercase; margin-bottom: 8px; }
+  .export-section-ribbon {
+    background-color: #EEEEE3;
+    color: #1A1E38;
+    border-left: 4px solid #0077E3;
+    padding: 6px 12px;
+    margin-top: 24px;
+    margin-bottom: 12px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-radius: 0 4px 4px 0;
+  }
+  .qa-block > .export-section-ribbon:first-child { margin-top: 0; }
   .qa-run-details { margin: 0 0 16px; padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; border-left-width: 5px; }
-  .qa-run-details--PASSED { border-left-color: #22c55e; }
-  .qa-run-details--FAILED { border-left-color: #ef4444; }
+  .qa-run-details--PASSED { border-left-color: #0DCC96; }
+  .qa-run-details--FAILED { border-left-color: #E35010; }
   .qa-run-details--PENDING { border-left-color: #f59e0b; }
-  .qa-run-details h2 { margin: 0 0 10px; font-size: 1rem; color: #0f172a; }
+  .qa-run-details h2.export-section-ribbon { margin: 0 0 12px; font-size: 0.8rem; line-height: 1.25; color: #1A1E38; font-weight: 700; }
   .qa-run-meta-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
   @media (min-width: 720px) { .qa-run-meta-grid { grid-template-columns: 1fr 1fr; } }
   .qa-run-notes-section { width: 100%; margin-top: 14px; padding-top: 14px; border-top: 1px solid #e2e8f0; }
+  .qa-run-notes-section .export-section-ribbon { margin-top: 0; margin-bottom: 8px; }
   .qa-run-notes-section .qa-field-value { max-width: 100%; overflow-wrap: anywhere; word-wrap: break-word; }
   .qa-field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #64748b; margin-bottom: 2px; }
   .qa-field-value { font-size: 13px; color: #0f172a; white-space: pre-wrap; }
@@ -130,7 +144,7 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
     var block = document.createElement('div');
     block.className = 'qa-block';
     var title = document.createElement('div');
-    title.className = 'qa-block-title';
+    title.className = 'export-section-ribbon';
     title.textContent = (opts && opts.title) ? opts.title : 'QA Verification';
     block.appendChild(title);
     var st = document.createElement('div');
@@ -138,6 +152,10 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
     st.appendChild(chip(verification.status || 'Pending'));
     block.appendChild(st);
     if (notes){
+      var nTitle = document.createElement('div');
+      nTitle.className = 'export-section-ribbon';
+      nTitle.textContent = 'QA Notes';
+      block.appendChild(nTitle);
       var n = document.createElement('div');
       n.style.whiteSpace = 'pre-wrap';
       n.style.fontSize = '13px';
@@ -149,7 +167,7 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
       var ptWrap = document.createElement('div');
       ptWrap.style.marginTop = notes ? '10px' : '0';
       var ptLabel = document.createElement('div');
-      ptLabel.className = 'qa-field-label';
+      ptLabel.className = 'export-section-ribbon';
       ptLabel.textContent = (opts && opts.proofTextLabel) ? opts.proofTextLabel : 'Proof payload';
       var pre0 = document.createElement('pre');
       pre0.className = 'qa-codeblock';
@@ -164,7 +182,7 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
       var tp = document.createElement('div');
       tp.style.marginTop = '10px';
       var tpLabel = document.createElement('div');
-      tpLabel.className = 'qa-field-label';
+      tpLabel.className = 'export-section-ribbon';
       tpLabel.textContent = 'Linked testing profiles';
       tp.appendChild(tpLabel);
       var ul = document.createElement('ul');
@@ -201,7 +219,7 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
       var ep = document.createElement('div');
       ep.style.marginTop = '10px';
       var epLabel = document.createElement('div');
-      epLabel.className = 'qa-field-label';
+      epLabel.className = 'export-section-ribbon';
       epLabel.textContent = 'Extra testing profiles';
       ep.appendChild(epLabel);
       for (var e=0;e<extraProfiles.length;e++){
@@ -224,7 +242,7 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
     }
     if (imageProofs.length > 0){
       var galLabel = document.createElement('div');
-      galLabel.className = 'qa-field-label';
+      galLabel.className = 'export-section-ribbon';
       galLabel.style.marginTop = '10px';
       galLabel.textContent = 'Proof images';
       block.appendChild(galLabel);
@@ -277,7 +295,7 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
         wrap.appendChild(row2);
         if (Array.isArray(p.validation_issues) && p.validation_issues.length > 0) {
           var issuesLabel = document.createElement('div');
-          issuesLabel.className = 'qa-field-label';
+          issuesLabel.className = 'export-section-ribbon';
           issuesLabel.style.marginTop = '8px';
           issuesLabel.textContent = 'Validation issues';
           wrap.appendChild(issuesLabel);
@@ -348,6 +366,7 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
     var overall = computeOverall();
     box.className = 'qa-run-details qa-run-details--' + overall;
     var h = document.createElement('h2');
+    h.className = 'export-section-ribbon';
     h.textContent = 'QA Run details';
     box.appendChild(h);
     var metaGrid = document.createElement('div');
@@ -463,8 +482,8 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
       notesSection.className = 'qa-run-notes-section';
       var nWrap = document.createElement('div');
       var nLab = document.createElement('div');
-      nLab.className = 'qa-field-label';
-      nLab.textContent = 'Notes';
+      nLab.className = 'export-section-ribbon';
+      nLab.textContent = 'QA Notes';
       var nVal = document.createElement('div');
       nVal.className = 'qa-field-value qa-notes-md';
       if (notesHtml) nVal.innerHTML = notesHtml;

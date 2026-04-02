@@ -75,6 +75,22 @@ function isRequiredForCodegenSnippet(p: AttachedPropertyForCodegen): boolean {
   return isAttachedPropertyRequiredForTrigger(p.presence, p.property_required_override);
 }
 
+/**
+ * Required properties first, then optional — stable within each group.
+ * Avoids a misleading visual where a required line follows `// Optional:` for a prior optional prop.
+ */
+function orderCodegenPropsForSnippetDisplay(
+  props: AttachedPropertyForCodegen[]
+): AttachedPropertyForCodegen[] {
+  const required: AttachedPropertyForCodegen[] = [];
+  const optional: AttachedPropertyForCodegen[] = [];
+  for (const p of props) {
+    if (isRequiredForCodegenSnippet(p)) required.push(p);
+    else optional.push(p);
+  }
+  return [...required, ...optional];
+}
+
 function coerceIsoLikeToUnixSeconds(v: unknown): number | null {
   if (v === null || v === undefined) return null;
   if (typeof v === 'number' && Number.isFinite(v)) {
@@ -301,8 +317,8 @@ export function buildCodegenSnippets(
   workspaceConfig?: CodegenWorkspaceConfig
 ): CodegenSnippets {
   const safeCanonical = canonicalEventName?.trim() || 'event_name';
-  const props = attached.filter(
-    (p) => p.presence === 'always_sent' || p.presence === 'sometimes_sent'
+  const props = orderCodegenPropsForSnippetDisplay(
+    attached.filter((p) => p.presence === 'always_sent' || p.presence === 'sometimes_sent')
   );
 
   const dataLayer = buildDataLayerSnippet(safeCanonical, props, overrides);
@@ -339,7 +355,9 @@ export function buildCodegenSnippetsFromPresence(
 
 function formatPropLines(
   p: AttachedPropertyForCodegen,
-  optional: boolean
+  optional: boolean,
+  /** When optional, set false for 2nd+ optional props so one `// Optional:` labels the whole optional group. */
+  emitOptionalGroupHeader: boolean = true
 ): { comment?: string; lines: string[] } {
   const useNested =
     p.property_data_type === 'object' &&
@@ -357,7 +375,7 @@ function formatPropLines(
         '  '
       );
       const lines: string[] = [];
-      if (optional) {
+      if (optional && emitOptionalGroupHeader) {
         lines.push('  // Optional:');
       }
       lines.push(`  ${p.property_name}: {`);
@@ -370,7 +388,10 @@ function formatPropLines(
   const sample = jsonSampleValueForProperty(p);
   const lit = jsLiteralForSample(sample);
   const line = `  ${p.property_name}: ${lit}`;
-  if (optional) return { comment: '  // Optional:', lines: [line + ','] };
+  if (optional) {
+    if (emitOptionalGroupHeader) return { comment: '  // Optional:', lines: [line + ','] };
+    return { lines: [line + ','] };
+  }
   return { lines: [line + ','] };
 }
 
@@ -385,9 +406,12 @@ function buildDataLayerSnippet(
     'window.dataLayer.push({',
     `  event: '${eventName}',`,
   ];
+  let optionalGroupHeaderEmitted = false;
   for (const p of props) {
     const optional = !isRequiredForCodegenSnippet(p);
-    const { comment, lines: propLines } = formatPropLines(p, optional);
+    const emitOptionalGroupHeader = optional && !optionalGroupHeaderEmitted;
+    if (optional) optionalGroupHeaderEmitted = true;
+    const { comment, lines: propLines } = formatPropLines(p, optional, emitOptionalGroupHeader);
     if (comment) lines.push(comment);
     lines.push(...propLines);
   }
@@ -402,9 +426,12 @@ function buildBloomreachSdkSnippet(
 ): string {
   const eventName = resolveOutputEventName(canonicalEventName, 'bloomreachSdk', overrides);
   const lines: string[] = [`exponea.track('${eventName}', {`];
+  let optionalGroupHeaderEmitted = false;
   for (const p of props) {
     const optional = !isRequiredForCodegenSnippet(p);
-    const { comment, lines: propLines } = formatPropLines(p, optional);
+    const emitOptionalGroupHeader = optional && !optionalGroupHeaderEmitted;
+    if (optional) optionalGroupHeaderEmitted = true;
+    const { comment, lines: propLines } = formatPropLines(p, optional, emitOptionalGroupHeader);
     if (comment) lines.push(comment);
     lines.push(...propLines);
   }

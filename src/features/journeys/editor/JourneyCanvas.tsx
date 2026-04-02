@@ -859,57 +859,54 @@ export function JourneyCanvas({
                       ? selectedNode.data.label
                       : 'Trigger Node'}
                   </div>
-                  {isTriggerNode(selectedNode) &&
-                    selectedNode.data.connectedEvent && (
-                      <div className="text-gray-700 space-y-2 mt-2 pt-2 border-t border-gray-200">
-                        <div>
-                          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
-                            Event
-                          </div>
-                          <div className="text-sm text-gray-900">
-                            {selectedNode.data.connectedEvent.name}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
-                            Variant
-                          </div>
-                          <div className="text-sm text-gray-800">
-                            {selectedNode.data.connectedEvent.variantName?.trim()
-                              ? selectedNode.data.connectedEvent.variantName
-                              : '—'}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
-                            Purpose
-                          </div>
-                          <div className="text-sm text-gray-800 whitespace-pre-wrap break-words">
-                            {selectedNode.data.connectedEvent.purpose != null &&
-                            String(selectedNode.data.connectedEvent.purpose).trim() !== ''
-                              ? selectedNode.data.connectedEvent.purpose
-                              : '—'}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
-                            Event description
-                          </div>
-                          {(selectedNode.data.connectedEvent.description ?? '').trim() ? (
-                            <div className="text-sm text-gray-800 min-w-0 max-w-full">
-                              <JourneyDescriptionMarkdown
-                                text={selectedNode.data.connectedEvent.description ?? ''}
-                                className="text-sm"
-                              />
-                            </div>
-                          ) : (
-                            <div className="text-sm text-gray-500">—</div>
-                          )}
-                        </div>
-                      </div>
-                    )}
                 </div>
               </div>
+
+              {isTriggerNode(selectedNode) && selectedNode.data.connectedEvent && (
+                <div className="min-w-0 space-y-3">
+                  <div className="-mx-4 flex flex-wrap items-center gap-2.5 border-y border-slate-200 bg-slate-100 px-4 py-3">
+                    <span className="inline-flex items-center gap-1.5 rounded border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-900">
+                      <Zap className="h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden />
+                      Trigger
+                    </span>
+                    <span className="text-base font-bold uppercase tracking-wide text-slate-900">
+                      Event tracking
+                    </span>
+                  </div>
+                  <div className="text-sm font-semibold text-slate-800">
+                    Event:{' '}
+                    <span className="text-slate-900">
+                      {selectedNode.data.connectedEvent.name}
+                    </span>
+                  </div>
+                  <div className="grid min-w-0 grid-cols-[140px_1fr] gap-x-4 gap-y-2 items-start text-sm">
+                    <div className="text-gray-500 font-medium">Variant</div>
+                    <div className="min-w-0 text-gray-900 break-words">
+                      {selectedNode.data.connectedEvent.variantName?.trim()
+                        ? selectedNode.data.connectedEvent.variantName
+                        : '—'}
+                    </div>
+                    <div className="text-gray-500 font-medium">Purpose</div>
+                    <div className="min-w-0 text-gray-900 whitespace-pre-wrap break-words">
+                      {selectedNode.data.connectedEvent.purpose != null &&
+                      String(selectedNode.data.connectedEvent.purpose).trim() !== ''
+                        ? selectedNode.data.connectedEvent.purpose
+                        : '—'}
+                    </div>
+                    <div className="text-gray-500 font-medium">Event Description</div>
+                    <div className="min-w-0 text-gray-900">
+                      {(selectedNode.data.connectedEvent.description ?? '').trim() ? (
+                        <JourneyDescriptionMarkdown
+                          text={selectedNode.data.connectedEvent.description ?? ''}
+                          className="text-sm text-gray-900"
+                        />
+                      ) : (
+                        <span className="text-gray-500">—</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {isTriggerNode(selectedNode) && (
                 <div className="min-w-0">

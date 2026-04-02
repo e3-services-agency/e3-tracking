@@ -1065,12 +1065,18 @@ export async function generateJourneyHtmlExport(
                 ? `<div class="export-trigger-notes-section"><div class="export-section-ribbon">Trigger Notes</div><div class="export-trigger-notes">${renderQaNotesMarkdownToHtml(notesMd)}</div></div>`
                 : '';
             const eventDescRaw = (t.eventDescription ?? '').trim();
-            const eventDescBlock =
+            const descValueHtml =
               eventDescRaw.length > 0
-                ? `<div class="export-trigger-meta export-trigger-meta--desc"><span class="export-trigger-meta-label">Event description</span><span class="export-trigger-meta-value export-trigger-meta-value--desc">${renderJourneyDescriptionForExport(eventDescRaw)}</span></div>`
-                : '';
-            const variantMeta = `<div class="export-trigger-meta"><span class="export-trigger-meta-label">Variant</span><span class="export-trigger-meta-value">${t.variantDisplayName ? escapeHtml(t.variantDisplayName) : '—'}</span></div>`;
-            const purposeMeta = `<div class="export-trigger-meta"><span class="export-trigger-meta-label">Purpose</span><span class="export-trigger-meta-value">${t.eventPurpose && String(t.eventPurpose).trim() ? escapeHtml(String(t.eventPurpose).trim()) : '—'}</span></div>`;
+                ? renderJourneyDescriptionForExport(eventDescRaw)
+                : '—';
+            const eventMetaGrid = `<div class="export-trigger-meta-grid">
+  <div class="export-trigger-meta-label">Variant</div>
+  <div class="export-trigger-meta-value">${t.variantDisplayName ? escapeHtml(t.variantDisplayName) : '—'}</div>
+  <div class="export-trigger-meta-label">Purpose</div>
+  <div class="export-trigger-meta-value">${t.eventPurpose && String(t.eventPurpose).trim() ? escapeHtml(String(t.eventPurpose).trim()) : '—'}</div>
+  <div class="export-trigger-meta-label">Event Description</div>
+  <div class="export-trigger-meta-value${eventDescRaw.length > 0 ? ' export-trigger-meta-value--desc' : ''}">${descValueHtml}</div>
+</div>`;
             const rawSnippet = snippets[preferredCodegenStyle];
             // Product decision: render raw code only (no syntax highlighting).
             const escapedSnippet = escapeHtml(rawSnippet);
@@ -1082,9 +1088,7 @@ export async function generateJourneyHtmlExport(
           </div>
           <div class="export-tracking-body">
           <div class="export-tracking-title">Event: ${escapeHtml(t.eventName)} <span class="export-tracking-id">(${escapeHtml(t.eventId)})</span></div>
-          ${variantMeta}
-          ${purposeMeta}
-          ${eventDescBlock}
+          ${eventMetaGrid}
           ${triggerNotesBlock}
           ${propsTable}
           <div class="export-implementation-examples">
@@ -1125,7 +1129,10 @@ export async function generateJourneyHtmlExport(
 
       const trackingSection = triggersBlock
         ? `<div class="export-step-block export-step-block--tracking">
-  <div class="export-section-ribbon">Event tracking</div>
+  <div class="export-event-tracking-header">
+    <span class="export-event-tracking-trigger-tag">${EXPORT_TRIGGER_ZAP_SVG}<span>Trigger</span></span>
+    <span class="export-event-tracking-title">Event tracking</span>
+  </div>
   ${triggersBlock}
 </div>`
         : '';
@@ -1302,6 +1309,44 @@ export async function generateJourneyHtmlExport(
       margin-bottom: 8px;
     }
     .export-step-block .export-step-meta { margin-top: 0; }
+    .export-step-block--tracking {
+      padding-top: 0;
+    }
+    .export-step-block--tracking > .export-event-tracking-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 0 -18px 0 -18px;
+      padding: 14px 18px;
+      background: #f1f5f9;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .export-event-tracking-trigger-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #78350f;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      padding: 4px 10px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .export-event-tracking-trigger-tag .export-trigger-zap {
+      flex-shrink: 0;
+    }
+    .export-event-tracking-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #111;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
     .export-step-block--tracking .export-tracking-block:first-child { margin-top: 0; }
     .export-step-url-link { color: #2563eb; text-decoration: underline; word-break: break-all; }
     .export-step-url-link:hover { color: #1d4ed8; }
@@ -1410,29 +1455,29 @@ export async function generateJourneyHtmlExport(
     }
     .export-tracking-title { font-weight: 600; margin: 0 0 8px; color: #334155; font-size: 0.95rem; }
     .export-tracking-id { font-weight: 500; color: #64748b; font-size: 0.85em; }
-    .export-trigger-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px 12px;
-      align-items: baseline;
-      margin: 0 0 6px;
-      font-size: 0.875rem;
+    .export-trigger-meta-grid {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 8px 16px;
+      align-items: start;
+      font-size: 0.85rem;
+      width: 100%;
+      max-width: 100%;
+      margin: 0 0 10px;
+      box-sizing: border-box;
     }
-    .export-trigger-meta-label {
-      font-size: 0.7rem;
+    .export-trigger-meta-grid .export-trigger-meta-label {
       font-weight: 600;
       color: #64748b;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      min-width: 4.25rem;
-    }
-    .export-trigger-meta-value { color: #334155; flex: 1; min-width: 0; word-break: break-word; }
-    .export-trigger-meta--desc { align-items: flex-start; }
-    .export-trigger-meta-value--desc {
-      flex: 1;
       min-width: 0;
-      font-size: 0.875rem;
-      color: #334155;
+    }
+    .export-trigger-meta-grid .export-trigger-meta-value {
+      color: #0f172a;
+      min-width: 0;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+    .export-trigger-meta-value--desc {
       line-height: 1.45;
     }
     .export-trigger-meta-value--desc .export-step-desc-md { margin: 0; }

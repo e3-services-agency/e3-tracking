@@ -51,6 +51,38 @@ export function parseEventVariantOverridesJson(raw: unknown): EventVariantOverri
       entry.required = d.required;
     }
 
+    if ('description' in d && d.description !== undefined) {
+      if (d.description !== null && typeof d.description !== 'string') {
+        throw new BadRequestError(`description must be a string or null for property ${propertyId}.`);
+      }
+      if (d.description != null) {
+        entry.description = d.description;
+      }
+    }
+
+    if ('example_values' in d && d.example_values !== undefined) {
+      if (d.example_values === null) {
+        /* inherit base — omit from entry */
+      } else {
+        entry.example_values = d.example_values;
+      }
+    }
+
+    if ('enum_values' in d && d.enum_values !== undefined) {
+      if (d.enum_values === null) {
+        /* inherit base */
+      } else {
+        if (!Array.isArray(d.enum_values)) {
+          throw new BadRequestError(`enum_values must be an array or null for property ${propertyId}.`);
+        }
+        const strings = d.enum_values
+          .filter((x): x is string => typeof x === 'string')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        entry.enum_values = strings.length > 0 ? [...new Set(strings)] : [];
+      }
+    }
+
     if (Object.keys(entry).length > 0) {
       out[propertyId] = entry;
     }

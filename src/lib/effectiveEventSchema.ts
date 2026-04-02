@@ -60,6 +60,17 @@ function applyVariantOverridesToEffectiveDefinitions(
         existing.presence = 'sometimes_sent';
       }
     }
+
+    // Semantic overrides: non-null values replace base effective fields; null/absent → keep cloned base.
+    if (delta.description !== undefined && delta.description !== null) {
+      existing.effective = { ...existing.effective, description: delta.description };
+    }
+    if (delta.example_values !== undefined && delta.example_values !== null) {
+      existing.effective = { ...existing.effective, example_values: delta.example_values };
+    }
+    if (delta.enum_values !== undefined && delta.enum_values !== null) {
+      existing.effective = { ...existing.effective, enum_values: delta.enum_values };
+    }
   }
 
   return Array.from(byId.values());

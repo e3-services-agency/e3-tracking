@@ -372,6 +372,9 @@ export type EventVariantOverridesV1 = {
       required?: boolean | null;
       /** When true, property is omitted from effective trigger schema for this variant. */
       excluded?: boolean;
+      description?: string | null;
+      example_values?: unknown | null;
+      enum_values?: string[] | null;
     }
   >;
 };

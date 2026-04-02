@@ -2,6 +2,16 @@ import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import { BookOpen, FileText, LayoutDashboard, LayoutList, Loader2, Shield } from 'lucide-react';
+import { CodeBlock } from '@/src/components/ui/CodeBlock';
+
+function normalizeDocCodeLanguage(
+  lang: string
+): 'javascript' | 'typescript' | 'json' {
+  const l = lang.toLowerCase();
+  if (l === 'json') return 'json';
+  if (l === 'ts' || l === 'tsx' || l === 'typescript') return 'typescript';
+  return 'javascript';
+}
 
 const BASE_PATH =
   typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL != null
@@ -88,12 +98,39 @@ export function Documentation() {
           )}
           {!loading && !error && content && (
             <div className="min-w-0 max-w-full [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_code]:break-words [&_table]:block [&_table]:w-full [&_table]:max-w-full [&_table]:overflow-x-auto">
-              <ReactMarkdown
-                rehypePlugins={[rehypeRaw]}
-                className="prose prose-e3 max-w-none min-w-0 break-words"
-              >
-                {content}
-              </ReactMarkdown>
+              <div className="prose prose-e3 max-w-none min-w-0 break-words">
+                <ReactMarkdown
+                  rehypePlugins={[rehypeRaw]}
+                  components={{
+                    pre({ children }) {
+                      return <>{children}</>;
+                    },
+                    code({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {
+                      const match = /language-(\w+)/.exec(className || '');
+                      const childStr = String(children).replace(/\n$/, '');
+                      const isBlock = Boolean(match) || childStr.includes('\n');
+                      if (isBlock) {
+                        const lang = match ? match[1] : 'javascript';
+                        return (
+                          <div className="my-4 not-prose">
+                            <CodeBlock
+                              code={childStr}
+                              language={normalizeDocCodeLanguage(lang)}
+                            />
+                          </div>
+                        );
+                      }
+                      return (
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      );
+                    },
+                  }}
+                >
+                  {content}
+                </ReactMarkdown>
+              </div>
             </div>
           )}
         </div>

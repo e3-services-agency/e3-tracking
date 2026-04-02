@@ -449,6 +449,15 @@ export function generateHandoffHtml(
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Tracking Plan Handoff</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/googlecode.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('pre code').forEach((el) => {
+          hljs.highlightElement(el);
+        });
+      });
+    </script>
     <style>
       * { box-sizing: border-box; }
       html, body {
@@ -483,6 +492,16 @@ export function generateHandoffHtml(
         article, section, div {
           break-inside: avoid;
         }
+      }
+      pre {
+        margin: 0;
+        padding: 1.25rem !important;
+        font-size: 0.875rem !important;
+        line-height: 1.5 !important;
+        background-color: #fafafa !important;
+        border: 1px solid #e5e7eb !important;
+        border-radius: 0.375rem !important;
+        overflow-x: auto;
       }
     </style>
   </head>

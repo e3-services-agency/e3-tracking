@@ -67,8 +67,9 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
   .qa-proof { border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; background:#f8fafc; margin-top:8px; }
   .qa-proof-name { font-size:12px; font-weight:700; color:#0f172a; }
   .qa-proof-meta { font-size:11px; color:#64748b; margin-top:2px; }
-  .qa-codeblock { margin-top:6px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; overflow-x:auto; }
-  .qa-codeblock code { display:block; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; line-height: 1.45; white-space: pre; color:#0f172a; }
+  /* .qa-codeblock / .qa-codeblock code: let highlight.js + googlecode theme style proof snippets (parity with CodeBlock). */
+  /* .qa-codeblock { margin-top:6px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; overflow-x:auto; } */
+  /* .qa-codeblock code { display:block; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; line-height: 1.45; white-space: pre; color:#0f172a; } */
   .qa-proof-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-top: 8px; }
   .qa-proof-thumb { display:block; width:100%; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; background:#fff; text-decoration:none; padding:0; cursor: zoom-in; }
   .qa-proof-thumb img { display:block; width:100%; height:110px; object-fit:cover; background:#f1f5f9; }
@@ -566,11 +567,24 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
     // Run again on next tick in case export accordion wiring toggles bodies post-injection.
     setTimeout(expandAllSteps, 0);
   })();
+
+  if (typeof hljs !== 'undefined') {
+    document.querySelectorAll('.qa-codeblock code').forEach(function(el) {
+      hljs.highlightElement(el);
+    });
+  }
 })();
 </script>`;
 
+  const hljsHead = `
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/googlecode.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+`;
+
   // Inject right before </head> and </body> to keep it self-contained.
-  const withStyle = html.includes('</head>') ? html.replace('</head>', style + '\n</head>') : style + html;
+  const withStyle = html.includes('</head>')
+    ? html.replace('</head>', hljsHead + style + '\n</head>')
+    : hljsHead + style + html;
   return withStyle.includes('</body>') ? withStyle.replace('</body>', script + '\n</body>') : withStyle + script;
 }
 

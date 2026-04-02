@@ -537,6 +537,19 @@ export function EventEditorSheet({
           return false;
         }
       }
+      // Modal "Required" also drives event_property_definitions.required (Definition required toggle), not only
+      // event_properties.presence (always_sent vs sometimes_sent).
+      if (addRequired) {
+        const defResult = await putEventPropertyDefinitions(
+          currentEventId,
+          propertyIds.map((property_id) => ({ property_id, required: true }))
+        );
+        if (!defResult.success) {
+          const synced = await getEventWithProperties(currentEventId);
+          if (synced) setAttached(synced.attached_properties);
+          return false;
+        }
+      }
       const updated = await getEventWithProperties(currentEventId);
       if (updated) setAttached(updated.attached_properties);
       return true;

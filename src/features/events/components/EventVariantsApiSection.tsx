@@ -246,6 +246,12 @@ type EventVariantsApiSectionProps = {
   /** Open the edit modal for this variant once after variants are loaded (e.g. list row or chip). */
   variantIdToOpenOnLoad?: string | null;
   onConsumedVariantOpen?: () => void;
+  /**
+   * Stable fingerprint of attached property ids (e.g. sorted join). When this changes while the
+   * variant modal is open, effective definitions and drafts are merged so new rows stay "Inherited"
+   * until the user sets a variant delta.
+   */
+  attachedPropertyIdsKey?: string;
 };
 
 export function EventVariantsApiSection({
@@ -260,6 +266,7 @@ export function EventVariantsApiSection({
   workspaceMutationsDisabled,
   variantIdToOpenOnLoad = null,
   onConsumedVariantOpen,
+  attachedPropertyIdsKey,
 }: EventVariantsApiSectionProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState('');
@@ -331,6 +338,56 @@ export function EventVariantsApiSection({
       onConsumedVariantOpen?.();
     });
   }, [variantIdToOpenOnLoad, variants, openEdit, onConsumedVariantOpen]);
+
+  /** Baseline attached set when the variant editor opened; used to detect adds/removes without re-running openEdit. */
+  const prevAttachedKeyWhileEditingRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    prevAttachedKeyWhileEditingRef.current = undefined;
+  }, [editing?.id]);
+
+  useEffect(() => {
+    if (!editing) {
+      prevAttachedKeyWhileEditingRef.current = undefined;
+      return;
+    }
+    if (attachedPropertyIdsKey === undefined) return;
+
+    const prev = prevAttachedKeyWhileEditingRef.current;
+    if (prev === undefined) {
+      prevAttachedKeyWhileEditingRef.current = attachedPropertyIdsKey;
+      return;
+    }
+    if (prev === attachedPropertyIdsKey) return;
+
+    prevAttachedKeyWhileEditingRef.current = attachedPropertyIdsKey;
+
+    let cancelled = false;
+    const ovSnapshot = editing.overrides_json;
+
+    void (async () => {
+      const r = await getEffectivePropertyDefinitions(eventId);
+      if (cancelled || !r.success) return;
+      setBaseEffective(r.items);
+      setVariantDrafts((prevDrafts) => {
+        const next = new Map(prevDrafts);
+        for (const def of r.items) {
+          if (!next.has(def.property_id)) {
+            next.set(def.property_id, draftFromVariantProperty(def.property_id, ovSnapshot, def));
+          }
+        }
+        const valid = new Set(r.items.map((d) => d.property_id));
+        for (const id of [...next.keys()]) {
+          if (!valid.has(id)) next.delete(id);
+        }
+        return next;
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [editing, editing?.id, attachedPropertyIdsKey, eventId, getEffectivePropertyDefinitions]);
 
   const toggleExpandProperty = (propertyId: string) => {
     setExpandedPropertyIds((prev) => {

@@ -1018,6 +1018,10 @@ export function EventEditorSheet({
                 setPendingVariantOpenId(null);
                 onInitialVariantIdConsumed?.();
               }}
+              attachedPropertyIdsKey={attached
+                .map((a) => a.property_id)
+                .sort()
+                .join(',')}
             />
           </>
         )}

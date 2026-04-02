@@ -51,16 +51,17 @@ function formatEffectiveExample(v: unknown): string {
 }
 
 /**
- * True when the event has a real semantic override worth showing as "Overridden".
- * `required: false` alone is treated as inherit / not badge-worthy (legacy rows may still exist in DB).
+ * True when the event overrides **catalog copy / semantics** worth showing as "Overridden".
+ * Definition-level `required` (including from "Add properties" with Required checked) is initial
+ * event configuration for trigger rules — not an "override vs global catalog" in this badge sense.
+ * `required: false` alone is also not badge-worthy (see comment on legacy rows in handleSave paths).
  */
 function hasSemanticOverrideForBadge(override: EventPropertyDefinitionRow | null | undefined): boolean {
   if (!override) return false;
   return (
     override.description_override != null ||
     override.example_values != null ||
-    (override.enum_values != null && override.enum_values.length > 0) ||
-    override.required === true
+    (override.enum_values != null && override.enum_values.length > 0)
   );
 }
 

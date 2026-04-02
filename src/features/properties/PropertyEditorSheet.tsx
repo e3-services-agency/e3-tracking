@@ -255,6 +255,7 @@ export function PropertyEditorSheet({
             )
           );
         }
+        setSelectedBundleIds(initialProperty.bundle_ids?.slice() ?? []);
       } else {
         setName('');
         setDescription('');
@@ -272,8 +273,6 @@ export function PropertyEditorSheet({
         setMappedFieldId('');
         setMappingType('mapped_value');
         setCatalogFields([]);
-        setSelectedBundleIds(initialProperty.bundle_ids?.slice() ?? []);
-      } else {
         setSelectedBundleIds([]);
       }
     }
@@ -516,6 +515,7 @@ export function PropertyEditorSheet({
         example_values_json,
         name_mappings_json,
         source_ids: selectedSourceIds,
+        bundle_ids: selectedBundleIds,
       };
       if (mappingEnabled && mappedCatalogId && mappedFieldId) {
         payload.mapped_catalog_id = mappedCatalogId;
@@ -548,6 +548,7 @@ export function PropertyEditorSheet({
       mapped_catalog_field_id: null,
       mapping_type: null,
       ...(selectedSourceIds.length > 0 ? { source_ids: selectedSourceIds } : {}),
+      ...(selectedBundleIds.length > 0 ? { bundle_ids: selectedBundleIds } : {}),
     };
     if (mappingEnabled && mappedCatalogId && mappedFieldId) {
       payload.mapped_catalog_id = mappedCatalogId;
@@ -995,6 +996,70 @@ export function PropertyEditorSheet({
               </p>
             )}
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700" id="property-bundles-label">
+            Bundles
+          </label>
+          <p className="text-xs text-gray-500">
+            Add this property to named bundles for bulk attach when editing events.
+          </p>
+          {bundlesListLoading && (
+            <p className="text-xs text-gray-500" role="status">
+              Loading bundles…
+            </p>
+          )}
+          {selectedBundleIds.length > 0 && (
+            <div className="flex flex-wrap gap-2" aria-labelledby="property-bundles-label">
+              {selectedBundleIds.map((id) => {
+                const b = workspaceBundles.find((x) => x.id === id);
+                const label = b?.name ?? id;
+                return (
+                  <span
+                    key={id}
+                    className="inline-flex items-center gap-1 rounded-md border border-input bg-gray-50 px-2 py-1 text-xs text-gray-800 max-w-full"
+                  >
+                    <span className="truncate">{label}</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedBundleIds((prev) => prev.filter((x) => x !== id))
+                      }
+                      className="rounded p-0.5 text-gray-500 hover:text-gray-900 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0"
+                      aria-label={`Remove bundle ${label}`}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+          <select
+            key={[...selectedBundleIds].sort().join(',')}
+            value=""
+            disabled={
+              bundlesListLoading || !activeWorkspaceId || !hasValidWorkspaceContext
+            }
+            onChange={(e) => {
+              const id = e.target.value;
+              if (id) {
+                setSelectedBundleIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+              }
+            }}
+            aria-label="Add to bundle"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+          >
+            <option value="">Add to bundle…</option>
+            {workspaceBundles
+              .filter((b) => !selectedBundleIds.includes(b.id))
+              .map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+          </select>
         </div>
       </div>
 

@@ -14,10 +14,8 @@ import {
   computeCodegenRequiredForTriggerByPropertyIds,
   type EffectiveListCache,
 } from '../lib/codegenRequiredness';
-import {
-  debugSnippetPropertyName,
-  matchesDebugSnippetProperty,
-} from '../lib/codegenSnippetDebug';
+import { isAttachedPropertyRequiredForTrigger } from '../../lib/effectiveEventSchema';
+import type { EventPropertyPresence } from '../../types/schema';
 import { generateJourneyHtmlExport } from '../services/export.service';
 import { getSupabaseOrThrow } from '../db/supabase';
 import { getSharedJourneyQARuns } from '../dal/qa.dal';
@@ -40,6 +38,24 @@ type CanvasNode = {
     imageUrl?: string;
   };
 };
+
+/**
+ * Deterministic boolean for shared snippet codegen: prefer variant/effective map lookup
+ * (trimmed property_id key), never leave `required_for_trigger` undefined on the payload.
+ */
+function sharedSnippetRequiredForTrigger(
+  map: Map<string, boolean>,
+  propertyIdRaw: string | undefined,
+  presence: EventPropertyPresence,
+  propertyRequiredOverride: boolean | null | undefined
+): boolean {
+  const pid = typeof propertyIdRaw === 'string' ? propertyIdRaw.trim() : '';
+  if (pid !== '') {
+    const v = map.get(pid);
+    if (typeof v === 'boolean') return v;
+  }
+  return isAttachedPropertyRequiredForTrigger(presence, propertyRequiredOverride ?? null);
+}
 
 function rewriteSharedImageUrls(journeyId: string, nodes: unknown): unknown {
   if (!Array.isArray(nodes)) return nodes;
@@ -97,7 +113,7 @@ async function buildSharedEventSnippets(
         eventId,
         variantIdsForEvent,
         attached_properties.map((p) => ({
-          property_id: p.property_id,
+          property_id: typeof p.property_id === 'string' ? p.property_id.trim() : '',
           presence: p.presence,
           property_required_override: p.property_required_override ?? null,
         })),
@@ -107,7 +123,12 @@ async function buildSharedEventSnippets(
         property_name: p.property_name || '',
         presence: p.presence,
         property_required_override: p.property_required_override ?? null,
-        required_for_trigger: requiredByPropId.get(p.property_id),
+        required_for_trigger: sharedSnippetRequiredForTrigger(
+          requiredByPropId,
+          p.property_id,
+          p.presence,
+          p.property_required_override ?? null
+        ),
         property_id: p.property_id,
         property_data_type: p.property_data_type,
         property_data_formats: p.property_data_formats,
@@ -116,37 +137,6 @@ async function buildSharedEventSnippets(
         property_object_child_property_refs_json: p.property_object_child_property_refs_json ?? null,
         object_child_snapshots_by_field: p.object_child_snapshots_by_field ?? null,
       }));
-      if (debugSnippetPropertyName()) {
-        for (const p of attached_properties) {
-          if (!matchesDebugSnippetProperty(p.property_name)) continue;
-          const pid = p.property_id;
-          console.warn(
-            '[E3 DEBUG snippet] buildSharedEventSnippets (before buildCodegenSnippets)',
-            JSON.stringify(
-              {
-                path: 'GET shared journey JSON → buildSharedEventSnippets',
-                workspaceId,
-                eventId,
-                eventName: event.name,
-                variantIdsForEvent: [...variantIdsForEvent],
-                property_id: pid,
-                property_name: p.property_name,
-                presence: p.presence,
-                property_required_override: p.property_required_override,
-                map_has_property_id: typeof pid === 'string' && pid.length > 0 ? requiredByPropId.has(pid) : false,
-                required_for_trigger_from_map:
-                  typeof pid === 'string' && pid.length > 0 ? requiredByPropId.get(pid) : undefined,
-                typeof_required_for_trigger:
-                  typeof pid === 'string' && pid.length > 0
-                    ? typeof requiredByPropId.get(pid)
-                    : 'skipped_row_no_property_id',
-              },
-              null,
-              2
-            )
-          );
-        }
-      }
       out[eventId] = {
         eventName: event.name,
         snippets: buildCodegenSnippets(

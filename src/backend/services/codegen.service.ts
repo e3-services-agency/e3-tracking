@@ -16,10 +16,6 @@ import type {
   PropertyValueSchema,
 } from '../../types/schema';
 import { isAttachedPropertyRequiredForTrigger } from '../../lib/effectiveEventSchema';
-import {
-  debugSnippetPropertyName,
-  matchesDebugSnippetProperty,
-} from '../lib/codegenSnippetDebug';
 
 export interface AttachedPropertyForCodegen {
   property_name: string;
@@ -27,9 +23,9 @@ export interface AttachedPropertyForCodegen {
   /** event_property_definitions.required (nullable). */
   property_required_override?: boolean | null;
   /**
-   * When set, snippet optional/required grouping uses this instead of
+   * When set to a boolean, snippet optional/required grouping uses this instead of
    * `isAttachedPropertyRequiredForTrigger(presence, property_required_override)`.
-   * Populated from effective definitions + variant merge (same rule as Event Properties UI).
+   * Shared journey snippets set this to a boolean for every attached row (never undefined).
    */
   required_for_trigger?: boolean;
   /** Catalog property id (attached row); used for nested resolution. */
@@ -425,23 +421,6 @@ function buildDataLayerSnippet(
   ];
   for (const p of props) {
     const optional = !isRequiredForCodegenSnippet(p);
-    if (matchesDebugSnippetProperty(p.property_name)) {
-      const req = isRequiredForCodegenSnippet(p);
-      console.warn(
-        '[E3 DEBUG snippet] buildDataLayerSnippet',
-        JSON.stringify(
-          {
-            property_name: p.property_name,
-            expression: 'optional = !isRequiredForCodegenSnippet(p)',
-            isRequiredForCodegenSnippet: req,
-            optional,
-            formatPropLines_second_arg: optional,
-          },
-          null,
-          2
-        )
-      );
-    }
     const { comment, lines: propLines } = formatPropLines(p, optional);
     if (comment) lines.push(comment);
     lines.push(...propLines);
@@ -511,32 +490,6 @@ function buildBloomreachApiSnippet(
   };
   const json = JSON.stringify(body, null, 2);
   const optionalProps = props.filter((p) => !isRequiredForCodegenSnippet(p));
-  if (debugSnippetPropertyName()) {
-    const match = props.find((p) => matchesDebugSnippetProperty(p.property_name));
-    if (match) {
-      const req = isRequiredForCodegenSnippet(match);
-      console.warn(
-        '[E3 DEBUG snippet] buildBloomreachApiSnippet',
-        JSON.stringify(
-          {
-            property_name: match.property_name,
-            property_id: match.property_id,
-            isRequiredForCodegenSnippet: req,
-            inOptionalCommentList: optionalProps.some(
-              (x) => x.property_id === match.property_id && x.property_name === match.property_name
-            ),
-            optionalCommentNames: optionalProps.map((x) => x.property_name),
-            expressions: {
-              optionalComment:
-                'optionalProps = props.filter((p) => !isRequiredForCodegenSnippet(p))',
-            },
-          },
-          null,
-          2
-        )
-      );
-    }
-  }
   const curlExample =
     `curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\\n` +
     `  -H "Authorization: Basic YOUR_BASE64_API_KEY" \\\n` +

@@ -71,13 +71,16 @@ export async function computeCodegenRequiredForTriggerByPropertyIds(
 
   const out = new Map<string, boolean>();
   for (const row of rows) {
-    const pid = row.property_id;
+    const pid = typeof row.property_id === 'string' ? row.property_id.trim() : '';
     if (!pid) continue;
 
     let anyListHadDef = false;
     let required = false;
     for (const effectiveList of lists) {
-      const def = effectiveList.find((d) => d.property_id === pid);
+      const def = effectiveList.find((d) => {
+        const id = typeof d.property_id === 'string' ? d.property_id.trim() : '';
+        return id === pid;
+      });
       if (def) {
         anyListHadDef = true;
         if (isPropertyRequiredForTrigger(def)) {

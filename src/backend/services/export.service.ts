@@ -18,6 +18,10 @@ import type {
 import { NotFoundError } from '../errors';
 import { isAttachedPropertyRequiredForTrigger } from '../../lib/effectiveEventSchema';
 import {
+  computeCodegenRequiredForTriggerByPropertyIds,
+  type EffectiveListCache,
+} from '../lib/codegenRequiredness';
+import {
   buildCodegenSnippets,
   jsonSampleValueForProperty,
   type AttachedPropertyForCodegen,
@@ -201,7 +205,9 @@ type CanvasNode = {
     targetElement?: string;
     implementationType?: 'new' | 'enrichment' | 'fix';
     url?: string;
-    connectedEvent?: { eventId?: string; name?: string };
+    connectedEvent?: { eventId?: string; name?: string; variantId?: string };
+    /** Trigger node: persisted notes for export. */
+    notes_markdown?: string;
     color?: string;
   };
 };
@@ -635,6 +641,8 @@ export interface StepExportItem {
     codegen_event_name_overrides: CodegenEventNameOverrides | null;
     /** Persisted trigger node notes (markdown); empty when unset. */
     notesMarkdown: string;
+    /** Canvas trigger connected event variant; null when unset. */
+    variantId: string | null;
   }[];
 }
 
@@ -700,6 +708,7 @@ export async function generateJourneyHtmlExport(
   }
 
   const steps: StepExportItem[] = [];
+  const codegenEffListCache: EffectiveListCache = new Map();
   const eventPayloadCache = new Map<
     string,
     {
@@ -768,6 +777,9 @@ export async function generateJourneyHtmlExport(
         }
       }
       const nm = trigger.data?.notes_markdown;
+      const rawVid = trigger.data?.connectedEvent?.variantId;
+      const variantId =
+        typeof rawVid === 'string' && rawVid.trim() !== '' ? rawVid.trim() : null;
       triggers.push({
         eventId,
         eventName: cached.eventName,
@@ -778,6 +790,7 @@ export async function generateJourneyHtmlExport(
         sourceLabelsByPropertyId: cached.sourceLabelsByPropertyId,
         codegen_event_name_overrides: cached.codegen_event_name_overrides,
         notesMarkdown: typeof nm === 'string' ? nm : '',
+        variantId,
       });
     }
 
@@ -860,8 +873,9 @@ export async function generateJourneyHtmlExport(
 </nav>`
       : '';
 
-  const stepsHtml = steps
-    .map((step, index) => {
+  const stepsHtml = (
+    await Promise.all(
+      steps.map(async (step, index) => {
       const stepNum = index + 1;
       let imgBlock = '';
       if (step.imageUrl) {
@@ -958,14 +972,26 @@ export async function generateJourneyHtmlExport(
 
       let triggersBlock = '';
       if (step.triggers.length > 0) {
-        triggersBlock = step.triggers
-          .map((t) => {
+        const triggerParts = await Promise.all(
+          step.triggers.map(async (t) => {
+            const requiredByPropId = await computeCodegenRequiredForTriggerByPropertyIds(
+              workspaceId,
+              t.eventId,
+              new Set([t.variantId]),
+              t.attached_properties.map((p) => ({
+                property_id: p.property_id,
+                presence: p.presence,
+                property_required_override: p.property_required_override ?? null,
+              })),
+              codegenEffListCache
+            );
             const snippets = buildCodegenSnippets(
               t.eventName,
               t.attached_properties.map((p) => ({
                 property_name: p.property_name || '',
                 presence: p.presence,
                 property_required_override: p.property_required_override ?? null,
+                required_for_trigger: requiredByPropId.get(p.property_id),
                 property_id: p.property_id,
                 property_data_type: p.property_data_type,
                 property_data_formats: p.property_data_formats,
@@ -1013,7 +1039,8 @@ export async function generateJourneyHtmlExport(
           </div>
         </div>`;
           })
-          .join('\n');
+        );
+        triggersBlock = triggerParts.join('\n');
       }
 
       const stepDetailsSection = `<div class="export-step-block export-step-block--step">
@@ -1060,8 +1087,9 @@ export async function generateJourneyHtmlExport(
           </div>
         </div>
       </section>`;
-    })
-    .join('\n');
+      })
+    )
+  ).join('\n');
 
   const html = `<!DOCTYPE html>
 <html lang="en">

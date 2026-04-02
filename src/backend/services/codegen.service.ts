@@ -22,6 +22,12 @@ export interface AttachedPropertyForCodegen {
   presence: EventPropertyPresence;
   /** event_property_definitions.required (nullable). */
   property_required_override?: boolean | null;
+  /**
+   * When set, snippet optional/required grouping uses this instead of
+   * `isAttachedPropertyRequiredForTrigger(presence, property_required_override)`.
+   * Populated from effective definitions + variant merge (same rule as Event Properties UI).
+   */
+  required_for_trigger?: boolean;
   /** Catalog property id (attached row); used for nested resolution. */
   property_id?: string;
   property_data_type?: string | null;
@@ -60,6 +66,13 @@ function resolveOutputEventName(
 
 function hasFormat(formats: string[] | null | undefined, f: PropertyDataFormat): boolean {
   return Array.isArray(formats) && formats.includes(f);
+}
+
+function isRequiredForCodegenSnippet(p: AttachedPropertyForCodegen): boolean {
+  if (typeof p.required_for_trigger === 'boolean') {
+    return p.required_for_trigger;
+  }
+  return isAttachedPropertyRequiredForTrigger(p.presence, p.property_required_override);
 }
 
 function coerceIsoLikeToUnixSeconds(v: unknown): number | null {
@@ -373,10 +386,7 @@ function buildDataLayerSnippet(
     `  event: '${eventName}',`,
   ];
   for (const p of props) {
-    const optional = !isAttachedPropertyRequiredForTrigger(
-      p.presence,
-      p.property_required_override
-    );
+    const optional = !isRequiredForCodegenSnippet(p);
     const { comment, lines: propLines } = formatPropLines(p, optional);
     if (comment) lines.push(comment);
     lines.push(...propLines);
@@ -393,10 +403,7 @@ function buildBloomreachSdkSnippet(
   const eventName = resolveOutputEventName(canonicalEventName, 'bloomreachSdk', overrides);
   const lines: string[] = [`exponea.track('${eventName}', {`];
   for (const p of props) {
-    const optional = !isAttachedPropertyRequiredForTrigger(
-      p.presence,
-      p.property_required_override
-    );
+    const optional = !isRequiredForCodegenSnippet(p);
     const { comment, lines: propLines } = formatPropLines(p, optional);
     if (comment) lines.push(comment);
     lines.push(...propLines);
@@ -431,9 +438,7 @@ function buildBloomreachApiSnippet(
     ...(Object.keys(properties).length > 0 ? { properties } : {}),
   };
   const json = JSON.stringify(body, null, 2);
-  const optionalProps = props.filter(
-    (p) => !isAttachedPropertyRequiredForTrigger(p.presence, p.property_required_override)
-  );
+  const optionalProps = props.filter((p) => !isRequiredForCodegenSnippet(p));
   const curlExample =
     `curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\\n` +
     `  -H "Authorization: Basic YOUR_BASE64_API_KEY" \\\n` +

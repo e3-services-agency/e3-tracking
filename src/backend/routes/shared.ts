@@ -10,6 +10,10 @@ import { getWorkspaceIdByJourneysShareHubToken, getWorkspaceSettings } from '../
 import { getEventWithProperties } from '../dal/event.dal';
 import { DatabaseError, NotFoundError } from '../errors';
 import { buildCodegenSnippets } from '../services/codegen.service';
+import {
+  computeCodegenRequiredForTriggerByPropertyIds,
+  type EffectiveListCache,
+} from '../lib/codegenRequiredness';
 import { generateJourneyHtmlExport } from '../services/export.service';
 import { getSupabaseOrThrow } from '../db/supabase';
 import { getSharedJourneyQARuns } from '../dal/qa.dal';
@@ -28,7 +32,7 @@ type CanvasNode = {
   type?: string;
   id?: string;
   data?: {
-    connectedEvent?: { eventId?: string; name?: string };
+    connectedEvent?: { eventId?: string; name?: string; variantId?: string };
     imageUrl?: string;
   };
 };
@@ -70,13 +74,36 @@ async function buildSharedEventSnippets(
   )];
 
   const out: Record<string, { eventName: string; snippets: { dataLayer: string; bloomreachSdk: string; bloomreachApi: string } }> = {};
+  const effListCache: EffectiveListCache = new Map();
   for (const eventId of eventIds) {
     try {
       const { event, attached_properties } = await getEventWithProperties(workspaceId, eventId);
+      const variantIdsForEvent = new Set<string | null>();
+      for (const n of list) {
+        if (n?.type !== 'triggerNode') continue;
+        const eid = n?.data?.connectedEvent?.eventId;
+        if (eid !== eventId) continue;
+        const rawVid = n?.data?.connectedEvent?.variantId;
+        variantIdsForEvent.add(
+          typeof rawVid === 'string' && rawVid.trim() !== '' ? rawVid.trim() : null
+        );
+      }
+      const requiredByPropId = await computeCodegenRequiredForTriggerByPropertyIds(
+        workspaceId,
+        eventId,
+        variantIdsForEvent,
+        attached_properties.map((p) => ({
+          property_id: p.property_id,
+          presence: p.presence,
+          property_required_override: p.property_required_override ?? null,
+        })),
+        effListCache
+      );
       const attached = attached_properties.map((p) => ({
         property_name: p.property_name || '',
         presence: p.presence,
         property_required_override: p.property_required_override ?? null,
+        required_for_trigger: requiredByPropId.get(p.property_id),
         property_id: p.property_id,
         property_data_type: p.property_data_type,
         property_data_formats: p.property_data_formats,

@@ -67,7 +67,7 @@ function formatProofIssuesForExport(p: QAProof): QAProof {
  */
 export function withFormattedPayloadValidationIssuesForExport(qaRun: QARun): QARun {
   const verifications: Record<string, QAVerification> = { ...(qaRun.verifications || {}) };
-  for (const [, v] of Object.entries(verifications)) {
+  for (const [nodeId, v] of Object.entries(verifications)) {
     const proofs = Array.isArray(v.proofs)
       ? v.proofs.map(formatProofIssuesForExport)
       : v.proofs;

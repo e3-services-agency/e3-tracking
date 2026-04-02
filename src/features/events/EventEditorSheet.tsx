@@ -9,7 +9,7 @@ import { Modal } from '@/src/components/ui/Modal';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { IconSelect, type IconSelectOption } from '@/src/components/ui/IconSelect';
-import { EventAttachPropertyPicker } from '@/src/features/events/components/EventAttachPropertyPicker';
+import { AddPropertyModal } from '@/src/features/events/overlays/AddPropertyModal';
 import {
   EventPropertyOverridesSection,
   type EventPropertyOverridesSectionProps,
@@ -1062,26 +1062,20 @@ export function EventEditorSheet({
                 Add Property
               </Button>
 
-              <Modal
+              <AddPropertyModal
+                key={currentEventId}
                 isOpen={attachPropertyPickerOpen}
                 onClose={() => setAttachPropertyPickerOpen(false)}
-                title="Add properties"
-                backdropClassName="z-[60]"
-                className="z-[70] max-w-[min(560px,calc(100vw-1.5rem))] max-h-[min(90vh,720px)] flex flex-col"
-                bodyClassName="p-4 min-h-0 flex-1 overflow-y-auto"
-              >
-                <EventAttachPropertyPicker
-                  key={currentEventId}
-                  availableProperties={availableProperties}
-                  attachedIds={attachedIds}
-                  addRequired={addRequired}
-                  onAddRequiredChange={setAddRequired}
-                  onAddSelected={handleAddSelectedProperties}
-                  adding={addingProperty}
-                  workspaceActionsDisabled={!hasValidWorkspaceContext}
-                  bundles={bundles}
-                />
-              </Modal>
+                mode="event"
+                availableProperties={availableProperties}
+                attachedIds={attachedIds}
+                bundles={bundles}
+                addRequired={addRequired}
+                onAddRequiredChange={setAddRequired}
+                onAddSelected={handleAddSelectedProperties}
+                adding={addingProperty}
+                workspaceActionsDisabled={!hasValidWorkspaceContext}
+              />
 
               <ul className="border rounded-lg divide-y divide-gray-100">
                 {attached.length === 0 ? (

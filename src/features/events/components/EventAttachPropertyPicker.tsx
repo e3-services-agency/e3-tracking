@@ -194,8 +194,8 @@ export function EventAttachPropertyPicker({
     availableProperties.find((p) => p.id === propertyId)?.name ?? propertyId;
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-end gap-2">
+    <div className="flex flex-col flex-1 min-h-0 h-full gap-3">
+      <div className="flex flex-wrap items-end gap-2 shrink-0">
         <div className="flex-1 min-w-[160px] space-y-1">
           <label className="text-xs font-medium text-gray-600" htmlFor="event-property-picker-search">
             {activeTab === 'properties' ? 'Search properties' : 'Search bundles'}
@@ -294,8 +294,8 @@ export function EventAttachPropertyPicker({
         </Button>
       </div>
 
-      <div className="flex flex-col min-[420px]:flex-row border rounded-lg overflow-hidden min-h-[220px] max-h-[320px]">
-        <div className="min-[420px]:w-[45%] min-[420px]:min-w-0 min-[420px]:border-r border-gray-200 overflow-y-auto divide-y divide-gray-100 bg-white">
+      <div className="flex-1 min-h-0 border rounded-lg overflow-hidden flex">
+        <div className="w-[350px] shrink-0 border-r border-gray-200 overflow-y-auto bg-white flex flex-col divide-y divide-gray-100">
           {activeTab === 'properties' && (
             <>
               {filtered.length === 0 ? (
@@ -381,7 +381,7 @@ export function EventAttachPropertyPicker({
             </>
           )}
         </div>
-        <div className="flex-1 min-w-0 overflow-y-auto p-3 bg-gray-50/60 text-sm">
+        <div className="flex-1 min-w-0 overflow-y-auto p-8 bg-gray-50/60 text-sm">
           {activeTab === 'properties' && focusedProperty && (
             <div className="space-y-2">
               <div>

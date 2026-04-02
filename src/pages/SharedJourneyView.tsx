@@ -9,7 +9,10 @@ import { JourneyCanvas } from '@/src/features/journeys/editor/JourneyCanvas';
 import { getSharedJourneyByIdApi, getSharedJourneyByTokenApi } from '@/src/features/journeys/hooks/useJourneysApi';
 import type { Journey } from '@/src/types';
 import { API_BASE, buildAppPageUrl } from '@/src/config/env';
-import { withFormattedPayloadValidationIssuesForExport } from '@/src/features/journeys/lib/payloadValidationFormatter';
+import {
+  computePayloadValidationRunSummary,
+  withFormattedPayloadValidationIssuesForExport,
+} from '@/src/features/journeys/lib/payloadValidationFormatter';
 import { computeQARunStatusForRun, getQARunDisplayName } from '@/src/features/journeys/lib/qaRunUtils';
 import { ArrowLeft, Check, ChevronDown, FileText, Lock, LockOpen, PenTool } from 'lucide-react';
 import type { QARun, QAStatus } from '@/src/types';
@@ -29,7 +32,10 @@ type SharedResponse = {
 };
 
 function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
-  const safeJson = JSON.stringify(withFormattedPayloadValidationIssuesForExport(qaRun)).replace(
+  const runForExport = withFormattedPayloadValidationIssuesForExport(qaRun);
+  const safeJson = JSON.stringify(runForExport).replace(/<\/script/gi, '<\\/script');
+  const payloadValSummary = computePayloadValidationRunSummary(qaRun);
+  const safePayloadSummaryJson = JSON.stringify(payloadValSummary).replace(
     /<\/script/gi,
     '<\\/script'
   );
@@ -368,6 +374,28 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
       wrap.appendChild(row);
       grid.appendChild(wrap);
     })();
+    if (payloadValSummary) {
+      var pvWrap = document.createElement('div');
+      var pvLab = document.createElement('div');
+      pvLab.className = 'qa-field-label';
+      pvLab.textContent = 'Payload validation';
+      var pvVal = document.createElement('div');
+      pvVal.className = 'qa-field-value';
+      pvVal.textContent = payloadValSummary.headline;
+      pvWrap.appendChild(pvLab);
+      pvWrap.appendChild(pvVal);
+      if (payloadValSummary.lines && payloadValSummary.lines.length > 0) {
+        var pvUl = document.createElement('ul');
+        pvUl.className = 'qa-list';
+        for (var pvi = 0; pvi < payloadValSummary.lines.length; pvi++) {
+          var pvLi = document.createElement('li');
+          pvLi.textContent = String(payloadValSummary.lines[pvi]);
+          pvUl.appendChild(pvLi);
+        }
+        pvWrap.appendChild(pvUl);
+      }
+      grid.appendChild(pvWrap);
+    }
     addField('Tester', qaRun.testerName ? String(qaRun.testerName) : '', false);
     addField('Environment', qaRun.environment ? String(qaRun.environment) : '', false);
     addField('Ended', qaRun.endedAt ? String(qaRun.endedAt) : '', true);

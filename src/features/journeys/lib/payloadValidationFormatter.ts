@@ -75,3 +75,72 @@ export function withFormattedPayloadValidationIssuesForExport(qaRun: QARun): QAR
   }
   return { ...qaRun, verifications };
 }
+
+/** Run-level summary for shared QA Run details (computed only; not persisted). */
+export interface PayloadValidationRunSummary {
+  headline: string;
+  lines: string[];
+}
+
+function oneLineFromProofIssues(p: QAProof): string {
+  const issues = p.validation_issues;
+  if (!issues?.length) return 'Validation could not be completed.';
+  const inferred = inferValidationResultFromPersistedIssues(issues);
+  const { prefix, items } = formatPayloadValidationForDisplay({ ...inferred, valid: false });
+  return items.length ? `${prefix} ${items.join(', ')}`.trim() : prefix;
+}
+
+/**
+ * Aggregates payload validation across all proofs in the run for a compact Run Details line.
+ * Uses the same infer + format path as proof cards.
+ */
+export function computePayloadValidationRunSummary(
+  qaRun: QARun
+): PayloadValidationRunSummary | null {
+  let failed = 0;
+  let passed = 0;
+  let unknown = 0;
+  const lineSet = new Set<string>();
+
+  const verifications = qaRun.verifications || {};
+  for (const v of Object.values(verifications)) {
+    const proofs = v?.proofs;
+    if (!Array.isArray(proofs)) continue;
+    for (const p of proofs) {
+      if (!p) continue;
+      const hasIssues = Array.isArray(p.validation_issues) && p.validation_issues.length > 0;
+      const st = p.validation_status;
+      const hasEvidence =
+        st === 'pass' || st === 'fail' || st === 'unknown' || hasIssues;
+      if (!hasEvidence) continue;
+
+      if (st === 'pass') {
+        passed++;
+        continue;
+      }
+      if (st === 'unknown') {
+        unknown++;
+        if (hasIssues) lineSet.add(oneLineFromProofIssues(p));
+        continue;
+      }
+      if (st === 'fail' || (!st && hasIssues)) {
+        failed++;
+        lineSet.add(oneLineFromProofIssues(p));
+      }
+    }
+  }
+
+  if (failed === 0 && passed === 0 && unknown === 0) return null;
+
+  const lines = [...lineSet].slice(0, 3);
+
+  if (failed === 0 && unknown === 0 && passed > 0) {
+    return { headline: 'Payload validation: All checks passed', lines: [] };
+  }
+
+  const parts: string[] = [];
+  if (failed > 0) parts.push(failed === 1 ? '1 failed' : `${failed} failed`);
+  if (unknown > 0) parts.push(unknown === 1 ? '1 not verified' : `${unknown} not verified`);
+  const headline = 'Payload validation: ' + parts.join(', ');
+  return { headline, lines };
+}

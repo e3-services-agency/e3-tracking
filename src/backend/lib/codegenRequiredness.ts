@@ -16,7 +16,8 @@ function cacheKey(workspaceId: string, eventId: string, variantId: string | null
   return `${workspaceId}\0${eventId}\0${variantId ?? ''}`;
 }
 
-async function loadEffectiveList(
+/** Cached load of variant-aware effective definitions (falls back to base event if variant is missing). */
+export async function loadEffectiveDefinitionsForEventVariant(
   workspaceId: string,
   eventId: string,
   variantId: string | null,
@@ -66,7 +67,7 @@ export async function computeCodegenRequiredForTriggerByPropertyIds(
     variantIds.size > 0 ? [...variantIds] : ([null] as (string | null)[]);
   const lists: Awaited<ReturnType<typeof listEffectiveEventPropertyDefinitionsWithVariant>>[] = [];
   for (const vid of ids) {
-    lists.push(await loadEffectiveList(workspaceId, eventId, vid, effListCache));
+    lists.push(await loadEffectiveDefinitionsForEventVariant(workspaceId, eventId, vid, effListCache));
   }
 
   const out = new Map<string, boolean>();

@@ -12,8 +12,10 @@ import { DatabaseError, NotFoundError } from '../errors';
 import { buildCodegenSnippets } from '../services/codegen.service';
 import {
   computeCodegenRequiredForTriggerByPropertyIds,
+  loadEffectiveDefinitionsForEventVariant,
   type EffectiveListCache,
 } from '../lib/codegenRequiredness';
+import { mergeEventPropertyWithDetailsWithEffectiveList } from '../lib/mergeVariantEffectiveIntoAttachedProperties';
 import { isAttachedPropertyRequiredForTrigger } from '../../lib/effectiveEventSchema';
 import type { EventPropertyPresence } from '../../types/schema';
 import { generateJourneyHtmlExport } from '../services/export.service';
@@ -76,6 +78,12 @@ function rewriteSharedImageUrls(journeyId: string, nodes: unknown): unknown {
   });
 }
 
+function sharedSnippetMapKey(eventId: string, variantId: string | null): string {
+  const e = eventId.trim();
+  const v = variantId?.trim();
+  return v ? `${e}::${v}` : e;
+}
+
 async function buildSharedEventSnippets(
   workspaceId: string,
   nodes: unknown
@@ -86,40 +94,74 @@ async function buildSharedEventSnippets(
       ? String((workspaceSettings as any).bloomreach_api_customer_id_key)
       : null;
   const list = Array.isArray(nodes) ? (nodes as CanvasNode[]) : [];
-  const eventIds = [...new Set(
-    list
-      .filter((n) => n?.type === 'triggerNode')
-      .map((n) => n?.data?.connectedEvent?.eventId)
-      .filter((id): id is string => typeof id === 'string' && id.length > 0)
-  )];
+  const pairKeys = new Set<string>();
+  const eventIds = new Set<string>();
+  for (const n of list) {
+    if (n?.type !== 'triggerNode') continue;
+    const rawEid = n?.data?.connectedEvent?.eventId;
+    if (typeof rawEid !== 'string' || !rawEid.trim()) continue;
+    const eid = rawEid.trim();
+    eventIds.add(eid);
+    const rawVid = n?.data?.connectedEvent?.variantId;
+    const vid =
+      typeof rawVid === 'string' && rawVid.trim() !== '' ? rawVid.trim() : null;
+    pairKeys.add(sharedSnippetMapKey(eid, vid));
+  }
 
-  const out: Record<string, { eventName: string; snippets: { dataLayer: string; bloomreachSdk: string; bloomreachApi: string } }> = {};
-  const effListCache: EffectiveListCache = new Map();
+  const eventCache = new Map<
+    string,
+    Awaited<ReturnType<typeof getEventWithProperties>>
+  >();
   for (const eventId of eventIds) {
     try {
-      const { event, attached_properties } = await getEventWithProperties(workspaceId, eventId);
-      const variantIdsForEvent = new Set<string | null>();
-      for (const n of list) {
-        if (n?.type !== 'triggerNode') continue;
-        const eid = n?.data?.connectedEvent?.eventId;
-        if (eid !== eventId) continue;
-        const rawVid = n?.data?.connectedEvent?.variantId;
-        variantIdsForEvent.add(
-          typeof rawVid === 'string' && rawVid.trim() !== '' ? rawVid.trim() : null
+      const payload = await getEventWithProperties(workspaceId, eventId);
+      eventCache.set(eventId, payload);
+    } catch {
+      // If event lookup fails, omit snippets for this event.
+    }
+  }
+
+  const out: Record<
+    string,
+    { eventName: string; snippets: { dataLayer: string; bloomreachSdk: string; bloomreachApi: string } }
+  > = {};
+  const effListCache: EffectiveListCache = new Map();
+
+  for (const key of pairKeys) {
+    const sep = key.indexOf('::');
+    const eventId = sep === -1 ? key : key.slice(0, sep);
+    const variantId = sep === -1 ? null : key.slice(sep + 2) || null;
+    const cached = eventCache.get(eventId);
+    if (!cached) continue;
+
+    try {
+      const { event, attached_properties } = cached;
+      let rowsForCodegen = attached_properties;
+      if (variantId) {
+        const effList = await loadEffectiveDefinitionsForEventVariant(
+          workspaceId,
+          eventId,
+          variantId,
+          effListCache
+        );
+        rowsForCodegen = mergeEventPropertyWithDetailsWithEffectiveList(
+          attached_properties,
+          effList
         );
       }
+
       const requiredByPropId = await computeCodegenRequiredForTriggerByPropertyIds(
         workspaceId,
         eventId,
-        variantIdsForEvent,
-        attached_properties.map((p) => ({
+        new Set([variantId]),
+        rowsForCodegen.map((p) => ({
           property_id: typeof p.property_id === 'string' ? p.property_id.trim() : '',
           presence: p.presence,
           property_required_override: p.property_required_override ?? null,
         })),
         effListCache
       );
-      const attached = attached_properties.map((p) => ({
+      const attached = rowsForCodegen.map((p) => ({
         property_name: p.property_name || '',
         presence: p.presence,
         property_required_override: p.property_required_override ?? null,
@@ -137,7 +179,7 @@ async function buildSharedEventSnippets(
         property_object_child_property_refs_json: p.property_object_child_property_refs_json ?? null,
         object_child_snapshots_by_field: p.object_child_snapshots_by_field ?? null,
       }));
-      out[eventId] = {
+      out[key] = {
         eventName: event.name,
         snippets: buildCodegenSnippets(
           event.name,
@@ -147,7 +189,7 @@ async function buildSharedEventSnippets(
         ),
       };
     } catch {
-      // If event lookup fails, omit snippets.
+      // Omit this key on failure.
     }
   }
   return out;

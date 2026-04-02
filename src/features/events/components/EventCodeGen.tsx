@@ -17,6 +17,8 @@ type EventCodeGenProps = {
   eventId: string | null | undefined;
   /** Required for live fetch when `prefetchedSnippets` is not set. Omit or pass `null` on public shared views (snippets come from prefetch only). */
   workspaceId?: string | null;
+  /** When set, codegen uses effective property semantics (examples, descriptions) for this event variant. */
+  variantId?: string | null;
   /** Optional: precomputed snippets (e.g. in public shared view). */
   prefetchedSnippets?: CodegenSnippets | null;
   /** Optional: show a compact header (e.g. in Journey sidebar). */
@@ -36,6 +38,7 @@ const STYLE_LABELS: Record<CodegenStyle, string> = {
 export function EventCodeGen({
   eventId,
   workspaceId,
+  variantId = null,
   prefetchedSnippets = null,
   compact = false,
   title = 'Code Snippets',
@@ -66,7 +69,13 @@ export function EventCodeGen({
 
     // Contract: snippets must be raw plain-text. If a caller accidentally supplies highlighted HTML
     // (e.g. from persisted canvas snapshots), ignore it and fetch raw code from the API instead.
-    if (prefetchedSnippets && !looksLikeHighlightedHtml(prefetchedSnippets)) {
+    const hasVariant =
+      typeof variantId === 'string' && variantId.trim() !== '';
+    if (
+      prefetchedSnippets &&
+      !looksLikeHighlightedHtml(prefetchedSnippets) &&
+      !hasVariant
+    ) {
       setSnippets(prefetchedSnippets);
       setError(null);
       setLoading(false);
@@ -86,7 +95,10 @@ export function EventCodeGen({
     }
     setLoading(true);
     setError(null);
-    fetchWithAuth(`${API_BASE}/api/events/${eventId}/codegen`, {
+    const vid =
+      typeof variantId === 'string' && variantId.trim() !== '' ? variantId.trim() : '';
+    const qs = vid ? `?variant_id=${encodeURIComponent(vid)}` : '';
+    fetchWithAuth(`${API_BASE}/api/events/${eventId}/codegen${qs}`, {
       headers: { 'x-workspace-id': wid },
     })
       .then((res) => {
@@ -101,7 +113,7 @@ export function EventCodeGen({
         setSnippets(null);
       })
       .finally(() => setLoading(false));
-  }, [eventId, workspaceId]);
+  }, [eventId, workspaceId, variantId]);
 
   const copyToClipboard = useCallback(() => {
     if (!snippets) return;

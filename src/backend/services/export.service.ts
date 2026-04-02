@@ -19,8 +19,10 @@ import { NotFoundError } from '../errors';
 import { isAttachedPropertyRequiredForTrigger } from '../../lib/effectiveEventSchema';
 import {
   computeCodegenRequiredForTriggerByPropertyIds,
+  loadEffectiveDefinitionsForEventVariant,
   type EffectiveListCache,
 } from '../lib/codegenRequiredness';
+import { mergeEventPropertyWithDetailsWithEffectiveList } from '../lib/mergeVariantEffectiveIntoAttachedProperties';
 import {
   buildCodegenSnippets,
   jsonSampleValueForProperty,
@@ -780,13 +782,35 @@ export async function generateJourneyHtmlExport(
       const rawVid = trigger.data?.connectedEvent?.variantId;
       const variantId =
         typeof rawVid === 'string' && rawVid.trim() !== '' ? rawVid.trim() : null;
+
+      let jsonExample = cached.jsonExample;
+      let alwaysSent = cached.alwaysSent;
+      let sometimesSent = cached.sometimesSent;
+      let attachedForTrigger = cached.attached_properties;
+      if (variantId) {
+        const effList = await loadEffectiveDefinitionsForEventVariant(
+          workspaceId,
+          eventId,
+          variantId,
+          codegenEffListCache
+        );
+        attachedForTrigger = mergeEventPropertyWithDetailsWithEffectiveList(
+          cached.attached_properties,
+          effList
+        );
+        const doc = buildPayloadDoc(attachedForTrigger);
+        jsonExample = doc.jsonExample;
+        alwaysSent = doc.alwaysSent;
+        sometimesSent = doc.sometimesSent;
+      }
+
       triggers.push({
         eventId,
         eventName: cached.eventName,
-        jsonExample: cached.jsonExample,
-        alwaysSent: cached.alwaysSent,
-        sometimesSent: cached.sometimesSent,
-        attached_properties: cached.attached_properties,
+        jsonExample,
+        alwaysSent,
+        sometimesSent,
+        attached_properties: attachedForTrigger,
         sourceLabelsByPropertyId: cached.sourceLabelsByPropertyId,
         codegen_event_name_overrides: cached.codegen_event_name_overrides,
         notesMarkdown: typeof nm === 'string' ? nm : '',

@@ -21,6 +21,7 @@ import type {
   EventTriggerEntry,
 } from '../../types/schema';
 import { buildCodegenSnippets } from '../services/codegen.service';
+import { mergeEventPropertyWithDetailsWithEffectiveList } from '../lib/mergeVariantEffectiveIntoAttachedProperties';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -556,17 +557,31 @@ router.get('/:id/codegen', requireWorkspace, async (req: Request, res: Response)
     return;
   }
   const eventId = req.params.id;
+  const variantIdRaw = req.query.variant_id;
+  const variantId =
+    typeof variantIdRaw === 'string' && variantIdRaw.trim() !== ''
+      ? variantIdRaw.trim()
+      : undefined;
   try {
     const { event, attached_properties } = await EventDAL.getEventWithProperties(
       workspaceId,
       eventId
     );
+    let rowsForCodegen = attached_properties;
+    if (variantId) {
+      const effective = await EventPropertyDefinitionDAL.listEffectiveEventPropertyDefinitionsWithVariant(
+        workspaceId,
+        eventId,
+        { variantId }
+      );
+      rowsForCodegen = mergeEventPropertyWithDetailsWithEffectiveList(attached_properties, effective);
+    }
     const workspaceSettings = await getWorkspaceSettings(workspaceId);
     const bloomreachApiCustomerIdKey =
       typeof (workspaceSettings as any)?.bloomreach_api_customer_id_key === 'string'
         ? String((workspaceSettings as any).bloomreach_api_customer_id_key)
         : null;
-    const attached = attached_properties.map((p) => ({
+    const attached = rowsForCodegen.map((p) => ({
       property_name: p.property_name || '',
       presence: p.presence,
       property_required_override: p.property_required_override ?? null,

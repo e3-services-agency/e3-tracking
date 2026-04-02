@@ -652,7 +652,13 @@ export function SharedJourneyView({
             if (n?.type !== 'triggerNode') return n;
             const eventId = n?.data?.connectedEvent?.eventId;
             if (typeof eventId !== 'string') return n;
-            const sn = snippetMap[eventId]?.snippets;
+            const rawVid = n?.data?.connectedEvent?.variantId;
+            const variantKey =
+              typeof rawVid === 'string' && rawVid.trim() !== ''
+                ? `${eventId}::${rawVid.trim()}`
+                : eventId;
+            const sn =
+              snippetMap[variantKey]?.snippets ?? snippetMap[eventId]?.snippets;
             if (!sn) return n;
             return { ...n, data: { ...n.data, codegenSnippets: sn } };
           });
@@ -663,7 +669,13 @@ export function SharedJourneyView({
               if (n?.type !== 'triggerNode') return n;
               const eventId = n?.data?.connectedEvent?.eventId;
               if (typeof eventId !== 'string') return n;
-              const sn = snippetMap[eventId]?.snippets;
+              const rawVid = n?.data?.connectedEvent?.variantId;
+              const variantKey =
+                typeof rawVid === 'string' && rawVid.trim() !== ''
+                  ? `${eventId}::${rawVid.trim()}`
+                  : eventId;
+              const sn =
+                snippetMap[variantKey]?.snippets ?? snippetMap[eventId]?.snippets;
               if (!sn) return n;
               return { ...n, data: { ...n.data, codegenSnippets: sn } };
             });

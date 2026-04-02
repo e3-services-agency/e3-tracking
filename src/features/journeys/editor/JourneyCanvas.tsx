@@ -985,6 +985,7 @@ export function JourneyCanvas({
                     </div>
                     <EventCodeGen
                       eventId={selectedTriggerEventIdForCodegen}
+                      variantId={selectedTriggerConnectedEvent?.variantId ?? null}
                       prefetchedSnippets={selectedTriggerPrefetchedSnippets}
                       preferredStyle={journey.codegen_preferred_style ?? null}
                       compact

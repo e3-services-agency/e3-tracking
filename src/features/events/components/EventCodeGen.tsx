@@ -14,19 +14,13 @@ export interface CodegenSnippets {
 }
 
 type EventCodeGenProps = {
-  /** Event ID to fetch snippets for (GET /api/events/:id/codegen). */
   eventId: string | null | undefined;
-  /** Required for live fetch when `prefetchedSnippets` is not set. Omit or pass `null` on public shared views (snippets come from prefetch only). */
   workspaceId?: string | null;
-  /** When set, codegen uses effective property semantics (examples, descriptions) for this event variant. */
+  /** When set, fetches variant-aware codegen (`?variant_id=`) and skips prefetched base snippets. */
   variantId?: string | null;
-  /** Optional: precomputed snippets (e.g. in public shared view). */
   prefetchedSnippets?: CodegenSnippets | null;
-  /** Optional: show a compact header (e.g. in Journey sidebar). */
   compact?: boolean;
-  /** Section title. */
   title?: string;
-  /** Journey-level preferred default method (if set, shown as the active code block). */
   preferredStyle?: CodegenStyle | null;
 };
 
@@ -67,15 +61,10 @@ export function EventCodeGen({
       );
     };
 
-    // Contract: snippets must be raw plain-text. If a caller accidentally supplies highlighted HTML
-    // (e.g. from persisted canvas snapshots), ignore it and fetch raw code from the API instead.
     const hasVariant =
       typeof variantId === 'string' && variantId.trim() !== '';
-    if (
-      prefetchedSnippets &&
-      !looksLikeHighlightedHtml(prefetchedSnippets) &&
-      !hasVariant
-    ) {
+
+    if (prefetchedSnippets && !looksLikeHighlightedHtml(prefetchedSnippets) && !hasVariant) {
       setSnippets(prefetchedSnippets);
       setError(null);
       setLoading(false);
@@ -113,17 +102,7 @@ export function EventCodeGen({
         setSnippets(null);
       })
       .finally(() => setLoading(false));
-  }, [eventId, workspaceId, variantId]);
-
-  const copyToClipboard = useCallback(() => {
-    if (!snippets) return;
-    const style = preferredStyle ?? activeStyle;
-    const text = snippets[style];
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  }, [snippets, activeStyle, preferredStyle]);
+  }, [eventId, workspaceId, variantId, prefetchedSnippets]);
 
   if (!eventId) {
     return (
@@ -169,7 +148,10 @@ export function EventCodeGen({
 
   const currentStyle = preferredStyle ?? activeStyle;
   const currentSnippet = snippets[currentStyle];
-  const hlLanguage = codegenLanguageForStyle(currentStyle);
+
+  // Map our internal language label to the ones supported by SyntaxHighlighter
+  const baseLanguage = codegenLanguageForStyle(currentStyle);
+  const highlightLanguage = baseLanguage === 'json' ? 'json' : 'javascript';
 
   return (
     <div className={compact ? '' : 'space-y-4'}>
@@ -179,7 +161,7 @@ export function EventCodeGen({
       </div>
 
       {!preferredStyle && (
-        <div className="flex gap-1 p-1 bg-gray-100 rounded-lg border border-gray-200">
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-lg border border-gray-200 mb-2">
           {(Object.keys(STYLE_LABELS) as CodegenStyle[]).map((style) => (
             <button
               key={style}
@@ -197,16 +179,11 @@ export function EventCodeGen({
         </div>
       )}
 
-      <div className="space-y-2">
-        <div className="text-[12px] font-semibold text-gray-500">
-          {STYLE_LABELS[currentStyle]}
-        </div>
-        <CodeBlock
-          code={currentSnippet}
-          language={hlLanguage === 'json' ? 'json' : 'javascript'}
-          className="max-h-[320px] overflow-y-auto"
-        />
-      </div>
+      <CodeBlock
+        code={currentSnippet}
+        language={highlightLanguage as 'javascript' | 'typescript' | 'json'}
+        className="max-h-[320px] overflow-y-auto"
+      />
     </div>
   );
 }

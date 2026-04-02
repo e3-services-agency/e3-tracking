@@ -62,8 +62,7 @@ function choiceFromOverride(
   if (!p) return 'inherit';
   if (p.excluded) return 'exclude';
   if (p.presence) return p.presence;
-  if (p.required === true) return 'always_sent';
-  if (p.required === false) return 'sometimes_sent';
+  // Do not map `required` to presence — that is a separate axis (`requiredChoiceFromOverride`).
   return 'inherit';
 }
 
@@ -76,9 +75,44 @@ function requiredChoiceFromOverride(
   return 'inherit';
 }
 
+/**
+ * If stored variant deltas only repeat the base event effective schema, treat as inherited
+ * (no real variant override) so the UI does not show "Overridden" until the user sets a delta.
+ */
+function normalizeDraftAgainstBase(
+  draft: VariantPropertyDraft,
+  ov: NonNullable<NonNullable<EventVariantOverridesV1['properties']>[string]>,
+  baseDef: EffectiveEventPropertyDefinition
+): VariantPropertyDraft {
+  if (ov.excluded) return draft;
+
+  let next = { ...draft };
+
+  if (next.requiredChoice === 'true' && baseDef.effective.required === true) {
+    next.requiredChoice = 'inherit';
+  }
+  if (next.requiredChoice === 'false' && baseDef.effective.required === false) {
+    next.requiredChoice = 'inherit';
+  }
+
+  if (next.presenceChoice !== 'inherit' && next.presenceChoice !== 'exclude') {
+    if (baseDef.presence != null && next.presenceChoice === baseDef.presence) {
+      next.presenceChoice = 'inherit';
+    }
+  }
+
+  const effDesc = (baseDef.effective.description ?? '').trim();
+  if (effDesc.length > 0 && next.description.trim() === effDesc) {
+    next = { ...next, description: '' };
+  }
+
+  return next;
+}
+
 function draftFromVariantProperty(
   pid: string,
-  overrides: EventVariantOverridesV1 | undefined
+  overrides: EventVariantOverridesV1 | undefined,
+  baseDef: EffectiveEventPropertyDefinition
 ): VariantPropertyDraft {
   const ov = overrides?.properties?.[pid];
   if (!ov) return defaultDraft();
@@ -90,13 +124,14 @@ function draftFromVariantProperty(
       exampleJson = '';
     }
   }
-  return {
+  const raw: VariantPropertyDraft = {
     presenceChoice: choiceFromOverride(pid, overrides),
     requiredChoice: requiredChoiceFromOverride(ov),
     description:
       ov.description !== undefined && ov.description !== null ? String(ov.description) : '',
     exampleJson,
   };
+  return normalizeDraftAgainstBase(raw, ov, baseDef);
 }
 
 /**
@@ -270,7 +305,7 @@ export function EventVariantsApiSection({
       setBaseEffective(r.items);
       const m = new Map<string, VariantPropertyDraft>();
       for (const def of r.items) {
-        m.set(def.property_id, draftFromVariantProperty(def.property_id, v.overrides_json));
+        m.set(def.property_id, draftFromVariantProperty(def.property_id, v.overrides_json, def));
       }
       setVariantDrafts(m);
     },

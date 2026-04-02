@@ -349,8 +349,8 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
     var h = document.createElement('h2');
     h.textContent = 'QA Run details';
     box.appendChild(h);
-    var grid = document.createElement('div');
-    grid.className = 'qa-run-grid';
+    var metaGrid = document.createElement('div');
+    metaGrid.className = 'qa-run-meta-grid';
 
     function addField(label, value, mono){
       if (!value) return;
@@ -363,7 +363,7 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
       v.textContent = value;
       wrap.appendChild(l);
       wrap.appendChild(v);
-      grid.appendChild(wrap);
+      metaGrid.appendChild(wrap);
     }
 
     var counts = { Passed:0, Failed:0, Pending:0 };

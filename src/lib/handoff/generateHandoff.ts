@@ -503,6 +503,10 @@ export function generateHandoffHtml(
         border-radius: 0.375rem !important;
         overflow-x: auto;
       }
+      .hljs-number { color: #005cc5 !important; }
+      .hljs-attr { color: #24292e !important; font-weight: bold; }
+      .hljs-comment { color: #d73a49 !important; font-style: italic; }
+      .hljs-string { color: #0A8040 !important; }
     </style>
   </head>
   <body>

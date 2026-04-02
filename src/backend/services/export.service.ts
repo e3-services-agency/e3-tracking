@@ -1056,7 +1056,7 @@ export async function generateJourneyHtmlExport(
               <div class="export-example-label">${CODEGEN_LABELS[preferredCodegenStyle]}</div>
               <div class="export-code-wrap">
                 <button class="export-copy" type="button" data-copy-from="next">Copy</button>
-                <pre class="export-code"><code data-language="${codegenLanguageForStyle(preferredCodegenStyle)}">${escapedSnippet}</code></pre>
+                <pre class="export-code"><code class="language-${codegenLanguageForStyle(preferredCodegenStyle)}">${escapedSnippet}</code></pre>
               </div>
             </div>
           </div>
@@ -1407,6 +1407,12 @@ export async function generateJourneyHtmlExport(
       overflow-x: auto;
     }
     pre.export-code code { background: none; padding: 0; color: inherit; }
+
+    /* Syntax Highlighting Overrides for clarity */
+    .hljs-number { color: #005cc5 !important; }
+    .hljs-attr { color: #24292e !important; font-weight: bold; }
+    .hljs-comment { color: #d73a49 !important; font-style: italic; }
+    .hljs-string { color: #0A8040 !important; }
 
     .export-props { margin-top: 12px; }
     .export-props-title { font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em; }

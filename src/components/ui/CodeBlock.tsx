@@ -6,6 +6,12 @@ import json from 'react-syntax-highlighter/dist/esm/languages/hljs/json';
 import { googlecode } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import { Copy, Check } from 'lucide-react';
 
+// Apply clarity overrides to fix googlecode's default overlapping colors
+googlecode['hljs-number'] = { color: '#005cc5' }; // Modern Blue for integers
+googlecode['hljs-attr'] = { color: '#24292e', fontWeight: 'bold' }; // Bold keys
+googlecode['hljs-comment'] = { color: '#d73a49', fontStyle: 'italic' }; // Distinct Red for comments
+googlecode['hljs-string'] = { color: '#0A8040' }; // Darker green for strings
+
 // Register only required languages to keep your app's bundle size small
 SyntaxHighlighter.registerLanguage('javascript', js);
 SyntaxHighlighter.registerLanguage('typescript', ts);

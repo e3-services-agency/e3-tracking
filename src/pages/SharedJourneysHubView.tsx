@@ -49,10 +49,33 @@ export function SharedJourneysHubView({ token }: { token: string }) {
     };
   }, [token]);
 
-  const openJourney = (id: string) => {
-    window.location.href = buildAppPageUrl(
+  const journeyUrl = (id: string) =>
+    buildAppPageUrl(
       `share/journey/${encodeURIComponent(id)}?hub=${encodeURIComponent(token)}`,
     );
+
+  const handleRowNavigate = (
+    e: React.MouseEvent<HTMLTableRowElement>,
+    id: string,
+  ) => {
+    const url = journeyUrl(id);
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (e.button !== 0) return;
+    window.location.href = url;
+  };
+
+  const handleRowAuxClick = (
+    e: React.MouseEvent<HTMLTableRowElement>,
+    id: string,
+  ) => {
+    if (e.button === 1) {
+      e.preventDefault();
+      window.open(journeyUrl(id), '_blank', 'noopener,noreferrer');
+    }
   };
 
   return (
@@ -123,7 +146,8 @@ export function SharedJourneysHubView({ token }: { token: string }) {
                   <tr
                     key={row.id}
                     className="hover:bg-gray-50 transition-colors cursor-pointer"
-                    onClick={() => openJourney(row.id)}
+                    onClick={(e) => handleRowNavigate(e, row.id)}
+                    onAuxClick={(e) => handleRowAuxClick(e, row.id)}
                   >
                     <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                       <div className="flex items-center gap-2">

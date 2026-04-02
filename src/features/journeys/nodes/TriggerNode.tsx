@@ -67,6 +67,7 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
       id: e.id,
       name: e.name,
       description: e.description ?? '',
+      purpose: e.purpose ?? null,
       categories: [],
       tags: [],
       sources: [],
@@ -159,6 +160,7 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
         name: event.name,
         variantName: variant?.name,
         description: event.description,
+        purpose: event.purpose ?? null,
       },
     });
 
@@ -326,6 +328,14 @@ export const TriggerNode = ({ id, data }: NodeProps<TriggerFlowNode>) => {
                 {data.connectedEvent.description}
               </div>
             )}
+
+            {data.connectedEvent.purpose != null &&
+              String(data.connectedEvent.purpose).trim() !== '' && (
+                <div className="text-[10px] text-gray-600 mt-1 line-clamp-2">
+                  <span className="font-semibold text-gray-500">Purpose: </span>
+                  {data.connectedEvent.purpose}
+                </div>
+              )}
 
             {variantSelectionInvalid && (
               <div className="mt-2 text-[10px] text-red-800 bg-red-50 border border-red-200 rounded px-2 py-1">

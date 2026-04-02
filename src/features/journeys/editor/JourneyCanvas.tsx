@@ -815,8 +815,51 @@ export function JourneyCanvas({
                   </div>
                   {isTriggerNode(selectedNode) &&
                     selectedNode.data.connectedEvent && (
-                      <div className="text-gray-600">
-                        Event: {selectedNode.data.connectedEvent.name}
+                      <div className="text-gray-700 space-y-2 mt-2 pt-2 border-t border-gray-200">
+                        <div>
+                          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
+                            Event
+                          </div>
+                          <div className="text-sm text-gray-900">
+                            {selectedNode.data.connectedEvent.name}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
+                            Variant
+                          </div>
+                          <div className="text-sm text-gray-800">
+                            {selectedNode.data.connectedEvent.variantName?.trim()
+                              ? selectedNode.data.connectedEvent.variantName
+                              : '—'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
+                            Purpose
+                          </div>
+                          <div className="text-sm text-gray-800 whitespace-pre-wrap break-words">
+                            {selectedNode.data.connectedEvent.purpose != null &&
+                            String(selectedNode.data.connectedEvent.purpose).trim() !== ''
+                              ? selectedNode.data.connectedEvent.purpose
+                              : '—'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-0.5">
+                            Event description
+                          </div>
+                          {(selectedNode.data.connectedEvent.description ?? '').trim() ? (
+                            <div className="bg-white border rounded-md p-2 text-sm text-gray-800 min-w-0 max-w-full overflow-hidden">
+                              <JourneyDescriptionMarkdown
+                                text={selectedNode.data.connectedEvent.description ?? ''}
+                                className="text-sm"
+                              />
+                            </div>
+                          ) : (
+                            <div className="text-sm text-gray-500">—</div>
+                          )}
+                        </div>
                       </div>
                     )}
                 </div>

@@ -7,6 +7,8 @@ export type ConnectedEventData = {
   name: string;
   variantName?: string;
   description?: string;
+  /** Event-level purpose from the tracking plan (API). */
+  purpose?: string | null;
 };
 
 export type BaseJourneyNodeData = {

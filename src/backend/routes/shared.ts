@@ -36,10 +36,73 @@ type CanvasNode = {
   type?: string;
   id?: string;
   data?: {
-    connectedEvent?: { eventId?: string; name?: string; variantId?: string };
+    connectedEvent?: {
+      eventId?: string;
+      name?: string;
+      variantId?: string;
+      variantName?: string;
+      description?: string;
+      purpose?: string | null;
+    };
     imageUrl?: string;
   };
 };
+
+/**
+ * Merge canonical event row + variant name into trigger `connectedEvent` for public shared payloads
+ * (description, purpose, variant display name).
+ */
+async function enrichSharedJourneyTriggerNodes(
+  workspaceId: string,
+  nodes: unknown
+): Promise<unknown> {
+  if (!Array.isArray(nodes)) return nodes;
+  const list = nodes as CanvasNode[];
+  const eventIds = new Set<string>();
+  for (const n of list) {
+    if (n?.type !== 'triggerNode') continue;
+    const raw = n?.data?.connectedEvent?.eventId;
+    if (typeof raw === 'string' && raw.trim()) eventIds.add(raw.trim());
+  }
+  const cache = new Map<string, Awaited<ReturnType<typeof getEventWithProperties>>>();
+  await Promise.all(
+    [...eventIds].map(async (eid) => {
+      try {
+        const payload = await getEventWithProperties(workspaceId, eid);
+        cache.set(eid, payload);
+      } catch {
+        // Omit enrichment for missing / inaccessible events.
+      }
+    })
+  );
+  return list.map((n) => {
+    if (n?.type !== 'triggerNode' || !n.data?.connectedEvent?.eventId) return n;
+    const eid = String(n.data.connectedEvent.eventId).trim();
+    const payload = cache.get(eid);
+    if (!payload) return n;
+    const ev = payload.event;
+    const ce = { ...n.data.connectedEvent };
+    if (typeof ev.name === 'string' && ev.name.trim()) ce.name = ev.name;
+    if (typeof ev.description === 'string') ce.description = ev.description;
+    ce.purpose = ev.purpose ?? null;
+    const rawVid = ce.variantId;
+    const vid =
+      typeof rawVid === 'string' && rawVid.trim() !== '' ? rawVid.trim() : null;
+    if (vid && Array.isArray(payload.variants)) {
+      const vr = payload.variants.find((v) => v.id === vid);
+      if (vr && typeof vr.name === 'string' && vr.name.trim()) {
+        ce.variantName = vr.name;
+      }
+    }
+    return {
+      ...n,
+      data: {
+        ...n.data,
+        connectedEvent: ce,
+      },
+    };
+  });
+}
 
 /**
  * Deterministic boolean for shared snippet codegen: prefer variant/effective map lookup
@@ -257,7 +320,11 @@ router.get(
     try {
       const journey = await getJourneyByShareToken(token);
       const rewrittenNodes = rewriteSharedImageUrls(journey.id, journey.nodes);
-      const eventSnippets = await buildSharedEventSnippets(journey.workspace_id, rewrittenNodes);
+      const enrichedNodes = await enrichSharedJourneyTriggerNodes(
+        journey.workspace_id,
+        rewrittenNodes
+      );
+      const eventSnippets = await buildSharedEventSnippets(journey.workspace_id, enrichedNodes);
       const qaRuns = await getSharedJourneyQARuns(journey.id);
       res.status(200).json({
         id: journey.id,
@@ -265,7 +332,7 @@ router.get(
         description: journey.description,
         testing_instructions_markdown: journey.testing_instructions_markdown,
         codegen_preferred_style: journey.codegen_preferred_style ?? null,
-        nodes: rewrittenNodes,
+        nodes: enrichedNodes,
         edges: journey.edges,
         eventSnippets,
         qaRuns,
@@ -312,7 +379,11 @@ router.get(
     try {
       const journey = await getJourneyByShareId(id);
       const rewrittenNodes = rewriteSharedImageUrls(journey.id, journey.nodes);
-      const eventSnippets = await buildSharedEventSnippets(journey.workspace_id, rewrittenNodes);
+      const enrichedNodes = await enrichSharedJourneyTriggerNodes(
+        journey.workspace_id,
+        rewrittenNodes
+      );
+      const eventSnippets = await buildSharedEventSnippets(journey.workspace_id, enrichedNodes);
       const qaRuns = await getSharedJourneyQARuns(journey.id);
       res.status(200).json({
         id: journey.id,
@@ -320,7 +391,7 @@ router.get(
         description: journey.description,
         testing_instructions_markdown: journey.testing_instructions_markdown,
         codegen_preferred_style: journey.codegen_preferred_style ?? null,
-        nodes: rewrittenNodes,
+        nodes: enrichedNodes,
         edges: journey.edges,
         eventSnippets,
         qaRuns,

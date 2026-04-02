@@ -78,6 +78,8 @@ export interface Event {
   id: string;
   name: string;
   description: string;
+  /** Event-level purpose (API / workspace events). */
+  purpose?: string | null;
   categories: string[];
   tags: string[];
   sources: Source[];

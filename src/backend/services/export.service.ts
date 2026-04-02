@@ -207,7 +207,14 @@ type CanvasNode = {
     targetElement?: string;
     implementationType?: 'new' | 'enrichment' | 'fix';
     url?: string;
-    connectedEvent?: { eventId?: string; name?: string; variantId?: string };
+    connectedEvent?: {
+      eventId?: string;
+      name?: string;
+      variantId?: string;
+      variantName?: string;
+      description?: string;
+      purpose?: string | null;
+    };
     /** Trigger node: persisted notes for export. */
     notes_markdown?: string;
     color?: string;
@@ -645,6 +652,12 @@ export interface StepExportItem {
     notesMarkdown: string;
     /** Canvas trigger connected event variant; null when unset. */
     variantId: string | null;
+    /** Resolved variant display name for docs (from API or canvas). */
+    variantDisplayName: string | null;
+    /** Event-level description from API or canvas `connectedEvent`. */
+    eventDescription: string | null;
+    /** Event-level purpose from API. */
+    eventPurpose: string | null;
   }[];
 }
 
@@ -715,6 +728,9 @@ export async function generateJourneyHtmlExport(
     string,
     {
       eventName: string;
+      eventDescription: string | null;
+      eventPurpose: string | null;
+      variants: { id: string; name: string }[];
       jsonExample: string;
       alwaysSent: string[];
       sometimesSent: string[];
@@ -738,7 +754,7 @@ export async function generateJourneyHtmlExport(
       let cached = eventPayloadCache.get(eventId);
       if (!cached) {
         try {
-          const { event, attached_properties } = await getEventWithProperties(
+          const { event, attached_properties, variants } = await getEventWithProperties(
             workspaceId,
             eventId
           );
@@ -757,6 +773,13 @@ export async function generateJourneyHtmlExport(
           }
           cached = {
             eventName: event.name,
+            eventDescription:
+              typeof event.description === 'string' ? event.description : null,
+            eventPurpose: event.purpose ?? null,
+            variants: (variants ?? []).map((v) => ({
+              id: v.id,
+              name: typeof v.name === 'string' ? v.name : '',
+            })),
             jsonExample: doc.jsonExample,
             alwaysSent: doc.alwaysSent,
             sometimesSent: doc.sometimesSent,
@@ -768,6 +791,15 @@ export async function generateJourneyHtmlExport(
         } catch {
           cached = {
             eventName: trigger.data.connectedEvent?.name ?? 'Event',
+            eventDescription:
+              typeof trigger.data.connectedEvent?.description === 'string'
+                ? trigger.data.connectedEvent.description
+                : null,
+            eventPurpose:
+              typeof trigger.data.connectedEvent?.purpose === 'string'
+                ? trigger.data.connectedEvent.purpose
+                : null,
+            variants: [],
             jsonExample: '{}',
             alwaysSent: [],
             sometimesSent: [],
@@ -804,6 +836,25 @@ export async function generateJourneyHtmlExport(
         sometimesSent = doc.sometimesSent;
       }
 
+      let variantDisplayName: string | null = null;
+      if (variantId && cached.variants.length > 0) {
+        variantDisplayName =
+          cached.variants.find((v) => v.id === variantId)?.name?.trim() || null;
+      }
+      if (!variantDisplayName) {
+        const vn = trigger.data?.connectedEvent?.variantName;
+        variantDisplayName =
+          typeof vn === 'string' && vn.trim() !== '' ? vn.trim() : null;
+      }
+
+      const canvasDesc = trigger.data?.connectedEvent?.description;
+      const eventDescription =
+        cached.eventDescription != null && String(cached.eventDescription).trim() !== ''
+          ? cached.eventDescription
+          : typeof canvasDesc === 'string' && canvasDesc.trim() !== ''
+            ? canvasDesc
+            : null;
+
       triggers.push({
         eventId,
         eventName: cached.eventName,
@@ -815,6 +866,9 @@ export async function generateJourneyHtmlExport(
         codegen_event_name_overrides: cached.codegen_event_name_overrides,
         notesMarkdown: typeof nm === 'string' ? nm : '',
         variantId,
+        variantDisplayName,
+        eventDescription,
+        eventPurpose: cached.eventPurpose,
       });
     }
 
@@ -1037,6 +1091,13 @@ export async function generateJourneyHtmlExport(
               notesMd.length > 0
                 ? `<div class="export-trigger-notes">${renderQaNotesMarkdownToHtml(notesMd)}</div>`
                 : '';
+            const eventDescRaw = (t.eventDescription ?? '').trim();
+            const eventDescBlock =
+              eventDescRaw.length > 0
+                ? `<div class="export-trigger-event-desc"><div class="export-trigger-meta-label export-trigger-event-desc-title">Event description</div>${renderJourneyDescriptionForExport(eventDescRaw)}</div>`
+                : '';
+            const variantMeta = `<div class="export-trigger-meta"><span class="export-trigger-meta-label">Variant</span><span class="export-trigger-meta-value">${t.variantDisplayName ? escapeHtml(t.variantDisplayName) : '—'}</span></div>`;
+            const purposeMeta = `<div class="export-trigger-meta"><span class="export-trigger-meta-label">Purpose</span><span class="export-trigger-meta-value">${t.eventPurpose && String(t.eventPurpose).trim() ? escapeHtml(String(t.eventPurpose).trim()) : '—'}</span></div>`;
             const rawSnippet = snippets[preferredCodegenStyle];
             // Product decision: render raw code only (no syntax highlighting).
             const escapedSnippet = escapeHtml(rawSnippet);
@@ -1048,10 +1109,17 @@ export async function generateJourneyHtmlExport(
           </div>
           <div class="export-tracking-body">
           <div class="export-tracking-title">Event: ${escapeHtml(t.eventName)} <span class="export-tracking-id">(${escapeHtml(t.eventId)})</span></div>
+          ${variantMeta}
+          ${purposeMeta}
+          ${eventDescBlock}
           ${triggerNotesBlock}
           ${propsTable}
           <div class="export-implementation-examples">
-            <div class="export-examples-title">Implementation examples</div>
+            <div class="export-examples-title">Implementation example</div>
+            <div class="export-examples-empty-values">
+              <div class="export-examples-empty-values-title">Empty Values:</div>
+              <p class="export-examples-empty-values-body">If a field is null, undefined, or an empty string &quot;&quot;, omit the key entirely from the payload. Do not send &quot;0&quot; for invalid dates.</p>
+            </div>
             <div class="export-example-group">
               <div class="export-example-label">${CODEGEN_LABELS[preferredCodegenStyle]}</div>
               <div class="export-code-wrap">
@@ -1367,6 +1435,34 @@ export async function generateJourneyHtmlExport(
     }
     .export-tracking-title { font-weight: 600; margin: 0 0 8px; color: #334155; font-size: 0.95rem; }
     .export-tracking-id { font-weight: 500; color: #64748b; font-size: 0.85em; }
+    .export-trigger-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 12px;
+      align-items: baseline;
+      margin: 0 0 6px;
+      font-size: 0.875rem;
+    }
+    .export-trigger-meta-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      min-width: 4.25rem;
+    }
+    .export-trigger-meta-value { color: #334155; flex: 1; min-width: 0; word-break: break-word; }
+    .export-trigger-event-desc {
+      margin: 8px 0 12px;
+      padding: 10px 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      color: #334155;
+      line-height: 1.45;
+    }
+    .export-trigger-event-desc-title { margin-bottom: 6px; }
     .export-trigger-notes { margin: 0 0 12px; font-size: 0.95rem; color: #334155; line-height: 1.45; }
     .export-trigger-notes a { color: #1d4ed8; text-decoration: underline; }
     .export-trigger-notes p { margin: 0 0 8px; }
@@ -1376,6 +1472,25 @@ export async function generateJourneyHtmlExport(
     .export-trigger-notes .qa-md-h { margin: 8px 0 4px; font-weight: 600; color: #0f172a; }
     .export-implementation-examples { margin-top: 12px; }
     .export-examples-title { font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em; }
+    .export-examples-empty-values {
+      margin: 0 0 12px;
+      padding: 10px 12px;
+      background: #f9fafb;
+      border-left: 3px solid #94a3b8;
+      border-radius: 4px;
+    }
+    .export-examples-empty-values-title {
+      font-weight: 700;
+      font-size: 0.8rem;
+      color: #334155;
+      margin: 0 0 6px;
+    }
+    .export-examples-empty-values-body {
+      margin: 0;
+      font-size: 0.8rem;
+      color: #475569;
+      line-height: 1.45;
+    }
     .export-example-group { margin-bottom: 12px; }
     .export-example-group:last-child { margin-bottom: 0; }
     .export-example-label { font-size: 0.75rem; color: #64748b; margin-bottom: 4px; }

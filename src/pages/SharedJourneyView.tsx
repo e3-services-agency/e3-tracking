@@ -74,6 +74,7 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
 <script>
 (function(){
   var qaRun = ${safeJson};
+  var payloadValSummary = ${safePayloadSummaryJson};
   var runProfiles = Array.isArray(qaRun && qaRun.testingProfiles) ? qaRun.testingProfiles : [];
   var runProfileById = {};
   for (var rpi=0;rpi<runProfiles.length;rpi++){

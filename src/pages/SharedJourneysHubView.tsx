@@ -103,9 +103,6 @@ export function SharedJourneysHubView({ token }: { token: string }) {
                     Journey Name
                   </th>
                   <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">
-                    Scope
-                  </th>
-                  <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">
                     Nodes
                   </th>
                   <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">
@@ -121,12 +118,6 @@ export function SharedJourneysHubView({ token }: { token: string }) {
               </thead>
               <tbody className="divide-y">
                 {sorted.map((row) => {
-                  const tc = row.type_counts ?? { new: 0, enrichment: 0, fix: 0 };
-                  const scopeParts = [
-                    tc.new ? { n: tc.new, label: 'New', cls: 'text-emerald-600' } : null,
-                    tc.enrichment ? { n: tc.enrichment, label: 'Enr', cls: 'text-blue-600' } : null,
-                    tc.fix ? { n: tc.fix, label: 'Fix', cls: 'text-amber-600' } : null,
-                  ].filter(Boolean) as { n: number; label: string; cls: string }[];
                   const latestRun = row.latestQARun as QARun | null;
                   return (
                   <tr
@@ -139,19 +130,6 @@ export function SharedJourneysHubView({ token }: { token: string }) {
                         <GitMerge className="w-4 h-4 text-[var(--color-info)] shrink-0" />
                         <span className="font-medium text-[var(--color-info)]">{row.name}</span>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
-                      {scopeParts.length ? (
-                        <span className="flex items-center gap-2 flex-wrap">
-                          {scopeParts.map(({ n, label, cls }) => (
-                            <span key={label} className={`font-medium ${cls}`} title={label === 'Enr' ? 'Enrichment' : label}>
-                              {n}<span className="text-gray-400 font-normal"> {label}</span>
-                            </span>
-                          ))}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                       {row.nodesCount} nodes

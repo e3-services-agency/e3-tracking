@@ -7,6 +7,7 @@ import {
   createJourneyApi,
   deleteJourneyApi,
   getJourneysShareHubSettingsApi,
+  setJourneyShareEnabledApi,
   setJourneysShareHubEnabledApi,
   useActiveWorkspaceId,
 } from '@/src/features/journeys/hooks/useJourneysApi';
@@ -32,7 +33,8 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
   const [hubMenuOpen, setHubMenuOpen] = useState(false);
   const [hubLinkPanelOpen, setHubLinkPanelOpen] = useState(false);
   const hubMenuRef = useRef<HTMLDivElement | null>(null);
-  useJourneys();
+  const { refetch } = useJourneys();
+  const [sharePatchingId, setSharePatchingId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -251,7 +253,7 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
             <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
               <tr>
                 <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">Journey Name</th>
-                <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">Scope</th>
+                <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">Shared</th>
                 <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">Nodes</th>
                 <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">QA Runs</th>
                 <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">QA Status</th>
@@ -260,20 +262,8 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
             </thead>
             <tbody className="divide-y">
               {filteredJourneys.map(journey => {
-                const tc = journey.type_counts ?? (() => {
-                  const c = { new: 0, enrichment: 0, fix: 0 };
-                  (journey.nodes ?? []).forEach((n: { type?: string; data?: { implementationType?: string } }) => {
-                    if (n?.type !== 'journeyStepNode') return;
-                    const t = n?.data?.implementationType;
-                    if (t === 'new' || t === 'enrichment' || t === 'fix') c[t] += 1;
-                  });
-                  return c;
-                })();
-                const scopeParts = [
-                  tc.new ? { n: tc.new, label: 'New', cls: 'text-emerald-600' } : null,
-                  tc.enrichment ? { n: tc.enrichment, label: 'Enr', cls: 'text-blue-600' } : null,
-                  tc.fix ? { n: tc.fix, label: 'Fix', cls: 'text-amber-600' } : null,
-                ].filter(Boolean) as { n: number; label: string; cls: string }[];
+                const sharedOn = !!journey.share_token;
+                const sharePatching = sharePatchingId === journey.id;
                 return (
                 <tr key={journey.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
@@ -288,17 +278,45 @@ export function JourneysList({ onSelectJourney }: JourneysListProps) {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
-                    {scopeParts.length ? (
-                      <span className="flex items-center gap-2 flex-wrap">
-                        {scopeParts.map(({ n, label, cls }) => (
-                          <span key={label} className={`font-medium ${cls}`} title={label === 'Enr' ? 'Enrichment' : label}>
-                            {n}<span className="text-gray-400 font-normal"> {label}</span>
-                          </span>
-                        ))}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
+                    <button
+                      type="button"
+                      className="shrink-0"
+                      aria-label={sharedOn ? 'Disable shared journey link' : 'Enable shared journey link'}
+                      disabled={sharePatching}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (sharePatching) return;
+                        void (async () => {
+                          setSharePatchingId(journey.id);
+                          try {
+                            const r = await setJourneyShareEnabledApi(
+                              journey.id,
+                              !journey.share_token,
+                              activeWorkspaceId
+                            );
+                            if (r.success) {
+                              await refetch();
+                            } else {
+                              alert(('error' in r ? r.error : null) ?? 'Update failed');
+                            }
+                          } finally {
+                            setSharePatchingId(null);
+                          }
+                        })();
+                      }}
+                    >
+                      <div
+                        className={`w-10 h-5 rounded-full relative transition-colors ${
+                          sharedOn ? 'bg-green-500' : 'bg-gray-200'
+                        } ${sharePatching ? 'opacity-60' : ''}`}
+                      >
+                        <div
+                          className={`w-5 h-5 bg-white rounded-full absolute top-0 shadow-sm transition-all ${
+                            sharedOn ? 'right-0' : 'left-0 border border-gray-200'
+                          }`}
+                        />
+                      </div>
+                    </button>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                     {journey.nodes?.length || 0} nodes

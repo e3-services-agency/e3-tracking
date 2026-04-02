@@ -165,39 +165,34 @@ function buildEffectiveSnapshot(
 ): EffectiveEventPropertyDefinition {
   const warnings: string[] = [];
 
-  // Treat an override row with all-null override fields as "no override".
-  // This prevents empty rows (e.g. after clearing fields) from being interpreted as active OVERRIDDEN state.
-  const hasActiveOverride =
-    override !== null &&
-    (override.description_override !== null ||
-      override.required !== null ||
-      override.example_values !== null);
-  const activeOverride = hasActiveOverride ? override : null;
+  const rawOverride = override;
   const isLinked = presence !== null;
 
-  if (hasActiveOverride && !isLinked) {
+  if (rawOverride !== null && !isLinked) {
     const msg =
       'event_property_definitions row exists but property is not linked on this event via event_properties.';
     warnings.push(msg);
     console.warn(`[event-property-definition] ${msg}`, { eventId, propertyId: property.id });
   }
 
-  if (!hasActiveOverride && !isLinked) {
+  if (rawOverride === null && !isLinked) {
     warnings.push(
       'Property is not attached to this event via event_properties; effective view is global-only.'
     );
   }
 
+  // Effective merge always reads the stored row when present. Do not gate on a separate "active" predicate:
+  // `required: false` is not an "OVERRIDDEN" badge signal (see UI), but it still affects effective required.
   const effectiveDescription =
-    activeOverride?.description_override != null
-      ? activeOverride.description_override
+    rawOverride?.description_override != null
+      ? rawOverride.description_override
       : property.description ?? null;
 
-  const effectiveRequired = activeOverride?.required ?? null;
+  const effectiveRequired = rawOverride?.required ?? null;
 
   const effectiveExampleValues =
-    activeOverride?.example_values != null
-      ? activeOverride.example_values
+    rawOverride?.example_values != null
+      ? rawOverride.example_values
       : property.example_values_json ?? null;
 
   return {
@@ -216,7 +211,7 @@ function buildEffectiveSnapshot(
       object_child_property_refs_json: property.object_child_property_refs_json,
       example_values_json: property.example_values_json,
     },
-    override: activeOverride,
+    override: rawOverride,
     effective: {
       description: effectiveDescription,
       enum_values: null,

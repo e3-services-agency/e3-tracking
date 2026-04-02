@@ -555,9 +555,11 @@ export function EventEditorSheet({
     setUpdatingRequirementPropertyId(propertyId);
     clearMutationError();
     try {
+      // Use null (inherit / no definition-level flag) when turning off — not `false`, which persisted as a
+      // non-null override and made the overrides panel treat every such row as "Overridden".
       const payload: EventPropertyDefinitionUpsertPayload = {
         property_id: propertyId,
-        required,
+        required: required ? true : null,
       };
       const result = await putEventPropertyDefinitions(currentEventId, [payload]);
       if (result.success) {

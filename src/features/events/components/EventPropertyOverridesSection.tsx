@@ -50,6 +50,20 @@ function formatEffectiveExample(v: unknown): string {
   }
 }
 
+/**
+ * True when the event has a real semantic override worth showing as "Overridden".
+ * `required: false` alone is treated as inherit / not badge-worthy (legacy rows may still exist in DB).
+ */
+function hasSemanticOverrideForBadge(override: EventPropertyDefinitionRow | null | undefined): boolean {
+  if (!override) return false;
+  return (
+    override.description_override != null ||
+    override.example_values != null ||
+    (override.enum_values != null && override.enum_values.length > 0) ||
+    override.required === true
+  );
+}
+
 export interface EventPropertyOverridesSectionProps {
   eventId: string;
   attached: EventPropertyWithDetails[];
@@ -249,7 +263,8 @@ export function EventPropertyOverridesSection({
             const propMeta = allProperties.find((p) => p.id === a.property_id);
             const name = eff?.property.name ?? a.property_name ?? a.property_id;
             const dataType = eff?.property.data_type ?? propMeta?.data_type ?? '—';
-            const isOverridden = eff?.override != null;
+            const isOverridden = hasSemanticOverrideForBadge(eff?.override);
+            const hasStoredOverrideRow = eff?.override != null;
             const expanded = editingPropertyId === a.property_id;
 
             return (
@@ -269,7 +284,7 @@ export function EventPropertyOverridesSection({
                     </span>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    {isOverridden && (
+                    {hasStoredOverrideRow && (
                       <Button
                         type="button"
                         variant="ghost"

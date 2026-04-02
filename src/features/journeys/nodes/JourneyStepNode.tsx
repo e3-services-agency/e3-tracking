@@ -195,8 +195,16 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
       onPaste={handlePaste}
       tabIndex={0}
     >
-      <div className={`rounded-t-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${badgeStyle}`}>
-        {!disabled ? (
+      <div
+        className={`rounded-t-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ${
+          isReadOnly
+            ? 'bg-slate-100 text-slate-700 border-b border-slate-200'
+            : badgeStyle
+        }`}
+      >
+        {isReadOnly ? (
+          <span>Journey step</span>
+        ) : !disabled ? (
           <select
             value={implType}
             onChange={(e) =>
@@ -285,8 +293,6 @@ export const JourneyStepNode = ({ id, data }: NodeProps<JourneyStepFlowNode>) =>
           <div className="mt-2 pt-2 border-t border-gray-200 space-y-1.5">
             {isReadOnly ? (
               <>
-                <div className="text-[10px] text-gray-500 uppercase font-medium">Action</div>
-                <div className="text-xs text-gray-700">{data.actionType ?? 'click'}</div>
                 {(data.targetElement ?? '').trim() && (
                   <>
                     <div className="text-[10px] text-gray-500 uppercase font-medium mt-1">Target element</div>

@@ -635,9 +635,7 @@ export interface StepExportItem {
   imageUrl: string | null;
   /** Step URL from canvas node data when set. */
   url: string | null;
-  actionType: string;
   targetElement: string | null;
-  implementationType: 'new' | 'enrichment' | 'fix';
   /** Trigger(s) that follow this step (edge source = this step). */
   triggers: {
     eventId: string;
@@ -872,13 +870,6 @@ export async function generateJourneyHtmlExport(
       });
     }
 
-    const implType =
-      data.implementationType === 'new' ||
-      data.implementationType === 'enrichment' ||
-      data.implementationType === 'fix'
-        ? data.implementationType
-        : 'new';
-
     steps.push({
       id: stepId,
       label: typeof data.label === 'string' ? data.label : 'Step',
@@ -889,15 +880,10 @@ export async function generateJourneyHtmlExport(
           : null,
       url:
         typeof data.url === 'string' && data.url.trim() ? data.url.trim() : null,
-      actionType:
-        typeof data.actionType === 'string' && data.actionType
-          ? data.actionType
-          : 'click',
       targetElement:
         typeof data.targetElement === 'string' && data.targetElement
           ? data.targetElement
           : null,
-      implementationType: implType,
       triggers,
     });
   }
@@ -1005,13 +991,6 @@ export async function generateJourneyHtmlExport(
         imgBlock =
           '<div class="export-step-img-wrap export-step-no-img">No screenshot</div>';
       }
-      const implBadge =
-        step.implementationType === 'new'
-          ? '<span class="export-badge export-badge-new">New</span>'
-          : step.implementationType === 'enrichment'
-            ? '<span class="export-badge export-badge-enrichment">Enrichment</span>'
-            : '<span class="export-badge export-badge-fix">Fix</span>';
-
       const stepUrlField = step.url
         ? (() => {
             const raw = step.url;
@@ -1027,12 +1006,6 @@ export async function generateJourneyHtmlExport(
         : '';
 
       const meta = [
-        step.actionType
-          ? `<div class="export-step-meta-field">
-  <div class="export-step-meta-label">Action</div>
-  <div class="export-step-meta-value">${escapeHtml(step.actionType)}</div>
-</div>`
-          : '',
         step.targetElement
           ? `<div class="export-step-meta-field">
   <div class="export-step-meta-label">Target element</div>
@@ -1089,12 +1062,12 @@ export async function generateJourneyHtmlExport(
             const notesMd = (t.notesMarkdown ?? '').trim();
             const triggerNotesBlock =
               notesMd.length > 0
-                ? `<div class="export-trigger-notes">${renderQaNotesMarkdownToHtml(notesMd)}</div>`
+                ? `<div class="export-trigger-notes-section"><div class="export-props-title">Trigger Notes</div><div class="export-trigger-notes">${renderQaNotesMarkdownToHtml(notesMd)}</div></div>`
                 : '';
             const eventDescRaw = (t.eventDescription ?? '').trim();
             const eventDescBlock =
               eventDescRaw.length > 0
-                ? `<div class="export-trigger-event-desc"><div class="export-trigger-meta-label export-trigger-event-desc-title">Event description</div>${renderJourneyDescriptionForExport(eventDescRaw)}</div>`
+                ? `<div class="export-trigger-meta export-trigger-meta--desc"><span class="export-trigger-meta-label">Event description</span><span class="export-trigger-meta-value export-trigger-meta-value--desc">${renderJourneyDescriptionForExport(eventDescRaw)}</span></div>`
                 : '';
             const variantMeta = `<div class="export-trigger-meta"><span class="export-trigger-meta-label">Variant</span><span class="export-trigger-meta-value">${t.variantDisplayName ? escapeHtml(t.variantDisplayName) : '—'}</span></div>`;
             const purposeMeta = `<div class="export-trigger-meta"><span class="export-trigger-meta-label">Purpose</span><span class="export-trigger-meta-value">${t.eventPurpose && String(t.eventPurpose).trim() ? escapeHtml(String(t.eventPurpose).trim()) : '—'}</span></div>`;
@@ -1163,7 +1136,6 @@ export async function generateJourneyHtmlExport(
           <div class="export-step-title">
             <span class="export-step-kind-badge">Journey step</span>
             <span class="export-step-title-main">Step ${stepNum}: ${escapeHtml(step.label)}</span>
-            ${implBadge}
           </div>
           <div class="export-step-header-right">
             ${headerEventHint}
@@ -1327,10 +1299,6 @@ export async function generateJourneyHtmlExport(
     .export-step-footer { margin-top: 14px; display: flex; justify-content: flex-end; }
     .export-step-top { font-size: 0.8rem; color: #2563eb; text-decoration: none; }
     .export-step-top:hover { text-decoration: underline; }
-    .export-badge { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 8px; border-radius: 4px; color: #fff; }
-    .export-badge-new { background: #059669; }
-    .export-badge-enrichment { background: #2563eb; }
-    .export-badge-fix { background: #d97706; }
     .export-step-desc { margin: 0 0 12px; color: #4b5563; font-size: 0.9rem; }
     .export-step-desc-md {
       margin: 0 0 12px;
@@ -1452,18 +1420,18 @@ export async function generateJourneyHtmlExport(
       min-width: 4.25rem;
     }
     .export-trigger-meta-value { color: #334155; flex: 1; min-width: 0; word-break: break-word; }
-    .export-trigger-event-desc {
-      margin: 8px 0 12px;
-      padding: 10px 12px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      font-size: 0.9rem;
+    .export-trigger-meta--desc { align-items: flex-start; }
+    .export-trigger-meta-value--desc {
+      flex: 1;
+      min-width: 0;
+      font-size: 0.875rem;
       color: #334155;
       line-height: 1.45;
     }
-    .export-trigger-event-desc-title { margin-bottom: 6px; }
-    .export-trigger-notes { margin: 0 0 12px; font-size: 0.95rem; color: #334155; line-height: 1.45; }
+    .export-trigger-meta-value--desc .export-step-desc-md { margin: 0; }
+    .export-trigger-notes-section { margin: 0 0 12px; }
+    .export-trigger-notes-section .export-props-title { margin-bottom: 8px; }
+    .export-trigger-notes { margin: 0; font-size: 0.95rem; color: #334155; line-height: 1.45; }
     .export-trigger-notes a { color: #1d4ed8; text-decoration: underline; }
     .export-trigger-notes p { margin: 0 0 8px; }
     .export-trigger-notes p:last-child { margin-bottom: 0; }

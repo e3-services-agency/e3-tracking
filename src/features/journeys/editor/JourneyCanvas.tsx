@@ -850,7 +850,7 @@ export function JourneyCanvas({
                             Event description
                           </div>
                           {(selectedNode.data.connectedEvent.description ?? '').trim() ? (
-                            <div className="bg-white border rounded-md p-2 text-sm text-gray-800 min-w-0 max-w-full overflow-hidden">
+                            <div className="text-sm text-gray-800 min-w-0 max-w-full">
                               <JourneyDescriptionMarkdown
                                 text={selectedNode.data.connectedEvent.description ?? ''}
                                 className="text-sm"
@@ -867,8 +867,11 @@ export function JourneyCanvas({
 
               {isTriggerNode(selectedNode) && (
                 <div className="min-w-0">
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-                    Trigger notes
+                  <div
+                    className="text-[0.8rem] font-semibold text-[#475569] uppercase mb-2"
+                    style={{ letterSpacing: '0.03em' }}
+                  >
+                    Trigger Notes
                   </div>
                   <QaNotesMarkdownField
                     value={selectedNode.data.notes_markdown ?? ''}
@@ -935,25 +938,6 @@ export function JourneyCanvas({
                       </a>
                     </div>
                   )}
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                        Action
-                      </div>
-                      <div className="bg-white border rounded-md p-2 text-sm text-gray-800">
-                        {selectedNode.data.actionType ?? 'click'}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                        Implementation
-                      </div>
-                      <div className="bg-white border rounded-md p-2 text-sm text-gray-800 capitalize">
-                        {selectedNode.data.implementationType ?? 'new'}
-                      </div>
-                    </div>
-                  </div>
 
                   {(selectedNode.data.targetElement ?? '').trim() && (
                     <div>

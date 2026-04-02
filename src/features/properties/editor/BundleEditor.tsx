@@ -1,10 +1,11 @@
-import React from 'react';
-import type { PropertyBundle } from '@/src/types';
-import type { PropertyRow } from '@/src/types/schema';
+import React, { useEffect, useMemo, useState } from 'react';
+import type { Property, PropertyBundle, PropertyValueType } from '@/src/types';
+import type { PropertyRow, PropertyDataType } from '@/src/types/schema';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
-import { Check, Trash2, Loader2 } from 'lucide-react';
+import { Trash2, Loader2, Plus, X } from 'lucide-react';
 import { useBundleEditor } from '@/src/features/properties/hooks/useBundleEditor';
+import { AddPropertyModal } from '@/src/features/events/overlays/AddPropertyModal';
 
 type BundleEditorProps = {
   bundle: PropertyBundle | null | undefined;
@@ -14,6 +15,26 @@ type BundleEditorProps = {
   workspaceProperties: PropertyRow[];
 };
 
+function dataTypeToValueType(dt: PropertyDataType): PropertyValueType {
+  if (dt === 'boolean') return 'boolean';
+  if (dt === 'number') return 'integer';
+  return 'string';
+}
+
+function propertyRowToModalProperty(row: PropertyRow): Property {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? '',
+    property_value_type: dataTypeToValueType(row.data_type),
+    is_list: false,
+    attached_events: [],
+    value_constraints: [],
+    categories: [],
+    tags: [],
+  };
+}
+
 export function BundleEditor({
   bundle,
   isCreating,
@@ -22,7 +43,6 @@ export function BundleEditor({
   workspaceProperties,
 }: BundleEditorProps) {
   const {
-    properties,
     name,
     description,
     propertyIds,
@@ -32,8 +52,49 @@ export function BundleEditor({
     saveError,
     handleSave,
     handleDelete,
-    toggleProperty,
+    addPropertyId,
+    removePropertyId,
   } = useBundleEditor({ bundle, isCreating, onClose, onSuccess, workspaceProperties });
+
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [hoveredPropId, setHoveredPropId] = useState<string | null>(null);
+  const [propSearch, setPropSearch] = useState('');
+
+  const allPropertiesModal = useMemo(
+    () => workspaceProperties.map(propertyRowToModalProperty),
+    [workspaceProperties],
+  );
+
+  const filteredAvailableProps = useMemo(() => {
+    const q = propSearch.toLowerCase();
+    return workspaceProperties
+      .filter((p) => !propertyIds.includes(p.id))
+      .map(propertyRowToModalProperty)
+      .filter((p) => p.name.toLowerCase().includes(q));
+  }, [workspaceProperties, propertyIds, propSearch]);
+
+  useEffect(() => {
+    if (!addModalOpen) return;
+    if (filteredAvailableProps.length === 0) {
+      setHoveredPropId(null);
+      return;
+    }
+    if (!hoveredPropId || !filteredAvailableProps.some((p) => p.id === hoveredPropId)) {
+      setHoveredPropId(filteredAvailableProps[0].id);
+    }
+  }, [addModalOpen, filteredAvailableProps, hoveredPropId]);
+
+  const selectedPropertyRows = useMemo(() => {
+    return propertyIds
+      .map((id) => workspaceProperties.find((p) => p.id === id))
+      .filter((p): p is PropertyRow => Boolean(p));
+  }, [propertyIds, workspaceProperties]);
+
+  const openAddPropertyModal = () => {
+    setPropSearch('');
+    setHoveredPropId(null);
+    setAddModalOpen(true);
+  };
 
   return (
     <div className="space-y-6 pb-24">
@@ -63,46 +124,59 @@ export function BundleEditor({
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">
-          Included Properties ({propertyIds.length})
-        </label>
-        <div className="border rounded-md max-h-64 overflow-y-auto divide-y bg-gray-50">
-          {properties.map((prop) => {
-            const isSelected = propertyIds.includes(prop.id);
-            return (
-              <div
+        <div className="flex items-center justify-between gap-2">
+          <label className="text-sm font-medium text-gray-700">
+            Included properties ({propertyIds.length})
+          </label>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1"
+            onClick={openAddPropertyModal}
+            disabled={isSaving || workspaceProperties.length === 0}
+          >
+            <Plus className="w-4 h-4" />
+            Add property
+          </Button>
+        </div>
+        {workspaceProperties.length === 0 && (
+          <p className="text-sm text-gray-500">
+            No workspace properties yet. Create properties on the Properties tab first.
+          </p>
+        )}
+        {selectedPropertyRows.length > 0 ? (
+          <ul className="border rounded-md divide-y bg-gray-50/80 max-h-56 overflow-y-auto">
+            {selectedPropertyRows.map((prop) => (
+              <li
                 key={prop.id}
-                className={`p-3 flex items-center gap-3 cursor-pointer transition-colors ${
-                  isSelected ? 'bg-blue-50/50' : 'hover:bg-gray-100'
-                } ${isSaving ? 'opacity-60 pointer-events-none' : ''}`}
-                onClick={() => toggleProperty(prop.id)}
+                className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
               >
-                <div
-                  className={`w-4 h-4 rounded border flex items-center justify-center ${
-                    isSelected
-                      ? 'bg-[var(--color-info)] border-[var(--color-info)]'
-                      : 'border-gray-300 bg-white'
-                  }`}
-                >
-                  {isSelected && <Check className="w-3 h-3 text-white" />}
-                </div>
-                <div>
-                  <div className="font-mono text-sm font-medium text-gray-900">
+                <div className="min-w-0">
+                  <div className="font-mono font-medium text-gray-900 truncate">
                     {prop.name}
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-gray-500 truncate">
                     {prop.description || 'No description'}
                   </div>
                 </div>
-              </div>
-            );
-          })}
-          {properties.length === 0 && (
-            <div className="p-4 text-center text-sm text-gray-500">
-              No properties available. Create some properties first.
-            </div>
-          )}
-        </div>
+                <button
+                  type="button"
+                  onClick={() => removePropertyId(prop.id)}
+                  disabled={isSaving}
+                  className="shrink-0 rounded p-1 text-gray-500 hover:text-red-600 hover:bg-red-50"
+                  aria-label={`Remove ${prop.name}`}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-gray-500 border border-dashed rounded-md px-3 py-4 text-center">
+            No properties in this bundle yet. Use &quot;Add property&quot; to pick from the catalog.
+          </p>
+        )}
       </div>
 
       {saveError && (
@@ -139,6 +213,27 @@ export function BundleEditor({
           </Button>
         </div>
       </div>
+
+      <AddPropertyModal
+        isOpen={addModalOpen}
+        mode="event"
+        filteredAvailableProps={filteredAvailableProps}
+        hoveredPropId={hoveredPropId}
+        onHoverProperty={setHoveredPropId}
+        onSelectProperty={(p) => {
+          addPropertyId(p.id);
+          setAddModalOpen(false);
+          setPropSearch('');
+        }}
+        search={propSearch}
+        onChangeSearch={setPropSearch}
+        allProperties={allPropertiesModal}
+        onClose={() => {
+          setAddModalOpen(false);
+          setPropSearch('');
+        }}
+        hideBundlesTab
+      />
     </div>
   );
 }

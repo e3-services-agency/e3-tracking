@@ -8,9 +8,11 @@ import {
   EventAction,
   EventVariant,
   Property,
+  PropertyBundle,
   Team,
   TrackingStatus,
 } from '@/src/types';
+import { useBundles } from '@/src/features/properties/hooks/useBundles';
 import { toSnakeCase, toPascalCase } from '@/src/lib/utils';
 
 type EventTrigger = {
@@ -45,6 +47,7 @@ export function useEventEditor({
 }: UseEventEditorArgs) {
   const data = useActiveData();
   const { addEvent, updateEvent, deleteEvent, auditConfig } = useStore();
+  const { bundles } = useBundles();
 
   const [name, setName] = useState(event?.name || '');
   const [description, setDescription] = useState(event?.description || '');
@@ -376,6 +379,29 @@ ${props
     setPropSearch('');
   };
 
+  const handleSelectBundle = (bundle: PropertyBundle) => {
+    const actionId =
+      isAddEventPropertyModalOpen || isAddSystemPropertyModalOpen;
+    const listType: 'eventProperties' | 'systemProperties' =
+      isAddEventPropertyModalOpen ? 'eventProperties' : 'systemProperties';
+    if (actionId) {
+      setActions((prev) =>
+        prev.map((a) => {
+          if (a.id !== actionId) return a;
+          const next = new Set(a[listType]);
+          for (const pid of bundle.propertyIds) {
+            next.add(pid);
+          }
+          return { ...a, [listType]: [...next] };
+        }),
+      );
+      logAction(`added bundle ${bundle.name}`);
+    }
+    setIsAddEventPropertyModalOpen(null);
+    setIsAddSystemPropertyModalOpen(null);
+    setPropSearch('');
+  };
+
   const handleClosePropertyModal = () => {
     setIsAddEventPropertyModalOpen(null);
     setIsAddSystemPropertyModalOpen(null);
@@ -461,6 +487,7 @@ ${props
       teams: data.teams as Team[],
       sources: data.sources as Source[],
       properties: data.properties as Property[],
+      bundles,
     },
     form: {
       name,
@@ -562,6 +589,7 @@ ${props
       handleAddAction,
       handleAddComment,
       handleSelectProperty,
+      handleSelectBundle,
       handleImageUpload,
       handleImagePaste,
       handleSave,

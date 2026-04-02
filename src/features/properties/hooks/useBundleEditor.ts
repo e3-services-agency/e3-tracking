@@ -84,16 +84,15 @@ export function useBundleEditor({
     }
   };
 
-  const toggleProperty = (id: string) => {
-    setPropertyIds((prev) =>
-      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
-    );
+  const addPropertyId = (id: string) => {
+    setPropertyIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
   };
 
-  const properties = workspaceProperties;
+  const removePropertyId = (id: string) => {
+    setPropertyIds((prev) => prev.filter((p) => p !== id));
+  };
 
   return {
-    properties,
     name,
     description,
     propertyIds,
@@ -103,6 +102,7 @@ export function useBundleEditor({
     saveError,
     handleSave,
     handleDelete,
-    toggleProperty,
+    addPropertyId,
+    removePropertyId,
   };
 }

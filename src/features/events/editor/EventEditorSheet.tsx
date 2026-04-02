@@ -50,7 +50,7 @@ export function EventEditorSheet({
     deleteEventApi: deleteEvent,
   });
 
-  const { teams, sources, properties } = data;
+  const { teams, sources, properties, bundles } = data;
   const {
     name,
     description,
@@ -128,6 +128,7 @@ export function EventEditorSheet({
     handleAddAction,
     handleAddComment,
     handleSelectProperty,
+    handleSelectBundle,
     handleImageUpload,
     handleImagePaste,
     handleSave,
@@ -307,6 +308,8 @@ export function EventEditorSheet({
         onChangeSearch={setPropSearch}
         allProperties={properties}
         onClose={closePropertyModal}
+        bundles={bundles}
+        onSelectBundle={handleSelectBundle}
       />
     </div>
   );

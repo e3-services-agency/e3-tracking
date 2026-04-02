@@ -253,12 +253,11 @@ function formatJsObjectBodyFromSchema(
   const props = schema.properties ?? {};
   const keys = Object.keys(props);
   const includedKeys = keys.filter((k) => props[k]?.presence !== 'never_sent');
-  const requiredKeys = includedKeys.filter(
-    (k) => props[k]?.presence === 'always_sent' || props[k]?.required !== false
-  );
-  const optionalKeys = includedKeys.filter(
-    (k) => props[k]?.presence === 'sometimes_sent' || props[k]?.required === false
-  );
+  // Match shared docs nested rows: `buildOnePropertyTableRow` uses `schemaNode.required !== false`
+  // for nested fields (not presence-based splitting), so codegen must not classify a field as both
+  // required and optional when presence is `sometimes_sent` but `required` is still true/undefined.
+  const requiredKeys = includedKeys.filter((k) => props[k]?.required !== false);
+  const optionalKeys = includedKeys.filter((k) => props[k]?.required === false);
 
   const lines: string[] = [];
   const inner = `${baseIndent}  `;
@@ -374,7 +373,11 @@ function buildDataLayerSnippet(
     `  event: '${eventName}',`,
   ];
   for (const p of props) {
-    const { comment, lines: propLines } = formatPropLines(p, p.presence === 'sometimes_sent');
+    const optional = !isAttachedPropertyRequiredForTrigger(
+      p.presence,
+      p.property_required_override
+    );
+    const { comment, lines: propLines } = formatPropLines(p, optional);
     if (comment) lines.push(comment);
     lines.push(...propLines);
   }
@@ -390,7 +393,11 @@ function buildBloomreachSdkSnippet(
   const eventName = resolveOutputEventName(canonicalEventName, 'bloomreachSdk', overrides);
   const lines: string[] = [`exponea.track('${eventName}', {`];
   for (const p of props) {
-    const { comment, lines: propLines } = formatPropLines(p, p.presence === 'sometimes_sent');
+    const optional = !isAttachedPropertyRequiredForTrigger(
+      p.presence,
+      p.property_required_override
+    );
+    const { comment, lines: propLines } = formatPropLines(p, optional);
     if (comment) lines.push(comment);
     lines.push(...propLines);
   }

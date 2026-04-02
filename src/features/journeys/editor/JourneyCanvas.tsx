@@ -822,6 +822,29 @@ export function JourneyCanvas({
                 </div>
               </div>
 
+              {isTriggerNode(selectedNode) && (
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                    Trigger notes
+                  </div>
+                  <QaNotesMarkdownField
+                    value={selectedNode.data.notes_markdown ?? ''}
+                    onChange={(v) =>
+                      setNodes((nds) =>
+                        nds.map((n) =>
+                          n.id === selectedNode.id && isTriggerNode(n)
+                            ? { ...n, data: { ...n.data, notes_markdown: v } }
+                            : n
+                        )
+                      )
+                    }
+                    readOnly={effectiveReadOnly}
+                    placeholder="Optional notes for this trigger (markdown)…"
+                    minHeight="7rem"
+                  />
+                </div>
+              )}
+
               {effectiveReadOnly &&
                 isTriggerNode(selectedNode) &&
                 (selectedNode.data.description ?? '').trim() && (

@@ -270,6 +270,7 @@ export function useJourneyCanvas({
             codegenSnippets: canonical?.codegenSnippets,
             eventId: canonical?.eventId,
             eventName: canonical?.eventName,
+            notes_markdown: canonical?.notes_markdown ?? mergedData.notes_markdown,
           };
         }
 

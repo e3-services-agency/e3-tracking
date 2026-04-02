@@ -26,6 +26,7 @@ import {
   codegenLanguageForStyle,
   type CodegenStyleId,
 } from '../../lib/codeHighlight';
+import { renderQaNotesMarkdownToHtml } from '../../lib/qaNotesMarkdown';
 
 /** Lucide-style Zap — matches Journey trigger node header icon treatment in export CSS. */
 const EXPORT_TRIGGER_ZAP_SVG = `<svg class="export-trigger-zap" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>`;
@@ -632,6 +633,8 @@ export interface StepExportItem {
     attached_properties: EventPropertyWithDetails[];
     sourceLabelsByPropertyId: Map<string, string>;
     codegen_event_name_overrides: CodegenEventNameOverrides | null;
+    /** Persisted trigger node notes (markdown); empty when unset. */
+    notesMarkdown: string;
   }[];
 }
 
@@ -764,6 +767,7 @@ export async function generateJourneyHtmlExport(
           eventPayloadCache.set(eventId, cached);
         }
       }
+      const nm = trigger.data?.notes_markdown;
       triggers.push({
         eventId,
         eventName: cached.eventName,
@@ -773,6 +777,7 @@ export async function generateJourneyHtmlExport(
         attached_properties: cached.attached_properties,
         sourceLabelsByPropertyId: cached.sourceLabelsByPropertyId,
         codegen_event_name_overrides: cached.codegen_event_name_overrides,
+        notesMarkdown: typeof nm === 'string' ? nm : '',
       });
     }
 
@@ -977,6 +982,11 @@ export async function generateJourneyHtmlExport(
               (t as any).attached_properties || [],
               (t as any).sourceLabelsByPropertyId ?? new Map()
             );
+            const notesMd = (t.notesMarkdown ?? '').trim();
+            const triggerNotesBlock =
+              notesMd.length > 0
+                ? `<div class="export-trigger-notes">${renderQaNotesMarkdownToHtml(notesMd)}</div>`
+                : '';
             const rawSnippet = snippets[preferredCodegenStyle];
             // Product decision: render raw code only (no syntax highlighting).
             const escapedSnippet = escapeHtml(rawSnippet);
@@ -988,6 +998,7 @@ export async function generateJourneyHtmlExport(
           </div>
           <div class="export-tracking-body">
           <div class="export-tracking-title">Event: ${escapeHtml(t.eventName)} <span class="export-tracking-id">(${escapeHtml(t.eventId)})</span></div>
+          ${triggerNotesBlock}
           ${propsTable}
           <div class="export-implementation-examples">
             <div class="export-examples-title">Implementation examples</div>
@@ -1303,6 +1314,13 @@ export async function generateJourneyHtmlExport(
     }
     .export-tracking-title { font-weight: 600; margin: 0 0 8px; color: #334155; font-size: 0.95rem; }
     .export-tracking-id { font-weight: 500; color: #64748b; font-size: 0.85em; }
+    .export-trigger-notes { margin: 0 0 12px; font-size: 0.95rem; color: #334155; line-height: 1.45; }
+    .export-trigger-notes a { color: #1d4ed8; text-decoration: underline; }
+    .export-trigger-notes p { margin: 0 0 8px; }
+    .export-trigger-notes p:last-child { margin-bottom: 0; }
+    .export-trigger-notes ul, .export-trigger-notes ol { margin: 6px 0; padding-left: 1.25rem; }
+    .export-trigger-notes code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; background: #f1f5f9; padding: 1px 4px; border-radius: 4px; }
+    .export-trigger-notes .qa-md-h { margin: 8px 0 4px; font-weight: 600; color: #0f172a; }
     .export-implementation-examples { margin-top: 12px; }
     .export-examples-title { font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em; }
     .export-example-group { margin-bottom: 12px; }

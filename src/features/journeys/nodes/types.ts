@@ -56,6 +56,8 @@ export type JourneyStepNodeData = BaseJourneyNodeData & {
 
 export type TriggerNodeData = BaseJourneyNodeData & {
   description: string;
+  /** Optional manual notes for this trigger; markdown stored as plain text (same subset as QA notes). */
+  notes_markdown?: string;
   connectedEvent: ConnectedEventData | null;
 };
 

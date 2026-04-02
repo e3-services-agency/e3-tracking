@@ -20,13 +20,14 @@ export interface WorkspaceItem {
 export function useWorkspaces() {
   const { user } = useAuth();
   const [workspaces, setWorkspaces] = useState<WorkspaceItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchWorkspaces = useCallback(async () => {
     if (!user) {
       setWorkspaces([]);
       setError(null);
+      setIsLoading(false);
       return;
     }
     setIsLoading(true);

@@ -1124,6 +1124,7 @@ export async function generateJourneyHtmlExport(
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/googlecode.min.css">
   <style>
     * { box-sizing: border-box; }
     body {
@@ -1378,24 +1379,34 @@ export async function generateJourneyHtmlExport(
     .export-example-group { margin-bottom: 12px; }
     .export-example-group:last-child { margin-bottom: 0; }
     .export-example-label { font-size: 0.75rem; color: #64748b; margin-bottom: 4px; }
-    /* Syntax highlighting removed: code blocks render raw escaped text only. */
     .export-code-wrap { position: relative; }
     .export-copy {
       position: absolute;
       top: 8px;
       right: 8px;
-      border: 1px solid #334155;
-      background: #0f172a;
-      color: #e2e8f0;
+      border: 1px solid #e5e7eb;
+      background: #ffffff;
+      color: #374151;
       font-size: 0.75rem;
       padding: 4px 8px;
       border-radius: 6px;
       cursor: pointer;
       opacity: 0.9;
+      z-index: 10;
     }
-    .export-copy:hover { opacity: 1; }
-    .export-code { margin: 0; padding: 12px; background: #1e293b; color: #e2e8f0; border-radius: 4px; overflow-x: auto; font-size: 0.85rem; }
-    .export-code code { background: none; padding: 0; }
+    .export-copy:hover { opacity: 1; background: #f9fafb; color: #111827; }
+
+    pre.export-code {
+      margin: 0;
+      padding: 1.25rem !important;
+      font-size: 0.875rem !important;
+      line-height: 1.5 !important;
+      background-color: #fafafa !important;
+      border: 1px solid #e5e7eb !important;
+      border-radius: 0.375rem !important;
+      overflow-x: auto;
+    }
+    pre.export-code code { background: none; padding: 0; color: inherit; }
 
     .export-props { margin-top: 12px; }
     .export-props-title { font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em; }
@@ -1646,6 +1657,16 @@ export async function generateJourneyHtmlExport(
         if (modal) modal.removeAttribute('data-open');
       });
     })();
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (typeof hljs !== 'undefined') {
+        document.querySelectorAll('pre.export-code code').forEach((el) => {
+          hljs.highlightElement(el);
+        });
+      }
+    });
   </script>
 </body>
 </html>`;

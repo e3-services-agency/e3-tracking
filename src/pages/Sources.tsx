@@ -4,9 +4,10 @@ import { Source } from '@/src/types';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
-import { Search, Plus, Trash2 } from 'lucide-react';
+import { Search, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import {
+  createWorkspaceSource,
   getWorkspaceSourceUsage,
   listWorkspaceSources,
   type SourceUsageSummary,
@@ -14,7 +15,7 @@ import {
 
 export function Sources() {
   const data = useActiveData();
-  const { addSource, updateSource, deleteSource, syncSourcesFromApi } = useStore();
+  const { syncSourcesFromApi } = useStore();
   const { activeWorkspaceId, hasValidWorkspaceContext } = useWorkspaceShell();
   const [usageBySourceId, setUsageBySourceId] = useState<Record<string, SourceUsageSummary>>({});
 
@@ -128,6 +129,7 @@ export function Sources() {
         title={isCreating ? "Create Source" : "Edit Source"}
       >
         <SourceEditor
+          key={isCreating ? 'create' : selectedSourceId ?? 'none'}
           source={selectedSource}
           isCreating={isCreating}
           onClose={() => setIsSheetOpen(false)}
@@ -138,10 +140,19 @@ export function Sources() {
 }
 
 function SourceEditor({ source, isCreating, onClose }: { source: Source | null | undefined, isCreating: boolean, onClose: () => void }) {
-  const { addSource, updateSource, deleteSource } = useStore();
-  
+  const { upsertSourceFromApi, updateSource, deleteSource } = useStore();
+  const { activeWorkspaceId, hasValidWorkspaceContext } = useWorkspaceShell();
+
   const [name, setName] = useState(source?.name || '');
   const [color, setColor] = useState(source?.color || 'bg-gray-100 text-gray-800');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setName(source?.name || '');
+    setColor(source?.color || 'bg-gray-100 text-gray-800');
+    setSaveError(null);
+  }, [source?.id, isCreating]);
 
   const colorOptions = [
     { label: 'Gray', value: 'bg-gray-100 text-gray-800' },
@@ -152,18 +163,43 @@ function SourceEditor({ source, isCreating, onClose }: { source: Source | null |
     { label: 'Pink', value: 'bg-pink-100 text-pink-800' },
   ];
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) return;
-    
+    setSaveError(null);
+
     if (isCreating) {
-      addSource({ name, color });
-    } else if (source) {
-      updateSource(source.id, { name, color });
+      if (!hasValidWorkspaceContext || !activeWorkspaceId?.trim()) {
+        setSaveError('Select a workspace before creating a source.');
+        return;
+      }
+      setIsSaving(true);
+      try {
+        const result = await createWorkspaceSource({
+          workspaceId: activeWorkspaceId,
+          name: name.trim(),
+          color: color || null,
+        });
+        if (!result.success) {
+          setSaveError(result.error);
+          return;
+        }
+        upsertSourceFromApi(result.data);
+        onClose();
+      } finally {
+        setIsSaving(false);
+      }
+      return;
     }
-    onClose();
+
+    // No PATCH /api/sources/:id yet — updates are local-only until backend exposes update.
+    if (source) {
+      updateSource(source.id, { name, color });
+      onClose();
+    }
   };
 
   const handleDelete = () => {
+    // No DELETE /api/sources/:id yet — removal is local-only until backend supports it.
     if (source) {
       deleteSource(source.id);
       onClose();
@@ -178,6 +214,7 @@ function SourceEditor({ source, isCreating, onClose }: { source: Source | null |
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. iOS App"
+          disabled={isSaving}
         />
       </div>
 
@@ -187,6 +224,8 @@ function SourceEditor({ source, isCreating, onClose }: { source: Source | null |
           {colorOptions.map(opt => (
             <button
               key={opt.value}
+              type="button"
+              disabled={isSaving}
               onClick={() => setColor(opt.value)}
               className={`flex items-center justify-center py-2 rounded-md border text-sm font-medium transition-all ${
                 color === opt.value ? 'ring-2 ring-[var(--color-info)] ring-offset-1' : 'hover:bg-gray-50'
@@ -198,15 +237,31 @@ function SourceEditor({ source, isCreating, onClose }: { source: Source | null |
         </div>
       </div>
 
+      {saveError && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
+          {saveError}
+        </div>
+      )}
+
       <div className="pt-6 border-t flex justify-between">
         {!isCreating && source ? (
-          <Button variant="destructive" onClick={handleDelete} className="gap-2">
+          <Button variant="destructive" onClick={handleDelete} disabled={isSaving} className="gap-2">
             <Trash2 className="w-4 h-4" /> Delete
           </Button>
         ) : <div />}
         <div className="flex gap-2">
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleSave}>Save Source</Button>
+          <Button variant="outline" onClick={onClose} disabled={isSaving}>
+            Cancel
+          </Button>
+          <Button onClick={() => void handleSave()} disabled={isSaving} className="gap-2">
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Saving…
+              </>
+            ) : (
+              'Save Source'
+            )}
+          </Button>
         </div>
       </div>
     </div>

@@ -26,6 +26,7 @@ import {
 } from '@/src/features/journeys/lib/qaRunUtils';
 import { JourneyPendingQAWarnModal } from '@/src/features/journeys/overlays/JourneyPendingQAWarnModal';
 import { JourneyDescriptionMarkdown } from '@/src/features/journeys/components/JourneyDescriptionMarkdown';
+import { QaNotesMarkdownField } from '@/src/features/journeys/components/QaNotesMarkdownField';
 import {
   AlertTriangle,
   CircleDashed,
@@ -687,14 +688,12 @@ export function JourneyCanvas({
               <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                 Overall QA Notes
               </div>
-              <textarea
-                className="w-full h-32 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              <QaNotesMarkdownField
                 value={activeQARun?.overallNotes || ''}
-                onChange={(e) =>
-                  updateQARun({ overallNotes: e.target.value })
-                }
-                placeholder="Add overall run notes, blockers, conclusions, or final recommendation..."
+                onChange={(v) => updateQARun({ overallNotes: v })}
                 readOnly={effectiveReadOnly}
+                placeholder="Add overall run notes, blockers, conclusions, or final recommendation..."
+                minHeight="8rem"
               />
             </div>
 
@@ -974,23 +973,22 @@ export function JourneyCanvas({
 
               {activeQARunId && (
               <>
-              {!effectiveReadOnly && (
               <div>
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
                   QA Notes
                 </div>
-                <textarea
-                  className="w-full h-28 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  placeholder="Add notes about the test execution..."
+                <QaNotesMarkdownField
                   value={currentVerification?.notes || ''}
-                  onChange={(e) =>
+                  onChange={(v) =>
                     updateQAVerification(selectedNode.id, {
-                      notes: e.target.value,
+                      notes: v,
                     })
                   }
+                  readOnly={effectiveReadOnly}
+                  placeholder="Add notes about the test execution..."
+                  minHeight="7rem"
                 />
               </div>
-              )}
 
               {!effectiveReadOnly && (
               <div>

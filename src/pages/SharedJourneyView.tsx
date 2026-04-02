@@ -13,6 +13,7 @@ import {
   computePayloadValidationRunSummary,
   withFormattedPayloadValidationIssuesForExport,
 } from '@/src/features/journeys/lib/payloadValidationFormatter';
+import { augmentQaRunWithNotesHtml } from '@/src/lib/qaNotesMarkdown';
 import { computeQARunStatusForRun, getQARunDisplayName } from '@/src/features/journeys/lib/qaRunUtils';
 import { ArrowLeft, Check, ChevronDown, FileText, Lock, LockOpen, PenTool } from 'lucide-react';
 import type { QARun, QAStatus } from '@/src/types';
@@ -33,7 +34,8 @@ type SharedResponse = {
 
 function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
   const runForExport = withFormattedPayloadValidationIssuesForExport(qaRun);
-  const safeJson = JSON.stringify(runForExport).replace(/<\/script/gi, '<\\/script');
+  const runForDisplay = augmentQaRunWithNotesHtml(runForExport);
+  const safeJson = JSON.stringify(runForDisplay).replace(/<\/script/gi, '<\\/script');
   const payloadValSummary = computePayloadValidationRunSummary(qaRun);
   const safePayloadSummaryJson = JSON.stringify(payloadValSummary).replace(
     /<\/script/gi,
@@ -69,6 +71,16 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
   .qa-proof-thumb { display:block; width:100%; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; background:#fff; text-decoration:none; padding:0; cursor: zoom-in; }
   .qa-proof-thumb img { display:block; width:100%; height:110px; object-fit:cover; background:#f1f5f9; }
   .qa-proof-thumb .qa-proof-name { padding:8px 10px; }
+  .qa-notes-md { font-size: 13px; color: #334155; line-height: 1.45; }
+  .qa-notes-md a { color: #1d4ed8; text-decoration: underline; }
+  .qa-notes-md p { margin: 0 0 8px; }
+  .qa-notes-md p:last-child { margin-bottom: 0; }
+  .qa-notes-md ul, .qa-notes-md ol { margin: 6px 0; padding-left: 1.25rem; }
+  .qa-notes-md code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; background: #f1f5f9; padding: 1px 4px; border-radius: 4px; }
+  .qa-notes-md .qa-md-h { margin: 8px 0 4px; font-weight: 600; color: #0f172a; }
+  .qa-notes-md h1 { font-size: 1.125rem; }
+  .qa-notes-md h2 { font-size: 1.05rem; }
+  .qa-notes-md h3, .qa-notes-md h4 { font-size: 13px; }
 </style>`;
   const script = `
 <script>
@@ -400,7 +412,22 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
     addField('Tester', qaRun.testerName ? String(qaRun.testerName) : '', false);
     addField('Environment', qaRun.environment ? String(qaRun.environment) : '', false);
     addField('Ended', qaRun.endedAt ? String(qaRun.endedAt) : '', true);
-    addField('Notes', qaRun.overallNotes ? String(qaRun.overallNotes).trim() : '', false);
+    (function(){
+      var notesPlain = qaRun.overallNotes ? String(qaRun.overallNotes).trim() : '';
+      var notesHtml = qaRun.__overallNotesHtml;
+      if (!notesPlain && !notesHtml) return;
+      var nWrap = document.createElement('div');
+      var nLab = document.createElement('div');
+      nLab.className = 'qa-field-label';
+      nLab.textContent = 'Notes';
+      var nVal = document.createElement('div');
+      nVal.className = 'qa-field-value qa-notes-md';
+      if (notesHtml) nVal.innerHTML = notesHtml;
+      else nVal.textContent = notesPlain;
+      nWrap.appendChild(nLab);
+      nWrap.appendChild(nVal);
+      grid.appendChild(nWrap);
+    })();
 
     var profiles = Array.isArray(qaRun.testingProfiles) ? qaRun.testingProfiles : [];
     if (profiles.length > 0){

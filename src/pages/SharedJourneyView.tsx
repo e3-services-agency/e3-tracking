@@ -9,6 +9,7 @@ import { JourneyCanvas } from '@/src/features/journeys/editor/JourneyCanvas';
 import { getSharedJourneyByIdApi, getSharedJourneyByTokenApi } from '@/src/features/journeys/hooks/useJourneysApi';
 import type { Journey } from '@/src/types';
 import { API_BASE, buildAppPageUrl } from '@/src/config/env';
+import { withFormattedPayloadValidationIssuesForExport } from '@/src/features/journeys/lib/payloadValidationFormatter';
 import { computeQARunStatusForRun, getQARunDisplayName } from '@/src/features/journeys/lib/qaRunUtils';
 import { ArrowLeft, Check, ChevronDown, FileText, Lock, LockOpen, PenTool } from 'lucide-react';
 import type { QARun, QAStatus } from '@/src/types';
@@ -28,7 +29,10 @@ type SharedResponse = {
 };
 
 function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
-  const safeJson = JSON.stringify(qaRun).replace(/<\/script/gi, '<\\/script');
+  const safeJson = JSON.stringify(withFormattedPayloadValidationIssuesForExport(qaRun)).replace(
+    /<\/script/gi,
+    '<\\/script'
+  );
   const style = `
 <style>
   .qa-chip { display:inline-flex; align-items:center; gap:6px; padding:2px 8px; border-radius:999px; border:1px solid #e2e8f0; font-size:12px; font-weight:600; line-height:18px; }
@@ -255,14 +259,35 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
           issuesLabel.style.marginTop = '8px';
           issuesLabel.textContent = 'Validation issues';
           wrap.appendChild(issuesLabel);
-          var ul2 = document.createElement('ul');
-          ul2.className = 'qa-list';
-          for (var ii = 0; ii < p.validation_issues.length; ii++) {
-            var li2 = document.createElement('li');
-            li2.textContent = String(p.validation_issues[ii]);
-            ul2.appendChild(li2);
+          var issues = p.validation_issues;
+          var pfx = issues[0];
+          var rest = issues.slice(1);
+          var knownPrefix = (pfx === 'Missing required keys:' || pfx === 'Invalid property types:' || pfx === 'Invalid payload:');
+          if (knownPrefix && rest.length > 0) {
+            var head = document.createElement('div');
+            head.style.fontWeight = '600';
+            head.style.fontSize = '13px';
+            head.style.color = '#0f172a';
+            head.textContent = String(pfx);
+            wrap.appendChild(head);
+            var ul2 = document.createElement('ul');
+            ul2.className = 'qa-list';
+            for (var ii = 0; ii < rest.length; ii++) {
+              var li2 = document.createElement('li');
+              li2.textContent = String(rest[ii]);
+              ul2.appendChild(li2);
+            }
+            wrap.appendChild(ul2);
+          } else {
+            var ul3 = document.createElement('ul');
+            ul3.className = 'qa-list';
+            for (var jj = 0; jj < issues.length; jj++) {
+              var li3 = document.createElement('li');
+              li3.textContent = String(issues[jj]);
+              ul3.appendChild(li3);
+            }
+            wrap.appendChild(ul3);
           }
-          wrap.appendChild(ul2);
         }
       }
       if (p && p.content){
@@ -533,6 +558,13 @@ export function SharedJourneyView({
     });
   }, [journey?.qaRuns]);
 
+  /** Stable fingerprint so QA export HTML does not refetch when `journey` identity changes without run data changes (e.g. focus refetch). */
+  const activeQARunSerialized = useMemo(() => {
+    if (!journey?.qaRuns || !activeQARunId) return null;
+    const run = journey.qaRuns.find((r: any) => r?.id === activeQARunId) as QARun | undefined;
+    return run ? JSON.stringify(run) : null;
+  }, [journey?.qaRuns, activeQARunId, journey?.id]);
+
   const inFlightRef = React.useRef(false);
   const fetchSharedJourney = React.useCallback(
     async ({ showLoadingScreen }: { showLoadingScreen: boolean }) => {
@@ -768,7 +800,7 @@ export function SharedJourneyView({
     return () => {
       cancelled = true;
     };
-  }, [view, activeQARunId, journey]);
+  }, [view, activeQARunId, journey?.id, activeQARunSerialized]);
 
   useEffect(() => {
     if (!isModeMenuOpen) return;

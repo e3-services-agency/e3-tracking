@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import { useActiveData, useStore } from '@/src/store';
@@ -8,11 +8,11 @@ import {
   EventAction,
   EventVariant,
   Property,
-  PropertyBundle,
   Team,
   TrackingStatus,
 } from '@/src/types';
 import { useBundles } from '@/src/features/properties/hooks/useBundles';
+import { legacyPropertyToPickerRow } from '@/src/features/events/lib/propertyPickerMappers';
 import { toSnakeCase, toPascalCase } from '@/src/lib/utils';
 
 type EventTrigger = {
@@ -117,8 +117,6 @@ export function useEventEditor({
     useState<string | null>(null); // holds actionId
   const [isAddSystemPropertyModalOpen, setIsAddSystemPropertyModalOpen] =
     useState<string | null>(null); // holds actionId
-  const [hoveredPropId, setHoveredPropId] = useState<string | null>(null);
-  const [propSearch, setPropSearch] = useState('');
 
   const activeVariant = variants.find((v) => v.id === variantId);
 
@@ -336,76 +334,53 @@ ${props
     (p) => !actions.flatMap((a) => a.systemProperties).includes(p.id),
   );
 
-  const filteredAvailableProps: Property[] = (
-    isAddEventPropertyModalOpen ? availableEventProps : availableSystemProps
-  ).filter((p) =>
-    p.name.toLowerCase().includes(propSearch.toLowerCase()),
-  );
+  const modalActionId =
+    isAddEventPropertyModalOpen || isAddSystemPropertyModalOpen;
+  const modalListType: 'eventProperties' | 'systemProperties' =
+    isAddEventPropertyModalOpen ? 'eventProperties' : 'systemProperties';
 
-  // Automatically select first item in property picker
-  useEffect(() => {
-    if (filteredAvailableProps.length > 0) {
-      if (
-        !hoveredPropId ||
-        !filteredAvailableProps.find((p) => p.id === hoveredPropId)
-      ) {
-        setHoveredPropId(filteredAvailableProps[0].id);
-      }
-    } else {
-      setHoveredPropId(null);
-    }
-  }, [filteredAvailableProps, hoveredPropId]);
+  const modalAttachedIds = useMemo(() => {
+    if (!modalActionId) return new Set<string>();
+    const a = actions.find((x) => x.id === modalActionId);
+    return new Set(a ? a[modalListType] : []);
+  }, [
+    modalActionId,
+    actions,
+    modalListType,
+    isAddEventPropertyModalOpen,
+    isAddSystemPropertyModalOpen,
+  ]);
 
-  const handleSelectProperty = (property: Property) => {
+  const modalAvailableProperties = useMemo(() => {
+    const pool = isAddEventPropertyModalOpen
+      ? availableEventProps
+      : availableSystemProps;
+    return pool.map(legacyPropertyToPickerRow);
+  }, [isAddEventPropertyModalOpen, availableEventProps, availableSystemProps]);
+
+  const handleModalAddSelected = async (ids: string[]): Promise<boolean> => {
     const actionId =
       isAddEventPropertyModalOpen || isAddSystemPropertyModalOpen;
     const listType: 'eventProperties' | 'systemProperties' =
       isAddEventPropertyModalOpen ? 'eventProperties' : 'systemProperties';
-    if (actionId) {
-      setActions(
-        actions.map((a) =>
-          a.id === actionId && !a[listType].includes(property.id)
-            ? {
-                ...a,
-                [listType]: [...a[listType], property.id],
-              }
-            : a,
-        ),
-      );
-      logAction(`added property ${property.name}`);
-    }
+    if (!actionId) return false;
+    setActions((prev) =>
+      prev.map((a) => {
+        if (a.id !== actionId) return a;
+        const next = new Set(a[listType]);
+        for (const id of ids) next.add(id);
+        return { ...a, [listType]: [...next] };
+      }),
+    );
+    logAction(`added ${ids.length} propert${ids.length === 1 ? 'y' : 'ies'}`);
     setIsAddEventPropertyModalOpen(null);
     setIsAddSystemPropertyModalOpen(null);
-    setPropSearch('');
-  };
-
-  const handleSelectBundle = (bundle: PropertyBundle) => {
-    const actionId =
-      isAddEventPropertyModalOpen || isAddSystemPropertyModalOpen;
-    const listType: 'eventProperties' | 'systemProperties' =
-      isAddEventPropertyModalOpen ? 'eventProperties' : 'systemProperties';
-    if (actionId) {
-      setActions((prev) =>
-        prev.map((a) => {
-          if (a.id !== actionId) return a;
-          const next = new Set(a[listType]);
-          for (const pid of bundle.propertyIds) {
-            next.add(pid);
-          }
-          return { ...a, [listType]: [...next] };
-        }),
-      );
-      logAction(`added bundle ${bundle.name}`);
-    }
-    setIsAddEventPropertyModalOpen(null);
-    setIsAddSystemPropertyModalOpen(null);
-    setPropSearch('');
+    return true;
   };
 
   const handleClosePropertyModal = () => {
     setIsAddEventPropertyModalOpen(null);
     setIsAddSystemPropertyModalOpen(null);
-    setPropSearch('');
   };
 
   const addStakeholder = (teamId: string) => {
@@ -520,8 +495,6 @@ ${props
       triggerName,
       isPropertyModalOpen,
       propertyModalMode,
-      hoveredPropId,
-      propSearch,
     },
     actions: {
       // text inputs / simple controlled fields
@@ -532,8 +505,6 @@ ${props
       setNewTag,
       setNewComment,
       setNewVariantName,
-      setPropSearch,
-      setHoveredPropId,
 
       // modal / popover visibility
       openVariantModal: () => setIsVariantModalOpen(true),
@@ -558,11 +529,9 @@ ${props
       },
       openAddEventPropertyModal: (actionId: string) => {
         setIsAddEventPropertyModalOpen(actionId);
-        setPropSearch('');
       },
       openAddSystemPropertyModal: (actionId: string) => {
         setIsAddSystemPropertyModalOpen(actionId);
-        setPropSearch('');
       },
       closePropertyModal: handleClosePropertyModal,
 
@@ -588,8 +557,7 @@ ${props
       handleCreateVariant,
       handleAddAction,
       handleAddComment,
-      handleSelectProperty,
-      handleSelectBundle,
+      handleModalAddSelected,
       handleImageUpload,
       handleImagePaste,
       handleSave,
@@ -598,7 +566,8 @@ ${props
       logAction,
     },
     derived: {
-      filteredAvailableProps,
+      modalAvailableProperties,
+      modalAttachedIds,
       generateCodegen,
     },
   };

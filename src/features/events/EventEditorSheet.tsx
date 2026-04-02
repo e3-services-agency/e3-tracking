@@ -42,6 +42,7 @@ import {
 import { EventVariantsApiSection } from '@/src/features/events/components/EventVariantsApiSection';
 import type { ApiError, EventWithPropertiesResponse } from '@/src/features/events/hooks/useEvents';
 import { useProperties } from '@/src/features/properties/hooks/useProperties';
+import { useBundles } from '@/src/features/properties/hooks/useBundles';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { useStore } from '@/src/store';
 import { Activity, AlertCircle, Layout, Plus, UserRound, X } from 'lucide-react';
@@ -208,6 +209,7 @@ export function EventEditorSheet({
 }: EventEditorSheetProps) {
   const { activeWorkspaceId, hasValidWorkspaceContext } = useWorkspaceShell();
   const { properties: allProperties } = useProperties();
+  const { bundles } = useBundles();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [purpose, setPurpose] = useState('');
@@ -1077,6 +1079,7 @@ export function EventEditorSheet({
                   onAddSelected={handleAddSelectedProperties}
                   adding={addingProperty}
                   workspaceActionsDisabled={!hasValidWorkspaceContext}
+                  bundles={bundles}
                 />
               </Modal>
 

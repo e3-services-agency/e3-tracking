@@ -82,8 +82,6 @@ export function EventEditorSheet({
     triggerName,
     isPropertyModalOpen,
     propertyModalMode,
-    hoveredPropId,
-    propSearch,
   } = ui;
   const {
     setName,
@@ -93,8 +91,6 @@ export function EventEditorSheet({
     setNewTag,
     setNewComment,
     setNewVariantName,
-    setPropSearch,
-    setHoveredPropId,
     openVariantModal,
     closeVariantModal,
     toggleAddActionPopover,
@@ -127,8 +123,7 @@ export function EventEditorSheet({
     handleCreateVariant,
     handleAddAction,
     handleAddComment,
-    handleSelectProperty,
-    handleSelectBundle,
+    handleModalAddSelected,
     handleImageUpload,
     handleImagePaste,
     handleSave,
@@ -136,7 +131,7 @@ export function EventEditorSheet({
     saveTrigger,
     logAction,
   } = actions;
-  const { filteredAvailableProps, generateCodegen } = derived;
+  const { modalAvailableProperties, modalAttachedIds, generateCodegen } = derived;
 
   return (
     <div className="flex flex-col h-full bg-white relative font-sans -mx-6 -my-6">
@@ -300,16 +295,12 @@ export function EventEditorSheet({
       <AddPropertyModal
         isOpen={isPropertyModalOpen}
         mode={propertyModalMode}
-        filteredAvailableProps={filteredAvailableProps}
-        hoveredPropId={hoveredPropId}
-        onHoverProperty={setHoveredPropId}
-        onSelectProperty={handleSelectProperty}
-        search={propSearch}
-        onChangeSearch={setPropSearch}
-        allProperties={properties}
         onClose={closePropertyModal}
+        availableProperties={modalAvailableProperties}
+        attachedIds={modalAttachedIds}
         bundles={bundles}
-        onSelectBundle={handleSelectBundle}
+        hideAddRequiredToggle
+        onAddSelected={handleModalAddSelected}
       />
     </div>
   );

@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import type { Property, PropertyBundle, PropertyValueType } from '@/src/types';
-import type { PropertyRow, PropertyDataType } from '@/src/types/schema';
+import React, { useMemo, useState } from 'react';
+import type { PropertyBundle } from '@/src/types';
+import type { PropertyRow } from '@/src/types/schema';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Trash2, Loader2, Plus, X } from 'lucide-react';
@@ -14,26 +14,6 @@ type BundleEditorProps = {
   onSuccess?: () => void;
   workspaceProperties: PropertyRow[];
 };
-
-function dataTypeToValueType(dt: PropertyDataType): PropertyValueType {
-  if (dt === 'boolean') return 'boolean';
-  if (dt === 'number') return 'integer';
-  return 'string';
-}
-
-function propertyRowToModalProperty(row: PropertyRow): Property {
-  return {
-    id: row.id,
-    name: row.name,
-    description: row.description ?? '',
-    property_value_type: dataTypeToValueType(row.data_type),
-    is_list: false,
-    attached_events: [],
-    value_constraints: [],
-    categories: [],
-    tags: [],
-  };
-}
 
 export function BundleEditor({
   bundle,
@@ -57,32 +37,8 @@ export function BundleEditor({
   } = useBundleEditor({ bundle, isCreating, onClose, onSuccess, workspaceProperties });
 
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const [hoveredPropId, setHoveredPropId] = useState<string | null>(null);
-  const [propSearch, setPropSearch] = useState('');
 
-  const allPropertiesModal = useMemo(
-    () => workspaceProperties.map(propertyRowToModalProperty),
-    [workspaceProperties],
-  );
-
-  const filteredAvailableProps = useMemo(() => {
-    const q = propSearch.toLowerCase();
-    return workspaceProperties
-      .filter((p) => !propertyIds.includes(p.id))
-      .map(propertyRowToModalProperty)
-      .filter((p) => p.name.toLowerCase().includes(q));
-  }, [workspaceProperties, propertyIds, propSearch]);
-
-  useEffect(() => {
-    if (!addModalOpen) return;
-    if (filteredAvailableProps.length === 0) {
-      setHoveredPropId(null);
-      return;
-    }
-    if (!hoveredPropId || !filteredAvailableProps.some((p) => p.id === hoveredPropId)) {
-      setHoveredPropId(filteredAvailableProps[0].id);
-    }
-  }, [addModalOpen, filteredAvailableProps, hoveredPropId]);
+  const attachedIds = useMemo(() => new Set(propertyIds), [propertyIds]);
 
   const selectedPropertyRows = useMemo(() => {
     return propertyIds
@@ -91,9 +47,16 @@ export function BundleEditor({
   }, [propertyIds, workspaceProperties]);
 
   const openAddPropertyModal = () => {
-    setPropSearch('');
-    setHoveredPropId(null);
     setAddModalOpen(true);
+  };
+
+  const handleModalAddSelected = async (ids: string[]): Promise<boolean> => {
+    if (ids.length === 0) return false;
+    for (const id of ids) {
+      addPropertyId(id);
+    }
+    setAddModalOpen(false);
+    return true;
   };
 
   return (
@@ -217,22 +180,13 @@ export function BundleEditor({
       <AddPropertyModal
         isOpen={addModalOpen}
         mode="event"
-        filteredAvailableProps={filteredAvailableProps}
-        hoveredPropId={hoveredPropId}
-        onHoverProperty={setHoveredPropId}
-        onSelectProperty={(p) => {
-          addPropertyId(p.id);
-          setAddModalOpen(false);
-          setPropSearch('');
-        }}
-        search={propSearch}
-        onChangeSearch={setPropSearch}
-        allProperties={allPropertiesModal}
-        onClose={() => {
-          setAddModalOpen(false);
-          setPropSearch('');
-        }}
+        onClose={() => setAddModalOpen(false)}
+        availableProperties={workspaceProperties}
+        attachedIds={attachedIds}
         hideBundlesTab
+        hideAddRequiredToggle
+        onAddSelected={handleModalAddSelected}
+        workspaceActionsDisabled={isSaving}
       />
     </div>
   );

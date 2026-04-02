@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Copy, Check, Code } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Code } from 'lucide-react';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { codegenLanguageForStyle } from '@/src/lib/codeHighlight';
+import { CodeBlock } from '@/src/components/ui/CodeBlock';
 
 export type CodegenStyle = 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi';
 
@@ -48,7 +49,6 @@ export function EventCodeGen({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeStyle, setActiveStyle] = useState<CodegenStyle>(preferredStyle ?? 'dataLayer');
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (preferredStyle) {
@@ -169,7 +169,7 @@ export function EventCodeGen({
 
   const currentStyle = preferredStyle ?? activeStyle;
   const currentSnippet = snippets[currentStyle];
-  const language = codegenLanguageForStyle(currentStyle);
+  const hlLanguage = codegenLanguageForStyle(currentStyle);
 
   return (
     <div className={compact ? '' : 'space-y-4'}>
@@ -197,30 +197,15 @@ export function EventCodeGen({
         </div>
       )}
 
-      <div className="bg-[var(--surface-code)] rounded-xl overflow-hidden shadow-sm border border-[var(--border-code)]">
-        <div className="px-4 py-2 bg-[var(--surface-code-header)] border-b border-[var(--border-code)] flex justify-between items-center">
-          <span className="text-[12px] font-semibold text-gray-300">
-            {STYLE_LABELS[currentStyle]}
-          </span>
-          <button
-            type="button"
-            onClick={copyToClipboard}
-            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors"
-          >
-            {copied ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-400" /> Copied
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5" /> Copy
-              </>
-            )}
-          </button>
+      <div className="space-y-2">
+        <div className="text-[12px] font-semibold text-gray-500">
+          {STYLE_LABELS[currentStyle]}
         </div>
-        <pre className="p-4 text-[13px] font-mono text-[var(--text-code)] overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-[320px] overflow-y-auto">
-          <code data-language={language}>{currentSnippet}</code>
-        </pre>
+        <CodeBlock
+          code={currentSnippet}
+          language={hlLanguage === 'json' ? 'json' : 'javascript'}
+          className="max-h-[320px] overflow-y-auto"
+        />
       </div>
     </div>
   );

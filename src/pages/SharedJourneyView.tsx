@@ -54,8 +54,10 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
   .qa-run-details--FAILED { border-left-color: #ef4444; }
   .qa-run-details--PENDING { border-left-color: #f59e0b; }
   .qa-run-details h2 { margin: 0 0 10px; font-size: 1rem; color: #0f172a; }
-  .qa-run-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
-  @media (min-width: 720px) { .qa-run-grid { grid-template-columns: 1fr 1fr; } }
+  .qa-run-meta-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  @media (min-width: 720px) { .qa-run-meta-grid { grid-template-columns: 1fr 1fr; } }
+  .qa-run-notes-section { width: 100%; margin-top: 14px; padding-top: 14px; border-top: 1px solid #e2e8f0; }
+  .qa-run-notes-section .qa-field-value { max-width: 100%; overflow-wrap: anywhere; word-wrap: break-word; }
   .qa-field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #64748b; margin-bottom: 2px; }
   .qa-field-value { font-size: 13px; color: #0f172a; white-space: pre-wrap; }
   .qa-field-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
@@ -385,7 +387,7 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
       row.appendChild(t);
       wrap.appendChild(l);
       wrap.appendChild(row);
-      grid.appendChild(wrap);
+      metaGrid.appendChild(wrap);
     })();
     if (payloadValSummary) {
       var pvWrap = document.createElement('div');
@@ -407,27 +409,11 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
         }
         pvWrap.appendChild(pvUl);
       }
-      grid.appendChild(pvWrap);
+      metaGrid.appendChild(pvWrap);
     }
     addField('Tester', qaRun.testerName ? String(qaRun.testerName) : '', false);
     addField('Environment', qaRun.environment ? String(qaRun.environment) : '', false);
     addField('Ended', qaRun.endedAt ? String(qaRun.endedAt) : '', true);
-    (function(){
-      var notesPlain = qaRun.overallNotes ? String(qaRun.overallNotes).trim() : '';
-      var notesHtml = qaRun.__overallNotesHtml;
-      if (!notesPlain && !notesHtml) return;
-      var nWrap = document.createElement('div');
-      var nLab = document.createElement('div');
-      nLab.className = 'qa-field-label';
-      nLab.textContent = 'Notes';
-      var nVal = document.createElement('div');
-      nVal.className = 'qa-field-value qa-notes-md';
-      if (notesHtml) nVal.innerHTML = notesHtml;
-      else nVal.textContent = notesPlain;
-      nWrap.appendChild(nLab);
-      nWrap.appendChild(nVal);
-      grid.appendChild(nWrap);
-    })();
 
     var profiles = Array.isArray(qaRun.testingProfiles) ? qaRun.testingProfiles : [];
     if (profiles.length > 0){
@@ -463,10 +449,30 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
         }
         pWrap.appendChild(row);
       }
-      grid.appendChild(pWrap);
+      metaGrid.appendChild(pWrap);
     }
 
-    box.appendChild(grid);
+    box.appendChild(metaGrid);
+
+    (function(){
+      var notesPlain = qaRun.overallNotes ? String(qaRun.overallNotes).trim() : '';
+      var notesHtml = qaRun.__overallNotesHtml;
+      if (!notesPlain && !notesHtml) return;
+      var notesSection = document.createElement('div');
+      notesSection.className = 'qa-run-notes-section';
+      var nWrap = document.createElement('div');
+      var nLab = document.createElement('div');
+      nLab.className = 'qa-field-label';
+      nLab.textContent = 'Notes';
+      var nVal = document.createElement('div');
+      nVal.className = 'qa-field-value qa-notes-md';
+      if (notesHtml) nVal.innerHTML = notesHtml;
+      else nVal.textContent = notesPlain;
+      nWrap.appendChild(nLab);
+      nWrap.appendChild(nVal);
+      notesSection.appendChild(nWrap);
+      box.appendChild(notesSection);
+    })();
     var insertBeforeEl = main.querySelector('h2');
     if (insertBeforeEl) main.insertBefore(box, insertBeforeEl);
     else main.insertBefore(box, main.firstChild);

@@ -2,7 +2,7 @@
  * Create/Edit Property slide-out sheet (Avo-style). Phase 1 schema + catalog mapping.
  * Save calls API via createProperty or updateProperty; API errors shown as red alert.
  */
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -39,6 +39,8 @@ import {
 import { fetchPropertySourceIds } from '@/src/features/properties/lib/propertySourcesApi';
 import { useBundles } from '@/src/features/properties/hooks/useBundles';
 import { AddBundleModal } from '@/src/features/properties/overlays/AddBundleModal';
+import { AddSourceModal } from '@/src/components/overlays/AddSourceModal';
+import type { Source } from '@/src/types';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { useStore } from '@/src/store';
 import {
@@ -189,6 +191,7 @@ export function PropertyEditorSheet({
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
   const [selectedBundleIds, setSelectedBundleIds] = useState<string[]>([]);
   const [isBundleModalOpen, setIsBundleModalOpen] = useState(false);
+  const [isPropertyAddSourceModalOpen, setIsPropertyAddSourceModalOpen] = useState(false);
   const { bundles: workspaceBundles, isLoading: bundlesListLoading } = useBundles();
   const [newSourceName, setNewSourceName] = useState('');
   const [creatingSource, setCreatingSource] = useState(false);
@@ -203,11 +206,22 @@ export function PropertyEditorSheet({
     linkedSourcesUserTouchedRef.current = true;
   }, []);
 
+  const catalogSourcesForModal: Source[] = useMemo(
+    () =>
+      workspaceSources.map((r) => ({
+        id: r.id,
+        name: r.name,
+        color: r.color ?? undefined,
+      })),
+    [workspaceSources],
+  );
+
   const isEdit = Boolean(initialProperty?.id);
 
   useEffect(() => {
     if (!isOpen) {
       setIsBundleModalOpen(false);
+      setIsPropertyAddSourceModalOpen(false);
     }
   }, [isOpen]);
 
@@ -941,29 +955,32 @@ export function PropertyEditorSheet({
               })}
             </div>
           )}
-          <select
-            key={[...selectedSourceIds].sort().join(',')}
-            value=""
-            disabled={sourcesLoading || !activeWorkspaceId || !hasValidWorkspaceContext}
-            onChange={(e) => {
-              const id = e.target.value;
-              if (id) {
-                markLinkedSourcesUserTouched();
-                setSelectedSourceIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-              }
-            }}
-            aria-label="Add a source"
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => setIsPropertyAddSourceModalOpen(true)}
+            disabled={
+              sourcesLoading ||
+              !activeWorkspaceId ||
+              !hasValidWorkspaceContext ||
+              workspaceSources.filter((s) => !selectedSourceIds.includes(s.id)).length === 0
+            }
+            aria-label="Add sources"
           >
-            <option value="">Add source…</option>
-            {workspaceSources
-              .filter((s) => !selectedSourceIds.includes(s.id))
-              .map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-          </select>
+            <Plus className="w-4 h-4 mr-2 shrink-0" />
+            Add sources
+          </Button>
+          <AddSourceModal
+            isOpen={isPropertyAddSourceModalOpen}
+            onClose={() => setIsPropertyAddSourceModalOpen(false)}
+            availableSources={catalogSourcesForModal}
+            attachedSourceIds={selectedSourceIds}
+            onAddSelected={(ids) => {
+              markLinkedSourcesUserTouched();
+              setSelectedSourceIds((prev) => [...new Set([...prev, ...ids])]);
+            }}
+          />
           <div className="rounded-md border border-gray-200 bg-gray-50/80 p-3 space-y-2">
             <p className="text-xs font-medium text-gray-600">New source</p>
             <div className="flex gap-2 flex-wrap">

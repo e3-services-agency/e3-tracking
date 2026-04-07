@@ -10,7 +10,7 @@ export type AddSourceModalProps = {
   onClose: () => void;
   /** Workspace catalog of sources the user can attach. */
   availableSources: Source[];
-  /** Already attached source ids (not shown as selectable additions, or shown disabled). */
+  /** Already attached source ids (excluded from pick list). */
   attachedSourceIds: ReadonlyArray<string>;
   onAddSelected: (ids: string[]) => Promise<void> | void;
   adding?: boolean;
@@ -95,7 +95,7 @@ export function AddSourceModal({
             {filtered.length === 0 ? (
               <div className="p-8 text-center text-sm text-gray-500">
                 {pickable.length === 0
-                  ? 'All available sources are already attached to this event.'
+                  ? 'All available sources are already attached.'
                   : 'No sources match your search.'}
               </div>
             ) : (

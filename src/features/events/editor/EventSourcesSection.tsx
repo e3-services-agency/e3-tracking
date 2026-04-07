@@ -1,7 +1,8 @@
 import React from 'react';
-import { ChevronRight } from 'lucide-react';
 import { Source } from '@/src/types';
-import { AddSourceModal } from '@/src/features/events/overlays/AddSourceModal';
+import { AddSourceModal } from '@/src/components/overlays/AddSourceModal';
+import { getSourceIcon } from '@/src/features/events/lib/sourcePresentation';
+import { X } from 'lucide-react';
 
 type EventSourcesSectionProps = {
   variantId?: string;
@@ -31,7 +32,7 @@ export function EventSourcesSection({
       <div className="flex items-center gap-3 mb-3 relative">
         <h3 className="text-[15px] font-bold text-gray-900">Sources</h3>
         {variantId && (
-          <button className="text-[var(--color-info)] text-[13px] font-semibold hover:underline">
+          <button type="button" className="text-[var(--color-info)] text-[13px] font-semibold hover:underline">
             Edit on variant
           </button>
         )}
@@ -42,45 +43,32 @@ export function EventSourcesSection({
           This event is not sent from any source yet
         </div>
       ) : (
-        <div className="flex flex-wrap gap-3">
-          {allSources.map((source) => {
-            const isSelected = sources.find((s) => s.id === source.id);
-            if (!isSelected && variantId) return null;
-
-            return (
-              <div
-                key={source.id}
-                className={`border rounded-lg px-4 py-2.5 flex items-center gap-3 shadow-sm cursor-pointer transition-colors ${
-                  isSelected
-                    ? 'bg-white border-gray-200'
-                    : 'bg-gray-50 border-gray-200 text-gray-500'
-                }`}
-                onClick={() => {
-                  if (!variantId) {
-                    onToggleSource(source);
-                  }
-                }}
-              >
-                <ChevronRight className="w-4 h-4 text-gray-400" />
-                <span
-                  className={`text-[14px] font-bold ${
-                    isSelected ? 'text-gray-900' : 'text-gray-500'
-                  }`}
+        <div className="flex flex-wrap gap-2 mb-3" aria-label="Attached sources">
+          {sources.map((source) => (
+            <span
+              key={source.id}
+              className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-800 max-w-full"
+            >
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white border border-gray-100">
+                {getSourceIcon(source.name)}
+              </span>
+              <span className="truncate font-medium">{source.name}</span>
+              {!variantId && (
+                <button
+                  type="button"
+                  onClick={() => onToggleSource(source)}
+                  className="rounded p-0.5 text-gray-500 hover:text-gray-900 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0"
+                  aria-label={`Remove source ${source.name}`}
                 >
-                  {source.name}
-                </span>
-                {isSelected && (
-                  <div className="w-[16px] h-[16px] rounded-full bg-emerald-500 text-white flex items-center justify-center text-[9px] font-bold ml-2 shadow-sm">
-                    P
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </span>
+          ))}
         </div>
       )}
 
-      <div className="mt-3">
+      <div className="mt-1">
         {!variantId && (
           <button
             type="button"

@@ -46,6 +46,9 @@ import { useBundles } from '@/src/features/properties/hooks/useBundles';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { useStore } from '@/src/store';
 import { Activity, AlertCircle, Layout, Plus, UserRound, X } from 'lucide-react';
+import { AddSourceModal } from '@/src/components/overlays/AddSourceModal';
+import type { Source } from '@/src/types';
+import { getSourceIcon } from '@/src/features/events/lib/sourcePresentation';
 
 // Presence options intentionally kept out of the simplified UI.
 
@@ -253,6 +256,7 @@ export function EventEditorSheet({
   const [isCreatingSource, setIsCreatingSource] = useState(false);
   const [attachedDescExpandedId, setAttachedDescExpandedId] = useState<string | null>(null);
   const [attachPropertyPickerOpen, setAttachPropertyPickerOpen] = useState(false);
+  const [isEventAddSourceModalOpen, setIsEventAddSourceModalOpen] = useState(false);
   const [variants, setVariants] = useState<EventVariantRow[]>([]);
   const [pendingVariantOpenId, setPendingVariantOpenId] = useState<string | null>(null);
   const [codegenNameDataLayer, setCodegenNameDataLayer] = useState('');
@@ -278,6 +282,16 @@ export function EventEditorSheet({
     for (const p of allProperties) m.set(p.id, p);
     return m;
   }, [allProperties]);
+
+  const catalogSourcesForModal: Source[] = useMemo(
+    () =>
+      workspaceSources.map((r) => ({
+        id: r.id,
+        name: r.name,
+        color: r.color ?? undefined,
+      })),
+    [workspaceSources],
+  );
 
   const eventTypeSelectOptions = useMemo((): IconSelectOption<EventType>[] => {
     const core: IconSelectOption<EventType>[] = [
@@ -756,13 +770,17 @@ export function EventEditorSheet({
     setIsInlineSourceCreateOpen(false);
   };
 
-  const toggleEventSourceId = (sourceId: string) => {
-    setSelectedEventSourceIds((prev) =>
-      prev.includes(sourceId)
-        ? prev.filter((id) => id !== sourceId)
-        : [...prev, sourceId]
-    );
-  };
+  const addSelectedEventSources = useCallback((ids: string[]) => {
+    setSelectedEventSourceIds((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) next.add(id);
+      return [...next];
+    });
+  }, []);
+
+  const removeEventSourceId = useCallback((sourceId: string) => {
+    setSelectedEventSourceIds((prev) => prev.filter((id) => id !== sourceId));
+  }, []);
 
   const title = isCreateMode && !currentEventId
     ? 'New Event'
@@ -936,32 +954,72 @@ export function EventEditorSheet({
           {sourcesError && (
             <p className="text-xs text-red-600">{sourcesError}</p>
           )}
-          {workspaceSources.length === 0 ? (
-            <p className="text-xs text-gray-500">
-              {sourcesLoading ? 'Loading sources…' : 'No workspace sources found.'}
+          {sourcesLoading && (
+            <p className="text-xs text-gray-500" role="status">
+              Loading sources…
             </p>
-          ) : (
-            <div className="max-h-40 overflow-auto rounded-md border border-gray-200 bg-white divide-y divide-gray-100">
-              {workspaceSources.map((source) => {
-                const checked = selectedEventSourceIds.includes(source.id);
+          )}
+          {!sourcesLoading && workspaceSources.length === 0 && (
+            <p className="text-xs text-gray-500">No workspace sources found.</p>
+          )}
+          {selectedEventSourceIds.length > 0 && (
+            <div className="flex flex-wrap gap-2" aria-label="Attached sources">
+              {selectedEventSourceIds.map((id) => {
+                const src = workspaceSources.find((s) => s.id === id);
+                const label = src?.name ?? id;
                 return (
-                  <label
-                    key={source.id}
-                    className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50"
+                  <span
+                    key={id}
+                    className="inline-flex items-center gap-2 rounded-md border border-input bg-gray-50 px-2 py-1 text-xs text-gray-800 max-w-full"
                   >
-                    <input
-                      type="checkbox"
-                      className="rounded border-gray-300"
-                      checked={checked}
-                      onChange={() => toggleEventSourceId(source.id)}
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white border border-gray-100">
+                      {getSourceIcon(label)}
+                    </span>
+                    <span className="truncate font-medium">{label}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeEventSourceId(id)}
                       disabled={saving || !hasValidWorkspaceContext}
-                    />
-                    <span className="text-gray-800">{source.name}</span>
-                  </label>
+                      className="rounded p-0.5 text-gray-500 hover:text-gray-900 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0 disabled:opacity-50"
+                      aria-label={`Remove source ${label}`}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </span>
                 );
               })}
             </div>
           )}
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1 w-fit"
+              onClick={() => setIsEventAddSourceModalOpen(true)}
+              disabled={
+                saving ||
+                !hasValidWorkspaceContext ||
+                sourcesLoading ||
+                workspaceSources.length === 0
+              }
+              title={
+                !hasValidWorkspaceContext
+                  ? 'Select a valid workspace from the header before changing sources.'
+                  : undefined
+              }
+            >
+              <Plus className="w-4 h-4" aria-hidden />
+              Add Source
+            </Button>
+          </div>
+          <AddSourceModal
+            isOpen={isEventAddSourceModalOpen}
+            onClose={() => setIsEventAddSourceModalOpen(false)}
+            availableSources={catalogSourcesForModal}
+            attachedSourceIds={selectedEventSourceIds}
+            onAddSelected={addSelectedEventSources}
+          />
         </div>
 
         <div className="space-y-2">

@@ -7,7 +7,7 @@ import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import type { PropertyBundleRow } from '@/src/types/schema';
 import type { PropertyBundle } from '@/src/types';
-import { useStore } from '@/src/store';
+import { useStore, useActiveData } from '@/src/store';
 
 export type BundleApiRow = PropertyBundleRow & { property_ids: string[] };
 
@@ -40,15 +40,14 @@ export interface UseBundlesResult {
 export function useBundles(workspaceIdOverride?: string): UseBundlesResult {
   const { activeWorkspaceId, hasValidWorkspaceContext } = useWorkspaceShell();
   const syncPropertyBundlesFromApi = useStore((s) => s.syncPropertyBundlesFromApi);
+  const bundlesFromStore = useActiveData().propertyBundles;
   const effectiveWorkspaceId = workspaceIdOverride ?? activeWorkspaceId ?? '';
 
-  const [bundles, setBundles] = useState<PropertyBundle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refetch = useCallback(async () => {
     if (!hasValidWorkspaceContext || !effectiveWorkspaceId.trim()) {
-      setBundles([]);
       setError(null);
       setIsLoading(false);
       syncPropertyBundlesFromApi([]);
@@ -65,18 +64,15 @@ export function useBundles(workspaceIdOverride?: string): UseBundlesResult {
         const msg =
           typeof body?.error === 'string' ? body.error : res.statusText || 'Failed to load bundles.';
         setError(msg);
-        setBundles([]);
         syncPropertyBundlesFromApi([]);
         return;
       }
       const rows = Array.isArray(body) ? (body as BundleApiRow[]) : [];
       const mapped = rows.map(apiRowToBundle);
-      setBundles(mapped);
       syncPropertyBundlesFromApi(mapped);
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to load bundles.';
       setError(msg);
-      setBundles([]);
       syncPropertyBundlesFromApi([]);
     } finally {
       setIsLoading(false);
@@ -190,7 +186,7 @@ export function useBundles(workspaceIdOverride?: string): UseBundlesResult {
   );
 
   return {
-    bundles,
+    bundles: bundlesFromStore,
     isLoading,
     error,
     refetch,

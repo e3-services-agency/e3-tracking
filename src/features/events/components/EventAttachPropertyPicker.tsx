@@ -190,9 +190,6 @@ export function EventAttachPropertyPicker({
     }
   };
 
-  const propertyNameForPreview = (propertyId: string) =>
-    availableProperties.find((p) => p.id === propertyId)?.name ?? propertyId;
-
   return (
     <div className="flex flex-col flex-1 min-h-0 h-full gap-3">
       <div className="flex flex-wrap items-end gap-2 shrink-0">
@@ -426,11 +423,25 @@ export function EventAttachPropertyPicker({
               <div>
                 <span className="text-xs font-medium text-gray-500">Properties in bundle</span>
                 <ul className="mt-1 space-y-0.5 list-disc list-inside text-sm text-gray-800">
-                  {focusedBundle.propertyIds.map((pid) => (
-                    <li key={pid} className="font-mono text-xs">
-                      {propertyNameForPreview(pid)}
-                    </li>
-                  ))}
+                  {focusedBundle.propertyIds.map((pid) => {
+                    const resolved = availableProperties.find((p) => p.id === pid);
+                    if (resolved) {
+                      return (
+                        <li key={pid} className="text-sm text-gray-800">
+                          {resolved.name}
+                        </li>
+                      );
+                    }
+                    return (
+                      <li
+                        key={pid}
+                        className="font-mono text-xs text-amber-600 break-all"
+                        title="Property id not in workspace catalog (orphaned reference or loading race)"
+                      >
+                        Missing: {pid}
+                      </li>
+                    );
+                  })}
                 </ul>
                 {focusedBundle.propertyIds.length === 0 && (
                   <p className="text-xs text-gray-500 mt-1">No properties in this bundle.</p>

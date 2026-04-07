@@ -898,7 +898,10 @@ export async function updateProperty(
     }
   }
 
-  return mapPropertyRow(data as PropertyDbRow);
+  const row = mapPropertyRow(data as PropertyDbRow);
+  // Match GET /api/properties: bundle membership lives in property_bundle_items, not on the row.
+  const bundleMap = await BundleDAL.listBundleIdsByPropertyIds(workspaceId, [propertyId]);
+  return { ...row, bundle_ids: bundleMap.get(propertyId) ?? [] };
 }
 
 /**

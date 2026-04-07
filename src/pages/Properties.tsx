@@ -1,14 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useStore } from '@/src/store';
 import { Button } from '@/src/components/ui/Button';
 import { Plus, Loader2, AlertCircle, Layers } from 'lucide-react';
 import { PropertiesList } from '@/src/features/properties/PropertiesList';
 import { PropertyEditorSheet } from '@/src/features/properties/PropertyEditorSheet';
 import { BundleEditor } from '@/src/features/properties/editor/BundleEditor';
-import { useProperties } from '@/src/features/properties/hooks/useProperties';
+import {
+  useProperties,
+  type PropertyUpdatePayload,
+} from '@/src/features/properties/hooks/useProperties';
 import { useBundles } from '@/src/features/properties/hooks/useBundles';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { Sheet } from '@/src/components/ui/Sheet';
+import type { CreatePropertyInput } from '@/src/types/schema';
 
 export function Properties() {
   const { selectedItemIdToEdit, setSelectedItemIdToEdit } = useStore();
@@ -31,6 +35,32 @@ export function Properties() {
     error: bundlesError,
     refetch: refetchBundles,
   } = useBundles();
+
+  const updatePropertyWithBundleSync = useCallback(
+    async (id: string, payload: PropertyUpdatePayload) => {
+      const result = await updateProperty(id, payload);
+      if (result.success && Object.prototype.hasOwnProperty.call(payload, 'bundle_ids')) {
+        await refetchBundles();
+      }
+      return result;
+    },
+    [updateProperty, refetchBundles]
+  );
+
+  const createPropertyWithBundleSync = useCallback(
+    async (payload: CreatePropertyInput) => {
+      const result = await createProperty(payload);
+      if (
+        result.success &&
+        Array.isArray(payload.bundle_ids) &&
+        payload.bundle_ids.length > 0
+      ) {
+        await refetchBundles();
+      }
+      return result;
+    },
+    [createProperty, refetchBundles]
+  );
 
   const [mainTab, setMainTab] = useState<'properties' | 'bundles'>('properties');
   const [isNewPropertySheetOpen, setIsNewPropertySheetOpen] = useState(false);
@@ -230,8 +260,8 @@ export function Properties() {
         onClose={handleCloseApiPropertySheet}
         initialProperty={apiPropertyEditId ? apiProperties.find((p) => p.id === apiPropertyEditId) ?? null : null}
         workspaceProperties={apiProperties}
-        createProperty={createProperty}
-        updateProperty={updateProperty}
+        createProperty={createPropertyWithBundleSync}
+        updateProperty={updatePropertyWithBundleSync}
         deleteProperty={deleteProperty}
         mutationError={mutationError}
         clearMutationError={clearMutationError}

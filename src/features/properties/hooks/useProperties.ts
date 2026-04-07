@@ -150,7 +150,17 @@ export function useProperties(workspaceId?: string): UsePropertiesResult {
         });
         const body = await res.json().catch(() => ({}));
         if (res.ok && body?.id) {
-          const updated = body as PropertyRow;
+          let updated = body as PropertyRow;
+          // PATCH may omit bundle_ids on older servers; preserve membership so list state doesn't clear.
+          if (
+            updated.bundle_ids === undefined &&
+            Object.prototype.hasOwnProperty.call(payload, 'bundle_ids')
+          ) {
+            updated = {
+              ...updated,
+              bundle_ids: Array.isArray(payload.bundle_ids) ? payload.bundle_ids : [],
+            };
+          }
           setProperties((prev) =>
             prev.map((p) => (p.id === id ? updated : p)).sort((a, b) => a.name.localeCompare(b.name))
           );

@@ -921,22 +921,22 @@ export function PropertyEditorSheet({
               })}
             </div>
           )}
-          <div className="mt-1">
-            <button
-              type="button"
-              onClick={() => setIsPropertyAddSourceModalOpen(true)}
-              disabled={
-                sourcesLoading ||
-                !activeWorkspaceId ||
-                !hasValidWorkspaceContext ||
-                workspaceSources.filter((s) => !selectedSourceIds.includes(s.id)).length === 0
-              }
-              className="text-[var(--color-info)] text-[14px] font-semibold hover:underline disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline"
-              aria-label="Add sources"
-            >
-              + Add Source
-            </button>
-          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => setIsPropertyAddSourceModalOpen(true)}
+            disabled={
+              sourcesLoading ||
+              !activeWorkspaceId ||
+              !hasValidWorkspaceContext ||
+              workspaceSources.filter((s) => !selectedSourceIds.includes(s.id)).length === 0
+            }
+            aria-label="Add sources"
+          >
+            <Plus className="w-4 h-4 mr-2 shrink-0" />
+            Add Source
+          </Button>
           <AddSourceModal
             isOpen={isPropertyAddSourceModalOpen}
             onClose={() => setIsPropertyAddSourceModalOpen(false)}

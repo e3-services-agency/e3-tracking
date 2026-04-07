@@ -38,6 +38,7 @@ import {
 } from '@/src/features/events/lib/eventTriggerSourcesApi';
 import { fetchPropertySourceIds } from '@/src/features/properties/lib/propertySourcesApi';
 import { useBundles } from '@/src/features/properties/hooks/useBundles';
+import { AddBundleModal } from '@/src/features/properties/overlays/AddBundleModal';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { useStore } from '@/src/store';
 import {
@@ -187,6 +188,7 @@ export function PropertyEditorSheet({
   const [propertySourceIdsError, setPropertySourceIdsError] = useState<string | null>(null);
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
   const [selectedBundleIds, setSelectedBundleIds] = useState<string[]>([]);
+  const [isBundleModalOpen, setIsBundleModalOpen] = useState(false);
   const { bundles: workspaceBundles, isLoading: bundlesListLoading } = useBundles();
   const [newSourceName, setNewSourceName] = useState('');
   const [creatingSource, setCreatingSource] = useState(false);
@@ -202,6 +204,12 @@ export function PropertyEditorSheet({
   }, []);
 
   const isEdit = Boolean(initialProperty?.id);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setIsBundleModalOpen(false);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -1036,31 +1044,33 @@ export function PropertyEditorSheet({
               })}
             </div>
           )}
-          <select
-            key={[...selectedBundleIds].sort().join(',')}
-            value=""
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => setIsBundleModalOpen(true)}
             disabled={
-              bundlesListLoading || !activeWorkspaceId || !hasValidWorkspaceContext
+              bundlesListLoading ||
+              !activeWorkspaceId ||
+              !hasValidWorkspaceContext ||
+              workspaceBundles.filter((b) => !selectedBundleIds.includes(b.id)).length === 0
             }
-            onChange={(e) => {
-              const id = e.target.value;
-              if (id) {
-                setSelectedBundleIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-              }
-            }}
-            aria-label="Add to bundle"
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+            aria-label="Add property to bundles"
           >
-            <option value="">Add to bundle…</option>
-            {workspaceBundles
-              .filter((b) => !selectedBundleIds.includes(b.id))
-              .map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-          </select>
+            <Plus className="w-4 h-4 mr-2 shrink-0" />
+            Add to bundles
+          </Button>
         </div>
+
+        <AddBundleModal
+          isOpen={isBundleModalOpen}
+          onClose={() => setIsBundleModalOpen(false)}
+          availableBundles={workspaceBundles}
+          attachedBundleIds={selectedBundleIds}
+          onAddSelected={(ids) => {
+            setSelectedBundleIds((prev) => [...new Set([...prev, ...ids])]);
+          }}
+        />
       </div>
 
       <div className="fixed bottom-0 right-0 w-[480px] p-6 bg-white border-t flex justify-between gap-2 z-10">

@@ -1,14 +1,16 @@
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
 import { Source } from '@/src/types';
-import { EventAddSourcePopover } from '@/src/features/events/overlays/EventAddSourcePopover';
+import { AddSourceModal } from '@/src/features/events/overlays/AddSourceModal';
 
 type EventSourcesSectionProps = {
   variantId?: string;
   sources: Source[];
   allSources: Source[];
   isAddSourceModalOpen: boolean;
-  onToggleAddSourceModal: () => void;
+  onOpenAddSourceModal: () => void;
+  onCloseAddSourceModal: () => void;
+  onAddSelectedSources: (ids: string[]) => void | Promise<void>;
   onToggleSource: (source: Source) => void;
 };
 
@@ -17,9 +19,13 @@ export function EventSourcesSection({
   sources,
   allSources,
   isAddSourceModalOpen,
-  onToggleAddSourceModal,
+  onOpenAddSourceModal,
+  onCloseAddSourceModal,
+  onAddSelectedSources,
   onToggleSource,
 }: EventSourcesSectionProps) {
+  const attachedIds = sources.map((s) => s.id);
+
   return (
     <div>
       <div className="flex items-center gap-3 mb-3 relative">
@@ -74,24 +80,25 @@ export function EventSourcesSection({
         </div>
       )}
 
-      <div className="relative mt-3">
+      <div className="mt-3">
         {!variantId && (
           <button
-            onClick={onToggleAddSourceModal}
+            type="button"
+            onClick={onOpenAddSourceModal}
             className="text-[var(--color-info)] text-[14px] font-semibold hover:underline"
           >
             + Add Source
           </button>
         )}
-        <EventAddSourcePopover
-          isOpen={isAddSourceModalOpen}
-          sources={allSources}
-          selectedSourceIds={sources.map((s) => s.id)}
-          onSelectSource={onToggleSource}
-          onClose={onToggleAddSourceModal}
-        />
       </div>
+
+      <AddSourceModal
+        isOpen={isAddSourceModalOpen}
+        onClose={onCloseAddSourceModal}
+        availableSources={allSources}
+        attachedSourceIds={attachedIds}
+        onAddSelected={onAddSelectedSources}
+      />
     </div>
   );
 }
-

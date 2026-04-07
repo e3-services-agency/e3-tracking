@@ -96,7 +96,6 @@ export function EventEditorSheet({
     toggleAddActionPopover,
     openAddSourceModal,
     closeAddSourceModal,
-    toggleAddSourceModal,
     toggleAddStakeholderPopover,
     openTriggerModal,
     openTriggerModalForEdit,
@@ -118,6 +117,7 @@ export function EventEditorSheet({
     removeVariant,
     removeTrigger,
     toggleSource,
+    addSelectedSources,
     changeVariantName,
     changeVariantDescription,
     handleCreateVariant,
@@ -197,13 +197,10 @@ export function EventEditorSheet({
           sources={selectedSources}
           allSources={sources}
           isAddSourceModalOpen={isAddSourceModalOpen}
-          onToggleAddSourceModal={toggleAddSourceModal}
-          onToggleSource={(source) => {
-            toggleSource(source);
-            if (isAddSourceModalOpen) {
-              closeAddSourceModal();
-            }
-          }}
+          onOpenAddSourceModal={openAddSourceModal}
+          onCloseAddSourceModal={closeAddSourceModal}
+          onAddSelectedSources={addSelectedSources}
+          onToggleSource={toggleSource}
         />
 
         <EventActionsSection

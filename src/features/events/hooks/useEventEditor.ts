@@ -424,6 +424,19 @@ ${props
     }
   };
 
+  const addSelectedSources = (ids: string[]) => {
+    const catalog = data.sources as Source[];
+    const existing = new Set(sources.map((s) => s.id));
+    const toAdd = ids
+      .map((id) => catalog.find((s) => s.id === id))
+      .filter((s): s is Source => !!s && !existing.has(s.id));
+    if (toAdd.length === 0) return;
+    setSources([...sources, ...toAdd]);
+    logAction(
+      `added source(s): ${toAdd.map((s) => s.name).join(', ')}`,
+    );
+  };
+
   const removeCategory = (category: string) => {
     setCategories(categories.filter((c) => c !== category));
     logAction(`removed category ${category}`);
@@ -552,6 +565,7 @@ ${props
       removeVariant,
       removeTrigger,
       toggleSource,
+      addSelectedSources,
       changeVariantName,
       changeVariantDescription,
       handleCreateVariant,

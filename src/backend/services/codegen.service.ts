@@ -75,8 +75,20 @@ function isRequiredForCodegenSnippet(p: AttachedPropertyForCodegen): boolean {
   return isAttachedPropertyRequiredForTrigger(p.presence, p.property_required_override);
 }
 
+/** Alphabetical by property name (catalog `property_name` / generated payload key). */
+function compareCodegenPropertyNames(
+  a: AttachedPropertyForCodegen,
+  b: AttachedPropertyForCodegen
+): number {
+  return a.property_name.localeCompare(b.property_name, undefined, { sensitivity: 'base' });
+}
+
+function compareFieldKeys(a: string, b: string): number {
+  return a.localeCompare(b, undefined, { sensitivity: 'base' });
+}
+
 /**
- * Required properties first, then optional — stable within each group.
+ * Required properties first (A–Z), then optional (A–Z).
  * Avoids a misleading visual where a required line follows `// Optional:` for a prior optional prop.
  */
 function orderCodegenPropsForSnippetDisplay(
@@ -88,6 +100,8 @@ function orderCodegenPropsForSnippetDisplay(
     if (isRequiredForCodegenSnippet(p)) required.push(p);
     else optional.push(p);
   }
+  required.sort(compareCodegenPropertyNames);
+  optional.sort(compareCodegenPropertyNames);
   return [...required, ...optional];
 }
 
@@ -208,7 +222,8 @@ function buildNestedObjectSampleFromSnapshots(
   }
 
   const out: Record<string, unknown> = {};
-  for (const [key] of Object.entries(schema.properties)) {
+  const sortedKeys = Object.keys(schema.properties).sort(compareFieldKeys);
+  for (const key of sortedKeys) {
     const snap = snaps[key];
     if (!snap) {
       continue;
@@ -263,7 +278,7 @@ function jsLiteralForSample(value: unknown, indent: string = '  '): string {
   }
   if (typeof value === 'object') {
     const o = value as Record<string, unknown>;
-    const keys = Object.keys(o);
+    const keys = Object.keys(o).sort(compareFieldKeys);
     if (keys.length === 0) return '{}';
     const innerIndent = indent + '  ';
     const lines = keys.map(
@@ -281,7 +296,9 @@ function formatJsObjectBodyFromSchema(
 ): string[] {
   const props = schema.properties ?? {};
   const keys = Object.keys(props);
-  const includedKeys = keys.filter((k) => props[k]?.presence !== 'never_sent');
+  const includedKeys = keys
+    .filter((k) => props[k]?.presence !== 'never_sent')
+    .sort(compareFieldKeys);
   // Match shared docs nested rows: `buildOnePropertyTableRow` uses `schemaNode.required !== false`
   // for nested fields (not presence-based splitting), so codegen must not classify a field as both
   // required and optional when presence is `sometimes_sent` but `required` is still true/undefined.

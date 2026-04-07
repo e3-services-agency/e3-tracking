@@ -12,7 +12,60 @@ import {
 import { useBundles } from '@/src/features/properties/hooks/useBundles';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import { Sheet } from '@/src/components/ui/Sheet';
-import type { CreatePropertyInput } from '@/src/types/schema';
+import { Badge } from '@/src/components/ui/Badge';
+import type { CreatePropertyInput, PropertyRow } from '@/src/types/schema';
+
+function BundlePropertyBadges({
+  propertyIds,
+  properties,
+}: {
+  propertyIds: string[];
+  properties: PropertyRow[];
+}) {
+  if (propertyIds.length === 0) {
+    return <span className="text-gray-400 italic text-xs">Empty</span>;
+  }
+
+  const visibleIds = propertyIds.slice(0, 3);
+  const restCount = propertyIds.length > 3 ? propertyIds.length - 3 : 0;
+
+  return (
+    <div
+      className="flex flex-wrap gap-1.5 items-center max-w-xl min-w-0"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {visibleIds.map((id) => {
+        const row = properties.find((p) => p.id === id);
+        if (row) {
+          return (
+            <Badge
+              key={id}
+              variant="secondary"
+              className="font-normal font-sans text-gray-700 bg-gray-100 border-0 max-w-[12rem] truncate"
+              title={row.name}
+            >
+              {row.name}
+            </Badge>
+          );
+        }
+        return (
+          <span
+            key={id}
+            className="inline-flex max-w-[10rem] truncate rounded-md bg-amber-50 px-2 py-0.5 text-xs font-mono text-amber-800 ring-1 ring-amber-200/80"
+            title={`Missing from catalog: ${id}`}
+          >
+            Missing: {id}
+          </span>
+        );
+      })}
+      {restCount > 0 ? (
+        <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+          +{restCount} more
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 export function Properties() {
   const { selectedItemIdToEdit, setSelectedItemIdToEdit } = useStore();
@@ -237,7 +290,12 @@ export function Properties() {
                         <td className="px-6 py-4 text-gray-600 max-w-md truncate">
                           {b.description || '—'}
                         </td>
-                        <td className="px-6 py-4 text-gray-500">{b.propertyIds.length}</td>
+                        <td className="px-6 py-4 text-gray-500 align-top min-w-0">
+                          <BundlePropertyBadges
+                            propertyIds={b.propertyIds}
+                            properties={apiProperties}
+                          />
+                        </td>
                       </tr>
                     ))}
                     {bundles.length === 0 && (

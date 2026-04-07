@@ -32,17 +32,14 @@ import {
 import type { ApiError } from '@/src/features/properties/hooks/useProperties';
 import type { PropertyUpdatePayload } from '@/src/features/properties/hooks/useProperties';
 import { useCatalogs } from '@/src/features/catalogs/hooks/useCatalogs';
-import {
-  createWorkspaceSource,
-  listWorkspaceSources,
-} from '@/src/features/events/lib/eventTriggerSourcesApi';
+import { listWorkspaceSources } from '@/src/features/events/lib/eventTriggerSourcesApi';
+import { getSourceIcon } from '@/src/features/events/lib/sourcePresentation';
 import { fetchPropertySourceIds } from '@/src/features/properties/lib/propertySourcesApi';
 import { useBundles } from '@/src/features/properties/hooks/useBundles';
 import { AddBundleModal } from '@/src/features/properties/overlays/AddBundleModal';
 import { AddSourceModal } from '@/src/components/overlays/AddSourceModal';
 import type { Source } from '@/src/types';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
-import { useStore } from '@/src/store';
 import {
   AlertCircle,
   Braces,
@@ -193,9 +190,6 @@ export function PropertyEditorSheet({
   const [isBundleModalOpen, setIsBundleModalOpen] = useState(false);
   const [isPropertyAddSourceModalOpen, setIsPropertyAddSourceModalOpen] = useState(false);
   const { bundles: workspaceBundles, isLoading: bundlesListLoading } = useBundles();
-  const [newSourceName, setNewSourceName] = useState('');
-  const [creatingSource, setCreatingSource] = useState(false);
-  const [createSourceError, setCreateSourceError] = useState<string | null>(null);
 
   /** True after user changes linked sources; blocks stale async hydration from overwriting the selection. */
   const linkedSourcesUserTouchedRef = useRef(false);
@@ -230,8 +224,6 @@ export function PropertyEditorSheet({
       setSaving(false);
       setDeleting(false);
       setEditorError(null);
-      setCreateSourceError(null);
-      setNewSourceName('');
       linkedSourcesUserTouchedRef.current = false;
       clearMutationError();
       if (initialProperty) {
@@ -387,36 +379,6 @@ export function PropertyEditorSheet({
       cancelled = true;
     };
   }, [isOpen, activeWorkspaceId, initialProperty?.id]);
-
-  const handleCreateInlineSource = async () => {
-    if (!hasValidWorkspaceContext) {
-      setCreateSourceError('Select a valid workspace in the header before creating a source.');
-      return;
-    }
-    const trimmed = newSourceName.trim();
-    if (!trimmed || !activeWorkspaceId) return;
-    setCreatingSource(true);
-    setCreateSourceError(null);
-    const result = await createWorkspaceSource({
-      workspaceId: activeWorkspaceId,
-      name: trimmed,
-    });
-    setCreatingSource(false);
-    if (result.success === false) {
-      setCreateSourceError(result.error);
-      return;
-    }
-    const created = result.data;
-    useStore.getState().upsertSourceFromApi(created);
-    markLinkedSourcesUserTouched();
-    setWorkspaceSources((prev) =>
-      [...prev, created].sort((a, b) => a.name.localeCompare(b.name))
-    );
-    setSelectedSourceIds((prev) =>
-      prev.includes(created.id) ? prev : [...prev, created.id]
-    );
-    setNewSourceName('');
-  };
 
   const handleDelete = async () => {
     if (!isEdit || !initialProperty || !deleteProperty) return;
@@ -929,23 +891,27 @@ export function PropertyEditorSheet({
             </p>
           )}
           {selectedSourceIds.length > 0 && (
-            <div className="flex flex-wrap gap-2" aria-labelledby="property-sources-label">
+            <div className="flex flex-wrap gap-2 mb-3" aria-labelledby="property-sources-label">
               {selectedSourceIds.map((id) => {
                 const src = workspaceSources.find((s) => s.id === id);
                 const label = src?.name ?? id;
                 return (
                   <span
                     key={id}
-                    className="inline-flex items-center gap-1 rounded-md border border-input bg-gray-50 px-2 py-1 text-xs text-gray-800 max-w-full"
+                    className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs text-gray-800 max-w-full"
                   >
-                    <span className="truncate">{label}</span>
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-white border border-gray-100">
+                      {getSourceIcon(label)}
+                    </span>
+                    <span className="truncate font-medium">{label}</span>
                     <button
                       type="button"
                       onClick={() => {
                         markLinkedSourcesUserTouched();
                         setSelectedSourceIds((prev) => prev.filter((x) => x !== id));
                       }}
-                      className="rounded p-0.5 text-gray-500 hover:text-gray-900 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0"
+                      disabled={isMutating || !hasValidWorkspaceContext}
+                      className="rounded p-0.5 text-gray-500 hover:text-gray-900 hover:bg-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0 disabled:opacity-50"
                       aria-label={`Remove source ${label}`}
                     >
                       <X className="w-3.5 h-3.5" />
@@ -955,22 +921,22 @@ export function PropertyEditorSheet({
               })}
             </div>
           )}
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full sm:w-auto"
-            onClick={() => setIsPropertyAddSourceModalOpen(true)}
-            disabled={
-              sourcesLoading ||
-              !activeWorkspaceId ||
-              !hasValidWorkspaceContext ||
-              workspaceSources.filter((s) => !selectedSourceIds.includes(s.id)).length === 0
-            }
-            aria-label="Add sources"
-          >
-            <Plus className="w-4 h-4 mr-2 shrink-0" />
-            Add sources
-          </Button>
+          <div className="mt-1">
+            <button
+              type="button"
+              onClick={() => setIsPropertyAddSourceModalOpen(true)}
+              disabled={
+                sourcesLoading ||
+                !activeWorkspaceId ||
+                !hasValidWorkspaceContext ||
+                workspaceSources.filter((s) => !selectedSourceIds.includes(s.id)).length === 0
+              }
+              className="text-[var(--color-info)] text-[14px] font-semibold hover:underline disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline"
+              aria-label="Add sources"
+            >
+              + Add Source
+            </button>
+          </div>
           <AddSourceModal
             isOpen={isPropertyAddSourceModalOpen}
             onClose={() => setIsPropertyAddSourceModalOpen(false)}
@@ -981,46 +947,6 @@ export function PropertyEditorSheet({
               setSelectedSourceIds((prev) => [...new Set([...prev, ...ids])]);
             }}
           />
-          <div className="rounded-md border border-gray-200 bg-gray-50/80 p-3 space-y-2">
-            <p className="text-xs font-medium text-gray-600">New source</p>
-            <div className="flex gap-2 flex-wrap">
-              <Input
-                value={newSourceName}
-                onChange={(e) => setNewSourceName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    void handleCreateInlineSource();
-                  }
-                }}
-                placeholder="Source name"
-                disabled={creatingSource || !activeWorkspaceId || !hasValidWorkspaceContext}
-                className="flex-1 min-w-[140px]"
-                aria-label="New source name"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="gap-1 shrink-0"
-                onClick={() => void handleCreateInlineSource()}
-                disabled={
-                  creatingSource ||
-                  !newSourceName.trim() ||
-                  !activeWorkspaceId ||
-                  !hasValidWorkspaceContext
-                }
-              >
-                <Plus className="w-4 h-4" />
-                {creatingSource ? 'Adding…' : 'Add'}
-              </Button>
-            </div>
-            {createSourceError && (
-              <p className="text-xs text-red-600" role="alert">
-                {createSourceError}
-              </p>
-            )}
-          </div>
         </div>
 
         <div className="space-y-2">

@@ -34,6 +34,7 @@ export function AddPropertyModal({
   mode,
   onClose,
   availableProperties,
+  allProperties,
   attachedIds,
   bundles = [],
   hideBundlesTab = false,

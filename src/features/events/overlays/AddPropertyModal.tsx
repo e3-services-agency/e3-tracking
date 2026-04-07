@@ -10,6 +10,8 @@ export type AddPropertyModalProps = {
   onClose: () => void;
   /** Catalog rows the user can pick from; picker filters internally. */
   availableProperties: PropertyRow[];
+  /** Full workspace catalog for name lookups (e.g. bundle preview for already-attached ids). */
+  allProperties: PropertyRow[];
   /** Already attached / included ids (shown disabled + excluded from bulk add). */
   attachedIds: ReadonlySet<string>;
   bundles?: PropertyBundle[];
@@ -77,6 +79,7 @@ export function AddPropertyModal({
         <div className="flex-1 min-h-0 overflow-hidden p-6 flex flex-col">
           <EventAttachPropertyPicker
             availableProperties={availableProperties}
+            allProperties={allProperties}
             attachedIds={attachedIds}
             addRequired={hideAddRequiredToggle ? false : addRequired}
             onAddRequiredChange={hideAddRequiredToggle ? () => {} : setAddRequired}

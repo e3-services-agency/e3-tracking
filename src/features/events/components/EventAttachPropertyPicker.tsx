@@ -7,10 +7,12 @@ import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import type { PropertyRow } from '@/src/types/schema';
 import type { PropertyBundle } from '@/src/types';
-import { Loader2, Plus } from 'lucide-react';
+import { Check, Loader2, Plus } from 'lucide-react';
 
 export interface EventAttachPropertyPickerProps {
   availableProperties: PropertyRow[];
+  /** Full workspace catalog for resolving bundle member names (includes ids not in `availableProperties`). */
+  allProperties: PropertyRow[];
   attachedIds: ReadonlySet<string>;
   addRequired: boolean;
   onAddRequiredChange: (required: boolean) => void;
@@ -27,6 +29,7 @@ export interface EventAttachPropertyPickerProps {
 
 export function EventAttachPropertyPicker({
   availableProperties,
+  allProperties,
   attachedIds,
   addRequired,
   onAddRequiredChange,
@@ -422,13 +425,29 @@ export function EventAttachPropertyPicker({
               </div>
               <div>
                 <span className="text-xs font-medium text-gray-500">Properties in bundle</span>
-                <ul className="mt-1 space-y-0.5 list-disc list-inside text-sm text-gray-800">
+                <ul className="mt-1 flex flex-col gap-1 list-none text-sm">
                   {focusedBundle.propertyIds.map((pid) => {
-                    const resolved = availableProperties.find((p) => p.id === pid);
+                    const resolved = allProperties.find((p) => p.id === pid);
+                    const isAttached = attachedIds.has(pid);
                     if (resolved) {
                       return (
-                        <li key={pid} className="text-sm text-gray-800">
-                          {resolved.name}
+                        <li
+                          key={pid}
+                          className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-xs"
+                        >
+                          <span
+                            className={
+                              isAttached ? 'text-gray-400' : 'text-gray-600'
+                            }
+                          >
+                            {resolved.name}
+                          </span>
+                          {isAttached ? (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-emerald-600">
+                              <Check className="h-3 w-3 shrink-0" aria-hidden />
+                              <span>(added)</span>
+                            </span>
+                          ) : null}
                         </li>
                       );
                     }

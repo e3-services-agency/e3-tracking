@@ -358,6 +358,11 @@ ${props
     return pool.map(legacyPropertyToPickerRow);
   }, [isAddEventPropertyModalOpen, availableEventProps, availableSystemProps]);
 
+  const modalAllProperties = useMemo(
+    () => data.properties.map(legacyPropertyToPickerRow),
+    [data.properties],
+  );
+
   const handleModalAddSelected = async (ids: string[]): Promise<boolean> => {
     const actionId =
       isAddEventPropertyModalOpen || isAddSystemPropertyModalOpen;
@@ -581,6 +586,7 @@ ${props
     },
     derived: {
       modalAvailableProperties,
+      modalAllProperties,
       modalAttachedIds,
       generateCodegen,
     },

@@ -1126,6 +1126,7 @@ export function EventEditorSheet({
                 onClose={() => setAttachPropertyPickerOpen(false)}
                 mode="event"
                 availableProperties={availableProperties}
+                allProperties={allProperties}
                 attachedIds={attachedIds}
                 bundles={bundles}
                 addRequired={addRequired}

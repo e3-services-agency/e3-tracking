@@ -131,7 +131,8 @@ export function EventEditorSheet({
     saveTrigger,
     logAction,
   } = actions;
-  const { modalAvailableProperties, modalAttachedIds, generateCodegen } = derived;
+  const { modalAvailableProperties, modalAllProperties, modalAttachedIds, generateCodegen } =
+    derived;
 
   return (
     <div className="flex flex-col h-full bg-white relative font-sans -mx-6 -my-6">
@@ -294,6 +295,7 @@ export function EventEditorSheet({
         mode={propertyModalMode}
         onClose={closePropertyModal}
         availableProperties={modalAvailableProperties}
+        allProperties={modalAllProperties}
         attachedIds={modalAttachedIds}
         bundles={bundles}
         hideAddRequiredToggle

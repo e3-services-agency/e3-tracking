@@ -182,6 +182,7 @@ export function BundleEditor({
         mode="event"
         onClose={() => setAddModalOpen(false)}
         availableProperties={workspaceProperties}
+        allProperties={workspaceProperties}
         attachedIds={attachedIds}
         hideBundlesTab
         hideAddRequiredToggle

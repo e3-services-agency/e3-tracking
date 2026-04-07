@@ -29,6 +29,7 @@ import {
   serializeNameMappingsForSave,
   validateExampleValuesForSave,
 } from '@/src/features/properties/components/PropertyJsonFieldEditors';
+import { PROPERTY_DATA_TYPE_UI_OPTIONS } from '@/src/features/properties/lib/propertyDataTypeUi';
 import type { ApiError } from '@/src/features/properties/hooks/useProperties';
 import type { PropertyUpdatePayload } from '@/src/features/properties/hooks/useProperties';
 import { useCatalogs } from '@/src/features/catalogs/hooks/useCatalogs';
@@ -64,16 +65,7 @@ const CONTEXTS: { value: PropertyContext; label: string }[] = [
   { value: 'system_property', label: 'System Property' },
 ];
 
-const UI_DATA_TYPES: { value: PropertyDataType; label: string }[] = [
-  { value: 'string', label: 'string' },
-  { value: 'number', label: 'number' },
-  { value: 'boolean', label: 'boolean' },
-  { value: 'timestamp', label: 'timestamp' },
-  { value: 'object', label: 'object {}' },
-  { value: 'array', label: 'array []' },
-];
-
-const DATA_TYPE_SELECT_OPTIONS: IconSelectOption<PropertyDataType>[] = UI_DATA_TYPES.map(
+const DATA_TYPE_SELECT_OPTIONS: IconSelectOption<PropertyDataType>[] = PROPERTY_DATA_TYPE_UI_OPTIONS.map(
   (t) => ({
     value: t.value,
     label: t.label,

@@ -27,6 +27,7 @@ import {
   type PropertyValueSchema,
   type PropertyValueSchemaNode,
 } from '@/src/types/schema';
+import { propertyDataTypeUiLabel } from '@/src/features/properties/lib/propertyDataTypeUi';
 import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { PropertySingleSelectPicker } from '@/src/features/properties/components/PropertySingleSelectPicker';
 
@@ -171,7 +172,7 @@ function SchemaNodeEditor({ node, onChange, depth, disabled }: SchemaNodeEditorP
           >
             {PROPERTY_DATA_TYPES.map((t) => (
               <option key={t} value={t}>
-                {t}
+                {propertyDataTypeUiLabel(t)}
               </option>
             ))}
           </select>

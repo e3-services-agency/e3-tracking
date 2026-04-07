@@ -20,7 +20,8 @@ import { useCatalogs } from '@/src/features/catalogs/hooks/useCatalogs';
 import type { PropertyRow, PropertyContext } from '@/src/types/schema';
 import type { CatalogFieldRow } from '@/src/types/schema';
 import type { ApiError } from '@/src/features/properties/hooks/useProperties';
-import { Search, Plus, FileQuestion, AlertCircle, Link2, Braces, Brackets, Clock3, Hash, Type, ToggleLeft } from 'lucide-react';
+import { Search, Plus, FileQuestion, AlertCircle, Link2 } from 'lucide-react';
+import { propertyDataTypeUiLabel } from '@/src/features/properties/lib/propertyDataTypeUi';
 
 const CONTEXT_LABELS: Record<PropertyContext, string> = {
   event_property: 'Event Property',
@@ -120,18 +121,10 @@ export function PropertiesList({
           const p = row.original;
           const uiType = p.data_type;
           const formatsLabel = p.data_formats?.join(', ') ?? '';
-          const icon =
-            uiType === 'array' ? <Brackets className="w-3.5 h-3.5" /> :
-            uiType === 'object' ? <Braces className="w-3.5 h-3.5" /> :
-            uiType === 'boolean' ? <ToggleLeft className="w-3.5 h-3.5" /> :
-            uiType === 'number' ? <Hash className="w-3.5 h-3.5" /> :
-            uiType === 'timestamp' ? <Clock3 className="w-3.5 h-3.5" /> :
-            <Type className="w-3.5 h-3.5" />;
           return (
             <div className="space-y-1">
-              <Badge variant="outline" className="font-mono text-xs inline-flex items-center gap-1.5">
-                {icon}
-                {uiType === 'array' ? 'array []' : uiType === 'object' ? 'object {}' : uiType}
+              <Badge variant="outline" className="text-xs text-gray-800 inline-flex items-center">
+                {propertyDataTypeUiLabel(uiType)}
               </Badge>
               {formatsLabel ? (
                 <p className="text-xs text-gray-500 font-mono">{formatsLabel}</p>

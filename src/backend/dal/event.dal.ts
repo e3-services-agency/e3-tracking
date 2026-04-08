@@ -1002,9 +1002,8 @@ export async function getEventWithProperties(
         property_data_type: pr?.data_type ?? null,
         property_data_formats: pr?.data_formats ?? null,
         property_example_values_json:
-          exampleOverrideByPropertyId.has(r.property_id)
-            ? exampleOverrideByPropertyId.get(r.property_id) ?? null
-            : normalizePropertyExampleValues(pr?.example_values_json ?? null),
+          exampleOverrideByPropertyId.get(r.property_id) ??
+          normalizePropertyExampleValues(pr?.example_values_json ?? null),
         property_value_schema_json: pr?.value_schema_json ?? null,
         property_object_child_property_refs_json: pr?.object_child_property_refs_json ?? null,
         object_child_snapshots_by_field: snapshots,

@@ -14,6 +14,10 @@ import type {
   PropertyRow,
 } from '@/src/types/schema';
 import type { ApiError, EventPropertyWithDetails } from '@/src/features/events/hooks/useEvents';
+import {
+  eventPropertyDefinitionHasSemanticOverrideBadge,
+  eventPropertyDefinitionRowHasRemovableContent,
+} from '@/src/lib/eventPropertyOverrideSemantics';
 import { AlertCircle, ChevronDown, ChevronRight } from 'lucide-react';
 
 type LocalDraft = {
@@ -48,21 +52,6 @@ function formatEffectiveExample(v: unknown): string {
   } catch {
     return String(v);
   }
-}
-
-/**
- * True when the event overrides **catalog copy / semantics** worth showing as "Overridden".
- * Definition-level `required` (including from "Add properties" with Required checked) is initial
- * event configuration for trigger rules — not an "override vs global catalog" in this badge sense.
- * `required: false` alone is also not badge-worthy (see comment on legacy rows in handleSave paths).
- */
-function hasSemanticOverrideForBadge(override: EventPropertyDefinitionRow | null | undefined): boolean {
-  if (!override) return false;
-  return (
-    override.description_override != null ||
-    override.example_values != null ||
-    (override.enum_values != null && override.enum_values.length > 0)
-  );
 }
 
 export interface EventPropertyOverridesSectionProps {
@@ -264,8 +253,8 @@ export function EventPropertyOverridesSection({
             const propMeta = allProperties.find((p) => p.id === a.property_id);
             const name = eff?.property.name ?? a.property_name ?? a.property_id;
             const dataType = eff?.property.data_type ?? propMeta?.data_type ?? '—';
-            const isOverridden = hasSemanticOverrideForBadge(eff?.override);
-            const hasStoredOverrideRow = eff?.override != null;
+            const isOverridden = eventPropertyDefinitionHasSemanticOverrideBadge(eff?.override);
+            const hasStoredOverrideRow = eventPropertyDefinitionRowHasRemovableContent(eff?.override);
             const expanded = editingPropertyId === a.property_id;
 
             return (

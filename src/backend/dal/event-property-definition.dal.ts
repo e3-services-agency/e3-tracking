@@ -18,6 +18,10 @@ import type {
 } from '../../types/schema';
 import { BadRequestError, DatabaseError, NotFoundError } from '../errors';
 import { resolveEffectiveEventSchema } from '../../lib/effectiveEventSchema';
+import {
+  hasNonEmptyExampleValuesJson,
+  normalizeExampleValuesForStorage,
+} from '../../lib/eventPropertyOverrideSemantics';
 import { getEventById } from './event.dal';
 import { getPropertyRow } from './property.dal';
 import { getEventVariantById } from './event-variant.dal';
@@ -48,10 +52,10 @@ function mapRow(row: DefinitionDbRow): EventPropertyDefinitionRow {
     workspace_id: row.workspace_id,
     event_id: row.event_id,
     property_id: row.property_id,
-    description_override: row.description_override ?? null,
+    description_override: parseDescriptionOverride(row.description_override),
     enum_values: normalizeEnumValuesFromDb(row.enum_values),
     required: typeof row.required === 'boolean' ? row.required : null,
-    example_values: row.example_values ?? null,
+    example_values: normalizeExampleValuesForStorage(row.example_values),
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
@@ -377,7 +381,7 @@ function mergePayloadWithExisting(
   | { ok: false; error: string } {
   const desc = Object.prototype.hasOwnProperty.call(raw, 'description_override')
     ? parseDescriptionOverride(raw.description_override)
-    : (existing?.description_override ?? null);
+    : parseDescriptionOverride(existing?.description_override ?? null);
 
   let req: boolean | null;
   if (Object.prototype.hasOwnProperty.call(raw, 'required')) {
@@ -396,14 +400,37 @@ function mergePayloadWithExisting(
       : raw.example_values
     : (existing?.example_values ?? null);
 
+  const exampleNormalized = normalizeExampleValuesForStorage(
+    examples === undefined ? null : examples
+  );
+
   return {
     ok: true,
     merged: {
       description_override: desc,
       required: req,
-      example_values: examples === undefined ? null : examples,
+      example_values: exampleNormalized,
     },
   };
+}
+
+/**
+ * True when merged override fields + existing enum column carry no semantic content (row can be deleted).
+ */
+function isVacuousMergedEventPropertyDefinition(
+  merged: {
+    description_override: string | null;
+    required: boolean | null;
+    example_values: unknown | null;
+  },
+  existingEnum: string[] | null | undefined
+): boolean {
+  const desc = merged.description_override?.trim() ?? '';
+  if (desc.length > 0) return false;
+  if (merged.required !== null && merged.required !== undefined) return false;
+  if (hasNonEmptyExampleValuesJson(merged.example_values)) return false;
+  if (existingEnum != null && existingEnum.length > 0) return false;
+  return true;
 }
 
 /**
@@ -414,7 +441,7 @@ export async function upsertEventPropertyDefinition(
   workspaceId: string,
   eventId: string,
   payload: EventPropertyDefinitionUpsertPayload
-): Promise<EventPropertyDefinitionRow> {
+): Promise<EventPropertyDefinitionRow | null> {
   const propertyId = typeof payload.property_id === 'string' ? payload.property_id.trim() : '';
   if (!propertyId) {
     throw new DatabaseError('property_id is required.');
@@ -438,6 +465,26 @@ export async function upsertEventPropertyDefinition(
     throw new BadRequestError(mergedResult.error, 'definitions');
   }
   const { merged } = mergedResult;
+
+  const existingEnum = existingMapped?.enum_values ?? null;
+  if (isVacuousMergedEventPropertyDefinition(merged, existingEnum)) {
+    const supabaseVac = getSupabaseOrThrow();
+    if (existingRow) {
+      const { error: delErr } = await supabaseVac
+        .from('event_property_definitions')
+        .delete()
+        .eq('workspace_id', workspaceId)
+        .eq('event_id', eventId)
+        .eq('property_id', propertyId);
+      if (delErr) {
+        throw new DatabaseError(
+          `Failed to remove vacuous event property definition: ${delErr.message}`,
+          delErr
+        );
+      }
+    }
+    return null;
+  }
 
   const now = new Date().toISOString();
   const supabase = getSupabaseOrThrow();
@@ -487,7 +534,7 @@ export async function upsertEventPropertyDefinitionsBatch(
   const out: EventPropertyDefinitionRow[] = [];
   for (const item of items) {
     const row = await upsertEventPropertyDefinition(workspaceId, eventId, item);
-    out.push(row);
+    if (row) out.push(row);
   }
   return out.sort((a, b) => a.property_id.localeCompare(b.property_id));
 }

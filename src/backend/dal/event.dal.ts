@@ -17,6 +17,7 @@ import type {
   PropertyExampleValue,
   EventVariantRow,
   EventVariantSummary,
+  EventVariantOverridesV1,
   CodegenEventNameOverrides,
   ObjectChildFieldSnapshot,
   PropertyRow,
@@ -24,7 +25,11 @@ import type {
 } from '../../types/schema';
 import { PROPERTY_DATA_FORMATS } from '../../types/schema';
 import { ConflictError, DatabaseError, NotFoundError } from '../errors';
-import { listEventVariantSummariesForBaseEventIds, listEventVariantsByBaseEvent } from './event-variant.dal';
+import {
+  listEventVariantSummariesForBaseEventIds,
+  listEventVariantsByBaseEvent,
+  parseEventVariantOverridesJson,
+} from './event-variant.dal';
 import { mapPropertyDbRowToRow } from './property.dal';
 
 const UNIQUE_VIOLATION_CODE = '23505';
@@ -205,6 +210,87 @@ function normalizePropertyExampleValues(
     });
   }
   return out.length > 0 ? out : null;
+}
+
+type EventPropertyDefinitionIndexRow = {
+  property_id: string;
+  required: unknown;
+  example_values?: unknown;
+};
+
+function indexEventPropertyDefinitions(
+  defRows: EventPropertyDefinitionIndexRow[] | null | undefined
+): {
+  requiredByPropertyId: Map<string, boolean | null>;
+  exampleOverrideByPropertyId: Map<string, PropertyExampleValue[] | null>;
+} {
+  const requiredByPropertyId = new Map<string, boolean | null>();
+  const exampleOverrideByPropertyId = new Map<string, PropertyExampleValue[] | null>();
+  for (const raw of defRows ?? []) {
+    const d = raw;
+    const req = d.required;
+    requiredByPropertyId.set(d.property_id, typeof req === 'boolean' ? req : null);
+    if (Object.prototype.hasOwnProperty.call(d, 'example_values')) {
+      const normalized = normalizePropertyExampleValues(
+        (d as { example_values?: unknown }).example_values ?? null
+      );
+      exampleOverrideByPropertyId.set(d.property_id, normalized);
+    }
+  }
+  return { requiredByPropertyId, exampleOverrideByPropertyId };
+}
+
+function buildAttachedPropertiesForEventLinks(
+  rows: EventPropertyRow[],
+  propertyById: Map<string, PropertyRow>,
+  requiredByPropertyId: Map<string, boolean | null>,
+  exampleOverrideByPropertyId: Map<string, PropertyExampleValue[] | null>
+): EventPropertyWithDetails[] {
+  return rows
+    .filter((r) => propertyById.has(r.property_id))
+    .map((r) => {
+      const pr = propertyById.get(r.property_id);
+      const snapshots =
+        pr && (pr.data_type === 'object' || pr.data_type === 'array')
+          ? buildObjectChildFieldSnapshots(pr, propertyById, new Set())
+          : null;
+      return {
+        ...r,
+        property_name: pr?.name ?? '',
+        property_description: pr?.description ?? null,
+        property_data_type: pr?.data_type ?? null,
+        property_data_formats: pr?.data_formats ?? null,
+        property_example_values_json:
+          exampleOverrideByPropertyId.get(r.property_id) ??
+          normalizePropertyExampleValues(pr?.example_values_json ?? null),
+        property_value_schema_json: pr?.value_schema_json ?? null,
+        property_object_child_property_refs_json: pr?.object_child_property_refs_json ?? null,
+        object_child_snapshots_by_field: snapshots,
+        property_required_override: requiredByPropertyId.get(r.property_id) ?? null,
+      };
+    });
+}
+
+function safeVariantOverridesForBatchRead(raw: unknown): EventVariantOverridesV1 {
+  try {
+    return parseEventVariantOverridesJson(raw);
+  } catch {
+    return {};
+  }
+}
+
+function mapEventVariantRowForBatch(row: Record<string, unknown>): EventVariantRow {
+  return {
+    id: String(row.id),
+    workspace_id: String(row.workspace_id),
+    base_event_id: String(row.base_event_id),
+    name: String(row.name),
+    description: row.description != null ? String(row.description) : null,
+    overrides_json: safeVariantOverridesForBatchRead(row.overrides_json),
+    created_at: String(row.created_at),
+    updated_at: String(row.updated_at),
+    deleted_at: row.deleted_at != null ? String(row.deleted_at) : null,
+  };
 }
 
 type EventDbRow = Omit<
@@ -896,22 +982,9 @@ export async function getEventWithProperties(
     );
   }
 
-  const requiredByPropertyId = new Map<string, boolean | null>();
-  const exampleOverrideByPropertyId = new Map<string, PropertyExampleValue[] | null>();
-  for (const raw of defRows ?? []) {
-    const d = raw as { property_id: string; required: unknown; example_values?: unknown };
-    const req = d.required;
-    requiredByPropertyId.set(
-      d.property_id,
-      typeof req === 'boolean' ? req : null
-    );
-    // event_property_definitions.example_values is stored as unknown (jsonb); normalize to PropertyExampleValue[].
-    // Precedence rule for codegen: event override (when non-null) > canonical property examples.
-    if (Object.prototype.hasOwnProperty.call(d, 'example_values')) {
-      const normalized = normalizePropertyExampleValues((d as any).example_values ?? null);
-      exampleOverrideByPropertyId.set(d.property_id, normalized);
-    }
-  }
+  const { requiredByPropertyId, exampleOverrideByPropertyId } = indexEventPropertyDefinitions(
+    (defRows ?? []) as EventPropertyDefinitionIndexRow[]
+  );
 
   const { data: props, error: propsError } = await supabase
     .from('properties')
@@ -987,30 +1060,12 @@ export async function getEventWithProperties(
     }
   }
 
-  const attached_properties: EventPropertyWithDetails[] = rows
-    .filter((r) => propertyById.has(r.property_id))
-    .map((r) => {
-      const pr = propertyById.get(r.property_id);
-      const snapshots =
-        pr && (pr.data_type === 'object' || pr.data_type === 'array')
-          ? buildObjectChildFieldSnapshots(pr, propertyById, new Set())
-          : null;
-      return {
-        ...r,
-        property_name: pr?.name ?? '',
-        property_description: pr?.description ?? null,
-        property_data_type: pr?.data_type ?? null,
-        property_data_formats: pr?.data_formats ?? null,
-        property_example_values_json:
-          exampleOverrideByPropertyId.get(r.property_id) ??
-          normalizePropertyExampleValues(pr?.example_values_json ?? null),
-        property_value_schema_json: pr?.value_schema_json ?? null,
-        property_object_child_property_refs_json: pr?.object_child_property_refs_json ?? null,
-        object_child_snapshots_by_field: snapshots,
-        property_required_override:
-          requiredByPropertyId.get(r.property_id) ?? null,
-      };
-    });
+  const attached_properties = buildAttachedPropertiesForEventLinks(
+    rows,
+    propertyById,
+    requiredByPropertyId,
+    exampleOverrideByPropertyId
+  );
 
   return {
     event: eventWithUsage,
@@ -1018,6 +1073,231 @@ export async function getEventWithProperties(
     source_ids: await listEventSourceIds(workspaceId, eventId),
     variants,
   };
+}
+
+/**
+ * Same attached-property shape as {@link getEventWithProperties} for shared journey / codegen caches.
+ * Omits `used_in_journeys_count`, `listEventSourceIds`, and per-event journey usage queries.
+ */
+export type EventWithPropertiesPayload = {
+  event: EventRow;
+  attached_properties: EventPropertyWithDetails[];
+  source_ids: string[];
+  variants: EventVariantRow[];
+};
+
+/**
+ * Batch-load events with properties for many event ids (constant small number of queries vs N × getEventWithProperties).
+ * Skips journey usage counts and source id resolution — not needed for shared journey views.
+ */
+export async function getEventsWithPropertiesBatch(
+  workspaceId: string,
+  eventIds: string[]
+): Promise<Map<string, EventWithPropertiesPayload>> {
+  const uniqueIds = [...new Set(eventIds.map((id) => id.trim()).filter(Boolean))];
+  const out = new Map<string, EventWithPropertiesPayload>();
+  if (uniqueIds.length === 0) {
+    return out;
+  }
+
+  const supabase = getSupabaseOrThrow();
+
+  const { data: eventData, error: eventError } = await supabase
+    .from('events')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .in('id', uniqueIds)
+    .is('deleted_at', null);
+
+  if (eventError) {
+    throw new DatabaseError(`Failed to fetch events: ${eventError.message}`, eventError);
+  }
+
+  const eventsById = new Map<string, EventRow>();
+  for (const raw of eventData ?? []) {
+    const row = mapEventRow(raw as EventDbRow | null);
+    if (row) {
+      eventsById.set(row.id, row);
+    }
+  }
+
+  const foundEventIds = [...eventsById.keys()];
+  if (foundEventIds.length === 0) {
+    return out;
+  }
+
+  const { data: allLinks, error: linkError } = await supabase
+    .from('event_properties')
+    .select('event_id, property_id, presence, created_at, updated_at')
+    .in('event_id', foundEventIds);
+
+  if (linkError) {
+    throw new DatabaseError(`Failed to fetch event properties: ${linkError.message}`, linkError);
+  }
+
+  const linksByEventId = new Map<string, EventPropertyRow[]>();
+  for (const link of (allLinks ?? []) as EventPropertyRow[]) {
+    const list = linksByEventId.get(link.event_id) ?? [];
+    list.push(link);
+    linksByEventId.set(link.event_id, list);
+  }
+
+  const { data: batchDefRows, error: defError } = await supabase
+    .from('event_property_definitions')
+    .select('event_id, property_id, required, example_values')
+    .eq('workspace_id', workspaceId)
+    .in('event_id', foundEventIds);
+
+  if (defError) {
+    throw new DatabaseError(
+      `Failed to fetch event property definitions: ${defError.message}`,
+      defError
+    );
+  }
+
+  const defsByEventId = new Map<string, EventPropertyDefinitionIndexRow[]>();
+  for (const raw of batchDefRows ?? []) {
+    const d = raw as {
+      event_id: string;
+      property_id: string;
+      required: unknown;
+      example_values?: unknown;
+    };
+    const list = defsByEventId.get(d.event_id) ?? [];
+    list.push({
+      property_id: d.property_id,
+      required: d.required,
+      example_values: d.example_values,
+    });
+    defsByEventId.set(d.event_id, list);
+  }
+
+  const allAttachedPropertyIds = new Set<string>();
+  for (const rows of linksByEventId.values()) {
+    for (const r of rows) {
+      allAttachedPropertyIds.add(r.property_id);
+    }
+  }
+
+  const propertyById = new Map<string, PropertyRow>();
+  const seedIds = [...allAttachedPropertyIds];
+  if (seedIds.length > 0) {
+    const { data: props, error: propsError } = await supabase
+      .from('properties')
+      .select('*')
+      .in('id', seedIds)
+      .eq('workspace_id', workspaceId)
+      .is('deleted_at', null);
+
+    if (propsError) {
+      throw new DatabaseError(`Failed to fetch properties: ${propsError.message}`, propsError);
+    }
+
+    for (const raw of props ?? []) {
+      const pr = mapPropertyDbRowToRow(raw);
+      if (pr) {
+        propertyById.set(pr.id, pr);
+      }
+    }
+  }
+
+  let frontier: string[] = [];
+  for (const pr of propertyById.values()) {
+    if (
+      (pr.data_type === 'object' || pr.data_type === 'array') &&
+      pr.object_child_property_refs_json
+    ) {
+      for (const pid of Object.values(pr.object_child_property_refs_json)) {
+        if (!propertyById.has(pid)) {
+          frontier.push(pid);
+        }
+      }
+    }
+  }
+
+  for (let round = 0; round < OBJECT_CHILD_REF_FETCH_ROUNDS && frontier.length > 0; round += 1) {
+    const unique = [...new Set(frontier)];
+    frontier = [];
+    const { data: moreRows, error: moreErr } = await supabase
+      .from('properties')
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .in('id', unique)
+      .is('deleted_at', null);
+
+    if (moreErr) {
+      throw new DatabaseError(
+        `Failed to fetch nested property refs: ${moreErr.message}`,
+        moreErr
+      );
+    }
+
+    for (const raw of moreRows ?? []) {
+      const pr = mapPropertyDbRowToRow(raw);
+      if (!pr) {
+        continue;
+      }
+      if (!propertyById.has(pr.id)) {
+        propertyById.set(pr.id, pr);
+        if (
+          (pr.data_type === 'object' || pr.data_type === 'array') &&
+          pr.object_child_property_refs_json
+        ) {
+          for (const pid of Object.values(pr.object_child_property_refs_json)) {
+            if (!propertyById.has(pid)) {
+              frontier.push(pid);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const { data: variantRows, error: variantError } = await supabase
+    .from('event_variants')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .in('base_event_id', foundEventIds)
+    .is('deleted_at', null)
+    .order('name');
+
+  if (variantError) {
+    throw new DatabaseError(`Failed to list event variants: ${variantError.message}`, variantError);
+  }
+
+  const variantsByBaseEventId = new Map<string, EventVariantRow[]>();
+  for (const eid of foundEventIds) {
+    variantsByBaseEventId.set(eid, []);
+  }
+  for (const raw of variantRows ?? []) {
+    const vr = mapEventVariantRowForBatch(raw as Record<string, unknown>);
+    const list = variantsByBaseEventId.get(vr.base_event_id) ?? [];
+    list.push(vr);
+    variantsByBaseEventId.set(vr.base_event_id, list);
+  }
+
+  for (const eid of uniqueIds) {
+    const event = eventsById.get(eid);
+    if (!event) {
+      continue;
+    }
+    const linkRows = linksByEventId.get(eid) ?? [];
+    const defIndex = indexEventPropertyDefinitions(defsByEventId.get(eid) ?? []);
+    const attached_properties = buildAttachedPropertiesForEventLinks(
+      linkRows,
+      propertyById,
+      defIndex.requiredByPropertyId,
+      defIndex.exampleOverrideByPropertyId
+    );
+    out.set(eid, {
+      event,
+      attached_properties,
+      source_ids: [],
+      variants: variantsByBaseEventId.get(eid) ?? [],
+    });
+  }
+
+  return out;
 }
 
 /**

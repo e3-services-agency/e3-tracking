@@ -7,7 +7,10 @@
 import { Router, type Request, type Response } from 'express';
 import { getJourneyByShareId, getJourneyByShareToken, listJourneysForShareHub } from '../dal/journey.dal';
 import { getWorkspaceIdByJourneysShareHubToken, getWorkspaceSettings } from '../dal/workspace.dal';
-import { getEventWithProperties } from '../dal/event.dal';
+import {
+  getEventsWithPropertiesBatch,
+  type EventWithPropertiesPayload,
+} from '../dal/event.dal';
 import { DatabaseError, NotFoundError } from '../errors';
 import { buildCodegenSnippets } from '../services/codegen.service';
 import {
@@ -24,6 +27,24 @@ import { getSharedJourneyQARuns } from '../dal/qa.dal';
 
 const router = Router();
 const ASSETS_BUCKET = 'assets';
+
+function collectTriggerEventIdsFromNodes(nodes: unknown): string[] {
+  if (!Array.isArray(nodes)) return [];
+  const eventIds = new Set<string>();
+  for (const n of nodes as CanvasNode[]) {
+    if (n?.type !== 'triggerNode') continue;
+    const raw = n?.data?.connectedEvent?.eventId;
+    if (typeof raw === 'string' && raw.trim()) eventIds.add(raw.trim());
+  }
+  return [...eventIds];
+}
+
+async function buildEventPayloadCache(
+  workspaceId: string,
+  eventIds: string[]
+): Promise<Map<string, EventWithPropertiesPayload>> {
+  return getEventsWithPropertiesBatch(workspaceId, eventIds);
+}
 
 function isJourneyAssetPath(objectPath: string, workspaceId: string, journeyId: string): boolean {
   return (
@@ -54,31 +75,15 @@ type CanvasNode = {
  */
 async function enrichSharedJourneyTriggerNodes(
   workspaceId: string,
-  nodes: unknown
+  nodes: unknown,
+  eventCache: Map<string, EventWithPropertiesPayload>
 ): Promise<unknown> {
   if (!Array.isArray(nodes)) return nodes;
   const list = nodes as CanvasNode[];
-  const eventIds = new Set<string>();
-  for (const n of list) {
-    if (n?.type !== 'triggerNode') continue;
-    const raw = n?.data?.connectedEvent?.eventId;
-    if (typeof raw === 'string' && raw.trim()) eventIds.add(raw.trim());
-  }
-  const cache = new Map<string, Awaited<ReturnType<typeof getEventWithProperties>>>();
-  await Promise.all(
-    [...eventIds].map(async (eid) => {
-      try {
-        const payload = await getEventWithProperties(workspaceId, eid);
-        cache.set(eid, payload);
-      } catch {
-        // Omit enrichment for missing / inaccessible events.
-      }
-    })
-  );
   return list.map((n) => {
     if (n?.type !== 'triggerNode' || !n.data?.connectedEvent?.eventId) return n;
     const eid = String(n.data.connectedEvent.eventId).trim();
-    const payload = cache.get(eid);
+    const payload = eventCache.get(eid);
     if (!payload) return n;
     const ev = payload.event;
     const ce = { ...n.data.connectedEvent };
@@ -149,7 +154,8 @@ function sharedSnippetMapKey(eventId: string, variantId: string | null): string 
 
 async function buildSharedEventSnippets(
   workspaceId: string,
-  nodes: unknown
+  nodes: unknown,
+  eventCache: Map<string, EventWithPropertiesPayload>
 ): Promise<Record<string, { eventName: string; snippets: { dataLayer: string; bloomreachSdk: string; bloomreachApi: string } }>> {
   const workspaceSettings = await getWorkspaceSettings(workspaceId);
   const bloomreachApiCustomerIdKey =
@@ -158,30 +164,15 @@ async function buildSharedEventSnippets(
       : null;
   const list = Array.isArray(nodes) ? (nodes as CanvasNode[]) : [];
   const pairKeys = new Set<string>();
-  const eventIds = new Set<string>();
   for (const n of list) {
     if (n?.type !== 'triggerNode') continue;
     const rawEid = n?.data?.connectedEvent?.eventId;
     if (typeof rawEid !== 'string' || !rawEid.trim()) continue;
     const eid = rawEid.trim();
-    eventIds.add(eid);
     const rawVid = n?.data?.connectedEvent?.variantId;
     const vid =
       typeof rawVid === 'string' && rawVid.trim() !== '' ? rawVid.trim() : null;
     pairKeys.add(sharedSnippetMapKey(eid, vid));
-  }
-
-  const eventCache = new Map<
-    string,
-    Awaited<ReturnType<typeof getEventWithProperties>>
-  >();
-  for (const eventId of eventIds) {
-    try {
-      const payload = await getEventWithProperties(workspaceId, eventId);
-      eventCache.set(eventId, payload);
-    } catch {
-      // If event lookup fails, omit snippets for this event.
-    }
   }
 
   const out: Record<
@@ -320,11 +311,18 @@ router.get(
     try {
       const journey = await getJourneyByShareToken(token);
       const rewrittenNodes = rewriteSharedImageUrls(journey.id, journey.nodes);
+      const eventIds = collectTriggerEventIdsFromNodes(rewrittenNodes);
+      const eventPayloadCache = await buildEventPayloadCache(journey.workspace_id, eventIds);
       const enrichedNodes = await enrichSharedJourneyTriggerNodes(
         journey.workspace_id,
-        rewrittenNodes
+        rewrittenNodes,
+        eventPayloadCache
       );
-      const eventSnippets = await buildSharedEventSnippets(journey.workspace_id, enrichedNodes);
+      const eventSnippets = await buildSharedEventSnippets(
+        journey.workspace_id,
+        enrichedNodes,
+        eventPayloadCache
+      );
       const qaRuns = await getSharedJourneyQARuns(journey.id);
       res.status(200).json({
         id: journey.id,
@@ -379,11 +377,18 @@ router.get(
     try {
       const journey = await getJourneyByShareId(id);
       const rewrittenNodes = rewriteSharedImageUrls(journey.id, journey.nodes);
+      const eventIds = collectTriggerEventIdsFromNodes(rewrittenNodes);
+      const eventPayloadCache = await buildEventPayloadCache(journey.workspace_id, eventIds);
       const enrichedNodes = await enrichSharedJourneyTriggerNodes(
         journey.workspace_id,
-        rewrittenNodes
+        rewrittenNodes,
+        eventPayloadCache
       );
-      const eventSnippets = await buildSharedEventSnippets(journey.workspace_id, enrichedNodes);
+      const eventSnippets = await buildSharedEventSnippets(
+        journey.workspace_id,
+        enrichedNodes,
+        eventPayloadCache
+      );
       const qaRuns = await getSharedJourneyQARuns(journey.id);
       res.status(200).json({
         id: journey.id,

@@ -402,6 +402,7 @@ async function readPublicAssetAsDataUrl(
 
 /** Build example payload and presence labels for an event. */
 function buildPayloadDoc(
+  /** Rows may already include variant merges from `mergeEventPropertyWithDetailsWithEffectiveList`. */
   attached: EventPropertyWithDetails[]
 ): { jsonExample: string; alwaysSent: string[]; sometimesSent: string[] } {
   const alwaysSent: string[] = [];
@@ -412,13 +413,15 @@ function buildPayloadDoc(
   for (const p of attached) {
     const name = p.property_name || 'property';
     keys.push(name);
+    // Effective / variant-merged examples live on `property_example_values_json` after merge helper runs.
+    const mergedExamples = p.property_example_values_json ?? null;
     const ap: AttachedPropertyForCodegen = {
       property_name: name,
       presence: p.presence,
       property_id: p.property_id,
       property_data_type: p.property_data_type,
       property_data_formats: p.property_data_formats,
-      property_example_values_json: p.property_example_values_json,
+      property_example_values_json: mergedExamples,
       property_value_schema_json: p.property_value_schema_json ?? null,
       property_object_child_property_refs_json:
         p.property_object_child_property_refs_json ?? null,
@@ -497,13 +500,29 @@ function buildOnePropertyTableRow(
     desc = p.property_description ? escapeHtml(p.property_description) : '—';
   }
 
-  const exampleCell =
-    typeof opts.exampleOverrideHtml === 'string' && opts.exampleOverrideHtml
-      ? opts.exampleOverrideHtml
-      : formatPropertyExamplesForExportHtml(
-          nested && snap ? snap.property_example_values_json ?? null : p.property_example_values_json ?? null,
-          { dataType: dtype }
-        );
+  // Root row: prefer merged effective examples (base + event definition + variant) on `p` before
+  // derived object/array snippets from catalog snapshots — otherwise variant overrides are invisible
+  // for object/array parents that still use snapshot-derived cells.
+  let exampleCell: string;
+  if (nested && snap) {
+    exampleCell =
+      typeof opts.exampleOverrideHtml === 'string' && opts.exampleOverrideHtml
+        ? opts.exampleOverrideHtml
+        : formatPropertyExamplesForExportHtml(snap.property_example_values_json ?? null, {
+            dataType: dtype,
+          });
+  } else {
+    const mergedRootExamples = p.property_example_values_json;
+    const hasMergedRootExamples =
+      Array.isArray(mergedRootExamples) && mergedRootExamples.length > 0;
+    if (hasMergedRootExamples) {
+      exampleCell = formatPropertyExamplesForExportHtml(mergedRootExamples, { dataType: dtype });
+    } else if (typeof opts.exampleOverrideHtml === 'string' && opts.exampleOverrideHtml) {
+      exampleCell = opts.exampleOverrideHtml;
+    } else {
+      exampleCell = formatPropertyExamplesForExportHtml(null, { dataType: dtype });
+    }
+  }
 
   const req =
     nested && opts.schemaNode

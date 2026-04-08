@@ -439,6 +439,8 @@ export interface EventPropertyDefinitionRow {
   event_id: string;
   property_id: string;
   description_override: string | null;
+  /** Per-event display/codegen name override; empty string is normalized to null at read time. */
+  name_override: string | null;
   enum_values: string[] | null;
   required: boolean | null;
   example_values: unknown | null;

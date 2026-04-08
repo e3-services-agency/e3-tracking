@@ -254,7 +254,7 @@ export function EventPropertyOverridesSection({
             const name = eff?.property.name ?? a.property_name ?? a.property_id;
             const dataType = eff?.property.data_type ?? propMeta?.data_type ?? '—';
             const isOverridden = eventPropertyDefinitionHasSemanticOverrideBadge(eff?.override);
-            const hasStoredOverrideRow = eventPropertyDefinitionRowHasRemovableContent(eff?.override);
+            const canRemoveOverride = eventPropertyDefinitionRowHasRemovableContent(eff?.override);
             const expanded = editingPropertyId === a.property_id;
 
             return (
@@ -274,7 +274,7 @@ export function EventPropertyOverridesSection({
                     </span>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    {hasStoredOverrideRow && (
+                    {canRemoveOverride && (
                       <Button
                         type="button"
                         variant="ghost"

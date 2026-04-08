@@ -22,13 +22,15 @@ export function hasNonEmptyExampleValuesJson(ev: unknown): boolean {
 }
 
 /**
- * True when the row has description / enum / example overrides worth the "Overridden" badge
+ * True when the row has description / enum / example / name overrides worth the "Overridden" badge
  * (does not treat `required` alone as badge-worthy — see EventPropertyOverridesSection copy).
  */
 export function eventPropertyDefinitionHasSemanticOverrideBadge(
   override: EventPropertyDefinitionRow | null | undefined
 ): boolean {
   if (!override) return false;
+  const no = override.name_override;
+  if (typeof no === 'string' && no.trim() !== '') return true;
   const d = override.description_override;
   if (typeof d === 'string' && d.trim() !== '') return true;
   if (override.enum_values != null && override.enum_values.length > 0) return true;
@@ -36,13 +38,14 @@ export function eventPropertyDefinitionHasSemanticOverrideBadge(
 }
 
 /**
- * True when there is anything persisted that "Remove override" should clear (including `required`).
- * Empty strings, empty arrays, and all-null rows do not count.
+ * True when there is anything persisted that "Remove override" should clear.
+ * `required: false` alone is legacy noise (matches "inherit" for effective required) and does not count;
+ * only an explicit `required: true` override does, plus semantic fields (description, enum, examples, name).
  */
 export function eventPropertyDefinitionRowHasRemovableContent(
   override: EventPropertyDefinitionRow | null | undefined
 ): boolean {
   if (!override) return false;
-  if (override.required !== null && override.required !== undefined) return true;
+  if (override.required === true) return true;
   return eventPropertyDefinitionHasSemanticOverrideBadge(override);
 }

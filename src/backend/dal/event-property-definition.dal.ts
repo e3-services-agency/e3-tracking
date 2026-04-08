@@ -32,6 +32,8 @@ type DefinitionDbRow = {
   event_id: string;
   property_id: string;
   description_override: string | null;
+  /** Optional until migration; SELECT * still maps safely. */
+  name_override?: string | null;
   enum_values: unknown | null;
   required: boolean | null;
   example_values: unknown | null;
@@ -46,6 +48,13 @@ function normalizeEnumValuesFromDb(value: unknown): string[] | null {
   return strings.length > 0 ? [...new Set(strings)] : null;
 }
 
+function parseNameOverride(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'string') return null;
+  const t = value.trim();
+  return t.length > 0 ? t : null;
+}
+
 function mapRow(row: DefinitionDbRow): EventPropertyDefinitionRow {
   return {
     id: row.id,
@@ -53,6 +62,7 @@ function mapRow(row: DefinitionDbRow): EventPropertyDefinitionRow {
     event_id: row.event_id,
     property_id: row.property_id,
     description_override: parseDescriptionOverride(row.description_override),
+    name_override: parseNameOverride(row.name_override),
     enum_values: normalizeEnumValuesFromDb(row.enum_values),
     required: typeof row.required === 'boolean' ? row.required : null,
     example_values: normalizeExampleValuesForStorage(row.example_values),
@@ -415,7 +425,9 @@ function mergePayloadWithExisting(
 }
 
 /**
- * True when merged override fields + existing enum column carry no semantic content (row can be deleted).
+ * True when merged override fields + existing enum / name columns carry no semantic content (row can be deleted).
+ * `required: false` is treated as vacuous (legacy ghost rows often store false when null was intended; it does not
+ * block deletion the way `required: true` does).
  */
 function isVacuousMergedEventPropertyDefinition(
   merged: {
@@ -423,13 +435,16 @@ function isVacuousMergedEventPropertyDefinition(
     required: boolean | null;
     example_values: unknown | null;
   },
-  existingEnum: string[] | null | undefined
+  existingEnum: string[] | null | undefined,
+  existingNameOverride: string | null | undefined
 ): boolean {
   const desc = merged.description_override?.trim() ?? '';
   if (desc.length > 0) return false;
-  if (merged.required !== null && merged.required !== undefined) return false;
+  if (merged.required === true) return false;
   if (hasNonEmptyExampleValuesJson(merged.example_values)) return false;
   if (existingEnum != null && existingEnum.length > 0) return false;
+  const name = existingNameOverride?.trim() ?? '';
+  if (name.length > 0) return false;
   return true;
 }
 
@@ -467,7 +482,8 @@ export async function upsertEventPropertyDefinition(
   const { merged } = mergedResult;
 
   const existingEnum = existingMapped?.enum_values ?? null;
-  if (isVacuousMergedEventPropertyDefinition(merged, existingEnum)) {
+  const existingNameOverride = existingMapped?.name_override ?? null;
+  if (isVacuousMergedEventPropertyDefinition(merged, existingEnum, existingNameOverride)) {
     const supabaseVac = getSupabaseOrThrow();
     if (existingRow) {
       const { error: delErr } = await supabaseVac

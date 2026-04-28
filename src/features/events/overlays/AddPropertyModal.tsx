@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { EventAttachPropertyPicker } from '@/src/features/events/components/EventAttachPropertyPicker';
-import type { PropertyDataType, PropertyRow } from '@/src/types/schema';
+import type {
+  PropertyDataType,
+  PropertyExampleValue,
+  PropertyRow,
+} from '@/src/types/schema';
 import type { PropertyBundle } from '@/src/types';
 
 export type AddPropertyModalProps = {
@@ -31,11 +35,15 @@ export type AddPropertyModalProps = {
    * Optional. When provided, the picker renders an inline "Create new property"
    * form. Resolve to `{ success: true, id }` to auto-select the new property,
    * or `{ success: false, error }` to display the error inline.
+   *
+   * `example_values_json` is the canonical example list serialized for save
+   * (`null` when no example was entered).
    */
   onCreate?: (input: {
     name: string;
     data_type: PropertyDataType;
     description?: string;
+    example_values_json?: PropertyExampleValue[] | null;
   }) => Promise<{ success: true; id: string } | { success: false; error: string }>;
 };
 

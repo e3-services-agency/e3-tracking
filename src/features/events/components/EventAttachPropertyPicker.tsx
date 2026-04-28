@@ -2,13 +2,56 @@
  * Single source of truth: searchable property list + optional bundles tab, checkboxes, preview, bulk "Add selected".
  * Does not call APIs directly; parent owns attach flow.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
-import type { PropertyDataType, PropertyRow } from '@/src/types/schema';
-import { PROPERTY_DATA_TYPES } from '@/src/types/schema';
+import { IconSelect, type IconSelectOption } from '@/src/components/ui/IconSelect';
+import type {
+  PropertyDataType,
+  PropertyExampleValue,
+  PropertyRow,
+} from '@/src/types/schema';
 import type { PropertyBundle } from '@/src/types';
-import { Check, Loader2, Plus } from 'lucide-react';
+import {
+  Braces,
+  Check,
+  Clock3,
+  Hash,
+  List,
+  Loader2,
+  Plus,
+  ToggleLeft,
+  Type,
+} from 'lucide-react';
+import { PROPERTY_DATA_TYPE_UI_OPTIONS } from '@/src/features/properties/lib/propertyDataTypeUi';
+import {
+  PropertyExampleValuesEditor,
+  type PropertyExampleValuesEditorHandle,
+  serializeExampleValuesForSave,
+  validateExampleValuesForSave,
+} from '@/src/features/properties/components/PropertyJsonFieldEditors';
+
+// Mirrors `PropertyEditorSheet.DATA_TYPE_SELECT_OPTIONS` so the inline create
+// form's Data type select uses the exact same icon set as the side panel.
+const DATA_TYPE_SELECT_OPTIONS: IconSelectOption<PropertyDataType>[] =
+  PROPERTY_DATA_TYPE_UI_OPTIONS.map((t) => ({
+    value: t.value,
+    label: t.label,
+    icon:
+      t.value === 'array' ? (
+        <List className="h-4 w-4" />
+      ) : t.value === 'object' ? (
+        <Braces className="h-4 w-4" />
+      ) : t.value === 'boolean' ? (
+        <ToggleLeft className="h-4 w-4" />
+      ) : t.value === 'number' ? (
+        <Hash className="h-4 w-4" />
+      ) : t.value === 'timestamp' ? (
+        <Clock3 className="h-4 w-4" />
+      ) : (
+        <Type className="h-4 w-4" />
+      ),
+  }));
 
 export interface EventAttachPropertyPickerProps {
   availableProperties: PropertyRow[];
@@ -30,11 +73,15 @@ export interface EventAttachPropertyPickerProps {
    * Optional. When provided, the picker renders an inline "Create new property"
    * form. Resolve to `{ success: true, id }` to auto-select the new property,
    * or `{ success: false, error }` to display the error inline.
+   *
+   * `example_values_json` is the canonical example list serialized for save
+   * (`null` when no example was entered).
    */
   onCreate?: (input: {
     name: string;
     data_type: PropertyDataType;
     description?: string;
+    example_values_json?: PropertyExampleValue[] | null;
   }) => Promise<{ success: true; id: string } | { success: false; error: string }>;
 }
 
@@ -65,8 +112,24 @@ export function EventAttachPropertyPicker({
   const [createName, setCreateName] = useState('');
   const [createDataType, setCreateDataType] = useState<PropertyDataType>('string');
   const [createDescription, setCreateDescription] = useState('');
+  const [createExampleEntries, setCreateExampleEntries] = useState<
+    PropertyExampleValue[]
+  >([]);
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  // Imperative handle to flush JSON-mode textarea edits before submit
+  // (mirrors how PropertyEditorSheet uses this editor).
+  const exampleValuesEditorRef = useRef<PropertyExampleValuesEditorHandle | null>(
+    null,
+  );
+
+  // Reset example entries when the chosen data type changes — values for
+  // `string` rarely roundtrip cleanly to e.g. `number`, and the editor is
+  // type-aware so a stale value would render as JSON garbage.
+  useEffect(() => {
+    setCreateExampleEntries([]);
+  }, [createDataType]);
 
   const busyAdding = isAdding || adding;
 
@@ -76,6 +139,7 @@ export function EventAttachPropertyPicker({
     setCreateName('');
     setCreateDataType('string');
     setCreateDescription('');
+    setCreateExampleEntries([]);
     setCreateError(null);
   };
 
@@ -86,6 +150,26 @@ export function EventAttachPropertyPicker({
       setCreateError('Name is required.');
       return;
     }
+
+    // Match the PropertyEditorSheet save path: flush pending JSON textarea
+    // edits, validate the example row, then serialize to the API shape.
+    const flush = exampleValuesEditorRef.current?.flushPendingForSave();
+    let example_values_json: PropertyExampleValue[] | null = null;
+    if (flush) {
+      if (flush.ok === false) {
+        setCreateError(flush.error);
+        return;
+      }
+      const valid = validateExampleValuesForSave(flush.entries);
+      if (valid.ok === false) {
+        setCreateError(valid.error);
+        return;
+      }
+      example_values_json = serializeExampleValuesForSave(flush.entries);
+    } else {
+      example_values_json = serializeExampleValuesForSave(createExampleEntries);
+    }
+
     setCreateBusy(true);
     setCreateError(null);
     try {
@@ -93,6 +177,7 @@ export function EventAttachPropertyPicker({
         name: trimmed,
         data_type: createDataType,
         description: createDescription.trim() || undefined,
+        example_values_json,
       });
       if (result.success) {
         setCheckedIds((prev) => {
@@ -382,8 +467,8 @@ export function EventAttachPropertyPicker({
 
       {onCreate && isCreatingProperty && (
         <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-4 space-y-3 shrink-0">
-          <div className="flex items-end gap-2 flex-wrap">
-            <div className="flex-1 min-w-[160px] space-y-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
               <label
                 htmlFor="event-property-picker-create-name"
                 className="text-xs font-semibold text-gray-700"
@@ -397,31 +482,26 @@ export function EventAttachPropertyPicker({
                 placeholder="e.g. item_id"
                 disabled={createBusy}
                 autoFocus
-                className="h-9 font-mono text-sm"
+                className="h-10 font-mono text-sm"
               />
             </div>
-            <div className="space-y-1 min-w-[140px]">
+            <div className="space-y-1">
               <label
-                htmlFor="event-property-picker-create-type"
-                className="text-xs font-semibold text-gray-700"
+                id="event-property-picker-create-type-label"
+                className="text-xs font-semibold text-gray-700 block"
               >
                 Data type
               </label>
-              <select
-                id="event-property-picker-create-type"
+              <IconSelect<PropertyDataType>
                 value={createDataType}
-                onChange={(e) =>
-                  setCreateDataType(e.target.value as PropertyDataType)
-                }
+                onChange={(next) => {
+                  if (next === '') return;
+                  setCreateDataType(next);
+                }}
+                options={DATA_TYPE_SELECT_OPTIONS}
                 disabled={createBusy}
-                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-              >
-                {PROPERTY_DATA_TYPES.map((dt) => (
-                  <option key={dt} value={dt}>
-                    {dt}
-                  </option>
-                ))}
-              </select>
+                aria-labelledby="event-property-picker-create-type-label"
+              />
             </div>
           </div>
           <div className="space-y-1">
@@ -437,7 +517,19 @@ export function EventAttachPropertyPicker({
               onChange={(e) => setCreateDescription(e.target.value)}
               placeholder="Short purpose / context"
               disabled={createBusy}
-              className="h-9 text-sm"
+              className="h-10 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <span className="text-xs font-semibold text-gray-700">
+              Example value (optional)
+            </span>
+            <PropertyExampleValuesEditor
+              ref={exampleValuesEditorRef}
+              propertyDataType={createDataType}
+              entries={createExampleEntries}
+              onChange={setCreateExampleEntries}
+              disabled={createBusy}
             />
           </div>
           {createError && (

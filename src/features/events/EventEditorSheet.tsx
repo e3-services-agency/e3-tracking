@@ -38,6 +38,7 @@ import {
   type EventVariantRow,
   type SourceRow,
   type PropertyDataType,
+  type PropertyExampleValue,
   type PropertyRow,
 } from '@/src/types/schema';
 import { EventVariantsApiSection } from '@/src/features/events/components/EventVariantsApiSection';
@@ -581,10 +582,12 @@ export function EventEditorSheet({
       name,
       data_type,
       description,
+      example_values_json,
     }: {
       name: string;
       data_type: PropertyDataType;
       description?: string;
+      example_values_json?: PropertyExampleValue[] | null;
     }) => {
       if (!hasValidWorkspaceContext || !activeWorkspaceId?.trim()) {
         return {
@@ -606,7 +609,7 @@ export function EventEditorSheet({
         data_formats: [],
         value_schema_json: null,
         object_child_property_refs_json: null,
-        example_values_json: null,
+        example_values_json: example_values_json ?? null,
         name_mappings_json: null,
         mapped_catalog_id: null,
         mapped_catalog_field_id: null,

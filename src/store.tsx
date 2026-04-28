@@ -340,10 +340,23 @@ export const useStore = create<StoreState>((set, get) => {
       })),
 
     setJourneys: (journeys) =>
-      updateActiveData((data) => ({
-        ...data,
-        journeys: Array.isArray(journeys) ? journeys : data.journeys,
-      })),
+      updateActiveData((data) => {
+        if (!Array.isArray(journeys)) return data;
+        // Preserve any previously-loaded `qaRuns` for journeys we already have
+        // in state. The list endpoint does not include full QA run data, so a
+        // raw replace would clobber runs that were fetched separately via
+        // getJourneyQARunsApi (see Journeys.tsx). Keys-on-id merge avoids that.
+        const prevById = new Map(data.journeys.map((j) => [j.id, j]));
+        const merged = journeys.map((incoming) => {
+          const prev = prevById.get(incoming.id);
+          const prevRuns = prev?.qaRuns;
+          if (Array.isArray(prevRuns) && prevRuns.length > 0) {
+            return { ...incoming, qaRuns: prevRuns };
+          }
+          return incoming;
+        });
+        return { ...data, journeys: merged };
+      }),
 
     addCustomCategory: (name) =>
       updateActiveData((data) => {

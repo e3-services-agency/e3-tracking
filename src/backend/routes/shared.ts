@@ -324,6 +324,9 @@ router.get(
         eventPayloadCache
       );
       const qaRuns = await getSharedJourneyQARuns(journey.id);
+      // #region agent log
+      fetch('http://127.0.0.1:7313/ingest/1269dbcd-5a29-41de-8a60-39fdeb125f13',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2ecaf3'},body:JSON.stringify({sessionId:'2ecaf3',runId:'pre-fix',hypothesisId:'H1',location:'shared.ts:/journeys/:token',message:'shared route assembled qaRuns payload',data:{journeyId:journey.id,qaRunsCount:Array.isArray(qaRuns)?qaRuns.length:-1,qaRunIds:Array.isArray(qaRuns)?qaRuns.map((r)=>r?.id):[],qaRunsSampleType:Array.isArray(qaRuns)&&qaRuns[0]?typeof qaRuns[0]:'none'},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       res.status(200).json({
         id: journey.id,
         name: journey.name,
@@ -390,6 +393,9 @@ router.get(
         eventPayloadCache
       );
       const qaRuns = await getSharedJourneyQARuns(journey.id);
+      // #region agent log
+      fetch('http://127.0.0.1:7313/ingest/1269dbcd-5a29-41de-8a60-39fdeb125f13',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2ecaf3'},body:JSON.stringify({sessionId:'2ecaf3',runId:'pre-fix',hypothesisId:'H1',location:'shared.ts:/journeys/journey/:id',message:'shared route assembled qaRuns payload',data:{journeyId:journey.id,qaRunsCount:Array.isArray(qaRuns)?qaRuns.length:-1,qaRunIds:Array.isArray(qaRuns)?qaRuns.map((r)=>r?.id):[],qaRunsSampleType:Array.isArray(qaRuns)&&qaRuns[0]?typeof qaRuns[0]:'none'},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       res.status(200).json({
         id: journey.id,
         name: journey.name,

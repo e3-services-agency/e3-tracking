@@ -646,6 +646,9 @@ export function SharedJourneyView({
   );
   const sortedQARuns = useMemo(() => {
     const runs = journey?.qaRuns || [];
+    // #region agent log
+    fetch('http://127.0.0.1:7313/ingest/1269dbcd-5a29-41de-8a60-39fdeb125f13',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2ecaf3'},body:JSON.stringify({sessionId:'2ecaf3',runId:'pre-fix',hypothesisId:'H4',location:'SharedJourneyView.tsx:sortedQARuns',message:'computed qa runs list for mode menu',data:{journeyId:journey?.id??null,inputRunsCount:Array.isArray(runs)?runs.length:-1,inputRunIds:Array.isArray(runs)?runs.map((r:any)=>r?.id):[],view},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     return [...runs].sort((a: any, b: any) => {
       const ta = new Date(a?.createdAt || 0).getTime();
       const tb = new Date(b?.createdAt || 0).getTime();
@@ -679,6 +682,9 @@ export function SharedJourneyView({
         if (showLoadingScreen) setLoading(false);
         if (result.success) {
           const j = result.journey as SharedResponse;
+          // #region agent log
+          fetch('http://127.0.0.1:7313/ingest/1269dbcd-5a29-41de-8a60-39fdeb125f13',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2ecaf3'},body:JSON.stringify({sessionId:'2ecaf3',runId:'pre-fix',hypothesisId:'H2',location:'SharedJourneyView.tsx:fetchSharedJourney.success',message:'frontend received shared journey response',data:{journeyId:j?.id??null,hasQaRunsKey:Object.prototype.hasOwnProperty.call(j as Record<string,unknown>,'qaRuns'),qaRunsIsArray:Array.isArray((j as any)?.qaRuns),qaRunsCount:Array.isArray((j as any)?.qaRuns)?((j as any).qaRuns as any[]).length:-1,responseKeys:j&&typeof j==='object'?Object.keys(j as Record<string,unknown>):[]},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
           const snippetMap = j.eventSnippets ?? {};
           const nodes = Array.isArray(j.nodes) ? j.nodes : [];
           const enrichedNodes = nodes.map((n: any) => {
@@ -714,6 +720,9 @@ export function SharedJourneyView({
             });
             return { ...run, nodes: runNodes };
           });
+          // #region agent log
+          fetch('http://127.0.0.1:7313/ingest/1269dbcd-5a29-41de-8a60-39fdeb125f13',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2ecaf3'},body:JSON.stringify({sessionId:'2ecaf3',runId:'pre-fix',hypothesisId:'H3',location:'SharedJourneyView.tsx:fetchSharedJourney.transform',message:'qa runs transformed before setJourney',data:{rawQaRunsCount:rawQaRuns.length,enrichedQaRunsCount:enrichedQaRuns.length,enrichedRunIds:enrichedQaRuns.map((r:any)=>r?.id),journeyId:j?.id??null,journeyIdPropProvided:typeof journeyId==='string'&&journeyId.length>0},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
           setJourney({
             id: j.id,
             name: j.name,

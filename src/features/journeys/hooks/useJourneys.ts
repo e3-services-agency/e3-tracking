@@ -19,7 +19,9 @@ function mapJourneyRowToUi(j: JourneyRow & { qaRunsCount?: number; latestQARun?:
           .filter((x): x is string => typeof x === 'string' && x.trim() !== '')
           .map((s) => s.trim())
       : null,
-    qaRuns: [],
+    // Intentionally omit `qaRuns` here. The list endpoint does not return full
+    // QA run data; runs are loaded separately per-journey via getJourneyQARunsApi.
+    // `setJourneys` preserves any previously-loaded qaRuns across refetches.
     qaRunsCount: typeof j.qaRunsCount === 'number' ? j.qaRunsCount : undefined,
     latestQARun: (j.latestQARun ?? null) as any,
     type_counts: j.type_counts ?? null,

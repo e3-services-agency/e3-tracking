@@ -1,6 +1,6 @@
 import { getSupabaseOrThrow } from '../db/supabase';
 import type { SourceRow } from '../../types/schema';
-import { ConflictError, DatabaseError } from '../errors';
+import { ConflictError, DatabaseError, NotFoundError } from '../errors';
 
 export interface SourceUsageRow {
   source_id: string;
@@ -70,6 +70,140 @@ export async function createSource(
   }
 
   return data as SourceRow;
+}
+
+/**
+ * Update a source (rename and/or color change). Soft-deleted rows are not editable.
+ *
+ * - Workspace-scoped: ignores rows in other workspaces.
+ * - Name uniqueness: rejects renames that would collide with another non-deleted source
+ *   in the same workspace (excluding `id`).
+ * - Color: pass `null` (or empty string at the route layer) to clear; `undefined` means
+ *   "leave unchanged".
+ */
+export async function updateSource(
+  workspaceId: string,
+  id: string,
+  input: { name?: string; color?: string | null }
+): Promise<SourceRow> {
+  const supabase = getSupabaseOrThrow();
+
+  const { data: existing, error: fetchError } = await supabase
+    .from('sources')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .eq('id', id)
+    .is('deleted_at', null)
+    .maybeSingle();
+
+  if (fetchError) {
+    throw new DatabaseError(
+      `Failed to load source for update: ${fetchError.message}`,
+      fetchError
+    );
+  }
+  if (!existing) {
+    throw new NotFoundError('Source not found.', 'source');
+  }
+
+  const patch: Record<string, unknown> = {};
+
+  if (typeof input.name !== 'undefined') {
+    const trimmed = input.name.trim();
+    if (!trimmed) {
+      throw new DatabaseError('Source name is required.');
+    }
+
+    const { data: nameClash, error: nameClashError } = await supabase
+      .from('sources')
+      .select('id')
+      .eq('workspace_id', workspaceId)
+      .eq('name', trimmed)
+      .neq('id', id)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (nameClashError) {
+      throw new DatabaseError(
+        `Failed to check source name uniqueness: ${nameClashError.message}`,
+        nameClashError
+      );
+    }
+    if (nameClash) {
+      throw new ConflictError('A source with that name already exists.');
+    }
+
+    patch.name = trimmed;
+  }
+
+  if (typeof input.color !== 'undefined') {
+    patch.color = input.color;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    // Nothing to update; return the existing row to keep callers simple.
+    const { data: row, error: readError } = await supabase
+      .from('sources')
+      .select('*')
+      .eq('workspace_id', workspaceId)
+      .eq('id', id)
+      .is('deleted_at', null)
+      .single();
+    if (readError) {
+      throw new DatabaseError(
+        `Failed to read source after no-op update: ${readError.message}`,
+        readError
+      );
+    }
+    return row as SourceRow;
+  }
+
+  patch.updated_at = new Date().toISOString();
+
+  const { data, error } = await supabase
+    .from('sources')
+    .update(patch)
+    .eq('workspace_id', workspaceId)
+    .eq('id', id)
+    .is('deleted_at', null)
+    .select('*')
+    .single();
+
+  if (error) {
+    throw new DatabaseError(`Failed to update source: ${error.message}`, error);
+  }
+
+  return data as SourceRow;
+}
+
+/**
+ * Soft-delete a source by setting `deleted_at`. Existing `event_sources` /
+ * `property_sources` references are left intact; the affected rows simply
+ * stop appearing in lists and label resolvers (which all filter
+ * `deleted_at IS NULL`).
+ */
+export async function softDeleteSource(
+  workspaceId: string,
+  id: string
+): Promise<{ id: string }> {
+  const supabase = getSupabaseOrThrow();
+
+  const { data, error } = await supabase
+    .from('sources')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('workspace_id', workspaceId)
+    .eq('id', id)
+    .is('deleted_at', null)
+    .select('id')
+    .maybeSingle();
+
+  if (error) {
+    throw new DatabaseError(`Failed to delete source: ${error.message}`, error);
+  }
+  if (!data) {
+    throw new NotFoundError('Source not found.', 'source');
+  }
+
+  return { id: (data as { id: string }).id };
 }
 
 /**

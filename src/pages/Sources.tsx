@@ -8,8 +8,10 @@ import { Search, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
 import {
   createWorkspaceSource,
+  deleteWorkspaceSource,
   getWorkspaceSourceUsage,
   listWorkspaceSources,
+  updateWorkspaceSource,
   type SourceUsageSummary,
 } from '@/src/features/events/lib/eventTriggerSourcesApi';
 
@@ -132,6 +134,7 @@ export function Sources() {
           key={isCreating ? 'create' : selectedSourceId ?? 'none'}
           source={selectedSource}
           isCreating={isCreating}
+          usage={selectedSourceId ? usageBySourceId[selectedSourceId] : undefined}
           onClose={() => setIsSheetOpen(false)}
         />
       </Sheet>
@@ -139,13 +142,24 @@ export function Sources() {
   );
 }
 
-function SourceEditor({ source, isCreating, onClose }: { source: Source | null | undefined, isCreating: boolean, onClose: () => void }) {
-  const { upsertSourceFromApi, updateSource, deleteSource } = useStore();
+function SourceEditor({
+  source,
+  isCreating,
+  usage,
+  onClose,
+}: {
+  source: Source | null | undefined;
+  isCreating: boolean;
+  usage?: SourceUsageSummary;
+  onClose: () => void;
+}) {
+  const { upsertSourceFromApi, deleteSource } = useStore();
   const { activeWorkspaceId, hasValidWorkspaceContext } = useWorkspaceShell();
 
   const [name, setName] = useState(source?.name || '');
   const [color, setColor] = useState(source?.color || 'bg-gray-100 text-gray-800');
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -167,11 +181,16 @@ function SourceEditor({ source, isCreating, onClose }: { source: Source | null |
     if (!name.trim()) return;
     setSaveError(null);
 
+    if (!hasValidWorkspaceContext || !activeWorkspaceId?.trim()) {
+      setSaveError(
+        isCreating
+          ? 'Select a workspace before creating a source.'
+          : 'Select a workspace before saving.'
+      );
+      return;
+    }
+
     if (isCreating) {
-      if (!hasValidWorkspaceContext || !activeWorkspaceId?.trim()) {
-        setSaveError('Select a workspace before creating a source.');
-        return;
-      }
       setIsSaving(true);
       try {
         const result = await createWorkspaceSource({
@@ -191,18 +210,60 @@ function SourceEditor({ source, isCreating, onClose }: { source: Source | null |
       return;
     }
 
-    // No PATCH /api/sources/:id yet — updates are local-only until backend exposes update.
-    if (source) {
-      updateSource(source.id, { name, color });
+    if (!source) return;
+    setIsSaving(true);
+    try {
+      const result = await updateWorkspaceSource({
+        workspaceId: activeWorkspaceId,
+        id: source.id,
+        name: name.trim(),
+        color: color || null,
+      });
+      if (!result.success) {
+        setSaveError(result.error);
+        return;
+      }
+      upsertSourceFromApi(result.data);
       onClose();
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleDelete = () => {
-    // No DELETE /api/sources/:id yet — removal is local-only until backend supports it.
-    if (source) {
+  const handleDelete = async () => {
+    if (!source) return;
+    setSaveError(null);
+
+    if (!hasValidWorkspaceContext || !activeWorkspaceId?.trim()) {
+      setSaveError('Select a workspace before deleting.');
+      return;
+    }
+
+    const propertyCount = usage?.property_count ?? 0;
+    const eventCount = usage?.event_count ?? 0;
+    const usageNote =
+      propertyCount > 0 || eventCount > 0
+        ? `\n\nThis source is referenced by ${propertyCount} propert${propertyCount === 1 ? 'y' : 'ies'} and ${eventCount} event${eventCount === 1 ? '' : 's'}. Those references will lose their source label.`
+        : '';
+    const confirmed = window.confirm(
+      `Delete source "${source.name}"?${usageNote}`
+    );
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    try {
+      const result = await deleteWorkspaceSource({
+        workspaceId: activeWorkspaceId,
+        id: source.id,
+      });
+      if (!result.success) {
+        setSaveError(result.error);
+        return;
+      }
       deleteSource(source.id);
       onClose();
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -245,15 +306,32 @@ function SourceEditor({ source, isCreating, onClose }: { source: Source | null |
 
       <div className="pt-6 border-t flex justify-between">
         {!isCreating && source ? (
-          <Button variant="destructive" onClick={handleDelete} disabled={isSaving} className="gap-2">
-            <Trash2 className="w-4 h-4" /> Delete
+          <Button
+            variant="destructive"
+            onClick={() => void handleDelete()}
+            disabled={isSaving || isDeleting}
+            className="gap-2"
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" /> Deleting…
+              </>
+            ) : (
+              <>
+                <Trash2 className="w-4 h-4" /> Delete
+              </>
+            )}
           </Button>
         ) : <div />}
         <div className="flex gap-2">
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>
+          <Button variant="outline" onClick={onClose} disabled={isSaving || isDeleting}>
             Cancel
           </Button>
-          <Button onClick={() => void handleSave()} disabled={isSaving} className="gap-2">
+          <Button
+            onClick={() => void handleSave()}
+            disabled={isSaving || isDeleting}
+            className="gap-2"
+          >
             {isSaving ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" /> Saving…

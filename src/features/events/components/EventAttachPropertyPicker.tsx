@@ -5,7 +5,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
-import type { PropertyRow } from '@/src/types/schema';
+import type { PropertyDataType, PropertyRow } from '@/src/types/schema';
+import { PROPERTY_DATA_TYPES } from '@/src/types/schema';
 import type { PropertyBundle } from '@/src/types';
 import { Check, Loader2, Plus } from 'lucide-react';
 
@@ -25,6 +26,16 @@ export interface EventAttachPropertyPickerProps {
   hideBundlesTab?: boolean;
   /** When true, hides the "Required" checkbox (e.g. bundle editor, legacy event modal). */
   hideAddRequiredToggle?: boolean;
+  /**
+   * Optional. When provided, the picker renders an inline "Create new property"
+   * form. Resolve to `{ success: true, id }` to auto-select the new property,
+   * or `{ success: false, error }` to display the error inline.
+   */
+  onCreate?: (input: {
+    name: string;
+    data_type: PropertyDataType;
+    description?: string;
+  }) => Promise<{ success: true; id: string } | { success: false; error: string }>;
 }
 
 export function EventAttachPropertyPicker({
@@ -39,6 +50,7 @@ export function EventAttachPropertyPicker({
   bundles = [],
   hideBundlesTab = false,
   hideAddRequiredToggle = false,
+  onCreate,
 }: EventAttachPropertyPickerProps) {
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'properties' | 'bundles'>('properties');
@@ -49,9 +61,59 @@ export function EventAttachPropertyPicker({
   const [isAdding, setIsAdding] = useState(false);
   const [addingBatchSize, setAddingBatchSize] = useState(0);
 
+  const [isCreatingProperty, setIsCreatingProperty] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createDataType, setCreateDataType] = useState<PropertyDataType>('string');
+  const [createDescription, setCreateDescription] = useState('');
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
   const busyAdding = isAdding || adding;
 
   const showBundlesTab = !hideBundlesTab && bundles.length > 0;
+
+  const resetCreateForm = () => {
+    setCreateName('');
+    setCreateDataType('string');
+    setCreateDescription('');
+    setCreateError(null);
+  };
+
+  const handleCreateSubmit = async () => {
+    if (!onCreate || createBusy) return;
+    const trimmed = createName.trim();
+    if (!trimmed) {
+      setCreateError('Name is required.');
+      return;
+    }
+    setCreateBusy(true);
+    setCreateError(null);
+    try {
+      const result = await onCreate({
+        name: trimmed,
+        data_type: createDataType,
+        description: createDescription.trim() || undefined,
+      });
+      if (result.success) {
+        setCheckedIds((prev) => {
+          const next = new Set(prev);
+          next.add(result.id);
+          return next;
+        });
+        setFocusedId(result.id);
+        setActiveTab('properties');
+        resetCreateForm();
+        setIsCreatingProperty(false);
+      } else {
+        // tsconfig is non-strict; cast the failure branch explicitly so we
+        // can read `error` without TS complaining about the union shape.
+        const failure = result as { success: false; error: string };
+        setCreateError(failure.error);
+      }
+    } finally {
+      setCreateBusy(false);
+    }
+  };
 
   const q = search.trim().toLowerCase();
 
@@ -258,6 +320,27 @@ export function EventAttachPropertyPicker({
             </label>
           </div>
         )}
+        {onCreate && !isCreatingProperty && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5 shrink-0"
+            onClick={() => {
+              resetCreateForm();
+              setIsCreatingProperty(true);
+            }}
+            disabled={busyAdding || workspaceActionsDisabled || createBusy}
+            title={
+              workspaceActionsDisabled
+                ? 'Select a valid workspace from the header before creating a property.'
+                : undefined
+            }
+          >
+            <Plus className="w-4 h-4 shrink-0" aria-hidden />
+            <span>Create new</span>
+          </Button>
+        )}
         <Button
           type="button"
           variant="outline"
@@ -265,7 +348,10 @@ export function EventAttachPropertyPicker({
           className="h-9 gap-1.5 shrink-0 min-w-[8.5rem]"
           onClick={() => void handleAddSelected()}
           disabled={
-            selectableCheckedCount === 0 || busyAdding || workspaceActionsDisabled
+            selectableCheckedCount === 0 ||
+            busyAdding ||
+            workspaceActionsDisabled ||
+            createBusy
           }
           aria-busy={busyAdding}
           title={
@@ -293,6 +379,99 @@ export function EventAttachPropertyPicker({
           )}
         </Button>
       </div>
+
+      {onCreate && isCreatingProperty && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-4 space-y-3 shrink-0">
+          <div className="flex items-end gap-2 flex-wrap">
+            <div className="flex-1 min-w-[160px] space-y-1">
+              <label
+                htmlFor="event-property-picker-create-name"
+                className="text-xs font-semibold text-gray-700"
+              >
+                Property name
+              </label>
+              <Input
+                id="event-property-picker-create-name"
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+                placeholder="e.g. item_id"
+                disabled={createBusy}
+                autoFocus
+                className="h-9 font-mono text-sm"
+              />
+            </div>
+            <div className="space-y-1 min-w-[140px]">
+              <label
+                htmlFor="event-property-picker-create-type"
+                className="text-xs font-semibold text-gray-700"
+              >
+                Data type
+              </label>
+              <select
+                id="event-property-picker-create-type"
+                value={createDataType}
+                onChange={(e) =>
+                  setCreateDataType(e.target.value as PropertyDataType)
+                }
+                disabled={createBusy}
+                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+              >
+                {PROPERTY_DATA_TYPES.map((dt) => (
+                  <option key={dt} value={dt}>
+                    {dt}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label
+              htmlFor="event-property-picker-create-description"
+              className="text-xs font-semibold text-gray-700"
+            >
+              Description (optional)
+            </label>
+            <Input
+              id="event-property-picker-create-description"
+              value={createDescription}
+              onChange={(e) => setCreateDescription(e.target.value)}
+              placeholder="Short purpose / context"
+              disabled={createBusy}
+              className="h-9 text-sm"
+            />
+          </div>
+          {createError && (
+            <div
+              className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800"
+              role="alert"
+            >
+              {createError}
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                resetCreateForm();
+                setIsCreatingProperty(false);
+              }}
+              disabled={createBusy}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void handleCreateSubmit()}
+              disabled={createBusy || !createName.trim()}
+            >
+              {createBusy ? 'Creating…' : 'Create property'}
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 min-h-0 border rounded-lg overflow-hidden flex">
         <div className="w-[350px] shrink-0 border-r border-gray-200 overflow-y-auto bg-white flex flex-col divide-y divide-gray-100">

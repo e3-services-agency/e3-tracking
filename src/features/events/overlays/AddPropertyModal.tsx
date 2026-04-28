@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { EventAttachPropertyPicker } from '@/src/features/events/components/EventAttachPropertyPicker';
-import type { PropertyRow } from '@/src/types/schema';
+import type { PropertyDataType, PropertyRow } from '@/src/types/schema';
 import type { PropertyBundle } from '@/src/types';
 
 export type AddPropertyModalProps = {
@@ -27,6 +27,16 @@ export type AddPropertyModalProps = {
   onAddSelected: (ids: string[]) => Promise<boolean>;
   adding?: boolean;
   workspaceActionsDisabled?: boolean;
+  /**
+   * Optional. When provided, the picker renders an inline "Create new property"
+   * form. Resolve to `{ success: true, id }` to auto-select the new property,
+   * or `{ success: false, error }` to display the error inline.
+   */
+  onCreate?: (input: {
+    name: string;
+    data_type: PropertyDataType;
+    description?: string;
+  }) => Promise<{ success: true; id: string } | { success: false; error: string }>;
 };
 
 export function AddPropertyModal({
@@ -44,6 +54,7 @@ export function AddPropertyModal({
   onAddSelected,
   adding = false,
   workspaceActionsDisabled = false,
+  onCreate,
 }: AddPropertyModalProps) {
   const [internalAddRequired, setInternalAddRequired] = useState(false);
   const controlledRequired =
@@ -90,6 +101,7 @@ export function AddPropertyModal({
             bundles={bundles}
             hideBundlesTab={hideBundlesTab}
             hideAddRequiredToggle={hideAddRequiredToggle}
+            onCreate={onCreate}
           />
         </div>
       </div>

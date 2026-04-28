@@ -37,6 +37,7 @@ import {
   type EventVariantOverridesV1,
   type EventVariantRow,
   type SourceRow,
+  type PropertyDataType,
   type PropertyRow,
 } from '@/src/types/schema';
 import { EventVariantsApiSection } from '@/src/features/events/components/EventVariantsApiSection';
@@ -211,7 +212,8 @@ export function EventEditorSheet({
   onInitialVariantIdConsumed,
 }: EventEditorSheetProps) {
   const { activeWorkspaceId, hasValidWorkspaceContext } = useWorkspaceShell();
-  const { properties: allProperties } = useProperties();
+  const { properties: allProperties, createProperty: createWorkspaceProperty } =
+    useProperties();
   const { bundles } = useBundles();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -574,6 +576,51 @@ export function EventEditorSheet({
     }
   };
 
+  const handleCreateEventProperty = useCallback(
+    async ({
+      name,
+      data_type,
+      description,
+    }: {
+      name: string;
+      data_type: PropertyDataType;
+      description?: string;
+    }) => {
+      if (!hasValidWorkspaceContext || !activeWorkspaceId?.trim()) {
+        return {
+          success: false as const,
+          error: 'Select a workspace before creating a property.',
+        };
+      }
+      const trimmed = name.trim();
+      if (!trimmed) {
+        return { success: false as const, error: 'Name is required.' };
+      }
+      const result = await createWorkspaceProperty({
+        context: 'event_property',
+        name: trimmed,
+        description: (description ?? '').trim() || null,
+        category: null,
+        pii: false,
+        data_type,
+        data_formats: [],
+        value_schema_json: null,
+        object_child_property_refs_json: null,
+        example_values_json: null,
+        name_mappings_json: null,
+        mapped_catalog_id: null,
+        mapped_catalog_field_id: null,
+        mapping_type: null,
+      });
+      if (result.success) {
+        return { success: true as const, id: result.data.id };
+      }
+      const failure = result as { success: false; error: ApiError };
+      return { success: false as const, error: failure.error.message };
+    },
+    [activeWorkspaceId, hasValidWorkspaceContext, createWorkspaceProperty],
+  );
+
   // Presence editing removed from simplified UI.
 
   const handlePropertyRequirementOverrideChange = async (
@@ -781,6 +828,38 @@ export function EventEditorSheet({
   const removeEventSourceId = useCallback((sourceId: string) => {
     setSelectedEventSourceIds((prev) => prev.filter((id) => id !== sourceId));
   }, []);
+
+  const handleCreateEventSource = useCallback(
+    async ({ name, color }: { name: string; color: string | null }) => {
+      if (!hasValidWorkspaceContext || !activeWorkspaceId?.trim()) {
+        return {
+          success: false as const,
+          error: 'Select a workspace before creating a source.',
+        };
+      }
+      const result = await createWorkspaceSource({
+        workspaceId: activeWorkspaceId,
+        name,
+        color,
+      });
+      if (result.success) {
+        setWorkspaceSources((prev) => {
+          if (prev.some((s) => s.id === result.data.id)) return prev;
+          return [...prev, result.data].sort((a, b) =>
+            a.name.localeCompare(b.name)
+          );
+        });
+        useStore.getState().upsertSourceFromApi(result.data);
+        setSelectedEventSourceIds((prev) =>
+          prev.includes(result.data.id) ? prev : [...prev, result.data.id]
+        );
+        return { success: true as const, id: result.data.id };
+      }
+      const failure = result as { success: false; error: string };
+      return { success: false as const, error: failure.error };
+    },
+    [activeWorkspaceId, hasValidWorkspaceContext],
+  );
 
   const title = isCreateMode && !currentEventId
     ? 'New Event'
@@ -1000,8 +1079,7 @@ export function EventEditorSheet({
               disabled={
                 saving ||
                 !hasValidWorkspaceContext ||
-                sourcesLoading ||
-                workspaceSources.length === 0
+                sourcesLoading
               }
               title={
                 !hasValidWorkspaceContext
@@ -1019,6 +1097,7 @@ export function EventEditorSheet({
             availableSources={catalogSourcesForModal}
             attachedSourceIds={selectedEventSourceIds}
             onAddSelected={addSelectedEventSources}
+            onCreate={handleCreateEventSource}
           />
         </div>
 
@@ -1134,6 +1213,7 @@ export function EventEditorSheet({
                 onAddSelected={handleAddSelectedProperties}
                 adding={addingProperty}
                 workspaceActionsDisabled={!hasValidWorkspaceContext}
+                onCreate={handleCreateEventProperty}
               />
 
               <ul className="border rounded-lg divide-y divide-gray-100">

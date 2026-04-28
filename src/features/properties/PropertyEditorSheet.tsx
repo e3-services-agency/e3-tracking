@@ -33,7 +33,11 @@ import { PROPERTY_DATA_TYPE_UI_OPTIONS } from '@/src/features/properties/lib/pro
 import type { ApiError } from '@/src/features/properties/hooks/useProperties';
 import type { PropertyUpdatePayload } from '@/src/features/properties/hooks/useProperties';
 import { useCatalogs } from '@/src/features/catalogs/hooks/useCatalogs';
-import { listWorkspaceSources } from '@/src/features/events/lib/eventTriggerSourcesApi';
+import {
+  createWorkspaceSource,
+  listWorkspaceSources,
+} from '@/src/features/events/lib/eventTriggerSourcesApi';
+import { useStore } from '@/src/store';
 import { getSourceIcon } from '@/src/features/events/lib/sourcePresentation';
 import { fetchPropertySourceIds } from '@/src/features/properties/lib/propertySourcesApi';
 import { useBundles } from '@/src/features/properties/hooks/useBundles';
@@ -191,6 +195,46 @@ export function PropertyEditorSheet({
   const markLinkedSourcesUserTouched = useCallback(() => {
     linkedSourcesUserTouchedRef.current = true;
   }, []);
+
+  const upsertSourceFromApi = useStore((s) => s.upsertSourceFromApi);
+
+  const handleCreateSource = useCallback(
+    async ({ name, color }: { name: string; color: string | null }) => {
+      if (!hasValidWorkspaceContext || !activeWorkspaceId?.trim()) {
+        return {
+          success: false as const,
+          error: 'Select a workspace before creating a source.',
+        };
+      }
+      const result = await createWorkspaceSource({
+        workspaceId: activeWorkspaceId,
+        name,
+        color,
+      });
+      if (result.success) {
+        upsertSourceFromApi(result.data);
+        setWorkspaceSources((prev) => {
+          if (prev.some((s) => s.id === result.data.id)) return prev;
+          const next = [...prev, result.data];
+          next.sort((a, b) => a.name.localeCompare(b.name));
+          return next;
+        });
+        markLinkedSourcesUserTouched();
+        setSelectedSourceIds((prev) =>
+          prev.includes(result.data.id) ? prev : [...prev, result.data.id]
+        );
+        return { success: true as const, id: result.data.id };
+      }
+      const failure = result as { success: false; error: string };
+      return { success: false as const, error: failure.error };
+    },
+    [
+      activeWorkspaceId,
+      hasValidWorkspaceContext,
+      markLinkedSourcesUserTouched,
+      upsertSourceFromApi,
+    ],
+  );
 
   const catalogSourcesForModal: Source[] = useMemo(
     () =>
@@ -921,8 +965,7 @@ export function PropertyEditorSheet({
             disabled={
               sourcesLoading ||
               !activeWorkspaceId ||
-              !hasValidWorkspaceContext ||
-              workspaceSources.filter((s) => !selectedSourceIds.includes(s.id)).length === 0
+              !hasValidWorkspaceContext
             }
             aria-label="Add sources"
           >
@@ -938,6 +981,7 @@ export function PropertyEditorSheet({
               markLinkedSourcesUserTouched();
               setSelectedSourceIds((prev) => [...new Set([...prev, ...ids])]);
             }}
+            onCreate={handleCreateSource}
           />
         </div>
 

@@ -859,9 +859,25 @@ export function useJourneyCanvas({
 
   const lastValidatedRef = useRef<{
     payloadText: string;
-    codegenPreferredStyle: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null;
+    codegenPreferredStyle: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi';
     result: ValidatePayloadResult;
   } | null>(null);
+
+  // Coalesce stored codegen style to the same default the canvas dropdown
+  // shows (`'dataLayer'`). When the journey row was never explicitly saved
+  // the column is NULL, but the UI still renders "dataLayer" — sending NULL
+  // to the validate endpoint trips its `unknown_mode` guard and surfaces
+  // "Validation could not determine payload mode from Default Codegen Method"
+  // even though the user sees a valid mode selected. Keep this in sync with
+  // export.service.ts (preferredCodegenStyle) which already does the same.
+  const resolveCodegenStyle = (
+    style: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null | undefined,
+  ): 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' =>
+    style === 'dataLayer' ||
+    style === 'bloomreachSdk' ||
+    style === 'bloomreachApi'
+      ? style
+      : 'dataLayer';
 
   const handleAddPayload = async () => {
     if (!selectedNode || !isTriggerNode(selectedNode)) return;
@@ -878,7 +894,9 @@ export function useJourneyCanvas({
 
     // Persist validation evidence alongside this saved payload.
     // Reuse the most recent validation result only if it matches the exact payload text being saved.
-    const currentCodegenPreferredStyle = journey.codegen_preferred_style ?? null;
+    const currentCodegenPreferredStyle = resolveCodegenStyle(
+      journey.codegen_preferred_style,
+    );
     const currentValidated =
       lastValidatedRef.current &&
       lastValidatedRef.current.payloadText === normalizedContent &&
@@ -993,12 +1011,13 @@ export function useJourneyCanvas({
     setIsValidatingPayload(true);
     setPayloadValidationResult(null);
     const variantId = selectedNode.data.connectedEvent?.variantId;
+    const resolvedStyle = resolveCodegenStyle(journey.codegen_preferred_style);
     const result = await validatePayloadApi(
       journey.id,
       eventId,
       jsonToValidate,
       valWid,
-      journey.codegen_preferred_style ?? null,
+      resolvedStyle,
       variantId,
     );
     setIsValidatingPayload(false);
@@ -1006,7 +1025,7 @@ export function useJourneyCanvas({
       setPayloadValidationResult(result.result);
       lastValidatedRef.current = {
         payloadText: jsonToValidate,
-        codegenPreferredStyle: journey.codegen_preferred_style ?? null,
+        codegenPreferredStyle: resolvedStyle,
         result: result.result,
       };
     } else {

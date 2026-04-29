@@ -1255,8 +1255,11 @@ export async function generateJourneyHtmlExport(
       background: #fafafa;
     }
     a { color: inherit; }
-    .export-shell { max-width: 1440px; margin: 0 auto; padding: 24px 20px 48px; }
-    .export-layout { display: grid; grid-template-columns: minmax(0, 280px) minmax(0, 1fr); gap: 16px; align-items: start; }
+    /* Wider shell + slimmer sidebar so the event-properties table has enough
+       room to render every column without a horizontal scroll on a typical
+       desktop. The grid still collapses to a single column < 980px. */
+    .export-shell { max-width: 1600px; margin: 0 auto; padding: 24px 20px 48px; }
+    .export-layout { display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); gap: 16px; align-items: start; }
     @media (min-width: 1280px) {
       .export-layout { grid-template-columns: minmax(0, 240px) minmax(0, 1fr); }
     }
@@ -1680,8 +1683,12 @@ export async function generateJourneyHtmlExport(
     .export-props-wrap {
       min-width: 0;
       max-width: 100%;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
+      /* No horizontal scroll on the table — table-layout:fixed + colgroup
+         percentages guarantee it always fits the wrapper, and long unbreakable
+         strings (e.g. snake_case property names) wrap inside the cell via
+         overflow-wrap:anywhere on td. The wider .export-shell + slimmer
+         sidebar (defined above) give the table enough room. */
+      overflow-x: hidden;
       border-radius: 6px;
       border: 1px solid #e2e8f0;
       background: #fff;
@@ -1698,13 +1705,17 @@ export async function generateJourneyHtmlExport(
       font-size: 0.85rem;
       background: #fff;
     }
-    .export-props-table .export-props-col-name { width: 13%; }
+    /* Column widths sum to 100%. Description is the widest free-form column
+       but narrowed slightly so Example gets more breathing room; Last updated
+       can stay narrow because date and time stack vertically (see the
+       .export-updated-stack rules below + formatLastUpdatedHtml). */
+    .export-props-table .export-props-col-name { width: 14%; }
     .export-props-table .export-props-col-required { width: 7%; }
     .export-props-table .export-props-col-type { width: 9%; }
-    .export-props-table .export-props-col-source { width: 13%; }
-    .export-props-table .export-props-col-example { width: 18%; }
-    .export-props-table .export-props-col-desc { width: 32%; }
-    .export-props-table .export-props-col-updated { width: 8%; }
+    .export-props-table .export-props-col-source { width: 14%; }
+    .export-props-table .export-props-col-example { width: 22%; }
+    .export-props-table .export-props-col-desc { width: 24%; }
+    .export-props-table .export-props-col-updated { width: 10%; }
     .export-props-table th,
     .export-props-table td {
       text-align: left;

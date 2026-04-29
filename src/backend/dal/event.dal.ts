@@ -216,6 +216,7 @@ type EventPropertyDefinitionIndexRow = {
   property_id: string;
   required: unknown;
   example_values?: unknown;
+  updated_at?: unknown;
 };
 
 function indexEventPropertyDefinitions(
@@ -223,9 +224,11 @@ function indexEventPropertyDefinitions(
 ): {
   requiredByPropertyId: Map<string, boolean | null>;
   exampleOverrideByPropertyId: Map<string, PropertyExampleValue[] | null>;
+  definitionUpdatedAtByPropertyId: Map<string, string | null>;
 } {
   const requiredByPropertyId = new Map<string, boolean | null>();
   const exampleOverrideByPropertyId = new Map<string, PropertyExampleValue[] | null>();
+  const definitionUpdatedAtByPropertyId = new Map<string, string | null>();
   for (const raw of defRows ?? []) {
     const d = raw;
     const req = d.required;
@@ -236,15 +239,27 @@ function indexEventPropertyDefinitions(
       );
       exampleOverrideByPropertyId.set(d.property_id, normalized);
     }
+    if (Object.prototype.hasOwnProperty.call(d, 'updated_at')) {
+      const ts = (d as { updated_at?: unknown }).updated_at;
+      definitionUpdatedAtByPropertyId.set(
+        d.property_id,
+        typeof ts === 'string' && ts.trim() !== '' ? ts : null
+      );
+    }
   }
-  return { requiredByPropertyId, exampleOverrideByPropertyId };
+  return {
+    requiredByPropertyId,
+    exampleOverrideByPropertyId,
+    definitionUpdatedAtByPropertyId,
+  };
 }
 
 function buildAttachedPropertiesForEventLinks(
   rows: EventPropertyRow[],
   propertyById: Map<string, PropertyRow>,
   requiredByPropertyId: Map<string, boolean | null>,
-  exampleOverrideByPropertyId: Map<string, PropertyExampleValue[] | null>
+  exampleOverrideByPropertyId: Map<string, PropertyExampleValue[] | null>,
+  definitionUpdatedAtByPropertyId: Map<string, string | null>
 ): EventPropertyWithDetails[] {
   return rows
     .filter((r) => propertyById.has(r.property_id))
@@ -267,6 +282,8 @@ function buildAttachedPropertiesForEventLinks(
         property_object_child_property_refs_json: pr?.object_child_property_refs_json ?? null,
         object_child_snapshots_by_field: snapshots,
         property_required_override: requiredByPropertyId.get(r.property_id) ?? null,
+        definition_updated_at:
+          definitionUpdatedAtByPropertyId.get(r.property_id) ?? null,
       };
     });
 }
@@ -913,6 +930,13 @@ export interface EventPropertyWithDetails extends EventPropertyRow {
    * `null` means no override row or `required` unset — not the same as "optional".
    */
   property_required_override?: boolean | null;
+  /**
+   * `event_property_definitions.updated_at` for this (event, property) override row,
+   * or `null` when no override row exists. The shared docs export falls back to
+   * `updated_at` (the junction `event_properties.updated_at` from `EventPropertyRow`,
+   * i.e. attach time) when this is null.
+   */
+  definition_updated_at?: string | null;
 }
 
 /**
@@ -970,7 +994,7 @@ export async function getEventWithProperties(
 
   const { data: defRows, error: defError } = await supabase
     .from('event_property_definitions')
-    .select('property_id, required, example_values')
+    .select('property_id, required, example_values, updated_at')
     .eq('workspace_id', workspaceId)
     .eq('event_id', eventId)
     .in('property_id', propertyIds);
@@ -982,7 +1006,11 @@ export async function getEventWithProperties(
     );
   }
 
-  const { requiredByPropertyId, exampleOverrideByPropertyId } = indexEventPropertyDefinitions(
+  const {
+    requiredByPropertyId,
+    exampleOverrideByPropertyId,
+    definitionUpdatedAtByPropertyId,
+  } = indexEventPropertyDefinitions(
     (defRows ?? []) as EventPropertyDefinitionIndexRow[]
   );
 
@@ -1064,7 +1092,8 @@ export async function getEventWithProperties(
     rows,
     propertyById,
     requiredByPropertyId,
-    exampleOverrideByPropertyId
+    exampleOverrideByPropertyId,
+    definitionUpdatedAtByPropertyId
   );
 
   return {
@@ -1144,7 +1173,7 @@ export async function getEventsWithPropertiesBatch(
 
   const { data: batchDefRows, error: defError } = await supabase
     .from('event_property_definitions')
-    .select('event_id, property_id, required, example_values')
+    .select('event_id, property_id, required, example_values, updated_at')
     .eq('workspace_id', workspaceId)
     .in('event_id', foundEventIds);
 
@@ -1162,12 +1191,14 @@ export async function getEventsWithPropertiesBatch(
       property_id: string;
       required: unknown;
       example_values?: unknown;
+      updated_at?: unknown;
     };
     const list = defsByEventId.get(d.event_id) ?? [];
     list.push({
       property_id: d.property_id,
       required: d.required,
       example_values: d.example_values,
+      updated_at: d.updated_at,
     });
     defsByEventId.set(d.event_id, list);
   }
@@ -1287,7 +1318,8 @@ export async function getEventsWithPropertiesBatch(
       linkRows,
       propertyById,
       defIndex.requiredByPropertyId,
-      defIndex.exampleOverrideByPropertyId
+      defIndex.exampleOverrideByPropertyId,
+      defIndex.definitionUpdatedAtByPropertyId
     );
     out.set(eid, {
       event,

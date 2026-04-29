@@ -15,7 +15,7 @@ import {
 } from '@/src/features/journeys/lib/payloadValidationFormatter';
 import { augmentQaRunWithNotesHtml } from '@/src/lib/qaNotesMarkdown';
 import { computeQARunStatusForRun, getQARunDisplayName } from '@/src/features/journeys/lib/qaRunUtils';
-import { ArrowLeft, Check, ChevronDown, FileText, Lock, LockOpen, PenTool } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, Download, FileText, Lock, LockOpen, PenTool } from 'lucide-react';
 import type { QARun, QAStatus } from '@/src/types';
 
 type SharedResponse = {
@@ -607,6 +607,377 @@ function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
   return withStyle.includes('</body>') ? withStyle.replace('</body>', script + '\n</body>') : withStyle + script;
 }
 
+/**
+ * Wrap every `<img>` in the export HTML in `<a target="_blank" rel="noopener" href="<src>">`
+ * so that small images become clickable links to the original (typically a public
+ * Supabase Storage URL produced by the upload route). Skip images that are already
+ * inside an `<a>` to avoid double-wrapping. Also upgrade QA proof `<button>.qa-proof-thumb`
+ * elements to `<a>` so the click works inside the static export and PDF.
+ *
+ * Operates on a DOMParser document and serializes back, which keeps the rest of
+ * the export stylesheet/script intact (the head + body remain untouched).
+ */
+function wrapExportImagesInAnchors(html: string): string {
+  if (typeof window === 'undefined' || typeof DOMParser === 'undefined') return html;
+  let doc: Document;
+  try {
+    doc = new DOMParser().parseFromString(html, 'text/html');
+  } catch (parseErr) {
+    console.warn('[shared-docs] wrapExportImagesInAnchors: parse failed; returning input', parseErr);
+    return html;
+  }
+  if (!doc?.body) return html;
+
+  // QA proof thumbs are <button>; convert them to <a> so PDF readers preserve the
+  // link. They are emitted by injectQaOverlayIntoExportHtml above.
+  const qaButtons = doc.querySelectorAll('button.qa-proof-thumb');
+  for (let i = 0; i < qaButtons.length; i += 1) {
+    const btn = qaButtons[i] as HTMLButtonElement;
+    const innerImg = btn.querySelector('img');
+    const href = innerImg?.getAttribute('src') ?? '';
+    if (!href) continue;
+    const a = doc.createElement('a');
+    a.className = btn.className;
+    a.setAttribute('href', href);
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener noreferrer');
+    while (btn.firstChild) a.appendChild(btn.firstChild);
+    btn.parentNode?.replaceChild(a, btn);
+  }
+
+  const imgs = doc.querySelectorAll('img');
+  for (let i = 0; i < imgs.length; i += 1) {
+    const img = imgs[i] as HTMLImageElement;
+    const src = img.getAttribute('src') ?? '';
+    if (!src) continue;
+    if (img.closest('a')) continue;
+    const a = doc.createElement('a');
+    a.setAttribute('href', src);
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener noreferrer');
+    a.setAttribute('data-export-image-link', '1');
+    img.parentNode?.replaceChild(a, img);
+    a.appendChild(img);
+  }
+
+  return `<!DOCTYPE html>\n${doc.documentElement.outerHTML}`;
+}
+
+/**
+ * Stack one or more QA-run overlays into the docs HTML for export. Each call to
+ * `injectQaOverlayIntoExportHtml` self-contains its own styles + DOM; running it
+ * sequentially merges them, with a section divider added per run for readability.
+ */
+function buildHtmlWithAllQaRuns(baseHtml: string, qaRuns: QARun[]): string {
+  if (!qaRuns || qaRuns.length === 0) return baseHtml;
+  let out = baseHtml;
+  for (const run of qaRuns) {
+    if (!run) continue;
+    out = injectQaOverlayIntoExportHtml(out, run);
+  }
+  return out;
+}
+
+/** Triggers a Blob-based file download (HTML export). Safe no-op outside the browser. */
+function downloadHtmlBlob(html: string, filename: string): void {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  try {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+}
+
+/**
+ * Open the assembled HTML in a new window and trigger the browser's print dialog.
+ * The print stylesheet shipped inside the HTML (see `@media print` in
+ * `src/backend/services/export.service.ts`) takes care of full-width tables,
+ * page-break behavior, and image-anchor preservation in PDF readers.
+ */
+function openHtmlForPrint(html: string): { ok: true } | { ok: false; reason: string } {
+  if (typeof window === 'undefined') return { ok: false, reason: 'no window' };
+  let win: Window | null;
+  try {
+    win = window.open('', '_blank', 'noopener=no');
+  } catch (openErr) {
+    console.error('[shared-docs] openHtmlForPrint: window.open threw', openErr);
+    return { ok: false, reason: 'popup blocked' };
+  }
+  if (!win) return { ok: false, reason: 'popup blocked' };
+  try {
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+  } catch (writeErr) {
+    console.error('[shared-docs] openHtmlForPrint: write failed', writeErr);
+    return { ok: false, reason: 'write failed' };
+  }
+
+  const startPrint = () => {
+    try {
+      win!.focus();
+      win!.print();
+    } catch (printErr) {
+      console.error('[shared-docs] openHtmlForPrint: print failed', printErr);
+    }
+  };
+
+  // Wait for images / fonts to load so the PDF picks them up.
+  if (win.document.readyState === 'complete') {
+    setTimeout(startPrint, 250);
+  } else {
+    win.addEventListener('load', () => setTimeout(startPrint, 250), { once: true });
+  }
+  return { ok: true };
+}
+
+type ExportFormat = 'html' | 'pdf';
+
+/**
+ * Modal that lets readers download the shared docs as HTML or PDF and pick whether
+ * to include Docs / QA Runs. All work happens in the browser; the only network
+ * call is the existing public docs endpoint
+ * `GET /api/shared/journeys/journey/:id/export/html`.
+ */
+function ExportShareDocModal({
+  open,
+  onClose,
+  journeyId,
+  journeyName,
+  qaRuns,
+}: {
+  open: boolean;
+  onClose: () => void;
+  journeyId: string;
+  journeyName: string;
+  qaRuns: QARun[];
+}): React.ReactElement | null {
+  const [format, setFormat] = useState<ExportFormat>('html');
+  const [includeDocs, setIncludeDocs] = useState(true);
+  const [includeQa, setIncludeQa] = useState(false);
+  const [isWorking, setIsWorking] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const hasQaRuns = qaRuns.length > 0;
+
+  React.useEffect(() => {
+    if (!open) return;
+    setFormat('html');
+    setIncludeDocs(true);
+    setIncludeQa(hasQaRuns);
+    setIsWorking(false);
+    setErrorMsg(null);
+  }, [open, hasQaRuns]);
+
+  const allSelected = includeDocs && (includeQa || !hasQaRuns);
+  const nothingSelected = !includeDocs && !includeQa;
+
+  const onToggleSelectAll = () => {
+    const next = !allSelected;
+    setIncludeDocs(next);
+    setIncludeQa(next && hasQaRuns);
+  };
+
+  const onConfirm = async () => {
+    if (nothingSelected) return;
+    setIsWorking(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/shared/journeys/journey/${journeyId}/export/html`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const msg =
+          typeof (body as any)?.error === 'string'
+            ? (body as any).error
+            : res.statusText || 'Failed to load export';
+        throw new Error(msg);
+      }
+      let html = await res.text();
+
+      if (includeQa && hasQaRuns) {
+        html = buildHtmlWithAllQaRuns(html, qaRuns);
+      }
+
+      // When Docs is unchecked but QA Runs is checked, hide the docs-only blocks
+      // so the export only shows step structure + QA evidence. Stylesheet lives
+      // in the export service.
+      if (!includeDocs && includeQa) {
+        const bodyClassRegex = /<body([^>]*)>/i;
+        const bodyMatch = html.match(bodyClassRegex);
+        if (bodyMatch) {
+          const attrs = bodyMatch[1] || '';
+          const hasClass = /\bclass=/i.test(attrs);
+          const newAttrs = hasClass
+            ? attrs.replace(/\bclass=("|')([^"']*)("|')/i, (_m, q1, val, q3) => `class=${q1}${val} export-mode-qa-only${q3}`)
+            : `${attrs} class="export-mode-qa-only"`;
+          html = html.replace(bodyClassRegex, `<body${newAttrs}>`);
+        }
+      }
+
+      html = wrapExportImagesInAnchors(html);
+
+      const safeName = (journeyName || 'shared-journey').replace(/[\\/:*?"<>|]/g, '-').slice(0, 80);
+
+      if (format === 'html') {
+        downloadHtmlBlob(html, `${safeName}.html`);
+        onClose();
+        return;
+      }
+
+      const r = openHtmlForPrint(html);
+      if (!r.ok) {
+        // Narrow manually: tsconfig is not in strict mode, so the discriminated
+        // union does not auto-narrow on the false branch.
+        const failure = r as { ok: false; reason: string };
+        setErrorMsg(
+          failure.reason === 'popup blocked'
+            ? 'Could not open the print preview window — please allow pop-ups for this site and try again.'
+            : 'Failed to open the print preview window.'
+        );
+        return;
+      }
+      onClose();
+    } catch (e) {
+      console.error('[shared-docs] export failed', e);
+      setErrorMsg(e instanceof Error ? e.message : 'Export failed.');
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="export-share-doc-title"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isWorking) onClose();
+      }}
+    >
+      <div className="w-full max-w-md rounded-lg bg-white shadow-xl border border-gray-200">
+        <div className="px-5 py-4 border-b border-gray-200">
+          <h2 id="export-share-doc-title" className="text-base font-semibold text-gray-900">
+            Export shared docs
+          </h2>
+          <p className="text-xs text-gray-500 mt-1">
+            Download a self-contained HTML file or print to PDF. Journey design is not exportable.
+          </p>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          <fieldset>
+            <legend className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+              Format
+            </legend>
+            <div className="flex gap-2">
+              <label className={`flex-1 cursor-pointer rounded-md border px-3 py-2 text-sm flex items-center gap-2 ${format === 'html' ? 'border-[var(--color-info)] bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                <input
+                  type="radio"
+                  name="export-format"
+                  value="html"
+                  checked={format === 'html'}
+                  onChange={() => setFormat('html')}
+                  className="accent-[var(--color-info)]"
+                />
+                <span className="font-medium">HTML</span>
+              </label>
+              <label className={`flex-1 cursor-pointer rounded-md border px-3 py-2 text-sm flex items-center gap-2 ${format === 'pdf' ? 'border-[var(--color-info)] bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                <input
+                  type="radio"
+                  name="export-format"
+                  value="pdf"
+                  checked={format === 'pdf'}
+                  onChange={() => setFormat('pdf')}
+                  className="accent-[var(--color-info)]"
+                />
+                <span className="font-medium">PDF</span>
+              </label>
+            </div>
+            {format === 'pdf' && (
+              <p className="text-[11px] text-gray-500 mt-1.5">
+                Opens the print dialog in a new tab. Choose “Save as PDF” to download.
+              </p>
+            )}
+          </fieldset>
+
+          <fieldset>
+            <legend className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+              Include
+            </legend>
+            <label className="flex items-center gap-2 text-sm py-1 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={onToggleSelectAll}
+                className="accent-[var(--color-info)]"
+              />
+              <span className="font-medium text-gray-900">Select all</span>
+            </label>
+            <div className="border-t border-gray-100 my-1" />
+            <label className="flex items-center gap-2 text-sm py-1 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includeDocs}
+                onChange={(e) => setIncludeDocs(e.target.checked)}
+                className="accent-[var(--color-info)]"
+              />
+              <span>Docs</span>
+            </label>
+            <label
+              className={`flex items-center gap-2 text-sm py-1 ${hasQaRuns ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
+            >
+              <input
+                type="checkbox"
+                checked={includeQa}
+                disabled={!hasQaRuns}
+                onChange={(e) => setIncludeQa(e.target.checked)}
+                className="accent-[var(--color-info)]"
+              />
+              <span>QA Runs{hasQaRuns ? ` (${qaRuns.length})` : ' (none yet)'}</span>
+            </label>
+          </fieldset>
+
+          {errorMsg && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {errorMsg}
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-gray-200 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            className="px-3 py-1.5 text-sm rounded-md border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+            onClick={onClose}
+            disabled={isWorking}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="px-3 py-1.5 text-sm rounded-md bg-[var(--color-info)] text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => void onConfirm()}
+            disabled={isWorking || nothingSelected}
+          >
+            {isWorking ? 'Exporting…' : 'Export'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function SharedJourneyView({
   token,
   journeyId,
@@ -638,6 +1009,7 @@ export function SharedJourneyView({
   const [qaBriefError, setQaBriefError] = useState<string | null>(null);
   const [qaBriefLoading, setQaBriefLoading] = useState(false);
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const modeMenuRef = React.useRef<HTMLDivElement | null>(null);
   const docsIframeRef = React.useRef<HTMLIFrameElement | null>(null);
   const qaIframeRef = React.useRef<HTMLIFrameElement | null>(null);
@@ -975,7 +1347,8 @@ export function SharedJourneyView({
             </div>
           </div>
           {journeyId && (
-            <div className="relative" ref={modeMenuRef}>
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="relative" ref={modeMenuRef}>
               <button
                 type="button"
                 className="text-xs border rounded-md px-2 py-1.5 bg-gray-50 text-gray-900 min-w-[290px] flex items-center justify-between gap-2"
@@ -1078,10 +1451,30 @@ export function SharedJourneyView({
                   })}
                 </div>
               )}
+              </div>
+              <button
+                type="button"
+                className="text-xs border rounded-md px-2.5 py-1.5 bg-white text-gray-900 hover:bg-gray-50 flex items-center gap-1.5 disabled:opacity-50"
+                onClick={() => setIsExportModalOpen(true)}
+                disabled={view === 'journey'}
+                title={view === 'journey' ? 'Switch to Docs Mode to export' : 'Export shared docs'}
+              >
+                <Download className="w-3.5 h-3.5 text-[var(--color-info)]" />
+                <span>Export</span>
+              </button>
             </div>
           )}
         </div>
       </div>
+      {journeyId && (
+        <ExportShareDocModal
+          open={isExportModalOpen}
+          onClose={() => setIsExportModalOpen(false)}
+          journeyId={journeyId}
+          journeyName={journey?.name ?? 'shared-journey'}
+          qaRuns={sortedQARuns as QARun[]}
+        />
+      )}
       <div className="flex-1 min-h-0">
         {view === 'brief' && journeyId ? (
           briefError ? (

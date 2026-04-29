@@ -452,6 +452,20 @@ function presenceLabel(presence: string | undefined): string {
   return '—';
 }
 
+/**
+ * Render an ISO-8601 timestamp as `YYYY-MM-DD HH:mm UTC` for the docs Last updated cell.
+ * Falls back to em-dash when missing/invalid. The raw ISO is exposed in `title=` so
+ * hovering on the cell reveals seconds + the original timezone for power users.
+ */
+function formatLastUpdatedHtml(iso: string | null | undefined): string {
+  if (typeof iso !== 'string' || iso.trim() === '') return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const display = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
+  return `<time datetime="${escapeHtml(iso)}" title="${escapeHtml(iso)}">${escapeHtml(display)}</time>`;
+}
+
 function buildOnePropertyTableRow(
   p: EventPropertyWithDetails,
   sourceLabelsByPropertyId: Map<string, string>,
@@ -533,6 +547,14 @@ function buildOnePropertyTableRow(
       ? String((opts.schemaNode as any).presence)
       : p.presence;
 
+  // Last updated cell:
+  // - root rows: prefer `event_property_definitions.updated_at` (per-event override),
+  //   fall back to `event_properties.updated_at` (attach time) when no override row exists.
+  // - nested object children inherit the parent row's value (children don't have their
+  //   own EPD row).
+  const lastUpdatedIso = p.definition_updated_at ?? p.updated_at ?? null;
+  const lastUpdatedCell = formatLastUpdatedHtml(lastUpdatedIso);
+
   return `<tr class="${rowClass}">
   <td class="${nameCellClass}"><code class="export-inline-code">${escapeHtml(nameDisplay)}</code></td>
   <td class="export-props-req-cell">${requiredCell}</td>
@@ -541,6 +563,7 @@ function buildOnePropertyTableRow(
   <td class="export-props-source-cell">${sourceText}</td>
   <td class="export-props-example-cell">${exampleCell}</td>
   <td class="export-props-desc-cell">${desc}</td>
+  <td class="export-props-updated-cell">${lastUpdatedCell}</td>
 </tr>`;
 }
 
@@ -611,10 +634,24 @@ function buildPropertyDetailsTable(
     }
   }
   const rows = rowChunks.join('');
+  // Explicit colgroup (with `table-layout: fixed` from CSS) makes the table fill
+  // its container at any viewport width and lets long values wrap into the cell
+  // instead of pushing the table beyond the layout grid (which previously forced
+  // a horizontal scrollbar on common 1280-1440px desktops).
   return `<div class="export-props">
   <div class="export-section-ribbon">Event properties</div>
   <div class="export-props-wrap">
     <table class="export-props-table">
+      <colgroup>
+        <col class="export-props-col-name">
+        <col class="export-props-col-required">
+        <col class="export-props-col-presence" data-e3-hidden-presence="1">
+        <col class="export-props-col-type">
+        <col class="export-props-col-source">
+        <col class="export-props-col-example">
+        <col class="export-props-col-desc">
+        <col class="export-props-col-updated">
+      </colgroup>
       <thead>
         <tr>
           <th>Name</th>
@@ -624,6 +661,7 @@ function buildPropertyDetailsTable(
           <th>Source</th>
           <th>Example Value</th>
           <th>Description</th>
+          <th>Last updated</th>
         </tr>
       </thead>
       <tbody>
@@ -1185,8 +1223,11 @@ export async function generateJourneyHtmlExport(
       background: #fafafa;
     }
     a { color: inherit; }
-    .export-shell { max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
+    .export-shell { max-width: 1440px; margin: 0 auto; padding: 24px 20px 48px; }
     .export-layout { display: grid; grid-template-columns: minmax(0, 280px) minmax(0, 1fr); gap: 16px; align-items: start; }
+    @media (min-width: 1280px) {
+      .export-layout { grid-template-columns: minmax(0, 240px) minmax(0, 1fr); }
+    }
     @media (max-width: 980px) { .export-layout { grid-template-columns: minmax(0, 1fr); } }
     .export-main { min-width: 0; max-width: 100%; }
     .export-header {
@@ -1564,15 +1605,25 @@ export async function generateJourneyHtmlExport(
       border: 1px solid #e2e8f0;
       background: #fff;
     }
+    /* Fixed layout + colgroup percentages: the table now fills its container at
+       any viewport, and long values wrap inside the cell instead of forcing a
+       horizontal scrollbar. The colgroup elements live in buildPropertyDetailsTable. */
     .export-props-table {
-      table-layout: auto;
-      width: max-content;
-      min-width: 100%;
+      table-layout: fixed;
+      width: 100%;
+      min-width: 0;
       border-collapse: separate;
       border-spacing: 0;
       font-size: 0.85rem;
       background: #fff;
     }
+    .export-props-table .export-props-col-name { width: 13%; }
+    .export-props-table .export-props-col-required { width: 7%; }
+    .export-props-table .export-props-col-type { width: 9%; }
+    .export-props-table .export-props-col-source { width: 13%; }
+    .export-props-table .export-props-col-example { width: 18%; }
+    .export-props-table .export-props-col-desc { width: 28%; }
+    .export-props-table .export-props-col-updated { width: 12%; }
     .export-props-table th,
     .export-props-table td {
       text-align: left;
@@ -1583,15 +1634,15 @@ export async function generateJourneyHtmlExport(
       word-break: break-word;
       box-sizing: border-box;
     }
-    /* Sticky: Property name column only (row identity while scrolling) */
+    /* Sticky first column for row identity. With table-layout:fixed the column
+       width comes from the colgroup percentage; only position: sticky + a
+       reasonable min width remain. */
     .export-props-table th:nth-child(1),
     .export-props-table td:nth-child(1) {
       position: sticky;
       left: 0;
       z-index: 3;
-      width: 156px;
-      min-width: 156px;
-      max-width: 156px;
+      min-width: 130px;
       background: #fff;
       box-shadow: 4px 0 10px -2px rgba(15, 23, 42, 0.14);
     }
@@ -1602,40 +1653,13 @@ export async function generateJourneyHtmlExport(
     .export-props-table tr.export-props-row--nested td:nth-child(1) {
       padding-left: 26px;
     }
-    .export-props-table th:nth-child(2),
-    .export-props-table td:nth-child(2) {
-      min-width: 72px;
-      max-width: 96px;
+    .export-props-table .export-props-req-cell {
       text-align: center;
     }
     /* UI simplification: hide Presence column (internal semantics unchanged). */
     .export-props-table th[data-e3-hidden-presence="1"],
-    .export-props-table td[data-e3-hidden-presence="1"] { display: none; }
-    .export-props-table th:nth-child(3),
-    .export-props-table td:nth-child(3) {
-      min-width: 88px;
-      max-width: 120px;
-    }
-    .export-props-table th:nth-child(4),
-    .export-props-table td:nth-child(4) {
-      min-width: 120px;
-      max-width: 220px;
-    }
-    .export-props-table th:nth-child(5),
-    .export-props-table td:nth-child(5) {
-      min-width: 100px;
-      max-width: 200px;
-    }
-    .export-props-table th:nth-child(6),
-    .export-props-table td:nth-child(6) {
-      min-width: 120px;
-      max-width: 280px;
-    }
-    .export-props-table th:nth-child(7),
-    .export-props-table td:nth-child(7) {
-      min-width: 180px;
-      max-width: 380px;
-    }
+    .export-props-table td[data-e3-hidden-presence="1"],
+    .export-props-table col[data-e3-hidden-presence="1"] { display: none; }
     .export-props-req { font-weight: 600; font-size: 0.8rem; }
     .export-props-trigger-primary { font-size: 0.88rem; line-height: 1.25; display: inline-block; }
     .export-props-req--yes { color: #059669; }
@@ -1650,6 +1674,12 @@ export async function generateJourneyHtmlExport(
     .export-props-table .export-props-source-cell { font-size: 0.82rem; color: #475569; }
     .export-props-table .export-props-example-cell { hyphens: auto; font-size: 0.82rem; color: #475569; }
     .export-props-table .export-props-desc-cell { hyphens: auto; }
+    .export-props-table .export-props-updated-cell {
+      font-size: 0.78rem;
+      color: #475569;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
     .export-props-table th {
       font-size: 0.75rem;
       color: #64748b;
@@ -1659,6 +1689,16 @@ export async function generateJourneyHtmlExport(
       white-space: nowrap;
     }
     .export-props-table tr:last-child td { border-bottom: 0; }
+
+    /* Reader-driven QA-only export: when the export modal toggles "Docs" off but
+       leaves "QA Runs" on, it adds export-mode-qa-only to body. Hide every
+       docs-only section so only step structure + QA evidence remain. */
+    body.export-mode-qa-only .export-props,
+    body.export-mode-qa-only .export-instructions,
+    body.export-mode-qa-only .export-tracking-block,
+    body.export-mode-qa-only .export-codeblock,
+    body.export-mode-qa-only pre.export-code,
+    body.export-mode-qa-only .export-copy { display: none !important; }
 
     .export-modal {
       position: fixed;
@@ -1701,6 +1741,74 @@ export async function generateJourneyHtmlExport(
       text-align: center;
       font-size: 0.875rem;
       color: #1A1E38;
+    }
+
+    /* Print styles power the "Save as PDF" path: open the export HTML in a new
+       window and call window.print(). The same HTML is the source of truth for
+       both screen and PDF. Goals:
+       - Event-properties table renders full-width, no horizontal scroll.
+       - Step / row content stays together across page breaks.
+       - Sticky first column is dropped (no scrolling in print).
+       - Copy buttons / QA-mode lightbox / modal chrome are hidden.
+       - Image links are preserved so PDF readers keep <img> -> bucket-URL anchors.
+    */
+    @media print {
+      html, body { background: #fff; }
+      .export-shell { max-width: none; padding: 12mm 10mm; }
+      .export-layout { display: block; }
+      .export-toc { display: none; }
+      .export-header { box-shadow: none; }
+      .export-instructions { box-shadow: none; }
+
+      .export-props-wrap {
+        overflow: visible;
+        border: 0;
+        border-radius: 0;
+      }
+      .export-props-table {
+        table-layout: fixed;
+        width: 100%;
+        font-size: 0.78rem;
+      }
+      .export-props-table th:nth-child(1),
+      .export-props-table td:nth-child(1) {
+        position: static;
+        box-shadow: none;
+      }
+      .export-props-table tr,
+      .export-props-table thead { page-break-inside: avoid; }
+
+      .export-step,
+      .export-trigger,
+      .export-tracking-block { page-break-inside: avoid; }
+      .export-step { box-shadow: none; }
+
+      pre.export-code {
+        white-space: pre-wrap;
+        word-break: break-word;
+        page-break-inside: auto;
+      }
+      .export-copy { display: none !important; }
+
+      /* QA overlay (injected client-side in SharedJourneyView) */
+      .qa-proof-gallery { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+      .qa-proof-thumb {
+        page-break-inside: avoid;
+        cursor: default;
+      }
+      .qa-proof-thumb img {
+        height: auto;
+        max-height: 240px;
+        object-fit: contain;
+      }
+
+      /* Hide the lightbox modal chrome if it ever slips into print. */
+      .export-modal { display: none !important; }
+
+      /* Print engines sometimes append "[ <url> ]" after every <a> by default,
+         which makes the doc noisy. Suppress for inline anchors but allow PDF
+         readers to keep the underlying link annotation on each <img>. */
+      a[href]::after { content: ''; }
     }
   </style>
 </head>

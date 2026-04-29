@@ -64,7 +64,12 @@ export function buildQaOverlayStyleString(): string {
   /* .qa-codeblock — proof payload snippets. Wrap long lines on screen so the
      export never needs horizontal scroll (parity with .export-code). hljs
      googlecode theme still applies via the inner <code>. */
-  .qa-codeblock { margin-top:6px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
+  /* Long QA proof payloads (JSON, headers, validation messages) wrap inside
+     the code block instead of forcing a horizontal scrollbar. overflow-x:hidden
+     is a defensive guarantee so the wrapper itself never scrolls even if a
+     child syntax-highlighted token overflows. Matches the same wrap policy
+     applied to pre.export-code in the docs body. */
+  .qa-codeblock { margin-top:6px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:10px; padding:10px 12px; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; overflow-x: hidden; }
   .qa-codeblock code { display:block; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; color:#0f172a; }
   .qa-proof-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-top: 8px; }
   .qa-proof-thumb { display:block; width:100%; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; background:#fff; text-decoration:none; padding:0; cursor: zoom-in; }
@@ -104,12 +109,16 @@ export function buildQaOverlayHljsHead(): string {
 export function buildQaOverlayScriptString(qaRun: QARun): string {
   const runForExport = withFormattedPayloadValidationIssuesForExport(qaRun);
   const runForDisplay = augmentQaRunWithNotesHtml(runForExport);
-  const safeJson = JSON.stringify(runForDisplay).replace(/<\/script/gi, '<\\/script');
+  // Escape ALL closing-tag substrings, not just `</script>`. If any QA field
+  // (proof text, notes, payload validation message) contains literal text like
+  // `</body>` or `</head>`, leaving it unescaped would let the second
+  // injection round (multi-QA case) anchor on the WRONG closing tag and splice
+  // a script INSIDE script-1's JSON literal — corrupting script-1 and silently
+  // dropping the earlier run. `<\/foo` is functionally identical to `</foo`
+  // inside a JS string literal but no longer matches HTML lexer's tag scanner.
+  const safeJson = JSON.stringify(runForDisplay).replace(/<\//g, '<\\/');
   const payloadValSummary = computePayloadValidationRunSummary(qaRun);
-  const safePayloadSummaryJson = JSON.stringify(payloadValSummary).replace(
-    /<\/script/gi,
-    '<\\/script'
-  );
+  const safePayloadSummaryJson = JSON.stringify(payloadValSummary).replace(/<\//g, '<\\/');
   return `
 <script>
 (function(){
@@ -509,37 +518,6 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
     var insertBeforeEl = main.querySelector('h2');
     if (insertBeforeEl) main.insertBefore(box, insertBeforeEl);
     else main.insertBefore(box, main.firstChild);
-
-    // Populate the "QA Runs" tab in the sidebar TOC. First call removes the
-    // empty-state placeholder; each call appends one anchor link.
-    (function(){
-      var qaPane = document.querySelector('.export-toc-pane[data-pane="qa"]');
-      if (!qaPane) return;
-      var emptyEl = qaPane.querySelector('.export-toc-empty');
-      if (emptyEl && emptyEl.parentNode) emptyEl.parentNode.removeChild(emptyEl);
-      // Avoid duplicate links if the same run is injected twice (defensive).
-      var anchorHref = '#qa-run-' + String(qaRun.id || '');
-      var existing = qaPane.querySelector('a.export-toc-link[href="' + anchorHref + '"]');
-      if (existing) return;
-      var label = qaRun.name || ('QA Run ' + String(qaRun.id || ''));
-      var statusLabel = overall === 'PASSED' ? 'Passed' : overall === 'FAILED' ? 'Failed' : 'Pending';
-      var link = document.createElement('a');
-      link.className = 'export-toc-link export-toc-link--qa';
-      link.href = anchorHref;
-      var step = document.createElement('span');
-      step.className = 'export-toc-step';
-      step.textContent = 'QA';
-      var labelEl = document.createElement('span');
-      labelEl.className = 'export-toc-label';
-      labelEl.textContent = String(label);
-      var meta = document.createElement('span');
-      meta.className = 'export-toc-meta export-toc-meta--' + statusLabel;
-      meta.textContent = statusLabel;
-      link.appendChild(step);
-      link.appendChild(labelEl);
-      link.appendChild(meta);
-      qaPane.appendChild(link);
-    })();
   })();
 
   // Step sections: map by index (export steps are rendered in canvas stepNodes order).
@@ -637,24 +615,41 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
 }
 
 /**
+ * Splice `payload` into `html` immediately before the LAST occurrence of
+ * `marker` (typically `</head>` or `</body>`). Falls back to appending when
+ * the marker is missing.
+ *
+ * Why `lastIndexOf` instead of `String.prototype.replace(marker, ...)`:
+ * - `replace` matches the FIRST occurrence. In the multi-QA injection case
+ *   the first iteration adds an inline `<script>` whose JSON literal might
+ *   contain content like `</body>`; the second iteration's `replace` would
+ *   then anchor inside that JSON literal and corrupt script-1 entirely,
+ *   silently dropping the earlier run.
+ * - `lastIndexOf` always finds the document-terminating tag (which is
+ *   guaranteed to be last in a well-formed document), even if other
+ *   substrings happen to match.
+ *
+ * Combined with the closing-tag escape applied to `safeJson` /
+ * `safePayloadSummaryJson` upstream, this gives us defense in depth — any
+ * single layer would be enough on its own, but using both keeps the export
+ * robust against unforeseen content.
+ */
+function spliceBefore(html: string, marker: string, payload: string): string {
+  const idx = html.lastIndexOf(marker);
+  if (idx === -1) return html + payload;
+  return html.slice(0, idx) + payload + html.slice(idx);
+}
+
+/**
  * Inject QA run overlay (style + script) into the docs HTML so the run renders
  * inline with the steps and triggers it covers. Idempotent on `<head>` (style
  * blocks dedupe via CSS); calling for multiple runs stacks them naturally.
- *
- * `String.prototype.replace` is called with a function callback to bypass the
- * substitution-pattern interpretation of `$&`, `$$`, `$1`-`$9` etc., which
- * would otherwise corrupt the previous run's `<script>` JSON when a $ char
- * appears in a QA note or proof payload.
  */
 export function injectQaOverlayIntoExportHtml(html: string, qaRun: QARun): string {
   const style = buildQaOverlayStyleString();
   const script = buildQaOverlayScriptString(qaRun);
   const hljsHead = buildQaOverlayHljsHead();
 
-  const withStyle = html.includes('</head>')
-    ? html.replace('</head>', () => `${hljsHead}${style}\n</head>`)
-    : `${hljsHead}${style}${html}`;
-  return withStyle.includes('</body>')
-    ? withStyle.replace('</body>', () => `${script}\n</body>`)
-    : `${withStyle}${script}`;
+  const withStyle = spliceBefore(html, '</head>', `${hljsHead}${style}\n`);
+  return spliceBefore(withStyle, '</body>', `${script}\n`);
 }

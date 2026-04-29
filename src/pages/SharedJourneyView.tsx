@@ -100,6 +100,74 @@ function buildHtmlWithAllQaRuns(baseHtml: string, qaRuns: QARun[]): string {
   return out;
 }
 
+/**
+ * QA-only export mode: append `export-mode-qa-only` to the `<body>` class so
+ * the export stylesheet hides docs-only chrome (Tracking instructions block,
+ * Tracking events table, etc.) and only step structure + QA evidence remain.
+ *
+ * Idempotent: running it twice on the same HTML adds the class twice but the
+ * stylesheet rule still matches. We only call it once per export anyway.
+ */
+function applyQaOnlyBodyClass(html: string): string {
+  const bodyClassRegex = /<body([^>]*)>/i;
+  const bodyMatch = html.match(bodyClassRegex);
+  if (!bodyMatch) return html;
+  const attrs = bodyMatch[1] || '';
+  const hasClass = /\bclass=/i.test(attrs);
+  const newAttrs = hasClass
+    ? attrs.replace(
+        /\bclass=("|')([^"']*)("|')/i,
+        (_m, q1, val, q3) => `class=${q1}${val} export-mode-qa-only${q3}`,
+      )
+    : `${attrs} class="export-mode-qa-only"`;
+  return html.replace(bodyClassRegex, `<body${newAttrs}>`);
+}
+
+/**
+ * Open the rendered docs HTML in a new tab and trigger the browser's print
+ * dialog so the reader can save as PDF via the OS print pipeline. No server
+ * roundtrip and no extra dependency — the same HTML used by the download
+ * branch is reused, so the visual output matches.
+ *
+ * Returns a structured ok/error so the modal can show a clear failure message
+ * if the popup is blocked or the document write fails (Safari edge cases).
+ */
+function openHtmlForPrint(html: string): { ok: true } | { ok: false; reason: string } {
+  if (typeof window === 'undefined') return { ok: false, reason: 'no window' };
+  let win: Window | null;
+  try {
+    win = window.open('', '_blank', 'noopener=no');
+  } catch (openErr) {
+    console.error('[shared-docs] openHtmlForPrint: window.open threw', openErr);
+    return { ok: false, reason: 'popup blocked' };
+  }
+  if (!win) return { ok: false, reason: 'popup blocked' };
+  try {
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+  } catch (writeErr) {
+    console.error('[shared-docs] openHtmlForPrint: write failed', writeErr);
+    return { ok: false, reason: 'write failed' };
+  }
+
+  const startPrint = () => {
+    try {
+      win!.focus();
+      win!.print();
+    } catch (printErr) {
+      console.error('[shared-docs] openHtmlForPrint: print failed', printErr);
+    }
+  };
+
+  if (win.document.readyState === 'complete') {
+    setTimeout(startPrint, 250);
+  } else {
+    win.addEventListener('load', () => setTimeout(startPrint, 250), { once: true });
+  }
+  return { ok: true };
+}
+
 /** Triggers a Blob-based file download (HTML export). Safe no-op outside the browser. */
 function downloadHtmlBlob(html: string, filename: string): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
@@ -171,57 +239,10 @@ function ExportShareDocModal({
     setErrorMsg(null);
     const safeName = (journeyName || 'shared-journey').replace(/[\\/:*?"<>|]/g, '-').slice(0, 80);
     try {
-      // PDF branch: server-side Puppeteer renders the same HTML used for the
-      // download path, applies header/footer/cover, and streams a PDF blob
-      // back. We do nothing on the client beyond download — keeps the visual
-      // output deterministic across browsers and matches the HTML look exactly.
-      if (format === 'pdf') {
-        const res = await fetch(
-          `${API_BASE}/api/shared/journeys/journey/${journeyId}/export/pdf`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              includeDocs,
-              qaRunIds: includeQa ? qaRuns.map((r) => r.id) : [],
-            }),
-          }
-        );
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          const code = typeof (body as any)?.code === 'string' ? (body as any).code : '';
-          if (code === 'PDF_DISABLED') {
-            throw new Error(
-              'PDF export is not available in this environment. Please use the HTML option instead.'
-            );
-          }
-          const msg =
-            typeof (body as any)?.error === 'string'
-              ? (body as any).error
-              : res.statusText || 'Failed to generate PDF';
-          throw new Error(msg);
-        }
-        const blob = await res.blob();
-        if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-          const url = URL.createObjectURL(blob);
-          try {
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${safeName}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-          } finally {
-            URL.revokeObjectURL(url);
-          }
-        }
-        onClose();
-        return;
-      }
-
-      // HTML branch (unchanged): fetch docs HTML, stack QA overlays in the
-      // browser via the shared `injectQaOverlayIntoExportHtml`, then download
-      // as a blob.
+      // Both branches share the same HTML pipeline: fetch the docs HTML, stack
+      // QA overlays in the browser via the shared injectQaOverlayIntoExportHtml,
+      // optionally hide docs-only blocks (QA-only mode), and wrap images in
+      // anchors so click-to-original works in PDF readers.
       const res = await fetch(`${API_BASE}/api/shared/journeys/journey/${journeyId}/export/html`);
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -237,23 +258,24 @@ function ExportShareDocModal({
         html = buildHtmlWithAllQaRuns(html, qaRuns);
       }
 
-      // When Docs is unchecked but QA Runs is checked, hide the docs-only blocks
-      // so the export only shows step structure + QA evidence. Stylesheet lives
-      // in the export service.
       if (!includeDocs && includeQa) {
-        const bodyClassRegex = /<body([^>]*)>/i;
-        const bodyMatch = html.match(bodyClassRegex);
-        if (bodyMatch) {
-          const attrs = bodyMatch[1] || '';
-          const hasClass = /\bclass=/i.test(attrs);
-          const newAttrs = hasClass
-            ? attrs.replace(/\bclass=("|')([^"']*)("|')/i, (_m, q1, val, q3) => `class=${q1}${val} export-mode-qa-only${q3}`)
-            : `${attrs} class="export-mode-qa-only"`;
-          html = html.replace(bodyClassRegex, `<body${newAttrs}>`);
-        }
+        html = applyQaOnlyBodyClass(html);
       }
 
       html = wrapExportImagesInAnchors(html);
+
+      if (format === 'pdf') {
+        // Open the rendered HTML in a new tab and trigger the OS print dialog.
+        // The user picks "Save as PDF" themselves — no fancy server-side
+        // dependency, and the visuals match the HTML download exactly.
+        const r = openHtmlForPrint(html);
+        if (!r.ok) {
+          const failure = r as { ok: false; reason: string };
+          throw new Error(`Could not open print preview: ${failure.reason}`);
+        }
+        onClose();
+        return;
+      }
 
       downloadHtmlBlob(html, `${safeName}.html`);
       onClose();
@@ -318,8 +340,8 @@ function ExportShareDocModal({
             </div>
             {format === 'pdf' && (
               <p className="text-[11px] text-gray-500 mt-1.5">
-                Generates a polished PDF on the server with cover page, page numbers, and
-                full-width tables. May take a few seconds for large exports.
+                Opens the docs in a new tab and triggers your browser&apos;s print dialog.
+                Pick &quot;Save as PDF&quot; in the print destination.
               </p>
             )}
           </fieldset>
@@ -383,7 +405,7 @@ function ExportShareDocModal({
             onClick={() => void onConfirm()}
             disabled={isWorking || nothingSelected}
           >
-            {isWorking ? (format === 'pdf' ? 'Generating PDF…' : 'Exporting…') : 'Export'}
+            {isWorking ? (format === 'pdf' ? 'Opening print preview…' : 'Exporting…') : 'Export'}
           </button>
         </div>
       </div>

@@ -17,6 +17,7 @@ import * as WorkspaceDAL from '../dal/workspace.dal';
 import { getTriggerRequiredPayloadKeysForEvent } from '../lib/triggerRequiredPayloadKeys';
 import { getJourneyQARunsCountAndLatest, getJourneyQARuns, upsertJourneyQARuns } from '../dal/qa.dal';
 import { generateJourneyHtmlExport } from '../services/export.service';
+import { generateJourneyPdfExport } from '../services/pdfExport.service';
 import {
   assertEnumValuesForJourneyCanvasNodes,
   tryParseEventPayloadObject,
@@ -687,6 +688,77 @@ router.get(
       }
       res.status(500).json({
         error: 'An unexpected error occurred.',
+        code: 'INTERNAL_ERROR',
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/journeys/:id/export/pdf
+ * Body: { includeDocs?: boolean; qaRunIds?: string[] }
+ *
+ * Workspace-scoped twin of `POST /api/shared/journeys/journey/:id/export/pdf`.
+ * Renders the same HTML produced by `GET .../export/html` (with QA overlays
+ * stacked when requested) into a PDF via Puppeteer. Gated by
+ * `process.env.E3_PDF_ENABLED=1`.
+ */
+router.post(
+  '/:id/export/pdf',
+  requireWorkspace,
+  async (req: Request, res: Response): Promise<void> => {
+    const workspaceId = req.workspaceId;
+    if (!workspaceId) {
+      res.status(403).json({
+        error: 'Workspace context required.',
+        code: 'WORKSPACE_REQUIRED',
+      });
+      return;
+    }
+    const journeyId = req.params.id;
+    if (!journeyId) {
+      res.status(400).json({ error: 'Journey id is required.', code: 'ID_REQUIRED' });
+      return;
+    }
+    const body = (req.body ?? {}) as { includeDocs?: boolean; qaRunIds?: unknown };
+    const includeDocs = body.includeDocs !== false;
+    const qaRunIds = Array.isArray(body.qaRunIds)
+      ? body.qaRunIds.filter((x): x is string => typeof x === 'string' && x.trim() !== '')
+      : [];
+    if (!includeDocs && qaRunIds.length === 0) {
+      res.status(400).json({
+        error: 'Select at least one of docs or QA runs.',
+        code: 'EMPTY_EXPORT',
+      });
+      return;
+    }
+    try {
+      const pdf = await generateJourneyPdfExport({
+        workspaceId,
+        journeyId,
+        includeDocs,
+        qaRunIds,
+      });
+      const safeName = `journey-${journeyId}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
+      res.status(200).send(pdf);
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        res.status(404).json({ error: err.message, code: err.code, resource: err.resource });
+        return;
+      }
+      const code = (err as { code?: string } | null)?.code;
+      if (code === 'PDF_DISABLED') {
+        res.status(503).json({
+          error: 'Server-side PDF export is not available in this environment.',
+          code: 'PDF_DISABLED',
+        });
+        return;
+      }
+      console.error('[journeys/export/pdf] Failed to generate PDF', err);
+      res.status(500).json({
+        error: 'Failed to generate PDF export.',
         code: 'INTERNAL_ERROR',
       });
     }

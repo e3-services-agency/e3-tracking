@@ -453,17 +453,19 @@ function presenceLabel(presence: string | undefined): string {
 }
 
 /**
- * Render an ISO-8601 timestamp as `YYYY-MM-DD HH:mm UTC` for the docs Last updated cell.
- * Falls back to em-dash when missing/invalid. The raw ISO is exposed in `title=` so
- * hovering on the cell reveals seconds + the original timezone for power users.
+ * Render an ISO-8601 timestamp for the Last updated cell with the date and time
+ * stacked on two lines so the column can stay narrow and not push the table
+ * out of the layout grid. Falls back to em-dash when missing/invalid; raw ISO
+ * is exposed in `title=` so hovering reveals seconds + timezone.
  */
 function formatLastUpdatedHtml(iso: string | null | undefined): string {
   if (typeof iso !== 'string' || iso.trim() === '') return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   const pad = (n: number) => String(n).padStart(2, '0');
-  const display = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
-  return `<time datetime="${escapeHtml(iso)}" title="${escapeHtml(iso)}">${escapeHtml(display)}</time>`;
+  const datePart = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+  const timePart = `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
+  return `<time class="export-updated-stack" datetime="${escapeHtml(iso)}" title="${escapeHtml(iso)}"><span class="export-updated-date">${escapeHtml(datePart)}</span><span class="export-updated-time">${escapeHtml(timePart)}</span></time>`;
 }
 
 function buildOnePropertyTableRow(
@@ -961,25 +963,55 @@ export async function generateJourneyHtmlExport(
       .replace(/^-|-$/g, '') || 'unknown';
   const e3LogoHref = `https://e3-services.com/?utm_source=tracking-plan&utm_medium=logo&utm_campaign=${encodeURIComponent(utmCampaign)}`;
 
-  const tocHtml =
+  // Sidebar TOC: three tabs — Docs / Steps / QA Runs.
+  // - Docs links to high-level anchors (overview, instructions, tracking events).
+  //   `id="export-instructions"` and `id="export-tracking-events"` anchors are
+  //   added directly to the matching sections below.
+  // - Steps links jump to per-step anchors (`#step-N`) and are downgraded to
+  //   buttons by the existing inline script (avoids hash navigation jank).
+  // - QA Runs is empty by default; the QA-overlay injection script populates it
+  //   client-side once each `qa-run-<id>` section is inserted (see
+  //   `src/lib/qaOverlayInjection.ts`).
+  const stepsListHtml = steps
+    .map((s, idx) => {
+      const n = idx + 1;
+      const label = s.label ? escapeHtml(s.label) : `Step ${n}`;
+      const meta =
+        s.triggers.length > 0
+          ? `<span class="export-toc-meta">${s.triggers.length} event${s.triggers.length === 1 ? '' : 's'}</span>`
+          : '';
+      return `<a class="export-toc-link" href="#step-${n}"><span class="export-toc-step">Step ${n}</span><span class="export-toc-label">${label}</span>${meta}</a>`;
+    })
+    .join('\n');
+
+  const docsLinksHtml = [
+    `<a class="export-toc-link" href="#top"><span class="export-toc-step">Top</span><span class="export-toc-label">Document overview</span></a>`,
+    instructionsHtml
+      ? `<a class="export-toc-link" href="#export-instructions"><span class="export-toc-step">Docs</span><span class="export-toc-label">Testing instructions</span></a>`
+      : '',
     steps.length > 0
-      ? `<nav class="export-toc" aria-label="Steps">
-  <div class="export-toc-title">Steps</div>
-  <div class="export-toc-list">
-    ${steps
-      .map((s, idx) => {
-        const n = idx + 1;
-        const label = s.label ? escapeHtml(s.label) : `Step ${n}`;
-        const meta =
-          s.triggers.length > 0
-            ? `<span class="export-toc-meta">${s.triggers.length} event${s.triggers.length === 1 ? '' : 's'}</span>`
-            : '';
-        return `<a class="export-toc-link" href="#step-${n}"><span class="export-toc-step">Step ${n}</span><span class="export-toc-label">${label}</span>${meta}</a>`;
-      })
-      .join('\n')}
+      ? `<a class="export-toc-link" href="#export-tracking-events"><span class="export-toc-step">Docs</span><span class="export-toc-label">Tracking events</span></a>`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const tocHtml = `<nav class="export-toc" aria-label="Contents">
+  <div class="export-toc-tabs" role="tablist">
+    <button type="button" role="tab" class="export-toc-tab is-active" data-toc-tab="docs" aria-selected="true">Docs</button>
+    <button type="button" role="tab" class="export-toc-tab" data-toc-tab="steps" aria-selected="false">Steps</button>
+    <button type="button" role="tab" class="export-toc-tab" data-toc-tab="qa" aria-selected="false">QA Runs</button>
   </div>
-</nav>`
-      : '';
+  <div class="export-toc-pane" data-pane="docs" role="tabpanel">
+    ${docsLinksHtml}
+  </div>
+  <div class="export-toc-pane is-hidden" data-pane="steps" role="tabpanel" hidden>
+    ${stepsListHtml || '<div class="export-toc-empty">No steps defined.</div>'}
+  </div>
+  <div class="export-toc-pane is-hidden" data-pane="qa" role="tabpanel" hidden>
+    <div class="export-toc-empty">No QA runs included.</div>
+  </div>
+</nav>`;
 
   const stepsHtml = (
     await Promise.all(
@@ -1275,12 +1307,54 @@ export async function generateJourneyHtmlExport(
       box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
     .export-toc-title { font-size: 0.85rem; font-weight: 700; color: #111; margin-bottom: 10px; }
-    .export-toc-list { display: flex; flex-direction: column; gap: 6px; }
+    /* Tabbed TOC: Docs / Steps / QA Runs.
+       Tabs share the same link list look (.export-toc-link); only one pane is
+       visible at a time. The vanilla JS handler at the bottom of the export
+       toggles .is-active on the buttons and [hidden] on the panes. */
+    .export-toc-tabs {
+      display: flex;
+      gap: 2px;
+      margin-bottom: 12px;
+      background: #f3f4f6;
+      border-radius: 8px;
+      padding: 3px;
+    }
+    .export-toc-tab {
+      flex: 1;
+      border: 0;
+      background: transparent;
+      color: #475569;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      padding: 6px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .export-toc-tab:hover { color: #111; }
+    .export-toc-tab.is-active {
+      background: #ffffff;
+      color: #0f172a;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    }
+    .export-toc-pane { display: flex; flex-direction: column; gap: 6px; }
+    .export-toc-pane.is-hidden, .export-toc-pane[hidden] { display: none; }
+    .export-toc-empty {
+      font-size: 0.78rem;
+      color: #94a3b8;
+      padding: 8px 10px;
+      text-align: center;
+      font-style: italic;
+    }
     .export-toc-link { display: grid; grid-template-columns: 70px 1fr auto; gap: 8px; padding: 8px 10px; border-radius: 8px; text-decoration: none; border: 1px solid transparent; }
     .export-toc-link:hover { background: #f9fafb; border-color: #e5e7eb; }
     .export-toc-step { font-weight: 700; color: #111; font-size: 0.75rem; }
     .export-toc-label { color: #374151; font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .export-toc-meta { color: #6b7280; font-size: 0.75rem; }
+    .export-toc-meta--Passed { color: #0DCC96; font-weight: 700; }
+    .export-toc-meta--Failed { color: #E35010; font-weight: 700; }
+    .export-toc-meta--Pending { color: #b45309; font-weight: 700; }
 
     .export-step {
       background: #fff;
@@ -1585,7 +1659,14 @@ export async function generateJourneyHtmlExport(
       background-color: #fafafa !important;
       border: 1px solid #e5e7eb !important;
       border-radius: 0.375rem !important;
-      overflow-x: auto;
+      /* Wrap long lines (Bloomreach Tracking API codegen, payload validation
+         examples) so the doc never needs horizontal scroll on screen. hljs
+         tokenizes per-line so highlighting is unaffected. The matching print
+         rule below keeps PDF behavior identical. */
+      white-space: pre-wrap;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+      overflow-x: hidden;
     }
     pre.export-code code { background: none; padding: 0; color: inherit; }
 
@@ -1622,8 +1703,8 @@ export async function generateJourneyHtmlExport(
     .export-props-table .export-props-col-type { width: 9%; }
     .export-props-table .export-props-col-source { width: 13%; }
     .export-props-table .export-props-col-example { width: 18%; }
-    .export-props-table .export-props-col-desc { width: 28%; }
-    .export-props-table .export-props-col-updated { width: 12%; }
+    .export-props-table .export-props-col-desc { width: 32%; }
+    .export-props-table .export-props-col-updated { width: 8%; }
     .export-props-table th,
     .export-props-table td {
       text-align: left;
@@ -1675,11 +1756,20 @@ export async function generateJourneyHtmlExport(
     .export-props-table .export-props-example-cell { hyphens: auto; font-size: 0.82rem; color: #475569; }
     .export-props-table .export-props-desc-cell { hyphens: auto; }
     .export-props-table .export-props-updated-cell {
-      font-size: 0.78rem;
       color: #475569;
-      white-space: nowrap;
+      white-space: normal;
       font-variant-numeric: tabular-nums;
     }
+    /* Date + time stacked on two lines so this column can stay narrow (~8%
+       of the table) and the surrounding columns get more room. */
+    .export-updated-stack {
+      display: inline-flex;
+      flex-direction: column;
+      line-height: 1.15;
+      gap: 1px;
+    }
+    .export-updated-date { font-size: 0.78rem; color: #1f2937; font-weight: 500; }
+    .export-updated-time { font-size: 0.7rem; color: #64748b; }
     .export-props-table th {
       font-size: 0.75rem;
       color: #64748b;
@@ -1809,10 +1899,85 @@ export async function generateJourneyHtmlExport(
          which makes the doc noisy. Suppress for inline anchors but allow PDF
          readers to keep the underlying link annotation on each <img>. */
       a[href]::after { content: ''; }
+
+      /* PDF cover page. Always present in the DOM but only displayed when the
+         server-side PDF service sets data-export-cover="1" on <body> (so HTML
+         downloads stay flat).
+         The shell wrapper would otherwise create a 56-pixel padding around the
+         cover; we let the cover paint full-bleed instead. */
+      body[data-export-cover="1"] .export-print-cover {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+        height: 100vh;
+        padding: 24mm 18mm;
+        page-break-after: always;
+        background: linear-gradient(135deg, #0a1f44 0%, #1a3676 60%, #0DCC96 140%);
+        color: #ffffff;
+        margin: -12mm -10mm 0 -10mm;
+        box-sizing: border-box;
+      }
+      body[data-export-cover="1"] .export-print-cover .cover-mark {
+        font-size: 0.78rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.78);
+        margin-bottom: 14mm;
+        font-weight: 700;
+      }
+      body[data-export-cover="1"] .export-print-cover h1 {
+        font-size: 2.6rem;
+        line-height: 1.15;
+        margin: 0 0 8mm;
+        font-weight: 700;
+        color: #ffffff;
+        max-width: 80%;
+      }
+      body[data-export-cover="1"] .export-print-cover p {
+        font-size: 1.05rem;
+        line-height: 1.45;
+        color: rgba(255, 255, 255, 0.86);
+        max-width: 80%;
+        margin: 0 0 6mm;
+      }
+      body[data-export-cover="1"] .export-print-cover .cover-meta {
+        margin-top: auto;
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.78);
+        display: flex;
+        gap: 24mm;
+        flex-wrap: wrap;
+      }
+      body[data-export-cover="1"] .export-print-cover .cover-meta strong {
+        display: block;
+        font-size: 0.7rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.6);
+        margin-bottom: 2mm;
+        font-weight: 600;
+      }
     }
+
+    /* Default state: cover never shows on screen. Only @media print + the
+       data-export-cover="1" attribute (set by Puppeteer service) brings it in. */
+    .export-print-cover { display: none; }
   </style>
 </head>
 <body id="top">
+  <!-- PDF cover page. Hidden by default; the Puppeteer PDF service flips
+       data-export-cover="1" on <body> right before rendering so this section
+       paints as the first PDF page. HTML downloads never see it. -->
+  <section class="export-print-cover" aria-hidden="true">
+    <div class="cover-mark">E3 Tracking Plan</div>
+    <h1>${escapeHtml(journeyName)}</h1>
+    ${journeyDescription ? `<p>${journeyDescription}</p>` : ''}
+    <div class="cover-meta">
+      <div><strong>Generated</strong>${escapeHtml(new Date().toISOString().slice(0, 10))}</div>
+      <div><strong>Steps</strong>${steps.length}</div>
+    </div>
+  </section>
   <div class="export-shell">
   <header class="export-header">
     <a href="${escapeHtml(e3LogoHref)}" target="_blank" rel="noopener noreferrer" aria-label="E3 (Open website)">
@@ -1827,11 +1992,11 @@ export async function generateJourneyHtmlExport(
       </div>
     </div>
   </header>
-  ${instructionsHtml ? `<section class="export-instructions"><h2>Testing instructions</h2>${instructionsHtml}</section>` : ''}
+  ${instructionsHtml ? `<section id="export-instructions" class="export-instructions"><h2>Testing instructions</h2>${instructionsHtml}</section>` : ''}
   <div class="export-layout">
     ${tocHtml}
     <main class="export-main">
-      <h2 style="margin: 0 0 16px; font-size: 1.25rem;">Steps &amp; tracking</h2>
+      <h2 id="export-tracking-events" style="margin: 0 0 16px; font-size: 1.25rem;">Steps &amp; tracking</h2>
       ${stepsHtml || '<p>No steps defined.</p>'}
     </main>
   </div>
@@ -1908,6 +2073,39 @@ export async function generateJourneyHtmlExport(
         if (e.key !== 'Escape') return;
         var modal = document.getElementById('export-modal');
         if (modal) modal.removeAttribute('data-open');
+      });
+
+      // Tabbed TOC: switch panes by clicking the tab buttons. Auto-switches
+      // to the pane that owns a target anchor when a TOC link is clicked, so
+      // e.g. the QA injection script can deep-link to qa-run-<id> from any
+      // pane and still surface the correct list.
+      var tabButtons = document.querySelectorAll('.export-toc-tab[data-toc-tab]');
+      var tabPanes = document.querySelectorAll('.export-toc-pane[data-pane]');
+      function activateTab(name) {
+        for (var i = 0; i < tabButtons.length; i++) {
+          var btn = tabButtons[i];
+          var isActive = btn.getAttribute('data-toc-tab') === name;
+          btn.classList.toggle('is-active', isActive);
+          btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        }
+        for (var j = 0; j < tabPanes.length; j++) {
+          var pane = tabPanes[j];
+          var match = pane.getAttribute('data-pane') === name;
+          pane.classList.toggle('is-hidden', !match);
+          if (match) pane.removeAttribute('hidden');
+          else pane.setAttribute('hidden', '');
+        }
+      }
+      for (var ti = 0; ti < tabButtons.length; ti++) {
+        tabButtons[ti].addEventListener('click', function (ev) {
+          ev.preventDefault();
+          activateTab(this.getAttribute('data-toc-tab') || 'docs');
+        });
+      }
+      // Auto-activate the QA tab when a QA anchor is clicked from elsewhere.
+      document.addEventListener('click', function (ev) {
+        var a = ev.target && ev.target.closest ? ev.target.closest('a[href^="#qa-run-"]') : null;
+        if (a) activateTab('qa');
       });
     })();
   </script>

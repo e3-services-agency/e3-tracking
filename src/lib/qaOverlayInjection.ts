@@ -85,6 +85,19 @@ export function buildQaOverlayStyleString(): string {
   .qa-notes-md h1 { font-size: 1.125rem; }
   .qa-notes-md h2 { font-size: 1.05rem; }
   .qa-notes-md h3, .qa-notes-md h4 { font-size: 13px; }
+  /* Per-step verification list inside a QA run block. Each step that has any
+     evidence (notes, proof, profiles) gets a row with a clickable link back to
+     the docs Step #N section + a status chip + the rendered verification body.
+     Triggers nested under their step. Keeps multi-run exports readable: every
+     run is a single self-contained section appended after docs. */
+  .qa-run-verifs-header { margin: 18px 0 8px; padding-top: 14px; border-top: 1px solid #e2e8f0; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #475569; }
+  .qa-run-step-verifs { display: flex; flex-direction: column; gap: 14px; }
+  .qa-step-verif { padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; }
+  .qa-step-verif-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
+  .qa-step-verif-link { font-size: 0.95rem; font-weight: 600; color: #0f172a; text-decoration: none; }
+  .qa-step-verif-link:hover { text-decoration: underline; }
+  .qa-trigger-verif { margin-top: 10px; padding: 8px 10px; border: 1px dashed #cbd5e1; border-radius: 6px; background: #ffffff; }
+  .qa-trigger-verif-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; font-size: 0.85rem; color: #334155; font-weight: 600; }
 </style>`;
 }
 
@@ -378,8 +391,10 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
     }
   }
 
-  // Run details at top of docs (before steps). Stable id="qa-run-<id>" so the
-  // sidebar TOC's "QA Runs" tab can deep-link directly into this section.
+  // Self-contained QA run block, appended at the END of .export-main (after
+  // all docs sections). Each run is one independent block, so multi-run
+  // exports lay out as: docs ... QA run 1 ... QA run 2 ... etc. Stable
+  // id="qa-run-<id>" so external links / shared TOCs can deep-link.
   (function(){
     var main = document.querySelector('.export-main');
     if (!main) return;
@@ -389,7 +404,8 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
     if (qaRun && qaRun.id) box.id = 'qa-run-' + String(qaRun.id);
     var h = document.createElement('h2');
     h.className = 'export-section-ribbon';
-    h.textContent = 'QA Run details';
+    var headerText = qaRun.name ? ('QA Run: ' + String(qaRun.name)) : 'QA Run details';
+    h.textContent = headerText;
     box.appendChild(h);
     var metaGrid = document.createElement('div');
     metaGrid.className = 'qa-run-meta-grid';
@@ -515,56 +531,122 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
       notesSection.appendChild(nWrap);
       box.appendChild(notesSection);
     })();
-    var insertBeforeEl = main.querySelector('h2');
-    if (insertBeforeEl) main.insertBefore(box, insertBeforeEl);
-    else main.insertBefore(box, main.firstChild);
-  })();
+    // Per-step verifications, rendered inside this run's box (NOT mutated
+    // back into the docs step sections, which keeps the docs pristine and
+    // lets multiple QA runs coexist without 3x chips per step header).
+    //
+    // We read step labels and trigger labels from the rendered docs DOM at
+    // execution time so we don't have to plumb them through the QA payload.
+    (function(){
+      var stepSections = document.querySelectorAll('section.export-step');
+      var stepsList = document.createElement('div');
+      stepsList.className = 'qa-run-step-verifs';
+      var anyVerifs = false;
 
-  // Step sections: map by index (export steps are rendered in canvas stepNodes order).
-  var stepSections = document.querySelectorAll('section.export-step');
-  for (var s=0;s<stepSections.length;s++){
-    var sec = stepSections[s];
-    var nodeId = stepIds[s];
-    if (!nodeId) continue;
-    var header = sec.querySelector('button.export-step-header');
-    if (header){
-      var st = statusFor(nodeId);
-      header.appendChild(chip(st));
-    }
-    var v = qaRun && qaRun.verifications ? qaRun.verifications[nodeId] : null;
-    renderVerificationSection(sec.querySelector('.export-step-body') || sec, v, { title: 'QA Verification' });
-
-    // Triggers inside this step: match by eventId shown in the export block.
-    var triggerBlocks = sec.querySelectorAll('.export-tracking-block');
-    for (var tb=0;tb<triggerBlocks.length;tb++){
-      var blk = triggerBlocks[tb];
-      var idEl = blk.querySelector('.export-tracking-id');
-      if (!idEl) continue;
-      var txt = (idEl.textContent || '').trim();
-      // txt looks like "(<eventId>)"
-      var m = txt.match(/\\(([0-9a-f\\-]{8,})\\)/i);
-      if (!m) continue;
-      var eventId = m[1];
-      var trigNodeId = triggerNodesByEventId[eventId];
-      if (!trigNodeId) continue;
-      var st2 = statusFor(trigNodeId);
-      var title = blk.querySelector('.export-tracking-title');
-      if (title){
-        title.appendChild(document.createTextNode(' '));
-        title.appendChild(chip(st2));
+      function hasVerificationContent(v) {
+        if (!v) return false;
+        var notes = typeof v.notes === 'string' ? v.notes.trim() : '';
+        var proofText = typeof v.proofText === 'string' ? v.proofText.trim() : '';
+        var proofs = Array.isArray(v.proofs) ? v.proofs : [];
+        var profileIds = Array.isArray(v.testingProfileIds) ? v.testingProfileIds : [];
+        var extraProfiles = Array.isArray(v.extraTestingProfiles) ? v.extraTestingProfiles : [];
+        var hasStatus = v.status === 'Passed' || v.status === 'Failed' || v.status === 'Pending';
+        return hasStatus || notes !== '' || proofText !== '' || proofs.length > 0 || profileIds.length > 0 || extraProfiles.length > 0;
       }
-      var v2 = qaRun && qaRun.verifications ? qaRun.verifications[trigNodeId] : null;
-      renderVerificationSection(blk.querySelector('.export-tracking-body') || blk, v2, { title: 'QA Verification (Trigger)', proofTextLabel: 'Proof payload' });
-    }
-  }
+
+      for (var s = 0; s < stepSections.length; s++) {
+        var sec = stepSections[s];
+        var nodeId = stepIds[s];
+        if (!nodeId) continue;
+        var stepVerif = qaRun && qaRun.verifications ? qaRun.verifications[nodeId] : null;
+
+        var triggerVerifs = [];
+        var triggerBlocks = sec.querySelectorAll('.export-tracking-block');
+        for (var tb = 0; tb < triggerBlocks.length; tb++) {
+          var blk = triggerBlocks[tb];
+          var idEl = blk.querySelector('.export-tracking-id');
+          if (!idEl) continue;
+          var txt = (idEl.textContent || '').trim();
+          var m = txt.match(/\\(([0-9a-f\\-]{8,})\\)/i);
+          if (!m) continue;
+          var eventId = m[1];
+          var trigNodeId = triggerNodesByEventId[eventId];
+          if (!trigNodeId) continue;
+          var trigVerif = qaRun && qaRun.verifications ? qaRun.verifications[trigNodeId] : null;
+          var titleEl = blk.querySelector('.export-tracking-title');
+          var trigLabel = titleEl ? ((titleEl.textContent || '').trim()) : 'Trigger';
+          triggerVerifs.push({ nodeId: trigNodeId, label: trigLabel, verif: trigVerif });
+        }
+
+        var stepHasContent = hasVerificationContent(stepVerif);
+        var trigHasContent = false;
+        for (var tv0 = 0; tv0 < triggerVerifs.length; tv0++) {
+          if (hasVerificationContent(triggerVerifs[tv0].verif)) { trigHasContent = true; break; }
+        }
+        if (!stepHasContent && !trigHasContent) continue;
+        anyVerifs = true;
+
+        var stepWrap = document.createElement('div');
+        stepWrap.className = 'qa-step-verif';
+
+        var stepHead = document.createElement('div');
+        stepHead.className = 'qa-step-verif-head';
+        var titleMain = sec.querySelector('.export-step-title-main');
+        var stepLabel = titleMain ? ((titleMain.textContent || '').trim()) : ('Step ' + (s + 1));
+        var stepLink = document.createElement('a');
+        stepLink.className = 'qa-step-verif-link';
+        stepLink.href = '#' + (sec.id || ('step-' + (s + 1)));
+        stepLink.textContent = stepLabel;
+        stepHead.appendChild(stepLink);
+        stepHead.appendChild(chip(statusFor(nodeId)));
+        stepWrap.appendChild(stepHead);
+
+        if (stepHasContent) {
+          renderVerificationSection(stepWrap, stepVerif, { title: 'Step verification' });
+        }
+
+        for (var ti = 0; ti < triggerVerifs.length; ti++) {
+          var tv = triggerVerifs[ti];
+          if (!hasVerificationContent(tv.verif)) continue;
+          var trigWrap = document.createElement('div');
+          trigWrap.className = 'qa-trigger-verif';
+          var trigHead = document.createElement('div');
+          trigHead.className = 'qa-trigger-verif-head';
+          var trigLabelEl = document.createElement('span');
+          trigLabelEl.textContent = tv.label;
+          trigHead.appendChild(trigLabelEl);
+          trigHead.appendChild(chip(statusFor(tv.nodeId)));
+          trigWrap.appendChild(trigHead);
+          renderVerificationSection(trigWrap, tv.verif, { title: 'Trigger verification', proofTextLabel: 'Proof payload' });
+          stepWrap.appendChild(trigWrap);
+        }
+
+        stepsList.appendChild(stepWrap);
+      }
+
+      if (anyVerifs) {
+        var verifsHeader = document.createElement('h3');
+        verifsHeader.className = 'qa-run-verifs-header';
+        verifsHeader.textContent = 'Step verifications';
+        box.appendChild(verifsHeader);
+        box.appendChild(stepsList);
+      }
+    })();
+
+    // Append at the END of .export-main so docs render first, then each QA
+    // run stacks below in the order they were injected (newest first when
+    // qaRuns is sorted desc by createdAt — see SharedJourneyView.sortedQARuns).
+    main.appendChild(box);
+  })();
 
   // Shared QA docs UX tweaks:
   // - expand all steps by default
   // - make TOC navigation scroll smoothly without reload/jank
   (function(){
+    var allStepSections = document.querySelectorAll('section.export-step');
     function expandAllSteps(){
-      for (var i=0;i<stepSections.length;i++){
-        var sec = stepSections[i];
+      for (var i=0;i<allStepSections.length;i++){
+        var sec = allStepSections[i];
         var btn = sec.querySelector('button.export-step-header[data-accordion="toggle"]');
         var body = sec.querySelector('.export-step-body[data-accordion="body"]');
         if (btn) btn.setAttribute('aria-expanded', 'true');

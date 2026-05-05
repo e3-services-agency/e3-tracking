@@ -172,7 +172,7 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
     return el;
   }
   function renderVerificationSection(container, verification, opts){
-    if (!verification) return;
+    if (!verification || typeof verification !== 'object') return;
     var notes = typeof verification.notes === 'string' ? verification.notes.trim() : '';
     var proofText = typeof verification.proofText === 'string' ? verification.proofText.trim() : '';
     var proofs = Array.isArray(verification.proofs) ? verification.proofs : [];
@@ -466,64 +466,9 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
       metaGrid.appendChild(pvWrap);
     }
 
-    function buildMetaGrid(){
-      var metaGrid = document.createElement('div');
-      metaGrid.className = 'qa-run-meta-grid';
-      addField(metaGrid, 'Run', (qaRun.name || qaRun.id || ''), false);
-      appendStatusField(metaGrid);
-      appendPayloadValidationField(metaGrid);
-      addField(metaGrid, 'Tester', qaRun.testerName ? String(qaRun.testerName) : '', false);
-      addField(metaGrid, 'Environment', qaRun.environment ? String(qaRun.environment) : '', false);
-      addField(metaGrid, 'Ended', qaRun.endedAt ? String(qaRun.endedAt) : '', true);
-      return metaGrid;
-    }
-
-    function appendNotesSection(target){
-      var notesPlain = qaRun.overallNotes ? String(qaRun.overallNotes).trim() : '';
-      var notesHtml = qaRun.__overallNotesHtml;
-      if (!notesPlain && !notesHtml) return;
-      var notesSection = document.createElement('div');
-      notesSection.className = 'qa-run-notes-section';
-      var nWrap = document.createElement('div');
-      var nLab = document.createElement('div');
-      nLab.className = 'export-section-ribbon';
-      nLab.textContent = 'QA Notes';
-      var nVal = document.createElement('div');
-      nVal.className = 'qa-field-value qa-notes-md';
-      if (notesHtml) nVal.innerHTML = notesHtml;
-      else nVal.textContent = notesPlain;
-      nWrap.appendChild(nLab);
-      nWrap.appendChild(nVal);
-      notesSection.appendChild(nWrap);
-      target.appendChild(notesSection);
-    }
-
-    var overviewBox = document.createElement('section');
-    overviewBox.className = 'qa-run-overview qa-run-overview--' + overall;
-    if (qaRun && qaRun.id) overviewBox.id = 'qa-overview-' + String(qaRun.id);
-    var overviewH = document.createElement('h2');
-    overviewH.className = 'export-section-ribbon';
-    overviewH.textContent = 'QA Overview';
-    overviewBox.appendChild(overviewH);
-    overviewBox.appendChild(buildMetaGrid());
-    appendNotesSection(overviewBox);
-    var insertBeforeEl = main.querySelector('h2');
-    if (insertBeforeEl) main.insertBefore(overviewBox, insertBeforeEl);
-    else if (main.firstChild) main.insertBefore(overviewBox, main.firstChild);
-    else main.appendChild(overviewBox);
-
-    var box = document.createElement('section');
-    box.className = 'qa-run-details qa-run-details--' + overall;
-    if (qaRun && qaRun.id) box.id = 'qa-run-' + String(qaRun.id);
-    var h = document.createElement('h2');
-    h.className = 'export-section-ribbon';
-    var headerText = qaRun.name ? ('QA Run: ' + String(qaRun.name)) : 'QA Run details';
-    h.textContent = headerText;
-    box.appendChild(h);
-    box.appendChild(buildMetaGrid());
-
-    var profiles = Array.isArray(qaRun.testingProfiles) ? qaRun.testingProfiles : [];
-    if (profiles.length > 0){
+    function appendTestingProfilesField(metaGrid){
+      var profiles = Array.isArray(qaRun.testingProfiles) ? qaRun.testingProfiles : [];
+      if (profiles.length === 0) return;
       var pWrap = document.createElement('div');
       var pl = document.createElement('div');
       pl.className = 'qa-field-label';
@@ -559,7 +504,88 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
       metaGrid.appendChild(pWrap);
     }
 
-    box.appendChild(metaGrid);
+    function buildMetaGrid(){
+      var metaGrid = document.createElement('div');
+      metaGrid.className = 'qa-run-meta-grid';
+      addField(metaGrid, 'Run', (qaRun.name || qaRun.id || ''), false);
+      appendStatusField(metaGrid);
+      appendPayloadValidationField(metaGrid);
+      addField(metaGrid, 'Tester', qaRun.testerName ? String(qaRun.testerName) : '', false);
+      addField(metaGrid, 'Environment', qaRun.environment ? String(qaRun.environment) : '', false);
+      addField(metaGrid, 'Ended', qaRun.endedAt ? String(qaRun.endedAt) : '', true);
+      appendTestingProfilesField(metaGrid);
+      return metaGrid;
+    }
+
+    function appendNotesSection(target){
+      var notesPlain = qaRun.overallNotes ? String(qaRun.overallNotes).trim() : '';
+      var notesHtml = qaRun.__overallNotesHtml;
+      if (!notesPlain && !notesHtml) return;
+      var notesSection = document.createElement('div');
+      notesSection.className = 'qa-run-notes-section';
+      var nWrap = document.createElement('div');
+      var nLab = document.createElement('div');
+      nLab.className = 'export-section-ribbon';
+      nLab.textContent = 'QA Notes';
+      var nVal = document.createElement('div');
+      nVal.className = 'qa-field-value qa-notes-md';
+      if (notesHtml) nVal.innerHTML = notesHtml;
+      else nVal.textContent = notesPlain;
+      nWrap.appendChild(nLab);
+      nWrap.appendChild(nVal);
+      notesSection.appendChild(nWrap);
+      target.appendChild(notesSection);
+    }
+
+    function ensureQaTocLink(anchorId, label, metaText){
+      if (!anchorId) return;
+      var tocList = document.querySelector('.export-toc-list');
+      if (!tocList) return;
+      var href = '#' + String(anchorId);
+      var existing = tocList.querySelector('a.export-toc-link[href="' + href + '"]');
+      if (existing) return;
+      var link = document.createElement('a');
+      link.className = 'export-toc-link';
+      link.href = href;
+      var step = document.createElement('span');
+      step.className = 'export-toc-step';
+      step.textContent = 'QA';
+      var lbl = document.createElement('span');
+      lbl.className = 'export-toc-label';
+      lbl.textContent = label;
+      var meta = document.createElement('span');
+      meta.className = 'export-toc-meta';
+      meta.textContent = metaText || '';
+      link.appendChild(step);
+      link.appendChild(lbl);
+      link.appendChild(meta);
+      tocList.appendChild(link);
+    }
+
+    var overviewBox = document.createElement('section');
+    overviewBox.className = 'qa-run-overview qa-run-overview--' + overall;
+    if (qaRun && qaRun.id) overviewBox.id = 'qa-overview-' + String(qaRun.id);
+    var overviewH = document.createElement('h2');
+    overviewH.className = 'export-section-ribbon';
+    overviewH.textContent = 'QA Overview';
+    overviewBox.appendChild(overviewH);
+    overviewBox.appendChild(buildMetaGrid());
+    appendNotesSection(overviewBox);
+    var insertBeforeEl = main.querySelector('h2');
+    if (insertBeforeEl) main.insertBefore(overviewBox, insertBeforeEl);
+    else if (main.firstChild) main.insertBefore(overviewBox, main.firstChild);
+    else main.appendChild(overviewBox);
+    ensureQaTocLink(overviewBox.id, 'Overview', payloadValSummary ? payloadValSummary.headline : 'Run summary');
+
+    var box = document.createElement('section');
+    box.className = 'qa-run-details qa-run-details--' + overall;
+    if (qaRun && qaRun.id) box.id = 'qa-run-' + String(qaRun.id);
+    var h = document.createElement('h2');
+    h.className = 'export-section-ribbon';
+    var headerText = qaRun.name ? ('QA Run: ' + String(qaRun.name)) : 'QA Run details';
+    h.textContent = headerText;
+    box.appendChild(h);
+    box.appendChild(buildMetaGrid());
 
     appendNotesSection(box);
     // Per-step verifications, rendered inside this run's box (NOT mutated
@@ -575,7 +601,7 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
       var anyVerifs = false;
 
       function hasVerificationContent(v) {
-        if (!v) return false;
+        if (!v || typeof v !== 'object') return false;
         var notes = typeof v.notes === 'string' ? v.notes.trim() : '';
         var proofText = typeof v.proofText === 'string' ? v.proofText.trim() : '';
         var proofs = Array.isArray(v.proofs) ? v.proofs : [];
@@ -606,7 +632,12 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
           var trigVerif = qaRun && qaRun.verifications ? qaRun.verifications[trigNodeId] : null;
           var titleEl = blk.querySelector('.export-tracking-title');
           var trigLabel = titleEl ? ((titleEl.textContent || '').trim()) : 'Trigger';
-          triggerVerifs.push({ nodeId: trigNodeId, label: trigLabel, verif: trigVerif });
+          triggerVerifs.push({
+            nodeId: trigNodeId,
+            label: trigLabel,
+            verif: trigVerif,
+            inlineHost: blk.querySelector('.export-tracking-body') || blk,
+          });
         }
 
         var stepHasContent = hasVerificationContent(stepVerif);
@@ -634,6 +665,10 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
 
         if (stepHasContent) {
           renderVerificationSection(stepWrap, stepVerif, { title: 'Step verification' });
+          // Restore inline evidence rendering inside the original step block so
+          // payload proofs/validation are visible where readers expect them.
+          var stepBody = sec.querySelector('.export-step-body') || sec;
+          renderVerificationSection(stepBody, stepVerif, { title: 'QA Verification' });
         }
 
         for (var ti = 0; ti < triggerVerifs.length; ti++) {
@@ -649,6 +684,8 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
           trigHead.appendChild(chip(statusFor(tv.nodeId)));
           trigWrap.appendChild(trigHead);
           renderVerificationSection(trigWrap, tv.verif, { title: 'Trigger verification', proofTextLabel: 'Proof payload' });
+          // Restore inline trigger evidence in-place under the trigger block.
+          renderVerificationSection(tv.inlineHost, tv.verif, { title: 'QA Verification (Trigger)', proofTextLabel: 'Proof payload' });
           stepWrap.appendChild(trigWrap);
         }
 
@@ -668,6 +705,7 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
     // run stacks below in the order they were injected (newest first when
     // qaRuns is sorted desc by createdAt — see SharedJourneyView.sortedQARuns).
     main.appendChild(box);
+    ensureQaTocLink(box.id, qaRun.name ? ('Run: ' + String(qaRun.name)) : 'Run details', overall);
   })();
 
   // Shared QA docs UX tweaks:

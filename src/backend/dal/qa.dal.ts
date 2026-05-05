@@ -16,6 +16,8 @@ type QAProofUi = {
   type: 'image' | 'text' | 'json';
   content: string; // public URL for images, raw content for text/json
   createdAt: string;
+  validation_status?: 'pass' | 'fail' | 'unknown';
+  validation_issues?: string[];
 };
 
 type QAVerificationUi = {
@@ -31,6 +33,71 @@ type QAVerificationUi = {
 const RUN_META_NODE_ID = '__run_meta__';
 const RUN_NODES_NODE_ID = '__run_nodes__';
 const RUN_EDGES_NODE_ID = '__run_edges__';
+
+function logMalformedPayload(context: string, details: Record<string, unknown>, err?: unknown): void {
+  if (err instanceof Error) {
+    console.warn(`[qa.dal] ${context}`, { ...details, error: err.message });
+    return;
+  }
+  console.warn(`[qa.dal] ${context}`, details);
+}
+
+function safeParseJson(
+  jsonText: string,
+  context: string,
+  details: Record<string, unknown>,
+): unknown | null {
+  try {
+    return JSON.parse(jsonText);
+  } catch (err) {
+    logMalformedPayload(context, details, err);
+    return null;
+  }
+}
+
+function toOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function toOptionalStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.map((item) => String(item));
+}
+
+function toQaStatus(value: unknown): QAStatusUi {
+  return value === 'Passed' || value === 'Failed' || value === 'Pending' ? value : 'Pending';
+}
+
+function normalizeVerificationPayload(
+  parsed: unknown,
+  nodeId: string,
+  runId: string,
+  routeScope: 'shared' | 'workspace' | 'latest',
+): QAVerificationUi {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    logMalformedPayload('Verification payload is not an object; using safe defaults', {
+      routeScope,
+      runId,
+      nodeId,
+      parsedType: parsed === null ? 'null' : typeof parsed,
+    });
+    return { nodeId, status: 'Pending' };
+  }
+
+  const raw = parsed as Record<string, unknown>;
+  const proofs = Array.isArray(raw.proofs) ? (raw.proofs as QAProofUi[]) : undefined;
+  return {
+    nodeId,
+    status: toQaStatus(raw.status),
+    notes: toOptionalString(raw.notes),
+    proofText: toOptionalString(raw.proofText),
+    proofs,
+    testingProfileIds: toOptionalStringArray(raw.testingProfileIds),
+    extraTestingProfiles: Array.isArray(raw.extraTestingProfiles)
+      ? (raw.extraTestingProfiles as unknown[])
+      : undefined,
+  };
+}
 
 type QARunPayloadInput = {
   id: string;
@@ -270,9 +337,16 @@ export async function getSharedJourneyQARuns(
       if (!nodeId) continue;
       const expectedJson = row.expected_json as string | null;
       if (typeof expectedJson !== 'string') continue;
-      try {
-        if (nodeId === RUN_META_NODE_ID) {
-          const meta = JSON.parse(expectedJson) as any;
+      if (nodeId === RUN_META_NODE_ID) {
+        const parsed = safeParseJson(expectedJson, 'Failed to parse run meta payload', {
+          routeScope: 'shared',
+          runId: run.id,
+          nodeId,
+        });
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          continue;
+        }
+        const meta = parsed as Record<string, unknown>;
           run.name = typeof meta?.name === 'string' ? meta.name : run.name;
           run.createdAt = typeof meta?.createdAt === 'string' ? meta.createdAt : run.createdAt;
           run.testerName = typeof meta?.testerName === 'string' ? meta.testerName : undefined;
@@ -280,34 +354,40 @@ export async function getSharedJourneyQARuns(
           run.overallNotes = typeof meta?.overallNotes === 'string' ? meta.overallNotes : undefined;
           run.testingProfiles = Array.isArray(meta?.testingProfiles) ? meta.testingProfiles : [];
           run.endedAt = typeof meta?.endedAt === 'string' || meta?.endedAt === null ? meta.endedAt : null;
-          continue;
-        }
-
-        if (nodeId === RUN_NODES_NODE_ID) {
-          const ns = JSON.parse(expectedJson);
-          run.nodes = Array.isArray(ns) ? ns : [];
-          continue;
-        }
-
-        if (nodeId === RUN_EDGES_NODE_ID) {
-          const es = JSON.parse(expectedJson);
-          run.edges = Array.isArray(es) ? es : [];
-          continue;
-        }
-
-        const parsed = JSON.parse(expectedJson) as Partial<QAVerificationUi>;
-        run.verifications[nodeId] = {
-          nodeId,
-          status: (parsed.status as QAStatusUi) ?? 'Pending',
-          notes: parsed.notes,
-          proofText: (parsed as any).proofText,
-          proofs: parsed.proofs as QAProofUi[] | undefined,
-          testingProfileIds: parsed.testingProfileIds,
-          extraTestingProfiles: parsed.extraTestingProfiles as unknown[] | undefined,
-        };
-      } catch {
-        // Ignore malformed JSON payload rows.
+        continue;
       }
+
+      if (nodeId === RUN_NODES_NODE_ID) {
+        const ns = safeParseJson(expectedJson, 'Failed to parse run nodes payload', {
+          routeScope: 'shared',
+          runId: run.id,
+          nodeId,
+        });
+        run.nodes = Array.isArray(ns) ? ns : [];
+        continue;
+      }
+
+      if (nodeId === RUN_EDGES_NODE_ID) {
+        const es = safeParseJson(expectedJson, 'Failed to parse run edges payload', {
+          routeScope: 'shared',
+          runId: run.id,
+          nodeId,
+        });
+        run.edges = Array.isArray(es) ? es : [];
+        continue;
+      }
+
+      const parsedVerification = safeParseJson(expectedJson, 'Failed to parse node verification payload', {
+        routeScope: 'shared',
+        runId: run.id,
+        nodeId,
+      });
+      run.verifications[nodeId] = normalizeVerificationPayload(
+        parsedVerification,
+        nodeId,
+        run.id,
+        'shared',
+      );
     }
   }
 
@@ -407,9 +487,17 @@ export async function getJourneyQARuns(
       const expectedJson = row.expected_json as string | null;
       if (typeof expectedJson !== 'string') continue;
 
-      try {
-        if (nodeId === RUN_META_NODE_ID) {
-          const meta = JSON.parse(expectedJson) as any;
+      if (nodeId === RUN_META_NODE_ID) {
+        const parsed = safeParseJson(expectedJson, 'Failed to parse run meta payload', {
+          routeScope: 'workspace',
+          workspaceId,
+          runId: run.id,
+          nodeId,
+        });
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          continue;
+        }
+        const meta = parsed as Record<string, unknown>;
           run.name = typeof meta?.name === 'string' ? meta.name : run.name;
           run.createdAt = typeof meta?.createdAt === 'string' ? meta.createdAt : run.createdAt;
           run.testerName = typeof meta?.testerName === 'string' ? meta.testerName : undefined;
@@ -417,34 +505,43 @@ export async function getJourneyQARuns(
           run.overallNotes = typeof meta?.overallNotes === 'string' ? meta.overallNotes : undefined;
           run.testingProfiles = Array.isArray(meta?.testingProfiles) ? meta.testingProfiles : [];
           run.endedAt = typeof meta?.endedAt === 'string' || meta?.endedAt === null ? meta.endedAt : null;
-          continue;
-        }
-
-        if (nodeId === RUN_NODES_NODE_ID) {
-          const ns = JSON.parse(expectedJson);
-          run.nodes = Array.isArray(ns) ? ns : [];
-          continue;
-        }
-
-        if (nodeId === RUN_EDGES_NODE_ID) {
-          const es = JSON.parse(expectedJson);
-          run.edges = Array.isArray(es) ? es : [];
-          continue;
-        }
-
-        const parsed = JSON.parse(expectedJson) as Partial<QAVerificationUi>;
-        run.verifications[nodeId] = {
-          nodeId,
-          status: (parsed.status as QAStatusUi) ?? 'Pending',
-          notes: parsed.notes,
-          proofText: (parsed as any).proofText,
-          proofs: parsed.proofs as QAProofUi[] | undefined,
-          testingProfileIds: parsed.testingProfileIds,
-          extraTestingProfiles: parsed.extraTestingProfiles as unknown[] | undefined,
-        };
-      } catch {
-        // ignore
+        continue;
       }
+
+      if (nodeId === RUN_NODES_NODE_ID) {
+        const ns = safeParseJson(expectedJson, 'Failed to parse run nodes payload', {
+          routeScope: 'workspace',
+          workspaceId,
+          runId: run.id,
+          nodeId,
+        });
+        run.nodes = Array.isArray(ns) ? ns : [];
+        continue;
+      }
+
+      if (nodeId === RUN_EDGES_NODE_ID) {
+        const es = safeParseJson(expectedJson, 'Failed to parse run edges payload', {
+          routeScope: 'workspace',
+          workspaceId,
+          runId: run.id,
+          nodeId,
+        });
+        run.edges = Array.isArray(es) ? es : [];
+        continue;
+      }
+
+      const parsedVerification = safeParseJson(expectedJson, 'Failed to parse node verification payload', {
+        routeScope: 'workspace',
+        workspaceId,
+        runId: run.id,
+        nodeId,
+      });
+      run.verifications[nodeId] = normalizeVerificationPayload(
+        parsedVerification,
+        nodeId,
+        run.id,
+        'workspace',
+      );
     }
   }
 
@@ -551,9 +648,17 @@ export async function getJourneyQARunsCountAndLatest(
     const expectedJson = row.expected_json as string | null;
     if (typeof expectedJson !== 'string') continue;
 
-    try {
-      if (nodeId === RUN_META_NODE_ID) {
-        const meta = JSON.parse(expectedJson) as any;
+    if (nodeId === RUN_META_NODE_ID) {
+      const parsed = safeParseJson(expectedJson, 'Failed to parse run meta payload', {
+        routeScope: 'latest',
+        workspaceId,
+        runId: latestRunId,
+        nodeId,
+      });
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        continue;
+      }
+      const meta = parsed as Record<string, unknown>;
         outRun.name = typeof meta?.name === 'string' ? meta.name : outRun.name;
         outRun.createdAt =
           typeof meta?.createdAt === 'string' ? meta.createdAt : outRun.createdAt;
@@ -567,34 +672,43 @@ export async function getJourneyQARunsCountAndLatest(
           : [];
         outRun.endedAt =
           typeof meta?.endedAt === 'string' || meta?.endedAt === null ? meta.endedAt : null;
-        continue;
-      }
-
-      if (nodeId === RUN_NODES_NODE_ID) {
-        const ns = JSON.parse(expectedJson);
-        outRun.nodes = Array.isArray(ns) ? ns : [];
-        continue;
-      }
-
-      if (nodeId === RUN_EDGES_NODE_ID) {
-        const es = JSON.parse(expectedJson);
-        outRun.edges = Array.isArray(es) ? es : [];
-        continue;
-      }
-
-      const parsed = JSON.parse(expectedJson) as Partial<QAVerificationUi>;
-      outRun.verifications[nodeId] = {
-        nodeId,
-        status: (parsed.status as QAStatusUi) ?? 'Pending',
-        notes: parsed.notes,
-        proofText: (parsed as any).proofText,
-        proofs: parsed.proofs as QAProofUi[] | undefined,
-        testingProfileIds: parsed.testingProfileIds,
-        extraTestingProfiles: parsed.extraTestingProfiles as unknown[] | undefined,
-      };
-    } catch {
-      // Ignore malformed JSON payload rows.
+      continue;
     }
+
+    if (nodeId === RUN_NODES_NODE_ID) {
+      const ns = safeParseJson(expectedJson, 'Failed to parse run nodes payload', {
+        routeScope: 'latest',
+        workspaceId,
+        runId: latestRunId,
+        nodeId,
+      });
+      outRun.nodes = Array.isArray(ns) ? ns : [];
+      continue;
+    }
+
+    if (nodeId === RUN_EDGES_NODE_ID) {
+      const es = safeParseJson(expectedJson, 'Failed to parse run edges payload', {
+        routeScope: 'latest',
+        workspaceId,
+        runId: latestRunId,
+        nodeId,
+      });
+      outRun.edges = Array.isArray(es) ? es : [];
+      continue;
+    }
+
+    const parsedVerification = safeParseJson(expectedJson, 'Failed to parse node verification payload', {
+      routeScope: 'latest',
+      workspaceId,
+      runId: latestRunId,
+      nodeId,
+    });
+    outRun.verifications[nodeId] = normalizeVerificationPayload(
+      parsedVerification,
+      nodeId,
+      latestRunId,
+      'latest',
+    );
   }
 
   return { qaRunsCount, latestQARun: outRun };

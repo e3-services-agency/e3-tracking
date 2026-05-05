@@ -61,13 +61,23 @@ function formatProofIssuesForExport(p: QAProof): QAProof {
   return { ...p, validation_issues: [prefix, ...items] };
 }
 
+function isVerificationLike(value: unknown): value is QAVerification {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
 /**
  * Rewrites proof.validation_issues so shared export HTML can render the same prefix + list
  * layout as the editor (see JourneyCanvas Trigger QA validation block).
  */
 export function withFormattedPayloadValidationIssuesForExport(qaRun: QARun): QARun {
   const verifications: Record<string, QAVerification> = { ...(qaRun.verifications || {}) };
-  for (const [nodeId, v] of Object.entries(verifications)) {
+  for (const [nodeId, rawVerification] of Object.entries(verifications)) {
+    if (!isVerificationLike(rawVerification)) {
+      // Keep malformed historical entries untouched; avoid throwing and aborting
+      // the entire shared QA overlay injection.
+      continue;
+    }
+    const v = rawVerification;
     const proofs = Array.isArray(v.proofs)
       ? v.proofs.map(formatProofIssuesForExport)
       : v.proofs;

@@ -577,17 +577,6 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
     else main.appendChild(overviewBox);
     ensureQaTocLink(overviewBox.id, 'Overview', payloadValSummary ? payloadValSummary.headline : 'Run summary');
 
-    var box = document.createElement('section');
-    box.className = 'qa-run-details qa-run-details--' + overall;
-    if (qaRun && qaRun.id) box.id = 'qa-run-' + String(qaRun.id);
-    var h = document.createElement('h2');
-    h.className = 'export-section-ribbon';
-    var headerText = qaRun.name ? ('QA Run: ' + String(qaRun.name)) : 'QA Run details';
-    h.textContent = headerText;
-    box.appendChild(h);
-    box.appendChild(buildMetaGrid());
-
-    appendNotesSection(box);
     // Per-step verifications, rendered inside this run's box (NOT mutated
     // back into the docs step sections, which keeps the docs pristine and
     // lets multiple QA runs coexist without 3x chips per step header).
@@ -696,16 +685,10 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
         var verifsHeader = document.createElement('h3');
         verifsHeader.className = 'qa-run-verifs-header';
         verifsHeader.textContent = 'Step verifications';
-        box.appendChild(verifsHeader);
-        box.appendChild(stepsList);
+        overviewBox.appendChild(verifsHeader);
+        overviewBox.appendChild(stepsList);
       }
     })();
-
-    // Append at the END of .export-main so docs render first, then each QA
-    // run stacks below in the order they were injected (newest first when
-    // qaRuns is sorted desc by createdAt — see SharedJourneyView.sortedQARuns).
-    main.appendChild(box);
-    ensureQaTocLink(box.id, qaRun.name ? ('Run: ' + String(qaRun.name)) : 'Run details', overall);
   })();
 
   // Shared QA docs UX tweaks:

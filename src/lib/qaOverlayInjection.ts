@@ -46,6 +46,11 @@ export function buildQaOverlayStyleString(): string {
   .qa-run-details--PASSED { border-left-color: #0DCC96; }
   .qa-run-details--FAILED { border-left-color: #E35010; }
   .qa-run-details--PENDING { border-left-color: #f59e0b; }
+  .qa-run-overview { margin: 0 0 16px; padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff; border-left-width: 5px; }
+  .qa-run-overview--PASSED { border-left-color: #0DCC96; }
+  .qa-run-overview--FAILED { border-left-color: #E35010; }
+  .qa-run-overview--PENDING { border-left-color: #f59e0b; }
+  .qa-run-overview h2.export-section-ribbon { margin: 0 0 12px; font-size: 0.8rem; line-height: 1.25; color: #1A1E38; font-weight: 700; }
   .qa-run-details h2.export-section-ribbon { margin: 0 0 12px; font-size: 0.8rem; line-height: 1.25; color: #1A1E38; font-weight: 700; }
   .qa-run-meta-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
   @media (min-width: 720px) { .qa-run-meta-grid { grid-template-columns: 1fr 1fr; } }
@@ -398,19 +403,9 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
   (function(){
     var main = document.querySelector('.export-main');
     if (!main) return;
-    var box = document.createElement('section');
     var overall = computeOverall();
-    box.className = 'qa-run-details qa-run-details--' + overall;
-    if (qaRun && qaRun.id) box.id = 'qa-run-' + String(qaRun.id);
-    var h = document.createElement('h2');
-    h.className = 'export-section-ribbon';
-    var headerText = qaRun.name ? ('QA Run: ' + String(qaRun.name)) : 'QA Run details';
-    h.textContent = headerText;
-    box.appendChild(h);
-    var metaGrid = document.createElement('div');
-    metaGrid.className = 'qa-run-meta-grid';
 
-    function addField(label, value, mono){
+    function addField(metaGrid, label, value, mono){
       if (!value) return;
       var wrap = document.createElement('div');
       var l = document.createElement('div');
@@ -430,8 +425,7 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
       counts[st] = (counts[st]||0) + 1;
     }
 
-    addField('Run', (qaRun.name || qaRun.id || ''), false);
-    (function(){
+    function appendStatusField(metaGrid){
       var wrap = document.createElement('div');
       var l = document.createElement('div');
       l.className = 'qa-field-label';
@@ -446,8 +440,10 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
       wrap.appendChild(l);
       wrap.appendChild(row);
       metaGrid.appendChild(wrap);
-    })();
-    if (payloadValSummary) {
+    }
+
+    function appendPayloadValidationField(metaGrid){
+      if (!payloadValSummary) return;
       var pvWrap = document.createElement('div');
       var pvLab = document.createElement('div');
       pvLab.className = 'qa-field-label';
@@ -469,9 +465,41 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
       }
       metaGrid.appendChild(pvWrap);
     }
-    addField('Tester', qaRun.testerName ? String(qaRun.testerName) : '', false);
-    addField('Environment', qaRun.environment ? String(qaRun.environment) : '', false);
-    addField('Ended', qaRun.endedAt ? String(qaRun.endedAt) : '', true);
+
+    function buildMetaGrid(){
+      var metaGrid = document.createElement('div');
+      metaGrid.className = 'qa-run-meta-grid';
+      addField(metaGrid, 'Run', (qaRun.name || qaRun.id || ''), false);
+      appendStatusField(metaGrid);
+      appendPayloadValidationField(metaGrid);
+      addField(metaGrid, 'Tester', qaRun.testerName ? String(qaRun.testerName) : '', false);
+      addField(metaGrid, 'Environment', qaRun.environment ? String(qaRun.environment) : '', false);
+      addField(metaGrid, 'Ended', qaRun.endedAt ? String(qaRun.endedAt) : '', true);
+      return metaGrid;
+    }
+
+    var overviewBox = document.createElement('section');
+    overviewBox.className = 'qa-run-overview qa-run-overview--' + overall;
+    if (qaRun && qaRun.id) overviewBox.id = 'qa-overview-' + String(qaRun.id);
+    var overviewH = document.createElement('h2');
+    overviewH.className = 'export-section-ribbon';
+    overviewH.textContent = 'QA Overview';
+    overviewBox.appendChild(overviewH);
+    overviewBox.appendChild(buildMetaGrid());
+    var insertBeforeEl = main.querySelector('h2');
+    if (insertBeforeEl) main.insertBefore(overviewBox, insertBeforeEl);
+    else if (main.firstChild) main.insertBefore(overviewBox, main.firstChild);
+    else main.appendChild(overviewBox);
+
+    var box = document.createElement('section');
+    box.className = 'qa-run-details qa-run-details--' + overall;
+    if (qaRun && qaRun.id) box.id = 'qa-run-' + String(qaRun.id);
+    var h = document.createElement('h2');
+    h.className = 'export-section-ribbon';
+    var headerText = qaRun.name ? ('QA Run: ' + String(qaRun.name)) : 'QA Run details';
+    h.textContent = headerText;
+    box.appendChild(h);
+    box.appendChild(buildMetaGrid());
 
     var profiles = Array.isArray(qaRun.testingProfiles) ? qaRun.testingProfiles : [];
     if (profiles.length > 0){

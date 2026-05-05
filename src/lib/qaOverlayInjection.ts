@@ -478,6 +478,26 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
       return metaGrid;
     }
 
+    function appendNotesSection(target){
+      var notesPlain = qaRun.overallNotes ? String(qaRun.overallNotes).trim() : '';
+      var notesHtml = qaRun.__overallNotesHtml;
+      if (!notesPlain && !notesHtml) return;
+      var notesSection = document.createElement('div');
+      notesSection.className = 'qa-run-notes-section';
+      var nWrap = document.createElement('div');
+      var nLab = document.createElement('div');
+      nLab.className = 'export-section-ribbon';
+      nLab.textContent = 'QA Notes';
+      var nVal = document.createElement('div');
+      nVal.className = 'qa-field-value qa-notes-md';
+      if (notesHtml) nVal.innerHTML = notesHtml;
+      else nVal.textContent = notesPlain;
+      nWrap.appendChild(nLab);
+      nWrap.appendChild(nVal);
+      notesSection.appendChild(nWrap);
+      target.appendChild(notesSection);
+    }
+
     var overviewBox = document.createElement('section');
     overviewBox.className = 'qa-run-overview qa-run-overview--' + overall;
     if (qaRun && qaRun.id) overviewBox.id = 'qa-overview-' + String(qaRun.id);
@@ -486,6 +506,7 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
     overviewH.textContent = 'QA Overview';
     overviewBox.appendChild(overviewH);
     overviewBox.appendChild(buildMetaGrid());
+    appendNotesSection(overviewBox);
     var insertBeforeEl = main.querySelector('h2');
     if (insertBeforeEl) main.insertBefore(overviewBox, insertBeforeEl);
     else if (main.firstChild) main.insertBefore(overviewBox, main.firstChild);
@@ -540,25 +561,7 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
 
     box.appendChild(metaGrid);
 
-    (function(){
-      var notesPlain = qaRun.overallNotes ? String(qaRun.overallNotes).trim() : '';
-      var notesHtml = qaRun.__overallNotesHtml;
-      if (!notesPlain && !notesHtml) return;
-      var notesSection = document.createElement('div');
-      notesSection.className = 'qa-run-notes-section';
-      var nWrap = document.createElement('div');
-      var nLab = document.createElement('div');
-      nLab.className = 'export-section-ribbon';
-      nLab.textContent = 'QA Notes';
-      var nVal = document.createElement('div');
-      nVal.className = 'qa-field-value qa-notes-md';
-      if (notesHtml) nVal.innerHTML = notesHtml;
-      else nVal.textContent = notesPlain;
-      nWrap.appendChild(nLab);
-      nWrap.appendChild(nVal);
-      notesSection.appendChild(nWrap);
-      box.appendChild(notesSection);
-    })();
+    appendNotesSection(box);
     // Per-step verifications, rendered inside this run's box (NOT mutated
     // back into the docs step sections, which keeps the docs pristine and
     // lets multiple QA runs coexist without 3x chips per step header).

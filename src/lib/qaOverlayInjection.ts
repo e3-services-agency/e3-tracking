@@ -577,17 +577,10 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
     else main.appendChild(overviewBox);
     ensureQaTocLink(overviewBox.id, 'Overview', payloadValSummary ? payloadValSummary.headline : 'Run summary');
 
-    // Per-step verifications, rendered inside this run's box (NOT mutated
-    // back into the docs step sections, which keeps the docs pristine and
-    // lets multiple QA runs coexist without 3x chips per step header).
-    //
-    // We read step labels and trigger labels from the rendered docs DOM at
-    // execution time so we don't have to plumb them through the QA payload.
+    // Re-apply QA evidence inline in the docs flow (step/trigger bodies), so
+    // readers see relevant QA details directly under each step/trigger.
     (function(){
       var stepSections = document.querySelectorAll('section.export-step');
-      var stepsList = document.createElement('div');
-      stepsList.className = 'qa-run-step-verifs';
-      var anyVerifs = false;
 
       function hasVerificationContent(v) {
         if (!v || typeof v !== 'object') return false;
@@ -635,25 +628,8 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
           if (hasVerificationContent(triggerVerifs[tv0].verif)) { trigHasContent = true; break; }
         }
         if (!stepHasContent && !trigHasContent) continue;
-        anyVerifs = true;
-
-        var stepWrap = document.createElement('div');
-        stepWrap.className = 'qa-step-verif';
-
-        var stepHead = document.createElement('div');
-        stepHead.className = 'qa-step-verif-head';
-        var titleMain = sec.querySelector('.export-step-title-main');
-        var stepLabel = titleMain ? ((titleMain.textContent || '').trim()) : ('Step ' + (s + 1));
-        var stepLink = document.createElement('a');
-        stepLink.className = 'qa-step-verif-link';
-        stepLink.href = '#' + (sec.id || ('step-' + (s + 1)));
-        stepLink.textContent = stepLabel;
-        stepHead.appendChild(stepLink);
-        stepHead.appendChild(chip(statusFor(nodeId)));
-        stepWrap.appendChild(stepHead);
 
         if (stepHasContent) {
-          renderVerificationSection(stepWrap, stepVerif, { title: 'Step verification' });
           // Restore inline evidence rendering inside the original step block so
           // payload proofs/validation are visible where readers expect them.
           var stepBody = sec.querySelector('.export-step-body') || sec;
@@ -663,30 +639,10 @@ export function buildQaOverlayScriptString(qaRun: QARun): string {
         for (var ti = 0; ti < triggerVerifs.length; ti++) {
           var tv = triggerVerifs[ti];
           if (!hasVerificationContent(tv.verif)) continue;
-          var trigWrap = document.createElement('div');
-          trigWrap.className = 'qa-trigger-verif';
-          var trigHead = document.createElement('div');
-          trigHead.className = 'qa-trigger-verif-head';
-          var trigLabelEl = document.createElement('span');
-          trigLabelEl.textContent = tv.label;
-          trigHead.appendChild(trigLabelEl);
-          trigHead.appendChild(chip(statusFor(tv.nodeId)));
-          trigWrap.appendChild(trigHead);
-          renderVerificationSection(trigWrap, tv.verif, { title: 'Trigger verification', proofTextLabel: 'Proof payload' });
+          // Keep inline trigger-only rendering; no aggregate duplicate block.
           // Restore inline trigger evidence in-place under the trigger block.
           renderVerificationSection(tv.inlineHost, tv.verif, { title: 'QA Verification (Trigger)', proofTextLabel: 'Proof payload' });
-          stepWrap.appendChild(trigWrap);
         }
-
-        stepsList.appendChild(stepWrap);
-      }
-
-      if (anyVerifs) {
-        var verifsHeader = document.createElement('h3');
-        verifsHeader.className = 'qa-run-verifs-header';
-        verifsHeader.textContent = 'Step verifications';
-        overviewBox.appendChild(verifsHeader);
-        overviewBox.appendChild(stepsList);
       }
     })();
   })();

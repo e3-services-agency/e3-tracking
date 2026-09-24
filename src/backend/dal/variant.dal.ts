@@ -132,7 +132,7 @@ function getDiscriminatorPropertiesByEvent(eventId: string): Map<string, Discrim
  *
  * The returned `conditions` are canonicalized by `domain/variants.ts` `normalizeConditions`
  * (values de-duped and sorted, a one-value `in` collapsed to `equals`, conditions sorted by
- * property name) so `buildName`/`buildConditionsKey` always produce the same output regardless of
+ * `property_id`) so `buildName`/`buildConditionsKey` always produce the same output regardless of
  * the order the caller submitted conditions in — this is the actual ERROR 1 fix; the checks above
  * only reject malformed/contradictory input.
  */
@@ -203,9 +203,7 @@ function validateConditions(
     );
   }
 
-  const propertyNameById: Record<string, string> = {};
-  for (const [id, property] of discriminators) propertyNameById[id] = property.name;
-  const normalized = normalizeConditions(parsed, propertyNameById);
+  const normalized = normalizeConditions(parsed);
 
   return { conditions: normalized, discriminators, conditionsKey: buildConditionsKey(normalized) };
 }

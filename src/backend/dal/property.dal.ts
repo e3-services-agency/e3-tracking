@@ -434,7 +434,7 @@ function regenerateVariantNamesForPropertyRename(projectId: string, propertyId: 
       'UPDATE variants SET name = ?, conditions_json = ?, conditions_key = ?, updated_at = ? WHERE id = ?'
     );
     for (const { id, conditions } of parsed) {
-      const normalized = normalizeConditions(conditions, propertyNameById);
+      const normalized = normalizeConditions(conditions);
       const name = generateVariantName(event.name, normalized, propertyNameById);
       const conditionsKey = buildConditionsKey(normalized);
       try {
@@ -598,27 +598,34 @@ export function updateProperty(
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
     .join(', ');
-  try {
-    db.prepare(`UPDATE properties SET ${setClause} WHERE id = @id AND project_id = @project_id`).run({
-      ...patch,
-      id,
-      project_id: projectId,
-    });
-  } catch (err) {
-    mapWriteError(
-      err,
-      `A property named "${String(patch.name ?? '')}" already exists in this project.`,
-      `Failed to update property: ${(err as Error).message}`
-    );
-  }
 
-  if (updates.bundle_ids !== undefined) {
-    BundleDAL.replacePropertyBundlesForProperty(projectId, id, updates.bundle_ids ?? []);
-  }
+  // T-1-07 delta (carried from T-1-05 review): the rename and its variant-name/conditions
+  // regeneration must commit atomically, otherwise a crash between the two statements leaves
+  // variants displaying the old property name while `properties.name` already changed.
+  const applyUpdate = db.transaction(() => {
+    try {
+      db.prepare(`UPDATE properties SET ${setClause} WHERE id = @id AND project_id = @project_id`).run({
+        ...patch,
+        id,
+        project_id: projectId,
+      });
+    } catch (err) {
+      mapWriteError(
+        err,
+        `A property named "${String(patch.name ?? '')}" already exists in this project.`,
+        `Failed to update property: ${(err as Error).message}`
+      );
+    }
 
-  if (updates.name !== undefined) {
-    regenerateVariantNamesForPropertyRename(projectId, id, updates.name.trim());
-  }
+    if (updates.bundle_ids !== undefined) {
+      BundleDAL.replacePropertyBundlesForProperty(projectId, id, updates.bundle_ids ?? []);
+    }
+
+    if (updates.name !== undefined) {
+      regenerateVariantNamesForPropertyRename(projectId, id, updates.name.trim());
+    }
+  });
+  applyUpdate();
 
   return getPropertyOrThrow(projectId, id);
 }

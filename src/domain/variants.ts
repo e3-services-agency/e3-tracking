@@ -53,16 +53,11 @@ export function evaluateVariant(
  * order) — never depends on a name that can change later via a property rename. A rename only ever
  * changes what a condition displays as, never which conditions are "the same" one; sorting by id
  * keeps those two concerns fully decoupled (see `generateVariantName`, which sorts its own copy by
- * name for display). The `propertyNameById` parameter is accepted for call-site symmetry with
- * `generateVariantName` but is unused here. The caller (`variant.dal.ts`) is responsible for
- * rejecting a `property_id` used by more than one condition before calling this (a duplicate would
- * silently collapse here, which is not the same thing as "same value, different order").
+ * name for display). The caller (`variant.dal.ts`) is responsible for rejecting a `property_id`
+ * used by more than one condition before calling this (a duplicate would silently collapse here,
+ * which is not the same thing as "same value, different order").
  */
-export function normalizeConditions(
-  conditions: VariantCondition[],
-  propertyNameById: Record<string, string>
-): VariantCondition[] {
-  void propertyNameById;
+export function normalizeConditions(conditions: VariantCondition[]): VariantCondition[] {
   return conditions
     .map((condition) => {
       const values = Array.from(new Set(condition.values)).sort();

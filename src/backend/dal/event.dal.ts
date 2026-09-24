@@ -425,27 +425,34 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
     .join(', ');
-  try {
-    db.prepare(`UPDATE events SET ${setClause} WHERE id = @id AND project_id = @project_id`).run({
-      ...patch,
-      id: eventId,
-      project_id: projectId,
-    });
-  } catch (err) {
-    mapWriteError(
-      err,
-      `An event named "${String(patch.name ?? '')}" already exists in this project.`,
-      `Failed to update event: ${(err as Error).message}`
-    );
-  }
 
-  if (input.source_ids !== undefined) {
-    replaceEventSources(projectId, eventId, input.source_ids ?? []);
-  }
+  // T-1-07 delta (carried from T-1-05 review): the rename and its variant-name/conditions
+  // regeneration must commit atomically, otherwise a crash between the two statements leaves
+  // variants displaying the old event name while `events.name` already changed.
+  const applyUpdate = db.transaction(() => {
+    try {
+      db.prepare(`UPDATE events SET ${setClause} WHERE id = @id AND project_id = @project_id`).run({
+        ...patch,
+        id: eventId,
+        project_id: projectId,
+      });
+    } catch (err) {
+      mapWriteError(
+        err,
+        `An event named "${String(patch.name ?? '')}" already exists in this project.`,
+        `Failed to update event: ${(err as Error).message}`
+      );
+    }
 
-  if (input.name !== undefined) {
-    regenerateVariantNamesForEvent(eventId, input.name.trim());
-  }
+    if (input.source_ids !== undefined) {
+      replaceEventSources(projectId, eventId, input.source_ids ?? []);
+    }
+
+    if (input.name !== undefined) {
+      regenerateVariantNamesForEvent(eventId, input.name.trim());
+    }
+  });
+  applyUpdate();
 
   return getEventOrThrow(projectId, eventId);
 }
@@ -499,7 +506,7 @@ function regenerateVariantNamesForEvent(eventId: string, eventName: string): voi
     'UPDATE variants SET name = ?, conditions_json = ?, conditions_key = ?, updated_at = ? WHERE id = ?'
   );
   for (const { id, conditions } of parsed) {
-    const normalized = normalizeConditions(conditions, propertyNameById);
+    const normalized = normalizeConditions(conditions);
     const name = generateVariantName(eventName, normalized, propertyNameById);
     const conditionsKey = buildConditionsKey(normalized);
     try {

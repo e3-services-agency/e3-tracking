@@ -143,3 +143,21 @@ export type EventSourceKind = (typeof EVENT_SOURCE_KINDS)[number];
 // ----- QaRun.environment (T-1-04 delta: reviewer finding on T-1-01) -----
 export const QA_RUN_ENVIRONMENTS = ['production', 'staging', 'dev'] as const;
 export type QaRunEnvironment = (typeof QA_RUN_ENVIRONMENTS)[number];
+
+// ----- UseCase type (T-1-07 delta) -----
+// Marketing vs transactional, per CONTEXT.md 3.1/3.2.
+export const USE_CASE_TYPES = ['marketing', 'transactional'] as const;
+export type UseCaseType = (typeof USE_CASE_TYPES)[number];
+
+// ----- UseCase status (T-1-07 delta) -----
+// The plan's "Target data model" UseCase section spells this lifecycle out explicitly
+// (`proposed|approved|in_progress|live|dropped`), which is more specific than the generic D-25 Q2
+// event-status shape (`planned|in_review|implemented|ignored`) and is followed here instead, per
+// the T-1-07 delta note "unless the plan says otherwise".
+export const USE_CASE_STATUSES = ['proposed', 'approved', 'in_progress', 'live', 'dropped'] as const;
+export type UseCaseStatus = (typeof USE_CASE_STATUSES)[number];
+
+// ----- Requirement status (T-1-07 delta) -----
+// Also spelled out explicitly in the plan's Requirement section.
+export const REQUIREMENT_STATUSES = ['open', 'resolved', 'gap'] as const;
+export type RequirementStatus = (typeof REQUIREMENT_STATUSES)[number];

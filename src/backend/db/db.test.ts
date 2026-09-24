@@ -111,6 +111,17 @@ describe('getDb on :memory:', () => {
       expect(tables).not.toContain(leftover);
     }
   });
+
+  it('leaves no dangling foreign keys and no leftover temp table after the 0005 identity_rules rebuild', () => {
+    const db = getDb();
+    expect(db.pragma('foreign_key_check')).toEqual([]);
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
+      .all()
+      .map((row) => (row as { name: string }).name);
+    expect(tables).not.toContain('identity_rules_new');
+    expect(tables).toContain('identity_rules');
+  });
 });
 
 describe('inserting and linking core entities on :memory:', () => {
@@ -232,6 +243,7 @@ const ALL_MIGRATION_FILES = [
   '0002_bundles.sql',
   '0003_unique_soft_delete.sql',
   '0004_catalog_mapping_role_soft_delete.sql',
+  '0005_identity_rules_on_delete.sql',
 ];
 
 describe('listMigrationFiles', () => {

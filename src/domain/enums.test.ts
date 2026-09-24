@@ -8,6 +8,8 @@ import {
   FINDING_KINDS,
   FINDING_SEVERITIES,
   FINDING_STATUSES,
+  IDENTITY_TYPES,
+  CATALOG_MAPPING_ROLES,
   ORIGIN_TYPES,
   PRIORITIES,
   PROPERTY_SCOPES,
@@ -34,6 +36,8 @@ const arrays: Record<string, readonly string[]> = {
   FINDING_KINDS,
   FINDING_SEVERITIES,
   FINDING_STATUSES,
+  IDENTITY_TYPES,
+  CATALOG_MAPPING_ROLES,
 };
 
 describe('enum arrays', () => {

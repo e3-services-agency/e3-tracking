@@ -1,196 +1,289 @@
 /**
- * Catalogs & Data Governance page. List, create, edit catalogs; manage fields and lookup key.
+ * Catalogs: table + plain editor with nested fields against
+ * `/api/projects/:projectId/catalogs` (kept, extended per the plan).
  */
-import React, { useState, useEffect } from 'react';
-import { Plus, Database, AlertCircle } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
-import type { CatalogRow, CatalogType } from '@/src/types/schema';
-import { useCatalogs } from '@/src/features/catalogs/hooks/useCatalogs';
+import { Input } from '@/src/components/ui/Input';
+import { Sheet } from '@/src/components/ui/Sheet';
+import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
+import { fetchWithAuth } from '@/src/lib/api';
+import { API_BASE } from '@/src/config/env';
+import { PRIORITIES, ENTITY_STATUSES } from '@/src/domain/enums';
 
-function CatalogTypeBadge({ type }: { type: CatalogType }) {
-  // Type is descriptive (not a semantic state), so keep it neutral.
-  const styles: Record<CatalogType, string> = {
-    Product: 'bg-gray-100 text-gray-800 border-gray-200',
-    Variant: 'bg-gray-100 text-gray-800 border-gray-200',
-    General: 'bg-gray-100 text-gray-800 border-gray-200',
-  };
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${styles[type]}`}>
-      {type}
-    </span>
-  );
+interface CatalogRow {
+  id: string;
+  name: string;
+  description: string | null;
+  owner: string | null;
+  mapping_role: string | null;
+  priority: string | null;
+  status: string | null;
 }
-import { CatalogFormModal } from '@/src/features/catalogs/components/CatalogFormModal';
-import { CatalogDetail } from '@/src/features/catalogs/components/CatalogDetail';
+
+interface CatalogFieldRow {
+  id: string;
+  catalog_id: string;
+  name: string;
+  data_type: string | null;
+  is_lookup_key: boolean;
+  is_searchable: boolean;
+  is_required: boolean;
+}
+
+async function parseJson(res: Response): Promise<any> {
+  return res.json().catch(() => ({}));
+}
 
 export function Catalogs() {
-  const {
-    catalogs,
-    isLoading,
-    error,
-    fetchCatalogs,
-    createCatalog,
-    updateCatalog,
-    deleteCatalog,
-  } = useCatalogs();
-  const [selectedCatalog, setSelectedCatalog] = useState<CatalogRow | null>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingCatalog, setEditingCatalog] = useState<CatalogRow | null>(null);
+  const { activeProjectId, hasValidProjectContext } = useProjectShell();
+  const [catalogs, setCatalogs] = useState<CatalogRow[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
-  const handleCreateCatalog = async (input: Parameters<typeof createCatalog>[0]) => {
-    const result = await createCatalog(input);
-    if ('error' in result) {
-      return { success: false, error: result.error };
-    }
-    return { success: true };
-  };
-
-  const handleUpdateCatalog = async (input: Parameters<typeof createCatalog>[0]) => {
-    if (!editingCatalog) return { success: false, error: 'No catalog selected' };
-    const result = await updateCatalog(editingCatalog.id, input);
-    if ('error' in result) {
-      return { success: false, error: result.error };
-    }
-    return { success: true };
-  };
-
-  const handleOpenEdit = () => {
-    if (selectedCatalog) {
-      setEditingCatalog(selectedCatalog);
-      setIsFormOpen(true);
-    }
-  };
-
-  const handleCloseForm = () => {
-    setIsFormOpen(false);
-    setEditingCatalog(null);
-  };
-
-  const handleDeleteCatalog = async () => {
-    if (!selectedCatalog) {
-      return { success: false, error: 'No catalog selected' };
-    }
-
-    const result = await deleteCatalog(selectedCatalog.id);
-    if ('error' in result) {
-      return { success: false, error: result.error };
-    }
-
-    await fetchCatalogs();
-    setSelectedCatalog(null);
-    return { success: true };
-  };
+  const load = useCallback(async () => {
+    if (!hasValidProjectContext || !activeProjectId) return;
+    const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/catalogs`);
+    const data = await parseJson(res);
+    if (res.ok) setCatalogs(Array.isArray(data) ? data : []);
+  }, [hasValidProjectContext, activeProjectId]);
 
   useEffect(() => {
-    if (selectedCatalog && !catalogs.some((c) => c.id === selectedCatalog.id)) {
-      setSelectedCatalog(null);
-    }
-  }, [selectedCatalog, catalogs]);
-
-  const detailCatalog = selectedCatalog
-    ? (catalogs.find((c) => c.id === selectedCatalog.id) ?? null)
-    : null;
+    load();
+  }, [load]);
 
   return (
-    <div className="flex flex-1 flex-col h-full bg-[var(--surface-default)]">
-      {detailCatalog ? (
-        <CatalogDetail
-          catalog={detailCatalog}
-          onBack={() => setSelectedCatalog(null)}
-          onEdit={handleOpenEdit}
-          onDelete={handleDeleteCatalog}
+    <div className="flex-1 flex flex-col h-full">
+      <div className="p-8 border-b bg-white flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Catalogs</h1>
+          <p className="text-sm text-gray-500 mt-1">Product and lookup catalogs.</p>
+        </div>
+        <Button onClick={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }} className="gap-2">
+          <Plus className="w-4 h-4" /> Add Catalog
+        </Button>
+      </div>
+
+      <div className="p-8 flex-1 overflow-y-auto">
+        <div className="bg-white rounded-lg border shadow-sm">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-6 py-3 font-medium text-gray-500">Name</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Mapping role</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {catalogs.map((c) => (
+                <tr key={c.id} onClick={() => { setSelectedId(c.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
+                  <td className="px-6 py-4 font-medium text-gray-900">{c.name}</td>
+                  <td className="px-6 py-4 text-gray-500">{c.mapping_role ?? '—'}</td>
+                  <td className="px-6 py-4 text-gray-500">{c.status ?? '—'}</td>
+                </tr>
+              ))}
+              {catalogs.length === 0 && (
+                <tr><td colSpan={3} className="px-6 py-8 text-center text-gray-500">No catalogs found.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title={isCreating ? 'Create Catalog' : 'Edit Catalog'}>
+        <CatalogEditor
+          key={isCreating ? 'create' : selectedId ?? 'none'}
+          catalogId={isCreating ? null : selectedId}
+          projectId={activeProjectId}
+          onSaved={async () => { await load(); setIsSheetOpen(false); }}
+          onClose={() => setIsSheetOpen(false)}
         />
-      ) : (
-        <>
-          <div className="p-6 border-b bg-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'DM Sans, sans-serif' }}>
-                  Catalogs & Data Governance
-                </h1>
-                <p className="text-sm text-gray-500 mt-1">
-                  Document CDP lookup tables and map event properties to catalog fields.
-                </p>
-              </div>
-              <Button
-                onClick={() => {
-                  setEditingCatalog(null);
-                  setIsFormOpen(true);
-                }}
-                className="gap-2"
-              >
-                <Plus className="w-4 h-4" /> New Catalog
-              </Button>
+      </Sheet>
+    </div>
+  );
+}
+
+function CatalogEditor({
+  catalogId,
+  projectId,
+  onSaved,
+  onClose,
+}: {
+  catalogId: string | null;
+  projectId: string;
+  onSaved: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const isCreating = catalogId === null;
+  const [loading, setLoading] = useState(!isCreating);
+  const [catalog, setCatalog] = useState<CatalogRow | null>(null);
+  const [fields, setFields] = useState<CatalogFieldRow[]>([]);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [owner, setOwner] = useState('');
+  const [mappingRole, setMappingRole] = useState('');
+  const [priority, setPriority] = useState('');
+  const [status, setStatus] = useState('');
+  const [newFieldName, setNewFieldName] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!projectId || !catalogId) {
+      setLoading(false);
+      return;
+    }
+    (async () => {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/catalogs/${catalogId}`);
+      const data = await parseJson(res);
+      if (res.ok) {
+        setCatalog(data);
+        setName(data.name ?? '');
+        setDescription(data.description ?? '');
+        setOwner(data.owner ?? '');
+        setMappingRole(data.mapping_role ?? '');
+        setPriority(data.priority ?? '');
+        setStatus(data.status ?? '');
+        setFields(Array.isArray(data.fields) ? data.fields : []);
+      }
+      setLoading(false);
+    })();
+  }, [projectId, catalogId]);
+
+  const handleSave = async () => {
+    if (!name.trim() || !projectId) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const body = {
+        name: name.trim(),
+        description: description.trim() || null,
+        owner: owner.trim() || null,
+        mapping_role: mappingRole || null,
+        priority: priority || null,
+        status: status || null,
+      };
+      const url = isCreating ? `${API_BASE}/api/projects/${projectId}/catalogs` : `${API_BASE}/api/projects/${projectId}/catalogs/${catalogId}`;
+      const res = await fetchWithAuth(url, { method: isCreating ? 'POST' : 'PATCH', body: JSON.stringify(body) });
+      const data = await parseJson(res);
+      if (!res.ok) {
+        setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to save.');
+        return;
+      }
+      await onSaved();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!catalog || !projectId) return;
+    if (!window.confirm(`Delete catalog "${catalog.name}"?`)) return;
+    setDeleting(true);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/catalogs/${catalog.id}`, { method: 'DELETE' });
+      if (res.ok || res.status === 204) await onSaved();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const addField = async () => {
+    if (!newFieldName.trim() || !projectId || !catalogId) return;
+    const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/catalogs/${catalogId}/fields`, {
+      method: 'POST',
+      body: JSON.stringify({ name: newFieldName.trim() }),
+    });
+    const data = await parseJson(res);
+    if (res.ok) {
+      setFields((prev) => [...prev, data]);
+      setNewFieldName('');
+    }
+  };
+
+  const removeField = async (fieldId: string) => {
+    if (!projectId || !catalogId) return;
+    const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/catalogs/${catalogId}/fields/${fieldId}`, { method: 'DELETE' });
+    if (res.ok || res.status === 204) setFields((prev) => prev.filter((f) => f.id !== fieldId));
+  };
+
+  if (loading) return <div className="text-sm text-gray-500 p-4">Loading…</div>;
+
+  return (
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-gray-700">Name</label>
+        <Input value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-gray-700">Description</label>
+        <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Owner</label>
+          <Input value={owner} onChange={(e) => setOwner(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Mapping role</label>
+          <select value={mappingRole} onChange={(e) => setMappingRole(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+            <option value="">—</option>
+            <option value="main">main</option>
+            <option value="variant">variant</option>
+          </select>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Priority</label>
+          <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+            <option value="">—</option>
+            {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Status</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+            <option value="">—</option>
+            {ENTITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {!isCreating && (
+        <div className="space-y-3 border-t pt-4">
+          <h3 className="text-sm font-semibold text-gray-900">Fields</h3>
+          {fields.map((f) => (
+            <div key={f.id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-gray-50">
+              <span className="text-sm text-gray-900">{f.name}</span>
+              <button type="button" onClick={() => removeField(f.id)} className="text-red-500 hover:text-red-700">
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
+          ))}
+          <div className="flex gap-2">
+            <Input value={newFieldName} onChange={(e) => setNewFieldName(e.target.value)} placeholder="Field name" className="flex-1" />
+            <Button type="button" variant="outline" onClick={addField} disabled={!newFieldName.trim()}>Add field</Button>
           </div>
-          <div className="flex-1 overflow-auto p-6">
-            {error && (
-              <div className="mb-4 p-4 rounded-lg bg-red-50 border border-red-200 flex items-center gap-3">
-                <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
-                <span className="text-sm text-red-800">{error}</span>
-                <Button variant="outline" size="sm" onClick={() => fetchCatalogs()}>
-                  Retry
-                </Button>
-              </div>
-            )}
-            {isLoading ? (
-              <p className="text-gray-500">Loading catalogs…</p>
-            ) : catalogs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 px-6 bg-white border border-dashed border-gray-200 rounded-lg">
-                <Database className="w-14 h-14 text-gray-300 mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">No catalogs yet</h3>
-                <p className="text-sm text-gray-500 text-center max-w-sm mb-6">
-                  Create a catalog to document a CDP lookup table (e.g. Products, Users) and map event properties to its fields.
-                </p>
-                <Button
-                  onClick={() => setIsFormOpen(true)}
-                  className="gap-2"
-                >
-                  <Plus className="w-4 h-4" /> Create your first Catalog
-                </Button>
-              </div>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {catalogs.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => setSelectedCatalog(c)}
-                    className="text-left p-5 rounded-xl border border-gray-200 bg-white hover:border-[var(--brand-primary)]/50 hover:shadow-md transition-all"
-                  >
-                    <h3 className="font-semibold text-gray-900" style={{ fontFamily: 'DM Sans, sans-serif' }}>
-                      {c.name}
-                    </h3>
-                    {c.description && (
-                      <p className="text-sm text-gray-500 mt-1 line-clamp-2">{c.description}</p>
-                    )}
-                    <div className="flex flex-wrap gap-1.5 mt-3">
-                      <CatalogTypeBadge type={(c.catalog_type as CatalogType) || 'General'} />
-                      {c.source_system && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                          {c.source_system}
-                        </span>
-                      )}
-                      {c.sync_method && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
-                          {c.sync_method}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </>
+        </div>
       )}
 
-      <CatalogFormModal
-        isOpen={isFormOpen}
-        onClose={handleCloseForm}
-        catalog={editingCatalog}
-        onSubmit={editingCatalog ? handleUpdateCatalog : handleCreateCatalog}
-      />
+      {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{saveError}</div>}
+
+      <div className="pt-6 border-t flex justify-between">
+        {!isCreating && catalog ? (
+          <Button variant="destructive" onClick={() => void handleDelete()} disabled={saving || deleting} className="gap-2">
+            {deleting ? (<><Loader2 className="w-4 h-4 animate-spin" /> Deleting…</>) : (<><Trash2 className="w-4 h-4" /> Delete</>)}
+          </Button>
+        ) : <div />}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onClose} disabled={saving || deleting}>Cancel</Button>
+          <Button onClick={() => void handleSave()} disabled={saving || deleting}>{saving ? 'Saving…' : 'Save Catalog'}</Button>
+        </div>
+      </div>
     </div>
   );
 }

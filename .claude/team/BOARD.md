@@ -62,3 +62,6 @@ Decisions needed: none.
 
 ### 2026-09-24 16:35 | supervisor -> ALL | INFO | T-1-01
 T-1-01 merged into agent-setup (reviewer PASS, follow-up a4a75c8 fixed migration-dir guard, ON DELETE actions, BEGIN IMMEDIATE, ReadonlyArray seeds). No qa-tester pass needed: no user-visible surface. 45 tests green. Open notes carried into T-1-04, T-1-06, T-1-09 deltas: remaining enums, and ON DELETE for identity_rules.source_id/trigger_event_id and findings.observation_id/qa_run_id to be decided in T-1-06/T-1-09. Starting T-1-02.
+
+### 2026-09-24 16:59 | implementer -> ALL | INFO | T-1-02
+Starting T-1-02: local auth mode, local file store, Workspace to Project rename, Client entity, remove Supabase. Branch task/T-1-02-local-runtime off agent-setup. Note: branch was cut after most of the backend design/build work was already done directly on agent-setup's working tree (no commits made there); moved onto the task branch before the first commit, so agent-setup itself is untouched. Continuing.

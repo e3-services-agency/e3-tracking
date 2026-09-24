@@ -15,6 +15,7 @@ import { resolveInitialProject } from './resolveInitialProject';
 import { Catalogs } from '@/src/pages/Catalogs';
 import { IdentityRules } from '@/src/pages/IdentityRules';
 import { ConsentCategories } from '@/src/pages/ConsentCategories';
+import { StandardEvents } from '@/src/pages/StandardEvents';
 
 const DEFAULT_BRAND_PRIMARY = 'var(--e3-emerald)';
 const SIDEBAR_COLLAPSED_KEY = 'e3-tracking.sidebarCollapsed';
@@ -51,6 +52,8 @@ function mainRouteStateFromRestPath(restPath: string): { tab: string } {
       return { tab: 'identityRules' };
     case '/consent-categories':
       return { tab: 'consentCategories' };
+    case '/standard-events':
+      return { tab: 'standardEvents' };
     case '/sources':
       return { tab: 'sources' };
     case '/clients':
@@ -198,6 +201,7 @@ function LayoutInner() {
     if (activeTab === 'catalogs') pushPath('/catalogs', activeProjectKey);
     if (activeTab === 'identityRules') pushPath('/identity-rules', activeProjectKey);
     if (activeTab === 'consentCategories') pushPath('/consent-categories', activeProjectKey);
+    if (activeTab === 'standardEvents') pushPath('/standard-events', activeProjectKey);
     if (activeTab === 'sources') pushPath('/sources', activeProjectKey);
     if (activeTab === 'clients') pushPath('/clients', activeProjectKey);
     if (activeTab === 'settings') pushPath('/settings', activeProjectKey);
@@ -229,6 +233,7 @@ function LayoutInner() {
         {activeTab === 'catalogs' && <Catalogs />}
         {activeTab === 'identityRules' && <IdentityRules />}
         {activeTab === 'consentCategories' && <ConsentCategories />}
+        {activeTab === 'standardEvents' && <StandardEvents />}
         {activeTab === 'sources' && <Sources />}
         {activeTab === 'settings' && <Settings />}
         {activeTab === 'documentation' && <Documentation />}

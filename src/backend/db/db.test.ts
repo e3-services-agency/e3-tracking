@@ -244,6 +244,7 @@ const ALL_MIGRATION_FILES = [
   '0003_unique_soft_delete.sql',
   '0004_catalog_mapping_role_soft_delete.sql',
   '0005_identity_rules_on_delete.sql',
+  '0006_variants_conditions_key.sql',
 ];
 
 describe('listMigrationFiles', () => {

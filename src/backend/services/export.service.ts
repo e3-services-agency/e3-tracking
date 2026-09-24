@@ -14,6 +14,8 @@ import {
   type EventWithCounts,
   type EventPropertyWithDetails,
 } from '../dal/event.dal';
+import { listVariantsByProject, type VariantRow } from '../dal/variant.dal';
+import { listStandardEventMappings } from '../dal/standard-event-mapping.dal';
 import {
   buildCodegenSnippets,
   jsonSampleValueForProperty,
@@ -25,7 +27,14 @@ import type { CodegenEventNameOverrides } from '../../types/schema';
 import { listIdentityRules } from '../dal/identity-rule.dal';
 import { listConsentCategories } from '../dal/consent-category.dal';
 import { listSources } from '../dal/source.dal';
-import { renderIdentityRulesSection, renderConsentCategoriesSection } from './docs/sections';
+import {
+  renderIdentityRulesSection,
+  renderConsentCategoriesSection,
+  renderVariantsSubsection,
+  renderStandardEventMappingsSection,
+  type VariantForDocs,
+  type StandardEventMappingForDocs,
+} from './docs/sections';
 import { escapeHtml } from './htmlEscape';
 
 export { escapeHtml };
@@ -130,6 +139,40 @@ async function buildTriggersHtml(projectId: string, triggers: TriggerEntry[]): P
   return `<div class="triggers">${parts.join('\n')}</div>`;
 }
 
+/** Human-readable condition text for the variants subsection, e.g. "action = add, channel in (web|app)". */
+function formatConditionsText(variant: VariantRow, propertyNameById: Map<string, string>): string {
+  return (variant.conditions_json as VariantRow['conditions_json'])
+    .map((condition) => {
+      const name = propertyNameById.get(condition.property_id) ?? condition.property_id;
+      return condition.operator === 'equals'
+        ? `${name} = ${condition.values[0] ?? ''}`
+        : `${name} in (${condition.values.join('|')})`;
+    })
+    .join(', ');
+}
+
+/**
+ * Builds the attached-property list for a variant's codegen snippet, overriding each
+ * discriminator property's example value with its condition's literal value (T-1-05 acceptance:
+ * "codegen snippets for a variant include the discriminator values as literals").
+ */
+function attachedPropertiesForVariant(
+  properties: EventPropertyWithDetails[],
+  variant: VariantRow
+): AttachedPropertyForCodegen[] {
+  const conditionByProperty = new Map(
+    (variant.conditions_json as VariantRow['conditions_json']).map((c) => [c.property_id, c])
+  );
+  return properties.map((link) => {
+    const attached = toAttachedPropertyForCodegen(link);
+    const condition = conditionByProperty.get(link.property_id);
+    if (condition && condition.values.length > 0) {
+      attached.property_example_values_json = [{ value: condition.values[0] }];
+    }
+    return attached;
+  });
+}
+
 function codegenBlock(label: string, code: string): string {
   return `<div class="codegen-snippet">
     <h4>${escapeHtml(label)}</h4>
@@ -148,7 +191,9 @@ function buildCodegenHtml(snippets: CodegenSnippets): string {
 async function buildEventSectionHtml(
   projectId: string,
   event: EventWithCounts,
-  properties: EventPropertyWithDetails[]
+  properties: EventPropertyWithDetails[],
+  variants: VariantRow[],
+  standardEventByVariantId: Map<string, string>
 ): Promise<string> {
   const attached = properties.map(toAttachedPropertyForCodegen);
   const codegen = buildCodegenSnippets(
@@ -157,6 +202,32 @@ async function buildEventSectionHtml(
     event.codegen_event_name_overrides_json as CodegenEventNameOverrides | null
   );
   const triggersHtml = await buildTriggersHtml(projectId, (event.triggers_json as TriggerEntry[]) ?? []);
+  const propertyNameById = new Map(properties.map((link) => [link.property_id, link.property.name]));
+
+  const variantsHtml = renderVariantsSubsection(
+    variants.map<VariantForDocs>((variant) => ({
+      name: variant.name,
+      description: variant.description,
+      conditionsText: formatConditionsText(variant, propertyNameById),
+      standard_event: standardEventByVariantId.get(variant.id) ?? null,
+    }))
+  );
+
+  // One codegen block per variant, literal discriminator values (T-1-05 acceptance).
+  const variantCodegenHtml = variants
+    .map((variant) => {
+      const variantAttached = attachedPropertiesForVariant(properties, variant);
+      const variantCodegen = buildCodegenSnippets(
+        event.name,
+        variantAttached,
+        event.codegen_event_name_overrides_json as CodegenEventNameOverrides | null
+      );
+      return `<div class="variant-codegen">
+        <h4>${escapeHtml(variant.name)}</h4>
+        ${buildCodegenHtml(variantCodegen)}
+      </div>`;
+    })
+    .join('\n');
 
   return `<section class="event" id="event-${escapeHtml(event.id)}">
     <h2>${escapeHtml(event.name)}</h2>
@@ -177,6 +248,8 @@ async function buildEventSectionHtml(
     ${buildPayloadDoc(properties)}
     <h3>Implementation</h3>
     ${buildCodegenHtml(codegen)}
+    ${variantsHtml}
+    ${variantCodegenHtml}
   </section>`;
 }
 
@@ -230,15 +303,47 @@ function buildIdentityAndConsentSectionsHtml(projectId: string): string {
 export async function generateProjectDocumentationHtml(projectId: string): Promise<string> {
   const project: ProjectWithClient = getProjectWithClient(projectId);
   const events = listEvents(projectId);
+  const allVariants = listVariantsByProject(projectId);
+  const mappings = listStandardEventMappings(projectId);
+  const eventNameById = new Map(events.map((event) => [event.id, event.name]));
+
+  // The standard event a variant maps to (`StandardEventMapping.variant_id`), used both in the
+  // per-event variants subsection and the "Standard event mappings" section below.
+  const standardEventByVariantId = new Map(
+    mappings.filter((m) => m.variant_id).map((m) => [m.variant_id as string, m.standard_event])
+  );
+  const variantNameById = new Map(allVariants.map((variant) => [variant.id, variant.name]));
 
   const sections = await Promise.all(
     events.map(async (event) => {
       const { properties } = getEventWithProperties(projectId, event.id);
-      return buildEventSectionHtml(projectId, event, properties);
+      const variants = allVariants.filter((v) => v.event_id === event.id);
+      return buildEventSectionHtml(projectId, event, properties, variants, standardEventByVariantId);
     })
   );
 
   const identityAndConsentHtml = buildIdentityAndConsentSectionsHtml(projectId);
+
+  const propertyNameByEventAndId = new Map<string, string>();
+  for (const event of events) {
+    const { properties } = getEventWithProperties(projectId, event.id);
+    for (const link of properties) {
+      propertyNameByEventAndId.set(`${event.id}:${link.property_id}`, link.payload_key?.trim() || link.property.name);
+    }
+  }
+  const standardEventMappingsHtml = renderStandardEventMappingsSection(
+    mappings.map<StandardEventMappingForDocs>((mapping) => ({
+      standard_event: mapping.standard_event,
+      event_name: eventNameById.get(mapping.event_id) ?? mapping.event_id,
+      variant_name: mapping.variant_id ? variantNameById.get(mapping.variant_id) ?? mapping.variant_id : null,
+      field_map: Object.fromEntries(
+        Object.entries(mapping.field_map_json).map(([field, propertyId]) => [
+          field,
+          propertyId ? propertyNameByEventAndId.get(`${mapping.event_id}:${propertyId}`) ?? propertyId : null,
+        ])
+      ),
+    }))
+  );
 
   const toc = events
     .map((event) => `<a href="#event-${escapeHtml(event.id)}">${escapeHtml(event.name)}</a>`)
@@ -259,6 +364,7 @@ export async function generateProjectDocumentationHtml(projectId: string): Promi
   <nav class="toc">${toc || '<p>No events defined yet.</p>'}</nav>
   ${sections.join('\n')}
   ${identityAndConsentHtml}
+  ${standardEventMappingsHtml}
 </body>
 </html>`;
 }

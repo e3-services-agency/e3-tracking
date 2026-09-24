@@ -5,9 +5,13 @@
  */
 import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn, mapWriteError } from '../db/util';
-import { ConflictError, NotFoundError, ValidationError } from '../errors';
+import { ConflictError, NotFoundError, StandardEventExistsError, ValidationError } from '../errors';
 import { getClientOrThrow, type ClientRow } from './client.dal';
 import { validateExpirationJson } from './validators';
+import { STANDARD_EVENTS } from '../../domain/bloomreach';
+
+/** `fields` entries must be snake_case: lowercase letters/digits, single underscores, no leading digit. */
+const SNAKE_CASE_RE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
 
 export interface ProjectRow {
   id: string;
@@ -175,6 +179,90 @@ export interface UpdateProjectInput {
    * standard consent key" form on the Consent categories page PATCHes the full array here.
    */
   consent_key_additions_json?: unknown;
+  /**
+   * Project additions to the standard event seed list (D-26, T-1-05 delta): the "add standard
+   * event" form on the Standard events page PATCHes the full array here, `[{key, fields}]`.
+   */
+  standard_event_additions_json?: unknown;
+}
+
+/**
+ * `standard_event_additions_json` must be `[{key, fields: string[]}]` (fix round WARNING 3):
+ * a `key` colliding with a `bloomreach.ts` seed key or another addition in the same array is now
+ * a 400 `STANDARD_EVENT_EXISTS`, not a silent drop (previously stored and then invisible —
+ * `mergeStandardEvents` prefers the seed, so a seed-colliding addition round-tripped through the
+ * API with no error and the UI's add form appeared to do nothing). `fields` must be a non-empty
+ * array of snake_case strings, per the task brief; an empty/missing/non-array `fields`, or an
+ * entry that is not a snake_case string, is now also a 400 instead of silently becoming `[]`.
+ */
+function normalizeStandardEventAdditions(value: unknown): { key: string; fields: string[] }[] {
+  if (!Array.isArray(value)) {
+    throw new ValidationError('standard_event_additions_json must be an array.', 'standard_event_additions_json');
+  }
+  const seedKeys = new Set(STANDARD_EVENTS.map((e) => e.key));
+  const seenKeys = new Set<string>();
+  const result: { key: string; fields: string[] }[] = [];
+  for (const raw of value) {
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+      throw new ValidationError(
+        'Each standard event addition needs a "key" and a "fields" array.',
+        'standard_event_additions_json'
+      );
+    }
+    const row = raw as Record<string, unknown>;
+    const key = typeof row.key === 'string' ? row.key.trim() : '';
+    if (!key) {
+      throw new ValidationError(
+        'Each standard event addition needs a non-empty "key".',
+        'standard_event_additions_json'
+      );
+    }
+    if (!SNAKE_CASE_RE.test(key)) {
+      // LOW 3 (second fix round): `key` becomes a Bloomreach data-mapping JSON key and a URL
+      // segment of /standard-event-mappings/:standardEvent, so it must follow the same snake_case
+      // rule already enforced on `fields` below.
+      throw new ValidationError(
+        `Standard event addition "key" must be snake_case: "${key}".`,
+        'standard_event_additions_json'
+      );
+    }
+    if (seedKeys.has(key)) {
+      throw new StandardEventExistsError(
+        `"${key}" is already a standard Bloomreach event; choose a different key.`,
+        'standard_event_additions_json'
+      );
+    }
+    if (seenKeys.has(key)) {
+      throw new StandardEventExistsError(
+        `"${key}" is already in this project's standard event additions.`,
+        'standard_event_additions_json'
+      );
+    }
+    seenKeys.add(key);
+
+    if (!Array.isArray(row.fields) || row.fields.length === 0) {
+      throw new ValidationError(
+        `Standard event "${key}" needs a non-empty "fields" array.`,
+        'standard_event_additions_json'
+      );
+    }
+    const seenFields = new Set<string>();
+    const fields: string[] = [];
+    for (const field of row.fields) {
+      const trimmed = typeof field === 'string' ? field.trim() : '';
+      if (!trimmed || !SNAKE_CASE_RE.test(trimmed)) {
+        throw new ValidationError(
+          `Standard event "${key}" has an invalid field name (must be snake_case): "${String(field)}".`,
+          'standard_event_additions_json'
+        );
+      }
+      if (seenFields.has(trimmed)) continue;
+      seenFields.add(trimmed);
+      fields.push(trimmed);
+    }
+    result.push({ key, fields });
+  }
+  return result;
 }
 
 /** `consent_key_additions_json` must be an array of non-blank strings, trimmed and de-duplicated. */
@@ -245,6 +333,11 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
   if (updates.consent_key_additions_json !== undefined) {
     patch.consent_key_additions_json = toJsonColumn(
       normalizeStringListColumn(updates.consent_key_additions_json, 'consent_key_additions_json')
+    );
+  }
+  if (updates.standard_event_additions_json !== undefined) {
+    patch.standard_event_additions_json = toJsonColumn(
+      normalizeStandardEventAdditions(updates.standard_event_additions_json)
     );
   }
 

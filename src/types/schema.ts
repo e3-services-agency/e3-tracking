@@ -22,8 +22,6 @@ import { PROPERTY_DATA_TYPES, PROPERTY_DATA_FORMATS } from '../domain/enums';
 export type { PropertyDataType, PropertyDataFormat };
 export { PROPERTY_DATA_TYPES, PROPERTY_DATA_FORMATS };
 
-export type EventPropertyPresence = 'always_sent' | 'sometimes_sent' | 'never_sent';
-
 export type EventType = 'track' | 'page' | 'identify';
 
 export const EVENT_TYPES: EventType[] = ['track', 'page', 'identify'];
@@ -300,126 +298,6 @@ export interface EventSourceRow {
   event_id: string;
   source_id: string;
   created_at: string;
-}
-
-export interface EventPropertyRow {
-  event_id: string;
-  property_id: string;
-  presence: EventPropertyPresence;
-  created_at: string;
-  updated_at: string;
-}
-
-/**
- * Event variant v1 — child of a base event; overrides_json is delta vs base event_properties + definitions.
- */
-export type EventVariantOverridesV1 = {
-  properties?: Record<
-    string,
-    {
-      presence?: EventPropertyPresence | null;
-      required?: boolean | null;
-      /** When true, property is omitted from effective trigger schema for this variant. */
-      excluded?: boolean;
-      description?: string | null;
-      example_values?: unknown | null;
-      enum_values?: string[] | null;
-    }
-  >;
-};
-
-export interface EventVariantRow {
-  id: string;
-  workspace_id: string;
-  base_event_id: string;
-  name: string;
-  description: string | null;
-  overrides_json: EventVariantOverridesV1;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-}
-
-/** Lightweight variant row for event lists and trigger picker. */
-export interface EventVariantSummary {
-  id: string;
-  base_event_id: string;
-  name: string;
-  description: string | null;
-}
-
-/**
- * Per-event overrides for a workspace property (same `property_id` on many events, different semantics).
- *
- * Why not `PropertyContext` or extra `properties` rows? Context classifies event vs user vs system definitions
- * globally; it must not be misused as a per-event “variant” axis. Duplicating `properties` would split identity
- * and break reuse. This table is the correct join: (event_id, property_id) → scoped meaning only.
- *
- * Canonical name/type/global rules remain on `properties`; this layer is optional metadata.
- */
-export interface EventPropertyDefinitionRow {
-  id: string;
-  workspace_id: string;
-  event_id: string;
-  property_id: string;
-  description_override: string | null;
-  /** Per-event display/codegen name override; empty string is normalized to null at read time. */
-  name_override: string | null;
-  enum_values: string[] | null;
-  required: boolean | null;
-  example_values: unknown | null;
-  created_at: string;
-  updated_at: string;
-}
-
-/** Payload for upserting one event–property definition (batch PUT). Omitted keys preserve existing values on update. */
-export type EventPropertyDefinitionUpsertPayload = {
-  property_id: string;
-  description_override?: string | null;
-  enum_values?: string[] | null;
-  required?: boolean | null;
-  example_values?: unknown | null;
-};
-
-/**
- * Read model: global `PropertyRow` + optional `event_property_definitions` override merged in memory only.
- *
- * Precedence: for each overridable field, a non-null value on the override row wins; null on the override means
- * “inherit from global” for description and example_values. `enum_values` and `required` exist only on the override
- * table—when the override row is missing or the field is null, effective_enum_values / effective_required stay null
- * (there is no global enum list on `properties`).
- */
-export interface EffectiveEventPropertyDefinition {
-  property_id: string;
-  event_id: string;
-  /** Canonical workspace property (not mutated). */
-  property: Pick<
-    PropertyRow,
-    | 'id'
-    | 'name'
-    | 'context'
-    | 'description'
-    | 'category'
-    | 'data_type'
-    | 'data_formats'
-    | 'pii'
-    | 'value_schema_json'
-    | 'object_child_property_refs_json'
-    | 'example_values_json'
-  >;
-  /** Stored override row, if any. */
-  override: EventPropertyDefinitionRow | null;
-  /** Merged view for consumers (not persisted). */
-  effective: {
-    description: string | null;
-    enum_values: string[] | null;
-    required: boolean | null;
-    example_values: unknown | null;
-  };
-  /** From event_properties when the property is attached to this event. */
-  presence: EventPropertyPresence | null;
-  /** Non-blocking hints (e.g. override without event_properties link). */
-  warnings: string[];
 }
 
 export interface PropertyValueSchemaNode {

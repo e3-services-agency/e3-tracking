@@ -17,6 +17,7 @@ import {
   ENTITY_STATUSES,
 } from '../../domain/enums';
 import { STANDARD_CUSTOMER_PROPERTIES, isKnownStandardEvent, type StandardEventSeed } from '../../domain/bloomreach';
+import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
 
 export interface AllowedValue {
   value: string;
@@ -310,10 +311,37 @@ function validatePropertyFields(
 }
 
 /**
- * Domain rule 1 (T-1-04 fix round ERROR 3): a property linked with role `discriminator`/`context`
- * on any (non-deleted) event of the project must keep every currently-allowed value — the update
- * cannot empty `allowed_values_json` or drop a value the discriminator/variant logic depends on.
- * Adding new values is always fine. Throws `EnumInUseError` (400) listing the affected events.
+ * Every variant name (project-wide) whose `conditions_json` references `propertyId` with one of
+ * `removedValues` (fix round ERROR 2 extension: T-1-05's variant conditions depend on
+ * `allowed_values_json` the same way discriminator/context links do, and used to have no guard of
+ * their own — removing a value a live variant still names would leave that variant permanently
+ * unsatisfiable with no error).
+ */
+function getVariantNamesUsingPropertyValues(
+  projectId: string,
+  propertyId: string,
+  removedValues: string[]
+): string[] {
+  const removed = new Set(removedValues);
+  const rows = getDb()
+    .prepare('SELECT name, conditions_json FROM variants WHERE project_id = ?')
+    .all(projectId) as { name: string; conditions_json: string | null }[];
+  const names: string[] = [];
+  for (const row of rows) {
+    const conditions = parseJsonColumn(row.conditions_json, [] as VariantCondition[]);
+    const hit = conditions.some((c) => c.property_id === propertyId && c.values.some((v) => removed.has(v)));
+    if (hit) names.push(row.name);
+  }
+  return names;
+}
+
+/**
+ * Domain rule 1 (T-1-04 fix round ERROR 3; T-1-05 fix round ERROR 2 extension): a property linked
+ * with role `discriminator`/`context` on any (non-deleted) event of the project must keep every
+ * currently-allowed value — the update cannot empty `allowed_values_json` or drop a value the
+ * discriminator/variant logic depends on, whether that value is still just role-linked or is
+ * actually named by a live `Variant`'s conditions. Adding new values is always fine. Throws
+ * `EnumInUseError` (400) listing the affected events and/or variants.
  */
 function assertAllowedValuesNotRemovedWhileInUse(
   projectId: string,
@@ -331,6 +359,8 @@ function assertAllowedValuesNotRemovedWhileInUse(
   const removed = currentValues.filter((v) => !nextValues.has(v));
   if (removed.length === 0) return;
 
+  const variantNames = getVariantNamesUsingPropertyValues(projectId, propertyId, removed);
+
   const events = getDb()
     .prepare(
       `SELECT DISTINCT e.name as name FROM event_properties ep
@@ -339,13 +369,85 @@ function assertAllowedValuesNotRemovedWhileInUse(
        ORDER BY e.name`
     )
     .all(propertyId, projectId) as { name: string }[];
-  if (events.length === 0) return;
+
+  if (events.length === 0 && variantNames.length === 0) return;
+
+  const parts: string[] = [];
+  if (events.length > 0) parts.push(`discriminator/context on: ${events.map((e) => e.name).join(', ')}`);
+  if (variantNames.length > 0) parts.push(`variant(s): ${variantNames.join(', ')}`);
 
   throw new EnumInUseError(
     `Cannot remove allowed value(s) ${removed.map((v) => `"${v}"`).join(', ')}: this property is used as a ` +
-      `discriminator/context on: ${events.map((e) => e.name).join(', ')}.`,
+      `${parts.join('; ')}.`,
     'allowed_values_json'
   );
+}
+
+/**
+ * LOW 8 (fix round T-1-05): mirrors `event.dal.ts`'s `regenerateVariantNamesForEvent` for the
+ * other half of a variant name — a renamed discriminator property. Only touches non-deleted
+ * events where `propertyId` is linked with role `discriminator`; see `event.dal.ts` for why
+ * write-time regeneration (not read-time derivation) was chosen.
+ *
+ * Second fix round (ERROR 1 reopened): also re-runs `normalizeConditions`/`buildConditionsKey` and
+ * rewrites `conditions_json`/`conditions_key` alongside `name`, not just `name` — see the matching
+ * comment on `event.dal.ts`'s `regenerateVariantNamesForEvent` for why this is now belt-and-braces
+ * rather than the fix itself (canonical order is `property_id`-based and a rename never changes
+ * `property_id`). Wrapped in `mapWriteError` (INFO 5) instead of letting a UNIQUE violation surface
+ * as a raw 500.
+ */
+function regenerateVariantNamesForPropertyRename(projectId: string, propertyId: string, newName: string): void {
+  const db = getDb();
+  const eventRows = db
+    .prepare(
+      `SELECT DISTINCT e.id as id, e.name as name FROM event_properties ep
+       JOIN events e ON e.id = ep.event_id AND e.deleted_at IS NULL
+       WHERE ep.property_id = ? AND e.project_id = ? AND ep.role = 'discriminator'`
+    )
+    .all(propertyId, projectId) as { id: string; name: string }[];
+  if (eventRows.length === 0) return;
+
+  for (const event of eventRows) {
+    const variantRows = db
+      .prepare('SELECT id, conditions_json FROM variants WHERE event_id = ?')
+      .all(event.id) as { id: string; conditions_json: string | null }[];
+    if (variantRows.length === 0) continue;
+
+    const parsed = variantRows.map((row) => ({
+      id: row.id,
+      conditions: parseJsonColumn(row.conditions_json, [] as VariantCondition[]),
+    }));
+    const propertyIds = [...new Set(parsed.flatMap((v) => v.conditions.map((c) => c.property_id)))];
+    const placeholders = propertyIds.map(() => '?').join(', ');
+    const propertyNameById: Record<string, string> = {};
+    (
+      db.prepare(`SELECT id, name FROM properties WHERE id IN (${placeholders})`).all(...propertyIds) as {
+        id: string;
+        name: string;
+      }[]
+    ).forEach((p) => {
+      propertyNameById[p.id] = p.id === propertyId ? newName : p.name;
+    });
+
+    const now = nowIso();
+    const update = db.prepare(
+      'UPDATE variants SET name = ?, conditions_json = ?, conditions_key = ?, updated_at = ? WHERE id = ?'
+    );
+    for (const { id, conditions } of parsed) {
+      const normalized = normalizeConditions(conditions, propertyNameById);
+      const name = generateVariantName(event.name, normalized, propertyNameById);
+      const conditionsKey = buildConditionsKey(normalized);
+      try {
+        update.run(name, toJsonColumn(normalized), conditionsKey, now, id);
+      } catch (err) {
+        mapWriteError(
+          err,
+          `A variant named "${name}" already exists for this event.`,
+          `Failed to regenerate variant name/key on property rename: ${(err as Error).message}`
+        );
+      }
+    }
+  }
 }
 
 export function createProperty(projectId: string, input: PropertyInput): PropertyRow {
@@ -512,6 +614,10 @@ export function updateProperty(
 
   if (updates.bundle_ids !== undefined) {
     BundleDAL.replacePropertyBundlesForProperty(projectId, id, updates.bundle_ids ?? []);
+  }
+
+  if (updates.name !== undefined) {
+    regenerateVariantNamesForPropertyRename(projectId, id, updates.name.trim());
   }
 
   return getPropertyOrThrow(projectId, id);

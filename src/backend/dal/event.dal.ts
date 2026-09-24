@@ -9,6 +9,7 @@ import { newId, nowIso, parseJsonColumn, toJsonColumn, fromSqliteBool, mapWriteE
 import {
   BadRequestError,
   ConflictError,
+  DiscriminatorInUseError,
   MaxDiscriminatorsError,
   NotFoundError,
   RoleRequiresEnumError,
@@ -17,6 +18,7 @@ import {
 import { getPropertyById, type PropertyRow } from './property.dal';
 import { validateDerivedMetricsJson, validateExpirationJson, validateStringArray } from './validators';
 import { EVENT_PROPERTY_ROLES, EVENT_STATUSES, ENTITY_STATUSES, ORIGIN_TYPES, PRIORITIES } from '../../domain/enums';
+import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
 
 const MAX_DISCRIMINATORS_PER_EVENT = 2;
 
@@ -110,6 +112,41 @@ function assertDiscriminatorLimit(eventId: string, excludePropertyId: string | n
   if (rows.length >= MAX_DISCRIMINATORS_PER_EVENT) {
     throw new MaxDiscriminatorsError(
       `This event already has ${MAX_DISCRIMINATORS_PER_EVENT} discriminator properties (D-03 rule 3).`,
+      'role'
+    );
+  }
+}
+
+/**
+ * Every variant of `eventId` that conditions on `propertyId`, by name (fix round ERROR 2). Reads
+ * `conditions_json` directly with `getDb()` rather than importing `variant.dal.ts` (which already
+ * imports this module for `getEventOrThrow`, so importing it back here would be circular).
+ */
+function getVariantNamesUsingProperty(eventId: string, propertyId: string): string[] {
+  const rows = getDb()
+    .prepare('SELECT name, conditions_json FROM variants WHERE event_id = ?')
+    .all(eventId) as { name: string; conditions_json: string | null }[];
+  const names: string[] = [];
+  for (const row of rows) {
+    const conditions = parseJsonColumn(row.conditions_json, [] as VariantCondition[]);
+    if (conditions.some((c) => c.property_id === propertyId)) names.push(row.name);
+  }
+  return names;
+}
+
+/**
+ * D-03 rule 2 (fix round ERROR 2): a property a Variant conditions on cannot be demoted away from
+ * `discriminator` or detached from the event while that Variant still exists — the variant would
+ * be left referencing a property that is no longer a valid discriminator for it, invisible once
+ * `VariantsSection.tsx` had no discriminators left to show (now fixed to show it read-only
+ * instead). 400 `DISCRIMINATOR_IN_USE` listing the variant names.
+ */
+function assertPropertyNotUsedByVariant(eventId: string, propertyId: string): void {
+  const names = getVariantNamesUsingProperty(eventId, propertyId);
+  if (names.length > 0) {
+    throw new DiscriminatorInUseError(
+      `Cannot change this property's role away from "discriminator" or detach it: it is used by ` +
+        `variant(s) ${names.join(', ')} on this event.`,
       'role'
     );
   }
@@ -406,7 +443,75 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
     replaceEventSources(projectId, eventId, input.source_ids ?? []);
   }
 
+  if (input.name !== undefined) {
+    regenerateVariantNamesForEvent(eventId, input.name.trim());
+  }
+
   return getEventOrThrow(projectId, eventId);
+}
+
+/**
+ * LOW 8 (fix round): variant names embed the event name at creation and were never updated on
+ * rename. Decision: regenerate at write time (here and in `property.dal.ts`'s `updateProperty`
+ * for a renamed discriminator) rather than deriving names at read time — simpler, since it reuses
+ * `variant.dal.ts`'s existing `generateVariantName` call shape, keeps every read path (list/get
+ * variants, the docs export, the Standard events page) untouched, and variant names change rarely
+ * enough that a small write-time cost is not a concern. Renaming can never collide: two variants
+ * of the same event already have distinct (canonicalized) conditions, so distinct names, and only
+ * the shared event-name prefix changes here.
+ *
+ * Second fix round (ERROR 1 reopened): also re-runs `normalizeConditions`/`buildConditionsKey` and
+ * rewrites `conditions_json`/`conditions_key` alongside `name`, not just `name`. This is no longer
+ * strictly required for canonical-identity stability by itself (`normalizeConditions` now sorts by
+ * `property_id`, which an event rename never changes), but keeps every derived column in lockstep
+ * with the current canonicalization rules on every write path, and covers a future
+ * `normalizeConditions` change that reintroduces a name-dependent tiebreaker. Wrapped in
+ * `mapWriteError` (INFO 5): a `conditions_key`/`name` UNIQUE hit here would otherwise surface as a
+ * raw 500 instead of a 409.
+ */
+function regenerateVariantNamesForEvent(eventId: string, eventName: string): void {
+  const db = getDb();
+  const variantRows = db
+    .prepare('SELECT id, conditions_json FROM variants WHERE event_id = ?')
+    .all(eventId) as { id: string; conditions_json: string | null }[];
+  if (variantRows.length === 0) return;
+
+  const parsed = variantRows.map((row) => ({
+    id: row.id,
+    conditions: parseJsonColumn(row.conditions_json, [] as VariantCondition[]),
+  }));
+  const propertyIds = [...new Set(parsed.flatMap((v) => v.conditions.map((c) => c.property_id)))];
+  if (propertyIds.length === 0) return;
+
+  const placeholders = propertyIds.map(() => '?').join(', ');
+  const propertyNameById: Record<string, string> = {};
+  (
+    db.prepare(`SELECT id, name FROM properties WHERE id IN (${placeholders})`).all(...propertyIds) as {
+      id: string;
+      name: string;
+    }[]
+  ).forEach((p) => {
+    propertyNameById[p.id] = p.name;
+  });
+
+  const now = nowIso();
+  const update = db.prepare(
+    'UPDATE variants SET name = ?, conditions_json = ?, conditions_key = ?, updated_at = ? WHERE id = ?'
+  );
+  for (const { id, conditions } of parsed) {
+    const normalized = normalizeConditions(conditions, propertyNameById);
+    const name = generateVariantName(eventName, normalized, propertyNameById);
+    const conditionsKey = buildConditionsKey(normalized);
+    try {
+      update.run(name, toJsonColumn(normalized), conditionsKey, now, id);
+    } catch (err) {
+      mapWriteError(
+        err,
+        `A variant named "${name}" already exists for this event.`,
+        `Failed to regenerate variant name/key on event rename: ${(err as Error).message}`
+      );
+    }
+  }
 }
 
 /**
@@ -414,7 +519,11 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
  * for any rule pointing at it (T-1-06 integration fix: the ON DELETE SET NULL migration only fires
  * on a hard delete, but events are soft-deleted here, so without this the rule keeps a "live"
  * reference to an event that no longer shows up anywhere and an unrelated PATCH to the rule fails
- * with "trigger_event_id does not belong to this project").
+ * with "trigger_event_id does not belong to this project"). Also deletes the event's
+ * `standard_event_mappings` and `variants` rows (fix round WARNING 4): soft-delete otherwise left
+ * a ghost mapping pointing at an event that `listEvents`/the Standard events page/the docs export
+ * no longer show, occupying the standard event key until manually overwritten, and orphaned
+ * variants with no live event to belong to.
  */
 export function deleteEvent(projectId: string, eventId: string): void {
   getEventOrThrow(projectId, eventId);
@@ -430,6 +539,8 @@ export function deleteEvent(projectId: string, eventId: string): void {
     db.prepare(
       'UPDATE identity_rules SET trigger_event_id = NULL, updated_at = ? WHERE trigger_event_id = ? AND project_id = ?'
     ).run(now, eventId, projectId);
+    db.prepare('DELETE FROM standard_event_mappings WHERE event_id = ? AND project_id = ?').run(eventId, projectId);
+    db.prepare('DELETE FROM variants WHERE event_id = ? AND project_id = ?').run(eventId, projectId);
   });
   run();
 }
@@ -590,7 +701,11 @@ export function updateEventProperty(
     const property = getPropertyById(projectId, propertyId);
     if (!property) throw new NotFoundError('Property not found or does not belong to this project.', 'property');
     assertRoleAllowedForProperty(updates.role, property);
-    if (updates.role === 'discriminator') assertDiscriminatorLimit(eventId, propertyId);
+    if (updates.role === 'discriminator') {
+      assertDiscriminatorLimit(eventId, propertyId);
+    } else {
+      assertPropertyNotUsedByVariant(eventId, propertyId);
+    }
   }
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
@@ -623,6 +738,7 @@ export function updateEventProperty(
 
 export function detachPropertyFromEvent(projectId: string, eventId: string, propertyId: string): void {
   getEventOrThrow(projectId, eventId);
+  assertPropertyNotUsedByVariant(eventId, propertyId);
   const db = getDb();
   const result = db
     .prepare('DELETE FROM event_properties WHERE event_id = ? AND property_id = ?')
@@ -652,6 +768,7 @@ export function replaceEventProperties(
   const uniqueLinks = Array.from(dedupedByPropertyId.values());
 
   let discriminatorCount = 0;
+  const nextDiscriminatorIds = new Set<string>();
   for (const link of uniqueLinks) {
     const property = getPropertyById(projectId, link.property_id);
     if (!property) {
@@ -665,6 +782,7 @@ export function replaceEventProperties(
     const role = link.role || DEFAULT_ROLE;
     assertRoleAllowedForProperty(role, property);
     if (role === 'discriminator') {
+      nextDiscriminatorIds.add(link.property_id);
       discriminatorCount += 1;
       if (discriminatorCount > MAX_DISCRIMINATORS_PER_EVENT) {
         throw new MaxDiscriminatorsError(
@@ -672,6 +790,17 @@ export function replaceEventProperties(
           'role'
         );
       }
+    }
+  }
+
+  // fix round ERROR 2: a property currently linked as `discriminator` that a variant conditions on
+  // must not be dropped from the replacement list, or demoted to another role within it.
+  const currentDiscriminators = db
+    .prepare("SELECT property_id FROM event_properties WHERE event_id = ? AND role = 'discriminator'")
+    .all(eventId) as { property_id: string }[];
+  for (const { property_id } of currentDiscriminators) {
+    if (!nextDiscriminatorIds.has(property_id)) {
+      assertPropertyNotUsedByVariant(eventId, property_id);
     }
   }
 

@@ -22,6 +22,8 @@ import exportRouter from './routes/export';
 import sharedRouter from './routes/shared';
 import identityRulesRouter from './routes/identity-rules';
 import consentCategoriesRouter from './routes/consent-categories';
+import standardEventMappingsRouter from './routes/standard-event-mappings';
+import projectVariantsRouter from './routes/project-variants';
 import { removedRouter } from './routes/removed';
 import { optionalAuth } from './middleware/auth';
 import { requireProject } from './middleware/project';
@@ -66,15 +68,17 @@ export function createApp(): express.Express {
   app.use('/api/projects/:projectId/export', requireProject, exportRouter);
   app.use('/api/projects/:projectId/identity-rules', requireProject, identityRulesRouter);
   app.use('/api/projects/:projectId/consent-categories', requireProject, consentCategoriesRouter);
+  app.use('/api/projects/:projectId/standard-event-mappings', requireProject, standardEventMappingsRouter);
+  app.use('/api/projects/:projectId/variants', requireProject, projectVariantsRouter);
 
   // Public share-link mechanism (D-18): stub until phase 4 (see routes/shared.ts).
   app.use('/api/shared', sharedRouter);
 
   // Removed in the schema rewrite (D-18); journeys/metrics never had tables in the fresh schema
   // and T-1-03 removed every frontend code path that called them, so no stub is mounted for them
-  // anymore. Old-variant stays 501 until T-1-05 introduces the real Variant model.
+  // anymore. Variant is real as of T-1-05 (mounted as a sub-path of eventsRouter above); qa-runs
+  // stays 501 until T-1-09.
   app.use('/api/projects/:projectId/qa-runs', requireProject, removedRouter('T-1-05'));
-  app.use('/api/projects/:projectId/variants', requireProject, removedRouter('T-1-05'));
 
   // Simple health endpoint. Kept in Express so we don't need a separate Vercel function on the
   // Hobby plan.

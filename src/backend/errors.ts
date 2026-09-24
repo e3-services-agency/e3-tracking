@@ -75,6 +75,77 @@ export class MaxDiscriminatorsError extends BadRequestError {
 }
 
 /**
+ * A `Variant.conditions_json` entry names a property that is not linked to the event with role
+ * `discriminator` (D-03; T-1-05). 400.
+ */
+export class ConditionNotDiscriminatorError extends BadRequestError {
+  readonly code = 'CONDITION_NOT_DISCRIMINATOR';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'ConditionNotDiscriminatorError';
+  }
+}
+
+/** A `Variant.conditions_json` entry names a value outside the property's `allowed_values_json` (T-1-05). 400. */
+export class ConditionValueNotAllowedError extends BadRequestError {
+  readonly code = 'CONDITION_VALUE_NOT_ALLOWED';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'ConditionValueNotAllowedError';
+  }
+}
+
+/**
+ * Two conditions in the same `Variant.conditions_json` name the same discriminator property
+ * (fix round T-1-05 ERROR 1): even a contradiction like `action=add, action=remove` used to be
+ * silently accepted. 400.
+ */
+export class ConditionDuplicatePropertyError extends BadRequestError {
+  readonly code = 'CONDITION_DUPLICATE_PROPERTY';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'ConditionDuplicatePropertyError';
+  }
+}
+
+/**
+ * An `EventProperty.role` is changed away from `discriminator`, or the link is detached/omitted
+ * from a replace, while a `Variant` of the event still conditions on that property (fix round
+ * T-1-05 ERROR 2; D-03 rule 2). 400.
+ */
+export class DiscriminatorInUseError extends BadRequestError {
+  readonly code = 'DISCRIMINATOR_IN_USE';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'DiscriminatorInUseError';
+  }
+}
+
+/**
+ * `Project.standard_event_additions_json` names a key that collides with a `bloomreach.ts` seed
+ * key or another addition already in the array (fix round T-1-05 WARNING 3). 400.
+ */
+export class StandardEventExistsError extends BadRequestError {
+  readonly code = 'STANDARD_EVENT_EXISTS';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'StandardEventExistsError';
+  }
+}
+
+/**
+ * `StandardEventMapping.standard_event` is not one of the `bloomreach.ts` seed keys or this
+ * project's `standard_event_additions_json` (D-26; T-1-05). 400.
+ */
+export class UnknownStandardEventError extends BadRequestError {
+  readonly code = 'UNKNOWN_STANDARD_EVENT';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'UnknownStandardEventError';
+  }
+}
+
+/**
  * `Property.allowed_values_json` would be emptied, or would drop a value, while the property is
  * still linked with role `discriminator`/`context` on one or more events (T-1-04 fix round
  * ERROR 3; domain rule 1). 400.

@@ -23,7 +23,8 @@ CREATE TABLE clients (
 -- ---------------------------------------------------------------------------
 CREATE TABLE projects (
   id TEXT PRIMARY KEY,
-  client_id TEXT NOT NULL REFERENCES clients(id),
+  -- RESTRICT (T-1-02 delta): deleting a client that still owns projects must fail.
+  client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE RESTRICT,
   name TEXT NOT NULL,
   key TEXT NOT NULL UNIQUE,
   client_name TEXT,
@@ -209,7 +210,7 @@ CREATE TABLE event_properties (
   role TEXT NOT NULL DEFAULT 'normal',
   priority TEXT,
   status TEXT,
-  source_id TEXT REFERENCES sources(id),
+  source_id TEXT REFERENCES sources(id) ON DELETE SET NULL,
   payload_key TEXT,
   description_override TEXT,
   example_values_override_json TEXT,
@@ -247,7 +248,8 @@ CREATE TABLE standard_event_mappings (
   project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   standard_event TEXT NOT NULL,
   event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
-  variant_id TEXT REFERENCES variants(id) ON DELETE CASCADE,
+  -- SET NULL: removing just the variant should not wipe out the whole standard event mapping.
+  variant_id TEXT REFERENCES variants(id) ON DELETE SET NULL,
   field_map_json TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
@@ -349,9 +351,12 @@ CREATE TABLE requirements (
   use_case_id TEXT NOT NULL REFERENCES use_cases(id) ON DELETE CASCADE,
   sort_order INTEGER NOT NULL DEFAULT 0,
   target_kind TEXT NOT NULL,
-  property_id TEXT REFERENCES properties(id),
-  event_id TEXT REFERENCES events(id),
-  variant_id TEXT REFERENCES variants(id),
+  -- SET NULL on all three target columns: a requirement is a record of what was required (status
+  -- can be `gap`), so hard-deleting the property/event/variant it pointed to clears the
+  -- dangling reference instead of losing the requirement row.
+  property_id TEXT REFERENCES properties(id) ON DELETE SET NULL,
+  event_id TEXT REFERENCES events(id) ON DELETE SET NULL,
+  variant_id TEXT REFERENCES variants(id) ON DELETE SET NULL,
   level TEXT NOT NULL,
   status TEXT,
   note TEXT,
@@ -389,8 +394,10 @@ CREATE TABLE observations (
   qa_run_id TEXT NOT NULL REFERENCES qa_runs(id) ON DELETE CASCADE,
   source TEXT NOT NULL,
   event_type TEXT NOT NULL,
-  event_id TEXT REFERENCES events(id),
-  variant_id TEXT REFERENCES variants(id),
+  -- SET NULL: an observation is raw QA evidence and must survive the definition it was
+  -- resolved against being hard-deleted; it just becomes unresolved again.
+  event_id TEXT REFERENCES events(id) ON DELETE SET NULL,
+  variant_id TEXT REFERENCES variants(id) ON DELETE SET NULL,
   timestamp REAL NOT NULL,
   properties_json TEXT NOT NULL,
   page_url TEXT,
@@ -413,9 +420,11 @@ CREATE TABLE findings (
   comparison TEXT NOT NULL,
   kind TEXT NOT NULL,
   severity TEXT NOT NULL,
-  event_id TEXT REFERENCES events(id),
-  variant_id TEXT REFERENCES variants(id),
-  property_id TEXT REFERENCES properties(id),
+  -- SET NULL: findings are a historical audit trail (D-21) and stay on record with the
+  -- reference cleared when the definition entity they point to is hard-deleted.
+  event_id TEXT REFERENCES events(id) ON DELETE SET NULL,
+  variant_id TEXT REFERENCES variants(id) ON DELETE SET NULL,
+  property_id TEXT REFERENCES properties(id) ON DELETE SET NULL,
   observation_id TEXT REFERENCES observations(id),
   qa_run_id TEXT REFERENCES qa_runs(id),
   expected_json TEXT,

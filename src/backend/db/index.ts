@@ -29,37 +29,62 @@ function resolveDbPath(): string {
   return resolved;
 }
 
-/** Ordered list of `NNNN_*.sql` migration files in `migrations/`. */
-function listMigrationFiles(): string[] {
-  if (!fs.existsSync(MIGRATIONS_DIR)) return [];
-  return fs
+/**
+ * Ordered list of `NNNN_*.sql` migration files in `migrations/`. Throws a clear startup error
+ * instead of silently returning an empty list when the directory is missing or contains no
+ * `.sql` files: `getDb()` must never hand out a connection with zero tables (reviewer warning
+ * on src/backend/db/index.ts:34, T-1-01 follow-up). The built bundle ships its `.sql` files
+ * next to `api/_backend/app.js` (see `tsup.config.ts`'s `onSuccess`), so this same relative
+ * lookup works for both `tsx src/backend/server.ts` and the tsup bundle.
+ */
+export function listMigrationFiles(): string[] {
+  if (!fs.existsSync(MIGRATIONS_DIR)) {
+    throw new Error(
+      `No migrations directory found at ${MIGRATIONS_DIR}. Expected .sql migration files ` +
+        `next to this module (see tsup.config.ts onSuccess for the built-bundle copy step).`
+    );
+  }
+  const files = fs
     .readdirSync(MIGRATIONS_DIR)
     .filter((file) => file.endsWith('.sql'))
     .sort();
+  if (files.length === 0) {
+    throw new Error(`Migrations directory ${MIGRATIONS_DIR} contains no .sql files.`);
+  }
+  return files;
 }
 
-/** Apply every migration file not yet recorded in `schema_migrations`, in filename order, each in its own transaction. */
+/**
+ * Apply every migration file not yet recorded in `schema_migrations`, in filename order.
+ * Creating the tracking table, reading the applied set and applying pending files all happen
+ * inside a single `BEGIN IMMEDIATE` transaction, so two processes booting on an empty database
+ * file at once (Express and the MCP sibling, D-19) cannot both observe "nothing applied" and
+ * race to create the same tables; the second acquires the write lock only after the first has
+ * committed and sees its migrations already recorded (reviewer LOW note on db/index.ts:50-61,
+ * T-1-01 follow-up).
+ */
 function runMigrations(connection: Database.Database): void {
-  connection.exec(`
-    CREATE TABLE IF NOT EXISTS schema_migrations (
-      id TEXT PRIMARY KEY,
-      applied_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  const apply = connection.transaction(() => {
+    connection.exec(`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        id TEXT PRIMARY KEY,
+        applied_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+      );
+    `);
+
+    const applied = new Set(
+      connection.prepare('SELECT id FROM schema_migrations').all().map((row) => (row as { id: string }).id)
     );
-  `);
 
-  const applied = new Set(
-    connection.prepare('SELECT id FROM schema_migrations').all().map((row) => (row as { id: string }).id)
-  );
-
-  for (const file of listMigrationFiles()) {
-    if (applied.has(file)) continue;
-    const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf-8');
-    const apply = connection.transaction(() => {
+    for (const file of listMigrationFiles()) {
+      if (applied.has(file)) continue;
+      const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf-8');
       connection.exec(sql);
       connection.prepare('INSERT INTO schema_migrations (id) VALUES (?)').run(file);
-    });
-    apply();
-  }
+    }
+  });
+
+  apply.immediate();
 }
 
 /**

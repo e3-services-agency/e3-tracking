@@ -19,7 +19,7 @@ export interface StandardEventSeed {
 }
 
 /** The twelve standard events in `data-mapping.json`, in the fixture's key order. */
-export const STANDARD_EVENTS: StandardEventSeed[] = [
+export const STANDARD_EVENTS: ReadonlyArray<StandardEventSeed> = [
   {
     key: 'add_to_cart',
     fields: [
@@ -98,7 +98,7 @@ export const STANDARD_EVENTS: StandardEventSeed[] = [
 ];
 
 /** `catalogs.main_columns` keys from the fixture: the Bloomreach product catalog's standard column slots. */
-export const CATALOG_MAIN_COLUMNS: string[] = [
+export const CATALOG_MAIN_COLUMNS: ReadonlyArray<string> = [
   'active',
   'brand',
   'category_level_1',
@@ -120,7 +120,7 @@ export const CATALOG_MAIN_COLUMNS: string[] = [
 ];
 
 /** `customer_properties` keys from the fixture: standard Bloomreach customer property slots. */
-export const STANDARD_CUSTOMER_PROPERTIES: string[] = [
+export const STANDARD_CUSTOMER_PROPERTIES: ReadonlyArray<string> = [
   'address',
   'birthday',
   'email',
@@ -134,7 +134,7 @@ export const STANDARD_CUSTOMER_PROPERTIES: string[] = [
 ];
 
 /** `consents` keys from the fixture: standard Bloomreach consent slots. */
-export const STANDARD_CONSENT_KEYS: string[] = [
+export const STANDARD_CONSENT_KEYS: ReadonlyArray<string> = [
   'email',
   'marketing',
   'newsletter',
@@ -156,7 +156,7 @@ export const STANDARD_CONSENT_KEYS: string[] = [
  * this client's custom/loyalty integration events, not generic Bloomreach system events, and
  * the qa-roundtrip fixture expects them to still raise `unexpected_event` (T-1-09).
  */
-export const KNOWN_SYSTEM_EVENT_TYPES: string[] = [
+export const KNOWN_SYSTEM_EVENT_TYPES: ReadonlyArray<string> = [
   'campaign',
   'consent',
   'survey',
@@ -176,7 +176,10 @@ export const KNOWN_SYSTEM_EVENT_TYPES: string[] = [
  * Merge a project's additional keys (from `standard_event_additions_json` or
  * `consent_key_additions_json`) with a seed list of keys, de-duplicated, seed first.
  */
-export function mergeKeyList(seed: string[], additions: string[] | null | undefined): string[] {
+export function mergeKeyList(
+  seed: ReadonlyArray<string>,
+  additions: string[] | null | undefined
+): string[] {
   const merged = [...seed];
   for (const key of additions ?? []) {
     if (!merged.includes(key)) merged.push(key);

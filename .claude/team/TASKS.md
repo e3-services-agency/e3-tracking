@@ -9,7 +9,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-0-03 | 0 | Target model and phased plan | architect | T-0-02 | DONE | see below |
 | T-0-04 | 0 | User approval of plan, phase 1 tasks adopted | supervisor | T-0-03 | DONE | see below |
 | T-1-01 | 1 | SQLite persistence, schema v1, dev server, vitest, domain definitions module | implementer | T-0-04 | DONE | plan + delta |
-| T-1-02 | 1 | Local auth mode, local file store, Workspace to Project rename, Client entity, remove Supabase | implementer | T-1-01 | QA | plan + delta |
+| T-1-02 | 1 | Local auth mode, local file store, Workspace to Project rename, Client entity, remove Supabase | implementer | T-1-01 | DONE | plan + delta |
 | T-1-03 | 1 | Remove journeys, QA overlay, legacy store, metrics; project-scope HTML documentation export | implementer | T-1-02 | TODO | plan |
 | T-1-CP | 1 | Checkpoint report to user after T-1-03 | supervisor | T-1-03 | TODO | see below |
 | T-1-04 | 1 | Property and Event in the new model: allowed values, scope, role, required, payload key, expiration, card fields | implementer | T-1-02 | TODO | plan + delta |
@@ -48,6 +48,10 @@ Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktree
 - Local user name resolution per D-25 Q8: `E3_LOCAL_USER_NAME`, else git `user.name`, else "Local user".
 - qa-tester: create a client, create two projects under it, switch between them, data stays separate.
 
+### T-1-03 delta
+- Carried from T-1-02 review: `src/pages/Events.tsx` `handleDelete` must surface non-ok responses like Properties and Catalogs do; `files.route.test.ts` dot-segment case must assert status 400 and code `INVALID_PATH`; `0004` migration `DROP INDEX` gets `IF EXISTS`.
+- Worktree rule: implementers running in parallel worktrees do not edit `.claude/team/*`; they return the handoff text and the supervisor posts it.
+
 ### T-1-CP checkpoint
 - Supervisor posts a report to the user after T-1-03 merges: app boots via the `e3-tracking` launch entry with no network, old code is gone (grep for `supabase`, `journey`, `qaOverlay`, `xyflow` in `src/` returns nothing), test summary line, list of what is intentionally rough until T-1-09. No new phase 1 task starts before the user acknowledges, except T-1-04 and T-1-06 which may already be in progress in parallel.
 
@@ -62,6 +66,8 @@ Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktree
 ### T-1-06 delta
 - `ConsentCategory.standard_key` accepts seed keys plus project additions; the page has an "add standard consent key" form (D-26).
 - Add identity_type and catalog mapping_role enums to `src/domain/enums.ts` (reviewer finding on T-1-01). T-1-07 adds UseCase type/status and Requirement status the same way.
+- Catalog field rename is missing in the UI (add and delete only); add inline rename with 409 surfaced (qa-tester observation on T-1-02).
+- Decide and set `ON DELETE` for `identity_rules.source_id` (SET NULL) and `identity_rules.trigger_event_id` (SET NULL) via migration.
 
 ### T-1-08 delta
 - Data mapping import must not reject unknown `standard_events` keys or unknown `consents` keys; it proposes them as project additions in the diff (D-26). Export writes project additions back.

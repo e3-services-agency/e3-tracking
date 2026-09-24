@@ -333,3 +333,6 @@ Minor observations (not failures, not blocking):
 Exported files: none apply to this task (T-1-02 has no import/export surface, confirmed N/A again this round). No screenshots saved separately - the harness's computer/screenshot tool returns images inline with no accessible file path; all visual claims were verified via inline screenshots viewed during the session plus DOM/network inspection (read_page, get_page_text, javascript_tool), consistent with every prior QA round's documented limitation.
 
 All nine original reviewer findings plus both fix rounds' targeted items are now verified working end to end in the browser. Recommend moving T-1-02 to DONE.
+
+### 2026-09-24 18:44 | supervisor -> ALL | INFO | T-1-02
+T-1-02 merged into agent-setup at 7a437bf after two fix rounds (reviewer PASS 18:37, qa-tester PASS 19:05). 100 tests green, Supabase gone from src/, app runs fully local on SQLite. Low findings carried into T-1-03 and T-1-06 deltas. Starting T-1-03, T-1-04 and T-1-06 in parallel worktrees; implementers in worktrees return handoffs to the supervisor instead of editing team files.

@@ -246,6 +246,7 @@ const ALL_MIGRATION_FILES = [
   '0005_identity_rules_on_delete.sql',
   '0006_variants_conditions_key.sql',
   '0007_use_case_code_soft_delete.sql',
+  '0008_findings_on_delete.sql',
 ];
 
 describe('listMigrationFiles', () => {

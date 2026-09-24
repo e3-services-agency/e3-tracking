@@ -338,4 +338,54 @@ describe('use-case-template.dal: variant resolution requires an exact condition 
     expect(requirement.variant_id).toBeNull();
     expect(requirement.note).toContain('action=remove');
   });
+
+  it('LOW D (second fix round): the "candidates" note lists variant names, not raw conditions_key JSON', () => {
+    const channelPropertyId = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'channel',
+      data_type: 'string',
+      allowed_values_json: [{ value: 'web' }, { value: 'app' }],
+    }).id;
+    EventDAL.attachPropertyToEvent(projectId, eventId, { property_id: channelPropertyId, role: 'discriminator' });
+    // Neither variant matches "action=remove" exactly (both also condition on channel; the
+    // beforeEach variant `variantId` is the only exact single-condition match and it is for
+    // action=add), so both two-discriminator variants below are "candidates on the same property"
+    // for the unresolved note.
+    VariantDAL.createVariant(projectId, eventId, {
+      conditions: [
+        { property_id: discriminatorPropertyId, operator: 'equals', values: ['remove'] },
+        { property_id: channelPropertyId, operator: 'equals', values: ['web'] },
+      ],
+    });
+    VariantDAL.createVariant(projectId, eventId, {
+      conditions: [
+        { property_id: discriminatorPropertyId, operator: 'equals', values: ['remove'] },
+        { property_id: channelPropertyId, operator: 'equals', values: ['app'] },
+      ],
+    });
+
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({
+      code: 'UC-T7',
+      name: 'Candidates note',
+      type: 'marketing',
+      default_requirements_json: [
+        {
+          target_kind: 'variant',
+          event_name: 'cart_update',
+          condition: { property_name: 'action', value: 'remove' },
+          level: 'R',
+        },
+      ],
+    });
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+    const [requirement] = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(requirement.status).toBe('gap');
+    expect(requirement.note).toContain('Candidates on the same property:');
+    expect(requirement.note).toContain('cart_update[action=remove,channel=web]');
+    expect(requirement.note).toContain('cart_update[action=remove,channel=app]');
+    expect(requirement.note).not.toMatch(/property_id/);
+    expect(requirement.note).not.toMatch(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
+    );
+  });
 });

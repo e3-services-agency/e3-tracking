@@ -212,6 +212,24 @@ describe('requirement.dal: target validation', () => {
     ).toThrow(RequirementTargetInvalidError);
   });
 
+  it('second fix round LOW C: normalises an empty-string forbidden id to null instead of a 500 FK error', () => {
+    // `target_kind: 'event'` forbids property_id/variant_id; the picker sends "" for "no selection"
+    // rather than omitting the key. Before the fix this "" reached the INSERT as a literal string id
+    // and SQLite's FK constraint on `requirements.property_id` rejected it with a raw 500, not a 400.
+    const result = RequirementDAL.replaceRequirements(projectId, useCaseId, [
+      { target_kind: 'event', event_id: eventId, property_id: '', level: 'R' },
+    ]);
+    expect(result).toMatchObject([{ target_kind: 'event', event_id: eventId, property_id: null }]);
+  });
+
+  it('second fix round LOW C: an empty-string required id is treated as missing (400, not 500)', () => {
+    expect(() =>
+      RequirementDAL.replaceRequirements(projectId, useCaseId, [
+        { target_kind: 'event', event_id: '', level: 'R' },
+      ])
+    ).toThrow(RequirementTargetInvalidError);
+  });
+
   it('still validates a present id on a gap row (does not skip project-membership checks)', () => {
     const otherClient = ClientDAL.createClient({ key: 'other2', name: 'Other2' });
     const otherProjectId = ProjectDAL.createProject({ client_id: otherClient.id, key: 'other-p2', name: 'Other2' }).id;
@@ -318,6 +336,50 @@ describe('requirement.dal: markRequirementsGap* (fix round ERROR 2)', () => {
     expect(variantPropertyRow.property_id).toBeNull();
     expect(variantPropertyRow.variant_id).toBe(variantId); // the variant itself is untouched
     expect(variantPropertyRow.status).toBe('gap');
+  });
+
+  it('second fix round ERROR A: two event_property rows on one event, both detached, re-save unchanged succeeds', () => {
+    const propertyA = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'total_price',
+      data_type: 'number',
+    }).id;
+    const propertyB = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'quantity',
+      data_type: 'number',
+    }).id;
+    EventDAL.attachPropertyToEvent(projectId, eventId, { property_id: propertyA, role: 'normal' });
+    EventDAL.attachPropertyToEvent(projectId, eventId, { property_id: propertyB, role: 'normal' });
+
+    RequirementDAL.replaceRequirements(projectId, useCaseId, [
+      { target_kind: 'event_property', event_id: eventId, property_id: propertyA, level: 'R' },
+      { target_kind: 'event_property', event_id: eventId, property_id: propertyB, level: 'O' },
+    ]);
+
+    EventDAL.detachPropertyFromEvent(projectId, eventId, propertyA);
+    EventDAL.detachPropertyFromEvent(projectId, eventId, propertyB);
+
+    const rows = RequirementDAL.listRequirements(projectId, useCaseId);
+    expect(rows).toHaveLength(2);
+    expect(rows.every((r) => r.status === 'gap' && r.property_id === null && r.event_id === eventId)).toBe(true);
+
+    // Before the fix, both rows keyed as `event_property:<event>::` and the second one collided with
+    // the first, throwing REQUIREMENT_DUPLICATE on an unchanged re-save.
+    const resaved = RequirementDAL.replaceRequirements(
+      projectId,
+      useCaseId,
+      rows.map((r) => ({
+        target_kind: r.target_kind,
+        property_id: r.property_id,
+        event_id: r.event_id,
+        variant_id: r.variant_id,
+        level: r.level,
+        status: r.status,
+        note: r.note,
+      }))
+    );
+    expect(resaved).toHaveLength(2);
   });
 
   it('an existing note is appended to, not overwritten, when a target is removed', () => {

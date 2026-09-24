@@ -842,10 +842,29 @@ export function replaceEventProperties(
     }
   }
 
+  // T-1-07 second fix round ERROR B: the Edit Event panel saves the whole property list through
+  // this function (`PUT /events/:id/properties`), never `DELETE /events/:id/properties/:propertyId`
+  // — so `markRequirementsGapForDetach` only ran for a caller that does not exist in the UI, and a
+  // property dropped from the list here left requirements pointing at a link this transaction was
+  // about to delete. Diff the ids that are about to disappear (present before, absent from
+  // `uniqueLinks`) and mark each one's requirements `gap` inside this same transaction, exactly like
+  // `detachPropertyFromEvent` does for a single property.
+  const currentPropertyIds = (
+    db.prepare('SELECT property_id FROM event_properties WHERE event_id = ?').all(eventId) as {
+      property_id: string;
+    }[]
+  ).map((r) => r.property_id);
+  const nextPropertyIds = new Set(uniqueLinks.map((l) => l.property_id));
+  const droppedPropertyIds = currentPropertyIds.filter((id) => !nextPropertyIds.has(id));
+
   const now = nowIso();
   try {
     const replace = db.transaction(() => {
       db.prepare('DELETE FROM event_properties WHERE event_id = ?').run(eventId);
+      for (const droppedId of droppedPropertyIds) {
+        const property = getPropertyById(projectId, droppedId);
+        markRequirementsGapForDetach(eventId, droppedId, property?.name ?? droppedId);
+      }
       const insert = db.prepare(
         `INSERT INTO event_properties (
           event_id, property_id, required, role, priority, status, source_id, payload_key,

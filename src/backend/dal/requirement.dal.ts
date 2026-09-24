@@ -131,7 +131,7 @@ function assertPropertyLinkedToEvent(eventId: string, propertyId: string): void 
  * Which target id columns each `target_kind` requires vs. forbids (the two `..._property` kinds
  * additionally need the linked-to-event check, handled separately below).
  */
-const TARGET_SHAPES: Record<
+export const TARGET_SHAPES: Record<
   string,
   { required: Array<'property_id' | 'event_id' | 'variant_id'>; forbidden: Array<'property_id' | 'event_id' | 'variant_id'> }
 > = {
@@ -167,10 +167,16 @@ function validateTarget(
     );
   }
   const shape = TARGET_SHAPES[target_kind];
+  // LOW C (second fix round): the picker sends "" for "no selection" rather than omitting the key
+  // or sending null; before this normalisation an empty string slipped past `!ids[key]` (both the
+  // forbidden and required checks below, and the isGap-required-missing check further down) and
+  // reached the INSERT as a literal '' id, which SQLite happily stored but the FK constraint on a
+  // *present but wrong* value then rejected with a raw 500 rather than a 400. Treat "" exactly like
+  // an absent id everywhere in this function.
   const ids = {
-    property_id: input.property_id ?? null,
-    event_id: input.event_id ?? null,
-    variant_id: input.variant_id ?? null,
+    property_id: input.property_id || null,
+    event_id: input.event_id || null,
+    variant_id: input.variant_id || null,
   };
   const isGap = input.status === 'gap';
 
@@ -242,15 +248,23 @@ export function replaceRequirements(
     return { ...target, level: input.level, status: input.status ?? null, note: input.note?.trim() || null };
   });
 
-  // Reviewer fix round LOW 6: reject the same target twice in one list instead of silently
-  // accepting both and letting the matrix cell show whichever insert happened to run last. A
-  // fully-null `gap` target (all three ids null — the shape `markRequirementsGap*` produces once a
-  // target is removed) is never treated as a duplicate of another gap row: there is nothing left to
-  // collide on, and a use case can legitimately end up with more than one gap row.
+  // Reviewer fix round LOW 6, revised in the second fix round (ERROR A): reject the same target
+  // twice in one list instead of silently accepting both and letting the matrix cell show whichever
+  // insert happened to run last. The original exemption only skipped a *fully*-null gap row, but
+  // `markRequirementsGap*` only nulls the column(s) it actually knows are gone — an `event_property`
+  // detach nulls just `property_id`, leaving `event_id` set — so two gap rows on the same event (two
+  // properties detached) still collided on `event_property:<event>::`. Any row whose `status` is
+  // `gap` and which is missing at least one id its `target_kind` requires (the exact shape
+  // `validateTarget` above lets through) is exempt from the duplicate check entirely: it no longer
+  // names a real target, so there is nothing to collide on, and a use case can legitimately end up
+  // with any number of such rows.
   const seenTargets = new Set<string>();
   inputs.forEach((input, index) => {
     const t = validated[index];
-    if (!t.property_id && !t.event_id && !t.variant_id) return;
+    const shape = TARGET_SHAPES[input.target_kind];
+    const isGapWithMissingRequiredId =
+      input.status === 'gap' && shape.required.some((key) => !t[key]);
+    if (isGapWithMissingRequiredId) return;
     const key = `${input.target_kind}:${t.property_id ?? ''}:${t.event_id ?? ''}:${t.variant_id ?? ''}`;
     if (seenTargets.has(key)) {
       throw new RequirementDuplicateTargetError(

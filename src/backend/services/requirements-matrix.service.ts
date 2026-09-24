@@ -7,7 +7,7 @@
  * a cell is the `level` (`R`/`O`) when that use case has a requirement on that target, else null.
  */
 import { listUseCases, type UseCaseRow } from '../dal/use-case.dal';
-import { listRequirementsByProject } from '../dal/requirement.dal';
+import { listRequirementsByProject, TARGET_SHAPES } from '../dal/requirement.dal';
 import { listEvents } from '../dal/event.dal';
 import { listProperties } from '../dal/property.dal';
 import { listVariantsByProject } from '../dal/variant.dal';
@@ -95,10 +95,27 @@ export function computeRequirementsMatrix(projectId: string): RequirementsMatrix
       event_id: req.event_id,
       variant_id: req.variant_id,
     };
-    const key = rowKey(target);
+    // Second fix round ERROR A: a `gap` row that is still missing one of its `target_kind`'s
+    // required ids (e.g. an `event_property` detach nulls only `property_id`, `event_id` stays) is
+    // exempt from `replaceRequirements`' duplicate check for the same reason it must not collapse
+    // here either — grouping two such rows on `rowKey` (as an ordinary resolved row would) merged
+    // "two properties of the same event were removed" into one row whose cell showed only whichever
+    // requirement's `level` happened to be written last, silently dropping the other from the matrix
+    // and the docs export. Key every such row by its own requirement id instead, and disambiguate the
+    // label with the row's own note (the "target removed: <name>" `markRequirementsGap*` writes) or,
+    // failing that, its position in the use case's list.
+    const shape = TARGET_SHAPES[req.target_kind];
+    const isGapRemoved = req.status === 'gap' && (shape?.required ?? []).some((k) => !target[k]);
+    const key = isGapRemoved ? `gap:${req.id}` : rowKey(target);
     let row = rowsByKey.get(key);
     if (!row) {
-      row = { ...target, label: labelFor(target), cells: {} };
+      // `labelFor` already renders the nulled part(s) as "(removed)" (base ERROR 2 fix); append the
+      // row's own note, or its position when there is none, so two such rows on the same event/variant
+      // read as distinct lines instead of silently merging.
+      const label = isGapRemoved
+        ? `${labelFor(target)}: ${req.note?.trim() || `requirement #${req.sort_order + 1}`}`
+        : labelFor(target);
+      row = { ...target, label, cells: {} };
       rowsByKey.set(key, row);
     }
     row.cells[req.use_case_id] = req.level;

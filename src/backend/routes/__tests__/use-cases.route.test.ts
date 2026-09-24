@@ -221,10 +221,12 @@ describe('use case templates and requirements matrix', () => {
     expect(ucDetail.requirements[0].status).toBe('gap');
     expect(ucDetail.requirements[0].note).toContain('target removed: doomed_event');
 
-    // 2. The requirements matrix resolves the row to "(removed)", not the deleted event's uuid.
+    // 2. The requirements matrix resolves the row to "(removed): ...", not the deleted event's uuid
+    // (second fix round ERROR A: the label is suffixed with the row's own note so several removed
+    // rows never collapse into one).
     const matrix = await (await fetch(`${baseUrl}/api/projects/${projectId}/requirements-matrix`)).json();
     const row = matrix.rows.find((r: { cells: Record<string, string | null> }) => r.cells[uc.id]);
-    expect(row.label).toBe('(removed)');
+    expect(row.label).toMatch(/^\(removed\): /);
     expect(row.label).not.toContain(doomedEvent.id);
 
     // 3. The use case list is still saveable unchanged (the whole point of marking it gap).
@@ -241,6 +243,86 @@ describe('use case templates and requirements matrix', () => {
     ).text();
     expect(docsHtml).toContain('(removed)');
     expect(docsHtml).not.toContain(doomedEvent.id);
+  });
+
+  it('detaching properties through PUT /events/:id/properties (the Edit Event panel path) marks their requirements gap too (second fix round ERROR B)', async () => {
+    const pairedEvent = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'paired_event' }),
+      })
+    ).json();
+    const propertyA = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/properties`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: 'event', name: 'paired_total', data_type: 'number' }),
+      })
+    ).json();
+    const propertyB = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/properties`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: 'event', name: 'paired_qty', data_type: 'number' }),
+      })
+    ).json();
+    await fetch(`${baseUrl}/api/projects/${projectId}/events/${pairedEvent.id}/properties`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        properties: [
+          { property_id: propertyA.id, role: 'normal' },
+          { property_id: propertyB.id, role: 'normal' },
+        ],
+      }),
+    });
+
+    const ucRes = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Paired use case' }),
+    });
+    const uc = await ucRes.json();
+    await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${uc.id}/requirements`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requirements: [
+          { target_kind: 'event_property', event_id: pairedEvent.id, property_id: propertyA.id, level: 'R' },
+          { target_kind: 'event_property', event_id: pairedEvent.id, property_id: propertyB.id, level: 'O' },
+        ],
+      }),
+    });
+
+    // The Edit Event panel always saves the whole property list; removing both properties from it
+    // is the PUT path, never the single-property DELETE endpoint.
+    const putRes = await fetch(`${baseUrl}/api/projects/${projectId}/events/${pairedEvent.id}/properties`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ properties: [] }),
+    });
+    expect(putRes.status).toBe(200);
+
+    const ucDetail = await (await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${uc.id}`)).json();
+    expect(ucDetail.requirements).toHaveLength(2);
+    for (const row of ucDetail.requirements) {
+      expect(row.status).toBe('gap');
+      expect(row.property_id).toBeNull();
+    }
+
+    // The use case is still saveable unchanged, and the matrix keeps both rows distinct.
+    const resaveRes = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${uc.id}/requirements`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requirements: ucDetail.requirements }),
+    });
+    expect(resaveRes.status).toBe(200);
+
+    const matrix = await (await fetch(`${baseUrl}/api/projects/${projectId}/requirements-matrix`)).json();
+    const rows = matrix.rows.filter((r: { cells: Record<string, string | null> }) => r.cells[uc.id]);
+    expect(rows).toHaveLength(2);
+    expect(new Set(rows.map((r: { label: string }) => r.label)).size).toBe(2);
   });
 
   it('lists use cases referencing an event from the event editor', async () => {

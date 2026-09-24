@@ -231,20 +231,20 @@ function resolveOne(
     normalizeConditions([{ property_id: discriminator.id, operator: 'equals', values: [entry.condition.value] }])
   );
   const variantRows = getDb()
-    .prepare('SELECT id, conditions_json, conditions_key FROM variants WHERE event_id = ?')
-    .all(event.id) as { id: string; conditions_json: string | null; conditions_key: string }[];
+    .prepare('SELECT id, name, conditions_json, conditions_key FROM variants WHERE event_id = ?')
+    .all(event.id) as { id: string; name: string; conditions_json: string | null; conditions_key: string }[];
   const match = variantRows.find((row) => row.conditions_key === desiredKey);
   if (!match) {
     const partialMatches = variantRows.filter((row) => {
       const conditions = parseJsonColumn(row.conditions_json, [] as VariantCondition[]);
       return conditions.some((c) => c.property_id === discriminator.id);
     });
+    // LOW D (second fix round): this used to print the raw `conditions_key` JSON, including
+    // property_id uuids — nothing a human matching a template by hand could act on. List the
+    // candidate variants by name instead, same as everywhere else in the UI.
     const suffix =
       partialMatches.length > 0
-        ? ` Candidates on the same property: ${partialMatches
-            .map((row) => parseJsonColumn(row.conditions_json, [] as VariantCondition[]))
-            .map((conditions) => buildConditionsKey(conditions))
-            .join(', ')}.`
+        ? ` Candidates on the same property: ${partialMatches.map((row) => row.name).join(', ')}.`
         : '';
     return unresolved(
       `No variant of "${entry.event_name}" has exactly the condition ${entry.condition.property_name}=${entry.condition.value} (and no other condition).${suffix}`

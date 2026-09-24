@@ -97,9 +97,43 @@ describe('computeRequirementsMatrix', () => {
 
     const matrix = computeRequirementsMatrix(projectId);
     expect(matrix.rows).toHaveLength(1);
-    expect(matrix.rows[0].label).toBe('(removed).total_price');
+    // Second fix round ERROR A: a gap row missing a required id is now suffixed with its own note
+    // (or position) so several such rows never collapse into one; "(removed).total_price" is still
+    // the label's prefix.
+    expect(matrix.rows[0].label).toMatch(/^\(removed\)\.total_price: /);
     expect(matrix.rows[0].label).not.toMatch(
       /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
     );
+  });
+
+  it('second fix round ERROR A: two properties of one event detached from one use case each keep their own matrix row', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'cart_update' }).id;
+    const totalPrice = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'total_price',
+      data_type: 'number',
+    }).id;
+    const quantity = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'quantity',
+      data_type: 'number',
+    }).id;
+    EventDAL.attachPropertyToEvent(projectId, event, { property_id: totalPrice, role: 'normal' });
+    EventDAL.attachPropertyToEvent(projectId, event, { property_id: quantity, role: 'normal' });
+
+    const useCase = UseCaseDAL.createUseCase(projectId, { name: 'A' });
+    RequirementDAL.replaceRequirements(projectId, useCase.id, [
+      { target_kind: 'event_property', event_id: event, property_id: totalPrice, level: 'R' },
+      { target_kind: 'event_property', event_id: event, property_id: quantity, level: 'O' },
+    ]);
+
+    EventDAL.detachPropertyFromEvent(projectId, event, totalPrice);
+    EventDAL.detachPropertyFromEvent(projectId, event, quantity);
+
+    const matrix = computeRequirementsMatrix(projectId);
+    const gapRows = matrix.rows.filter((r) => r.cells[useCase.id]);
+    expect(gapRows).toHaveLength(2);
+    expect(new Set(gapRows.map((r) => r.label)).size).toBe(2);
+    expect(gapRows.map((r) => r.cells[useCase.id]).sort()).toEqual(['O', 'R']);
   });
 });

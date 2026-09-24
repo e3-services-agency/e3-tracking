@@ -131,6 +131,7 @@ describe('event.dal + event_properties', () => {
       scope: 'event',
       name: 'total_price',
       data_type: 'number',
+      allowed_values_json: [{ value: 'low' }, { value: 'high' }],
     });
 
     const link = EventDAL.attachPropertyToEvent(projectId, event.id, {
@@ -160,6 +161,7 @@ describe('event.dal + event_properties', () => {
       scope: 'event',
       name: 'email',
       data_type: 'string',
+      allowed_values_json: [{ value: 'a' }, { value: 'b' }],
     });
 
     const result = EventDAL.replaceEventProperties(projectId, event.id, [

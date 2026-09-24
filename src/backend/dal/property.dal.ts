@@ -8,6 +8,22 @@ import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn, toSqliteBool, fromSqliteBool, mapWriteError } from '../db/util';
 import { BadRequestError, ConflictError, NotFoundError, ValidationError } from '../errors';
 import * as BundleDAL from './bundle.dal';
+import {
+  PROPERTY_SCOPES,
+  PROPERTY_DATA_TYPES,
+  PROPERTY_DATA_FORMATS,
+  ORIGIN_TYPES,
+  PRIORITIES,
+  ENTITY_STATUSES,
+} from '../../domain/enums';
+import { STANDARD_CUSTOMER_PROPERTIES, isKnownStandardEvent, type StandardEventSeed } from '../../domain/bloomreach';
+
+export interface AllowedValue {
+  value: string;
+  label?: string | null;
+  description?: string | null;
+  standard_event?: string | null;
+}
 
 export interface PropertyRow {
   id: string;
@@ -160,10 +176,129 @@ function validateCatalogRefs(
   }
 }
 
+/** Project's `standard_event_additions_json` (D-26), used to validate `allowed_values_json[].standard_event`. */
+function getProjectStandardEventAdditions(projectId: string): StandardEventSeed[] | null {
+  const db = getDb();
+  const row = db.prepare('SELECT standard_event_additions_json FROM projects WHERE id = ?').get(projectId) as
+    | { standard_event_additions_json: string | null }
+    | undefined;
+  return parseJsonColumn(row?.standard_event_additions_json, null);
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+/** Validates `Property.allowed_values_json`: `[{value, label?, description?, standard_event?}]` (D-16). */
+function validateAllowedValues(projectId: string, allowedValues: unknown): void {
+  if (allowedValues === undefined || allowedValues === null) return;
+  if (!Array.isArray(allowedValues)) {
+    throw new BadRequestError('allowed_values_json must be an array.', 'allowed_values_json');
+  }
+  const additions = getProjectStandardEventAdditions(projectId);
+  const seenValues = new Set<string>();
+  for (const row of allowedValues) {
+    if (!isPlainObject(row) || typeof row.value !== 'string' || !row.value.trim()) {
+      throw new BadRequestError(
+        'Each allowed value needs a non-empty "value".',
+        'allowed_values_json'
+      );
+    }
+    if (seenValues.has(row.value)) {
+      throw new BadRequestError(`Duplicate allowed value "${row.value}".`, 'allowed_values_json');
+    }
+    seenValues.add(row.value);
+    if (
+      row.standard_event !== undefined &&
+      row.standard_event !== null &&
+      row.standard_event !== '' &&
+      !isKnownStandardEvent(String(row.standard_event), additions)
+    ) {
+      throw new BadRequestError(
+        `Unknown standard event "${row.standard_event}" on allowed value "${row.value}".`,
+        'allowed_values_json'
+      );
+    }
+  }
+}
+
+function validateDataFormats(dataFormats: unknown): void {
+  if (dataFormats === undefined || dataFormats === null) return;
+  if (!Array.isArray(dataFormats)) {
+    throw new BadRequestError('data_formats_json must be an array.', 'data_formats_json');
+  }
+  for (const fmt of dataFormats) {
+    if (!(PROPERTY_DATA_FORMATS as readonly string[]).includes(String(fmt))) {
+      throw new BadRequestError(`Unknown data format "${fmt}".`, 'data_formats_json');
+    }
+  }
+}
+
+/**
+ * Cross-field validation shared by create and update (T-1-04): scope, data_type, property_type,
+ * priority, status, data_formats_json and allowed_values_json against `src/domain/enums.ts`, and
+ * `bloomreach_customer_property` restricted to scope `customer` and the standard-key seed list.
+ */
+function validatePropertyFields(
+  projectId: string,
+  fields: {
+    scope?: string;
+    data_type?: string;
+    property_type?: string;
+    priority?: string | null;
+    status?: string | null;
+    data_formats_json?: unknown;
+    allowed_values_json?: unknown;
+    bloomreach_customer_property?: string | null;
+  },
+  resolvedScope: string
+): void {
+  if (fields.scope !== undefined && !(PROPERTY_SCOPES as readonly string[]).includes(fields.scope)) {
+    throw new BadRequestError(`scope must be one of: ${PROPERTY_SCOPES.join(', ')}.`, 'scope');
+  }
+  if (fields.data_type !== undefined && !(PROPERTY_DATA_TYPES as readonly string[]).includes(fields.data_type)) {
+    throw new BadRequestError(`data_type must be one of: ${PROPERTY_DATA_TYPES.join(', ')}.`, 'data_type');
+  }
+  if (
+    fields.property_type !== undefined &&
+    !(ORIGIN_TYPES as readonly string[]).includes(fields.property_type)
+  ) {
+    throw new BadRequestError(`property_type must be one of: ${ORIGIN_TYPES.join(', ')}.`, 'property_type');
+  }
+  if (fields.priority !== undefined && fields.priority !== null && !(PRIORITIES as readonly string[]).includes(fields.priority)) {
+    throw new BadRequestError(`priority must be one of: ${PRIORITIES.join(', ')}.`, 'priority');
+  }
+  if (
+    fields.status !== undefined &&
+    fields.status !== null &&
+    !(ENTITY_STATUSES as readonly string[]).includes(fields.status)
+  ) {
+    throw new BadRequestError(`status must be one of: ${ENTITY_STATUSES.join(', ')}.`, 'status');
+  }
+  validateDataFormats(fields.data_formats_json);
+  validateAllowedValues(projectId, fields.allowed_values_json);
+
+  if (fields.bloomreach_customer_property !== undefined && fields.bloomreach_customer_property) {
+    if (resolvedScope !== 'customer') {
+      throw new BadRequestError(
+        'bloomreach_customer_property is only valid for scope "customer".',
+        'bloomreach_customer_property'
+      );
+    }
+    if (!STANDARD_CUSTOMER_PROPERTIES.includes(fields.bloomreach_customer_property)) {
+      throw new BadRequestError(
+        `Unknown standard customer property "${fields.bloomreach_customer_property}".`,
+        'bloomreach_customer_property'
+      );
+    }
+  }
+}
+
 export function createProperty(projectId: string, input: PropertyInput): PropertyRow {
   const name = input.name.trim();
   if (!name) throw new ValidationError('Property name is required.', 'name');
 
+  validatePropertyFields(projectId, input, input.scope);
   validateCatalogRefs(projectId, input.mapped_catalog_id, input.mapped_catalog_field_id);
 
   const db = getDb();
@@ -257,6 +392,10 @@ export function updateProperty(
   if (updates.mapped_catalog_id !== undefined || updates.mapped_catalog_field_id !== undefined) {
     validateCatalogRefs(projectId, updates.mapped_catalog_id, updates.mapped_catalog_field_id);
   }
+
+  const current = getPropertyOrThrow(projectId, id);
+  const resolvedScope = updates.scope ?? current.scope;
+  validatePropertyFields(projectId, updates, resolvedScope);
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (updates.scope !== undefined) patch.scope = updates.scope;

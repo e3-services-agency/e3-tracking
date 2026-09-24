@@ -6,8 +6,53 @@
  */
 import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn, fromSqliteBool, mapWriteError } from '../db/util';
-import { BadRequestError, ConflictError, NotFoundError, ValidationError } from '../errors';
+import {
+  BadRequestError,
+  ConflictError,
+  MaxDiscriminatorsError,
+  NotFoundError,
+  RoleRequiresEnumError,
+  ValidationError,
+} from '../errors';
 import { getPropertyById, type PropertyRow } from './property.dal';
+
+const MAX_DISCRIMINATORS_PER_EVENT = 2;
+
+/**
+ * D-03 / D-16 (T-1-04 delta): `role` `discriminator|context` requires the property to have a
+ * non-empty `allowed_values_json` (a shared value list to drive variant conditions, context
+ * filters and the coverage grid).
+ */
+function assertRoleAllowedForProperty(role: string, property: PropertyRow): void {
+  if (role !== 'discriminator' && role !== 'context') return;
+  const allowedValues = Array.isArray(property.allowed_values_json) ? property.allowed_values_json : [];
+  if (allowedValues.length === 0) {
+    throw new RoleRequiresEnumError(
+      `Property "${property.name}" has no allowed values; role "${role}" requires an enum property.`,
+      'role'
+    );
+  }
+}
+
+/**
+ * D-03 rule 3 (T-1-04 delta): at most two `discriminator`-role properties per event. Counts
+ * distinct property ids already linked with role `discriminator`, excluding `excludePropertyId`
+ * (the row being updated, so it does not count against itself).
+ */
+function assertDiscriminatorLimit(eventId: string, excludePropertyId: string | null): void {
+  const rows = getDb()
+    .prepare(
+      `SELECT property_id FROM event_properties WHERE event_id = ? AND role = 'discriminator'
+       ${excludePropertyId ? 'AND property_id != ?' : ''}`
+    )
+    .all(...(excludePropertyId ? [eventId, excludePropertyId] : [eventId])) as { property_id: string }[];
+  if (rows.length >= MAX_DISCRIMINATORS_PER_EVENT) {
+    throw new MaxDiscriminatorsError(
+      `This event already has ${MAX_DISCRIMINATORS_PER_EVENT} discriminator properties (D-03 rule 3).`,
+      'role'
+    );
+  }
+}
 
 export interface EventRow {
   id: string;
@@ -388,6 +433,10 @@ export function attachPropertyToEvent(
   if (!property) throw new NotFoundError('Property not found or does not belong to this project.', 'property');
   assertSourceInProject(projectId, input.source_id);
 
+  const role = input.role || DEFAULT_ROLE;
+  assertRoleAllowedForProperty(role, property);
+  if (role === 'discriminator') assertDiscriminatorLimit(eventId, null);
+
   const db = getDb();
   const existing = db
     .prepare('SELECT 1 FROM event_properties WHERE event_id = ? AND property_id = ?')
@@ -452,6 +501,13 @@ export function updateEventProperty(
   if (!existing) throw new NotFoundError('This property is not attached to the event.', 'event_property');
   if (updates.source_id !== undefined) assertSourceInProject(projectId, updates.source_id);
 
+  if (updates.role !== undefined) {
+    const property = getPropertyById(projectId, propertyId);
+    if (!property) throw new NotFoundError('Property not found or does not belong to this project.', 'property');
+    assertRoleAllowedForProperty(updates.role, property);
+    if (updates.role === 'discriminator') assertDiscriminatorLimit(eventId, propertyId);
+  }
+
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (updates.required !== undefined) patch.required = updates.required ? 1 : 0;
   if (updates.role !== undefined) patch.role = updates.role;
@@ -510,14 +566,27 @@ export function replaceEventProperties(
   }
   const uniqueLinks = Array.from(dedupedByPropertyId.values());
 
+  let discriminatorCount = 0;
   for (const link of uniqueLinks) {
-    if (!getPropertyById(projectId, link.property_id)) {
+    const property = getPropertyById(projectId, link.property_id);
+    if (!property) {
       throw new NotFoundError(
         `Property not found or does not belong to this project: ${link.property_id}.`,
         'property'
       );
     }
     assertSourceInProject(projectId, link.source_id);
+    const role = link.role || DEFAULT_ROLE;
+    assertRoleAllowedForProperty(role, property);
+    if (role === 'discriminator') {
+      discriminatorCount += 1;
+      if (discriminatorCount > MAX_DISCRIMINATORS_PER_EVENT) {
+        throw new MaxDiscriminatorsError(
+          `This event already has ${MAX_DISCRIMINATORS_PER_EVENT} discriminator properties (D-03 rule 3).`,
+          'role'
+        );
+      }
+    }
   }
 
   const now = nowIso();

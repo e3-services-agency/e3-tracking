@@ -21,8 +21,14 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const [creatingClient, setCreatingClient] = useState(false);
+  const [newClientName, setNewClientName] = useState('');
+  const [newClientKey, setNewClientKey] = useState('');
+  const [clientSubmitting, setClientSubmitting] = useState(false);
+  const [clientSubmitError, setClientSubmitError] = useState<string | null>(null);
+
   const { fetchProjects, createProject } = useProjectShell();
-  const { clients, fetchClients } = useClients();
+  const { clients, fetchClients, createClient } = useClients();
 
   useEffect(() => {
     if (isOpen) {
@@ -31,8 +37,34 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
       setKey('');
       setClientId('');
       setSubmitError(null);
+      setCreatingClient(false);
+      setNewClientName('');
+      setNewClientKey('');
+      setClientSubmitError(null);
     }
   }, [isOpen, fetchClients]);
+
+  // Fresh installs have zero clients and zero projects; Clients used to be reachable only from
+  // inside a project's shell, deadlocking onboarding (fix round finding #1). Creating a client
+  // inline here, instead of only linking to the Clients page, keeps project creation a single flow.
+  const handleCreateClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedName = newClientName.trim();
+    const trimmedKey = newClientKey.trim();
+    if (!trimmedName || !trimmedKey) return;
+    setClientSubmitting(true);
+    setClientSubmitError(null);
+    const result = await createClient({ key: trimmedKey, name: trimmedName });
+    setClientSubmitting(false);
+    if (result.success) {
+      setClientId(result.client.id);
+      setCreatingClient(false);
+      setNewClientName('');
+      setNewClientKey('');
+    } else {
+      setClientSubmitError(result.error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,20 +104,75 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
             <label htmlFor="project-client" className="block text-sm font-medium text-gray-700 mb-1">
               Client <span className="text-red-500">*</span>
             </label>
-            <select
-              id="project-client"
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
-              required
-            >
-              <option value="">Select a client…</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-            {clients.length === 0 && (
-              <p className="text-xs text-gray-500 mt-1">No clients yet — create one from the Clients page first.</p>
+            {!creatingClient && (
+              <select
+                id="project-client"
+                value={clientId}
+                onChange={(e) => setClientId(e.target.value)}
+                className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+                required
+              >
+                <option value="">Select a client…</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            )}
+            {!creatingClient && (
+              <p className="text-xs text-gray-500 mt-1">
+                {clients.length === 0 ? 'No clients yet — ' : ''}
+                <button
+                  type="button"
+                  onClick={() => setCreatingClient(true)}
+                  className="text-[var(--brand-primary)] hover:underline"
+                >
+                  {clients.length === 0 ? 'create one now' : '+ New client'}
+                </button>
+              </p>
+            )}
+            {creatingClient && (
+              <div className="mt-2 space-y-2 rounded-md border border-gray-200 bg-gray-50 p-3">
+                <div>
+                  <label htmlFor="new-client-name" className="block text-xs font-medium text-gray-700 mb-1">
+                    Client name
+                  </label>
+                  <Input
+                    id="new-client-name"
+                    type="text"
+                    value={newClientName}
+                    onChange={(e) => setNewClientName(e.target.value)}
+                    placeholder="Acme Corp"
+                    className="w-full font-sans"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="new-client-key" className="block text-xs font-medium text-gray-700 mb-1">
+                    Client key (URL-safe)
+                  </label>
+                  <Input
+                    id="new-client-key"
+                    type="text"
+                    value={newClientKey}
+                    onChange={(e) => setNewClientKey(e.target.value)}
+                    placeholder="acme"
+                    className="w-full font-mono"
+                  />
+                </div>
+                {clientSubmitError && <p className="text-xs text-red-600">{clientSubmitError}</p>}
+                <div className="flex gap-2 justify-end">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setCreatingClient(false)} disabled={clientSubmitting}>
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleCreateClient}
+                    disabled={clientSubmitting || !newClientName.trim() || !newClientKey.trim()}
+                  >
+                    {clientSubmitting ? 'Creating…' : 'Create client'}
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
           <div>

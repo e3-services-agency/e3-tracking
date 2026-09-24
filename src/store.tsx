@@ -20,6 +20,44 @@ function sourceRowToSource(row: SourceRow): Source {
   };
 }
 
+/**
+ * The active project survives a page reload (T-1-02 fix round finding #3): persisted to
+ * localStorage on every `setActiveProject`/`clearActiveProject` call, read back once at store
+ * creation. Layout.tsx still lets the URL `/p/:key` win over this on mount/popstate; this is only
+ * the fallback for URLs with no project segment (D-15).
+ */
+const ACTIVE_PROJECT_STORAGE_KEY = 'e3-tracking.activeProject';
+
+type StoredActiveProject = { id: string; key: string | null };
+
+function readStoredActiveProject(): StoredActiveProject | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(ACTIVE_PROJECT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<StoredActiveProject>;
+    if (typeof parsed?.id === 'string' && parsed.id) {
+      return { id: parsed.id, key: typeof parsed.key === 'string' ? parsed.key : null };
+    }
+  } catch {
+    // ignore corrupt storage
+  }
+  return null;
+}
+
+function writeStoredActiveProject(value: StoredActiveProject | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (!value) {
+      window.localStorage.removeItem(ACTIVE_PROJECT_STORAGE_KEY);
+    } else {
+      window.localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, JSON.stringify(value));
+    }
+  } catch {
+    // ignore (private browsing / storage disabled)
+  }
+}
+
 export interface AuditConfig {
   eventNaming: string;
   propertyNaming: string;
@@ -115,15 +153,15 @@ export const useStore = create<StoreState>((set, get) => {
     });
   };
 
-  const DEFAULT_PROJECT_ID = '00000000-0000-0000-0000-000000000001';
+  const storedActiveProject = readStoredActiveProject();
 
   return {
     mainData: initialData,
     branches: [],
     activeBranchId: 'main',
     selectedItemIdToEdit: null,
-    activeProjectId: DEFAULT_PROJECT_ID,
-    activeProjectKey: null,
+    activeProjectId: storedActiveProject?.id ?? '',
+    activeProjectKey: storedActiveProject?.key ?? null,
     journeyCanvasHasUnsavedChanges: false,
     setJourneyCanvasHasUnsavedChanges: (v) => set({ journeyCanvasHasUnsavedChanges: v }),
 
@@ -367,17 +405,21 @@ export const useStore = create<StoreState>((set, get) => {
         return { ...data, customCategories: [...list, trimmed] };
       }),
 
-    setActiveProject: ({ id, key }) =>
+    setActiveProject: ({ id, key }) => {
+      writeStoredActiveProject({ id, key: key ?? null });
       set({
         activeProjectId: id,
         activeProjectKey: key ?? null,
-      }),
+      });
+    },
 
-    clearActiveProject: () =>
+    clearActiveProject: () => {
+      writeStoredActiveProject(null);
       set({
         activeProjectId: '',
         activeProjectKey: null,
-      }),
+      });
+    },
   };
 });
 

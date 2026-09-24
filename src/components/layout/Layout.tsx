@@ -96,9 +96,8 @@ export function Layout() {
 }
 
 function LayoutInner() {
-  const { isLoading, hasValidProjectContext, gateMessage, activeProjectId, projectShellSettings } =
+  const { isLoading, hasValidProjectContext, gateMessage, activeProjectId, projectShellSettings, projects } =
     useProjectShell();
-  const clearActiveProject = useStore((s) => s.clearActiveProject);
 
   const [activeTab, setActiveTab] = useState(() => getInitialMainRouteState().tab);
   const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(
@@ -145,32 +144,40 @@ function LayoutInner() {
     };
   }, [activeProjectId, projectShellSettings?.client_primary_color]);
 
-  // After project list settles: drop invalid / unknown active ids and strip bogus /p/:key from the URL.
-  useEffect(() => {
-    if (isLoading) return;
-    if (hasValidProjectContext) return;
-    if (!activeProjectId) return;
-
-    clearActiveProject();
-    const { projectKey, restPath } = parseProjectFromPath(window.location.pathname);
-    if (projectKey) {
-      const dest = restPath === '/' || restPath === '' ? '/events' : restPath;
-      pushPath(dest, null);
-    }
-  }, [isLoading, hasValidProjectContext, activeProjectId, clearActiveProject]);
-
-  // Deep-link support: apply /p/:projectKey and /journeys[/:id] from the current location.
+  // Resolve the active project from `/p/:key` (D-15) and the shell tab from the rest of the path.
+  // The URL wins over whatever store.tsx restored from localStorage on mount; an unknown/invalid
+  // project key (or a localStorage id for a project that no longer exists) clears the active
+  // project instead of leaving a dead reference. Runs once the project list settles and again on
+  // every browser back/forward (agent-setup Layout.tsx:190-241 did the equivalent resolution
+  // against Supabase; this does it against the already-loaded local project list instead).
   useEffect(() => {
     const applyFromLocation = () => {
-      const parsed = parseProjectFromPath(window.location.pathname);
-      const route = mainRouteStateFromRestPath(parsed.restPath);
+      const { projectKey, restPath } = parseProjectFromPath(window.location.pathname);
+      if (!isLoading) {
+        const state = useStore.getState();
+        if (projectKey) {
+          const match = projects.find((p) => p.key === projectKey);
+          if (match) {
+            if (state.activeProjectId !== match.id || state.activeProjectKey !== match.key) {
+              setActiveProject({ id: match.id, key: match.key });
+            }
+          } else {
+            if (state.activeProjectId) state.clearActiveProject();
+            const dest = restPath === '/' || restPath === '' ? '/events' : restPath;
+            pushPath(dest, null);
+          }
+        } else if (state.activeProjectId && !projects.some((p) => p.id === state.activeProjectId)) {
+          state.clearActiveProject();
+        }
+      }
+      const route = mainRouteStateFromRestPath(restPath);
       setActiveTab(route.tab);
       setSelectedJourneyId(route.journeyId);
     };
     applyFromLocation();
     window.addEventListener('popstate', applyFromLocation);
     return () => window.removeEventListener('popstate', applyFromLocation);
-  }, [setActiveProject]);
+  }, [isLoading, projects, setActiveProject]);
 
   // Keep project prefix in URL in sync (always use short project key in URL).
   useEffect(() => {
@@ -205,8 +212,14 @@ function LayoutInner() {
 
   const showFullPageProjectGate = !isLoading && !hasValidProjectContext;
 
+  // Clients (and, further down, the header's "Create New Project" modal) are reachable with zero
+  // projects (fix round finding #1): a fresh install has no client and no project, and the only
+  // way to create the first project is to create a client first, so Clients cannot sit behind the
+  // project gate. Settings/Catalogs/etc. stay gated — they operate on the active project.
   const mainContent =
-    isLoading ? (
+    activeTab === 'clients' ? (
+      <Clients />
+    ) : isLoading ? (
       <div className="flex-1 flex items-center justify-center text-sm text-gray-500" role="status">
         Loading projects…
       </div>
@@ -221,7 +234,6 @@ function LayoutInner() {
         {activeTab === 'properties' && <Properties />}
         {activeTab === 'catalogs' && <Catalogs />}
         {activeTab === 'sources' && <Sources />}
-        {activeTab === 'clients' && <Clients />}
         {activeTab === 'journeysList' && (
           <JourneysList
             onSelectJourney={(id) => {

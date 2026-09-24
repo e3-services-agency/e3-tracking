@@ -3,8 +3,8 @@
  * as a shell convenience, seed for a later event-template feature).
  */
 import { getDb } from '../db';
-import { newId, nowIso } from '../db/util';
-import { BadRequestError, ConflictError, DatabaseError, NotFoundError } from '../errors';
+import { newId, nowIso, mapWriteError } from '../db/util';
+import { BadRequestError, ConflictError, NotFoundError, ValidationError } from '../errors';
 
 export interface PropertyBundleRow {
   id: string;
@@ -140,7 +140,7 @@ export function createBundle(
   input: { name: string; description?: string | null; property_ids?: string[] | null }
 ): BundleWithPropertyIds {
   const name = input.name.trim();
-  if (!name) throw new BadRequestError('Bundle name is required.', 'name');
+  if (!name) throw new ValidationError('Bundle name is required.', 'name');
 
   const propertyIds = [...new Set((input.property_ids ?? []).filter(Boolean))];
   validatePropertyIds(projectId, propertyIds);
@@ -165,7 +165,11 @@ export function createBundle(
     });
     create();
   } catch (err) {
-    throw new DatabaseError(`Failed to create bundle: ${(err as Error).message}`, err);
+    mapWriteError(
+      err,
+      'A bundle with that name already exists in this project.',
+      `Failed to create bundle: ${(err as Error).message}`
+    );
   }
   return getBundleOrThrow(projectId, id);
 }
@@ -181,7 +185,7 @@ export function updateBundle(
   const patch: Record<string, unknown> = {};
   if (input.name !== undefined) {
     const name = input.name.trim();
-    if (!name) throw new BadRequestError('Bundle name cannot be empty.', 'name');
+    if (!name) throw new ValidationError('Bundle name cannot be empty.', 'name');
     const clash = db
       .prepare(
         'SELECT id FROM property_bundles WHERE project_id = ? AND name = ? AND id != ? AND deleted_at IS NULL'
@@ -197,11 +201,19 @@ export function updateBundle(
     const setClause = Object.keys(patch)
       .map((k) => `${k} = @${k}`)
       .join(', ');
-    db.prepare(`UPDATE property_bundles SET ${setClause} WHERE id = @id AND project_id = @project_id`).run({
-      ...patch,
-      id: bundleId,
-      project_id: projectId,
-    });
+    try {
+      db.prepare(`UPDATE property_bundles SET ${setClause} WHERE id = @id AND project_id = @project_id`).run({
+        ...patch,
+        id: bundleId,
+        project_id: projectId,
+      });
+    } catch (err) {
+      mapWriteError(
+        err,
+        'A bundle with that name already exists in this project.',
+        `Failed to update bundle: ${(err as Error).message}`
+      );
+    }
   }
 
   if (input.property_ids !== undefined) {

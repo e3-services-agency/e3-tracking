@@ -2,8 +2,8 @@
  * Source Data Access Layer. Every function takes `projectId`; all queries enforce `project_id`.
  */
 import { getDb } from '../db';
-import { newId, nowIso } from '../db/util';
-import { ConflictError, DatabaseError, NotFoundError } from '../errors';
+import { newId, nowIso, mapWriteError } from '../db/util';
+import { ConflictError, NotFoundError, ValidationError } from '../errors';
 
 export interface SourceRow {
   id: string;
@@ -41,7 +41,7 @@ export function createSource(
   input: { name: string; color?: string | null }
 ): SourceRow {
   const name = input.name.trim();
-  if (!name) throw new ConflictError('Source name is required.');
+  if (!name) throw new ValidationError('Source name is required.', 'name');
 
   const db = getDb();
   const existing = db
@@ -56,7 +56,7 @@ export function createSource(
       'INSERT INTO sources (id, project_id, name, color, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
     ).run(id, projectId, name, input.color ?? null, now, now);
   } catch (err) {
-    throw new DatabaseError(`Failed to create source: ${(err as Error).message}`, err);
+    mapWriteError(err, 'A source with that name already exists.', `Failed to create source: ${(err as Error).message}`);
   }
   return getSourceOrThrow(projectId, id);
 }
@@ -72,7 +72,7 @@ export function updateSource(
   const patch: Record<string, unknown> = {};
   if (input.name !== undefined) {
     const trimmed = input.name.trim();
-    if (!trimmed) throw new ConflictError('Source name is required.');
+    if (!trimmed) throw new ValidationError('Source name is required.', 'name');
     const clash = db
       .prepare('SELECT id FROM sources WHERE project_id = ? AND name = ? AND id != ?')
       .get(projectId, trimmed, id);
@@ -87,11 +87,19 @@ export function updateSource(
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
     .join(', ');
-  db.prepare(`UPDATE sources SET ${setClause} WHERE id = @id AND project_id = @project_id`).run({
-    ...patch,
-    id,
-    project_id: projectId,
-  });
+  try {
+    db.prepare(`UPDATE sources SET ${setClause} WHERE id = @id AND project_id = @project_id`).run({
+      ...patch,
+      id,
+      project_id: projectId,
+    });
+  } catch (err) {
+    mapWriteError(
+      err,
+      'A source with that name already exists.',
+      `Failed to update source: ${(err as Error).message}`
+    );
+  }
   return getSourceOrThrow(projectId, id);
 }
 

@@ -98,6 +98,19 @@ describe('getDb on :memory:', () => {
     const result = db.pragma('foreign_keys', { simple: true });
     expect(result).toBe(1);
   });
+
+  it('leaves no dangling foreign keys after the 0003 table-rebuild migration', () => {
+    const db = getDb();
+    expect(db.pragma('foreign_key_check')).toEqual([]);
+    // The rebuild's temp tables must not leak into the final schema.
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
+      .all()
+      .map((row) => (row as { name: string }).name);
+    for (const leftover of ['projects_new', 'events_new', 'properties_new', 'property_bundles_new']) {
+      expect(tables).not.toContain(leftover);
+    }
+  });
 });
 
 describe('inserting and linking core entities on :memory:', () => {
@@ -214,9 +227,11 @@ describe('inserting and linking core entities on :memory:', () => {
   });
 });
 
+const ALL_MIGRATION_FILES = ['0001_core.sql', '0002_bundles.sql', '0003_unique_soft_delete.sql'];
+
 describe('listMigrationFiles', () => {
   it('lists every ordered migration file', () => {
-    expect(listMigrationFiles()).toEqual(['0001_core.sql', '0002_bundles.sql']);
+    expect(listMigrationFiles()).toEqual(ALL_MIGRATION_FILES);
   });
 });
 
@@ -228,15 +243,15 @@ describe('migration idempotency', () => {
     try {
       const first = getDb();
       const firstRows = first.prepare('SELECT id FROM schema_migrations').all() as { id: string }[];
-      expect(firstRows.map((row) => row.id)).toEqual(['0001_core.sql', '0002_bundles.sql']);
+      expect(firstRows.map((row) => row.id)).toEqual(ALL_MIGRATION_FILES);
 
       // Reopen the same file: runMigrations must see both migrations already applied and not
       // re-run them (which would fail with "table clients already exists").
       closeDb();
       const second = getDb();
       const secondRows = second.prepare('SELECT id FROM schema_migrations').all() as { id: string }[];
-      expect(secondRows.map((row) => row.id)).toEqual(['0001_core.sql', '0002_bundles.sql']);
-      expect(secondRows).toHaveLength(2);
+      expect(secondRows.map((row) => row.id)).toEqual(ALL_MIGRATION_FILES);
+      expect(secondRows).toHaveLength(ALL_MIGRATION_FILES.length);
     } finally {
       closeDb();
       for (const suffix of ['', '-wal', '-shm']) {

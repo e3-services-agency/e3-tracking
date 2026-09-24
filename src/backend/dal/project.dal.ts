@@ -4,8 +4,8 @@
  * on the project row directly.
  */
 import { getDb } from '../db';
-import { newId, nowIso, parseJsonColumn, toJsonColumn } from '../db/util';
-import { ConflictError, DatabaseError, NotFoundError } from '../errors';
+import { newId, nowIso, parseJsonColumn, toJsonColumn, mapWriteError } from '../db/util';
+import { ConflictError, NotFoundError, ValidationError } from '../errors';
 import { getClientOrThrow, type ClientRow } from './client.dal';
 
 export interface ProjectRow {
@@ -108,15 +108,18 @@ export function createProject(input: CreateProjectInput): ProjectRow {
   const key = input.key.trim();
   const name = input.name.trim();
   if (!key || !SLUG_RE.test(key)) {
-    throw new ConflictError('Project key must be a URL-safe slug (lowercase letters, digits, hyphens).');
+    throw new ValidationError('Project key must be a URL-safe slug (lowercase letters, digits, hyphens).', 'key');
   }
-  if (!name) throw new ConflictError('Project name is required.');
+  if (!name) throw new ValidationError('Project name is required.', 'name');
 
   // Validates the client exists (throws NotFoundError otherwise).
   getClientOrThrow(input.client_id);
 
   const db = getDb();
-  const clash = db.prepare('SELECT id FROM projects WHERE key = ?').get(key);
+  // Soft-deleted projects don't block key reuse (fix round finding #8); the UNIQUE index on
+  // `projects.key` is partial on `deleted_at IS NULL` (0003_unique_soft_delete.sql), so this
+  // pre-check and the constraint agree.
+  const clash = db.prepare('SELECT id FROM projects WHERE key = ? AND deleted_at IS NULL').get(key);
   if (clash) throw new ConflictError(`A project with key "${key}" already exists.`);
 
   const id = newId();
@@ -148,7 +151,7 @@ export function createProject(input: CreateProjectInput): ProjectRow {
       updated_at: now,
     });
   } catch (err) {
-    throw new DatabaseError(`Failed to create project: ${(err as Error).message}`, err);
+    mapWriteError(err, `A project with key "${key}" already exists.`, `Failed to create project: ${(err as Error).message}`);
   }
   return getProjectOrThrow(id);
 }
@@ -174,10 +177,15 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
   if (updates.key !== undefined) {
     const key = updates.key.trim();
     if (!key || !SLUG_RE.test(key)) {
-      throw new ConflictError('Project key must be a URL-safe slug (lowercase letters, digits, hyphens).');
+      throw new ValidationError('Project key must be a URL-safe slug (lowercase letters, digits, hyphens).', 'key');
     }
-    const clash = db.prepare('SELECT id FROM projects WHERE key = ? AND id != ?').get(key, id);
+    const clash = db
+      .prepare('SELECT id FROM projects WHERE key = ? AND id != ? AND deleted_at IS NULL')
+      .get(key, id);
     if (clash) throw new ConflictError(`A project with key "${key}" already exists.`);
+  }
+  if (updates.name !== undefined && !updates.name.trim()) {
+    throw new ValidationError('Project name is required.', 'name');
   }
   if (updates.client_id !== undefined) {
     getClientOrThrow(updates.client_id);
@@ -214,7 +222,11 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
   try {
     db.prepare(`UPDATE projects SET ${setClause} WHERE id = @id`).run({ ...patch, id });
   } catch (err) {
-    throw new DatabaseError(`Failed to update project: ${(err as Error).message}`, err);
+    mapWriteError(
+      err,
+      `A project with key "${String(patch.key ?? '')}" already exists.`,
+      `Failed to update project: ${(err as Error).message}`
+    );
   }
   return getProjectOrThrow(id);
 }

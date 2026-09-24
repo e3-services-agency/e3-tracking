@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { closeDb } from '../db';
 import * as ClientDAL from './client.dal';
 import * as ProjectDAL from './project.dal';
-import { ConflictError, NotFoundError } from '../errors';
+import { ConflictError, NotFoundError, ValidationError } from '../errors';
 
 beforeEach(() => {
   process.env.E3_DB_PATH = ':memory:';
@@ -37,6 +37,19 @@ describe('client.dal', () => {
     const client = ClientDAL.createClient({ key: 'acme', name: 'Acme' });
     ProjectDAL.createProject({ client_id: client.id, key: 'acme-eu', name: 'Acme EU' });
     expect(() => ClientDAL.deleteClient(client.id)).toThrow(ConflictError);
+  });
+
+  it('allows deleting a client once its only project is soft-deleted (fix round finding #8)', () => {
+    const client = ClientDAL.createClient({ key: 'acme', name: 'Acme' });
+    const project = ProjectDAL.createProject({ client_id: client.id, key: 'acme-eu', name: 'Acme EU' });
+    ProjectDAL.softDeleteProject(project.id);
+    ClientDAL.deleteClient(client.id);
+    expect(ClientDAL.listClients()).toHaveLength(0);
+  });
+
+  it('rejects a blank client name on update with a ValidationError (400)', () => {
+    const client = ClientDAL.createClient({ key: 'acme', name: 'Acme' });
+    expect(() => ClientDAL.updateClient(client.id, { name: '   ' })).toThrow(ValidationError);
   });
 });
 
@@ -76,5 +89,23 @@ describe('project.dal', () => {
     });
     expect(updated.bloomreach_project_token).toBe('tok');
     expect(updated.default_expiration_json).toEqual({ enabled: true, count: 3, units: 'months' });
+  });
+
+  it('reuses a project key after soft delete instead of a raw 500 (fix round finding #8)', () => {
+    const client = ClientDAL.createClient({ key: 'acme', name: 'Acme' });
+    const project = ProjectDAL.createProject({ client_id: client.id, key: 'acme-eu', name: 'Acme EU' });
+    ProjectDAL.softDeleteProject(project.id);
+    const recreated = ProjectDAL.createProject({ client_id: client.id, key: 'acme-eu', name: 'Acme EU v2' });
+    expect(recreated.id).not.toBe(project.id);
+    expect(ProjectDAL.listProjects().map((p) => p.key)).toEqual(['acme-eu']);
+  });
+
+  it('rejects a blank project name on create and update with a ValidationError (400)', () => {
+    const client = ClientDAL.createClient({ key: 'acme', name: 'Acme' });
+    expect(() => ProjectDAL.createProject({ client_id: client.id, key: 'acme-eu', name: '   ' })).toThrow(
+      ValidationError
+    );
+    const project = ProjectDAL.createProject({ client_id: client.id, key: 'acme-eu', name: 'Acme EU' });
+    expect(() => ProjectDAL.updateProject(project.id, { name: '  ' })).toThrow(ValidationError);
   });
 });

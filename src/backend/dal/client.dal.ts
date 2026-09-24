@@ -2,8 +2,8 @@
  * Client Data Access Layer (D-27): a Bloomreach account above Project.
  */
 import { getDb } from '../db';
-import { newId, nowIso } from '../db/util';
-import { ConflictError, DatabaseError, NotFoundError } from '../errors';
+import { newId, nowIso, mapWriteError } from '../db/util';
+import { ConflictError, NotFoundError, ValidationError } from '../errors';
 
 export interface ClientRow {
   id: string;
@@ -46,10 +46,10 @@ export function createClient(input: CreateClientInput): ClientRow {
   const key = input.key.trim();
   const name = input.name.trim();
   if (!key || !SLUG_RE.test(key)) {
-    throw new ConflictError('Client key must be a URL-safe slug (lowercase letters, digits, hyphens).');
+    throw new ValidationError('Client key must be a URL-safe slug (lowercase letters, digits, hyphens).', 'key');
   }
   if (!name) {
-    throw new ConflictError('Client name is required.');
+    throw new ValidationError('Client name is required.', 'name');
   }
 
   const db = getDb();
@@ -74,7 +74,7 @@ export function createClient(input: CreateClientInput): ClientRow {
       updated_at: now,
     });
   } catch (err) {
-    throw new DatabaseError(`Failed to create client: ${(err as Error).message}`, err);
+    mapWriteError(err, `A client with key "${key}" already exists.`, `Failed to create client: ${(err as Error).message}`);
   }
   return getClientOrThrow(id);
 }
@@ -86,10 +86,13 @@ export function updateClient(id: string, updates: UpdateClientInput): ClientRow 
   if (updates.key !== undefined) {
     const key = updates.key.trim();
     if (!key || !SLUG_RE.test(key)) {
-      throw new ConflictError('Client key must be a URL-safe slug (lowercase letters, digits, hyphens).');
+      throw new ValidationError('Client key must be a URL-safe slug (lowercase letters, digits, hyphens).', 'key');
     }
     const clash = db.prepare('SELECT id FROM clients WHERE key = ? AND id != ?').get(key, id);
     if (clash) throw new ConflictError(`A client with key "${key}" already exists.`);
+  }
+  if (updates.name !== undefined && !updates.name.trim()) {
+    throw new ValidationError('Client name is required.', 'name');
   }
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
@@ -106,17 +109,27 @@ export function updateClient(id: string, updates: UpdateClientInput): ClientRow 
   try {
     db.prepare(`UPDATE clients SET ${setClause} WHERE id = @id`).run({ ...patch, id });
   } catch (err) {
-    throw new DatabaseError(`Failed to update client: ${(err as Error).message}`, err);
+    mapWriteError(
+      err,
+      `A client with key "${String(patch.key ?? '')}" already exists.`,
+      `Failed to update client: ${(err as Error).message}`
+    );
   }
   return getClientOrThrow(id);
 }
 
-/** Delete only when the client has no projects (T-1-02 delta); 409 otherwise. */
+/**
+ * Delete only when the client has no non-deleted projects (T-1-02 delta); 409 otherwise. Counts
+ * `deleted_at IS NULL` projects only (fix round finding #8) so a client whose projects were all
+ * soft-deleted is not permanently stuck undeletable.
+ */
 export function deleteClient(id: string): void {
   getClientOrThrow(id);
   const db = getDb();
   const projectCount = (
-    db.prepare('SELECT COUNT(*) as n FROM projects WHERE client_id = ?').get(id) as { n: number }
+    db.prepare('SELECT COUNT(*) as n FROM projects WHERE client_id = ? AND deleted_at IS NULL').get(id) as {
+      n: number;
+    }
   ).n;
   if (projectCount > 0) {
     throw new ConflictError(
@@ -124,5 +137,12 @@ export function deleteClient(id: string): void {
       `project_count=${projectCount}`
     );
   }
-  db.prepare('DELETE FROM clients WHERE id = ?').run(id);
+  // Any project rows still here are soft-deleted (the count above is zero for non-deleted ones);
+  // hard-delete them first so `projects.client_id ... ON DELETE RESTRICT` doesn't block the client
+  // delete itself (fix round finding #8). Their own children cascade via each table's project_id FK.
+  const purge = db.transaction(() => {
+    db.prepare('DELETE FROM projects WHERE client_id = ?').run(id);
+    db.prepare('DELETE FROM clients WHERE id = ?').run(id);
+  });
+  purge();
 }

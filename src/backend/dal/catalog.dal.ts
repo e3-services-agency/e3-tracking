@@ -3,8 +3,8 @@
  * `projectId`; all queries enforce `project_id` (fields via their catalog's `project_id`).
  */
 import { getDb } from '../db';
-import { newId, nowIso, fromSqliteBool, toSqliteBool } from '../db/util';
-import { ConflictError, DatabaseError, NotFoundError } from '../errors';
+import { newId, nowIso, fromSqliteBool, toSqliteBool, mapWriteError } from '../db/util';
+import { NotFoundError, ValidationError } from '../errors';
 
 export interface CatalogRow {
   id: string;
@@ -96,7 +96,7 @@ export interface CatalogInput {
 
 export function createCatalog(projectId: string, input: CatalogInput): CatalogRow {
   const name = input.name.trim();
-  if (!name) throw new ConflictError('Catalog name is required.');
+  if (!name) throw new ValidationError('Catalog name is required.', 'name');
   const id = newId();
   const now = nowIso();
   try {
@@ -127,10 +127,11 @@ export function createCatalog(projectId: string, input: CatalogInput): CatalogRo
         updated_at: now,
       });
   } catch (err) {
-    if (/uq_catalogs_project_mapping_role/.test((err as Error).message)) {
-      throw new ConflictError('Another catalog already has this mapping role in the project.');
-    }
-    throw new DatabaseError(`Failed to create catalog: ${(err as Error).message}`, err);
+    mapWriteError(
+      err,
+      'Another catalog already has this mapping role in the project.',
+      `Failed to create catalog: ${(err as Error).message}`
+    );
   }
   return getCatalogOrThrow(projectId, id);
 }
@@ -141,6 +142,9 @@ export function updateCatalog(
   input: Partial<CatalogInput>
 ): CatalogRow {
   getCatalogOrThrow(projectId, catalogId);
+  if (input.name !== undefined && !input.name.trim()) {
+    throw new ValidationError('Catalog name is required.', 'name');
+  }
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (input.name !== undefined) patch.name = input.name.trim();
   if (input.description !== undefined) patch.description = input.description?.trim() || null;
@@ -163,10 +167,11 @@ export function updateCatalog(
       .prepare(`UPDATE catalogs SET ${setClause} WHERE id = @id AND project_id = @project_id`)
       .run({ ...patch, id: catalogId, project_id: projectId });
   } catch (err) {
-    if (/uq_catalogs_project_mapping_role/.test((err as Error).message)) {
-      throw new ConflictError('Another catalog already has this mapping role in the project.');
-    }
-    throw new DatabaseError(`Failed to update catalog: ${(err as Error).message}`, err);
+    mapWriteError(
+      err,
+      'Another catalog already has this mapping role in the project.',
+      `Failed to update catalog: ${(err as Error).message}`
+    );
   }
   return getCatalogOrThrow(projectId, catalogId);
 }
@@ -213,7 +218,7 @@ export function createCatalogField(
 ): CatalogFieldRow {
   getCatalogOrThrow(projectId, catalogId);
   const name = input.name.trim();
-  if (!name) throw new ConflictError('Catalog field name is required.');
+  if (!name) throw new ValidationError('Catalog field name is required.', 'name');
   const id = newId();
   const now = nowIso();
   try {
@@ -248,7 +253,11 @@ export function createCatalogField(
         updated_at: now,
       });
   } catch (err) {
-    throw new DatabaseError(`Failed to create catalog field: ${(err as Error).message}`, err);
+    mapWriteError(
+      err,
+      `A field named "${name}" already exists in this catalog.`,
+      `Failed to create catalog field: ${(err as Error).message}`
+    );
   }
   const row = getDb().prepare('SELECT * FROM catalog_fields WHERE id = ?').get(id) as Record<
     string,
@@ -264,6 +273,9 @@ export function updateCatalogField(
   input: Partial<CatalogFieldInput>
 ): CatalogFieldRow {
   getCatalogOrThrow(projectId, catalogId);
+  if (input.name !== undefined && !input.name.trim()) {
+    throw new ValidationError('Catalog field name is required.', 'name');
+  }
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (input.name !== undefined) patch.name = input.name.trim();
   if (input.description !== undefined) patch.description = input.description?.trim() || null;
@@ -287,9 +299,18 @@ export function updateCatalogField(
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
     .join(', ');
-  const result = getDb()
-    .prepare(`UPDATE catalog_fields SET ${setClause} WHERE id = @id AND catalog_id = @catalog_id`)
-    .run({ ...patch, id: fieldId, catalog_id: catalogId });
+  let result: { changes: number };
+  try {
+    result = getDb()
+      .prepare(`UPDATE catalog_fields SET ${setClause} WHERE id = @id AND catalog_id = @catalog_id`)
+      .run({ ...patch, id: fieldId, catalog_id: catalogId });
+  } catch (err) {
+    mapWriteError(
+      err,
+      `A field named "${String(patch.name ?? '')}" already exists in this catalog.`,
+      `Failed to update catalog field: ${(err as Error).message}`
+    );
+  }
   if (result.changes === 0) throw new NotFoundError('Catalog field not found.', 'catalog_field');
 
   const row = getDb().prepare('SELECT * FROM catalog_fields WHERE id = ?').get(fieldId) as Record<

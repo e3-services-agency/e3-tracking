@@ -62,29 +62,46 @@ export function listMigrationFiles(): string[] {
  * race to create the same tables; the second acquires the write lock only after the first has
  * committed and sees its migrations already recorded (reviewer LOW note on db/index.ts:50-61,
  * T-1-01 follow-up).
+ *
+ * `foreign_keys` is disabled for the whole run and re-enabled after (T-1-02 fix round finding #4):
+ * SQLite can only toggle that pragma outside of a transaction, and migrations that replace a table
+ * (`0003_unique_soft_delete.sql`'s rebuild-to-add-a-partial-unique-index) drop and recreate tables
+ * that other tables still hold live foreign keys to for the middle of the migration. `PRAGMA
+ * foreign_key_check` right after committing turns any dangling reference the rebuild might have
+ * left behind into a loud startup error instead of a silently inconsistent database.
  */
 function runMigrations(connection: Database.Database): void {
-  const apply = connection.transaction(() => {
-    connection.exec(`
-      CREATE TABLE IF NOT EXISTS schema_migrations (
-        id TEXT PRIMARY KEY,
-        applied_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  connection.pragma('foreign_keys = OFF');
+  try {
+    const apply = connection.transaction(() => {
+      connection.exec(`
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+          id TEXT PRIMARY KEY,
+          applied_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+        );
+      `);
+
+      const applied = new Set(
+        connection.prepare('SELECT id FROM schema_migrations').all().map((row) => (row as { id: string }).id)
       );
-    `);
 
-    const applied = new Set(
-      connection.prepare('SELECT id FROM schema_migrations').all().map((row) => (row as { id: string }).id)
-    );
+      for (const file of listMigrationFiles()) {
+        if (applied.has(file)) continue;
+        const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf-8');
+        connection.exec(sql);
+        connection.prepare('INSERT INTO schema_migrations (id) VALUES (?)').run(file);
+      }
+    });
 
-    for (const file of listMigrationFiles()) {
-      if (applied.has(file)) continue;
-      const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf-8');
-      connection.exec(sql);
-      connection.prepare('INSERT INTO schema_migrations (id) VALUES (?)').run(file);
+    apply.immediate();
+
+    const violations = connection.pragma('foreign_key_check') as unknown[];
+    if (violations.length > 0) {
+      throw new Error(`Migrations left dangling foreign keys: ${JSON.stringify(violations)}`);
     }
-  });
-
-  apply.immediate();
+  } finally {
+    connection.pragma('foreign_keys = ON');
+  }
 }
 
 /**

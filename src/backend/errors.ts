@@ -28,7 +28,7 @@ export type BadRequestDetails = {
 
 /** Invalid client payload (400). */
 export class BadRequestError extends Error {
-  readonly code = 'BAD_REQUEST';
+  readonly code: string = 'BAD_REQUEST';
   constructor(
     message: string,
     public readonly field?: string,
@@ -36,6 +36,20 @@ export class BadRequestError extends Error {
   ) {
     super(message);
     this.name = 'BadRequestError';
+  }
+}
+
+/**
+ * Blank/invalid field on an otherwise well-formed request (400). Subclass of `BadRequestError`
+ * so `routeErrors.ts`'s `instanceof BadRequestError` check already maps it; its own class and
+ * code exist so callers (and tests) can tell "you sent something empty" apart from other 400s
+ * without inspecting the message (fix round finding #7: validation must be 400, not 409).
+ */
+export class ValidationError extends BadRequestError {
+  readonly code = 'VALIDATION_ERROR';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'ValidationError';
   }
 }
 

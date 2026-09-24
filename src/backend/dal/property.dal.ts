@@ -5,8 +5,8 @@
  * T-1-04 adds their editors (see PLAN "T-1-04").
  */
 import { getDb } from '../db';
-import { newId, nowIso, parseJsonColumn, toJsonColumn, toSqliteBool, fromSqliteBool } from '../db/util';
-import { ConflictError, DatabaseError, NotFoundError } from '../errors';
+import { newId, nowIso, parseJsonColumn, toJsonColumn, toSqliteBool, fromSqliteBool, mapWriteError } from '../db/util';
+import { BadRequestError, ConflictError, NotFoundError, ValidationError } from '../errors';
 import * as BundleDAL from './bundle.dal';
 
 export interface PropertyRow {
@@ -125,9 +125,46 @@ export function getPropertyOrThrow(projectId: string, id: string): PropertyRow {
 const DEFAULT_DATA_TYPE = 'string';
 const DEFAULT_PROPERTY_TYPE = 'custom';
 
+/**
+ * Cross-project reference guard (fix round finding #6): `mapped_catalog_id` and
+ * `mapped_catalog_field_id` must name a catalog/field that belongs to the same project.
+ */
+function validateCatalogRefs(
+  projectId: string,
+  mappedCatalogId: string | null | undefined,
+  mappedCatalogFieldId: string | null | undefined
+): void {
+  const db = getDb();
+  if (mappedCatalogId) {
+    const catalog = db
+      .prepare('SELECT id FROM catalogs WHERE id = ? AND project_id = ? AND deleted_at IS NULL')
+      .get(mappedCatalogId, projectId);
+    if (!catalog) {
+      throw new BadRequestError('mapped_catalog_id does not belong to this project.', 'mapped_catalog_id');
+    }
+  }
+  if (mappedCatalogFieldId) {
+    const field = db
+      .prepare(
+        `SELECT cf.id FROM catalog_fields cf
+         JOIN catalogs c ON c.id = cf.catalog_id
+         WHERE cf.id = ? AND c.project_id = ? AND c.deleted_at IS NULL`
+      )
+      .get(mappedCatalogFieldId, projectId);
+    if (!field) {
+      throw new BadRequestError(
+        'mapped_catalog_field_id does not belong to this project.',
+        'mapped_catalog_field_id'
+      );
+    }
+  }
+}
+
 export function createProperty(projectId: string, input: PropertyInput): PropertyRow {
   const name = input.name.trim();
-  if (!name) throw new ConflictError('Property name is required.');
+  if (!name) throw new ValidationError('Property name is required.', 'name');
+
+  validateCatalogRefs(projectId, input.mapped_catalog_id, input.mapped_catalog_field_id);
 
   const db = getDb();
   const existing = db
@@ -180,7 +217,11 @@ export function createProperty(projectId: string, input: PropertyInput): Propert
       updated_at: now,
     });
   } catch (err) {
-    throw new DatabaseError(`Failed to create property: ${(err as Error).message}`, err);
+    mapWriteError(
+      err,
+      `A ${input.scope} property named "${name}" already exists in this project.`,
+      `Failed to create property: ${(err as Error).message}`
+    );
   }
 
   if (input.bundle_ids !== undefined && input.bundle_ids !== null) {
@@ -202,6 +243,7 @@ export function updateProperty(
     const current = getPropertyOrThrow(projectId, id);
     const name = (updates.name ?? current.name).trim();
     const scope = updates.scope ?? current.scope;
+    if (!name) throw new ValidationError('Property name is required.', 'name');
     const clash = db
       .prepare(
         'SELECT id FROM properties WHERE project_id = ? AND scope = ? AND name = ? AND id != ? AND deleted_at IS NULL'
@@ -210,6 +252,10 @@ export function updateProperty(
     if (clash) {
       throw new ConflictError(`A ${scope} property named "${name}" already exists in this project.`);
     }
+  }
+
+  if (updates.mapped_catalog_id !== undefined || updates.mapped_catalog_field_id !== undefined) {
+    validateCatalogRefs(projectId, updates.mapped_catalog_id, updates.mapped_catalog_field_id);
   }
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
@@ -253,7 +299,11 @@ export function updateProperty(
       project_id: projectId,
     });
   } catch (err) {
-    throw new DatabaseError(`Failed to update property: ${(err as Error).message}`, err);
+    mapWriteError(
+      err,
+      `A property named "${String(patch.name ?? '')}" already exists in this project.`,
+      `Failed to update property: ${(err as Error).message}`
+    );
   }
 
   if (updates.bundle_ids !== undefined) {

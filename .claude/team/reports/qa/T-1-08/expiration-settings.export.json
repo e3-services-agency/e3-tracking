@@ -1,0 +1,12 @@
+{
+  "events": [
+    {"expiration": {"enabled": false, "duration": null}, "filter": [], "type": "consent"},
+    {"expiration": {"enabled": true, "duration": {"count": 100, "units": "days"}}, "filter": [], "type": "notification_state"},
+    {"expiration": {"enabled": true, "duration": {"count": 30, "units": "days"}}, "filter": [], "type": "page_visit"},
+    {"expiration": {"enabled": true, "duration": {"count": 3, "units": "months"}}, "filter": [], "type": "session_end"},
+    {"expiration": {"enabled": true, "duration": {"count": 3, "units": "months"}}, "filter": [], "type": "session_start"},
+    {"expiration": {"enabled": true, "duration": {"count": 30, "units": "days"}}, "filter": [], "type": "web_exit"}
+  ],
+  "other": {"enabled": false, "duration": null},
+  "success": true
+}

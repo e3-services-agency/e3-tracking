@@ -49,6 +49,18 @@ interface StoreState {
   selectedItemIdToEdit: string | null;
   setSelectedItemIdToEdit: (id: string | null) => void;
 
+  /**
+   * T-1-09: cross-page navigation without prop-drilling `setActiveTab` down to every page.
+   * `Import.tsx`'s customer-events-export apply sets both `requestedTab: 'findings'` and
+   * `pendingFindingsRunId` to the new run's id; `Layout.tsx` watches `requestedTab` and switches
+   * the sidebar tab (clearing it so a later render does not re-trigger); `Findings.tsx` reads
+   * `pendingFindingsRunId` once on mount to pre-filter the table, then clears it.
+   */
+  requestedTab: string | null;
+  setRequestedTab: (tab: string | null) => void;
+  pendingFindingsRunId: string | null;
+  setPendingFindingsRunId: (id: string | null) => void;
+
   activeProjectId: string;
   activeProjectKey: string | null;
   setActiveProject: (args: { id: string; key?: string | null }) => void;
@@ -62,6 +74,11 @@ export const useStore = create<StoreState>((set) => {
   return {
     selectedItemIdToEdit: null,
     setSelectedItemIdToEdit: (id) => set({ selectedItemIdToEdit: id }),
+
+    requestedTab: null,
+    setRequestedTab: (tab) => set({ requestedTab: tab }),
+    pendingFindingsRunId: null,
+    setPendingFindingsRunId: (id) => set({ pendingFindingsRunId: id }),
 
     activeProjectId: storedActiveProject?.id ?? '',
     activeProjectKey: storedActiveProject?.key ?? null,

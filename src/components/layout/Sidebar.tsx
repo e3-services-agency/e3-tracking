@@ -15,6 +15,8 @@ import {
   ListChecks,
   Grid3x3,
   UploadCloud,
+  ClipboardCheck,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 
@@ -44,6 +46,8 @@ export function Sidebar({
     { id: 'requirementsMatrix', label: 'Requirements matrix', icon: Grid3x3 },
     { id: 'sources', label: 'Sources', icon: LayoutDashboard },
     { id: 'import', label: 'Import', icon: UploadCloud },
+    { id: 'qaRuns', label: 'QA runs', icon: ClipboardCheck },
+    { id: 'findings', label: 'Findings', icon: AlertTriangle },
   ];
 
   const bottomNavItems = [

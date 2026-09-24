@@ -19,6 +19,8 @@ import { StandardEvents } from '@/src/pages/StandardEvents';
 import { UseCases } from '@/src/pages/UseCases';
 import { RequirementsMatrix } from '@/src/pages/RequirementsMatrix';
 import { Import } from '@/src/pages/Import';
+import { QaRuns } from '@/src/pages/QaRuns';
+import { Findings } from '@/src/pages/Findings';
 
 const DEFAULT_BRAND_PRIMARY = 'var(--e3-emerald)';
 const SIDEBAR_COLLAPSED_KEY = 'e3-tracking.sidebarCollapsed';
@@ -65,6 +67,10 @@ function mainRouteStateFromRestPath(restPath: string): { tab: string } {
       return { tab: 'sources' };
     case '/import':
       return { tab: 'import' };
+    case '/qa-runs':
+      return { tab: 'qaRuns' };
+    case '/findings':
+      return { tab: 'findings' };
     case '/clients':
       return { tab: 'clients' };
     case '/settings':
@@ -111,7 +117,17 @@ function LayoutInner() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const activeProjectKey = useStore((s) => s.activeProjectKey);
   const setActiveProject = useStore((s) => s.setActiveProject);
+  const requestedTab = useStore((s) => s.requestedTab);
+  const setRequestedTab = useStore((s) => s.setRequestedTab);
   const activeTabRef = useRef(activeTab);
+
+  // T-1-09: `Import.tsx`'s customer-events-export apply requests a tab switch to Findings via the
+  // store instead of prop-drilling `setActiveTab` (see store.tsx's `requestedTab` comment).
+  useEffect(() => {
+    if (!requestedTab) return;
+    setActiveTab(requestedTab);
+    setRequestedTab(null);
+  }, [requestedTab, setRequestedTab]);
 
   useEffect(() => {
     activeTabRef.current = activeTab;
@@ -215,6 +231,8 @@ function LayoutInner() {
     if (activeTab === 'requirementsMatrix') pushPath('/requirements-matrix', activeProjectKey);
     if (activeTab === 'sources') pushPath('/sources', activeProjectKey);
     if (activeTab === 'import') pushPath('/import', activeProjectKey);
+    if (activeTab === 'qaRuns') pushPath('/qa-runs', activeProjectKey);
+    if (activeTab === 'findings') pushPath('/findings', activeProjectKey);
     if (activeTab === 'clients') pushPath('/clients', activeProjectKey);
     if (activeTab === 'settings') pushPath('/settings', activeProjectKey);
     if (activeTab === 'documentation') pushPath('/documentation', activeProjectKey);
@@ -250,6 +268,8 @@ function LayoutInner() {
         {activeTab === 'requirementsMatrix' && <RequirementsMatrix />}
         {activeTab === 'sources' && <Sources />}
         {activeTab === 'import' && <Import />}
+        {activeTab === 'qaRuns' && <QaRuns />}
+        {activeTab === 'findings' && <Findings />}
         {activeTab === 'settings' && <Settings />}
         {activeTab === 'documentation' && <Documentation />}
       </>

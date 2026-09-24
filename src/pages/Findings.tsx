@@ -1,0 +1,220 @@
+/**
+ * Findings page (T-1-09, D-07 simplified UI): a table of comparison-3 findings with filters
+ * (comparison, kind, severity, event, status), from `enums.ts` — never hardcoded. Reads
+ * `pendingFindingsRunId` from the store once (set by `QaRuns.tsx`'s "View findings for this run"
+ * and by `Import.tsx`'s customer-events-export apply) to pre-filter by the observation's run.
+ */
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Loader2, RefreshCw } from 'lucide-react';
+import { Button } from '@/src/components/ui/Button';
+import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
+import { useStore } from '@/src/store';
+import { fetchWithAuth } from '@/src/lib/api';
+import { API_BASE } from '@/src/config/env';
+import { COMPARISON_IDS, FINDING_KINDS, FINDING_SEVERITIES, FINDING_STATUSES } from '@/src/domain/enums';
+
+interface FindingRow {
+  id: string;
+  comparison: string;
+  kind: string;
+  severity: string;
+  event_id: string | null;
+  property_id: string | null;
+  observation_id: string | null;
+  qa_run_id: string | null;
+  message: string | null;
+  status: string;
+  last_seen_at: string;
+}
+
+interface EventOption {
+  id: string;
+  name: string;
+}
+
+async function parseJson(res: Response): Promise<any> {
+  return res.json().catch(() => ({}));
+}
+
+const SEVERITY_BADGE: Record<string, string> = {
+  error: 'bg-red-50 text-red-800 border-red-200',
+  warning: 'bg-amber-50 text-amber-800 border-amber-200',
+  info: 'bg-blue-50 text-blue-800 border-blue-200',
+};
+
+export function Findings() {
+  const { activeProjectId, hasValidProjectContext } = useProjectShell();
+  const [findings, setFindings] = useState<FindingRow[]>([]);
+  const [events, setEvents] = useState<EventOption[]>([]);
+  const [comparison, setComparison] = useState('');
+  const [kind, setKind] = useState('');
+  const [severity, setSeverity] = useState('');
+  const [eventId, setEventId] = useState('');
+  const [status, setStatus] = useState('open');
+  const [loading, setLoading] = useState(false);
+  const [running, setRunning] = useState(false);
+
+  const pendingFindingsRunId = useStore((s) => s.pendingFindingsRunId);
+  const setPendingFindingsRunId = useStore((s) => s.setPendingFindingsRunId);
+  const [runIdFilter, setRunIdFilter] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (pendingFindingsRunId) {
+      setRunIdFilter(pendingFindingsRunId);
+      setStatus('');
+      setPendingFindingsRunId(null);
+    }
+  }, [pendingFindingsRunId, setPendingFindingsRunId]);
+
+  const eventNameById = useMemo(() => new Map(events.map((e) => [e.id, e.name])), [events]);
+
+  const load = useCallback(async () => {
+    if (!hasValidProjectContext || !activeProjectId) return;
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (comparison) params.set('comparison', comparison);
+      if (kind) params.set('kind', kind);
+      if (severity) params.set('severity', severity);
+      if (eventId) params.set('event_id', eventId);
+      if (status) params.set('status', status);
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/findings?${params.toString()}`);
+      const data = await parseJson(res);
+      let rows: FindingRow[] = res.ok && Array.isArray(data) ? data : [];
+      if (runIdFilter) rows = rows.filter((f) => f.qa_run_id === runIdFilter);
+      setFindings(rows);
+
+      const eventsRes = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/events`);
+      const eventsData = await parseJson(eventsRes);
+      if (eventsRes.ok) setEvents(Array.isArray(eventsData) ? eventsData.map((e: { id: string; name: string }) => ({ id: e.id, name: e.name })) : []);
+    } finally {
+      setLoading(false);
+    }
+  }, [hasValidProjectContext, activeProjectId, comparison, kind, severity, eventId, status, runIdFilter]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const runComparison = async () => {
+    if (!activeProjectId) return;
+    setRunning(true);
+    try {
+      await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/comparison/run`, { method: 'POST' });
+      await load();
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  if (!hasValidProjectContext || !activeProjectId) {
+    return <div className="p-8 text-sm text-gray-500">Select a project first.</div>;
+  }
+
+  return (
+    <div className="flex-1 flex flex-col h-full">
+      <div className="p-8 border-b bg-white flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Findings</h1>
+          <p className="text-sm text-gray-500 mt-1">Definition vs observations (comparison 3, D-21).</p>
+        </div>
+        <Button type="button" onClick={() => void runComparison()} disabled={running} className="gap-2">
+          {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          Run comparison
+        </Button>
+      </div>
+
+      <div className="p-8 flex-1 overflow-y-auto space-y-4">
+        <div className="bg-white rounded-lg border shadow-sm p-4 flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-500">Comparison</label>
+            <select value={comparison} onChange={(e) => setComparison(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
+              <option value="">All</option>
+              {COMPARISON_IDS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-500">Kind</label>
+            <select value={kind} onChange={(e) => setKind(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
+              <option value="">All</option>
+              {FINDING_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-500">Severity</label>
+            <select value={severity} onChange={(e) => setSeverity(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
+              <option value="">All</option>
+              {FINDING_SEVERITIES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-500">Event</label>
+            <select value={eventId} onChange={(e) => setEventId(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
+              <option value="">All</option>
+              {events.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-500">Status</label>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
+              <option value="">All</option>
+              {FINDING_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          {runIdFilter && (
+            <Button type="button" variant="outline" onClick={() => setRunIdFilter(null)}>
+              Clear run filter
+            </Button>
+          )}
+        </div>
+
+        <div className="bg-white rounded-lg border shadow-sm">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-6 py-3 font-medium text-gray-500">Severity</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Kind</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Comparison</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Event</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Message</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Status</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Last seen</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {!loading && findings.map((f) => (
+                <tr key={f.id}>
+                  <td className="px-6 py-4">
+                    <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${SEVERITY_BADGE[f.severity] ?? ''}`}>
+                      {f.severity}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 font-mono text-xs text-gray-700">{f.kind}</td>
+                  <td className="px-6 py-4 text-gray-500 text-xs">{f.comparison}</td>
+                  <td className="px-6 py-4 text-gray-900">{f.event_id ? eventNameById.get(f.event_id) ?? f.event_id : '—'}</td>
+                  <td className="px-6 py-4 text-gray-500">{f.message ?? '—'}</td>
+                  <td className="px-6 py-4 text-gray-500">{f.status}</td>
+                  <td className="px-6 py-4 text-gray-500">{new Date(f.last_seen_at).toLocaleString()}</td>
+                </tr>
+              ))}
+              {!loading && findings.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                    No findings match these filters.
+                  </td>
+                </tr>
+              )}
+              {loading && (
+                <tr>
+                  <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                    Loading…
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}

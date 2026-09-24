@@ -226,6 +226,8 @@ function EventEditor({
   const [saveError, setSaveError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [uploadingTriggerIndex, setUploadingTriggerIndex] = useState<number | null>(null);
+  // T-1-09: open finding count badge (findings table filtered to this event, any comparison/kind/severity).
+  const [openFindingsCount, setOpenFindingsCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (!projectId) return;
@@ -274,6 +276,12 @@ function EventEditor({
             }
             setStandardEventByVariantId(byVariant);
           }
+
+          const findingsRes = await fetchWithAuth(
+            `${API_BASE}/api/projects/${projectId}/findings?event_id=${eventId}&status=open`
+          );
+          const findingsData = await parseJson(findingsRes);
+          if (findingsRes.ok) setOpenFindingsCount(Array.isArray(findingsData) ? findingsData.length : 0);
         }
         setLoading(false);
       }
@@ -413,6 +421,11 @@ function EventEditor({
 
   return (
     <div className="space-y-6">
+      {!isCreating && openFindingsCount !== null && openFindingsCount > 0 && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {openFindingsCount} open finding{openFindingsCount === 1 ? '' : 's'} for this event (see Findings).
+        </div>
+      )}
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">Name (snake_case)</label>
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. purchase" />

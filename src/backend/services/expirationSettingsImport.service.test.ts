@@ -198,6 +198,110 @@ describe('fix round: ERROR 3 - a filtered expiration entry targets the Variant, 
   });
 });
 
+// second fix round (2026-09-24 23:20 reviewer FAIL) regression tests.
+describe('second fix round: LOW D - a filtered entry with a disallowed operand value warns and skips at preview', () => {
+  it('does not propose a create item and never reaches apply (no 400)', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'cart_update' });
+    const property = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'action',
+      data_type: 'string',
+      allowed_values_json: [{ value: 'add' }],
+    });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: property.id, role: 'discriminator' });
+
+    const raw = {
+      events: [
+        {
+          type: 'cart_update',
+          filter: [
+            {
+              attribute: { property: 'action', type: 'property' },
+              constraint: {
+                operands: [
+                  { type: 'constant', value: 'remove' },
+                  { type: 'constant', value: 'add' },
+                ],
+                operator: 'in',
+                type: 'string',
+              },
+            },
+          ],
+          expiration: { enabled: true, duration: { count: 7, units: 'days' } },
+        },
+      ],
+      other: { enabled: false, duration: null },
+    };
+
+    const preview = previewExpirationSettings(projectId, raw);
+    expect(preview.items.some((i) => i.entity_type === 'variant')).toBe(false);
+    expect(preview.warnings.some((w) => w.includes('action') && w.includes('not in its allowed values'))).toBe(true);
+
+    // Applying the (unaffected) selection never throws, and no variant was created - the
+    // project-default item is unrelated to this filtered entry and is free to apply on its own.
+    const summary = applyExpirationSettings(projectId, raw, preview.payload_hash, preview.items.map((i) => i.id));
+    expect(summary.applied.some((id) => id.startsWith('variant'))).toBe(false);
+    expect(VariantDAL.listVariants(projectId, event.id)).toEqual([]);
+  });
+});
+
+describe('second fix round: INFO F - a filtered entry for an event created earlier in the same paste', () => {
+  it('warns with a distinct, actionable message instead of the generic "does not exist yet"', () => {
+    const raw = {
+      events: [
+        {
+          type: 'loyalty_scan',
+          filter: [],
+          expiration: { enabled: true, duration: { count: 30, units: 'days' } },
+        },
+        {
+          type: 'loyalty_scan',
+          filter: [
+            {
+              attribute: { property: 'channel', type: 'property' },
+              constraint: { operands: [{ type: 'constant', value: 'app' }], operator: 'equals', type: 'string' },
+            },
+          ],
+          expiration: { enabled: true, duration: { count: 7, units: 'days' } },
+        },
+      ],
+      other: { enabled: false, duration: null },
+    };
+
+    const preview = previewExpirationSettings(projectId, raw);
+    // The whole-event create is proposed and, once applied, the second import run resolves cleanly.
+    expect(preview.items.some((i) => i.entity_type === 'event' && i.entity_key === 'loyalty_scan')).toBe(true);
+    expect(preview.items.some((i) => i.entity_type === 'variant')).toBe(false);
+    expect(
+      preview.warnings.some((w) => w.includes('loyalty_scan') && w.includes('this same paste creates from scratch'))
+    ).toBe(true);
+
+    const summary = applyExpirationSettings(projectId, raw, preview.payload_hash, preview.items.map((i) => i.id));
+    expect(summary.skipped).toEqual([]);
+    const event = EventDAL.listEvents(projectId).find((e) => e.name === 'loyalty_scan')!;
+    expect(event).toBeDefined();
+    expect(event.expiration_json).toEqual({ enabled: true, count: 30, units: 'days' });
+
+    // Documented limitation: the filtered entry still cannot resolve on this same paste, because
+    // the expiration format never attaches a discriminator link itself - a discriminator on a
+    // brand-new event cannot already exist. A follow-up run (once the property is linked as a
+    // discriminator through a data-mapping import, say) would resolve it normally, same as any
+    // other pre-existing event.
+    const property = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'channel',
+      data_type: 'string',
+      allowed_values_json: [{ value: 'app' }],
+    });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: property.id, role: 'discriminator' });
+
+    const second = previewExpirationSettings(projectId, raw);
+    const variantItem = second.items.find((i) => i.entity_type === 'variant');
+    expect(variantItem).toBeDefined();
+    expect(variantItem!.entity_key).toBe('loyalty_scan[channel=app]');
+  });
+});
+
 describe('exportExpirationSettings round trip', () => {
   it('deep-equals the fixture after import, ignoring key order and success', () => {
     const preview = previewExpirationSettings(projectId, fixture);

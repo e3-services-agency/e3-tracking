@@ -20,7 +20,7 @@ import type { DiffItem } from '../../domain/diff/types';
 import { KNOWN_SYSTEM_EVENT_TYPES } from '../../domain/bloomreach';
 import { generateVariantName, type VariantCondition } from '../../domain/variants';
 import { ConflictError, PayloadChangedError } from '../errors';
-import { findEventByName, findPropertyByName, findMatchingVariant } from './bloomreachImportHelpers';
+import { findEventByName, findPropertyByName, findMatchingVariant, canonicalizeFilter } from './bloomreachImportHelpers';
 
 interface PlanStep {
   id: string;
@@ -81,7 +81,25 @@ function buildPlan(projectId: string, model: ExpirationSettingsModel): PlanResul
     steps.push({ id: item.id, run });
   }
 
-  for (const ev of model.events) planExpirationEvent(ev);
+  // second fix round INFO F: process every whole-event entry (filter: []) before any filtered
+  // entry (order the steps), so a filtered entry for an event this *same paste* also creates gets
+  // the most up-to-date read of "does this event exist" and a warning that names the real cause
+  // (rather than the generic "does not exist yet" message) when it still cannot resolve — the
+  // expiration format never attaches properties/discriminator links itself (PLAN "Expiration
+  // settings" scopes it to Event/Variant.expiration_json only), so a *brand-new* event created by
+  // this paste can never already have the discriminator link a filtered entry for it needs; that
+  // half is a documented limitation (see `typesCreatedThisPaste` below and its test), not something
+  // step ordering alone can fix. An event that already existed before this paste is unaffected by
+  // ordering either way (its state is read live from the DB, not accumulated across entries).
+  const typesCreatedThisPaste = new Set(
+    model.events.filter((ev) => ev.filter.length === 0 && !findEventByName(projectId, ev.type)).map((ev) => ev.type)
+  );
+  for (const ev of model.events) {
+    if (ev.filter.length === 0) planExpirationEvent(ev);
+  }
+  for (const ev of model.events) {
+    if (ev.filter.length > 0) planExpirationEvent(ev);
+  }
   planProjectDefault(model.other);
 
   return { items, warnings, steps };
@@ -164,18 +182,42 @@ function buildPlan(projectId: string, model: ExpirationSettingsModel): PlanResul
   function planVariantExpiration(ev: ExpirationSettingsEvent, desired: ExpirationBlock): void {
     const existingEvent = findEventByName(projectId, ev.type);
     if (!existingEvent) {
-      warnings.push(`events[type=${ev.type}].filter targets event "${ev.type}", which does not exist yet; skipped.`);
+      // second fix round INFO F: name the real cause when this same paste also creates the event
+      // (documented limitation — see the comment on `typesCreatedThisPaste` above) instead of the
+      // generic message, so the warning tells the user what to do (re-run the import once the event
+      // exists) rather than implying the paste itself is wrong.
+      warnings.push(
+        typesCreatedThisPaste.has(ev.type)
+          ? `events[type=${ev.type}].filter targets event "${ev.type}", which this same paste creates from scratch; a brand-new event has no discriminator link yet, so this entry needs a second import run after applying.`
+          : `events[type=${ev.type}].filter targets event "${ev.type}", which does not exist yet; skipped.`
+      );
       return;
     }
+    // second fix round ERROR A/WARNING B (shared with dataMappingImport.service.ts): canonicalize
+    // before naming/matching so an `in` filter with one operand, or reversed operands, matches the
+    // same already-applied variant instead of proposing a duplicate.
+    const filter = canonicalizeFilter(ev.filter);
     const { properties: linked } = EventDAL.getEventWithProperties(projectId, existingEvent.id);
     const conditions: VariantCondition[] = [];
     const identityNames: Record<string, string> = {};
-    for (const cond of ev.filter) {
+    for (const cond of filter) {
       const prop = findPropertyByName(projectId, 'event', cond.property);
       const link = prop ? linked.find((p) => p.property_id === prop.id) : undefined;
       if (!prop || !link || link.role !== 'discriminator') {
         warnings.push(
           `events[type=${ev.type}].filter references property "${cond.property}", which is not linked to "${ev.type}" as a discriminator; skipped.`
+        );
+        return;
+      }
+      // second fix round LOW D: validate the filter's operand values against the property's
+      // allowed values *at plan time* (a warning and skip), not just at apply — `createVariant`
+      // otherwise throws 400 `CONDITION_VALUE_NOT_ALLOWED` deep inside the apply transaction for
+      // something preview could have caught, even though the rollback itself loses no data.
+      const allowed = new Set(((prop.allowed_values_json as { value: string }[] | null) ?? []).map((v) => v.value));
+      const invalid = cond.values.filter((v) => !allowed.has(v));
+      if (invalid.length > 0) {
+        warnings.push(
+          `events[type=${ev.type}].filter references property "${cond.property}" with value(s) ${invalid.join(', ')} not in its allowed values; skipped.`
         );
         return;
       }
@@ -186,7 +228,7 @@ function buildPlan(projectId: string, model: ExpirationSettingsModel): PlanResul
     const displayName = generateVariantName(ev.type, conditions, identityNames);
     const id = `variant_expiration:${displayName}`;
     if (plannedIds.has(id)) return;
-    const existingVariant = findMatchingVariant(projectId, existingEvent.id, ev.filter);
+    const existingVariant = findMatchingVariant(projectId, existingEvent.id, filter);
     const existingVariantRow = existingVariant ? VariantDAL.getVariantByIdInProject(projectId, existingVariant.id) : null;
 
     if (!existingVariant) {
@@ -203,7 +245,7 @@ function buildPlan(projectId: string, model: ExpirationSettingsModel): PlanResul
         () => {
           const event = findEventByName(projectId, ev.type);
           if (!event) return;
-          const already = findMatchingVariant(projectId, event.id, ev.filter);
+          const already = findMatchingVariant(projectId, event.id, filter);
           if (already) {
             const row = VariantDAL.getVariantByIdInProject(projectId, already.id);
             if (row && !expirationEqual(row.expiration_json, desired)) {
@@ -236,7 +278,7 @@ function buildPlan(projectId: string, model: ExpirationSettingsModel): PlanResul
       () => {
         const event = findEventByName(projectId, ev.type);
         if (!event) return;
-        const variant = findMatchingVariant(projectId, event.id, ev.filter);
+        const variant = findMatchingVariant(projectId, event.id, filter);
         if (!variant) return;
         const row = VariantDAL.getVariantByIdInProject(projectId, variant.id);
         if (row && !expirationEqual(row.expiration_json, desired)) {

@@ -8,7 +8,34 @@ import * as EventDAL from '../dal/event.dal';
 import * as PropertyDAL from '../dal/property.dal';
 import { listVariants } from '../dal/variant.dal';
 import { ConflictError } from '../errors';
-import type { VariantCondition } from '../../domain/variants';
+import { normalizeConditions, type VariantCondition, type VariantOperator } from '../../domain/variants';
+
+export interface RawFilterCondition {
+  property: string;
+  operator: VariantOperator;
+  values: string[];
+}
+
+/**
+ * Canonicalizes a parsed Bloomreach filter (property *name*, not id — the format has no ids) with
+ * the same `normalizeConditions` rules the DAL applies before storing a variant's `conditions_json`
+ * (second fix round ERROR A/WARNING B): values de-duplicated and sorted, a one-value `in` collapsed
+ * to `equals`, conditions sorted by key. Naming (`generateVariantName`) and matching
+ * (`findMatchingVariant`) must both consume this canonical form, never the raw parsed filter —
+ * otherwise `action in (add)` (re-pasted after `action=add`) or `action in (remove|add)` (operands
+ * reversed from a stored `action in (add|remove)`) name/compare as a *different* filter than the
+ * one already applied, propose a duplicate `create variant`, and — because `createVariant`'s
+ * resulting `ConflictError` used to be swallowed unconditionally — silently upsert the standard
+ * event mapping with `variant_id: null` even though the filter is non-empty.
+ */
+export function canonicalizeFilter(filter: RawFilterCondition[]): RawFilterCondition[] {
+  const conditions: VariantCondition[] = filter.map((c) => ({
+    property_id: c.property,
+    operator: c.operator as VariantOperator,
+    values: c.values,
+  }));
+  return normalizeConditions(conditions, {}).map((c) => ({ property: c.property_id, operator: c.operator, values: c.values }));
+}
 
 export function findEventByName(projectId: string, name: string): EventDAL.EventRow | null {
   return EventDAL.listEvents(projectId).find((e) => e.name === name) ?? null;
@@ -48,19 +75,22 @@ function sameValues(a: string[], b: string[]): boolean {
 
 /**
  * Finds an existing variant of `eventId` whose conditions match `filter` (compared by resolved
- * property *name*, since Bloomreach JSON never carries a property id). Returns `null` when no
- * variant matches.
+ * property *name*, since Bloomreach JSON never carries a property id). `filter` is canonicalized
+ * with `canonicalizeFilter` first so an `in` filter with one operand, or operands in a different
+ * order, matches the same (already-canonical) stored variant instead of proposing a duplicate
+ * (second fix round ERROR A/WARNING B). Returns `null` when no variant matches.
  */
 export function findMatchingVariant(
   projectId: string,
   eventId: string,
-  filter: { property: string; operator: string; values: string[] }[]
+  filter: RawFilterCondition[]
 ): { id: string; name: string } | null {
   if (filter.length === 0) return null;
+  const canonical = canonicalizeFilter(filter);
   const variants = listVariants(projectId, eventId);
   for (const variant of variants) {
-    if (variant.conditions_json.length !== filter.length) continue;
-    const match = filter.every((cond) =>
+    if (variant.conditions_json.length !== canonical.length) continue;
+    const match = canonical.every((cond) =>
       variant.conditions_json.some((c: VariantCondition) => {
         const propName = resolvePropertyName(projectId, c.property_id);
         return propName === cond.property && c.operator === cond.operator && sameValues(c.values, cond.values);

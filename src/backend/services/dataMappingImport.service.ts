@@ -27,7 +27,13 @@ import type { DiffItem, DiffItemChange } from '../../domain/diff/types';
 import { isKnownStandardEvent, isKnownConsentKey, STANDARD_CUSTOMER_PROPERTIES, type StandardEventSeed } from '../../domain/bloomreach';
 import { generateVariantName, type VariantCondition } from '../../domain/variants';
 import { BadRequestError, ConflictError, PayloadChangedError } from '../errors';
-import { findEventByName, findPropertyByName, ensureLinked, findMatchingVariant } from './bloomreachImportHelpers';
+import {
+  findEventByName,
+  findPropertyByName,
+  ensureLinked,
+  findMatchingVariant,
+  canonicalizeFilter,
+} from './bloomreachImportHelpers';
 
 /** Compares two `field -> property name|null` maps by content, independent of key order. */
 function fieldMapsEqual(a: Record<string, string | null>, b: Record<string, string | null>): boolean {
@@ -39,7 +45,15 @@ function fieldMapsEqual(a: Record<string, string | null>, b: Record<string, stri
 
 interface PlanStep {
   id: string;
-  run: () => void;
+  /**
+   * Returning `false` (second fix round ERROR A) means the step could not actually do its write —
+   * e.g. a standard event mapping with a non-empty filter whose variant did not resolve even
+   * though the dependency graph considered the step runnable — and `apply` must report the item as
+   * skipped (with a warning already pushed to `warnings`) instead of applied. Returning `void`
+   * (the common case) means the step ran to completion; it may still have been a no-op (idempotent
+   * re-run) but that is not "skipped" from the caller's point of view.
+   */
+  run: () => void | boolean;
   /** Ids of other plan steps this step needs to have actually run first (fix round WARNING 6): an
    *  unselected or unmet dependency makes this step's own selection a no-op — it is reported as
    *  skipped instead of silently writing a partial/inconsistent record (e.g. a mapping with
@@ -73,8 +87,13 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
   const warnings = [...model.warnings];
   const steps: PlanStep[] = [];
   const plannedIds = new Set<string>();
+  // second fix round WARNING C/LOW E: `eventName.propName` pairs whose promotion to discriminator
+  // would exceed the D-03 rule 3 two-discriminator-per-event limit. Populated by `planRolePromotion`
+  // (Phase 3.5) and consulted by Phase 5 so the variant and standard event mapping that need that
+  // property are never proposed (not just quietly skipped at apply) once the conflict is known.
+  const blockedPromotions = new Set<string>();
 
-  function addItem(item: DiffItem, run: () => void, dependsOn?: string[]): void {
+  function addItem(item: DiffItem, run: () => void | boolean, dependsOn?: string[]): void {
     if (plannedIds.has(item.id)) return;
     plannedIds.add(item.id);
     items.push(item);
@@ -145,6 +164,10 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
   // ---- Phase 5: variants + standard event mappings ----
   for (const se of mappedEvents) {
     const eventName = se.eventType as string;
+    // second fix round WARNING C/LOW E: a filter property Phase 3.5 could not promote (already two
+    // discriminators on the event) blocks both the variant and the mapping for this standard event
+    // — proposing either would either write nothing useful or fail apply with an uncaught 400.
+    if (se.filter.some((cond) => blockedPromotions.has(`${eventName}.${cond.property}`))) continue;
     if (se.filter.length > 0) planVariant(eventName, se.filter);
     planStandardEventMapping(se, eventName);
   }
@@ -357,6 +380,27 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
     const link = properties.find((p) => p.property_id === prop.id);
     if (!link || link.role !== 'normal') return; // not linked yet, or already discriminator/context
 
+    // second fix round LOW E: detect at *plan* time (so it shows in preview, not just as an apply
+    // failure) that promoting this property would exceed the D-03 rule 3 two-discriminator-per-event
+    // limit. Counts the event's current discriminators plus any other promotion already planned for
+    // this event in this same run (two filter properties on one event, both currently "normal").
+    const currentDiscriminatorIds = new Set(properties.filter((p) => p.role === 'discriminator').map((p) => p.property_id));
+    const plannedForEvent = Array.from(plannedIds).filter(
+      (pid) => pid.startsWith(`event_property:${eventName}.`) && pid.endsWith(':role')
+    ).length;
+    if (currentDiscriminatorIds.size + plannedForEvent + 1 > 2) {
+      blockedPromotions.add(`${eventName}.${propName}`);
+      warnings.push(
+        `Cannot promote property "${propName}" on event "${eventName}" to discriminator: it already has 2 discriminator properties (D-03 rule 3). The variant and standard event mapping that need it were not proposed.`
+      );
+      return;
+    }
+
+    // second fix round WARNING C: this step must be a dependency of the variant it exists for
+    // (`property:event:${propName}` is a *separate* dependency the variant/mapping steps already
+    // list), so the promotion depends on the property itself actually existing/being applied.
+    const dependsOn = [depIf(`property:event:${propName}`)].filter((d): d is string => d !== null);
+
     addItem(
       {
         id,
@@ -370,21 +414,38 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
       () => {
         const ev = findEventByName(projectId, eventName);
         const p = findPropertyByName(projectId, 'event', propName);
-        if (!ev || !p) return;
+        if (!ev || !p) return false;
         const { properties: current } = EventDAL.getEventWithProperties(projectId, ev.id);
         const l = current.find((x) => x.property_id === p.id);
-        if (!l || l.role !== 'normal') return;
+        if (!l || l.role !== 'normal') return; // already discriminator (idempotent re-run), not a failure
         try {
           EventDAL.updateEventProperty(projectId, ev.id, p.id, { role: 'discriminator' });
         } catch (err) {
-          if (err instanceof BadRequestError) return; // e.g. the allowed value it needs was not applied (dependency not selected)
+          // second fix round WARNING C: never swallow this — a failure here (e.g. the allowed value
+          // this property needs was never applied because its own property step was deselected)
+          // means the variant depending on it cannot be correct either, so it must abort the whole
+          // apply with a clear 400 naming the item, not silently report success while writing
+          // nothing.
+          if (err instanceof BadRequestError) {
+            throw new BadRequestError(
+              `Could not promote property "${propName}" on event "${eventName}" to discriminator: ${err.message}`,
+              err.field
+            );
+          }
           throw err;
         }
-      }
+      },
+      dependsOn
     );
   }
 
-  function planVariant(eventName: string, filter: DataMappingModel['standardEvents'][number]['filter']): void {
+  function planVariant(eventName: string, rawFilter: DataMappingModel['standardEvents'][number]['filter']): void {
+    // second fix round ERROR A/WARNING B: canonicalize the parsed filter the same way the DAL
+    // canonicalizes a variant's stored conditions (normalizeConditions/buildConditionsKey) *before*
+    // naming or matching. Otherwise a re-paste with `equals` changed to a one-value `in`, or an
+    // `in` filter with operands in a different order than the stored, sorted order, names/compares
+    // as a different filter than the one already applied and proposes a duplicate variant.
+    const filter = canonicalizeFilter(rawFilter);
     const conditions: VariantCondition[] = filter.map((c) => ({ property_id: c.property, operator: c.operator, values: c.values }));
     const identityNames: Record<string, string> = {};
     conditions.forEach((c) => {
@@ -407,19 +468,29 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
       { id, op: 'create', entity_type: 'variant', entity_key: displayName, changes: [], default_selected: true, note: `Create variant "${displayName}".` },
       () => {
         const event = findEventByName(projectId, eventName);
-        if (!event) return;
-        if (findMatchingVariant(projectId, event.id, filter)) return;
+        if (!event) return false;
+        if (findMatchingVariant(projectId, event.id, filter)) return; // already resolvable; nothing to create
         const createConditions: VariantCondition[] = [];
         for (const cond of filter) {
           const prop = findPropertyByName(projectId, 'event', cond.property);
-          if (!prop) return; // dependency (its own property step) was not selected/applied; skip quietly
+          if (!prop) return false; // dependency (its own property step) was not selected/applied
           ensureLinked(projectId, event.id, prop.id, 'discriminator');
           createConditions.push({ property_id: prop.id, operator: cond.operator, values: cond.values });
         }
         try {
           VariantDAL.createVariant(projectId, event.id, { conditions: createConditions });
         } catch (err) {
-          if (err instanceof ConflictError) return;
+          if (err instanceof ConflictError) {
+            // second fix round ERROR A: never swallow this silently. A conditions_key clash means a
+            // variant with these exact (canonical) conditions already exists — use it — but only if
+            // it actually resolves; otherwise surface it instead of letting a dependent mapping step
+            // write `variant_id: null`.
+            if (findMatchingVariant(projectId, event.id, filter)) return;
+            warnings.push(
+              `Variant "${displayName}" already exists by name/conditions but could not be resolved after a conflict; check for a duplicate variant on event "${eventName}".`
+            );
+            return false;
+          }
           throw err;
         }
       },
@@ -431,20 +502,25 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
     const id = `standard_event_mapping:${se.key}`;
     if (plannedIds.has(id)) return;
 
+    // second fix round ERROR A/WARNING B: canonicalize before naming/matching, same as planVariant
+    // — this is the filter that `planVariant` for this same `se` planned/matched against, so the
+    // two must agree on what "the" variant is called.
+    const filter = canonicalizeFilter(se.filter);
+
     const existing = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, se.key);
     const fieldEntries = Object.entries(se.fieldMap);
     const fieldSummary = fieldEntries.length
       ? ` (field map: ${fieldEntries.map(([f, p]) => `${f}=${p ?? '—'}`).join(', ')})`
       : '';
     const target =
-      se.filter.length > 0
+      filter.length > 0
         ? generateVariantName(
             eventName,
-            se.filter.map((c) => ({ property_id: c.property, operator: c.operator, values: c.values })),
-            Object.fromEntries(se.filter.map((c) => [c.property, c.property]))
+            filter.map((c) => ({ property_id: c.property, operator: c.operator, values: c.values })),
+            Object.fromEntries(filter.map((c) => [c.property, c.property]))
           )
         : eventName;
-    const variantItemId = se.filter.length > 0 ? `variant:${target}` : null;
+    const variantItemId = filter.length > 0 ? `variant:${target}` : null;
 
     const currentEvent = existing ? EventDAL.getEventById(projectId, existing.event_id) : null;
     const currentVariant =
@@ -456,7 +532,7 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
     // desired variant does not exist yet, `desiredVariantLabel` still equals its deterministic
     // generated name (`target`), so the comparison below still detects the change; the real lookup
     // happens again in `run()` once the variant has actually been created.
-    const desiredVariantLabel = se.filter.length > 0 ? target : null;
+    const desiredVariantLabel = filter.length > 0 ? target : null;
 
     // fix round WARNING 7: use the diff primitives so `changes` carries real field-level
     // before/after pairs the UI can render, instead of an empty array with only the note as prose.
@@ -505,7 +581,20 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
       },
       () => {
         const event = findEventByName(projectId, eventName);
-        if (!event) return;
+        if (!event) return false;
+
+        // second fix round ERROR A: a mapping with a non-empty filter must never be written with
+        // `variant_id: null` — if the variant this mapping needs cannot be resolved (its create
+        // step was not selected/applied, or a name/conditions clash left it unresolvable), skip the
+        // whole mapping write and report it as skipped with a warning instead of silently detaching
+        // it to "the whole event".
+        const variant = filter.length > 0 ? findMatchingVariant(projectId, event.id, filter) : null;
+        if (filter.length > 0 && !variant) {
+          warnings.push(
+            `Skipped mapping "${se.key}": its variant "${target}" could not be resolved; re-run preview and select the variant's create step.`
+          );
+          return false;
+        }
 
         const fieldMapIds: Record<string, string | null> = {};
         for (const [field, propName] of Object.entries(se.fieldMap)) {
@@ -522,7 +611,6 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
           fieldMapIds[field] = prop.id;
         }
 
-        const variant = se.filter.length > 0 ? findMatchingVariant(projectId, event.id, se.filter) : null;
         const previousVariantId = existing?.variant_id ?? null;
 
         StandardEventMappingDAL.upsertStandardEventMapping(projectId, se.key, {
@@ -708,7 +796,18 @@ export function applyDataMapping(
       }
     }
     for (const step of steps) {
-      if (canRun(step.id)) step.run();
+      if (!canRun(step.id)) continue;
+      const result = step.run();
+      // second fix round ERROR A: a step can be structurally "runnable" (selected, dependencies
+      // met) yet still be unable to actually write (e.g. a mapping whose variant did not resolve
+      // for a reason the dependency graph does not model, such as a `ConflictError` that itself
+      // failed to resolve). `run()` returning `false` reclassifies it from applied to skipped
+      // instead of leaving it reported as applied while nothing was written.
+      if (result === false) {
+        const idx = applied.indexOf(step.id);
+        if (idx !== -1) applied.splice(idx, 1);
+        if (!skipped.includes(step.id)) skipped.push(step.id);
+      }
     }
     runtimeWarnings.push(...planWarnings);
   });

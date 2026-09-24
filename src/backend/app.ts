@@ -28,7 +28,10 @@ import useCaseTemplatesRouter from './routes/use-case-templates';
 import useCasesRouter from './routes/use-cases';
 import requirementsMatrixRouter from './routes/requirements-matrix';
 import importsRouter from './routes/imports';
-import { removedRouter } from './routes/removed';
+import qaRunsRouter from './routes/qa-runs';
+import observationsRouter from './routes/observations';
+import comparisonRouter from './routes/comparison';
+import findingsRouter from './routes/findings';
 import { optionalAuth } from './middleware/auth';
 import { requireProject } from './middleware/project';
 import { getDb } from './db';
@@ -79,15 +82,19 @@ export function createApp(): express.Express {
   app.use('/api/projects/:projectId/use-cases', requireProject, useCasesRouter);
   app.use('/api/projects/:projectId/requirements-matrix', requireProject, requirementsMatrixRouter);
   app.use('/api/projects/:projectId/import', requireProject, importsRouter);
+  app.use('/api/projects/:projectId/qa-runs', requireProject, qaRunsRouter);
+  app.use('/api/projects/:projectId/observations', requireProject, observationsRouter);
+  app.use('/api/projects/:projectId/comparison', requireProject, comparisonRouter);
+  app.use('/api/projects/:projectId/findings', requireProject, findingsRouter);
 
   // Public share-link mechanism (D-18): stub until phase 4 (see routes/shared.ts).
   app.use('/api/shared', sharedRouter);
 
   // Removed in the schema rewrite (D-18); journeys/metrics never had tables in the fresh schema
   // and T-1-03 removed every frontend code path that called them, so no stub is mounted for them
-  // anymore. Variant is real as of T-1-05 (mounted as a sub-path of eventsRouter above); qa-runs
-  // stays 501 until T-1-09.
-  app.use('/api/projects/:projectId/qa-runs', requireProject, removedRouter('T-1-05'));
+  // anymore (`routes/removed.ts` is unused after T-1-09; kept only in case a future task needs
+  // the same 501-stub pattern). Variant is real as of T-1-05 (mounted as a sub-path of
+  // eventsRouter above); QaRun, Observation, Finding are real as of T-1-09 (mounted above).
 
   // Simple health endpoint. Kept in Express so we don't need a separate Vercel function on the
   // Hobby plan.

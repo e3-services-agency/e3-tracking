@@ -12,6 +12,7 @@ import {
   Fingerprint,
   ShieldCheck,
   GitBranch,
+  UploadCloud,
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 
@@ -38,6 +39,7 @@ export function Sidebar({
     { id: 'consentCategories', label: 'Consent categories', icon: ShieldCheck },
     { id: 'standardEvents', label: 'Standard events', icon: GitBranch },
     { id: 'sources', label: 'Sources', icon: LayoutDashboard },
+    { id: 'import', label: 'Import', icon: UploadCloud },
   ];
 
   const bottomNavItems = [

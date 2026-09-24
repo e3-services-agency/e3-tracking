@@ -9,26 +9,19 @@
  */
 import type {
   CodegenEventNameOverrides,
-  EventPropertyPresence,
   ObjectChildFieldSnapshot,
-  PropertyDataFormat,
   PropertyExampleValue,
   PropertyValueSchema,
 } from '../../types/schema';
-import { isAttachedPropertyRequiredForTrigger } from '../../lib/effectiveEventSchema';
+import type { PropertyDataFormat } from '../../domain/enums';
 
 export interface AttachedPropertyForCodegen {
   property_name: string;
-  presence: EventPropertyPresence;
-  /** event_property_definitions.required (nullable). */
-  property_required_override?: boolean | null;
   /**
-   * When set to a boolean, snippet optional/required grouping uses this instead of
-   * `isAttachedPropertyRequiredForTrigger(presence, property_required_override)`.
-   * Callers that already resolved requiredness elsewhere set this to a boolean for every
-   * attached row (never undefined).
+   * D-16: presence is dropped; codegen reads `EventProperty.required` directly (T-1-04 delta).
+   * `required=false` means optional in codegen and QA.
    */
-  required_for_trigger?: boolean;
+  required: boolean;
   /** Catalog property id (attached row); used for nested resolution. */
   property_id?: string;
   property_data_type?: string | null;
@@ -70,10 +63,7 @@ function hasFormat(formats: string[] | null | undefined, f: PropertyDataFormat):
 }
 
 function isRequiredForCodegenSnippet(p: AttachedPropertyForCodegen): boolean {
-  if (typeof p.required_for_trigger === 'boolean') {
-    return p.required_for_trigger;
-  }
-  return isAttachedPropertyRequiredForTrigger(p.presence, p.property_required_override);
+  return p.required;
 }
 
 /** Alphabetical by property name (catalog `property_name` / generated payload key). */
@@ -239,7 +229,7 @@ function buildNestedObjectSampleFromSnapshots(
     }
     const childAttached: AttachedPropertyForCodegen = {
       property_name: key,
-      presence: 'always_sent',
+      required: true,
       property_id: snap.property_id,
       property_data_type: snap.property_data_type ?? null,
       property_data_formats: snap.property_data_formats ?? null,
@@ -325,7 +315,8 @@ function formatJsObjectBodyFromSchema(
 /**
  * Builds the three code snippets for an event.
  * @param canonicalEventName - Canonical platform event name (unchanged in DB).
- * @param attached - Attached properties with presence (always_sent / sometimes_sent). Never_sent are omitted.
+ * @param attached - Attached properties (D-16: `required` drives the optional/required grouping;
+ * there is no presence/never_sent concept — a property that is not attached is simply absent).
  * @param overrides - Optional per-method output names for generated snippets only.
  */
 export function buildCodegenSnippets(
@@ -335,9 +326,7 @@ export function buildCodegenSnippets(
   projectConfig?: CodegenProjectConfig
 ): CodegenSnippets {
   const safeCanonical = canonicalEventName?.trim() || 'event_name';
-  const props = orderCodegenPropsForSnippetDisplay(
-    attached.filter((p) => p.presence === 'always_sent' || p.presence === 'sometimes_sent')
-  );
+  const props = orderCodegenPropsForSnippetDisplay(attached);
 
   const dataLayer = buildDataLayerSnippet(safeCanonical, props, overrides);
   const bloomreachSdk = buildBloomreachSdkSnippet(safeCanonical, props, overrides);
@@ -347,24 +336,24 @@ export function buildCodegenSnippets(
 }
 
 /**
- * From export-style payload (alwaysSent / sometimesSent arrays), build snippets.
- * Use when you don't have full attached_properties but have presence lists.
+ * From a required/optional property name split (e.g. a Bloomreach export payload), build
+ * snippets without full attached_properties (D-16: replaces the old presence-based helper).
  */
-export function buildCodegenSnippetsFromPresence(
+export function buildCodegenSnippetsFromRequired(
   eventName: string,
-  alwaysSent: string[],
-  sometimesSent: string[],
+  requiredNames: string[],
+  optionalNames: string[],
   overrides?: CodegenEventNameOverrides | null
 ): CodegenSnippets {
   const attached: AttachedPropertyForCodegen[] = [
-    ...alwaysSent.map((property_name) => ({
+    ...requiredNames.map((property_name) => ({
       property_name,
-      presence: 'always_sent' as EventPropertyPresence,
+      required: true,
       property_data_type: null as string | null,
     })),
-    ...sometimesSent.map((property_name) => ({
+    ...optionalNames.map((property_name) => ({
       property_name,
-      presence: 'sometimes_sent' as EventPropertyPresence,
+      required: false,
       property_data_type: null as string | null,
     })),
   ];

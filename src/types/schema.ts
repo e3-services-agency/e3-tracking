@@ -14,47 +14,13 @@ export const PROPERTY_CONTEXTS: PropertyContext[] = [
   'system_property',
 ];
 
-export type PropertyDataType =
-  | 'string'
-  | 'number'
-  | 'boolean'
-  | 'timestamp'
-  | 'object'
-  | 'array';
-
-export const PROPERTY_DATA_TYPES: PropertyDataType[] = [
-  'string',
-  'number',
-  'boolean',
-  'timestamp',
-  'object',
-  'array',
-];
-
-export type PropertyDataFormat =
-  | 'uuid'
-  | 'iso8601_datetime'
-  | 'iso8601_date'
-  | 'unix_seconds'
-  | 'unix_milliseconds'
-  | 'email'
-  | 'uri'
-  | 'currency_code'
-  | 'country_code'
-  | 'language_code';
-
-export const PROPERTY_DATA_FORMATS: PropertyDataFormat[] = [
-  'uuid',
-  'iso8601_datetime',
-  'iso8601_date',
-  'unix_seconds',
-  'unix_milliseconds',
-  'email',
-  'uri',
-  'currency_code',
-  'country_code',
-  'language_code',
-];
+// T-1-04 delta: PropertyDataType/PropertyDataFormat (incl. `money`) moved to the single enum
+// module `src/domain/enums.ts` (reviewer finding on T-1-01). Re-exported here for this legacy
+// schema file's own consumers; new code should import from `@/src/domain/enums` directly.
+import type { PropertyDataType, PropertyDataFormat } from '../domain/enums';
+import { PROPERTY_DATA_TYPES, PROPERTY_DATA_FORMATS } from '../domain/enums';
+export type { PropertyDataType, PropertyDataFormat };
+export { PROPERTY_DATA_TYPES, PROPERTY_DATA_FORMATS };
 
 export type EventPropertyPresence = 'always_sent' | 'sometimes_sent' | 'never_sent';
 

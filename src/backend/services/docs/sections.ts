@@ -1,12 +1,14 @@
 /**
  * Pure HTML-fragment renderers for the project documentation export (D-18's
- * `GET /export/documentation.html`). Split out from `export.service.ts` because that service does
- * not exist yet in this worktree — T-1-03 adds it in parallel and has not merged (see the T-1-06
- * handoff). Both functions take already-resolved rows (no DB access) and are covered by
- * `sections.test.ts`; T-1-03/whoever finishes the export service should call
- * `renderIdentityRulesSection` and `renderConsentCategoriesSection` alongside the existing
- * property/event sections once this branch merges.
+ * `GET /export/documentation.html`). Both functions take already-resolved rows (no DB access) and
+ * are covered by `sections.test.ts`. `generateProjectDocumentationHtml` (export.service.ts, wired
+ * in during the T-1-06 integration round) calls `renderIdentityRulesSection` and
+ * `renderConsentCategoriesSection` alongside the existing property/event sections, resolving
+ * `trigger_event_name`/`source_name` from ids before calling in.
  */
+import { escapeHtml } from '../htmlEscape';
+
+export { escapeHtml };
 
 /** Minimal shape the identity rules section needs; DAL row plus resolved display names. */
 export interface IdentityRuleForDocs {
@@ -33,16 +35,6 @@ export interface ConsentCategoryForDocs {
   description?: string | null;
   standard_key?: string | null;
   status?: string | null;
-}
-
-/** Escapes text for safe interpolation into an HTML document (D-04: exports are plain files, no templating engine). */
-export function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 function cell(value: string | null | undefined): string {

@@ -22,16 +22,13 @@ import {
 } from './codegen.service';
 import { getFileStore } from '../files/FileStore';
 import type { CodegenEventNameOverrides } from '../../types/schema';
+import { listIdentityRules } from '../dal/identity-rule.dal';
+import { listConsentCategories } from '../dal/consent-category.dal';
+import { listSources } from '../dal/source.dal';
+import { renderIdentityRulesSection, renderConsentCategoriesSection } from './docs/sections';
+import { escapeHtml } from './htmlEscape';
 
-export function escapeHtml(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  return String(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+export { escapeHtml };
 
 interface TriggerEntry {
   title?: string;
@@ -200,7 +197,33 @@ const DOCUMENT_STYLE = `
 `;
 
 /**
- * Renders every non-deleted event of the project into one self-contained HTML document.
+ * Renders the "Identity rules" and "Consent categories" sections (plan acceptance item "Docs
+ * export includes identity rules and consent categories sections"): pulls the already
+ * sort_order-ordered DAL rows and resolves `trigger_event_id`/`source_id` to display names before
+ * handing off to the pure renderers in `docs/sections.ts` (kept dependency-free of the DB by
+ * design, per its own header comment).
+ */
+function buildIdentityAndConsentSectionsHtml(projectId: string): string {
+  const rules = listIdentityRules(projectId);
+  const categories = listConsentCategories(projectId);
+  // Deleted events are excluded here on purpose: `deleteEvent` (event.dal.ts) nulls out
+  // `trigger_event_id` on any rule that pointed at the event it removes, so a non-null
+  // `trigger_event_id` at this point always names a live event.
+  const eventNameById = new Map(listEvents(projectId).map((event) => [event.id, event.name]));
+  const sourceNameById = new Map(listSources(projectId).map((source) => [source.id, source.name]));
+
+  const rulesForDocs = rules.map((rule) => ({
+    ...rule,
+    trigger_event_name: rule.trigger_event_id ? eventNameById.get(rule.trigger_event_id) ?? null : null,
+    source_name: rule.source_id ? sourceNameById.get(rule.source_id) ?? null : null,
+  }));
+
+  return `${renderIdentityRulesSection(rulesForDocs)}\n${renderConsentCategoriesSection(categories)}`;
+}
+
+/**
+ * Renders every non-deleted event of the project, plus the identity rules and consent categories
+ * sections, into one self-contained HTML document.
  */
 export async function generateProjectDocumentationHtml(projectId: string): Promise<string> {
   const project: ProjectWithClient = getProjectWithClient(projectId);
@@ -212,6 +235,8 @@ export async function generateProjectDocumentationHtml(projectId: string): Promi
       return buildEventSectionHtml(projectId, event, properties);
     })
   );
+
+  const identityAndConsentHtml = buildIdentityAndConsentSectionsHtml(projectId);
 
   const toc = events
     .map((event) => `<a href="#event-${escapeHtml(event.id)}">${escapeHtml(event.name)}</a>`)
@@ -231,6 +256,7 @@ export async function generateProjectDocumentationHtml(projectId: string): Promi
   <p class="subtitle">${escapeHtml(project.client?.name ?? '')} · Generated ${escapeHtml(generatedAt)}</p>
   <nav class="toc">${toc || '<p>No events defined yet.</p>'}</nav>
   ${sections.join('\n')}
+  ${identityAndConsentHtml}
 </body>
 </html>`;
 }

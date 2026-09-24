@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>QA Project 106 — Tracking documentation</title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 2rem; color: #1f2933; background: #fff; }
+  h1 { margin-bottom: 0.25rem; }
+  .subtitle { color: #52606d; margin-top: 0; }
+  nav.toc { margin: 1.5rem 0; padding: 1rem; border: 1px solid #e4e7eb; border-radius: 8px; }
+  nav.toc a { display: block; padding: 0.15rem 0; color: #1a56db; text-decoration: none; }
+  section.event { border-top: 1px solid #e4e7eb; padding: 1.5rem 0; }
+  table.property-table { border-collapse: collapse; width: 100%; margin: 0.5rem 0 1rem; }
+  table.property-table th, table.property-table td { border: 1px solid #e4e7eb; padding: 0.4rem 0.6rem; text-align: left; font-size: 0.875rem; }
+  table.property-table th { background: #f5f7fa; }
+  dl.event-meta { display: grid; grid-template-columns: max-content 1fr; gap: 0.15rem 1rem; margin: 0.5rem 0; }
+  dl.event-meta dt { font-weight: 600; color: #52606d; }
+  pre { background: #0b1120; color: #e5e7eb; padding: 0.75rem 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.8rem; }
+  .codegen { display: flex; flex-direction: column; gap: 0.75rem; }
+  .trigger-image { max-width: 320px; display: block; margin-top: 0.5rem; border: 1px solid #e4e7eb; border-radius: 4px; }
+</style>
+</head>
+<body>
+  <h1>QA Project 106</h1>
+  <p class="subtitle">QA Client T106 · Generated 2026-09-24T17:58:28.384Z</p>
+  <nav class="toc"><p>No events defined yet.</p></nav>
+  
+  <section id="identity-rules">
+    <h2>Identity rules</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th><th>Bloomreach field</th><th>Identity type</th><th>Trigger event</th>
+          <th>Trigger</th><th>Value rule</th><th>Example</th><th>Owner</th><th>Source</th>
+          <th>Tracker</th><th>Priority</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+        <td>Cookie ID</td>
+        <td>cookie_id</td>
+        <td>soft</td>
+        <td>—</td>
+        <td>On page load</td>
+        <td>uuid v4 cookie value</td>
+        <td>3f2a1b9e-uuid</td>
+        <td>Jan Pan</td>
+        <td>Website</td>
+        <td>GTM</td>
+        <td>medium</td>
+        <td>implemented</td>
+      </tr>
+<tr>
+        <td>Login Email</td>
+        <td>email_id</td>
+        <td>hard</td>
+        <td>—</td>
+        <td>On successful login</td>
+        <td>lowercase trimmed email</td>
+        <td>jan@example.com</td>
+        <td>Jan Pan</td>
+        <td>Website</td>
+        <td>GTM</td>
+        <td>high</td>
+        <td>planned</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+<section id="consent-categories">
+    <h2>Consent categories</h2>
+    <table>
+      <thead>
+        <tr><th>Client category</th><th>Standard key</th><th>Description</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+        <td>brand_consent</td>
+        <td>newsletter</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>
+<tr>
+        <td>vip_consent</td>
+        <td>vip_club</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+</body>
+</html>

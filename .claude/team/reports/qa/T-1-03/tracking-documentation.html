@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>QA Project — Tracking documentation</title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 2rem; color: #1f2933; background: #fff; }
+  h1 { margin-bottom: 0.25rem; }
+  .subtitle { color: #52606d; margin-top: 0; }
+  nav.toc { margin: 1.5rem 0; padding: 1rem; border: 1px solid #e4e7eb; border-radius: 8px; }
+  nav.toc a { display: block; padding: 0.15rem 0; color: #1a56db; text-decoration: none; }
+  section.event { border-top: 1px solid #e4e7eb; padding: 1.5rem 0; }
+  table.property-table { border-collapse: collapse; width: 100%; margin: 0.5rem 0 1rem; }
+  table.property-table th, table.property-table td { border: 1px solid #e4e7eb; padding: 0.4rem 0.6rem; text-align: left; font-size: 0.875rem; }
+  table.property-table th { background: #f5f7fa; }
+  dl.event-meta { display: grid; grid-template-columns: max-content 1fr; gap: 0.15rem 1rem; margin: 0.5rem 0; }
+  dl.event-meta dt { font-weight: 600; color: #52606d; }
+  pre { background: #0b1120; color: #e5e7eb; padding: 0.75rem 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.8rem; }
+  .codegen { display: flex; flex-direction: column; gap: 0.75rem; }
+  .trigger-image { max-width: 320px; display: block; margin-top: 0.5rem; border: 1px solid #e4e7eb; border-radius: 4px; }
+</style>
+</head>
+<body>
+  <h1>QA Project</h1>
+  <p class="subtitle">QA Client · Generated 2026-09-24T17:08:45.568Z</p>
+  <nav class="toc"><a href="#event-d84ae3fb-2603-42b4-aa39-71b4df169843">product_viewed</a>
+<a href="#event-cbbeaa45-41fe-4816-8a27-d7cfe68d2043">purchase_completed</a></nav>
+  <section class="event" id="event-d84ae3fb-2603-42b4-aa39-71b4df169843">
+    <h2>product_viewed</h2>
+    <dl class="event-meta">
+      
+      <dt>Type</dt><dd>custom</dd>
+      <dt>Status</dt><dd>planned</dd>
+      
+      
+      
+    </dl>
+    
+    
+    
+    <h3>Properties</h3>
+    <p class="empty">No properties attached.</p>
+    <h3>Sample payload</h3>
+    <pre class="payload-doc"><code>{}</code></pre>
+    <h3>Implementation</h3>
+    <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;product_viewed&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;product_viewed&#39;, {
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;product_viewed&quot;
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;product_viewed&quot;}&#39;</code></pre>
+  </div>
+  </div>
+  </section>
+<section class="event" id="event-cbbeaa45-41fe-4816-8a27-d7cfe68d2043">
+    <h2>purchase_completed</h2>
+    <dl class="event-meta">
+      
+      <dt>Type</dt><dd>custom</dd>
+      <dt>Status</dt><dd>planned</dd>
+      
+      
+      
+    </dl>
+    
+    
+    <div class="triggers"><div class="trigger">
+        <h4>Checkout confirmation screenshot</h4>
+        <p>Fires when the confirmation page renders</p>
+        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" alt="Checkout confirmation screenshot" class="trigger-image" />
+      </div></div>
+    <h3>Properties</h3>
+    <table class="property-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Required</th>
+        <th>Role</th>
+        <th>Data type</th>
+        <th>Payload key</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody><tr>
+        <td>order_total</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>order_total</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>product_id</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>product_id</td>
+        <td>The &lt;b&gt;product&lt;/b&gt; id &amp; sku</td>
+      </tr></tbody>
+  </table>
+    <h3>Sample payload</h3>
+    <pre class="payload-doc"><code>{
+  &quot;order_total&quot;: &quot;string&quot;,
+  &quot;product_id&quot;: &quot;string&quot;
+}</code></pre>
+    <h3>Implementation</h3>
+    <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;purchase_completed&#39;,
+  // Optional:
+  order_total: &#39;string&#39;,
+  product_id: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;purchase_completed&#39;, {
+  // Optional:
+  order_total: &#39;string&#39;,
+  product_id: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>// Optional properties: order_total, product_id
+
+{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;purchase_completed&quot;,
+  &quot;properties&quot;: {
+    &quot;order_total&quot;: &quot;string&quot;,
+    &quot;product_id&quot;: &quot;string&quot;
+  }
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;purchase_completed&quot;,&quot;properties&quot;:{&quot;order_total&quot;:&quot;string&quot;,&quot;product_id&quot;:&quot;string&quot;}}&#39;</code></pre>
+  </div>
+  </div>
+  </section>
+</body>
+</html>

@@ -24,6 +24,7 @@ interface SourceUsage {
   source_id: string;
   property_count: number;
   event_count: number;
+  identity_rule_count: number;
 }
 
 async function parseJson(res: Response): Promise<any> {
@@ -114,7 +115,8 @@ export function Sources() {
                     <td className="px-6 py-4 font-medium text-gray-900">{source.name}</td>
                     <td className="px-6 py-4 text-gray-500">{source.color || '—'}</td>
                     <td className="px-6 py-4 text-gray-500">
-                      Properties: {usage?.property_count ?? 0} · Events: {usage?.event_count ?? 0}
+                      Properties: {usage?.property_count ?? 0} · Events: {usage?.event_count ?? 0} · Identity rules:{' '}
+                      {usage?.identity_rule_count ?? 0}
                     </td>
                   </tr>
                 );
@@ -201,9 +203,10 @@ function SourceEditor({
     if (!source || !projectId) return;
     const propertyCount = usage?.property_count ?? 0;
     const eventCount = usage?.event_count ?? 0;
+    const identityRuleCount = usage?.identity_rule_count ?? 0;
     const usageNote =
-      propertyCount > 0 || eventCount > 0
-        ? `\n\nThis source is referenced by ${propertyCount} propert${propertyCount === 1 ? 'y' : 'ies'} and ${eventCount} event${eventCount === 1 ? '' : 's'}.`
+      propertyCount > 0 || eventCount > 0 || identityRuleCount > 0
+        ? `\n\nThis source is referenced by ${propertyCount} propert${propertyCount === 1 ? 'y' : 'ies'}, ${eventCount} event${eventCount === 1 ? '' : 's'} and ${identityRuleCount} identity rule${identityRuleCount === 1 ? '' : 's'}.`
         : '';
     if (!window.confirm(`Delete source "${source.name}"?${usageNote}`)) return;
     setIsDeleting(true);

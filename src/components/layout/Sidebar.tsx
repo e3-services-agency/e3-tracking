@@ -9,6 +9,8 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Fingerprint,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 
@@ -31,6 +33,8 @@ export function Sidebar({
     { id: 'events', label: 'Events', icon: Activity },
     { id: 'properties', label: 'Properties', icon: Database },
     { id: 'catalogs', label: 'Catalogs', icon: LayoutList },
+    { id: 'identityRules', label: 'Identity rules', icon: Fingerprint },
+    { id: 'consentCategories', label: 'Consent categories', icon: ShieldCheck },
     { id: 'sources', label: 'Sources', icon: LayoutDashboard },
   ];
 

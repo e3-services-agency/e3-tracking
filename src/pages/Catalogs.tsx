@@ -10,7 +10,8 @@ import { Sheet } from '@/src/components/ui/Sheet';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
-import { PRIORITIES, ENTITY_STATUSES } from '@/src/domain/enums';
+import { PRIORITIES, ENTITY_STATUSES, CATALOG_MAPPING_ROLES } from '@/src/domain/enums';
+import { CATALOG_MAIN_COLUMNS } from '@/src/domain/bloomreach';
 
 interface CatalogRow {
   id: string;
@@ -30,6 +31,8 @@ interface CatalogFieldRow {
   is_lookup_key: boolean;
   is_searchable: boolean;
   is_required: boolean;
+  client_field_name: string | null;
+  bloomreach_column: string | null;
 }
 
 async function parseJson(res: Response): Promise<any> {
@@ -230,6 +233,20 @@ function CatalogEditor({
     }
   };
 
+  const patchField = async (fieldId: string, patch: Record<string, unknown>): Promise<string | null> => {
+    if (!projectId || !catalogId) return 'No catalog selected.';
+    const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/catalogs/${catalogId}/fields/${fieldId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+    const data = await parseJson(res);
+    if (!res.ok) {
+      return typeof data?.error === 'string' ? data.error : 'Failed to update field.';
+    }
+    setFields((prev) => prev.map((f) => (f.id === fieldId ? data : f)));
+    return null;
+  };
+
   if (loading) return <div className="text-sm text-gray-500 p-4">Loading…</div>;
 
   return (
@@ -252,8 +269,7 @@ function CatalogEditor({
           <label className="text-sm font-medium text-gray-700">Mapping role</label>
           <select value={mappingRole} onChange={(e) => setMappingRole(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
-            <option value="main">main</option>
-            <option value="variant">variant</option>
+            {CATALOG_MAPPING_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
       </div>
@@ -278,12 +294,7 @@ function CatalogEditor({
         <div className="space-y-3 border-t pt-4">
           <h3 className="text-sm font-semibold text-gray-900">Fields</h3>
           {fields.map((f) => (
-            <div key={f.id} className="flex items-center justify-between border rounded-md px-3 py-2 bg-gray-50">
-              <span className="text-sm text-gray-900">{f.name}</span>
-              <button type="button" onClick={() => removeField(f.id)} className="text-red-500 hover:text-red-700">
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
+            <CatalogFieldRowEditor key={f.id} field={f} onPatch={patchField} onRemove={removeField} />
           ))}
           <div className="flex gap-2">
             <Input value={newFieldName} onChange={(e) => setNewFieldName(e.target.value)} placeholder="Field name" className="flex-1" />
@@ -305,6 +316,137 @@ function CatalogEditor({
           <Button onClick={() => void handleSave()} disabled={saving || deleting || !trimmedName}>{saving ? 'Saving…' : 'Save Catalog'}</Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * One catalog field row: inline rename (blur/Enter commits, a duplicate name surfaces the DAL's
+ * 409 ConflictError message inline instead of silently reverting — qa-tester observation on
+ * T-1-02), searchable/required checkboxes, client field name, and a Bloomreach column select
+ * built from the `main_columns` seed (`src/domain/bloomreach.ts`).
+ */
+function CatalogFieldRowEditor({
+  field,
+  onPatch,
+  onRemove,
+}: {
+  field: CatalogFieldRow;
+  onPatch: (fieldId: string, patch: Record<string, unknown>) => Promise<string | null>;
+  onRemove: (fieldId: string) => Promise<void>;
+}) {
+  const [name, setName] = useState(field.name);
+  const [clientFieldName, setClientFieldName] = useState(field.client_field_name ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setName(field.name);
+    setClientFieldName(field.client_field_name ?? '');
+  }, [field.id, field.name, field.client_field_name]);
+
+  const commitRename = async () => {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === field.name) {
+      setName(field.name);
+      return;
+    }
+    setBusy(true);
+    const err = await onPatch(field.id, { name: trimmed });
+    setBusy(false);
+    if (err) {
+      setError(err);
+      setName(field.name);
+    } else {
+      setError(null);
+    }
+  };
+
+  const commitClientFieldName = async () => {
+    const trimmed = clientFieldName.trim();
+    if (trimmed === (field.client_field_name ?? '')) return;
+    setBusy(true);
+    const err = await onPatch(field.id, { client_field_name: trimmed || null });
+    setBusy(false);
+    if (err) setError(err);
+  };
+
+  const toggle = async (key: 'is_searchable' | 'is_required', value: boolean) => {
+    setBusy(true);
+    const err = await onPatch(field.id, { [key]: value });
+    setBusy(false);
+    if (err) setError(err);
+  };
+
+  const setBloomreachColumn = async (value: string) => {
+    setBusy(true);
+    const err = await onPatch(field.id, { bloomreach_column: value || null });
+    setBusy(false);
+    if (err) setError(err);
+  };
+
+  return (
+    <div className="border rounded-md px-3 py-2 bg-gray-50 space-y-2">
+      <div className="flex items-center gap-2">
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => void commitRename()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+          }}
+          disabled={busy}
+          className="flex-1"
+        />
+        <button type="button" onClick={() => void onRemove(field.id)} className="text-red-500 hover:text-red-700" title="Remove field">
+          <Trash2 className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="flex items-center gap-2 text-xs text-gray-700">
+          <input
+            type="checkbox"
+            checked={field.is_searchable}
+            onChange={(e) => void toggle('is_searchable', e.target.checked)}
+            disabled={busy}
+          />
+          Searchable
+        </label>
+        <label className="flex items-center gap-2 text-xs text-gray-700">
+          <input
+            type="checkbox"
+            checked={field.is_required}
+            onChange={(e) => void toggle('is_required', e.target.checked)}
+            disabled={busy}
+          />
+          Required
+        </label>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <label className="text-xs text-gray-500">Client field name</label>
+          <Input
+            value={clientFieldName}
+            onChange={(e) => setClientFieldName(e.target.value)}
+            onBlur={() => void commitClientFieldName()}
+            disabled={busy}
+            className="h-8 text-xs"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-gray-500">Bloomreach column</label>
+          <select
+            value={field.bloomreach_column ?? ''}
+            onChange={(e) => void setBloomreachColumn(e.target.value)}
+            disabled={busy}
+            className="w-full h-8 rounded-md border border-gray-300 bg-white px-2 text-xs"
+          >
+            <option value="">—</option>
+            {CATALOG_MAIN_COLUMNS.map((col) => <option key={col} value={col}>{col}</option>)}
+          </select>
+        </div>
+      </div>
+      {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
 }

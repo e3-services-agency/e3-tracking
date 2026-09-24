@@ -59,6 +59,16 @@ export type RequirementTargetKind = (typeof REQUIREMENT_TARGET_KINDS)[number];
 export const VARIANT_OPERATORS = ['equals', 'in'] as const;
 export type VariantOperator = (typeof VARIANT_OPERATORS)[number];
 
+// ----- IdentityRule identity type (T-1-06 delta; reviewer finding on T-1-01) -----
+export const IDENTITY_TYPES = ['hard', 'soft'] as const;
+export type IdentityType = (typeof IDENTITY_TYPES)[number];
+
+// ----- Catalog mapping role (T-1-06 delta; reviewer finding on T-1-01) -----
+// Which Bloomreach data-mapping catalog slot the catalog fills; unique per project (0001_core.sql
+// `uq_catalogs_project_mapping_role`, partial on `mapping_role IS NOT NULL AND deleted_at IS NULL`).
+export const CATALOG_MAPPING_ROLES = ['main', 'variant'] as const;
+export type CatalogMappingRole = (typeof CATALOG_MAPPING_ROLES)[number];
+
 // ----- Expiration units -----
 export const EXPIRATION_UNITS = ['days', 'weeks', 'months', 'years'] as const;
 export type ExpirationUnit = (typeof EXPIRATION_UNITS)[number];

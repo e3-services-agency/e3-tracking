@@ -20,6 +20,8 @@ import bundlesRouter from './routes/bundles';
 import filesRouter from './routes/files';
 import exportRouter from './routes/export';
 import sharedRouter from './routes/shared';
+import identityRulesRouter from './routes/identity-rules';
+import consentCategoriesRouter from './routes/consent-categories';
 import { removedRouter } from './routes/removed';
 import { optionalAuth } from './middleware/auth';
 import { requireProject } from './middleware/project';
@@ -62,6 +64,8 @@ export function createApp(): express.Express {
   app.use('/api/projects/:projectId/bundles', requireProject, bundlesRouter);
   app.use('/api/projects/:projectId/files', requireProject, filesRouter);
   app.use('/api/projects/:projectId/export', requireProject, exportRouter);
+  app.use('/api/projects/:projectId/identity-rules', requireProject, identityRulesRouter);
+  app.use('/api/projects/:projectId/consent-categories', requireProject, consentCategoriesRouter);
 
   // Public share-link mechanism (D-18): stub until phase 4 (see routes/shared.ts).
   app.use('/api/shared', sharedRouter);

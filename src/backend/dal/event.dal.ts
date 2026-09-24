@@ -301,12 +301,29 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
   return getEventOrThrow(projectId, eventId);
 }
 
+/**
+ * Soft-deletes the event and, in the same transaction, clears `identity_rules.trigger_event_id`
+ * for any rule pointing at it (T-1-06 integration fix: the ON DELETE SET NULL migration only fires
+ * on a hard delete, but events are soft-deleted here, so without this the rule keeps a "live"
+ * reference to an event that no longer shows up anywhere and an unrelated PATCH to the rule fails
+ * with "trigger_event_id does not belong to this project").
+ */
 export function deleteEvent(projectId: string, eventId: string): void {
   getEventOrThrow(projectId, eventId);
   const now = nowIso();
-  getDb()
-    .prepare('UPDATE events SET deleted_at = ?, updated_at = ? WHERE id = ? AND project_id = ?')
-    .run(now, now, eventId, projectId);
+  const db = getDb();
+  const run = db.transaction(() => {
+    db.prepare('UPDATE events SET deleted_at = ?, updated_at = ? WHERE id = ? AND project_id = ?').run(
+      now,
+      now,
+      eventId,
+      projectId
+    );
+    db.prepare(
+      'UPDATE identity_rules SET trigger_event_id = NULL, updated_at = ? WHERE trigger_event_id = ? AND project_id = ?'
+    ).run(now, eventId, projectId);
+  });
+  run();
 }
 
 // ----- EventProperty (D-16) -----

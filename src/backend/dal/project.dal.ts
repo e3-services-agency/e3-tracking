@@ -168,6 +168,30 @@ export interface UpdateProjectInput {
   bloomreach_api_base_url?: string | null;
   bloomreach_project_url?: string | null;
   default_expiration_json?: unknown;
+  /**
+   * Project additions to the standard consent key seed list (D-26, T-1-06 delta): the "add
+   * standard consent key" form on the Consent categories page PATCHes the full array here.
+   */
+  consent_key_additions_json?: unknown;
+}
+
+/** `consent_key_additions_json` must be an array of non-blank strings, trimmed and de-duplicated. */
+function normalizeStringListColumn(value: unknown, field: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new ValidationError(`${field} must be an array of strings.`, field);
+  }
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of value) {
+    if (typeof raw !== 'string') {
+      throw new ValidationError(`${field} must be an array of strings.`, field);
+    }
+    const trimmed = raw.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    result.push(trimmed);
+  }
+  return result;
 }
 
 export function updateProject(id: string, updates: UpdateProjectInput): ProjectRow {
@@ -214,6 +238,11 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
   }
   if (updates.default_expiration_json !== undefined) {
     patch.default_expiration_json = toJsonColumn(updates.default_expiration_json);
+  }
+  if (updates.consent_key_additions_json !== undefined) {
+    patch.consent_key_additions_json = toJsonColumn(
+      normalizeStringListColumn(updates.consent_key_additions_json, 'consent_key_additions_json')
+    );
   }
 
   const setClause = Object.keys(patch)

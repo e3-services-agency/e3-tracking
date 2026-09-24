@@ -30,9 +30,3 @@ export function buildAppPageUrl(pathFromRoot: string): string {
   const path = pathFromRoot.startsWith('/') ? pathFromRoot : `/${pathFromRoot}`;
   return `${window.location.origin}${baseNoTrailing}${path}`;
 }
-
-/** Supabase project URL (no trailing slash). Used for building public Storage URLs. */
-export const SUPABASE_URL =
-  getEnv('VITE_SUPABASE_URL') != null
-    ? String(getEnv('VITE_SUPABASE_URL')).replace(/\/$/, '')
-    : '';

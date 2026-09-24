@@ -1,16 +1,16 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
-import { WorkspaceGateBanner } from './WorkspaceGateBanner';
-import { WorkspaceShellProvider, useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
+import { ProjectGateBanner } from './ProjectGateBanner';
+import { ProjectShellProvider, useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { useStore } from '@/src/store';
-import { getSupabaseClient } from '@/src/lib/supabase';
 import { Events } from '@/src/pages/Events';
 import { Properties } from '@/src/pages/Properties';
 import { Sources } from '@/src/pages/Sources';
 import { Journeys } from '@/src/pages/Journeys';
 import { Settings } from '@/src/pages/Settings';
 import { Documentation } from '@/src/pages/Documentation';
+import { Clients } from '@/src/pages/Clients';
 
 import { JourneysList } from '@/src/pages/JourneysList';
 import { Catalogs } from '@/src/pages/Catalogs';
@@ -28,17 +28,15 @@ function getPathWithoutBase(pathname: string): string {
   return pathname.startsWith(BASE) ? pathname.slice(BASE.length) || '/' : pathname;
 }
 
-function parseWorkspaceFromPath(pathname: string): { workspaceKey: string | null; restPath: string } {
+/** URL prefix `/p/<key>` (D-15, replaces `/w/<workspace_key>`). */
+function parseProjectFromPath(pathname: string): { projectKey: string | null; restPath: string } {
   const path = getPathWithoutBase(pathname);
-  const m = path.match(/^\/w\/([^/]+)(\/.*)?$/);
-  if (!m) return { workspaceKey: null, restPath: path };
-  return { workspaceKey: m[1] ?? null, restPath: m[2] ?? '/' };
+  const m = path.match(/^\/p\/([^/]+)(\/.*)?$/);
+  if (!m) return { projectKey: null, restPath: path };
+  return { projectKey: m[1] ?? null, restPath: m[2] ?? '/' };
 }
 
-/**
- * Maps the path after optional `/w/:workspaceKey` to the main shell tab.
- * Per-entity segments (e.g. `/events/:id`) are not supported in this pass — unknown paths fall back to Events.
- */
+/** Maps the path after optional `/p/:projectKey` to the main shell tab. */
 function mainRouteStateFromRestPath(restPath: string): { tab: string; journeyId: string | null } {
   const raw = (restPath.replace(/\/$/, '') || '/').trim() || '/';
   const journeyMatch = raw.match(/^\/journeys(?:\/([^/]+))?\/?$/);
@@ -57,6 +55,8 @@ function mainRouteStateFromRestPath(restPath: string): { tab: string; journeyId:
       return { tab: 'catalogs', journeyId: null };
     case '/sources':
       return { tab: 'sources', journeyId: null };
+    case '/clients':
+      return { tab: 'clients', journeyId: null };
     case '/settings':
       return { tab: 'settings', journeyId: null };
     case '/documentation':
@@ -70,15 +70,15 @@ function mainRouteStateFromRestPath(restPath: string): { tab: string; journeyId:
 
 function getInitialMainRouteState(): { tab: string; journeyId: string | null } {
   if (typeof window === 'undefined') return { tab: 'events', journeyId: null };
-  const { restPath } = parseWorkspaceFromPath(window.location.pathname);
+  const { restPath } = parseProjectFromPath(window.location.pathname);
   return mainRouteStateFromRestPath(restPath);
 }
 
-/** `workspaceKeyForUrl` is the short workspace_key segment (not UUID). Pass null to drop /w/... from the path. */
-function pushPath(nextPath: string, workspaceKeyForUrl?: string | null): void {
+/** `projectKeyForUrl` is the short project key segment (not UUID). Pass null to drop /p/... from the path. */
+function pushPath(nextPath: string, projectKeyForUrl?: string | null): void {
   try {
-    const wsPrefix = workspaceKeyForUrl ? `/w/${workspaceKeyForUrl}` : '';
-    const full = `${BASE}${wsPrefix}${nextPath.startsWith('/') ? nextPath : `/${nextPath}`}`;
+    const prefix = projectKeyForUrl ? `/p/${projectKeyForUrl}` : '';
+    const full = `${BASE}${prefix}${nextPath.startsWith('/') ? nextPath : `/${nextPath}`}`;
     if (typeof window !== 'undefined' && window.location.pathname !== full) {
       window.history.pushState({}, '', full);
     }
@@ -89,61 +89,34 @@ function pushPath(nextPath: string, workspaceKeyForUrl?: string | null): void {
 
 export function Layout() {
   return (
-    <WorkspaceShellProvider>
+    <ProjectShellProvider>
       <LayoutInner />
-    </WorkspaceShellProvider>
+    </ProjectShellProvider>
   );
 }
 
 function LayoutInner() {
-  const {
-    isLoading,
-    hasValidWorkspaceContext,
-    gateMessage,
-    activeWorkspaceId,
-    workspaceShellSettings,
-  } = useWorkspaceShell();
-  const clearActiveWorkspace = useStore((s) => s.clearActiveWorkspace);
+  const { isLoading, hasValidProjectContext, gateMessage, activeProjectId, projectShellSettings } =
+    useProjectShell();
+  const clearActiveProject = useStore((s) => s.clearActiveProject);
 
   const [activeTab, setActiveTab] = useState(() => getInitialMainRouteState().tab);
   const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(
     () => getInitialMainRouteState().journeyId,
   );
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const activeWorkspaceKey = useStore((s) => s.activeWorkspaceKey);
-  const setActiveWorkspace = useStore((s) => s.setActiveWorkspace);
-  const journeyCanvasHasUnsavedChanges = useStore(
-    (s) => s.journeyCanvasHasUnsavedChanges,
-  );
-  const resolveSeq = useRef(0);
+  const activeProjectKey = useStore((s) => s.activeProjectKey);
+  const setActiveProject = useStore((s) => s.setActiveProject);
+  const dirtyRef = useRef(false);
   const activeTabRef = useRef(activeTab);
-  const dirtyRef = useRef(journeyCanvasHasUnsavedChanges);
   const selectedJourneyIdRef = useRef(selectedJourneyId);
 
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
   useEffect(() => {
-    dirtyRef.current = journeyCanvasHasUnsavedChanges;
-  }, [journeyCanvasHasUnsavedChanges]);
-  useEffect(() => {
     selectedJourneyIdRef.current = selectedJourneyId;
   }, [selectedJourneyId]);
-
-  const confirmUnsavedAndNavigate = (nextTab: string) => {
-    if (
-      activeTabRef.current === 'journeys' &&
-      dirtyRef.current &&
-      nextTab !== activeTabRef.current
-    ) {
-      const ok = window.confirm(
-        'You have unsaved changes. Are you sure you want to leave?',
-      );
-      if (!ok) return false;
-    }
-    setActiveTab(nextTab);
-    return true;
-  };
 
   useEffect(() => {
     try {
@@ -165,129 +138,81 @@ function LayoutInner() {
 
   useEffect(() => {
     const root = document.documentElement;
-    const primary =
-      workspaceShellSettings?.client_primary_color?.trim() || DEFAULT_BRAND_PRIMARY;
+    const primary = projectShellSettings?.client_primary_color?.trim() || DEFAULT_BRAND_PRIMARY;
     root.style.setProperty('--brand-primary', primary);
     return () => {
       root.style.removeProperty('--brand-primary');
     };
-  }, [activeWorkspaceId, workspaceShellSettings?.client_primary_color]);
+  }, [activeProjectId, projectShellSettings?.client_primary_color]);
 
-  // After workspace list settles: drop invalid / unknown active ids and strip bogus /w/:key from the URL.
+  // After project list settles: drop invalid / unknown active ids and strip bogus /p/:key from the URL.
   useEffect(() => {
     if (isLoading) return;
-    if (hasValidWorkspaceContext) return;
-    if (!activeWorkspaceId) return;
+    if (hasValidProjectContext) return;
+    if (!activeProjectId) return;
 
-    clearActiveWorkspace();
-    const { workspaceKey, restPath } = parseWorkspaceFromPath(window.location.pathname);
-    if (workspaceKey) {
+    clearActiveProject();
+    const { projectKey, restPath } = parseProjectFromPath(window.location.pathname);
+    if (projectKey) {
       const dest = restPath === '/' || restPath === '' ? '/events' : restPath;
       pushPath(dest, null);
     }
-  }, [isLoading, hasValidWorkspaceContext, activeWorkspaceId, clearActiveWorkspace]);
+  }, [isLoading, hasValidProjectContext, activeProjectId, clearActiveProject]);
 
-  // Deep-link support: /journeys and /journeys/:id; resolve /w/:workspaceKey via Supabase.
+  // Deep-link support: apply /p/:projectKey and /journeys[/:id] from the current location.
   useEffect(() => {
     const applyFromLocation = () => {
-      const parsedWs = parseWorkspaceFromPath(window.location.pathname);
-      if (parsedWs.workspaceKey) {
-        const current = useStore.getState();
-        if (current.activeWorkspaceKey !== parsedWs.workspaceKey) {
-          const key = parsedWs.workspaceKey;
-          const seq = ++resolveSeq.current;
-          const supabase = getSupabaseClient();
-          void supabase
-            .from('workspaces')
-            .select('id, workspace_key')
-            .eq('workspace_key', key)
-            .is('deleted_at', null)
-            .maybeSingle()
-            .then(({ data }) => {
-              if (seq !== resolveSeq.current) return;
-              const id = (data as { id?: string } | null)?.id;
-              const wk = (data as { workspace_key?: string } | null)?.workspace_key;
-              if (!id) {
-                useStore.getState().clearActiveWorkspace();
-                const rest = parsedWs.restPath === '/' || parsedWs.restPath === '' ? '/events' : parsedWs.restPath;
-                pushPath(rest, null);
-                return;
-              }
-              const latest = useStore.getState();
-              if (id !== latest.activeWorkspaceId || (wk ?? key) !== latest.activeWorkspaceKey) {
-                setActiveWorkspace({ id, key: wk ?? key });
-              }
-            })
-            .catch(() => {});
-        }
-      }
-      const route = mainRouteStateFromRestPath(parsedWs.restPath);
-      if (
-        activeTabRef.current === 'journeys' &&
-        dirtyRef.current &&
-        (route.tab !== 'journeys' || route.journeyId !== selectedJourneyIdRef.current)
-      ) {
-        const ok = window.confirm(
-          'You have unsaved changes. Are you sure you want to leave?',
-        );
-        if (!ok) return;
-      }
+      const parsed = parseProjectFromPath(window.location.pathname);
+      const route = mainRouteStateFromRestPath(parsed.restPath);
       setActiveTab(route.tab);
       setSelectedJourneyId(route.journeyId);
     };
     applyFromLocation();
     window.addEventListener('popstate', applyFromLocation);
     return () => window.removeEventListener('popstate', applyFromLocation);
-  }, [setActiveWorkspace]);
+  }, [setActiveProject]);
 
-  // Keep workspace prefix in URL in sync (always use short workspace key in URL).
+  // Keep project prefix in URL in sync (always use short project key in URL).
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const { workspaceKey: keyInUrl, restPath } = parseWorkspaceFromPath(window.location.pathname);
-    const desiredKey = activeWorkspaceKey;
+    const { projectKey: keyInUrl, restPath } = parseProjectFromPath(window.location.pathname);
+    const desiredKey = activeProjectKey;
     if (!desiredKey) return;
     if (keyInUrl === desiredKey) return;
     pushPath(restPath, desiredKey);
-  }, [activeWorkspaceKey]);
+  }, [activeProjectKey]);
 
   // Keep URL in sync when navigating inside the app.
   useEffect(() => {
-    // Avoid pushing workspace-less URLs before `workspace_key` is known (e.g. before /w/:key resolution
-    // or header selection). Otherwise first paint can replace /w/.../properties with /events.
-    if (!activeWorkspaceKey) return;
+    if (!activeProjectKey) return;
 
     if (activeTab === 'journeysList') {
-      pushPath('/journeys', activeWorkspaceKey);
+      pushPath('/journeys', activeProjectKey);
       return;
     }
     if (activeTab === 'journeys' && selectedJourneyId) {
-      pushPath(`/journeys/${selectedJourneyId}`, activeWorkspaceKey);
+      pushPath(`/journeys/${selectedJourneyId}`, activeProjectKey);
     }
-    if (activeTab === 'events') pushPath('/events', activeWorkspaceKey);
-    if (activeTab === 'properties') pushPath('/properties', activeWorkspaceKey);
-    if (activeTab === 'catalogs') pushPath('/catalogs', activeWorkspaceKey);
-    if (activeTab === 'sources') pushPath('/sources', activeWorkspaceKey);
-    if (activeTab === 'settings') pushPath('/settings', activeWorkspaceKey);
-    if (activeTab === 'documentation') pushPath('/documentation', activeWorkspaceKey);
-    if (activeTab === 'auditConfig') pushPath('/audit-config', activeWorkspaceKey);
-  }, [activeTab, selectedJourneyId, activeWorkspaceKey]);
+    if (activeTab === 'events') pushPath('/events', activeProjectKey);
+    if (activeTab === 'properties') pushPath('/properties', activeProjectKey);
+    if (activeTab === 'catalogs') pushPath('/catalogs', activeProjectKey);
+    if (activeTab === 'sources') pushPath('/sources', activeProjectKey);
+    if (activeTab === 'clients') pushPath('/clients', activeProjectKey);
+    if (activeTab === 'settings') pushPath('/settings', activeProjectKey);
+    if (activeTab === 'documentation') pushPath('/documentation', activeProjectKey);
+    if (activeTab === 'auditConfig') pushPath('/audit-config', activeProjectKey);
+  }, [activeTab, selectedJourneyId, activeProjectKey]);
 
-  const showFullPageWorkspaceGate = !isLoading && !hasValidWorkspaceContext;
+  const showFullPageProjectGate = !isLoading && !hasValidProjectContext;
 
   const mainContent =
     isLoading ? (
-      <div
-        className="flex-1 flex items-center justify-center text-sm text-gray-500"
-        role="status"
-      >
-        Loading workspaces…
+      <div className="flex-1 flex items-center justify-center text-sm text-gray-500" role="status">
+        Loading projects…
       </div>
-    ) : !hasValidWorkspaceContext ? (
-      <div
-        className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-lg mx-auto"
-        role="alert"
-      >
-        <p className="text-base font-semibold text-gray-900 mb-3">Workspace required</p>
+    ) : !hasValidProjectContext ? (
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-lg mx-auto" role="alert">
+        <p className="text-base font-semibold text-gray-900 mb-3">Project required</p>
         <p className="text-sm text-gray-600 leading-relaxed">{gateMessage}</p>
       </div>
     ) : (
@@ -296,12 +221,13 @@ function LayoutInner() {
         {activeTab === 'properties' && <Properties />}
         {activeTab === 'catalogs' && <Catalogs />}
         {activeTab === 'sources' && <Sources />}
+        {activeTab === 'clients' && <Clients />}
         {activeTab === 'journeysList' && (
           <JourneysList
             onSelectJourney={(id) => {
               setSelectedJourneyId(id);
               setActiveTab('journeys');
-              pushPath(`/journeys/${id}`, activeWorkspaceKey);
+              pushPath(`/journeys/${id}`, activeProjectKey);
             }}
           />
         )}
@@ -309,14 +235,8 @@ function LayoutInner() {
           <Journeys
             selectedJourneyId={selectedJourneyId}
             onBack={() => {
-              if (activeTabRef.current === 'journeys' && dirtyRef.current) {
-                const ok = window.confirm(
-                  'You have unsaved changes. Are you sure you want to leave?',
-                );
-                if (!ok) return;
-              }
               setActiveTab('journeysList');
-              pushPath('/journeys', activeWorkspaceKey);
+              pushPath('/journeys', activeProjectKey);
             }}
           />
         )}
@@ -330,13 +250,13 @@ function LayoutInner() {
     <div className="flex h-screen font-sans">
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={confirmUnsavedAndNavigate}
+        setActiveTab={(tab) => setActiveTab(tab)}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapsed={() => setIsSidebarCollapsed((v) => !v)}
       />
       <div className="flex-1 overflow-hidden flex flex-col bg-[var(--surface-default)] text-gray-900">
         <Header />
-        <WorkspaceGateBanner suppress={showFullPageWorkspaceGate} />
+        <ProjectGateBanner suppress={showFullPageProjectGate} />
         <main className="flex-1 overflow-hidden flex flex-col">{mainContent}</main>
       </div>
     </div>

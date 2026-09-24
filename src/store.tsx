@@ -91,11 +91,11 @@ interface StoreState {
 
   addCustomCategory: (name: string) => void;
 
-  activeWorkspaceId: string;
-  activeWorkspaceKey: string | null;
-  setActiveWorkspace: (args: { id: string; key?: string | null }) => void;
-  /** Clears workspace context (no workspace open). Used when route or membership rejects the current workspace. */
-  clearActiveWorkspace: () => void;
+  activeProjectId: string;
+  activeProjectKey: string | null;
+  setActiveProject: (args: { id: string; key?: string | null }) => void;
+  /** Clears project context (no project open). Used when route or membership rejects the current project. */
+  clearActiveProject: () => void;
 }
 
 export const useStore = create<StoreState>((set, get) => {
@@ -115,15 +115,15 @@ export const useStore = create<StoreState>((set, get) => {
     });
   };
 
-  const DEFAULT_WORKSPACE_ID = '00000000-0000-0000-0000-000000000001';
+  const DEFAULT_PROJECT_ID = '00000000-0000-0000-0000-000000000001';
 
   return {
     mainData: initialData,
     branches: [],
     activeBranchId: 'main',
     selectedItemIdToEdit: null,
-    activeWorkspaceId: DEFAULT_WORKSPACE_ID,
-    activeWorkspaceKey: null,
+    activeProjectId: DEFAULT_PROJECT_ID,
+    activeProjectKey: null,
     journeyCanvasHasUnsavedChanges: false,
     setJourneyCanvasHasUnsavedChanges: (v) => set({ journeyCanvasHasUnsavedChanges: v }),
 
@@ -367,16 +367,16 @@ export const useStore = create<StoreState>((set, get) => {
         return { ...data, customCategories: [...list, trimmed] };
       }),
 
-    setActiveWorkspace: ({ id, key }) =>
+    setActiveProject: ({ id, key }) =>
       set({
-        activeWorkspaceId: id,
-        activeWorkspaceKey: key ?? null,
+        activeProjectId: id,
+        activeProjectKey: key ?? null,
       }),
 
-    clearActiveWorkspace: () =>
+    clearActiveProject: () =>
       set({
-        activeWorkspaceId: '',
-        activeWorkspaceKey: null,
+        activeProjectId: '',
+        activeProjectKey: null,
       }),
   };
 });

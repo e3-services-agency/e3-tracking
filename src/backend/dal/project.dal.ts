@@ -29,6 +29,12 @@ export interface ProjectRow {
   default_expiration_json: unknown;
   standard_event_additions_json: unknown;
   consent_key_additions_json: unknown;
+  /**
+   * Bloomreach data-mapping fields with no dedicated columns, kept verbatim for round-trip export
+   * (T-1-08, PLAN "Import / export contracts" > Data mapping point 7): `{_id, catalogs,
+   * custom_events}` as parsed from the last imported `data-mapping.json`.
+   */
+  bloomreach_mapping_meta_json: unknown;
   share_token: string | null;
   share_access: string | null;
   created_at: string;
@@ -42,7 +48,10 @@ export interface ProjectWithClient extends ProjectRow {
 
 type ProjectDbRow = Omit<
   ProjectRow,
-  'default_expiration_json' | 'standard_event_additions_json' | 'consent_key_additions_json'
+  | 'default_expiration_json'
+  | 'standard_event_additions_json'
+  | 'consent_key_additions_json'
+  | 'bloomreach_mapping_meta_json'
 >;
 
 function mapProjectRow(row: ProjectDbRow): ProjectRow {
@@ -59,6 +68,10 @@ function mapProjectRow(row: ProjectDbRow): ProjectRow {
     consent_key_additions_json: parseJsonColumn(
       (row as unknown as Record<string, unknown>).consent_key_additions_json,
       []
+    ),
+    bloomreach_mapping_meta_json: parseJsonColumn(
+      (row as unknown as Record<string, unknown>).bloomreach_mapping_meta_json,
+      null
     ),
   };
 }
@@ -184,6 +197,8 @@ export interface UpdateProjectInput {
    * event" form on the Standard events page PATCHes the full array here, `[{key, fields}]`.
    */
   standard_event_additions_json?: unknown;
+  /** `{_id, catalogs, custom_events}` verbatim from the last imported data-mapping.json (T-1-08). */
+  bloomreach_mapping_meta_json?: unknown;
 }
 
 /**
@@ -339,6 +354,9 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
     patch.standard_event_additions_json = toJsonColumn(
       normalizeStandardEventAdditions(updates.standard_event_additions_json)
     );
+  }
+  if (updates.bloomreach_mapping_meta_json !== undefined) {
+    patch.bloomreach_mapping_meta_json = toJsonColumn(updates.bloomreach_mapping_meta_json);
   }
 
   const setClause = Object.keys(patch)

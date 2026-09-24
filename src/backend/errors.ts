@@ -4,7 +4,7 @@
  */
 
 export class ConflictError extends Error {
-  readonly code = 'CONFLICT';
+  readonly code: string = 'CONFLICT';
   constructor(message: string, public readonly details?: string) {
     super(message);
     this.name = 'ConflictError';
@@ -155,6 +155,20 @@ export class EnumInUseError extends BadRequestError {
   constructor(message: string, field?: string) {
     super(message, field);
     this.name = 'EnumInUseError';
+  }
+}
+
+/**
+ * `apply` for a Bloomreach import (T-1-08, D-22) re-hashes the resent raw JSON and it no longer
+ * matches the `payload_hash` returned by `preview` — the pasted data changed in between. 409, so
+ * the caller re-previews rather than silently applying stale `selected_item_ids` against a
+ * different plan.
+ */
+export class PayloadChangedError extends ConflictError {
+  readonly code = 'PAYLOAD_CHANGED';
+  constructor(message: string) {
+    super(message);
+    this.name = 'PayloadChangedError';
   }
 }
 

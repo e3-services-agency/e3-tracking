@@ -14,7 +14,12 @@
  */
 import { getDb } from '../db';
 import { newId, nowIso, mapWriteError } from '../db/util';
-import { NotFoundError, RequirementTargetInvalidError, ValidationError } from '../errors';
+import {
+  NotFoundError,
+  RequirementDuplicateTargetError,
+  RequirementTargetInvalidError,
+  ValidationError,
+} from '../errors';
 import { REQUIREMENT_TARGET_KINDS, REQUIREMENT_LEVELS, REQUIREMENT_STATUSES } from '../../domain/enums';
 import { getUseCaseOrThrow } from './use-case.dal';
 
@@ -123,14 +128,36 @@ function assertPropertyLinkedToEvent(eventId: string, propertyId: string): void 
 }
 
 /**
+ * Which target id columns each `target_kind` requires vs. forbids (the two `..._property` kinds
+ * additionally need the linked-to-event check, handled separately below).
+ */
+const TARGET_SHAPES: Record<
+  string,
+  { required: Array<'property_id' | 'event_id' | 'variant_id'>; forbidden: Array<'property_id' | 'event_id' | 'variant_id'> }
+> = {
+  customer_property: { required: ['property_id'], forbidden: ['event_id', 'variant_id'] },
+  event: { required: ['event_id'], forbidden: ['property_id', 'variant_id'] },
+  variant: { required: ['variant_id'], forbidden: ['property_id', 'event_id'] },
+  event_property: { required: ['event_id', 'property_id'], forbidden: ['variant_id'] },
+  variant_property: { required: ['variant_id', 'property_id'], forbidden: ['event_id'] },
+};
+
+/**
  * Validates `target_kind` and that exactly the ids that kind requires are set (others must be
  * null/undefined), that every set id belongs to this project, and — for the two `..._property`
  * kinds — that the property is actually linked to the target's event. Throws
  * `RequirementTargetInvalidError` (400 `REQUIREMENT_TARGET_INVALID`) on any mismatch.
+ *
+ * Exception (T-1-07 fix round ERROR 2): a row whose `status` is `gap` may leave its *required* ids
+ * null — this is exactly the shape `markRequirementsGap*` below produces when the row's target
+ * (event/variant/property) has been deleted or detached out from under it, and the use case must
+ * stay saveable afterwards without the human first hunting down every affected row. Forbidden ids
+ * are still rejected even on a `gap` row (that shape is never produced by this module), and any id
+ * that *is* present — gap or not — is still checked for project membership / event linkage.
  */
 function validateTarget(
   projectId: string,
-  input: Pick<RequirementInput, 'target_kind' | 'property_id' | 'event_id' | 'variant_id'>
+  input: Pick<RequirementInput, 'target_kind' | 'property_id' | 'event_id' | 'variant_id' | 'status'>
 ): { property_id: string | null; event_id: string | null; variant_id: string | null } {
   const { target_kind } = input;
   if (!(REQUIREMENT_TARGET_KINDS as readonly string[]).includes(target_kind)) {
@@ -139,69 +166,46 @@ function validateTarget(
       'target_kind'
     );
   }
-  const propertyId = input.property_id ?? null;
-  const eventId = input.event_id ?? null;
-  const variantId = input.variant_id ?? null;
+  const shape = TARGET_SHAPES[target_kind];
+  const ids = {
+    property_id: input.property_id ?? null,
+    event_id: input.event_id ?? null,
+    variant_id: input.variant_id ?? null,
+  };
+  const isGap = input.status === 'gap';
 
-  switch (target_kind) {
-    case 'customer_property': {
-      if (!propertyId || eventId || variantId) {
-        throw new RequirementTargetInvalidError(
-          'target_kind "customer_property" requires property_id only (no event_id/variant_id).',
-          'target_kind'
-        );
-      }
-      assertPropertyInProject(projectId, propertyId, 'customer');
-      return { property_id: propertyId, event_id: null, variant_id: null };
+  for (const key of shape.forbidden) {
+    if (ids[key]) {
+      throw new RequirementTargetInvalidError(
+        `target_kind "${target_kind}" must not set ${key}.`,
+        'target_kind'
+      );
     }
-    case 'event': {
-      if (!eventId || propertyId || variantId) {
-        throw new RequirementTargetInvalidError(
-          'target_kind "event" requires event_id only (no property_id/variant_id).',
-          'target_kind'
-        );
-      }
-      assertEventInProject(projectId, eventId);
-      return { property_id: null, event_id: eventId, variant_id: null };
-    }
-    case 'variant': {
-      if (!variantId || propertyId || eventId) {
-        throw new RequirementTargetInvalidError(
-          'target_kind "variant" requires variant_id only (no property_id/event_id).',
-          'target_kind'
-        );
-      }
-      assertVariantInProject(projectId, variantId);
-      return { property_id: null, event_id: null, variant_id: variantId };
-    }
-    case 'event_property': {
-      if (!eventId || !propertyId || variantId) {
-        throw new RequirementTargetInvalidError(
-          'target_kind "event_property" requires event_id and property_id (no variant_id).',
-          'target_kind'
-        );
-      }
-      assertEventInProject(projectId, eventId);
-      assertPropertyInProject(projectId, propertyId, 'event');
-      assertPropertyLinkedToEvent(eventId, propertyId);
-      return { property_id: propertyId, event_id: eventId, variant_id: null };
-    }
-    case 'variant_property': {
-      if (!variantId || !propertyId || eventId) {
-        throw new RequirementTargetInvalidError(
-          'target_kind "variant_property" requires variant_id and property_id (no event_id).',
-          'target_kind'
-        );
-      }
-      const variantEventId = assertVariantInProject(projectId, variantId);
-      assertPropertyInProject(projectId, propertyId, 'event');
-      assertPropertyLinkedToEvent(variantEventId, propertyId);
-      return { property_id: propertyId, event_id: null, variant_id: variantId };
-    }
-    default:
-      // Unreachable: REQUIREMENT_TARGET_KINDS check above already rejects anything else.
-      throw new RequirementTargetInvalidError('Unknown target_kind.', 'target_kind');
   }
+  for (const key of shape.required) {
+    if (!ids[key] && !isGap) {
+      throw new RequirementTargetInvalidError(
+        `target_kind "${target_kind}" requires ${shape.required.join(' and ')}.`,
+        'target_kind'
+      );
+    }
+  }
+
+  let eventIdForLink: string | null = ids.event_id;
+  if (ids.variant_id) {
+    eventIdForLink = assertVariantInProject(projectId, ids.variant_id);
+  } else if (ids.event_id) {
+    assertEventInProject(projectId, ids.event_id);
+  }
+  if (ids.property_id) {
+    const scope = target_kind === 'customer_property' ? 'customer' : 'event';
+    assertPropertyInProject(projectId, ids.property_id, scope);
+    if ((target_kind === 'event_property' || target_kind === 'variant_property') && eventIdForLink) {
+      assertPropertyLinkedToEvent(eventIdForLink, ids.property_id);
+    }
+  }
+
+  return ids;
 }
 
 function validateLevel(level: string): void {
@@ -236,6 +240,25 @@ export function replaceRequirements(
     validateStatus(input.status);
     const target = validateTarget(projectId, input);
     return { ...target, level: input.level, status: input.status ?? null, note: input.note?.trim() || null };
+  });
+
+  // Reviewer fix round LOW 6: reject the same target twice in one list instead of silently
+  // accepting both and letting the matrix cell show whichever insert happened to run last. A
+  // fully-null `gap` target (all three ids null — the shape `markRequirementsGap*` produces once a
+  // target is removed) is never treated as a duplicate of another gap row: there is nothing left to
+  // collide on, and a use case can legitimately end up with more than one gap row.
+  const seenTargets = new Set<string>();
+  inputs.forEach((input, index) => {
+    const t = validated[index];
+    if (!t.property_id && !t.event_id && !t.variant_id) return;
+    const key = `${input.target_kind}:${t.property_id ?? ''}:${t.event_id ?? ''}:${t.variant_id ?? ''}`;
+    if (seenTargets.has(key)) {
+      throw new RequirementDuplicateTargetError(
+        'This target already appears elsewhere in the requirement list.',
+        'target_kind'
+      );
+    }
+    seenTargets.add(key);
   });
 
   const replace = db.transaction(() => {
@@ -275,9 +298,13 @@ export function replaceRequirements(
 /**
  * Internal helper for `use-case-template.dal.ts`'s instantiate path: inserts a single requirement
  * row bypassing `validateTarget`, used only for rows the template resolver could not resolve to a
- * real target (all target ids null, `status: 'ignored'`, `note` explaining what was missing). A
- * normal PUT (`replaceRequirements`) never produces such a row; a human clears the note once they
- * fix it up in the requirements editor and the next `PUT` re-validates normally.
+ * real target (all target ids null, `status: 'gap'` — the plan's word for "data the client does not
+ * have", one of `REQUIREMENT_STATUSES`; fix round ERROR 1, this used to be the literal `'ignored'`,
+ * a value outside the enum that `replaceRequirements`' own `validateStatus` then rejected, so a use
+ * case instantiated from a template with any unresolvable entry could never have its requirement
+ * list saved again). `note` explains what was missing. A normal PUT (`replaceRequirements`) never
+ * produces such a row on its own, but `validateTarget` now accepts one back (gap + null ids) so a
+ * human can save the list unchanged and fix the row up later in the requirements editor.
  */
 export function insertUnresolvedRequirement(
   useCaseId: string,
@@ -290,7 +317,7 @@ export function insertUnresolvedRequirement(
       `INSERT INTO requirements (
         id, use_case_id, sort_order, target_kind, property_id, event_id, variant_id, level,
         status, note, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, 'ignored', ?, ?, ?)`
+      ) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, 'gap', ?, ?, ?)`
     )
     .run(newId(), useCaseId, sortOrder, input.target_kind, input.level, input.note, now, now);
 }
@@ -342,4 +369,85 @@ export function getRequirementOrThrow(useCaseId: string, id: string): Requiremen
     .get(id, useCaseId) as RequirementRow | undefined;
   if (!row) throw new NotFoundError('Requirement not found.', 'requirement');
   return row;
+}
+
+/**
+ * T-1-07 fix round ERROR 2: deleting/detaching a requirement's target used to leave a "ghost" row
+ * — a dangling id the UI rendered as a blank picker or a raw uuid, and that `replaceRequirements`
+ * then refused to save back unchanged (`event_id does not belong to this project.`), freezing the
+ * whole use case until a human found and fixed every affected row by hand. The four call sites below
+ * (event soft-delete, variant hard-delete, property soft-delete, event-property detach) instead null
+ * the dangling column(s), force `status = 'gap'`, and append a "target removed: <name>" note in the
+ * same transaction as the delete/detach itself — deletion stays possible (no `REQUIREMENT_IN_USE`
+ * block), the use case stays saveable (`validateTarget` accepts a `gap` row with null ids), and the
+ * matrix/docs export render "(removed)" via `buildTargetLabelResolver` instead of a raw uuid.
+ *
+ * `note` is appended, not overwritten (`CASE WHEN ... ELSE note || ' | ' || ?`), so an existing note
+ * survives; this and the three wrappers below run synchronously against whatever transaction the
+ * caller is already inside (they take no `db.transaction` of their own).
+ */
+function markRequirementsGap(
+  nullColumns: Array<'property_id' | 'event_id' | 'variant_id'>,
+  whereSql: string,
+  whereParams: unknown[],
+  targetName: string
+): void {
+  const now = nowIso();
+  const note = `target removed: ${targetName}`;
+  const setClause = nullColumns.map((c) => `${c} = NULL`).join(', ');
+  getDb()
+    .prepare(
+      `UPDATE requirements SET ${setClause}, status = 'gap',
+         note = CASE WHEN note IS NULL OR note = '' THEN ? ELSE note || ' | ' || ? END,
+         updated_at = ?
+       WHERE ${whereSql}`
+    )
+    .run(note, note, now, ...whereParams);
+}
+
+/**
+ * Called by `event.dal.ts` `deleteEvent` before the event's variants are deleted: nulls `event_id`
+ * on `target_kind = 'event'|'event_property'` rows referencing this event directly. Rows referencing
+ * one of the event's variants are a separate call to `markRequirementsGapForVariantRemoval` per
+ * variant (the caller does this once per variant, before deleting the variants themselves).
+ */
+export function markRequirementsGapForEventRemoval(eventId: string, eventName: string): void {
+  markRequirementsGap(['event_id'], 'event_id = ?', [eventId], eventName);
+}
+
+/**
+ * Called by `variant.dal.ts` `deleteVariant` and `event.dal.ts` `deleteEvent` (once per variant)
+ * before the `DELETE FROM variants` itself: nulls `variant_id` on `target_kind =
+ * 'variant'|'variant_property'` rows referencing this variant.
+ */
+export function markRequirementsGapForVariantRemoval(variantId: string, variantName: string): void {
+  markRequirementsGap(['variant_id'], 'variant_id = ?', [variantId], variantName);
+}
+
+/**
+ * Called by `property.dal.ts` `deleteProperty` (which already refuses to delete a property still
+ * attached to any event, so only `customer_property` rows and any pre-detached `event_property`/
+ * `variant_property` leftovers can still reference it): nulls `property_id` on every row referencing
+ * this property, regardless of `target_kind`.
+ */
+export function markRequirementsGapForPropertyRemoval(propertyId: string, propertyName: string): void {
+  markRequirementsGap(['property_id'], 'property_id = ?', [propertyId], propertyName);
+}
+
+/**
+ * Called by `event.dal.ts` `detachPropertyFromEvent`: the property itself is not deleted (it may
+ * still be linked to other events), so only the rows scoped to *this* (event, property) pair lose
+ * their target — `event_property` rows for this exact event, and `variant_property` rows whose
+ * `variant_id` belongs to this event and whose `property_id` is the one being detached.
+ */
+export function markRequirementsGapForDetach(eventId: string, propertyId: string, propertyName: string): void {
+  markRequirementsGap(
+    ['property_id'],
+    `property_id = ? AND (
+       (target_kind = 'event_property' AND event_id = ?)
+       OR (target_kind = 'variant_property' AND variant_id IN (SELECT id FROM variants WHERE event_id = ?))
+     )`,
+    [propertyId, eventId, eventId],
+    propertyName
+  );
 }

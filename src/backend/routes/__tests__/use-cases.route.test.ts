@@ -104,6 +104,31 @@ describe('use case CRUD and requirements', () => {
     expect(body.code).toBe('REQUIREMENT_TARGET_INVALID');
   });
 
+  it('returns 400 REQUIREMENT_DUPLICATE for the same target twice (fix round LOW 6)', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${useCaseId}/requirements`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requirements: [
+          { target_kind: 'customer_property', property_id: customerPropertyId, level: 'R' },
+          { target_kind: 'customer_property', property_id: customerPropertyId, level: 'O' },
+        ],
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('REQUIREMENT_DUPLICATE');
+  });
+
+  it('PATCH with an unknown template_id is 404, not 500 (fix round LOW 5)', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${useCaseId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ template_id: 'does-not-exist' }),
+    });
+    expect(res.status).toBe(404);
+  });
+
   it('updates and soft-deletes a use case', async () => {
     const patchRes = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${useCaseId}`, {
       method: 'PATCH',
@@ -163,11 +188,69 @@ describe('use case templates and requirements matrix', () => {
     expect(body.rows.some((r: { label: string }) => r.label === 'checkout')).toBe(true);
   });
 
+  it('deleting an event referenced by a use case marks its requirements gap end to end (fix round ERROR 2)', async () => {
+    const doomedEvent = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'doomed_event' }),
+      })
+    ).json();
+
+    const ucRes = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Doomed use case' }),
+    });
+    const uc = await ucRes.json();
+    await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${uc.id}/requirements`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requirements: [{ target_kind: 'event', event_id: doomedEvent.id, level: 'R' }] }),
+    });
+
+    const deleteRes = await fetch(`${baseUrl}/api/projects/${projectId}/events/${doomedEvent.id}`, {
+      method: 'DELETE',
+    });
+    expect(deleteRes.status).toBe(204);
+
+    // 1. Opening the use case shows the requirement as gap with a nulled event_id, not a dangling id.
+    const ucDetail = await (await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${uc.id}`)).json();
+    expect(ucDetail.requirements).toHaveLength(1);
+    expect(ucDetail.requirements[0].event_id).toBeNull();
+    expect(ucDetail.requirements[0].status).toBe('gap');
+    expect(ucDetail.requirements[0].note).toContain('target removed: doomed_event');
+
+    // 2. The requirements matrix resolves the row to "(removed)", not the deleted event's uuid.
+    const matrix = await (await fetch(`${baseUrl}/api/projects/${projectId}/requirements-matrix`)).json();
+    const row = matrix.rows.find((r: { cells: Record<string, string | null> }) => r.cells[uc.id]);
+    expect(row.label).toBe('(removed)');
+    expect(row.label).not.toContain(doomedEvent.id);
+
+    // 3. The use case list is still saveable unchanged (the whole point of marking it gap).
+    const resaveRes = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${uc.id}/requirements`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requirements: ucDetail.requirements }),
+    });
+    expect(resaveRes.status).toBe(200);
+
+    // 4. The docs export also resolves to "(removed)", never the raw uuid.
+    const docsHtml = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/export/documentation.html`)
+    ).text();
+    expect(docsHtml).toContain('(removed)');
+    expect(docsHtml).not.toContain(doomedEvent.id);
+  });
+
   it('lists use cases referencing an event from the event editor', async () => {
+    // Strengthened (fix round LOW 8, was only `length > 0`): the CRUD block above soft-deleted its
+    // use case (also targeting `checkout`), so the only *live* use case left referencing this event
+    // is the one instantiated from the template just above — assert that exact identity, not just
+    // "something came back".
     const res = await fetch(`${baseUrl}/api/projects/${projectId}/events/${eventId}/use-cases`);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(Array.isArray(body)).toBe(true);
-    expect(body.length).toBeGreaterThan(0);
+    expect(body.map((uc: { name: string }) => uc.name)).toEqual(['Checkout tracking']);
   });
 });

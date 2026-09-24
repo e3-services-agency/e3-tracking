@@ -18,6 +18,7 @@ import {
 } from '../../domain/enums';
 import { STANDARD_CUSTOMER_PROPERTIES, isKnownStandardEvent, type StandardEventSeed } from '../../domain/bloomreach';
 import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
+import { markRequirementsGapForPropertyRemoval } from './requirement.dal';
 
 export interface AllowedValue {
   value: string;
@@ -630,9 +631,17 @@ export function updateProperty(
   return getPropertyOrThrow(projectId, id);
 }
 
-/** Soft-deletes a property; refuses when it is still attached to any event (T-1-02 guard). */
+/**
+ * Soft-deletes a property; refuses when it is still attached to any event (T-1-02 guard). Once
+ * unattached, a property can still be a requirement's direct target — always for `customer_property`
+ * (which is never attached to an event at all), or a leftover `event_property`/`variant_property`
+ * row that survived an earlier detach before this guard/the T-1-07 fix round existed. T-1-07 fix
+ * round ERROR 2: mark those rows `status = 'gap'` with `property_id` nulled and a "target removed:
+ * <name>" note in the same transaction as the soft delete (see `requirement.dal.ts`
+ * `markRequirementsGapForPropertyRemoval`), so the use case stays saveable afterwards.
+ */
 export function deleteProperty(projectId: string, id: string): void {
-  getPropertyOrThrow(projectId, id);
+  const property = getPropertyOrThrow(projectId, id);
   const db = getDb();
 
   const attachedCount = (
@@ -653,10 +662,14 @@ export function deleteProperty(projectId: string, id: string): void {
   }
 
   const now = nowIso();
-  db.prepare('UPDATE properties SET deleted_at = ?, updated_at = ? WHERE id = ? AND project_id = ?').run(
-    now,
-    now,
-    id,
-    projectId
-  );
+  const run = db.transaction(() => {
+    db.prepare('UPDATE properties SET deleted_at = ?, updated_at = ? WHERE id = ? AND project_id = ?').run(
+      now,
+      now,
+      id,
+      projectId
+    );
+    markRequirementsGapForPropertyRemoval(id, property.name);
+  });
+  run();
 }

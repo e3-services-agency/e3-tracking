@@ -92,6 +92,16 @@ function validatePriority(priority: string | null | undefined): void {
   }
 }
 
+/**
+ * Trims and upper-cases a use case code (fix round LOW 7: `'uc-01 '` used to be stored as
+ * `'uc-01'`, distinct from `'UC-01'` under the case-sensitive `UNIQUE(project_id, code)` index,
+ * so the same code could exist twice with different casing). Returns `null` for blank input.
+ */
+function normalizeCode(code: string | null | undefined): string | null {
+  const trimmed = code?.trim();
+  return trimmed ? trimmed.toUpperCase() : null;
+}
+
 /** Next free `UC-<n>` code for the project, zero-padded to at least two digits (e.g. `UC-01`, `UC-10`, `UC-100`). */
 export function nextUseCaseCode(projectId: string): string {
   const rows = getDb()
@@ -121,7 +131,7 @@ export function createUseCase(projectId: string, input: UseCaseInput): UseCaseRo
       projectId
     ) as { m: number }
   ).m;
-  const code = input.code?.trim() || nextUseCaseCode(projectId);
+  const code = normalizeCode(input.code) || nextUseCaseCode(projectId);
 
   try {
     db.prepare(
@@ -166,10 +176,19 @@ export function updateUseCase(projectId: string, id: string, updates: Partial<Us
   if (updates.type !== undefined) validateType(updates.type);
   if (updates.status !== undefined) validateStatus(updates.status);
   if (updates.priority !== undefined) validatePriority(updates.priority);
+  // Fix round LOW 5: PATCH {template_id: '<unknown>'} used to hit the raw `FOREIGN KEY constraint
+  // failed` from the UPDATE below and surface as a 500 `DATABASE_ERROR`; check first and respond
+  // 404 like every other cross-entity reference in this codebase.
+  if (updates.template_id !== undefined && updates.template_id !== null) {
+    const template = getDb()
+      .prepare('SELECT id FROM use_case_templates WHERE id = ?')
+      .get(updates.template_id);
+    if (!template) throw new NotFoundError('Use case template not found.', 'use_case_template');
+  }
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (updates.template_id !== undefined) patch.template_id = updates.template_id;
-  if (updates.code !== undefined) patch.code = updates.code?.trim() || null;
+  if (updates.code !== undefined) patch.code = normalizeCode(updates.code);
   if (updates.name !== undefined) patch.name = updates.name.trim();
   if (updates.type !== undefined) patch.type = updates.type;
   if (updates.description !== undefined) patch.description = updates.description?.trim() || null;

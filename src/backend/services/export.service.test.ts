@@ -174,4 +174,19 @@ describe('generateProjectDocumentationHtml', () => {
     expect(html).toContain('id="requirements-matrix"');
     expect(html).toContain('checkout');
   });
+
+  it('renders "(removed)" instead of a raw uuid for a requirement whose event was deleted (fix round ERROR 2)', async () => {
+    const event = EventDAL.createEvent(projectId, { name: 'checkout' });
+    const useCase = UseCaseDAL.createUseCase(projectId, { name: 'Checkout tracking', type: 'transactional' });
+    RequirementDAL.replaceRequirements(projectId, useCase.id, [
+      { target_kind: 'event', event_id: event.id, level: 'R' },
+    ]);
+    const eventUuid = event.id;
+
+    EventDAL.deleteEvent(projectId, eventUuid);
+
+    const html = await generateProjectDocumentationHtml(projectId);
+    expect(html).toContain('(removed)');
+    expect(html).not.toContain(eventUuid);
+  });
 });

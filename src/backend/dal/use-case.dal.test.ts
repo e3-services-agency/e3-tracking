@@ -101,4 +101,34 @@ describe('use-case.dal', () => {
     expect(referencing).toContain(variantUseCase.id);
     expect(referencing).not.toContain(unrelatedUseCase.id);
   });
+
+  it('normalises a code to trimmed upper case on create and update (fix round LOW 7)', () => {
+    const a = UseCaseDAL.createUseCase(projectId, { name: 'A', code: '  uc-01 ' });
+    expect(a.code).toBe('UC-01');
+    // A second use case cannot reuse the same code under a different casing/whitespace.
+    expect(() => UseCaseDAL.createUseCase(projectId, { name: 'B', code: 'UC-01' })).toThrow(ConflictError);
+
+    const b = UseCaseDAL.createUseCase(projectId, { name: 'B', code: 'UC-02' });
+    const updated = UseCaseDAL.updateUseCase(projectId, b.id, { code: ' uc-03 ' });
+    expect(updated.code).toBe('UC-03');
+  });
+
+  it('allows a soft-deleted use case\'s code to be reused (fix round WARNING 4, 0007 migration)', () => {
+    const a = UseCaseDAL.createUseCase(projectId, { name: 'A', code: 'UC-77' });
+    UseCaseDAL.deleteUseCase(projectId, a.id);
+    // The old UNIQUE(project_id, code) inline constraint applied to soft-deleted rows too; this
+    // used to throw ConflictError even though no live use case holds "UC-77" any more.
+    const b = UseCaseDAL.createUseCase(projectId, { name: 'B', code: 'UC-77' });
+    expect(b.code).toBe('UC-77');
+    expect(UseCaseDAL.listUseCases(projectId).map((u) => u.id)).toEqual([b.id]);
+  });
+
+  it('PATCH with an unknown template_id is 404, not a raw FK 500 (fix round LOW 5)', () => {
+    const a = UseCaseDAL.createUseCase(projectId, { name: 'A' });
+    expect(() => UseCaseDAL.updateUseCase(projectId, a.id, { template_id: 'does-not-exist' })).toThrow(
+      NotFoundError
+    );
+    // The failed PATCH must not have partially applied.
+    expect(UseCaseDAL.getUseCaseOrThrow(projectId, a.id).template_id).toBeNull();
+  });
 });

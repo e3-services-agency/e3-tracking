@@ -78,4 +78,28 @@ describe('computeRequirementsMatrix', () => {
     expect(matrix.use_cases).toEqual([]);
     expect(matrix.rows).toEqual([]);
   });
+
+  it('labels a removed target "(removed)" instead of a raw uuid (fix round ERROR 2)', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'checkout' }).id;
+    const property = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'total_price',
+      data_type: 'number',
+    }).id;
+    EventDAL.attachPropertyToEvent(projectId, event, { property_id: property, role: 'normal' });
+
+    const useCase = UseCaseDAL.createUseCase(projectId, { name: 'A' });
+    RequirementDAL.replaceRequirements(projectId, useCase.id, [
+      { target_kind: 'event_property', event_id: event, property_id: property, level: 'R' },
+    ]);
+
+    EventDAL.deleteEvent(projectId, event);
+
+    const matrix = computeRequirementsMatrix(projectId);
+    expect(matrix.rows).toHaveLength(1);
+    expect(matrix.rows[0].label).toBe('(removed).total_price');
+    expect(matrix.rows[0].label).not.toMatch(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
+    );
+  });
 });

@@ -55,24 +55,27 @@ export function buildTargetLabelResolver(projectId: string): TargetLabelResolver
   const propertyNameById = new Map(listProperties(projectId).map((p) => [p.id, p.name]));
   const variantNameById = new Map(listVariantsByProject(projectId).map((v) => [v.id, v.name]));
 
+  // Fix round ERROR 2: once a target is deleted, its id column is nulled (see
+  // `requirement.dal.ts` `markRequirementsGap*`) — a `null` id must render as "(removed)", not a
+  // raw uuid (the previous fallback `... ?? row.property_id ?? ''` only handled a *resolved* id
+  // whose name lookup missed, and printed the empty string / the id itself for a null one).
+  const labelPart = (map: Map<string, string>, id: string | null): string => {
+    if (!id) return '(removed)';
+    return map.get(id) ?? id;
+  };
+
   return (row) => {
     switch (row.target_kind) {
       case 'customer_property':
-        return propertyNameById.get(row.property_id ?? '') ?? row.property_id ?? '';
+        return labelPart(propertyNameById, row.property_id);
       case 'event':
-        return eventNameById.get(row.event_id ?? '') ?? row.event_id ?? '';
+        return labelPart(eventNameById, row.event_id);
       case 'variant':
-        return variantNameById.get(row.variant_id ?? '') ?? row.variant_id ?? '';
-      case 'event_property': {
-        const eventName = eventNameById.get(row.event_id ?? '') ?? row.event_id ?? '';
-        const propName = propertyNameById.get(row.property_id ?? '') ?? row.property_id ?? '';
-        return `${eventName}.${propName}`;
-      }
-      case 'variant_property': {
-        const variantName = variantNameById.get(row.variant_id ?? '') ?? row.variant_id ?? '';
-        const propName = propertyNameById.get(row.property_id ?? '') ?? row.property_id ?? '';
-        return `${variantName}.${propName}`;
-      }
+        return labelPart(variantNameById, row.variant_id);
+      case 'event_property':
+        return `${labelPart(eventNameById, row.event_id)}.${labelPart(propertyNameById, row.property_id)}`;
+      case 'variant_property':
+        return `${labelPart(variantNameById, row.variant_id)}.${labelPart(propertyNameById, row.property_id)}`;
       default:
         return '';
     }

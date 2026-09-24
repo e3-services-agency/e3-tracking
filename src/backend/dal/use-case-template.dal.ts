@@ -17,21 +17,26 @@
  *  - `event_property`: `event_name` + `property_name` -> the event and an event-scope property
  *    already linked to it.
  *  - `variant`/`variant_property`: `event_name` + `condition` -> the event, then the variant of
- *    that event whose `conditions_json` has a condition on the named discriminator property
- *    matching `condition.value` (an `equals` condition on that exact value, or an `in` condition
- *    that includes it). `variant_property` additionally resolves `property_name` on that variant's
- *    event, as `event_property` does. This is how the template names a variant without storing a
- *    variant id (which cannot exist yet at the template-authoring stage, since variants are
- *    per-project) — the plan's `condition` field is exactly a variant's own discriminator
- *    condition, so matching on it is name-independent and survives the client renaming the
- *    property later.
+ *    that event whose *whole* condition set equals `{ property_id: <resolved discriminator>,
+ *    operator: 'equals', values: [condition.value] }` — an exact match on `conditions_key` (fix
+ *    round WARNING 3), not "any variant whose conditions happen to include this one". A template
+ *    condition names exactly one discriminator; a variant with an additional second discriminator
+ *    is a *different*, more specific variant and must never be silently picked over (or instead of)
+ *    the one-discriminator variant the template actually named. No exact match -> unresolved, naming
+ *    every same-event variant that partially matched (same discriminator, different value, or a
+ *    superset of conditions) so the note is actionable. `variant_property` additionally resolves
+ *    `property_name` on that variant's event, as `event_property` does. This is how the template
+ *    names a variant without storing a variant id (which cannot exist yet at the
+ *    template-authoring stage, since variants are per-project) — the plan's `condition` field is
+ *    exactly a variant's own discriminator condition, so matching on it is name-independent and
+ *    survives the client renaming the property later.
  *
  * A requirement whose target cannot be resolved this way (event/property/variant not found, or a
  * `variant`/`variant_property` condition matching no existing variant) is still created — with all
- * target ids null, `status: 'ignored'`, and `note` explaining what was missing — rather than
+ * target ids null, `status: 'gap'` (`REQUIREMENT_STATUSES`; fix round ERROR 1 — was the literal
+ * `'ignored'`, a value outside the enum), and `note` explaining what was missing — rather than
  * dropped, so nothing from the template is silently lost; a human resolves it later in the
- * requirements editor (T-1-07 acceptance: "unresolvable requirements are created with a note and
- * status ignored").
+ * requirements editor.
  */
 import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn } from '../db/util';
@@ -39,7 +44,7 @@ import { NotFoundError, ValidationError } from '../errors';
 import { USE_CASE_TYPES, REQUIREMENT_LEVELS, REQUIREMENT_TARGET_KINDS, type UseCaseType } from '../../domain/enums';
 import { createUseCase, type UseCaseRow } from './use-case.dal';
 import { insertResolvedRequirement, insertUnresolvedRequirement } from './requirement.dal';
-import type { VariantCondition } from '../../domain/variants';
+import { buildConditionsKey, normalizeConditions, type VariantCondition } from '../../domain/variants';
 
 export interface DefaultRequirementTemplate {
   target_kind: string;
@@ -217,18 +222,32 @@ function resolveOne(
   if (!discriminator) {
     return unresolved(`No property named "${entry.condition.property_name}" to match the variant condition.`);
   }
+  // Fix round WARNING 3: match the variant whose whole condition set equals the template's single
+  // condition, via the same `normalizeConditions`/`buildConditionsKey` `variant.dal.ts` uses to
+  // build `conditions_key` — not "any variant whose conditions include this one" (that over-matched
+  // a two-discriminator variant for a template naming only one of them, ambiguously, whichever row
+  // happened to be inserted first).
+  const desiredKey = buildConditionsKey(
+    normalizeConditions([{ property_id: discriminator.id, operator: 'equals', values: [entry.condition.value] }])
+  );
   const variantRows = getDb()
-    .prepare('SELECT id, conditions_json FROM variants WHERE event_id = ?')
-    .all(event.id) as { id: string; conditions_json: string | null }[];
-  const match = variantRows.find((row) => {
-    const conditions = parseJsonColumn(row.conditions_json, [] as VariantCondition[]);
-    return conditions.some(
-      (c) => c.property_id === discriminator.id && c.values.includes(entry.condition!.value)
-    );
-  });
+    .prepare('SELECT id, conditions_json, conditions_key FROM variants WHERE event_id = ?')
+    .all(event.id) as { id: string; conditions_json: string | null; conditions_key: string }[];
+  const match = variantRows.find((row) => row.conditions_key === desiredKey);
   if (!match) {
+    const partialMatches = variantRows.filter((row) => {
+      const conditions = parseJsonColumn(row.conditions_json, [] as VariantCondition[]);
+      return conditions.some((c) => c.property_id === discriminator.id);
+    });
+    const suffix =
+      partialMatches.length > 0
+        ? ` Candidates on the same property: ${partialMatches
+            .map((row) => parseJsonColumn(row.conditions_json, [] as VariantCondition[]))
+            .map((conditions) => buildConditionsKey(conditions))
+            .join(', ')}.`
+        : '';
     return unresolved(
-      `No variant of "${entry.event_name}" matches ${entry.condition.property_name}=${entry.condition.value}.`
+      `No variant of "${entry.event_name}" has exactly the condition ${entry.condition.property_name}=${entry.condition.value} (and no other condition).${suffix}`
     );
   }
 

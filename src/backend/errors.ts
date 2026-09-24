@@ -158,6 +158,20 @@ export class EnumInUseError extends BadRequestError {
   }
 }
 
+/**
+ * A `Requirement.target_kind` and its target id columns (`property_id`/`event_id`/`variant_id`)
+ * do not match the shape that kind requires, or a target id does not belong to this project, or
+ * (for `event_property`/`variant_property`) the property is not linked to the target's event
+ * (T-1-07). 400.
+ */
+export class RequirementTargetInvalidError extends BadRequestError {
+  readonly code = 'REQUIREMENT_TARGET_INVALID';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'RequirementTargetInvalidError';
+  }
+}
+
 /** Use when a resource is not found or does not belong to the workspace (404). */
 export class NotFoundError extends Error {
   readonly code = 'NOT_FOUND';

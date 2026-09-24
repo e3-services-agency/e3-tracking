@@ -7,15 +7,12 @@ import { useStore } from '@/src/store';
 import { Events } from '@/src/pages/Events';
 import { Properties } from '@/src/pages/Properties';
 import { Sources } from '@/src/pages/Sources';
-import { Journeys } from '@/src/pages/Journeys';
 import { Settings } from '@/src/pages/Settings';
 import { Documentation } from '@/src/pages/Documentation';
 import { Clients } from '@/src/pages/Clients';
 import { resolveInitialProject } from './resolveInitialProject';
 
-import { JourneysList } from '@/src/pages/JourneysList';
 import { Catalogs } from '@/src/pages/Catalogs';
-import { TrackingPlanAuditConfig } from '@/src/pages/TrackingPlanAuditConfig';
 
 const DEFAULT_BRAND_PRIMARY = 'var(--e3-emerald)';
 const SIDEBAR_COLLAPSED_KEY = 'e3-tracking.sidebarCollapsed';
@@ -38,39 +35,31 @@ function parseProjectFromPath(pathname: string): { projectKey: string | null; re
 }
 
 /** Maps the path after optional `/p/:projectKey` to the main shell tab. */
-function mainRouteStateFromRestPath(restPath: string): { tab: string; journeyId: string | null } {
+function mainRouteStateFromRestPath(restPath: string): { tab: string } {
   const raw = (restPath.replace(/\/$/, '') || '/').trim() || '/';
-  const journeyMatch = raw.match(/^\/journeys(?:\/([^/]+))?\/?$/);
-  if (journeyMatch) {
-    return journeyMatch[1]
-      ? { tab: 'journeys', journeyId: journeyMatch[1] }
-      : { tab: 'journeysList', journeyId: null };
-  }
   switch (raw) {
     case '/':
     case '/events':
-      return { tab: 'events', journeyId: null };
+      return { tab: 'events' };
     case '/properties':
-      return { tab: 'properties', journeyId: null };
+      return { tab: 'properties' };
     case '/catalogs':
-      return { tab: 'catalogs', journeyId: null };
+      return { tab: 'catalogs' };
     case '/sources':
-      return { tab: 'sources', journeyId: null };
+      return { tab: 'sources' };
     case '/clients':
-      return { tab: 'clients', journeyId: null };
+      return { tab: 'clients' };
     case '/settings':
-      return { tab: 'settings', journeyId: null };
+      return { tab: 'settings' };
     case '/documentation':
-      return { tab: 'documentation', journeyId: null };
-    case '/audit-config':
-      return { tab: 'auditConfig', journeyId: null };
+      return { tab: 'documentation' };
     default:
-      return { tab: 'events', journeyId: null };
+      return { tab: 'events' };
   }
 }
 
-function getInitialMainRouteState(): { tab: string; journeyId: string | null } {
-  if (typeof window === 'undefined') return { tab: 'events', journeyId: null };
+function getInitialMainRouteState(): { tab: string } {
+  if (typeof window === 'undefined') return { tab: 'events' };
   const { restPath } = parseProjectFromPath(window.location.pathname);
   return mainRouteStateFromRestPath(restPath);
 }
@@ -101,22 +90,14 @@ function LayoutInner() {
     useProjectShell();
 
   const [activeTab, setActiveTab] = useState(() => getInitialMainRouteState().tab);
-  const [selectedJourneyId, setSelectedJourneyId] = useState<string | null>(
-    () => getInitialMainRouteState().journeyId,
-  );
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const activeProjectKey = useStore((s) => s.activeProjectKey);
   const setActiveProject = useStore((s) => s.setActiveProject);
-  const dirtyRef = useRef(false);
   const activeTabRef = useRef(activeTab);
-  const selectedJourneyIdRef = useRef(selectedJourneyId);
 
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
-  useEffect(() => {
-    selectedJourneyIdRef.current = selectedJourneyId;
-  }, [selectedJourneyId]);
 
   useEffect(() => {
     try {
@@ -175,7 +156,6 @@ function LayoutInner() {
       }
       const route = mainRouteStateFromRestPath(restPath);
       setActiveTab(route.tab);
-      setSelectedJourneyId(route.journeyId);
     };
     applyFromLocation();
     window.addEventListener('popstate', applyFromLocation);
@@ -207,13 +187,6 @@ function LayoutInner() {
     if (!initializedFromUrl) return;
     if (!activeProjectKey) return;
 
-    if (activeTab === 'journeysList') {
-      pushPath('/journeys', activeProjectKey);
-      return;
-    }
-    if (activeTab === 'journeys' && selectedJourneyId) {
-      pushPath(`/journeys/${selectedJourneyId}`, activeProjectKey);
-    }
     if (activeTab === 'events') pushPath('/events', activeProjectKey);
     if (activeTab === 'properties') pushPath('/properties', activeProjectKey);
     if (activeTab === 'catalogs') pushPath('/catalogs', activeProjectKey);
@@ -221,8 +194,7 @@ function LayoutInner() {
     if (activeTab === 'clients') pushPath('/clients', activeProjectKey);
     if (activeTab === 'settings') pushPath('/settings', activeProjectKey);
     if (activeTab === 'documentation') pushPath('/documentation', activeProjectKey);
-    if (activeTab === 'auditConfig') pushPath('/audit-config', activeProjectKey);
-  }, [activeTab, selectedJourneyId, activeProjectKey, initializedFromUrl]);
+  }, [activeTab, activeProjectKey, initializedFromUrl]);
 
   const showFullPageProjectGate = !isLoading && !hasValidProjectContext;
 
@@ -248,27 +220,8 @@ function LayoutInner() {
         {activeTab === 'properties' && <Properties />}
         {activeTab === 'catalogs' && <Catalogs />}
         {activeTab === 'sources' && <Sources />}
-        {activeTab === 'journeysList' && (
-          <JourneysList
-            onSelectJourney={(id) => {
-              setSelectedJourneyId(id);
-              setActiveTab('journeys');
-              pushPath(`/journeys/${id}`, activeProjectKey);
-            }}
-          />
-        )}
-        {activeTab === 'journeys' && (
-          <Journeys
-            selectedJourneyId={selectedJourneyId}
-            onBack={() => {
-              setActiveTab('journeysList');
-              pushPath('/journeys', activeProjectKey);
-            }}
-          />
-        )}
         {activeTab === 'settings' && <Settings />}
         {activeTab === 'documentation' && <Documentation />}
-        {activeTab === 'auditConfig' && <TrackingPlanAuditConfig />}
       </>
     );
 

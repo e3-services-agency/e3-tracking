@@ -69,16 +69,6 @@ export type CodegenEventNameOverrides = {
   bloomreachApi?: string | null;
 };
 
-export type MetricAggregationType = 'count' | 'sum' | 'avg';
-
-export const METRIC_AGGREGATION_TYPES: MetricAggregationType[] = [
-  'count',
-  'sum',
-  'avg',
-];
-
-export type QARunStatus = 'pass' | 'fail';
-
 /** How a property relates to a catalog field: lookup key (event value joins to catalog) or mapped value (event value is the catalog field value). */
 export type PropertyMappingType = 'lookup_key' | 'mapped_value';
 
@@ -198,8 +188,6 @@ export interface WorkspaceSettingsRow {
   client_logo_url: string | null;
   /** Bloomreach Tracking API customer_ids key (default: "registered"). */
   bloomreach_api_customer_id_key: string | null;
-  /** Public hub token; null = stakeholder hub link disabled. */
-  journeys_share_hub_token: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -309,11 +297,6 @@ export interface EventRow {
   categories: string[] | null;
   tags: string[] | null;
   /**
-   * Computed (not stored on events): how many non-deleted journeys in this workspace reference this event.
-   * Present in list/detail API responses to support safe delete UX.
-   */
-  used_in_journeys_count?: number;
-  /**
    * Canonical structured trigger entries for the event.
    * Stored durably in the backend.
    */
@@ -351,31 +334,6 @@ export interface EventSourceRow {
   event_id: string;
   source_id: string;
   created_at: string;
-}
-
-export interface MetricRow {
-  id: string;
-  workspace_id: string;
-  name: string;
-  description: string | null;
-  owner_team_id: string | null;
-  aggregation_type: MetricAggregationType;
-  primary_event_id: string;
-  measurement_property_id: string | null;
-  filter_json: Record<string, unknown> | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-}
-
-export interface CreateMetricInput {
-  name: string;
-  description?: string | null;
-  owner_team_id?: string | null;
-  aggregation_type: MetricAggregationType;
-  primary_event_id: string;
-  measurement_property_id?: string | null;
-  filter_json?: Record<string, unknown> | null;
 }
 
 export interface EventPropertyRow {
@@ -496,67 +454,6 @@ export interface EffectiveEventPropertyDefinition {
   presence: EventPropertyPresence | null;
   /** Non-blocking hints (e.g. override without event_properties link). */
   warnings: string[];
-}
-
-export interface JourneyRow {
-  id: string;
-  workspace_id: string;
-  name: string;
-  description: string | null;
-  developer_instructions_markdown: string | null;
-  /** React Flow nodes (JSON). Persisted on Save Layout. Null until first save. */
-  canvas_nodes_json: unknown | null;
-  /** React Flow edges (JSON). Persisted on Save Layout. Null until first save. */
-  canvas_edges_json: unknown | null;
-  /**
-   * Explicit order for journeyStepNode ids (docs/export source of truth).
-   * When null/empty, consumers should fall back to the current canvas_nodes_json step-node order.
-   */
-  step_order_json?: string[] | null;
-  /** Global testing instructions for AI/human testers. */
-  testing_instructions_markdown: string | null;
-  /** Preferred existing codegen method in trigger/docs context. */
-  codegen_preferred_style: 'dataLayer' | 'bloomreachSdk' | 'bloomreachApi' | null;
-  /** Public UUID for read-only share link. Null until generated. */
-  share_token: string | null;
-  /** Counts of step implementation types: new, enrichment, fix. Updated on canvas save. */
-  type_counts: { new?: number; enrichment?: number; fix?: number } | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-}
-
-export interface JourneyEventRow {
-  journey_id: string;
-  event_id: string;
-  sort_order: number;
-  created_at: string;
-}
-
-export interface QARunRow {
-  id: string;
-  journey_id: string;
-  status: QARunStatus;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-}
-
-export interface QARunEvidenceRow {
-  id: string;
-  qa_run_id: string;
-  image_url: string; // remote storage public URL
-  sort_order: number;
-  created_at: string;
-}
-
-export interface QARunPayloadRow {
-  id: string;
-  qa_run_id: string;
-  node_id: string;
-  expected_json: string; // valid JSON
-  actual_json: string;   // valid JSON
-  created_at: string;
 }
 
 export interface PropertyValueSchemaNode {

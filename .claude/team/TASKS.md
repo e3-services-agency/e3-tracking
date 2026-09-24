@@ -13,7 +13,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-1-03 | 1 | Remove journeys, QA overlay, legacy store, metrics; project-scope HTML documentation export | implementer | T-1-02 | DONE | plan + delta |
 | T-1-CP | 1 | Checkpoint report to user after T-1-03 | supervisor | T-1-03 | DONE | see below |
 | T-1-04 | 1 | Property and Event in the new model: allowed values, scope, role, required, payload key, expiration, card fields | implementer | T-1-02 | DONE | plan + delta |
-| T-1-05 | 1 | Variant with discriminator conditions and StandardEventMapping; remove old EventVariant | implementer | T-1-04 | IN_PROGRESS | plan + delta |
+| T-1-05 | 1 | Variant with discriminator conditions and StandardEventMapping; remove old EventVariant | implementer | T-1-04 | QA | plan + delta |
 | T-1-06 | 1 | IdentityRule, ConsentCategory, Catalog extensions: API and tables | implementer | T-1-02 | DONE | plan + delta |
 | T-1-07 | 1 | UseCaseTemplate, UseCase, ordered Requirement: API and tables | implementer | T-1-05 | TODO | plan |
 | T-1-08 | 1 | Shared diff primitives; data mapping and expiration settings import with diff and export | implementer | T-1-05, T-1-06 | TODO | plan + delta |

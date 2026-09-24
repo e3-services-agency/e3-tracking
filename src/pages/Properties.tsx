@@ -4,7 +4,7 @@
  * customer-property mapping select and the data type / format / priority / status selects that
  * `src/domain/enums.ts` and `src/domain/bloomreach.ts` define.
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -88,6 +88,27 @@ export function Properties() {
 
   const selected = selectedId ? properties.find((p) => p.id === selectedId) : null;
 
+  // Stable display order while the editor sheet is open (fix round, QA non-blocking observation):
+  // a save re-fetches `properties` (server-sorted by name) and can move the just-edited row to a
+  // new position; if the row order changed under an *open* sheet, the next click (aimed at the old
+  // position) could land on a different row. `orderRef` freezes the row order for as long as the
+  // sheet stays open — patching in each row's fresh data by id — and only re-syncs to the server's
+  // order once the sheet is closed or on an explicit reload (`load()` while no sheet is open).
+  const orderRef = useRef<string[]>([]);
+  const displayProperties = useMemo(() => {
+    const byId = new Map(properties.map((p) => [p.id, p]));
+    if (!isSheetOpen) {
+      orderRef.current = properties.map((p) => p.id);
+      return properties;
+    }
+    const previousOrder = orderRef.current.filter((id) => byId.has(id));
+    const previousIds = new Set(previousOrder);
+    const newIds = properties.filter((p) => !previousIds.has(p.id)).map((p) => p.id);
+    const order = [...previousOrder, ...newIds];
+    orderRef.current = order;
+    return order.map((id) => byId.get(id)!);
+  }, [properties, isSheetOpen]);
+
   return (
     <div className="flex-1 flex flex-col h-full">
       <div className="p-8 border-b bg-white flex items-center justify-between">
@@ -123,7 +144,7 @@ export function Properties() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {properties.map((p) => {
+              {displayProperties.map((p) => {
                 const enumCount = Array.isArray(p.allowed_values_json) ? p.allowed_values_json.length : 0;
                 return (
                   <tr key={p.id} onClick={() => { setSelectedId(p.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
@@ -144,7 +165,7 @@ export function Properties() {
                   </tr>
                 );
               })}
-              {properties.length === 0 && (
+              {displayProperties.length === 0 && (
                 <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">No properties found.</td></tr>
               )}
             </tbody>

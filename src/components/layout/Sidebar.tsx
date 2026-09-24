@@ -12,6 +12,8 @@ import {
   Fingerprint,
   ShieldCheck,
   GitBranch,
+  ListChecks,
+  Grid3x3,
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 
@@ -37,6 +39,8 @@ export function Sidebar({
     { id: 'identityRules', label: 'Identity rules', icon: Fingerprint },
     { id: 'consentCategories', label: 'Consent categories', icon: ShieldCheck },
     { id: 'standardEvents', label: 'Standard events', icon: GitBranch },
+    { id: 'useCases', label: 'Use cases', icon: ListChecks },
+    { id: 'requirementsMatrix', label: 'Requirements matrix', icon: Grid3x3 },
     { id: 'sources', label: 'Sources', icon: LayoutDashboard },
   ];
 

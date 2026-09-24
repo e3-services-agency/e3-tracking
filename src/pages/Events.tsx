@@ -18,6 +18,7 @@ import { ExpirationEditor, type ExpirationValue } from '@/src/features/events/co
 import { DerivedMetricsEditor, type DerivedMetricRow } from '@/src/features/events/components/DerivedMetricsEditor';
 import { LinkedPropertiesEditor, type LinkedPropertyRow } from '@/src/features/events/components/LinkedPropertiesEditor';
 import { VariantsSection, type DiscriminatorProperty } from '@/src/features/events/components/VariantsSection';
+import { UseCasesForEventSection } from '@/src/features/events/components/UseCasesForEventSection';
 
 interface EventRow {
   id: string;
@@ -537,6 +538,8 @@ function EventEditor({
           standardEventByVariantId={standardEventByVariantId}
         />
       )}
+
+      {!isCreating && eventId && <UseCasesForEventSection projectId={projectId} eventId={eventId} />}
 
       <div className="space-y-3 border-t pt-4">
         <h3 className="text-sm font-semibold text-gray-900">Triggers</h3>

@@ -263,13 +263,16 @@ function EventEditor({
     }
   };
 
+  const trimmedName = name.trim();
+  const nameError = trimmedName ? null : 'Name is required.';
+
   const handleSave = async () => {
-    if (!name.trim() || !projectId) return;
+    if (!trimmedName || !projectId) return;
     setSaving(true);
     setSaveError(null);
     try {
       const body = {
-        name: name.trim(),
+        name: trimmedName,
         business_name: businessName.trim() || null,
         description: description.trim() || null,
         purpose: purpose.trim() || null,
@@ -350,6 +353,7 @@ function EventEditor({
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">Name (snake_case)</label>
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. purchase" />
+        {nameError && <p className="text-xs text-red-600">{nameError}</p>}
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
@@ -540,7 +544,7 @@ function EventEditor({
         ) : <div />}
         <div className="flex gap-2">
           <Button variant="outline" onClick={onClose} disabled={saving || deleting}>Cancel</Button>
-          <Button onClick={() => void handleSave()} disabled={saving || deleting}>{saving ? 'Saving…' : 'Save Event'}</Button>
+          <Button onClick={() => void handleSave()} disabled={saving || deleting || !trimmedName}>{saving ? 'Saving…' : 'Save Event'}</Button>
         </div>
       </div>
     </div>

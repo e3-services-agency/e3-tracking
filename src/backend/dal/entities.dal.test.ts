@@ -154,6 +154,24 @@ describe('event.dal + event_properties', () => {
     expect(EventDAL.getEventWithProperties(projectId, event.id).properties).toHaveLength(0);
   });
 
+  it('dedupes a repeated property_id in replaceEventProperties instead of a raw 500 (fix round 2, finding #F)', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'signup' });
+    const property = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'email',
+      data_type: 'string',
+    });
+
+    const result = EventDAL.replaceEventProperties(projectId, event.id, [
+      { property_id: property.id, required: false, role: 'normal' },
+      { property_id: property.id, required: true, role: 'context' },
+    ]);
+    expect(result).toHaveLength(1);
+    // Last one wins.
+    expect(result[0].required).toBe(true);
+    expect(result[0].role).toBe('context');
+  });
+
   it('enforces unique event name per project', () => {
     EventDAL.createEvent(projectId, { name: 'purchase' });
     try {
@@ -253,6 +271,14 @@ describe('catalog.dal', () => {
       expect(err).toBeInstanceOf(ConflictError);
       expect((err as ConflictError).code).toBe('CONFLICT');
     }
+  });
+
+  it('allows a new main catalog after the previous main catalog was soft-deleted (fix round 2, 0004 migration)', () => {
+    const first = CatalogDAL.createCatalog(projectId, { name: 'Products', mapping_role: 'main' });
+    CatalogDAL.deleteCatalog(projectId, first.id);
+    const second = CatalogDAL.createCatalog(projectId, { name: 'Products v2', mapping_role: 'main' });
+    expect(second.mapping_role).toBe('main');
+    expect(CatalogDAL.listCatalogs(projectId).map((c) => c.id)).toEqual([second.id]);
   });
 
   it('rejects a duplicate catalog field name with a ConflictError, not a raw 500', () => {

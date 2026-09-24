@@ -500,7 +500,17 @@ export function replaceEventProperties(
   getEventOrThrow(projectId, eventId);
   const db = getDb();
 
+  // De-duplicate by property_id, last one wins (fix round 2, finding #F): the UI's "select a
+  // property to attach" dropdown already excludes properties already in `links`, so this only
+  // matters for a direct API caller sending the same property_id twice; without it, the insert
+  // below hits UNIQUE(event_id, property_id) mid-transaction and previously surfaced as a raw 500.
+  const dedupedByPropertyId = new Map<string, EventPropertyInput>();
   for (const link of links) {
+    dedupedByPropertyId.set(link.property_id, link);
+  }
+  const uniqueLinks = Array.from(dedupedByPropertyId.values());
+
+  for (const link of uniqueLinks) {
     if (!getPropertyById(projectId, link.property_id)) {
       throw new NotFoundError(
         `Property not found or does not belong to this project: ${link.property_id}.`,
@@ -511,33 +521,41 @@ export function replaceEventProperties(
   }
 
   const now = nowIso();
-  const replace = db.transaction(() => {
-    db.prepare('DELETE FROM event_properties WHERE event_id = ?').run(eventId);
-    const insert = db.prepare(
-      `INSERT INTO event_properties (
-        event_id, property_id, required, role, priority, status, source_id, payload_key,
-        description_override, example_values_override_json, sort_order, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    );
-    links.forEach((link, index) => {
-      insert.run(
-        eventId,
-        link.property_id,
-        link.required ? 1 : 0,
-        link.role || DEFAULT_ROLE,
-        link.priority ?? null,
-        link.status ?? null,
-        link.source_id ?? null,
-        link.payload_key?.trim() || null,
-        link.description_override?.trim() || null,
-        toJsonColumn(link.example_values_override_json ?? null),
-        link.sort_order ?? index,
-        now,
-        now
+  try {
+    const replace = db.transaction(() => {
+      db.prepare('DELETE FROM event_properties WHERE event_id = ?').run(eventId);
+      const insert = db.prepare(
+        `INSERT INTO event_properties (
+          event_id, property_id, required, role, priority, status, source_id, payload_key,
+          description_override, example_values_override_json, sort_order, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       );
+      uniqueLinks.forEach((link, index) => {
+        insert.run(
+          eventId,
+          link.property_id,
+          link.required ? 1 : 0,
+          link.role || DEFAULT_ROLE,
+          link.priority ?? null,
+          link.status ?? null,
+          link.source_id ?? null,
+          link.payload_key?.trim() || null,
+          link.description_override?.trim() || null,
+          toJsonColumn(link.example_values_override_json ?? null),
+          link.sort_order ?? index,
+          now,
+          now
+        );
+      });
     });
-  });
-  replace();
+    replace();
+  } catch (err) {
+    mapWriteError(
+      err,
+      'One of these properties is already attached to the event.',
+      `Failed to replace event properties: ${(err as Error).message}`
+    );
+  }
 
   return getEventWithProperties(projectId, eventId).properties;
 }

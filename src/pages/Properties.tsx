@@ -172,14 +172,17 @@ function PropertyEditor({
     setBundleIds((prev) => (prev.includes(id) ? prev.filter((b) => b !== id) : [...prev, id]));
   };
 
+  const trimmedName = name.trim();
+  const nameError = trimmedName ? null : 'Name is required.';
+
   const handleSave = async () => {
-    if (!name.trim() || !projectId) return;
+    if (!trimmedName || !projectId) return;
     setSaving(true);
     setSaveError(null);
     try {
       const body = {
         scope,
-        name: name.trim(),
+        name: trimmedName,
         description: description.trim() || null,
         category: category.trim() || null,
         notes: notes.trim() || null,
@@ -236,6 +239,7 @@ function PropertyEditor({
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">Name (snake_case)</label>
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. total_price" />
+        {nameError && <p className="text-xs text-red-600">{nameError}</p>}
       </div>
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">Description</label>
@@ -323,7 +327,7 @@ function PropertyEditor({
         ) : <div />}
         <div className="flex gap-2">
           <Button variant="outline" onClick={onClose} disabled={saving || deleting}>Cancel</Button>
-          <Button onClick={() => void handleSave()} disabled={saving || deleting}>{saving ? 'Saving…' : 'Save Property'}</Button>
+          <Button onClick={() => void handleSave()} disabled={saving || deleting || !trimmedName}>{saving ? 'Saving…' : 'Save Property'}</Button>
         </div>
       </div>
     </div>

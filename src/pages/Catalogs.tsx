@@ -148,18 +148,23 @@ function CatalogEditor({
         setPriority(data.priority ?? '');
         setStatus(data.status ?? '');
         setFields(Array.isArray(data.fields) ? data.fields : []);
+      } else {
+        setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to load catalog.');
       }
       setLoading(false);
     })();
   }, [projectId, catalogId]);
 
+  const trimmedName = name.trim();
+  const nameError = trimmedName ? null : 'Name is required.';
+
   const handleSave = async () => {
-    if (!name.trim() || !projectId) return;
+    if (!trimmedName || !projectId) return;
     setSaving(true);
     setSaveError(null);
     try {
       const body = {
-        name: name.trim(),
+        name: trimmedName,
         description: description.trim() || null,
         owner: owner.trim() || null,
         mapping_role: mappingRole || null,
@@ -183,9 +188,15 @@ function CatalogEditor({
     if (!catalog || !projectId) return;
     if (!window.confirm(`Delete catalog "${catalog.name}"?`)) return;
     setDeleting(true);
+    setSaveError(null);
     try {
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/catalogs/${catalog.id}`, { method: 'DELETE' });
-      if (res.ok || res.status === 204) await onSaved();
+      if (res.ok || res.status === 204) {
+        await onSaved();
+      } else {
+        const data = await parseJson(res);
+        setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to delete.');
+      }
     } finally {
       setDeleting(false);
     }
@@ -193,6 +204,7 @@ function CatalogEditor({
 
   const addField = async () => {
     if (!newFieldName.trim() || !projectId || !catalogId) return;
+    setSaveError(null);
     const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/catalogs/${catalogId}/fields`, {
       method: 'POST',
       body: JSON.stringify({ name: newFieldName.trim() }),
@@ -201,13 +213,21 @@ function CatalogEditor({
     if (res.ok) {
       setFields((prev) => [...prev, data]);
       setNewFieldName('');
+    } else {
+      setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to add field.');
     }
   };
 
   const removeField = async (fieldId: string) => {
     if (!projectId || !catalogId) return;
+    setSaveError(null);
     const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/catalogs/${catalogId}/fields/${fieldId}`, { method: 'DELETE' });
-    if (res.ok || res.status === 204) setFields((prev) => prev.filter((f) => f.id !== fieldId));
+    if (res.ok || res.status === 204) {
+      setFields((prev) => prev.filter((f) => f.id !== fieldId));
+    } else {
+      const data = await parseJson(res);
+      setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to remove field.');
+    }
   };
 
   if (loading) return <div className="text-sm text-gray-500 p-4">Loading…</div>;
@@ -217,6 +237,7 @@ function CatalogEditor({
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">Name</label>
         <Input value={name} onChange={(e) => setName(e.target.value)} />
+        {nameError && <p className="text-xs text-red-600">{nameError}</p>}
       </div>
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">Description</label>
@@ -281,7 +302,7 @@ function CatalogEditor({
         ) : <div />}
         <div className="flex gap-2">
           <Button variant="outline" onClick={onClose} disabled={saving || deleting}>Cancel</Button>
-          <Button onClick={() => void handleSave()} disabled={saving || deleting}>{saving ? 'Saving…' : 'Save Catalog'}</Button>
+          <Button onClick={() => void handleSave()} disabled={saving || deleting || !trimmedName}>{saving ? 'Saving…' : 'Save Catalog'}</Button>
         </div>
       </div>
     </div>

@@ -17,9 +17,31 @@ import { getFileStore } from '../../files/FileStore';
 
 let server: http.Server;
 let baseUrl: string;
+let serverPort: number;
 let tmpFilesDir: string;
 let projectAId: string;
 let projectBId: string;
+
+/**
+ * `fetch()`/WHATWG URL normalises `A/../B` before the request is ever sent (it never reaches the
+ * server as `..`), so a `fetch()`-based test of that exact exploit shape was only ever exercising
+ * the prefix-mismatch 404, not the dot-segment rejection itself (reviewer LOW, fix round 2). Node's
+ * `http.request` sends the given `path` string as-is on the request line with no such
+ * normalisation, so this is the only way to prove the server rejects the raw dot segment.
+ */
+function rawGet(rawPath: string): Promise<{ status: number; text: string }> {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ hostname: '127.0.0.1', port: serverPort, path: rawPath, method: 'GET' }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, text: data }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
 
 beforeAll(async () => {
   tmpFilesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'e3-files-route-'));
@@ -36,6 +58,7 @@ beforeAll(async () => {
   server = http.createServer(app);
   await new Promise<void>((resolve) => server.listen(0, resolve));
   const { port } = server.address() as AddressInfo;
+  serverPort = port;
   baseUrl = `http://127.0.0.1:${port}`;
 });
 
@@ -59,11 +82,11 @@ describe('GET /api/projects/:projectId/files/* (path traversal)', () => {
     expect(await res.text()).toBe('ok');
   });
 
-  it('rejects A/../B/file: a project-B file reached through a project-A URL', async () => {
+  it('rejects A/../B/file: a project-B file reached through a project-A URL (raw HTTP path, no client-side normalisation)', async () => {
     const stored = await getFileStore().put(projectBId, 'event_trigger', 'secret.png', Buffer.from('secret'), 'image/png');
-    const res = await fetch(`${baseUrl}/api/projects/${projectAId}/files/${projectAId}/../${stored.path}`);
+    const res = await rawGet(`/api/projects/${projectAId}/files/${projectAId}/../${stored.path}`);
     expect(res.status).not.toBe(200);
-    const body = await res.json();
+    const body = JSON.parse(res.text);
     expect(body.error).toBeTruthy();
   });
 

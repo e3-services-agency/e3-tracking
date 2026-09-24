@@ -227,7 +227,12 @@ describe('inserting and linking core entities on :memory:', () => {
   });
 });
 
-const ALL_MIGRATION_FILES = ['0001_core.sql', '0002_bundles.sql', '0003_unique_soft_delete.sql'];
+const ALL_MIGRATION_FILES = [
+  '0001_core.sql',
+  '0002_bundles.sql',
+  '0003_unique_soft_delete.sql',
+  '0004_catalog_mapping_role_soft_delete.sql',
+];
 
 describe('listMigrationFiles', () => {
   it('lists every ordered migration file', () => {

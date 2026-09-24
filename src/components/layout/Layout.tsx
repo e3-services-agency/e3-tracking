@@ -11,6 +11,7 @@ import { Journeys } from '@/src/pages/Journeys';
 import { Settings } from '@/src/pages/Settings';
 import { Documentation } from '@/src/pages/Documentation';
 import { Clients } from '@/src/pages/Clients';
+import { resolveInitialProject } from './resolveInitialProject';
 
 import { JourneysList } from '@/src/pages/JourneysList';
 import { Catalogs } from '@/src/pages/Catalogs';
@@ -145,30 +146,32 @@ function LayoutInner() {
   }, [activeProjectId, projectShellSettings?.client_primary_color]);
 
   // Resolve the active project from `/p/:key` (D-15) and the shell tab from the rest of the path.
-  // The URL wins over whatever store.tsx restored from localStorage on mount; an unknown/invalid
-  // project key (or a localStorage id for a project that no longer exists) clears the active
-  // project instead of leaving a dead reference. Runs once the project list settles and again on
-  // every browser back/forward (agent-setup Layout.tsx:190-241 did the equivalent resolution
-  // against Supabase; this does it against the already-loaded local project list instead).
+  // The URL wins over whatever store.tsx restored from localStorage on mount (resolveInitialProject
+  // only falls back to the stored id when the URL carries no project key at all); an unknown/invalid
+  // project key (or a stored id for a project that no longer exists) clears the active project
+  // instead of leaving a dead reference. Runs once the project list settles and again on every
+  // browser back/forward (agent-setup Layout.tsx:190-241 did the equivalent resolution against the
+  // old backend; this does it against the already-loaded local project list instead).
+  const [initializedFromUrl, setInitializedFromUrl] = useState(false);
+
   useEffect(() => {
     const applyFromLocation = () => {
       const { projectKey, restPath } = parseProjectFromPath(window.location.pathname);
       if (!isLoading) {
         const state = useStore.getState();
-        if (projectKey) {
-          const match = projects.find((p) => p.key === projectKey);
-          if (match) {
-            if (state.activeProjectId !== match.id || state.activeProjectKey !== match.key) {
-              setActiveProject({ id: match.id, key: match.key });
-            }
-          } else {
-            if (state.activeProjectId) state.clearActiveProject();
+        const resolution = resolveInitialProject(projectKey, state.activeProjectId || null, projects);
+        if (resolution.type === 'select') {
+          if (state.activeProjectId !== resolution.projectId || state.activeProjectKey !== resolution.projectKey) {
+            setActiveProject({ id: resolution.projectId, key: resolution.projectKey });
+          }
+        } else if (resolution.type === 'clear') {
+          if (state.activeProjectId) state.clearActiveProject();
+          if (projectKey) {
             const dest = restPath === '/' || restPath === '' ? '/events' : restPath;
             pushPath(dest, null);
           }
-        } else if (state.activeProjectId && !projects.some((p) => p.id === state.activeProjectId)) {
-          state.clearActiveProject();
         }
+        setInitializedFromUrl(true);
       }
       const route = mainRouteStateFromRestPath(restPath);
       setActiveTab(route.tab);
@@ -179,18 +182,29 @@ function LayoutInner() {
     return () => window.removeEventListener('popstate', applyFromLocation);
   }, [isLoading, projects, setActiveProject]);
 
-  // Keep project prefix in URL in sync (always use short project key in URL).
+  // Keep project prefix in URL in sync (always use short project key in URL). Gated on
+  // `initializedFromUrl` (fix round 2, QA #1): `activeProjectKey` is already populated
+  // synchronously from localStorage at store creation (store.tsx), so without this gate this
+  // effect would run on the very first render and overwrite a freshly-navigated `/p/<key>` URL
+  // with the stale localStorage key before the resolution effect above ever gets a chance to read
+  // the original URL (isLoading is still true on that first pass). Once initialised, this effect
+  // still only pushes when the URL and the (now correctly resolved) store disagree.
   useEffect(() => {
+    if (!initializedFromUrl) return;
     if (typeof window === 'undefined') return;
     const { projectKey: keyInUrl, restPath } = parseProjectFromPath(window.location.pathname);
     const desiredKey = activeProjectKey;
     if (!desiredKey) return;
     if (keyInUrl === desiredKey) return;
     pushPath(restPath, desiredKey);
-  }, [activeProjectKey]);
+  }, [activeProjectKey, initializedFromUrl]);
 
-  // Keep URL in sync when navigating inside the app.
+  // Keep URL in sync when navigating inside the app. Gated on `initializedFromUrl` for the same
+  // reason as the effect above: this also reacts to `activeProjectKey`, which already carries the
+  // localStorage value on the very first render, so without the gate this effect independently
+  // reproduces the same URL-vs-localStorage race on mount.
   useEffect(() => {
+    if (!initializedFromUrl) return;
     if (!activeProjectKey) return;
 
     if (activeTab === 'journeysList') {
@@ -208,7 +222,7 @@ function LayoutInner() {
     if (activeTab === 'settings') pushPath('/settings', activeProjectKey);
     if (activeTab === 'documentation') pushPath('/documentation', activeProjectKey);
     if (activeTab === 'auditConfig') pushPath('/audit-config', activeProjectKey);
-  }, [activeTab, selectedJourneyId, activeProjectKey]);
+  }, [activeTab, selectedJourneyId, activeProjectKey, initializedFromUrl]);
 
   const showFullPageProjectGate = !isLoading && !hasValidProjectContext;
 

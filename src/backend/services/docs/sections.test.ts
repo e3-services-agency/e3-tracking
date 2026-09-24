@@ -3,8 +3,12 @@ import {
   escapeHtml,
   renderConsentCategoriesSection,
   renderIdentityRulesSection,
+  renderStandardEventMappingsSection,
+  renderVariantsSubsection,
   type ConsentCategoryForDocs,
   type IdentityRuleForDocs,
+  type StandardEventMappingForDocs,
+  type VariantForDocs,
 } from './sections';
 
 describe('escapeHtml', () => {
@@ -74,5 +78,60 @@ describe('renderConsentCategoriesSection', () => {
     expect(html).toContain('newsletter');
     expect(html).toContain('Marketing emails');
     expect(html).toContain('implemented');
+  });
+});
+
+// INFO 10 (fix round): renderVariantsSubsection/renderStandardEventMappingsSection previously had
+// no direct-unit cases, only reached indirectly through export.service.test.ts.
+describe('renderVariantsSubsection', () => {
+  it('renders an empty string (no nested section) when there are no variants', () => {
+    expect(renderVariantsSubsection([])).toBe('');
+  });
+
+  it('renders one row per variant with the condition text and standard event', () => {
+    const variants: VariantForDocs[] = [
+      { name: 'cart_update[action=add]', conditionsText: 'action = add', standard_event: 'add_to_cart' },
+      { name: 'cart_update[action=remove]', conditionsText: 'action = remove', description: 'Removal' },
+    ];
+    const html = renderVariantsSubsection(variants);
+    expect(html).toContain('cart_update[action=add]');
+    expect(html).toContain('action = add');
+    expect(html).toContain('add_to_cart');
+    expect(html).toContain('cart_update[action=remove]');
+    expect(html).toContain('Removal');
+    expect(html).not.toContain('undefined');
+  });
+
+  it('escapes a hostile variant description', () => {
+    const html = renderVariantsSubsection([
+      { name: 'v1', conditionsText: 'a = b', description: '<img src=x onerror=alert(1)>' },
+    ]);
+    expect(html).not.toContain('<img src=x');
+    expect(html).toContain('&lt;img');
+  });
+});
+
+describe('renderStandardEventMappingsSection', () => {
+  it('renders a placeholder when there are no mappings', () => {
+    const html = renderStandardEventMappingsSection([]);
+    expect(html).toContain('No standard event mappings defined.');
+    expect(html).toContain('id="standard-event-mappings"');
+  });
+
+  it('renders the mapped event/variant and a field map summary, dropping unmapped fields', () => {
+    const mappings: StandardEventMappingForDocs[] = [
+      {
+        standard_event: 'add_to_cart',
+        event_name: 'cart_update',
+        variant_name: 'cart_update[action=add]',
+        field_map: { product_id: 'product_id', total_price: null },
+      },
+    ];
+    const html = renderStandardEventMappingsSection(mappings);
+    expect(html).toContain('add_to_cart');
+    expect(html).toContain('cart_update');
+    expect(html).toContain('cart_update[action=add]');
+    expect(html).toContain('product_id → product_id');
+    expect(html).not.toContain('total_price →');
   });
 });

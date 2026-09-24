@@ -4,7 +4,7 @@
  * ("Variant" plan section, T-1-05 acceptance).
  */
 import { describe, expect, it } from 'vitest';
-import { evaluateVariant, generateVariantName } from './variants';
+import { buildConditionsKey, evaluateVariant, generateVariantName, normalizeConditions } from './variants';
 
 // From .claude/team/samples/customer-events-export.json, the first `cart_update` observation.
 const cartUpdateAddPayload = {
@@ -104,5 +104,50 @@ describe('generateVariantName', () => {
         { p1: 'purchase_status', p2: 'channel' }
       )
     ).toBe('purchase[purchase_status=success,channel=web]');
+  });
+});
+
+describe('normalizeConditions / buildConditionsKey (fix round ERROR 1)', () => {
+  const names = { p1: 'action', p2: 'channel' };
+
+  it('sorts conditions by resolved property name regardless of input order', () => {
+    const a = normalizeConditions(
+      [
+        { property_id: 'p2', operator: 'equals', values: ['web'] },
+        { property_id: 'p1', operator: 'equals', values: ['add'] },
+      ],
+      names
+    );
+    const b = normalizeConditions(
+      [
+        { property_id: 'p1', operator: 'equals', values: ['add'] },
+        { property_id: 'p2', operator: 'equals', values: ['web'] },
+      ],
+      names
+    );
+    expect(a).toEqual(b);
+    expect(buildConditionsKey(a)).toBe(buildConditionsKey(b));
+  });
+
+  it('de-dupes and sorts "in" values so order/duplicates do not change the key', () => {
+    const a = normalizeConditions([{ property_id: 'p1', operator: 'in', values: ['remove', 'add'] }], names);
+    const b = normalizeConditions(
+      [{ property_id: 'p1', operator: 'in', values: ['add', 'remove', 'add'] }],
+      names
+    );
+    expect(buildConditionsKey(a)).toBe(buildConditionsKey(b));
+  });
+
+  it('collapses a one-value "in" to "equals" so it keys the same as the equivalent equals condition', () => {
+    const inOne = normalizeConditions([{ property_id: 'p1', operator: 'in', values: ['add'] }], names);
+    const equals = normalizeConditions([{ property_id: 'p1', operator: 'equals', values: ['add'] }], names);
+    expect(inOne).toEqual(equals);
+    expect(buildConditionsKey(inOne)).toBe(buildConditionsKey(equals));
+  });
+
+  it('a different value set produces a different key', () => {
+    const a = normalizeConditions([{ property_id: 'p1', operator: 'equals', values: ['add'] }], names);
+    const b = normalizeConditions([{ property_id: 'p1', operator: 'equals', values: ['remove'] }], names);
+    expect(buildConditionsKey(a)).not.toBe(buildConditionsKey(b));
   });
 });

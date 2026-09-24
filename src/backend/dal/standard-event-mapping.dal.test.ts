@@ -121,4 +121,27 @@ describe('standard-event-mapping.dal', () => {
     StandardEventMappingDAL.deleteStandardEventMapping(projectId, 'checkout');
     expect(StandardEventMappingDAL.listStandardEventMappings(projectId)).toHaveLength(0);
   });
+
+  // fix round LOW 6: a variant of a *different* event now reaches the intended 400, not the
+  // event-scoped lookup's 404 (which made this branch unreachable).
+  it('rejects a variant_id that belongs to a different event (400, field variant_id)', () => {
+    const otherEventId = EventDAL.createEvent(projectId, { name: 'checkout_started' }).id;
+    const variant = VariantDAL.createVariant(projectId, eventId, {
+      conditions: [{ property_id: actionPropertyId, operator: 'equals', values: ['add'] }],
+    });
+    expect(() =>
+      StandardEventMappingDAL.upsertStandardEventMapping(projectId, 'checkout', {
+        event_id: otherEventId,
+        variant_id: variant.id,
+      })
+    ).toThrow(BadRequestError);
+  });
+
+  // fix round WARNING 4: soft-deleting the mapped event removes the mapping too.
+  it('listStandardEventMappings excludes a mapping whose event has been soft-deleted', () => {
+    StandardEventMappingDAL.upsertStandardEventMapping(projectId, 'checkout', { event_id: eventId });
+    expect(StandardEventMappingDAL.listStandardEventMappings(projectId)).toHaveLength(1);
+    EventDAL.deleteEvent(projectId, eventId);
+    expect(StandardEventMappingDAL.listStandardEventMappings(projectId)).toHaveLength(0);
+  });
 });

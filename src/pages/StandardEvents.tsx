@@ -44,6 +44,7 @@ export function StandardEvents() {
   const [additions, setAdditions] = useState<StandardEventSeed[]>([]);
   const [mappings, setMappings] = useState<MappingRow[]>([]);
   const [events, setEvents] = useState<EventOption[]>([]);
+  const [allVariants, setAllVariants] = useState<VariantOption[]>([]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
@@ -54,10 +55,11 @@ export function StandardEvents() {
 
   const load = useCallback(async () => {
     if (!hasValidProjectContext || !activeProjectId) return;
-    const [projectRes, mappingsRes, eventsRes] = await Promise.all([
+    const [projectRes, mappingsRes, eventsRes, variantsRes] = await Promise.all([
       fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}`),
       fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/standard-event-mappings`),
       fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/events`),
+      fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/variants`),
     ]);
     const projectData = await parseJson(projectRes);
     if (projectRes.ok && Array.isArray(projectData.standard_event_additions_json)) {
@@ -67,6 +69,10 @@ export function StandardEvents() {
     if (mappingsRes.ok) setMappings(Array.isArray(mappingsData) ? mappingsData : []);
     const eventsData = await parseJson(eventsRes);
     if (eventsRes.ok) setEvents(Array.isArray(eventsData) ? eventsData.map((e: any) => ({ id: e.id, name: e.name })) : []);
+    const variantsData = await parseJson(variantsRes);
+    if (variantsRes.ok) {
+      setAllVariants(Array.isArray(variantsData) ? variantsData.map((v: any) => ({ id: v.id, name: v.name })) : []);
+    }
   }, [hasValidProjectContext, activeProjectId]);
 
   useEffect(() => {
@@ -76,19 +82,27 @@ export function StandardEvents() {
   const standardEvents = useMemo(() => mergeStandardEvents(additions), [additions]);
   const mappingByKey = useMemo(() => new Map(mappings.map((m) => [m.standard_event, m])), [mappings]);
   const eventNameById = useMemo(() => new Map(events.map((e) => [e.id, e.name])), [events]);
+  const variantNameById = useMemo(() => new Map(allVariants.map((v) => [v.id, v.name])), [allVariants]);
 
   const addStandardEvent = async () => {
     const key = newKey.trim();
     if (!key || !activeProjectId) return;
+    const fields = newFields
+      .split(',')
+      .map((f) => f.trim())
+      .filter(Boolean);
+    if (fields.length === 0) {
+      setAddKeyError('At least one field is required (comma-separated, snake_case).');
+      return;
+    }
     setAddingKey(true);
     setAddKeyError(null);
     try {
-      const fields = newFields
-        .split(',')
-        .map((f) => f.trim())
-        .filter(Boolean);
-      const alreadyExists = standardEvents.some((s) => s.key === key);
-      const next = alreadyExists ? additions : [...additions, { key, fields }];
+      // Always send the addition and let the backend validate (fix round WARNING 3): a
+      // client-side "already exists" pre-check used to silently no-op for a seed-key collision
+      // (send the unchanged array, get a 200 back, nothing visibly happens); the DAL now rejects
+      // a seed or duplicate key with 400 STANDARD_EVENT_EXISTS, surfaced below instead.
+      const next = [...additions, { key, fields }];
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}`, {
         method: 'PATCH',
         body: JSON.stringify({ standard_event_additions_json: next }),
@@ -155,7 +169,9 @@ export function StandardEvents() {
                     <td className="px-6 py-4 text-gray-500">
                       {mapping ? eventNameById.get(mapping.event_id) ?? mapping.event_id : '—'}
                     </td>
-                    <td className="px-6 py-4 text-gray-500 font-mono">{mapping?.variant_id ?? '—'}</td>
+                    <td className="px-6 py-4 text-gray-500 font-mono">
+                      {mapping?.variant_id ? variantNameById.get(mapping.variant_id) ?? mapping.variant_id : '—'}
+                    </td>
                   </tr>
                 );
               })}

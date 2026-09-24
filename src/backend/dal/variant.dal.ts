@@ -8,6 +8,7 @@ import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn, mapWriteError } from '../db/util';
 import {
   BadRequestError,
+  ConditionDuplicatePropertyError,
   ConditionNotDiscriminatorError,
   ConditionValueNotAllowedError,
   MaxDiscriminatorsError,
@@ -15,7 +16,12 @@ import {
   ValidationError,
 } from '../errors';
 import { VARIANT_OPERATORS } from '../../domain/enums';
-import { generateVariantName, type VariantCondition } from '../../domain/variants';
+import {
+  buildConditionsKey,
+  generateVariantName,
+  normalizeConditions,
+  type VariantCondition,
+} from '../../domain/variants';
 import { getEventOrThrow } from './event.dal';
 
 const MAX_DISCRIMINATOR_PROPERTIES = 2;
@@ -27,6 +33,8 @@ export interface VariantRow {
   name: string;
   description: string | null;
   conditions_json: VariantCondition[];
+  /** Canonical, deterministic key built from the normalized conditions; unique per event (0006). */
+  conditions_key: string;
   expiration_json: unknown;
   created_at: string;
   updated_at: string;
@@ -71,6 +79,20 @@ export function getVariantOrThrow(projectId: string, eventId: string, id: string
   return row;
 }
 
+/**
+ * Project-scoped (not event-scoped) lookup, used where the caller must distinguish "no such
+ * variant at all" from "this variant belongs to a different event" (fix round LOW 6:
+ * `standard-event-mapping.dal.ts` used the event-scoped `getVariantOrThrow` for both, which made
+ * its own `variant_id does not belong to event_id` 400 unreachable — a cross-event id always hit
+ * `getVariantOrThrow`'s 404 first).
+ */
+export function getVariantByIdInProject(projectId: string, id: string): VariantRow | null {
+  const row = getDb()
+    .prepare('SELECT * FROM variants WHERE id = ? AND project_id = ?')
+    .get(id, projectId) as VariantDbRow | undefined;
+  return row ? mapVariantRow(row) : null;
+}
+
 interface DiscriminatorProperty {
   id: string;
   name: string;
@@ -99,21 +121,31 @@ function getDiscriminatorPropertiesByEvent(eventId: string): Map<string, Discrim
 
 /**
  * Validates `conditions` (D-03): each `property_id` must be linked to the event with role
- * `discriminator` (400 `CONDITION_NOT_DISCRIMINATOR`); each condition's `values` must all be in
- * the property's `allowed_values_json` (400 `CONDITION_VALUE_NOT_ALLOWED`); `operator` must be
- * `equals|in`, `equals` takes exactly one value; at most two distinct properties across all
- * conditions (400 `MAX_DISCRIMINATORS`).
+ * `discriminator` (400 `CONDITION_NOT_DISCRIMINATOR`); no property may appear in more than one
+ * condition (400 `CONDITION_DUPLICATE_PROPERTY`, fix round ERROR 1 — a contradiction like
+ * `action=add, action=remove` used to be silently accepted, counted as one "distinct property",
+ * and slipped past `MAX_DISCRIMINATORS`); each condition's `values` must be a non-empty array of
+ * strings, every one of them in the property's `allowed_values_json` (400
+ * `CONDITION_VALUE_NOT_ALLOWED`; a non-string entry is now a 400, not silently dropped, fix round
+ * LOW 5); `operator` must be `equals|in`, `equals` takes exactly one (post-dedupe) value; at most
+ * two distinct properties across all conditions (400 `MAX_DISCRIMINATORS`).
+ *
+ * The returned `conditions` are canonicalized by `domain/variants.ts` `normalizeConditions`
+ * (values de-duped and sorted, a one-value `in` collapsed to `equals`, conditions sorted by
+ * property name) so `buildName`/`buildConditionsKey` always produce the same output regardless of
+ * the order the caller submitted conditions in — this is the actual ERROR 1 fix; the checks above
+ * only reject malformed/contradictory input.
  */
 function validateConditions(
   eventId: string,
   conditions: unknown
-): { conditions: VariantCondition[]; discriminators: Map<string, DiscriminatorProperty> } {
+): { conditions: VariantCondition[]; discriminators: Map<string, DiscriminatorProperty>; conditionsKey: string } {
   if (!Array.isArray(conditions) || conditions.length === 0) {
     throw new ValidationError('At least one condition is required.', 'conditions');
   }
   const discriminators = getDiscriminatorPropertiesByEvent(eventId);
-  const distinctProperties = new Set<string>();
-  const normalized: VariantCondition[] = conditions.map((raw) => {
+  const seenProperties = new Set<string>();
+  const parsed: VariantCondition[] = conditions.map((raw) => {
     if (typeof raw !== 'object' || raw === null) {
       throw new BadRequestError('Each condition must be an object.', 'conditions');
     }
@@ -126,12 +158,11 @@ function validateConditions(
     if (!(VARIANT_OPERATORS as readonly string[]).includes(operator)) {
       throw new BadRequestError(`operator must be one of: ${VARIANT_OPERATORS.join(', ')}.`, 'conditions');
     }
-    const values = Array.isArray(row.values) ? row.values.filter((v) => typeof v === 'string') : [];
-    if (values.length === 0) {
+    if (!Array.isArray(row.values) || row.values.length === 0) {
       throw new BadRequestError('Each condition needs at least one value.', 'conditions');
     }
-    if (operator === 'equals' && values.length !== 1) {
-      throw new BadRequestError('operator "equals" takes exactly one value.', 'conditions');
+    if (row.values.some((v) => typeof v !== 'string')) {
+      throw new BadRequestError('Each condition value must be a string.', 'conditions');
     }
 
     const property = discriminators.get(propertyId);
@@ -141,6 +172,18 @@ function validateConditions(
         'conditions'
       );
     }
+    if (seenProperties.has(propertyId)) {
+      throw new ConditionDuplicatePropertyError(
+        `Property "${property.name}" is used in more than one condition; combine its values into a single condition instead.`,
+        'conditions'
+      );
+    }
+    seenProperties.add(propertyId);
+
+    const values = Array.from(new Set(row.values as string[]));
+    if (operator === 'equals' && values.length !== 1) {
+      throw new BadRequestError('operator "equals" takes exactly one value.', 'conditions');
+    }
     for (const value of values) {
       if (!property.allowedValues.includes(value)) {
         throw new ConditionValueNotAllowedError(
@@ -149,19 +192,22 @@ function validateConditions(
         );
       }
     }
-    distinctProperties.add(propertyId);
 
     return { property_id: propertyId, operator: operator as VariantCondition['operator'], values };
   });
 
-  if (distinctProperties.size > MAX_DISCRIMINATOR_PROPERTIES) {
+  if (seenProperties.size > MAX_DISCRIMINATOR_PROPERTIES) {
     throw new MaxDiscriminatorsError(
       `A variant can condition on at most ${MAX_DISCRIMINATOR_PROPERTIES} discriminator properties (D-03 rule 3).`,
       'conditions'
     );
   }
 
-  return { conditions: normalized, discriminators };
+  const propertyNameById: Record<string, string> = {};
+  for (const [id, property] of discriminators) propertyNameById[id] = property.name;
+  const normalized = normalizeConditions(parsed, propertyNameById);
+
+  return { conditions: normalized, discriminators, conditionsKey: buildConditionsKey(normalized) };
 }
 
 function buildName(
@@ -176,7 +222,7 @@ function buildName(
 
 export function createVariant(projectId: string, eventId: string, input: VariantInput): VariantRow {
   const event = getEventOrThrow(projectId, eventId);
-  const { conditions, discriminators } = validateConditions(eventId, input.conditions);
+  const { conditions, discriminators, conditionsKey } = validateConditions(eventId, input.conditions);
   const name = buildName(event.name, conditions, discriminators);
 
   const db = getDb();
@@ -184,8 +230,8 @@ export function createVariant(projectId: string, eventId: string, input: Variant
   const now = nowIso();
   try {
     db.prepare(
-      `INSERT INTO variants (id, project_id, event_id, name, description, conditions_json, expiration_json, created_at, updated_at)
-       VALUES (@id, @project_id, @event_id, @name, @description, @conditions_json, @expiration_json, @created_at, @updated_at)`
+      `INSERT INTO variants (id, project_id, event_id, name, description, conditions_json, conditions_key, expiration_json, created_at, updated_at)
+       VALUES (@id, @project_id, @event_id, @name, @description, @conditions_json, @conditions_key, @expiration_json, @created_at, @updated_at)`
     ).run({
       id,
       project_id: projectId,
@@ -193,6 +239,7 @@ export function createVariant(projectId: string, eventId: string, input: Variant
       name,
       description: input.description?.trim() || null,
       conditions_json: toJsonColumn(conditions),
+      conditions_key: conditionsKey,
       expiration_json: toJsonColumn(input.expiration_json ?? null),
       created_at: now,
       updated_at: now,
@@ -200,6 +247,10 @@ export function createVariant(projectId: string, eventId: string, input: Variant
   } catch (err) {
     mapWriteError(
       err,
+      // A conditions_key clash means an equivalent variant already exists for this event, even if
+      // the submitted order/shape differed from the existing row's (fix round ERROR 1); the name
+      // clash (a duplicate UNIQUE(event_id, name)) is now unreachable on its own since name is
+      // derived from the same canonical conditions, but the message stays accurate either way.
       `A variant named "${name}" already exists for this event.`,
       `Failed to create variant: ${(err as Error).message}`
     );
@@ -218,8 +269,9 @@ export function updateVariant(
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (updates.conditions !== undefined) {
-    const { conditions, discriminators } = validateConditions(eventId, updates.conditions);
+    const { conditions, discriminators, conditionsKey } = validateConditions(eventId, updates.conditions);
     patch.conditions_json = toJsonColumn(conditions);
+    patch.conditions_key = conditionsKey;
     patch.name = buildName(event.name, conditions, discriminators);
   }
   if (updates.description !== undefined) patch.description = updates.description?.trim() || null;

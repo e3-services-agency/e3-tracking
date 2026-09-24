@@ -9,7 +9,7 @@ import { newId, nowIso, parseJsonColumn, toJsonColumn, mapWriteError } from '../
 import { BadRequestError, NotFoundError, UnknownStandardEventError, ValidationError } from '../errors';
 import { getStandardEventFields, isKnownStandardEvent, type StandardEventSeed } from '../../domain/bloomreach';
 import { getEventOrThrow } from './event.dal';
-import { getVariantOrThrow } from './variant.dal';
+import { getVariantByIdInProject } from './variant.dal';
 
 export interface StandardEventMappingRow {
   id: string;
@@ -35,10 +35,22 @@ function mapRow(row: StandardEventMappingDbRow): StandardEventMappingRow {
   return { ...row, field_map_json: parseJsonColumn(raw.field_map_json, {}) };
 }
 
+/**
+ * Excludes mappings whose event has been soft-deleted (fix round WARNING 4): `deleteEvent` now
+ * deletes an event's own mappings/variants in the same transaction going forward, but this join
+ * also protects against any mapping left behind by data from before that fix (or a future code
+ * path that soft-deletes an event without going through `deleteEvent`), so the Standard events
+ * page and the docs export never show a ghost mapping pointing at a gone event.
+ */
 export function listStandardEventMappings(projectId: string): StandardEventMappingRow[] {
   return (
     getDb()
-      .prepare('SELECT * FROM standard_event_mappings WHERE project_id = ? ORDER BY standard_event')
+      .prepare(
+        `SELECT m.* FROM standard_event_mappings m
+         JOIN events e ON e.id = m.event_id AND e.deleted_at IS NULL
+         WHERE m.project_id = ?
+         ORDER BY m.standard_event`
+      )
       .all(projectId) as StandardEventMappingDbRow[]
   ).map(mapRow);
 }
@@ -135,7 +147,12 @@ export function upsertStandardEventMapping(
   const event = getEventOrThrow(projectId, input.event_id);
 
   if (input.variant_id) {
-    const variant = getVariantOrThrow(projectId, event.id, input.variant_id);
+    // Project-scoped, not event-scoped (fix round LOW 6): the event-scoped lookup made the
+    // "does not belong to event_id" 400 below unreachable — a variant of a different event always
+    // hit its own 404 first. This distinguishes "no such variant" (404) from "that variant exists,
+    // but for a different event" (400).
+    const variant = getVariantByIdInProject(projectId, input.variant_id);
+    if (!variant) throw new NotFoundError('Variant not found.', 'variant');
     if (variant.event_id !== event.id) {
       throw new BadRequestError('variant_id does not belong to event_id.', 'variant_id');
     }

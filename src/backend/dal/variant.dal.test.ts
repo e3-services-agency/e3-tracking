@@ -10,6 +10,8 @@ import * as PropertyDAL from './property.dal';
 import * as EventDAL from './event.dal';
 import * as VariantDAL from './variant.dal';
 import {
+  BadRequestError,
+  ConditionDuplicatePropertyError,
   ConditionNotDiscriminatorError,
   ConditionValueNotAllowedError,
   ConflictError,
@@ -153,6 +155,92 @@ describe('variant.dal: condition validation', () => {
       conditions: [{ property_id: actionPropertyId, operator: 'equals', values: ['remove'] }],
     });
     expect(updated.name).toBe('cart_update[action=remove]');
+  });
+
+  it('reordered conditions generate the same canonical name and 409 on the second create (fix round ERROR 1)', () => {
+    VariantDAL.createVariant(projectId, eventId, {
+      conditions: [
+        { property_id: actionPropertyId, operator: 'equals', values: ['add'] },
+        { property_id: channelPropertyId, operator: 'equals', values: ['web'] },
+      ],
+    });
+    expect(() =>
+      VariantDAL.createVariant(projectId, eventId, {
+        conditions: [
+          { property_id: channelPropertyId, operator: 'equals', values: ['web'] },
+          { property_id: actionPropertyId, operator: 'equals', values: ['add'] },
+        ],
+      })
+    ).toThrow(ConflictError);
+  });
+
+  it('"in" with reordered/duplicate values normalizes to the same canonical name and 409s (fix round ERROR 1)', () => {
+    VariantDAL.createVariant(projectId, eventId, {
+      conditions: [{ property_id: actionPropertyId, operator: 'in', values: ['add', 'remove'] }],
+    });
+    expect(() =>
+      VariantDAL.createVariant(projectId, eventId, {
+        conditions: [{ property_id: actionPropertyId, operator: 'in', values: ['remove', 'add', 'remove'] }],
+      })
+    ).toThrow(ConflictError);
+  });
+
+  it('an "in" with exactly one value collapses to "equals" and 409s against the equivalent equals variant', () => {
+    VariantDAL.createVariant(projectId, eventId, {
+      conditions: [{ property_id: actionPropertyId, operator: 'equals', values: ['add'] }],
+    });
+    expect(() =>
+      VariantDAL.createVariant(projectId, eventId, {
+        conditions: [{ property_id: actionPropertyId, operator: 'in', values: ['add'] }],
+      })
+    ).toThrow(ConflictError);
+  });
+
+  it('rejects the same property used in two conditions, even a contradiction (400 CONDITION_DUPLICATE_PROPERTY)', () => {
+    expect(() =>
+      VariantDAL.createVariant(projectId, eventId, {
+        conditions: [
+          { property_id: actionPropertyId, operator: 'equals', values: ['add'] },
+          { property_id: actionPropertyId, operator: 'equals', values: ['remove'] },
+        ],
+      })
+    ).toThrow(ConditionDuplicatePropertyError);
+  });
+
+  it('rejects "in" with zero values (400)', () => {
+    expect(() =>
+      VariantDAL.createVariant(projectId, eventId, {
+        conditions: [{ property_id: actionPropertyId, operator: 'in', values: [] }],
+      })
+    ).toThrow(BadRequestError);
+  });
+
+  it('rejects a non-string value instead of silently dropping it (400, fix round LOW 5)', () => {
+    expect(() =>
+      VariantDAL.createVariant(projectId, eventId, {
+        conditions: [{ property_id: channelPropertyId, operator: 'in', values: ['app', 5 as unknown as string] }],
+      })
+    ).toThrow(BadRequestError);
+  });
+
+  it('updateVariant with reordered conditions also normalizes and 409s against a sibling variant', () => {
+    VariantDAL.createVariant(projectId, eventId, {
+      conditions: [
+        { property_id: actionPropertyId, operator: 'equals', values: ['add'] },
+        { property_id: channelPropertyId, operator: 'equals', values: ['web'] },
+      ],
+    });
+    const other = VariantDAL.createVariant(projectId, eventId, {
+      conditions: [{ property_id: actionPropertyId, operator: 'equals', values: ['remove'] }],
+    });
+    expect(() =>
+      VariantDAL.updateVariant(projectId, eventId, other.id, {
+        conditions: [
+          { property_id: channelPropertyId, operator: 'equals', values: ['web'] },
+          { property_id: actionPropertyId, operator: 'equals', values: ['add'] },
+        ],
+      })
+    ).toThrow(ConflictError);
   });
 
   it('deletes a variant', () => {

@@ -90,6 +90,17 @@ export function VariantsSection({
   const removeCondition = (index: number) => setConditions((prev) => prev.filter((_, i) => i !== index));
 
   const handleCreate = async () => {
+    // fix round LOW 9: a condition row that has a property chosen but no value (or a value picked
+    // with no property, an edge case the UI does not normally reach) used to be silently filtered
+    // out before POST, so a two-row draft with an incomplete second row created a one-condition
+    // variant with no warning. Block instead of dropping.
+    const incompleteIndex = conditions.findIndex(
+      (c) => (c.property_id !== '' || c.values.length > 0) && !(c.property_id !== '' && c.values.length > 0)
+    );
+    if (incompleteIndex !== -1) {
+      setError(`Condition ${incompleteIndex + 1} is incomplete: choose a property and at least one value, or remove it.`);
+      return;
+    }
     const cleaned = conditions
       .filter((c) => c.property_id && c.values.length > 0)
       .map((c) => ({ property_id: c.property_id, operator: c.operator, values: c.values }));
@@ -125,49 +136,62 @@ export function VariantsSection({
     if (res.ok || res.status === 204) await load();
   };
 
-  if (discriminators.length === 0) {
+  // fix round ERROR 2: a variant can now legitimately exist with no live discriminator (its
+  // property was demoted/detached before this fix round's guard existed, or on data from before
+  // it). Previously this whole section disappeared once `discriminators` was empty, making such a
+  // variant invisible and impossible to delete from the UI even though the docs export and any
+  // mapping still showed it. Only show the "no discriminator yet" hint when there is also nothing
+  // to display; otherwise render the table read-only (no add-condition form) with delete enabled.
+  if (loading) {
+    return <div className="text-sm text-gray-500 border-t pt-4">Loading…</div>;
+  }
+  if (discriminators.length === 0 && variants.length === 0) {
     return (
       <div className="text-xs text-gray-500 border-t pt-4">
         Variants need at least one property linked with role "discriminator" (see Linked properties above).
       </div>
     );
   }
+  const readOnly = discriminators.length === 0;
 
   return (
     <div className="space-y-3 border-t pt-4">
       <h3 className="text-sm font-semibold text-gray-900">Variants</h3>
-      {loading ? (
-        <div className="text-sm text-gray-500">Loading…</div>
-      ) : (
-        <table className="w-full text-left text-xs border">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="px-3 py-2 font-medium text-gray-500">Name</th>
-              <th className="px-3 py-2 font-medium text-gray-500">Conditions</th>
-              <th className="px-3 py-2 font-medium text-gray-500">Standard event</th>
-              <th className="px-3 py-2 font-medium text-gray-500 w-10" />
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {variants.map((v) => (
-              <tr key={v.id}>
-                <td className="px-3 py-2 font-medium text-gray-900 font-mono">{v.name}</td>
-                <td className="px-3 py-2 text-gray-600">{conditionsSummary(v.conditions_json, discriminators)}</td>
-                <td className="px-3 py-2 text-gray-600">{standardEventByVariantId?.[v.id] ?? '—'}</td>
-                <td className="px-3 py-2">
-                  <button type="button" onClick={() => void handleDelete(v.id)} className="text-red-500 hover:text-red-700">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {variants.length === 0 && (
-              <tr><td colSpan={4} className="px-3 py-4 text-center text-gray-500">No variants yet.</td></tr>
-            )}
-          </tbody>
-        </table>
+      {readOnly && (
+        <div className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+          No property is currently linked as a discriminator on this event. These variant(s) have no live
+          discriminator behind them anymore — delete them, or re-link a discriminator property to add more.
+        </div>
       )}
+      <table className="w-full text-left text-xs border">
+        <thead className="bg-gray-50 border-b">
+          <tr>
+            <th className="px-3 py-2 font-medium text-gray-500">Name</th>
+            <th className="px-3 py-2 font-medium text-gray-500">Conditions</th>
+            <th className="px-3 py-2 font-medium text-gray-500">Standard event</th>
+            <th className="px-3 py-2 font-medium text-gray-500 w-10" />
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {variants.map((v) => (
+            <tr key={v.id}>
+              <td className="px-3 py-2 font-medium text-gray-900 font-mono">{v.name}</td>
+              <td className="px-3 py-2 text-gray-600">{conditionsSummary(v.conditions_json, discriminators)}</td>
+              <td className="px-3 py-2 text-gray-600">{standardEventByVariantId?.[v.id] ?? '—'}</td>
+              <td className="px-3 py-2">
+                <button type="button" onClick={() => void handleDelete(v.id)} className="text-red-500 hover:text-red-700">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </td>
+            </tr>
+          ))}
+          {variants.length === 0 && (
+            <tr><td colSpan={4} className="px-3 py-4 text-center text-gray-500">No variants yet.</td></tr>
+          )}
+        </tbody>
+      </table>
 
+      {!readOnly && (
       <div className="border rounded-md p-3 space-y-2 bg-gray-50">
         <div className="text-xs font-medium text-gray-700">Add variant</div>
         {conditions.map((condition, index) => {
@@ -246,6 +270,7 @@ export function VariantsSection({
           Create variant
         </Button>
       </div>
+      )}
     </div>
   );
 }

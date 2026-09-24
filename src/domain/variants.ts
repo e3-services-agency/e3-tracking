@@ -44,6 +44,46 @@ export function evaluateVariant(
 }
 
 /**
+ * Canonicalizes a raw (already shape-validated) condition list so semantically identical inputs
+ * always normalize to the same value (fix round ERROR 1): within each condition, values are
+ * de-duplicated and sorted, and an `in` operator left with exactly one value collapses to
+ * `equals`; across conditions, the list is sorted by the resolved property display name (falling
+ * back to `property_id` when unresolved) so submission order never matters. The caller
+ * (`variant.dal.ts`) is responsible for rejecting a `property_id` used by more than one condition
+ * before calling this (a duplicate would silently collapse here, which is not the same thing as
+ * "same value, different order").
+ */
+export function normalizeConditions(
+  conditions: VariantCondition[],
+  propertyNameById: Record<string, string>
+): VariantCondition[] {
+  return conditions
+    .map((condition) => {
+      const values = Array.from(new Set(condition.values)).sort();
+      const operator: VariantOperator = condition.operator === 'in' && values.length === 1 ? 'equals' : condition.operator;
+      return { property_id: condition.property_id, operator, values };
+    })
+    .sort((a, b) => {
+      const nameA = propertyNameById[a.property_id] ?? a.property_id;
+      const nameB = propertyNameById[b.property_id] ?? b.property_id;
+      return nameA.localeCompare(nameB);
+    });
+}
+
+/**
+ * Deterministic string for a *normalized* condition list (call `normalizeConditions` first),
+ * stored in `variants.conditions_key` and enforced unique per event at the database
+ * (`0006_variants_conditions_key.sql`) so equivalent conditions submitted in a different order or
+ * shape can never coexist as two rows, independent of whatever separators `generateVariantName`
+ * happens to use for display.
+ */
+export function buildConditionsKey(conditions: VariantCondition[]): string {
+  return JSON.stringify(
+    conditions.map((c) => ({ property_id: c.property_id, operator: c.operator, values: c.values }))
+  );
+}
+
+/**
  * Generates the display/unique name for a variant: `event[prop=value]`,
  * `event[prop in (a|b)]`, or `event[p1=a,p2=b]` for two discriminators (plan "Target data model"
  * section Variant). `propertyNameById` resolves each condition's `property_id` to the property's

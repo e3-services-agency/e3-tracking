@@ -22,6 +22,14 @@ export interface OpenedFile {
 export interface FileStore {
   put(projectId: string, kind: string, filename: string, buffer: Buffer, mime: string): Promise<StoredFile>;
   open(relativePath: string): Promise<OpenedFile>;
+  /**
+   * Like `open()`, but also requires the resolved path to stay under this specific project's own
+   * subtree (D-14 project scoping, fix round finding #5): a request like `A/../B/secret.png`
+   * resolves to a path that is still under the overall store root (so `open()`'s own check would
+   * let it through) but escapes project A's directory into project B's. Routes must use this, not
+   * `open()`, for anything served under `/api/projects/:projectId/files/*`.
+   */
+  openForProject(projectId: string, relativePath: string): Promise<OpenedFile>;
 }
 
 function filesRoot(): string {
@@ -88,6 +96,30 @@ export class LocalFileStore implements FileStore {
     const resolvedTarget = path.resolve(root, relativePath);
     if (!resolvedTarget.startsWith(resolvedRoot)) {
       throw new Error('Requested file path escapes the file store root.');
+    }
+    const buffer = fs.readFileSync(resolvedTarget);
+    return { buffer, mime: guessMimeFromExt(resolvedTarget) };
+  }
+
+  async openForProject(projectId: string, relativePath: string): Promise<OpenedFile> {
+    const root = filesRoot();
+    const resolvedRoot = path.resolve(root) + path.sep;
+    // `put()` sanitizes `projectId` through `safeSegment` before it ever touches disk, so the
+    // on-disk project directory is the sanitized form; require the same here rather than trusting
+    // the caller's raw id.
+    const projectRoot = path.resolve(root, safeSegment(projectId)) + path.sep;
+
+    // Reject `..`/`.` segments explicitly (defence in depth on top of routes/files.ts's own
+    // decode-and-reject step): a caller that skipped that step must not fall through to a
+    // path.resolve() that would silently normalize `..` away.
+    const segments = relativePath.split(/[\\/]+/).filter(Boolean);
+    if (segments.some((s) => s === '..' || s === '.')) {
+      throw new Error('Requested file path contains parent traversal segments.');
+    }
+
+    const resolvedTarget = path.resolve(root, relativePath);
+    if (!resolvedTarget.startsWith(resolvedRoot) || !resolvedTarget.startsWith(projectRoot)) {
+      throw new Error('Requested file path escapes the project file store root.');
     }
     const buffer = fs.readFileSync(resolvedTarget);
     return { buffer, mime: guessMimeFromExt(resolvedTarget) };

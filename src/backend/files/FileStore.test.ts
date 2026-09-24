@@ -45,4 +45,33 @@ describe('LocalFileStore', () => {
     const store = new LocalFileStore();
     await expect(store.open('../outside.txt')).rejects.toThrow();
   });
+
+  describe('openForProject (fix round finding #5)', () => {
+    it('serves a file that was stored under the requesting project', async () => {
+      const store = new LocalFileStore();
+      const stored = await store.put('proj-a', 'event_trigger', 'shot.png', Buffer.from('a'), 'image/png');
+      const opened = await store.openForProject('proj-a', stored.path);
+      expect(opened.buffer.toString()).toBe('a');
+    });
+
+    it('rejects a same-store-root path that escapes into a sibling project (A/../B/file)', async () => {
+      const store = new LocalFileStore();
+      const stored = await store.put('proj-b', 'event_trigger', 'secret.png', Buffer.from('b'), 'image/png');
+      const escapee = `proj-a/../${stored.path}`;
+      await expect(store.openForProject('proj-a', escapee)).rejects.toThrow();
+    });
+
+    it('rejects an encoded traversal segment (..%2F, decoded before reaching the store)', async () => {
+      const store = new LocalFileStore();
+      const stored = await store.put('proj-b', 'event_trigger', 'secret.png', Buffer.from('b'), 'image/png');
+      // Simulates what routes/files.ts hands the store after decodeURIComponent('..%2F') === '../'.
+      const escapee = `proj-a/../${stored.path}`;
+      await expect(store.openForProject('proj-a', escapee)).rejects.toThrow();
+    });
+
+    it('rejects an absolute path', async () => {
+      const store = new LocalFileStore();
+      await expect(store.openForProject('proj-a', path.resolve(tmpDir, 'proj-b/secret.png'))).rejects.toThrow();
+    });
+  });
 });

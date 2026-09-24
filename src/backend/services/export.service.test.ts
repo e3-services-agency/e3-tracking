@@ -54,9 +54,17 @@ describe('generateProjectDocumentationHtml', () => {
     expect(html).toContain('<th>Payload key</th>');
     expect(html).toContain('total_price');
 
-    // At least one codegen snippet (dataLayer) rendered for the event with a required property.
+    // T-1-03/T-1-04 integration WARNING 4: `required: link.required` must reach
+    // `toAttachedPropertyForCodegen` (no `presence`), so a `required: true` link renders as
+    // "Required" in the property table, not "Optional".
+    expect(html).toMatch(/<td>total_price<\/td>\s*<td>Required<\/td>/);
+    expect(html).not.toMatch(/<td>total_price<\/td>\s*<td>Optional<\/td>/);
+
+    // At least one codegen snippet (dataLayer) rendered for the event with a required property,
+    // and it must not be pushed under the "// Optional:" comment.
     expect(html).toContain('window.dataLayer.push');
     expect(html).toContain('total_price: 123');
+    expect(html).not.toMatch(/\/\/ Optional:[\s\S]*total_price/);
   });
 
   it('renders an empty-project doc without throwing', async () => {

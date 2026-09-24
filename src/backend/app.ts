@@ -24,6 +24,7 @@ import identityRulesRouter from './routes/identity-rules';
 import consentCategoriesRouter from './routes/consent-categories';
 import standardEventMappingsRouter from './routes/standard-event-mappings';
 import projectVariantsRouter from './routes/project-variants';
+import importsRouter from './routes/imports';
 import { removedRouter } from './routes/removed';
 import { optionalAuth } from './middleware/auth';
 import { requireProject } from './middleware/project';
@@ -70,6 +71,7 @@ export function createApp(): express.Express {
   app.use('/api/projects/:projectId/consent-categories', requireProject, consentCategoriesRouter);
   app.use('/api/projects/:projectId/standard-event-mappings', requireProject, standardEventMappingsRouter);
   app.use('/api/projects/:projectId/variants', requireProject, projectVariantsRouter);
+  app.use('/api/projects/:projectId/import', requireProject, importsRouter);
 
   // Public share-link mechanism (D-18): stub until phase 4 (see routes/shared.ts).
   app.use('/api/shared', sharedRouter);

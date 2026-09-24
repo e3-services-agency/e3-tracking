@@ -23,7 +23,7 @@ const ARTICLES = [
   { id: 'data-dictionary', label: 'Data Dictionary', file: 'data-dictionary.md', icon: FileText },
   { id: 'catalogs', label: 'Catalogs & Mapping', file: 'catalogs.md', icon: LayoutList },
   { id: 'journey-builder', label: 'Journey Builder', file: 'journey-builder.md', icon: FileText },
-  { id: 'workspace-management', label: 'Workspace Management', file: 'workspace-management.md', icon: LayoutDashboard },
+  { id: 'project-management', label: 'Project Management', file: 'project-management.md', icon: LayoutDashboard },
   { id: 'security-and-admin', label: 'Security & Admin', file: 'security-and-admin.md', icon: Shield },
 ] as const;
 

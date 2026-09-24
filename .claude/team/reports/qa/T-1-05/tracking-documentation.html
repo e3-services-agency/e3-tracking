@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>QA Project T105 — Tracking documentation</title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 2rem; color: #1f2933; background: #fff; }
+  h1 { margin-bottom: 0.25rem; }
+  .subtitle { color: #52606d; margin-top: 0; }
+  nav.toc { margin: 1.5rem 0; padding: 1rem; border: 1px solid #e4e7eb; border-radius: 8px; }
+  nav.toc a { display: block; padding: 0.15rem 0; color: #1a56db; text-decoration: none; }
+  section.event { border-top: 1px solid #e4e7eb; padding: 1.5rem 0; }
+  table.property-table { border-collapse: collapse; width: 100%; margin: 0.5rem 0 1rem; }
+  table.property-table th, table.property-table td { border: 1px solid #e4e7eb; padding: 0.4rem 0.6rem; text-align: left; font-size: 0.875rem; }
+  table.property-table th { background: #f5f7fa; }
+  dl.event-meta { display: grid; grid-template-columns: max-content 1fr; gap: 0.15rem 1rem; margin: 0.5rem 0; }
+  dl.event-meta dt { font-weight: 600; color: #52606d; }
+  pre { background: #0b1120; color: #e5e7eb; padding: 0.75rem 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.8rem; }
+  .codegen { display: flex; flex-direction: column; gap: 0.75rem; }
+  .trigger-image { max-width: 320px; display: block; margin-top: 0.5rem; border: 1px solid #e4e7eb; border-radius: 4px; }
+</style>
+</head>
+<body>
+  <h1>QA Project T105</h1>
+  <p class="subtitle">QA Client T105 · Generated 2026-09-24T19:06:03.686Z</p>
+  <nav class="toc"><a href="#event-8f9beb46-a77c-4d59-b4a4-79b14ac9e888">cart_update</a></nav>
+  <section class="event" id="event-8f9beb46-a77c-4d59-b4a4-79b14ac9e888">
+    <h2>cart_update</h2>
+    <dl class="event-meta">
+      
+      <dt>Type</dt><dd>custom</dd>
+      <dt>Status</dt><dd>planned</dd>
+      
+      
+      
+    </dl>
+    
+    
+    
+    <h3>Properties</h3>
+    <table class="property-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Required</th>
+        <th>Role</th>
+        <th>Data type</th>
+        <th>Payload key</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody><tr>
+        <td>action</td>
+        <td>Optional</td>
+        <td>discriminator</td>
+        <td>string</td>
+        <td>action</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>location</td>
+        <td>Optional</td>
+        <td>discriminator</td>
+        <td>string</td>
+        <td>location</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>brand</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>brand</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>channel</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>channel</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>product_id</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>product_id</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>total_price</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>total_price</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>total_quantity</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>total_quantity</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>points</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>points</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>tier</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>tier</td>
+        <td></td>
+      </tr></tbody>
+  </table>
+    <h3>Sample payload</h3>
+    <pre class="payload-doc"><code>{
+  &quot;action&quot;: &quot;string&quot;,
+  &quot;location&quot;: &quot;string&quot;,
+  &quot;brand&quot;: &quot;string&quot;,
+  &quot;channel&quot;: &quot;string&quot;,
+  &quot;product_id&quot;: &quot;string&quot;,
+  &quot;total_price&quot;: &quot;string&quot;,
+  &quot;total_quantity&quot;: &quot;string&quot;,
+  &quot;points&quot;: &quot;string&quot;,
+  &quot;tier&quot;: &quot;string&quot;
+}</code></pre>
+    <h3>Implementation</h3>
+    <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;cart_update&#39;,
+  // Optional:
+  action: &#39;string&#39;,
+  brand: &#39;string&#39;,
+  channel: &#39;string&#39;,
+  location: &#39;string&#39;,
+  points: &#39;string&#39;,
+  product_id: &#39;string&#39;,
+  tier: &#39;string&#39;,
+  total_price: &#39;string&#39;,
+  total_quantity: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;cart_update&#39;, {
+  // Optional:
+  action: &#39;string&#39;,
+  brand: &#39;string&#39;,
+  channel: &#39;string&#39;,
+  location: &#39;string&#39;,
+  points: &#39;string&#39;,
+  product_id: &#39;string&#39;,
+  tier: &#39;string&#39;,
+  total_price: &#39;string&#39;,
+  total_quantity: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>// Optional properties: action, brand, channel, location, points, product_id, tier, total_price, total_quantity
+
+{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;cart_update&quot;,
+  &quot;properties&quot;: {
+    &quot;action&quot;: &quot;string&quot;,
+    &quot;brand&quot;: &quot;string&quot;,
+    &quot;channel&quot;: &quot;string&quot;,
+    &quot;location&quot;: &quot;string&quot;,
+    &quot;points&quot;: &quot;string&quot;,
+    &quot;product_id&quot;: &quot;string&quot;,
+    &quot;tier&quot;: &quot;string&quot;,
+    &quot;total_price&quot;: &quot;string&quot;,
+    &quot;total_quantity&quot;: &quot;string&quot;
+  }
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;cart_update&quot;,&quot;properties&quot;:{&quot;action&quot;:&quot;string&quot;,&quot;brand&quot;:&quot;string&quot;,&quot;channel&quot;:&quot;string&quot;,&quot;location&quot;:&quot;string&quot;,&quot;points&quot;:&quot;string&quot;,&quot;product_id&quot;:&quot;string&quot;,&quot;tier&quot;:&quot;string&quot;,&quot;total_price&quot;:&quot;string&quot;,&quot;total_quantity&quot;:&quot;string&quot;}}&#39;</code></pre>
+  </div>
+  </div>
+    <div class="variants">
+    <h3>Variants</h3>
+    <table>
+      <thead>
+        <tr><th>Variant</th><th>Conditions</th><th>Description</th><th>Standard event</th></tr>
+      </thead>
+      <tbody>
+        <tr class="variant-row">
+        <td>cart_update[action=add]</td>
+        <td>action = add</td>
+        <td>—</td>
+        <td>add_to_cart</td>
+      </tr>
+<tr class="variant-row">
+        <td>cart_update[action in (add|remove)]</td>
+        <td>action in (add|remove)</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>
+      </tbody>
+    </table>
+  </div>
+    <div class="variant-codegen">
+        <h4>cart_update[action=add]</h4>
+        <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;cart_update&#39;,
+  // Optional:
+  action: &#39;add&#39;,
+  brand: &#39;string&#39;,
+  channel: &#39;string&#39;,
+  location: &#39;string&#39;,
+  points: &#39;string&#39;,
+  product_id: &#39;string&#39;,
+  tier: &#39;string&#39;,
+  total_price: &#39;string&#39;,
+  total_quantity: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;cart_update&#39;, {
+  // Optional:
+  action: &#39;add&#39;,
+  brand: &#39;string&#39;,
+  channel: &#39;string&#39;,
+  location: &#39;string&#39;,
+  points: &#39;string&#39;,
+  product_id: &#39;string&#39;,
+  tier: &#39;string&#39;,
+  total_price: &#39;string&#39;,
+  total_quantity: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>// Optional properties: action, brand, channel, location, points, product_id, tier, total_price, total_quantity
+
+{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;cart_update&quot;,
+  &quot;properties&quot;: {
+    &quot;action&quot;: &quot;add&quot;,
+    &quot;brand&quot;: &quot;string&quot;,
+    &quot;channel&quot;: &quot;string&quot;,
+    &quot;location&quot;: &quot;string&quot;,
+    &quot;points&quot;: &quot;string&quot;,
+    &quot;product_id&quot;: &quot;string&quot;,
+    &quot;tier&quot;: &quot;string&quot;,
+    &quot;total_price&quot;: &quot;string&quot;,
+    &quot;total_quantity&quot;: &quot;string&quot;
+  }
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;cart_update&quot;,&quot;properties&quot;:{&quot;action&quot;:&quot;add&quot;,&quot;brand&quot;:&quot;string&quot;,&quot;channel&quot;:&quot;string&quot;,&quot;location&quot;:&quot;string&quot;,&quot;points&quot;:&quot;string&quot;,&quot;product_id&quot;:&quot;string&quot;,&quot;tier&quot;:&quot;string&quot;,&quot;total_price&quot;:&quot;string&quot;,&quot;total_quantity&quot;:&quot;string&quot;}}&#39;</code></pre>
+  </div>
+  </div>
+      </div>
+<div class="variant-codegen">
+        <h4>cart_update[action in (add|remove)]</h4>
+        <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;cart_update&#39;,
+  // Optional:
+  action: &#39;add&#39;,
+  brand: &#39;string&#39;,
+  channel: &#39;string&#39;,
+  location: &#39;string&#39;,
+  points: &#39;string&#39;,
+  product_id: &#39;string&#39;,
+  tier: &#39;string&#39;,
+  total_price: &#39;string&#39;,
+  total_quantity: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;cart_update&#39;, {
+  // Optional:
+  action: &#39;add&#39;,
+  brand: &#39;string&#39;,
+  channel: &#39;string&#39;,
+  location: &#39;string&#39;,
+  points: &#39;string&#39;,
+  product_id: &#39;string&#39;,
+  tier: &#39;string&#39;,
+  total_price: &#39;string&#39;,
+  total_quantity: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>// Optional properties: action, brand, channel, location, points, product_id, tier, total_price, total_quantity
+
+{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;cart_update&quot;,
+  &quot;properties&quot;: {
+    &quot;action&quot;: &quot;add&quot;,
+    &quot;brand&quot;: &quot;string&quot;,
+    &quot;channel&quot;: &quot;string&quot;,
+    &quot;location&quot;: &quot;string&quot;,
+    &quot;points&quot;: &quot;string&quot;,
+    &quot;product_id&quot;: &quot;string&quot;,
+    &quot;tier&quot;: &quot;string&quot;,
+    &quot;total_price&quot;: &quot;string&quot;,
+    &quot;total_quantity&quot;: &quot;string&quot;
+  }
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;cart_update&quot;,&quot;properties&quot;:{&quot;action&quot;:&quot;add&quot;,&quot;brand&quot;:&quot;string&quot;,&quot;channel&quot;:&quot;string&quot;,&quot;location&quot;:&quot;string&quot;,&quot;points&quot;:&quot;string&quot;,&quot;product_id&quot;:&quot;string&quot;,&quot;tier&quot;:&quot;string&quot;,&quot;total_price&quot;:&quot;string&quot;,&quot;total_quantity&quot;:&quot;string&quot;}}&#39;</code></pre>
+  </div>
+  </div>
+      </div>
+  </section>
+  <section id="identity-rules"><h2>Identity rules</h2><p>No identity rules defined.</p></section>
+<section id="consent-categories"><h2>Consent categories</h2><p>No consent categories defined.</p></section>
+  <section id="standard-event-mappings">
+    <h2>Standard event mappings</h2>
+    <table>
+      <thead>
+        <tr><th>Standard event</th><th>Event</th><th>Variant</th><th>Field map</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+        <td>add_to_cart</td>
+        <td>cart_update</td>
+        <td>cart_update[action=add]</td>
+        <td>product_id → product_id, total_price → total_price, total_quantity → total_quantity</td>
+      </tr>
+<tr>
+        <td>checkout</td>
+        <td>cart_update</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>
+<tr>
+        <td>loyalty_scan</td>
+        <td>cart_update</td>
+        <td>—</td>
+        <td>points → points, tier → tier</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+</body>
+</html>

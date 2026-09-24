@@ -175,6 +175,55 @@ export interface UpdateProjectInput {
    * standard consent key" form on the Consent categories page PATCHes the full array here.
    */
   consent_key_additions_json?: unknown;
+  /**
+   * Project additions to the standard event seed list (D-26, T-1-05 delta): the "add standard
+   * event" form on the Standard events page PATCHes the full array here, `[{key, fields}]`.
+   */
+  standard_event_additions_json?: unknown;
+}
+
+/** `standard_event_additions_json` must be `[{key, fields: string[]}]`; deduped by key, seed wins on clash with the seed list is not checked here (bloomreach.ts merges seed-first). */
+function normalizeStandardEventAdditions(value: unknown): { key: string; fields: string[] }[] {
+  if (!Array.isArray(value)) {
+    throw new ValidationError('standard_event_additions_json must be an array.', 'standard_event_additions_json');
+  }
+  const seenKeys = new Set<string>();
+  const result: { key: string; fields: string[] }[] = [];
+  for (const raw of value) {
+    if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+      throw new ValidationError(
+        'Each standard event addition needs a "key" and a "fields" array.',
+        'standard_event_additions_json'
+      );
+    }
+    const row = raw as Record<string, unknown>;
+    const key = typeof row.key === 'string' ? row.key.trim() : '';
+    if (!key) {
+      throw new ValidationError(
+        'Each standard event addition needs a non-empty "key".',
+        'standard_event_additions_json'
+      );
+    }
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    const fieldsRaw = Array.isArray(row.fields) ? row.fields : [];
+    const seenFields = new Set<string>();
+    const fields: string[] = [];
+    for (const field of fieldsRaw) {
+      if (typeof field !== 'string' || !field.trim()) {
+        throw new ValidationError(
+          `Standard event "${key}" has an empty field name.`,
+          'standard_event_additions_json'
+        );
+      }
+      const trimmed = field.trim();
+      if (seenFields.has(trimmed)) continue;
+      seenFields.add(trimmed);
+      fields.push(trimmed);
+    }
+    result.push({ key, fields });
+  }
+  return result;
 }
 
 /** `consent_key_additions_json` must be an array of non-blank strings, trimmed and de-duplicated. */
@@ -245,6 +294,11 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
   if (updates.consent_key_additions_json !== undefined) {
     patch.consent_key_additions_json = toJsonColumn(
       normalizeStringListColumn(updates.consent_key_additions_json, 'consent_key_additions_json')
+    );
+  }
+  if (updates.standard_event_additions_json !== undefined) {
+    patch.standard_event_additions_json = toJsonColumn(
+      normalizeStandardEventAdditions(updates.standard_event_additions_json)
     );
   }
 

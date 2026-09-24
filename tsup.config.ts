@@ -18,5 +18,6 @@ export default defineConfig({
   treeshake: true,
   minify: false,
   // Keep runtime deps external (they'll be in node_modules in the function bundle).
-  external: ['express', 'cors', '@supabase/supabase-js'],
+  // better-sqlite3 ships a native binding and must never be bundled (D-12).
+  external: ['express', 'cors', '@supabase/supabase-js', 'better-sqlite3'],
 });

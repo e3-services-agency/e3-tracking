@@ -6,7 +6,7 @@
  */
 import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn, toSqliteBool, fromSqliteBool, mapWriteError } from '../db/util';
-import { BadRequestError, ConflictError, NotFoundError, ValidationError } from '../errors';
+import { BadRequestError, ConflictError, EnumInUseError, NotFoundError, ValidationError } from '../errors';
 import * as BundleDAL from './bundle.dal';
 import {
   PROPERTY_SCOPES,
@@ -204,10 +204,25 @@ function validateAllowedValues(projectId: string, allowedValues: unknown): void 
         'allowed_values_json'
       );
     }
-    if (seenValues.has(row.value)) {
-      throw new BadRequestError(`Duplicate allowed value "${row.value}".`, 'allowed_values_json');
+    // Trim before the duplicate check (fix round LOW 7): "add" and " add" are the same value; the
+    // UI already trims on save, this only matters for a direct API caller.
+    const trimmedValue = row.value.trim();
+    if (seenValues.has(trimmedValue)) {
+      throw new BadRequestError(`Duplicate allowed value "${trimmedValue}".`, 'allowed_values_json');
     }
-    seenValues.add(row.value);
+    seenValues.add(trimmedValue);
+    if (row.label !== undefined && row.label !== null && typeof row.label !== 'string') {
+      throw new BadRequestError(
+        `Allowed value "${trimmedValue}" label must be a string or null.`,
+        'allowed_values_json'
+      );
+    }
+    if (row.description !== undefined && row.description !== null && typeof row.description !== 'string') {
+      throw new BadRequestError(
+        `Allowed value "${trimmedValue}" description must be a string or null.`,
+        'allowed_values_json'
+      );
+    }
     if (
       row.standard_event !== undefined &&
       row.standard_event !== null &&
@@ -292,6 +307,45 @@ function validatePropertyFields(
       );
     }
   }
+}
+
+/**
+ * Domain rule 1 (T-1-04 fix round ERROR 3): a property linked with role `discriminator`/`context`
+ * on any (non-deleted) event of the project must keep every currently-allowed value — the update
+ * cannot empty `allowed_values_json` or drop a value the discriminator/variant logic depends on.
+ * Adding new values is always fine. Throws `EnumInUseError` (400) listing the affected events.
+ */
+function assertAllowedValuesNotRemovedWhileInUse(
+  projectId: string,
+  propertyId: string,
+  currentAllowedValues: unknown,
+  nextAllowedValues: unknown
+): void {
+  const currentValues = Array.isArray(currentAllowedValues)
+    ? (currentAllowedValues as AllowedValue[]).map((v) => String(v.value).trim())
+    : [];
+  if (currentValues.length === 0) return;
+  const nextValues = new Set(
+    Array.isArray(nextAllowedValues) ? (nextAllowedValues as AllowedValue[]).map((v) => String(v.value).trim()) : []
+  );
+  const removed = currentValues.filter((v) => !nextValues.has(v));
+  if (removed.length === 0) return;
+
+  const events = getDb()
+    .prepare(
+      `SELECT DISTINCT e.name as name FROM event_properties ep
+       JOIN events e ON e.id = ep.event_id AND e.deleted_at IS NULL
+       WHERE ep.property_id = ? AND e.project_id = ? AND ep.role IN ('discriminator', 'context')
+       ORDER BY e.name`
+    )
+    .all(propertyId, projectId) as { name: string }[];
+  if (events.length === 0) return;
+
+  throw new EnumInUseError(
+    `Cannot remove allowed value(s) ${removed.map((v) => `"${v}"`).join(', ')}: this property is used as a ` +
+      `discriminator/context on: ${events.map((e) => e.name).join(', ')}.`,
+    'allowed_values_json'
+  );
 }
 
 export function createProperty(projectId: string, input: PropertyInput): PropertyRow {
@@ -397,6 +451,10 @@ export function updateProperty(
   const resolvedScope = updates.scope ?? current.scope;
   validatePropertyFields(projectId, updates, resolvedScope);
 
+  if (updates.allowed_values_json !== undefined) {
+    assertAllowedValuesNotRemovedWhileInUse(projectId, id, current.allowed_values_json, updates.allowed_values_json);
+  }
+
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (updates.scope !== undefined) patch.scope = updates.scope;
   if (updates.name !== undefined) patch.name = updates.name.trim();
@@ -419,6 +477,13 @@ export function updateProperty(
   }
   if (updates.bloomreach_customer_property !== undefined) {
     patch.bloomreach_customer_property = updates.bloomreach_customer_property?.trim() || null;
+  }
+  // LOW 8 (fix round): scope leaves "customer" without the caller mentioning
+  // bloomreach_customer_property in the same patch — clear the now-orphaned standard-key mapping
+  // instead of leaving it on an event-scope row. When the caller does mention it explicitly with a
+  // truthy value, validatePropertyFields above already refuses the request.
+  if (resolvedScope !== 'customer' && current.scope === 'customer' && updates.bloomreach_customer_property === undefined) {
+    patch.bloomreach_customer_property = null;
   }
   if (updates.priority !== undefined) patch.priority = updates.priority;
   if (updates.status !== undefined) patch.status = updates.status;

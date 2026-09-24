@@ -286,13 +286,10 @@ function formatJsObjectBodyFromSchema(
   baseIndent: string
 ): string[] {
   const props = schema.properties ?? {};
-  const keys = Object.keys(props);
-  const includedKeys = keys
-    .filter((k) => props[k]?.presence !== 'never_sent')
-    .sort(compareFieldKeys);
-  // Match shared docs nested rows: `buildOnePropertyTableRow` uses `schemaNode.required !== false`
-  // for nested fields (not presence-based splitting), so codegen must not classify a field as both
-  // required and optional when presence is `sometimes_sent` but `required` is still true/undefined.
+  // Nested-schema fields no longer carry a `presence` concept (T-1-04 fix round LOW 10/presence
+  // residue): every declared field is included, split into required/optional below by `required`.
+  const includedKeys = Object.keys(props).sort(compareFieldKeys);
+  // Match shared docs nested rows: `buildOnePropertyTableRow` uses `schemaNode.required !== false`.
   const requiredKeys = includedKeys.filter((k) => props[k]?.required !== false);
   const optionalKeys = includedKeys.filter((k) => props[k]?.required === false);
 

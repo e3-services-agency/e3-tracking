@@ -426,8 +426,6 @@ export interface PropertyValueSchemaNode {
   type: PropertyDataType;
   data_formats?: PropertyDataFormat[];
   required?: boolean;
-  /** Contextual presence hint for nested object field attachments (not a canonical event attachment). */
-  presence?: EventPropertyPresence;
   properties?: Record<string, PropertyValueSchemaNode>;
   items?: PropertyValueSchemaNode;
   allow_additional_properties?: boolean;

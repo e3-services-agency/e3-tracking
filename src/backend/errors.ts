@@ -74,6 +74,19 @@ export class MaxDiscriminatorsError extends BadRequestError {
   }
 }
 
+/**
+ * `Property.allowed_values_json` would be emptied, or would drop a value, while the property is
+ * still linked with role `discriminator`/`context` on one or more events (T-1-04 fix round
+ * ERROR 3; domain rule 1). 400.
+ */
+export class EnumInUseError extends BadRequestError {
+  readonly code = 'ENUM_IN_USE';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'EnumInUseError';
+  }
+}
+
 /** Use when a resource is not found or does not belong to the workspace (404). */
 export class NotFoundError extends Error {
   readonly code = 'NOT_FOUND';

@@ -11,6 +11,7 @@ import * as ProjectDAL from './project.dal';
 import * as PropertyDAL from './property.dal';
 import * as EventDAL from './event.dal';
 import { BadRequestError } from '../errors';
+import { getDb } from '../db';
 
 let projectId: string;
 
@@ -282,5 +283,260 @@ describe('event.dal: EventProperty role validation (D-03, D-16)', () => {
     expect(quantityLink.role).toBe('normal');
     expect(quantityLink.payload_key).toBe('qty');
     expect(quantityLink.sort_order).toBe(1);
+  });
+});
+
+describe('property.dal: allowed_values_json standard_event against a project addition (fix round WARNING 6)', () => {
+  it('accepts a standard_event that only exists via projects.standard_event_additions_json', () => {
+    getDb()
+      .prepare('UPDATE projects SET standard_event_additions_json = ? WHERE id = ?')
+      .run(JSON.stringify([{ key: 'flight_search', label: 'Flight search' }]), projectId);
+
+    const property = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'action',
+      data_type: 'string',
+      allowed_values_json: [{ value: 'search', standard_event: 'flight_search' }],
+    });
+    expect(property.allowed_values_json).toEqual([{ value: 'search', standard_event: 'flight_search' }]);
+  });
+});
+
+describe('property.dal: updateProperty validation and LOW findings (fix round)', () => {
+  it('rejects an invalid scope/data_type/priority/status on update (400 with field)', () => {
+    const property = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'a', data_type: 'string' });
+    expect(() => PropertyDAL.updateProperty(projectId, property.id, { scope: 'bogus' as any })).toThrow(
+      BadRequestError
+    );
+    expect(() => PropertyDAL.updateProperty(projectId, property.id, { data_type: 'bogus' })).toThrow(
+      BadRequestError
+    );
+    expect(() => PropertyDAL.updateProperty(projectId, property.id, { priority: 'bogus' })).toThrow(
+      BadRequestError
+    );
+    expect(() => PropertyDAL.updateProperty(projectId, property.id, { status: 'bogus' })).toThrow(
+      BadRequestError
+    );
+  });
+
+  it('trims values before the duplicate check (LOW 7) and rejects non-string label/description', () => {
+    expect(() =>
+      PropertyDAL.createProperty(projectId, {
+        scope: 'event',
+        name: 'action',
+        data_type: 'string',
+        allowed_values_json: [{ value: 'add' }, { value: ' add ' }],
+      })
+    ).toThrow(BadRequestError);
+
+    expect(() =>
+      PropertyDAL.createProperty(projectId, {
+        scope: 'event',
+        name: 'action2',
+        data_type: 'string',
+        allowed_values_json: [{ value: 'x', label: { a: 1 } as any }],
+      })
+    ).toThrow(BadRequestError);
+  });
+
+  it('clears bloomreach_customer_property when scope leaves customer without the caller mentioning it (LOW 8)', () => {
+    const property = PropertyDAL.createProperty(projectId, {
+      scope: 'customer',
+      name: 'email',
+      data_type: 'string',
+      bloomreach_customer_property: 'email',
+    });
+    const updated = PropertyDAL.updateProperty(projectId, property.id, { scope: 'event' });
+    expect(updated.bloomreach_customer_property).toBeNull();
+  });
+});
+
+describe('property.dal: ENUM_IN_USE guard on updateProperty (fix round ERROR 3)', () => {
+  it('refuses to empty allowed_values_json while the property is linked with role discriminator', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'purchase' });
+    const action = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'action',
+      data_type: 'string',
+      allowed_values_json: [{ value: 'add' }, { value: 'remove' }],
+    });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: action.id, role: 'discriminator' });
+
+    try {
+      PropertyDAL.updateProperty(projectId, action.id, { allowed_values_json: [] });
+      expect.unreachable('expected ENUM_IN_USE');
+    } catch (err) {
+      expect(err).toBeInstanceOf(BadRequestError);
+      expect((err as BadRequestError).code).toBe('ENUM_IN_USE');
+      expect((err as BadRequestError).message).toContain('purchase');
+    }
+  });
+
+  it('refuses to drop a single allowed value while the property is linked with role context', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'view_item' });
+    const channel = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'channel',
+      data_type: 'string',
+      allowed_values_json: [{ value: 'web' }, { value: 'app' }],
+    });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: channel.id, role: 'context' });
+
+    expect(() =>
+      PropertyDAL.updateProperty(projectId, channel.id, { allowed_values_json: [{ value: 'web' }] })
+    ).toThrow(BadRequestError);
+
+    // Adding a value (superset) is fine.
+    const updated = PropertyDAL.updateProperty(projectId, channel.id, {
+      allowed_values_json: [{ value: 'web' }, { value: 'app' }, { value: 'kiosk' }],
+    });
+    expect(updated.allowed_values_json).toHaveLength(3);
+  });
+
+  it('allows emptying allowed_values_json when the property is only linked with role normal', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'checkout' });
+    const note = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'note',
+      data_type: 'string',
+      allowed_values_json: [{ value: 'a' }],
+    });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: note.id, role: 'normal' });
+
+    const updated = PropertyDAL.updateProperty(projectId, note.id, { allowed_values_json: [] });
+    expect(updated.allowed_values_json).toEqual([]);
+  });
+});
+
+describe('event.dal: event field validation (fix round ERROR 1)', () => {
+  it('rejects an invalid event_type, priority or status (400 with field)', () => {
+    expect(() => EventDAL.createEvent(projectId, { name: 'e1', event_type: 'weird' })).toThrow(BadRequestError);
+    expect(() => EventDAL.createEvent(projectId, { name: 'e2', priority: 'urgent' })).toThrow(BadRequestError);
+    expect(() => EventDAL.createEvent(projectId, { name: 'e3', status: 'bogus' })).toThrow(BadRequestError);
+  });
+
+  it('rejects a malformed expiration_json (bad units, non-integer/negative count, non-boolean enabled)', () => {
+    expect(() =>
+      EventDAL.createEvent(projectId, {
+        name: 'e4',
+        expiration_json: { enabled: true, count: 'abc', units: 'fortnights' },
+      })
+    ).toThrow(BadRequestError);
+    expect(() =>
+      EventDAL.createEvent(projectId, { name: 'e5', expiration_json: { enabled: true, count: -1, units: 'days' } })
+    ).toThrow(BadRequestError);
+    expect(() =>
+      EventDAL.createEvent(projectId, { name: 'e6', expiration_json: { enabled: 'yes', count: 1, units: 'days' } })
+    ).toThrow(BadRequestError);
+    expect(() => EventDAL.createEvent(projectId, { name: 'e7', expiration_json: 'yes' as any })).toThrow(
+      BadRequestError
+    );
+  });
+
+  it('rejects malformed derived_metrics_json and non-string tags_json entries', () => {
+    expect(() => EventDAL.createEvent(projectId, { name: 'e8', derived_metrics_json: 'revenue' as any })).toThrow(
+      BadRequestError
+    );
+    expect(() =>
+      EventDAL.createEvent(projectId, { name: 'e9', derived_metrics_json: [{ foo: 1 }] as any })
+    ).toThrow(BadRequestError);
+    expect(() =>
+      EventDAL.createEvent(projectId, { name: 'e10', derived_metrics_json: [{ name: 'x', expression: '' }] })
+    ).toThrow(BadRequestError);
+    expect(() => EventDAL.createEvent(projectId, { name: 'e11', tags_json: 'x' as any })).toThrow(BadRequestError);
+  });
+
+  it('accepts a valid event and applies the same validation on update', () => {
+    const event = EventDAL.createEvent(projectId, {
+      name: 'e12',
+      event_type: 'custom',
+      priority: 'high',
+      status: 'implemented',
+      expiration_json: { enabled: true, count: 30, units: 'days' },
+      derived_metrics_json: [{ name: 'revenue', expression: 'sum(price)' }],
+      tags_json: ['checkout'],
+    });
+    expect(event.status).toBe('implemented');
+
+    expect(() => EventDAL.updateEvent(projectId, event.id, { status: 'bogus' })).toThrow(BadRequestError);
+    expect(() => EventDAL.updateEvent(projectId, event.id, { event_type: 'weird' })).toThrow(BadRequestError);
+  });
+});
+
+describe('event.dal: EventProperty link field validation (fix round ERROR 2)', () => {
+  it('rejects an invalid role on attach, update and replace', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'purchase2' });
+    const property = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'note', data_type: 'string' });
+
+    expect(() =>
+      EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: property.id, role: 'bogus' })
+    ).toThrow(BadRequestError);
+
+    const link = EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: property.id });
+    expect(() =>
+      EventDAL.updateEventProperty(projectId, event.id, property.id, { role: 'nope' })
+    ).toThrow(BadRequestError);
+    expect(link.role).toBe('normal');
+
+    expect(() =>
+      EventDAL.replaceEventProperties(projectId, event.id, [{ property_id: property.id, role: 'whatever' }])
+    ).toThrow(BadRequestError);
+  });
+
+  it('rejects an invalid link priority or status', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'purchase3' });
+    const property = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'note2', data_type: 'string' });
+
+    expect(() =>
+      EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: property.id, priority: 'urgent' })
+    ).toThrow(BadRequestError);
+    expect(() =>
+      EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: property.id, status: 'done' })
+    ).toThrow(BadRequestError);
+  });
+
+  it('LOW 9: re-attaching an already-attached property returns 409 (not 400 MAX_DISCRIMINATORS) even when the event already has two discriminators', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'purchase4' });
+    function enumProp(name: string) {
+      return PropertyDAL.createProperty(projectId, {
+        scope: 'event',
+        name,
+        data_type: 'string',
+        allowed_values_json: [{ value: 'a' }, { value: 'b' }],
+      });
+    }
+    const propA = enumProp('actionX');
+    const propB = enumProp('channelX');
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: propA.id, role: 'discriminator' });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: propB.id, role: 'discriminator' });
+
+    try {
+      EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: propA.id, role: 'discriminator' });
+      expect.unreachable('expected a 409 already-attached conflict');
+    } catch (err) {
+      expect((err as { code?: string }).code).toBe('CONFLICT');
+    }
+  });
+});
+
+describe('project.dal: default_expiration_json validation (fix round WARNING 5)', () => {
+  it('rejects a malformed default_expiration_json on create and update', () => {
+    expect(() =>
+      ProjectDAL.createProject({
+        client_id: ClientDAL.createClient({ key: 'c2', name: 'C2' }).id,
+        key: 'p2',
+        name: 'P2',
+        default_expiration_json: { enabled: true, count: -1, units: 'eons' },
+      })
+    ).toThrow(BadRequestError);
+
+    expect(() =>
+      ProjectDAL.updateProject(projectId, { default_expiration_json: { enabled: true, count: -1, units: 'eons' } })
+    ).toThrow(BadRequestError);
+
+    const updated = ProjectDAL.updateProject(projectId, {
+      default_expiration_json: { enabled: true, count: 90, units: 'months' },
+    });
+    expect(updated.default_expiration_json).toEqual({ enabled: true, count: 90, units: 'months' });
   });
 });

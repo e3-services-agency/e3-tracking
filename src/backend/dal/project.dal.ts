@@ -7,6 +7,7 @@ import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn, mapWriteError } from '../db/util';
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
 import { getClientOrThrow, type ClientRow } from './client.dal';
+import { validateExpirationJson } from './validators';
 
 export interface ProjectRow {
   id: string;
@@ -111,6 +112,7 @@ export function createProject(input: CreateProjectInput): ProjectRow {
     throw new ValidationError('Project key must be a URL-safe slug (lowercase letters, digits, hyphens).', 'key');
   }
   if (!name) throw new ValidationError('Project name is required.', 'name');
+  validateExpirationJson(input.default_expiration_json, 'default_expiration_json');
 
   // Validates the client exists (throws NotFoundError otherwise).
   getClientOrThrow(input.client_id);
@@ -190,6 +192,7 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
   if (updates.client_id !== undefined) {
     getClientOrThrow(updates.client_id);
   }
+  validateExpirationJson(updates.default_expiration_json, 'default_expiration_json');
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (updates.name !== undefined) patch.name = updates.name.trim();

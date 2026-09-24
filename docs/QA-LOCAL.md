@@ -36,3 +36,25 @@ Sample Bloomreach exports and other QA fixtures live in `.claude/team/samples/`.
 ## Where to save QA exports
 
 Save QA run output (exported findings, screenshots, notes) under `.claude/team/reports/qa/<TASK-ID>/`, one subfolder per task.
+
+## Phase 1 round-trip recipe
+
+This is the manual sequence used by the phase 1 fixture tests (`dataMappingImport.service.test.ts`, `customerEventsExportImport.service.test.ts`, `comparison.service.test.ts`) — repeat it by hand through the UI (Import page) to verify comparison 3 end to end on a fresh project.
+
+1. Create a client and a project.
+2. Import page, data mapping format: paste `.claude/team/samples/data-mapping.json`, preview the diff, select all items, apply. This creates the six events (`purchase`, `purchase_item`, `checkout`, `cart_update`, `view_item`, `view_category`) plus their properties, variants and standard-event mappings.
+3. Import page, expiration settings format: paste `.claude/team/samples/expiration-settings.json`, preview, apply.
+4. Properties page, apply the test definition edits so the fixture's type findings can fire:
+   - `total_price` and `price` — data type `number`, data format `money`.
+   - `quantity`, `total_quantity`, `stock_level` — data type `number`.
+   - `is_new` — data type `boolean` (create it on `purchase_item` if it does not already exist).
+5. Import page, customer events export format: paste `.claude/team/samples/customer-events-export.json`, preview (expect 19 items, 0 duplicates), select all, apply. This creates one QA run and 19 observations, and runs comparison 3 automatically.
+6. Comparison page (or QA runs / Findings page): trigger `POST /comparison/run` if the findings list looks stale, then open the Findings page.
+
+Expected findings, definition vs observations (comparison 3, D-21):
+- `type_mismatch` — `total_price`, `price`, `is_new` arrive as JSON strings (`"28"`, `"TRUE"`) against `number`/`boolean` definitions.
+- `rounding_drift` — `purchase_item.price` (28.4) times quantity vs `purchase.total_price` (28), tolerance 0.01.
+- No `missing_event`/`unexpected_event` for the six mapped types (`cart_update`, `checkout`, `purchase`, `purchase_item`, `view_category`, `view_item`).
+- The other 12 raw event types stay unresolved by design: known Bloomreach system types (`consent`, `survey`, `campaign`, `support_ticket`, `managed_endpoint`) are suppressed (D-25 Q5), and genuinely unmapped types (`paper_catalogue`, `loyalty_update`) surface as `unexpected_event` (info).
+
+Where the artefacts go: the QA run and its observations/findings live in the project's SQLite tables, readable from the QA runs and Findings pages; there is no file export of a QA report yet (phase 2, capability 14). Save any notes or screenshots from a manual run under `.claude/team/reports/qa/<TASK-ID>/` as above.

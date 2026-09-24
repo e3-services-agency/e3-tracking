@@ -75,6 +75,39 @@ export class MaxDiscriminatorsError extends BadRequestError {
 }
 
 /**
+ * A `Variant.conditions_json` entry names a property that is not linked to the event with role
+ * `discriminator` (D-03; T-1-05). 400.
+ */
+export class ConditionNotDiscriminatorError extends BadRequestError {
+  readonly code = 'CONDITION_NOT_DISCRIMINATOR';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'ConditionNotDiscriminatorError';
+  }
+}
+
+/** A `Variant.conditions_json` entry names a value outside the property's `allowed_values_json` (T-1-05). 400. */
+export class ConditionValueNotAllowedError extends BadRequestError {
+  readonly code = 'CONDITION_VALUE_NOT_ALLOWED';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'ConditionValueNotAllowedError';
+  }
+}
+
+/**
+ * `StandardEventMapping.standard_event` is not one of the `bloomreach.ts` seed keys or this
+ * project's `standard_event_additions_json` (D-26; T-1-05). 400.
+ */
+export class UnknownStandardEventError extends BadRequestError {
+  readonly code = 'UNKNOWN_STANDARD_EVENT';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'UnknownStandardEventError';
+  }
+}
+
+/**
  * `Property.allowed_values_json` would be emptied, or would drop a value, while the property is
  * still linked with role `discriminator`/`context` on one or more events (T-1-04 fix round
  * ERROR 3; domain rule 1). 400.

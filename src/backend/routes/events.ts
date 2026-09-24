@@ -5,6 +5,7 @@
  */
 import { Router, type Request, type Response } from 'express';
 import * as EventDAL from '../dal/event.dal';
+import * as VariantDAL from '../dal/variant.dal';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -146,6 +147,73 @@ router.patch('/:id/properties/:propertyId', (req: Request, res: Response) => {
 router.delete('/:id/properties/:propertyId', (req: Request, res: Response) => {
   try {
     EventDAL.detachPropertyFromEvent(req.projectId!, req.params.id, req.params.propertyId);
+    res.status(204).end();
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+// ----- Variant (D-03, T-1-05): /api/projects/:projectId/events/:id/variants -----
+
+function variantInputFromBody(body: Record<string, unknown>): Partial<VariantDAL.VariantInput> {
+  const input: Partial<VariantDAL.VariantInput> = {};
+  if ('conditions' in body) input.conditions = body.conditions as VariantDAL.VariantInput['conditions'];
+  if ('description' in body) input.description = body.description as string | null;
+  if ('expiration_json' in body) input.expiration_json = body.expiration_json;
+  return input;
+}
+
+router.get('/:id/variants', (req: Request, res: Response) => {
+  try {
+    res.status(200).json(VariantDAL.listVariants(req.projectId!, req.params.id));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.post('/:id/variants', (req: Request, res: Response) => {
+  const body = req.body as Record<string, unknown>;
+  if (!Array.isArray(body.conditions)) {
+    res.status(400).json({ error: 'conditions is required.', code: 'CONDITIONS_REQUIRED', field: 'conditions' });
+    return;
+  }
+  try {
+    const variant = VariantDAL.createVariant(req.projectId!, req.params.id, {
+      conditions: body.conditions as VariantDAL.VariantInput['conditions'],
+      description: (body.description as string | null) ?? null,
+      expiration_json: body.expiration_json ?? null,
+    });
+    res.status(201).json(variant);
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.get('/:id/variants/:variantId', (req: Request, res: Response) => {
+  try {
+    res.status(200).json(VariantDAL.getVariantOrThrow(req.projectId!, req.params.id, req.params.variantId));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.patch('/:id/variants/:variantId', (req: Request, res: Response) => {
+  try {
+    const variant = VariantDAL.updateVariant(
+      req.projectId!,
+      req.params.id,
+      req.params.variantId,
+      variantInputFromBody(req.body as Record<string, unknown>)
+    );
+    res.status(200).json(variant);
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.delete('/:id/variants/:variantId', (req: Request, res: Response) => {
+  try {
+    VariantDAL.deleteVariant(req.projectId!, req.params.id, req.params.variantId);
     res.status(204).end();
   } catch (err) {
     handleRouteError(err, res);

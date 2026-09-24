@@ -7,7 +7,7 @@ import * as PropertyDAL from './property.dal';
 import * as EventDAL from './event.dal';
 import * as CatalogDAL from './catalog.dal';
 import * as BundleDAL from './bundle.dal';
-import { ConflictError, NotFoundError } from '../errors';
+import { BadRequestError, ConflictError, NotFoundError, ValidationError } from '../errors';
 
 let projectId: string;
 
@@ -36,6 +36,13 @@ describe('source.dal', () => {
     SourceDAL.deleteSource(projectId, source.id);
     expect(SourceDAL.listSources(projectId)).toHaveLength(0);
   });
+
+  it('rejects a blank name on update with a ValidationError (400), not a ConflictError', () => {
+    const source = SourceDAL.createSource(projectId, { name: 'Website' });
+    expect(() => SourceDAL.updateSource(projectId, source.id, { name: '   ' })).toThrow(ValidationError);
+    // Unchanged: the blank-name attempt never wrote an empty name.
+    expect(SourceDAL.getSourceOrThrow(projectId, source.id).name).toBe('Website');
+  });
 });
 
 describe('property.dal', () => {
@@ -62,6 +69,43 @@ describe('property.dal', () => {
     expect(PropertyDAL.getPropertyById(projectId, property.id)).toBeNull();
   });
 
+  it('reuses a (project, scope, name) after soft delete instead of a raw 500 (fix round finding #4)', () => {
+    const property = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'sku', data_type: 'string' });
+    PropertyDAL.deleteProperty(projectId, property.id);
+    const recreated = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'sku', data_type: 'string' });
+    expect(recreated.id).not.toBe(property.id);
+    expect(PropertyDAL.listProperties(projectId).map((p) => p.name)).toEqual(['sku']);
+  });
+
+  it('rejects a blank name on create and update with a ValidationError (400)', () => {
+    expect(() => PropertyDAL.createProperty(projectId, { scope: 'event', name: '  ', data_type: 'string' })).toThrow(
+      ValidationError
+    );
+    const property = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'sku', data_type: 'string' });
+    expect(() => PropertyDAL.updateProperty(projectId, property.id, { name: '   ' })).toThrow(ValidationError);
+  });
+
+  it('rejects mapped_catalog_id / mapped_catalog_field_id from another project (fix round finding #6)', () => {
+    const otherClient = ClientDAL.createClient({ key: 'other2', name: 'Other 2' });
+    const otherProjectId = ProjectDAL.createProject({ client_id: otherClient.id, key: 'other2-eu', name: 'Other 2 EU' }).id;
+    const foreignCatalog = CatalogDAL.createCatalog(otherProjectId, { name: 'Foreign catalog' });
+    const foreignField = CatalogDAL.createCatalogField(otherProjectId, foreignCatalog.id, { name: 'id' });
+
+    expect(() =>
+      PropertyDAL.createProperty(projectId, {
+        scope: 'event',
+        name: 'sku',
+        data_type: 'string',
+        mapped_catalog_id: foreignCatalog.id,
+      })
+    ).toThrow(BadRequestError);
+
+    const property = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'sku2', data_type: 'string' });
+    expect(() =>
+      PropertyDAL.updateProperty(projectId, property.id, { mapped_catalog_field_id: foreignField.id })
+    ).toThrow(BadRequestError);
+  });
+
   it('keeps property bundles working (D-26)', () => {
     const p1 = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'a', data_type: 'string' });
     const p2 = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'b', data_type: 'string' });
@@ -70,6 +114,13 @@ describe('property.dal', () => {
 
     const withBundles = PropertyDAL.getPropertyOrThrow(projectId, p1.id);
     expect(withBundles.bundle_ids).toContain(bundle.id);
+  });
+
+  it('reuses a bundle name after soft delete instead of a raw 500 (fix round finding #4)', () => {
+    const bundle = BundleDAL.createBundle(projectId, { name: 'Core' });
+    BundleDAL.deleteBundle(projectId, bundle.id);
+    const recreated = BundleDAL.createBundle(projectId, { name: 'Core' });
+    expect(recreated.id).not.toBe(bundle.id);
   });
 });
 
@@ -105,7 +156,59 @@ describe('event.dal + event_properties', () => {
 
   it('enforces unique event name per project', () => {
     EventDAL.createEvent(projectId, { name: 'purchase' });
-    expect(() => EventDAL.createEvent(projectId, { name: 'purchase' })).toThrow(ConflictError);
+    try {
+      EventDAL.createEvent(projectId, { name: 'purchase' });
+      expect.unreachable('expected a ConflictError');
+    } catch (err) {
+      expect(err).toBeInstanceOf(ConflictError);
+      expect((err as ConflictError).code).toBe('CONFLICT');
+    }
+  });
+
+  it('reuses an event name after soft delete instead of a raw 500 (fix round finding #4)', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'purchase' });
+    EventDAL.deleteEvent(projectId, event.id);
+    const recreated = EventDAL.createEvent(projectId, { name: 'purchase' });
+    expect(recreated.id).not.toBe(event.id);
+  });
+
+  it('rejects a blank event name on create and update with a ValidationError (400)', () => {
+    expect(() => EventDAL.createEvent(projectId, { name: '   ' })).toThrow(ValidationError);
+    const event = EventDAL.createEvent(projectId, { name: 'purchase' });
+    expect(() => EventDAL.updateEvent(projectId, event.id, { name: '  ' })).toThrow(ValidationError);
+  });
+
+  it('rejects event_properties.source_id from another project (fix round finding #6)', () => {
+    const otherClient = ClientDAL.createClient({ key: 'other3', name: 'Other 3' });
+    const otherProjectId = ProjectDAL.createProject({ client_id: otherClient.id, key: 'other3-eu', name: 'Other 3 EU' }).id;
+    const foreignSource = SourceDAL.createSource(otherProjectId, { name: 'Foreign source' });
+
+    const event = EventDAL.createEvent(projectId, { name: 'purchase' });
+    const property = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'total_price', data_type: 'number' });
+
+    expect(() =>
+      EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: property.id, source_id: foreignSource.id })
+    ).toThrow(BadRequestError);
+
+    const link = EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: property.id });
+    expect(() =>
+      EventDAL.updateEventProperty(projectId, event.id, property.id, { source_id: foreignSource.id })
+    ).toThrow(BadRequestError);
+    expect(link.source_id).toBeNull();
+  });
+
+  it('persists triggers_json (with an image path) through create, update and read (fix round finding #2)', () => {
+    const trigger = { title: 'Click buy', description: 'User clicks the buy button', image_path: 'proj-1/event_trigger/abc-shot.png', order: 0 };
+    const created = EventDAL.createEvent(projectId, { name: 'checkout', triggers_json: [trigger] });
+    expect(created.triggers_json).toEqual([trigger]);
+
+    const reread = EventDAL.getEventOrThrow(projectId, created.id);
+    expect(reread.triggers_json).toEqual([trigger]);
+
+    const updatedTrigger = { ...trigger, title: 'Click buy now' };
+    const updated = EventDAL.updateEvent(projectId, created.id, { triggers_json: [updatedTrigger] });
+    expect(updated.triggers_json).toEqual([updatedTrigger]);
+    expect(EventDAL.getEventOrThrow(projectId, created.id).triggers_json).toEqual([updatedTrigger]);
   });
 
   it('404s attaching a property from another project', () => {
@@ -141,8 +244,34 @@ describe('catalog.dal', () => {
     expect(CatalogDAL.listCatalogs(projectId)).toHaveLength(0);
   });
 
-  it('enforces one catalog per mapping_role per project', () => {
+  it('enforces one catalog per mapping_role per project (409 CONFLICT, not a raw 500)', () => {
     CatalogDAL.createCatalog(projectId, { name: 'Products', mapping_role: 'main' });
-    expect(() => CatalogDAL.createCatalog(projectId, { name: 'Products 2', mapping_role: 'main' })).toThrow();
+    try {
+      CatalogDAL.createCatalog(projectId, { name: 'Products 2', mapping_role: 'main' });
+      expect.unreachable('expected a ConflictError');
+    } catch (err) {
+      expect(err).toBeInstanceOf(ConflictError);
+      expect((err as ConflictError).code).toBe('CONFLICT');
+    }
+  });
+
+  it('rejects a duplicate catalog field name with a ConflictError, not a raw 500', () => {
+    const catalog = CatalogDAL.createCatalog(projectId, { name: 'Products' });
+    CatalogDAL.createCatalogField(projectId, catalog.id, { name: 'sku' });
+    expect(() => CatalogDAL.createCatalogField(projectId, catalog.id, { name: 'sku' })).toThrow(ConflictError);
+
+    const field2 = CatalogDAL.createCatalogField(projectId, catalog.id, { name: 'title' });
+    expect(() => CatalogDAL.updateCatalogField(projectId, catalog.id, field2.id, { name: 'sku' })).toThrow(
+      ConflictError
+    );
+  });
+
+  it('rejects blank names on update with a ValidationError (400), not a ConflictError (fix round finding #7)', () => {
+    const catalog = CatalogDAL.createCatalog(projectId, { name: 'Products' });
+    expect(() => CatalogDAL.updateCatalog(projectId, catalog.id, { name: '   ' })).toThrow(ValidationError);
+    const field = CatalogDAL.createCatalogField(projectId, catalog.id, { name: 'sku' });
+    expect(() => CatalogDAL.updateCatalogField(projectId, catalog.id, field.id, { name: '  ' })).toThrow(
+      ValidationError
+    );
   });
 });

@@ -27,6 +27,7 @@ function inputFromBody(body: Record<string, unknown>): Partial<EventDAL.EventInp
   if ('trigger_text' in body) input.trigger_text = body.trigger_text as string | null;
   if ('grain' in body) input.grain = body.grain as string | null;
   if ('identity_note' in body) input.identity_note = body.identity_note as string | null;
+  if ('triggers_json' in body) input.triggers_json = body.triggers_json;
   if (typeof body.event_type === 'string') input.event_type = body.event_type;
   if ('owner_business' in body) input.owner_business = body.owner_business as string | null;
   if ('owner_technical' in body) input.owner_technical = body.owner_technical as string | null;

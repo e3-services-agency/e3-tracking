@@ -5,8 +5,8 @@
  * `ROLE_REQUIRES_ENUM`/`MAX_DISCRIMINATORS` validation described in the plan).
  */
 import { getDb } from '../db';
-import { newId, nowIso, parseJsonColumn, toJsonColumn, fromSqliteBool } from '../db/util';
-import { ConflictError, DatabaseError, NotFoundError } from '../errors';
+import { newId, nowIso, parseJsonColumn, toJsonColumn, fromSqliteBool, mapWriteError } from '../db/util';
+import { BadRequestError, ConflictError, NotFoundError, ValidationError } from '../errors';
 import { getPropertyById, type PropertyRow } from './property.dal';
 
 export interface EventRow {
@@ -63,6 +63,7 @@ export interface EventInput {
   trigger_text?: string | null;
   grain?: string | null;
   identity_note?: string | null;
+  triggers_json?: unknown;
   event_type?: string;
   owner_business?: string | null;
   owner_technical?: string | null;
@@ -154,6 +155,16 @@ function replaceEventSources(projectId: string, eventId: string, sourceIds: stri
   replace();
 }
 
+/**
+ * Cross-project reference guard (fix round finding #6): `event_properties.source_id` must name a
+ * source that belongs to the same project as the event, never a different project's source.
+ */
+function assertSourceInProject(projectId: string, sourceId: string | null | undefined): void {
+  if (!sourceId) return;
+  const row = getDb().prepare('SELECT id FROM sources WHERE id = ? AND project_id = ?').get(sourceId, projectId);
+  if (!row) throw new BadRequestError('source_id does not belong to this project.', 'source_id');
+}
+
 export function listEventSourceIds(projectId: string, eventId: string): string[] {
   getEventOrThrow(projectId, eventId);
   return (
@@ -165,7 +176,7 @@ export function listEventSourceIds(projectId: string, eventId: string): string[]
 
 export function createEvent(projectId: string, input: EventInput): EventRow {
   const name = input.name.trim();
-  if (!name) throw new ConflictError('Event name is required.');
+  if (!name) throw new ValidationError('Event name is required.', 'name');
 
   const db = getDb();
   const existing = db
@@ -184,7 +195,7 @@ export function createEvent(projectId: string, input: EventInput): EventRow {
         tags_json, codegen_event_name_overrides_json, created_at, updated_at, deleted_at
       ) VALUES (
         @id, @project_id, @name, @business_name, @description, @purpose, @page, @trigger_text, @grain,
-        @identity_note, NULL, @event_type, @owner_business, @owner_technical, @priority,
+        @identity_note, @triggers_json, @event_type, @owner_business, @owner_technical, @priority,
         @status, @expiration_json, @not_suitable_for, @agent_instructions, @derived_metrics_json,
         @tags_json, NULL, @created_at, @updated_at, NULL
       )`
@@ -199,6 +210,7 @@ export function createEvent(projectId: string, input: EventInput): EventRow {
       trigger_text: input.trigger_text?.trim() || null,
       grain: input.grain?.trim() || null,
       identity_note: input.identity_note?.trim() || null,
+      triggers_json: toJsonColumn(input.triggers_json ?? []),
       event_type: input.event_type || DEFAULT_EVENT_TYPE,
       owner_business: input.owner_business?.trim() || null,
       owner_technical: input.owner_technical?.trim() || null,
@@ -213,7 +225,11 @@ export function createEvent(projectId: string, input: EventInput): EventRow {
       updated_at: now,
     });
   } catch (err) {
-    throw new DatabaseError(`Failed to create event: ${(err as Error).message}`, err);
+    mapWriteError(
+      err,
+      `An event named "${name}" already exists in this project.`,
+      `Failed to create event: ${(err as Error).message}`
+    );
   }
 
   if (input.source_ids !== undefined && input.source_ids !== null) {
@@ -229,6 +245,7 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
 
   if (input.name !== undefined) {
     const name = input.name.trim();
+    if (!name) throw new ValidationError('Event name is required.', 'name');
     const clash = db
       .prepare('SELECT id FROM events WHERE project_id = ? AND name = ? AND id != ? AND deleted_at IS NULL')
       .get(projectId, name, eventId);
@@ -244,6 +261,7 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
   if (input.trigger_text !== undefined) patch.trigger_text = input.trigger_text?.trim() || null;
   if (input.grain !== undefined) patch.grain = input.grain?.trim() || null;
   if (input.identity_note !== undefined) patch.identity_note = input.identity_note?.trim() || null;
+  if (input.triggers_json !== undefined) patch.triggers_json = toJsonColumn(input.triggers_json ?? []);
   if (input.event_type !== undefined) patch.event_type = input.event_type;
   if (input.owner_business !== undefined) patch.owner_business = input.owner_business?.trim() || null;
   if (input.owner_technical !== undefined) patch.owner_technical = input.owner_technical?.trim() || null;
@@ -269,7 +287,11 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
       project_id: projectId,
     });
   } catch (err) {
-    throw new DatabaseError(`Failed to update event: ${(err as Error).message}`, err);
+    mapWriteError(
+      err,
+      `An event named "${String(patch.name ?? '')}" already exists in this project.`,
+      `Failed to update event: ${(err as Error).message}`
+    );
   }
 
   if (input.source_ids !== undefined) {
@@ -364,6 +386,7 @@ export function attachPropertyToEvent(
   getEventOrThrow(projectId, eventId);
   const property = getPropertyById(projectId, input.property_id);
   if (!property) throw new NotFoundError('Property not found or does not belong to this project.', 'property');
+  assertSourceInProject(projectId, input.source_id);
 
   const db = getDb();
   const existing = db
@@ -402,7 +425,11 @@ export function attachPropertyToEvent(
       now
     );
   } catch (err) {
-    throw new DatabaseError(`Failed to attach property to event: ${(err as Error).message}`, err);
+    mapWriteError(
+      err,
+      'This property is already attached to the event.',
+      `Failed to attach property to event: ${(err as Error).message}`
+    );
   }
 
   const row = db
@@ -423,6 +450,7 @@ export function updateEventProperty(
     .prepare('SELECT * FROM event_properties WHERE event_id = ? AND property_id = ?')
     .get(eventId, propertyId);
   if (!existing) throw new NotFoundError('This property is not attached to the event.', 'event_property');
+  if (updates.source_id !== undefined) assertSourceInProject(projectId, updates.source_id);
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (updates.required !== undefined) patch.required = updates.required ? 1 : 0;
@@ -479,6 +507,7 @@ export function replaceEventProperties(
         'property'
       );
     }
+    assertSourceInProject(projectId, link.source_id);
   }
 
   const now = nowIso();

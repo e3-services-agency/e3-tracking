@@ -277,6 +277,7 @@ function EventEditor({
         trigger_text: triggerText.trim() || null,
         grain: grain.trim() || null,
         identity_note: identityNote.trim() || null,
+        triggers_json: triggers,
         event_type: eventType,
         owner_business: ownerBusiness.trim() || null,
         owner_technical: ownerTechnical.trim() || null,
@@ -297,14 +298,8 @@ function EventEditor({
       }
       const savedEventId = isCreating ? data.id : eventId;
 
-      // Triggers (image/trigger cards) are saved via PATCH too, once the event exists.
-      await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/events/${savedEventId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ triggers_json: triggers.length > 0 ? triggers : null }),
-      });
-
       if (!isCreating) {
-        await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/events/${savedEventId}/properties`, {
+        const linksRes = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/events/${savedEventId}/properties`, {
           method: 'PUT',
           body: JSON.stringify({
             properties: links.map((l, i) => ({
@@ -319,6 +314,11 @@ function EventEditor({
             })),
           }),
         });
+        if (!linksRes.ok) {
+          const linksData = await parseJson(linksRes);
+          setSaveError(typeof linksData?.error === 'string' ? linksData.error : 'Event saved, but attached properties failed to save.');
+          return;
+        }
       }
 
       await onSaved();

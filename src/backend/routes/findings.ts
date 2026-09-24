@@ -21,6 +21,7 @@ router.get('/', (req: Request, res: Response) => {
         severity: stringParam(req.query.severity),
         event_id: stringParam(req.query.event_id),
         status: stringParam(req.query.status),
+        qa_run_id: stringParam(req.query.qa_run_id),
       })
     );
   } catch (err) {

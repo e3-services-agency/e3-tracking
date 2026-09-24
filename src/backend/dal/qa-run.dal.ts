@@ -110,6 +110,10 @@ export interface QaRunUpdateInput {
 /** `archive`/`finish` both go through here (`PATCH /qa-runs/:id`); `finished_at` is set to now unless the caller passes it explicitly (or `null` to reopen). */
 export function updateQaRun(projectId: string, id: string, updates: QaRunUpdateInput): QaRunRow {
   getQaRunOrThrow(projectId, id);
+  if (updates.notes !== undefined && updates.notes !== null && typeof updates.notes !== 'string') {
+    // Fix round LOW 4: `PATCH /qa-runs/:id {"notes":123}` used to 500 on `.trim is not a function`.
+    throw new ValidationError('notes must be a string or null.', 'notes');
+  }
   const db = getDb();
   const patch: Record<string, unknown> = {};
   if (updates.notes !== undefined) patch.notes = updates.notes?.trim() || null;

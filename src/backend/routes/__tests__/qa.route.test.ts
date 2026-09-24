@@ -150,4 +150,17 @@ describe('customer-events-export import + comparison + findings (T-1-09)', () =>
     const kindBody = await kindRes.json();
     expect(kindBody.every((f: { kind: string }) => f.kind === 'unexpected_event')).toBe(true);
   });
+
+  it('GET /findings?qa_run_id=<the applied run> is non-empty (fix round ERROR 2: the Import page apply/QaRuns "View findings for this run" landing must not show an empty table)', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/findings?qa_run_id=${runId}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body)).toBe(true);
+    expect(body.length).toBeGreaterThan(0);
+    expect(body.every((f: { qa_run_id: string | null }) => f.qa_run_id === runId)).toBe(true);
+
+    // Project-level kinds (missing_event, shape_inconsistent) are never attributable to a single
+    // run and must stay excluded from the run filter (`qa_run_id: null` on those rows).
+    expect(body.every((f: { kind: string }) => f.kind !== 'shape_inconsistent' && f.kind !== 'missing_event')).toBe(true);
+  });
 });

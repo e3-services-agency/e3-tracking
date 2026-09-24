@@ -53,6 +53,7 @@ export function Findings() {
   const [status, setStatus] = useState('open');
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const pendingFindingsRunId = useStore((s) => s.pendingFindingsRunId);
   const setPendingFindingsRunId = useStore((s) => s.setPendingFindingsRunId);
@@ -71,6 +72,7 @@ export function Findings() {
   const load = useCallback(async () => {
     if (!hasValidProjectContext || !activeProjectId) return;
     setLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams();
       if (comparison) params.set('comparison', comparison);
@@ -78,15 +80,22 @@ export function Findings() {
       if (severity) params.set('severity', severity);
       if (eventId) params.set('event_id', eventId);
       if (status) params.set('status', status);
+      if (runIdFilter) params.set('qa_run_id', runIdFilter);
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/findings?${params.toString()}`);
       const data = await parseJson(res);
-      let rows: FindingRow[] = res.ok && Array.isArray(data) ? data : [];
-      if (runIdFilter) rows = rows.filter((f) => f.qa_run_id === runIdFilter);
-      setFindings(rows);
+      if (!res.ok) {
+        setError(typeof data?.error === 'string' ? data.error : 'Failed to load findings.');
+        setFindings([]);
+        return;
+      }
+      setFindings(Array.isArray(data) ? data : []);
 
       const eventsRes = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/events`);
       const eventsData = await parseJson(eventsRes);
       if (eventsRes.ok) setEvents(Array.isArray(eventsData) ? eventsData.map((e: { id: string; name: string }) => ({ id: e.id, name: e.name })) : []);
+    } catch {
+      setError('Failed to load findings.');
+      setFindings([]);
     } finally {
       setLoading(false);
     }
@@ -99,9 +108,17 @@ export function Findings() {
   const runComparison = async () => {
     if (!activeProjectId) return;
     setRunning(true);
+    setError(null);
     try {
-      await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/comparison/run`, { method: 'POST' });
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/comparison/run`, { method: 'POST' });
+      if (!res.ok) {
+        const data = await parseJson(res);
+        setError(typeof data?.error === 'string' ? data.error : 'Comparison run failed.');
+        return;
+      }
       await load();
+    } catch {
+      setError('Comparison run failed.');
     } finally {
       setRunning(false);
     }
@@ -125,6 +142,9 @@ export function Findings() {
       </div>
 
       <div className="p-8 flex-1 overflow-y-auto space-y-4">
+        {error && (
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
+        )}
         <div className="bg-white rounded-lg border shadow-sm p-4 flex flex-wrap items-end gap-3">
           <div className="space-y-1">
             <label className="text-xs font-medium text-gray-500">Comparison</label>

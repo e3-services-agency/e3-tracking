@@ -66,6 +66,8 @@ export interface FindingFilter {
   severity?: string;
   event_id?: string;
   status?: string;
+  /** Findings currently stamped with this run (fix round ERROR 2's `qa_run_id` semantics; see `comparison.service.ts`'s module comment). */
+  qa_run_id?: string;
 }
 
 export function listFindings(projectId: string, filter?: FindingFilter): FindingRow[] {
@@ -91,8 +93,17 @@ export function listFindings(projectId: string, filter?: FindingFilter): Finding
     clauses.push('status = ?');
     params.push(filter.status);
   }
+  if (filter?.qa_run_id) {
+    clauses.push('qa_run_id = ?');
+    params.push(filter.qa_run_id);
+  }
+  // Fix round INFO 11: plain `ORDER BY severity` sorts alphabetically (error, info, warning); order
+  // by actual severity rank (error, warning, info) instead.
   const rows = getDb()
-    .prepare(`SELECT * FROM findings WHERE ${clauses.join(' AND ')} ORDER BY severity, last_seen_at DESC`)
+    .prepare(
+      `SELECT * FROM findings WHERE ${clauses.join(' AND ')}
+       ORDER BY CASE severity WHEN 'error' THEN 0 WHEN 'warning' THEN 1 WHEN 'info' THEN 2 ELSE 3 END, last_seen_at DESC`
+    )
     .all(...params) as FindingDbRow[];
   return rows.map(mapRow);
 }

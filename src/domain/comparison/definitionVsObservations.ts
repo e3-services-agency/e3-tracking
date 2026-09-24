@@ -228,8 +228,6 @@ export function runDefinitionVsObservations(
   const enumViolationSeen = new Map<string, { obs: EngineObservation; value: unknown }>();
   const unknownVariantSeen = new Map<string, { obs: EngineObservation; value: unknown }>();
   const unexpectedPropertySeen = new Map<string, EngineObservation>();
-  // property_id -> set of distinct observed JS types (shape_inconsistent, across the whole scope)
-  const shapeByProperty = new Map<string, Map<string, EngineObservation>>();
 
   for (const [eventId, obsList] of byEvent) {
     const event = eventsById.get(eventId);
@@ -246,12 +244,6 @@ export function runDefinitionVsObservations(
           if (prop.required && !missingObs) missingObs = obs;
           continue;
         }
-
-        // shape_inconsistent bucket (whole scope, keyed by property_id, any event)
-        const shapeMap = shapeByProperty.get(prop.property_id) ?? new Map<string, EngineObservation>();
-        const type = jsType(raw);
-        if (!shapeMap.has(type)) shapeMap.set(type, obs);
-        shapeByProperty.set(prop.property_id, shapeMap);
 
         if (!matchesDataType(prop.data_type, raw)) {
           const mkey = `${eventId}|${prop.property_id}`;
@@ -405,11 +397,40 @@ export function runDefinitionVsObservations(
     });
   }
 
-  // ---- shape_inconsistent (error; whole scope, keyed by property_id) ----
-  for (const [propertyId, typeMap] of shapeByProperty) {
+  // ---- shape_inconsistent (error; whole scope, by *raw payload key* regardless of link status) ----
+  // ERROR 3 fix: compare the same observed payload key across every resolved observation
+  // regardless of whether it happens to be linked to the event it was observed on — e.g.
+  // `product_ids` is linked as a Property only on `purchase` in the real data-mapping fixture, but
+  // `checkout`/`cart_update` still observe the same raw key as an *unlinked* payload key; both must
+  // join the same shape bucket. When the key is linked to at least one event as a property, the
+  // finding references that property (`property_id` set, display name used); otherwise it
+  // references the raw key by name (`property_id: null`).
+  const payloadKeyToProperty = new Map<string, { property_id: string; name: string }>();
+  for (const event of definition.events) {
+    for (const prop of event.properties) {
+      const key = payloadKeyFor(prop);
+      if (!payloadKeyToProperty.has(key)) payloadKeyToProperty.set(key, { property_id: prop.property_id, name: prop.name });
+    }
+  }
+
+  const shapeByKey = new Map<string, Map<string, EngineObservation>>();
+  for (const obs of resolved) {
+    for (const [rawKey, rawValue] of Object.entries(obs.properties)) {
+      if (rawValue === undefined || rawValue === null) continue;
+      const type = jsType(rawValue);
+      const shapeMap = shapeByKey.get(rawKey) ?? new Map<string, EngineObservation>();
+      if (!shapeMap.has(type)) shapeMap.set(type, obs);
+      shapeByKey.set(rawKey, shapeMap);
+    }
+  }
+
+  for (const [key, typeMap] of shapeByKey) {
     if (typeMap.size <= 1) continue;
     const types = Array.from(typeMap.keys()).sort();
     const [, firstObs] = Array.from(typeMap.entries())[0];
+    const linked = payloadKeyToProperty.get(key);
+    const propertyId = linked?.property_id ?? null;
+    const label = linked?.name ?? key;
     findings.push({
       comparison: COMPARISON,
       kind: 'shape_inconsistent',
@@ -420,8 +441,8 @@ export function runDefinitionVsObservations(
       observation_id: firstObs.id,
       expected_json: null,
       actual_json: { types },
-      message: `Property "${propertyNameById.get(propertyId) ?? propertyId}" is observed with inconsistent JSON types across events: ${types.join(', ')}.`,
-      fingerprint: fp('shape_inconsistent', null, null, propertyId, types.join(',')),
+      message: `Property "${label}" is observed with inconsistent JSON types across events: ${types.join(', ')}.`,
+      fingerprint: fp('shape_inconsistent', null, null, propertyId, `${key}:${types.join(',')}`),
     });
   }
 
@@ -461,10 +482,17 @@ export function runDefinitionVsObservations(
     });
   }
 
-  // ---- expiration_mismatch (info; observation side): an observation older than its event/variant's effective window ----
+  // ---- expiration_mismatch (info; observation side): an observation older than its event/variant's
+  // effective window, one finding per event (fix round LOW 5: the old `break` stopped after the
+  // globally-first stale observation project-wide, not per event as the comment claimed, so with
+  // two events both having stale observations only the first-by-timestamp got a finding, and since
+  // the fingerprint carries `event_id` the finding flipped between events across runs — reopen/
+  // resolve churn with no underlying change) ----
+  const expirationFlaggedEventIds = new Set<string>();
   for (const obs of resolved) {
     const event = eventsById.get(obs.event_id as string);
     if (!event) continue;
+    if (expirationFlaggedEventIds.has(event.id)) continue;
     const variant = obs.variant_id ? variantsById.get(obs.variant_id) ?? null : null;
     const expiration = effectiveExpiration(event, variant, definition.project_default_expiration);
     if (!expiration) continue;
@@ -484,7 +512,7 @@ export function runDefinitionVsObservations(
       message: `An observation of event "${event.name}" is older than its effective expiration window.`,
       fingerprint: fp('expiration_mismatch', event.id, obs.variant_id, null, 'observed_stale'),
     });
-    break; // one info finding per event is enough evidence; avoid one row per stale observation
+    expirationFlaggedEventIds.add(event.id); // one info finding per event is enough evidence; avoid one row per stale observation
   }
 
   return findings;

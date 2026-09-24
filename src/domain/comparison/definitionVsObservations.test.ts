@@ -79,23 +79,26 @@ function buildDefinition(): DefinitionSnapshot {
       ],
     },
     {
+      // `product_ids` is deliberately *not* linked here: the real data-mapping fixture only maps
+      // `product_ids` on `purchase` (`add_to_cart`/`cart_update`'s `product_ids` field is `null`).
+      // ERROR 3 fix round: shape_inconsistent must still fire from the raw observed payload key
+      // regardless of link status; hand-linking it here (as the pre-fix-round test did) would hide
+      // that regression instead of reproducing the plan's scenario.
       id: EVENT.cartUpdate,
       name: 'cart_update',
       status: 'implemented',
       expiration: null,
       properties: [
         { property_id: PROP.action, name: 'action', payload_key: null, role: 'discriminator', required: true, data_type: 'string', data_formats: [], allowed_values: ['add'] },
-        { property_id: PROP.productIds, name: 'product_ids', payload_key: null, role: 'normal', required: false, data_type: 'array', data_formats: [], allowed_values: null },
       ],
     },
     {
+      // `checkout` has no fields at all in the data-mapping fixture (`"checkout": {"event": ...}`).
       id: EVENT.checkout,
       name: 'checkout',
       status: 'implemented',
       expiration: null,
-      properties: [
-        { property_id: PROP.productIds, name: 'product_ids', payload_key: null, role: 'normal', required: false, data_type: 'array', data_formats: [], allowed_values: null },
-      ],
+      properties: [],
     },
     {
       id: EVENT.viewItem,

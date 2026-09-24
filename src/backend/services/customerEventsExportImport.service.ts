@@ -9,11 +9,11 @@
  * reused, but the "diff items" here are proposed Observations, not entity writes.
  */
 import { getDb } from '../db';
-import * as EventDAL from '../dal/event.dal';
 import { listVariants } from '../dal/variant.dal';
 import * as QaRunDAL from '../dal/qa-run.dal';
 import * as ObservationDAL from '../dal/observation.dal';
 import { runComparison, type ComparisonSummary } from './comparison.service';
+import { resolveEventAndVariant } from './eventResolution';
 import {
   parseCustomerEventsExport,
   type CustomerEventsExportEvent,
@@ -22,36 +22,19 @@ import {
 import { payloadHash } from '../../domain/diff/hash';
 import type { DiffItem } from '../../domain/diff/types';
 import { KNOWN_SYSTEM_EVENT_TYPES } from '../../domain/bloomreach';
-import { evaluateVariant, type VariantCondition } from '../../domain/variants';
-import { PayloadChangedError } from '../errors';
+import { BadRequestError, PayloadChangedError } from '../errors';
 
-interface Resolution {
-  event_id: string | null;
-  variant_id: string | null;
-}
-
-/** Resolves an event by exact name match, then its variant by evaluating discriminator conditions against the raw payload (plan "Three-way comparison engine design" > Resolution). */
-function resolveEventAndVariant(projectId: string, evt: CustomerEventsExportEvent): Resolution {
-  const event = EventDAL.listEvents(projectId).find((e) => e.name === evt.type);
-  if (!event) return { event_id: null, variant_id: null };
-
-  const { properties: links } = EventDAL.getEventWithProperties(projectId, event.id);
-  const discriminators = links.filter((l) => l.role === 'discriminator');
-  if (discriminators.length === 0) return { event_id: event.id, variant_id: null };
-
-  const keyed: Record<string, unknown> = {};
-  for (const link of discriminators) {
-    const payloadKey = link.payload_key ?? link.property.name;
-    keyed[link.property_id] = evt.properties[payloadKey];
+/**
+ * `apply` with an empty (or entirely-deselected) `selected_item_ids` would otherwise still create
+ * an empty `QaRun` and run comparison for nothing (fix round LOW 7). The UI already disables the
+ * Apply button in this case (`Import.tsx`); the API enforces the same rule.
+ */
+export class NoObservationsSelectedError extends BadRequestError {
+  readonly code = 'NO_OBSERVATIONS_SELECTED';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'NoObservationsSelectedError';
   }
-
-  const variants = listVariants(projectId, event.id);
-  for (const variant of variants) {
-    if (evaluateVariant(variant.conditions_json as VariantCondition[], keyed)) {
-      return { event_id: event.id, variant_id: variant.id };
-    }
-  }
-  return { event_id: event.id, variant_id: null };
 }
 
 export interface CustomerEventsTypeSummary {
@@ -94,7 +77,7 @@ function buildItemsAndSummary(
   let duplicateCount = 0;
 
   model.events.forEach((evt, index) => {
-    const { event_id, variant_id } = resolveEventAndVariant(projectId, evt);
+    const { event_id, variant_id } = resolveEventAndVariant(projectId, evt.type, evt.properties);
     const resolved = event_id !== null;
     const knownSystem = !resolved && KNOWN_SYSTEM_EVENT_TYPES.includes(evt.type);
     const hash = ObservationDAL.computeRawHash(evt.type, evt.timestamp, evt.properties);
@@ -166,6 +149,9 @@ export function applyCustomerEventsExport(
   }
   const model = parseCustomerEventsExport(rawJson);
   const selected = new Set(selectedItemIds);
+  if (selected.size === 0) {
+    throw new NoObservationsSelectedError('Select at least one observation to apply.', 'selected_item_ids');
+  }
 
   const db = getDb();
   let run!: QaRunDAL.QaRunRow;
@@ -185,7 +171,7 @@ export function applyCustomerEventsExport(
         skipped += 1;
         return;
       }
-      const { event_id, variant_id } = resolveEventAndVariant(projectId, evt);
+      const { event_id, variant_id } = resolveEventAndVariant(projectId, evt.type, evt.properties);
       const row = ObservationDAL.createObservation(projectId, run.id, {
         source: 'export',
         event_type: evt.type,

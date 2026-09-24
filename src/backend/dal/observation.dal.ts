@@ -162,10 +162,30 @@ export function createObservation(projectId: string, qaRunId: string, input: Obs
       raw_hash: rawHash,
     });
   } catch (err) {
-    // Race with a concurrent insert of the same (qa_run_id, raw_hash): treat as a dedupe hit, not an error.
-    mapWriteError(err, '', `Failed to create observation: ${(err as Error).message}`);
+    // Race with a concurrent insert of the same (qa_run_id, raw_hash): the pre-check above already
+    // covers the synchronous, single-connection case (better-sqlite3), so this path is effectively
+    // unreachable today; kept as a safety net if that ever changes, mapped to 409 like every other
+    // unique violation (`mapWriteError`, `db/util.ts`).
+    mapWriteError(err, 'An observation with this raw payload already exists on this run.', `Failed to create observation: ${(err as Error).message}`);
   }
   return getObservationOrThrow(projectId, id);
+}
+
+/**
+ * Updates `event_id`/`variant_id` in place (T-1-09 fix round ERROR 1): `comparison.service.ts`'s
+ * `runComparison` re-resolves every observation in scope against the *current* definitions on every
+ * recompute (event/property renames, new variants, etc. must not require re-importing the raw
+ * export) and persists the result here before building the engine's input.
+ */
+export function updateObservationResolution(
+  projectId: string,
+  id: string,
+  eventId: string | null,
+  variantId: string | null
+): void {
+  getDb()
+    .prepare('UPDATE observations SET event_id = ?, variant_id = ? WHERE id = ? AND project_id = ?')
+    .run(eventId, variantId, id, projectId);
 }
 
 /** Inserts every input in one transaction; returns the created rows (duplicates within the run are silently skipped). */

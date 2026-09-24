@@ -13,8 +13,13 @@ import * as PropertyDAL from '../dal/property.dal';
 import * as EventDAL from '../dal/event.dal';
 import * as QaRunDAL from '../dal/qa-run.dal';
 import * as FindingDAL from '../dal/finding.dal';
+import * as ObservationDAL from '../dal/observation.dal';
 import { previewDataMapping, applyDataMapping } from './dataMappingImport.service';
-import { previewCustomerEventsExport, applyCustomerEventsExport } from './customerEventsExportImport.service';
+import {
+  previewCustomerEventsExport,
+  applyCustomerEventsExport,
+  NoObservationsSelectedError,
+} from './customerEventsExportImport.service';
 import { PayloadChangedError } from '../errors';
 
 const dataMappingFixture = JSON.parse(
@@ -117,14 +122,16 @@ describe('applyCustomerEventsExport', () => {
     const run = QaRunDAL.getQaRunOrThrow(projectId, result.run.id);
     expect(run.actor).toBe('Jan');
 
-    // `shape_inconsistent` is covered end-to-end by the pure engine test
-    // (`definitionVsObservations.test.ts`), which links `product_ids` to all three events the way
-    // the plan's engine-test definition specifies; the real data-mapping fixture only links it to
-    // `purchase` (checkout/add_to_cart map it to `null`), so it is not asserted here.
+    // `shape_inconsistent` (fix round ERROR 3): `product_ids` is linked as a Property only on
+    // `purchase` in the real data-mapping fixture (checkout/add_to_cart map it to `null`), but the
+    // raw payload key `product_ids` is still observed as an array on `purchase` and a string on
+    // `checkout`/`cart_update` — the engine must compare it across all observations regardless of
+    // link status (`definitionVsObservations.ts`).
     const kinds = new Set(FindingDAL.listFindings(projectId, { status: 'open' }).map((f) => f.kind));
     expect(kinds.has('type_mismatch')).toBe(true);
     expect(kinds.has('rounding_drift')).toBe(true);
     expect(kinds.has('unexpected_event')).toBe(true);
+    expect(kinds.has('shape_inconsistent')).toBe(true);
 
     const unexpectedEventTypes = FindingDAL.listFindings(projectId, { kind: 'unexpected_event' }).map(
       (f) => (f.actual_json as { event_type: string })?.event_type
@@ -132,7 +139,25 @@ describe('applyCustomerEventsExport', () => {
     expect(unexpectedEventTypes.sort()).toEqual(['loyalty_update', 'paper_catalogue']);
   });
 
-  it('deselecting a duplicate on a second apply skips it and does not create a second observation row', () => {
+  it('deselecting an item on apply skips only that item and creates observations for the rest (LOW 9 fix)', () => {
+    const preview = previewCustomerEventsExport(projectId, eventsFixture);
+    const allIds = preview.items.map((i) => i.id);
+    const [deselectedId, ...selectedIds] = allIds;
+
+    const result = applyCustomerEventsExport(projectId, eventsFixture, preview.payload_hash, selectedIds, 'Jan');
+    expect(result.inserted).toBe(18);
+    expect(result.skipped).toBe(1);
+
+    const observations = ObservationDAL.listObservationsByRun(projectId, result.run.id);
+    expect(observations).toHaveLength(18);
+    // The deselected item's index is encoded in its id (`observation:<index>:...`); confirm no
+    // observation with that raw event's timestamp/type made it in.
+    const deselectedIndex = Number(deselectedId.split(':')[1]);
+    const deselectedEvent = eventsFixture.events[deselectedIndex];
+    expect(observations.some((o) => o.event_type === deselectedEvent.type && o.timestamp === deselectedEvent.timestamp)).toBe(false);
+  });
+
+  it('re-pasting the identical payload flags every item as an already-present duplicate, deselected by default', () => {
     const preview1 = previewCustomerEventsExport(projectId, eventsFixture);
     applyCustomerEventsExport(projectId, eventsFixture, preview1.payload_hash, preview1.items.map((i) => i.id), 'Jan');
 
@@ -145,12 +170,21 @@ describe('applyCustomerEventsExport', () => {
       projectId,
       eventsFixture,
       preview2.payload_hash,
-      preview2.items.map((i) => i.id), // caller re-selects everything anyway
+      preview2.items.map((i) => i.id), // caller overrides the default and re-selects everything anyway
       'Jan'
     );
     // Every observation is a raw_hash duplicate *within this new run* too (same payload), so
     // `createObservation`'s per-run dedupe still creates them (dedupe is per qa_run_id) — the
     // preview's duplicate flag is informational (cross-run), selection is what actually gates apply.
     expect(result2.inserted).toBe(19);
+  });
+
+  it('400s NO_OBSERVATIONS_SELECTED when selected_item_ids is empty (LOW 7 fix)', () => {
+    const preview = previewCustomerEventsExport(projectId, eventsFixture);
+    expect(() => applyCustomerEventsExport(projectId, eventsFixture, preview.payload_hash, [], 'Jan')).toThrow(
+      NoObservationsSelectedError
+    );
+    // No QA run should have been created for the rejected apply.
+    expect(QaRunDAL.listQaRuns(projectId)).toHaveLength(0);
   });
 });

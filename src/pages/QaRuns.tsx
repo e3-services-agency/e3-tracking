@@ -44,12 +44,24 @@ export function QaRuns() {
   const [runs, setRuns] = useState<QaRunRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!hasValidProjectContext || !activeProjectId) return;
-    const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/qa-runs`);
-    const data = await parseJson(res);
-    if (res.ok) setRuns(Array.isArray(data) ? data : []);
+    setError(null);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/qa-runs`);
+      const data = await parseJson(res);
+      if (!res.ok) {
+        setError(typeof data?.error === 'string' ? data.error : 'Failed to load QA runs.');
+        setRuns([]);
+        return;
+      }
+      setRuns(Array.isArray(data) ? data : []);
+    } catch {
+      setError('Failed to load QA runs.');
+      setRuns([]);
+    }
   }, [hasValidProjectContext, activeProjectId]);
 
   useEffect(() => {
@@ -69,7 +81,10 @@ export function QaRuns() {
         </p>
       </div>
 
-      <div className="p-8 flex-1 overflow-y-auto">
+      <div className="p-8 flex-1 overflow-y-auto space-y-4">
+        {error && (
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
+        )}
         <div className="bg-white rounded-lg border shadow-sm">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
@@ -142,19 +157,28 @@ function QaRunDetail({
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [comparisonResult, setComparisonResult] = useState<{ open: Record<string, number> } | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const setRequestedTab = useStore((s) => s.setRequestedTab);
   const setPendingFindingsRunId = useStore((s) => s.setPendingFindingsRunId);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/qa-runs/${runId}`);
-    const data = await parseJson(res);
-    if (res.ok) {
+    setError(null);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/qa-runs/${runId}`);
+      const data = await parseJson(res);
+      if (!res.ok) {
+        setError(typeof data?.error === 'string' ? data.error : 'Failed to load this QA run.');
+        return;
+      }
       setRun(data);
       setObservations(Array.isArray(data.observations) ? data.observations : []);
       setNotes(data.notes ?? '');
+    } catch {
+      setError('Failed to load this QA run.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [projectId, runId]);
 
   useEffect(() => {
@@ -164,6 +188,7 @@ function QaRunDetail({
   const toggleArchive = async () => {
     if (!run) return;
     setBusy(true);
+    setError(null);
     try {
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/qa-runs/${runId}`, {
         method: 'PATCH',
@@ -172,7 +197,12 @@ function QaRunDetail({
       if (res.ok) {
         await load();
         await onChanged();
+      } else {
+        const data = await parseJson(res);
+        setError(typeof data?.error === 'string' ? data.error : 'Failed to update this QA run.');
       }
+    } catch {
+      setError('Failed to update this QA run.');
     } finally {
       setBusy(false);
     }
@@ -180,6 +210,7 @@ function QaRunDetail({
 
   const finish = async () => {
     setBusy(true);
+    setError(null);
     try {
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/qa-runs/${runId}/finish`, {
         method: 'POST',
@@ -188,7 +219,12 @@ function QaRunDetail({
       if (res.ok) {
         await load();
         await onChanged();
+      } else {
+        const data = await parseJson(res);
+        setError(typeof data?.error === 'string' ? data.error : 'Failed to finish this QA run.');
       }
+    } catch {
+      setError('Failed to finish this QA run.');
     } finally {
       setBusy(false);
     }
@@ -197,10 +233,17 @@ function QaRunDetail({
   const runComparison = async () => {
     setBusy(true);
     setComparisonResult(null);
+    setError(null);
     try {
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/comparison/run`, { method: 'POST' });
       const data = await parseJson(res);
-      if (res.ok) setComparisonResult(data);
+      if (res.ok) {
+        setComparisonResult(data);
+      } else {
+        setError(typeof data?.error === 'string' ? data.error : 'Comparison run failed.');
+      }
+    } catch {
+      setError('Comparison run failed.');
     } finally {
       setBusy(false);
     }
@@ -211,10 +254,16 @@ function QaRunDetail({
     setRequestedTab('findings');
   };
 
+  if (!loading && !run && error) {
+    return <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 m-4">{error}</div>;
+  }
   if (loading || !run) return <div className="text-sm text-gray-500 p-4">Loading…</div>;
 
   return (
     <div className="space-y-5">
+      {error && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
+      )}
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div>
           <div className="text-gray-500">Kind</div>

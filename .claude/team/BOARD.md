@@ -504,3 +504,9 @@ No failures. Minor non-blocking observation: one DELETE .../catalogs/<id> reques
 
 ### 2026-09-24 20:03 | supervisor -> ALL | INFO | T-1-04 T-1-06 T-1-CP
 T-1-06 merged (3b02f33) and T-1-04 merged into agent-setup; one conflict in enums.test.ts resolved by keeping both sides. Merged tree: 15 test files, 177 tests passed, tsc 0 errors. Main tree node_modules .bin shims had been wiped by a worktree cleanup and were restored with npm install; .claude/worktrees is now gitignored. Low findings carried: ProjectSettings sends expiration with enabled false and count 0 (validator rejects), derived metrics half rows silently dropped, docs tables for identity and consent unstyled, three local enum validators to fold into validators.ts, effectiveEventSchema.ts dead until T-1-05. Checkpoint T-1-CP report goes to the user now; no new task starts until acknowledged.
+
+### 2026-09-24 20:32 | user -> ALL | DECISION | T-1-CP
+Checkpoint acknowledged by the user. Continue with T-1-05 and T-1-10.
+
+### 2026-09-24 20:32 | supervisor -> ALL | INFO | T-1-05 T-1-10
+Starting T-1-05 (implementer, worktree) and T-1-10 (docs-writer, worktree) from agent-setup 638d3e2.

@@ -19,6 +19,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-1-08 | 1 | Shared diff primitives; data mapping and expiration settings import with diff and export | implementer | T-1-05, T-1-06 | DONE | plan + delta |
 | T-1-09 | 1 | QaRun, Observation, Finding; customer events export import; definition-vs-observations comparison | implementer | T-1-08 | DONE | plan + delta |
 | T-1-10 | 1 | CLAUDE.md code-derived sections, .env.example, docs/QA-LOCAL.md | docs-writer | T-1-03 | DONE | plan + delta |
+| T-1-EXIT | 1 | Phase 1 exit: full qa-roundtrip on merged agent-setup, docs refresh, post-merge fixes, report to user | supervisor | T-1-09 | IN_PROGRESS | see below |
 
 Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktrees after T-1-02 merges. Everything else is sequential per the dependency column.
 
@@ -75,6 +76,16 @@ Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktree
 ### T-1-09 delta
 - Known system event types from `bloomreach.ts` do not raise `unexpected_event` (D-25 Q5). `missing_event` severity depends on run kind (agent session error, export paste warning). Rounding tolerance 0.01 on `money` properties.
 - Correction to the plan's engine test: on the fixture, `unexpected_event` fires only for `paper_catalogue` and `loyalty_update`; `campaign`, `survey`, `support_ticket`, `managed_endpoint` are suppressed as known system types.
+
+### T-1-EXIT
+- qa-tester runs qa-roundtrip scenarios 1 to 7 on agent-setup from the main tree (scenario 6 CSV deferred to phase 3; scenario 7 as resolve and reopen of a type mismatch until certification display lands in phase 2). First run 2026-09-25 01:27: all round trips PASS, FAIL on two post-merge display bugs (Standard events mapped columns show dashes; QA runs page shows empty state) plus an unreproduced cold-boot burst of 500s. Fix branch `task/T-1-EXIT-fixes` off agent-setup, then re-sweep, then report.
+
+### Phase 2 carry-over notes (from phase 1 reviews, none blocking)
+- findings.qa_run_id ON DELETE CASCADE should become SET NULL before a DELETE /qa-runs route exists (T-1-09 LOW B).
+- Recompute re-resolves every observation with per-observation DAL reads (N+1); batch it when phase 2 adds comparisons 1 and 2.
+- Run-filtered findings omit rows whose newest producing observation is in another run (non-sticky pointer semantics, documented).
+- Import planner plan-time discriminator checks miss three cases that apply rejects cleanly; expiration variant create swallows ConflictError; blocked promotion leaves the add-allowed-value item.
+- Template rows never resolved are labelled (removed) not (unresolved); no UI field for use case code; ProjectSettings disabled expiration with count 0; unstyled identity and consent docs tables; three local enum validators to fold into validators.ts; colour lint fails on a pre-existing file; Properties list re-sorts on save while the editor is open.
 
 ### T-1-10 delta
 - `docs/QA-LOCAL.md` names the launch entry `e3-tracking` from `.claude/launch.json` (D-25 Q9) and documents `E3_LOCAL_USER_NAME`, `E3_DB_PATH`, `E3_PROJECT_KEY`.

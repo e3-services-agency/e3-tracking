@@ -9,6 +9,7 @@ import { newId, nowIso, mapWriteError } from '../db/util';
 import { BadRequestError, NotFoundError, ValidationError } from '../errors';
 import { isKnownConsentKey } from '../../domain/bloomreach';
 import { getProjectById } from './project.dal';
+import { ENTITY_STATUSES } from '../../domain/enums';
 
 export interface ConsentCategoryRow {
   id: string;
@@ -50,16 +51,29 @@ export function getConsentCategoryOrThrow(projectId: string, id: string): Consen
   return row;
 }
 
-/** Validates `standard_key` against the seed list plus this project's additions (D-26). */
+/**
+ * Validates `standard_key` against the seed list plus this project's additions (D-26). LOW 5
+ * (reviewer T-1-06 pass): trims before validating so `" newsletter "` is treated the same as
+ * `"newsletter"` instead of being rejected as unknown; callers still trim again before storing.
+ */
 function validateStandardKey(projectId: string, standardKey: string | null | undefined): void {
-  if (!standardKey) return;
+  const trimmed = standardKey?.trim();
+  if (!trimmed) return;
   const project = getProjectById(projectId);
   const additions = (project?.consent_key_additions_json as string[] | null) ?? [];
-  if (!isKnownConsentKey(standardKey, additions)) {
+  if (!isKnownConsentKey(trimmed, additions)) {
     throw new ValidationError(
-      `standard_key "${standardKey}" is not a known standard consent key or project addition.`,
+      `standard_key "${trimmed}" is not a known standard consent key or project addition.`,
       'standard_key'
     );
+  }
+}
+
+/** LOW 3 (reviewer T-1-06 pass): `status` must come from `enums.ts`, never be free text. */
+function validateStatus(status: string | null | undefined): void {
+  if (status === null || status === undefined) return;
+  if (!ENTITY_STATUSES.includes(status as (typeof ENTITY_STATUSES)[number])) {
+    throw new ValidationError(`status must be one of ${ENTITY_STATUSES.join(', ')} or null.`, 'status');
   }
 }
 
@@ -70,6 +84,7 @@ export function createConsentCategory(
   const name = input.name.trim();
   if (!name) throw new ValidationError('Consent category name is required.', 'name');
   validateStandardKey(projectId, input.standard_key);
+  validateStatus(input.status);
 
   const db = getDb();
   const id = newId();
@@ -116,6 +131,7 @@ export function updateConsentCategory(
     throw new ValidationError('Consent category name is required.', 'name');
   }
   if (updates.standard_key !== undefined) validateStandardKey(projectId, updates.standard_key);
+  if (updates.status !== undefined) validateStatus(updates.status);
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (updates.name !== undefined) patch.name = updates.name.trim();

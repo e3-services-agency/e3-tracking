@@ -6,6 +6,7 @@ import { getDb } from '../db';
 import { newId, nowIso, fromSqliteBool, toSqliteBool, mapWriteError } from '../db/util';
 import { NotFoundError, ValidationError } from '../errors';
 import { CATALOG_MAPPING_ROLES } from '../../domain/enums';
+import { CATALOG_MAIN_COLUMNS } from '../../domain/bloomreach';
 
 /** `mapping_role` (T-1-06 delta): `null` clears the role; any other value must be a known one. */
 function validateMappingRole(mappingRole: string | null | undefined): void {
@@ -36,6 +37,24 @@ export interface CatalogRow {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+}
+
+/**
+ * LOW 4 (reviewer T-1-06 pass): `bloomreach_column` must be one of the `main_columns` slots from
+ * the Bloomreach fixture (`CATALOG_MAIN_COLUMNS`, `src/domain/bloomreach.ts`). Unlike
+ * `standard_key`/`consent_key_additions_json`, there is no project-level "additions" column for
+ * catalog main columns yet, so this only checks the fixed seed list; a project needing a
+ * non-standard column has no way to add it today (noted here, not fixed — out of scope for this
+ * integration round).
+ */
+function validateBloomreachColumn(column: string | null | undefined): void {
+  if (column === null || column === undefined || column === '') return;
+  if (!CATALOG_MAIN_COLUMNS.includes(column)) {
+    throw new ValidationError(
+      `bloomreach_column must be one of ${CATALOG_MAIN_COLUMNS.join(', ')} or null.`,
+      'bloomreach_column'
+    );
+  }
 }
 
 export interface CatalogFieldRow {
@@ -233,6 +252,7 @@ export function createCatalogField(
   getCatalogOrThrow(projectId, catalogId);
   const name = input.name.trim();
   if (!name) throw new ValidationError('Catalog field name is required.', 'name');
+  validateBloomreachColumn(input.bloomreach_column);
   const id = newId();
   const now = nowIso();
   try {
@@ -290,6 +310,7 @@ export function updateCatalogField(
   if (input.name !== undefined && !input.name.trim()) {
     throw new ValidationError('Catalog field name is required.', 'name');
   }
+  if (input.bloomreach_column !== undefined) validateBloomreachColumn(input.bloomreach_column);
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (input.name !== undefined) patch.name = input.name.trim();
   if (input.description !== undefined) patch.description = input.description?.trim() || null;

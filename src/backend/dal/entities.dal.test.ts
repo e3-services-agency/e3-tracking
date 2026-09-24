@@ -7,6 +7,7 @@ import * as PropertyDAL from './property.dal';
 import * as EventDAL from './event.dal';
 import * as CatalogDAL from './catalog.dal';
 import * as BundleDAL from './bundle.dal';
+import * as IdentityRuleDAL from './identity-rule.dal';
 import { BadRequestError, ConflictError, NotFoundError, ValidationError } from '../errors';
 
 let projectId: string;
@@ -42,6 +43,21 @@ describe('source.dal', () => {
     expect(() => SourceDAL.updateSource(projectId, source.id, { name: '   ' })).toThrow(ValidationError);
     // Unchanged: the blank-name attempt never wrote an empty name.
     expect(SourceDAL.getSourceOrThrow(projectId, source.id).name).toBe('Website');
+  });
+
+  it('counts identity_rules.source_id in getSourceUsage (LOW 7, T-1-06 integration fix)', () => {
+    const source = SourceDAL.createSource(projectId, { name: 'Website' });
+    expect(SourceDAL.getSourceUsage(projectId)[0].identity_rule_count).toBe(0);
+
+    IdentityRuleDAL.createIdentityRule(projectId, {
+      bloomreach_field: 'registered',
+      identity_type: 'hard',
+      name: 'Registration email',
+      source_id: source.id,
+    });
+
+    const usage = SourceDAL.getSourceUsage(projectId).find((u) => u.source_id === source.id);
+    expect(usage?.identity_rule_count).toBe(1);
   });
 });
 
@@ -322,5 +338,24 @@ describe('catalog.dal', () => {
     expect(() =>
       CatalogDAL.updateCatalogField(projectId, catalog.id, other.id, { name: 'sku' })
     ).toThrow(ConflictError);
+  });
+
+  it('validates bloomreach_column against the CATALOG_MAIN_COLUMNS seed (LOW 4, T-1-06 integration fix)', () => {
+    const catalog = CatalogDAL.createCatalog(projectId, { name: 'Products' });
+    expect(() =>
+      CatalogDAL.createCatalogField(projectId, catalog.id, { name: 'sku', bloomreach_column: 'not_a_column' })
+    ).toThrow(ValidationError);
+    const field = CatalogDAL.createCatalogField(projectId, catalog.id, {
+      name: 'sku',
+      bloomreach_column: 'item_id',
+    });
+    expect(field.bloomreach_column).toBe('item_id');
+    expect(() =>
+      CatalogDAL.updateCatalogField(projectId, catalog.id, field.id, { bloomreach_column: 'not_a_column' })
+    ).toThrow(ValidationError);
+    // null clears the mapping and is always valid.
+    expect(
+      CatalogDAL.updateCatalogField(projectId, catalog.id, field.id, { bloomreach_column: null }).bloomreach_column
+    ).toBeNull();
   });
 });

@@ -7,7 +7,7 @@
 import { getDb } from '../db';
 import { newId, nowIso, mapWriteError } from '../db/util';
 import { BadRequestError, NotFoundError, ValidationError } from '../errors';
-import { IDENTITY_TYPES } from '../../domain/enums';
+import { IDENTITY_TYPES, PRIORITIES, ENTITY_STATUSES } from '../../domain/enums';
 
 export interface IdentityRuleRow {
   id: string;
@@ -78,6 +78,21 @@ function validateIdentityType(identityType: string): void {
   }
 }
 
+/** LOW 3 (reviewer T-1-06 pass): `priority`/`status` must come from `enums.ts`, never be free text. */
+function validatePriority(priority: string | null | undefined): void {
+  if (priority === null || priority === undefined) return;
+  if (!PRIORITIES.includes(priority as (typeof PRIORITIES)[number])) {
+    throw new ValidationError(`priority must be one of ${PRIORITIES.join(', ')} or null.`, 'priority');
+  }
+}
+
+function validateStatus(status: string | null | undefined): void {
+  if (status === null || status === undefined) return;
+  if (!ENTITY_STATUSES.includes(status as (typeof ENTITY_STATUSES)[number])) {
+    throw new ValidationError(`status must be one of ${ENTITY_STATUSES.join(', ')} or null.`, 'status');
+  }
+}
+
 /** Cross-project reference guards: `trigger_event_id` and `source_id` must belong to this project. */
 function assertEventInProject(projectId: string, eventId: string | null | undefined): void {
   if (!eventId) return;
@@ -101,6 +116,8 @@ export function createIdentityRule(projectId: string, input: IdentityRuleInput):
     throw new ValidationError('Bloomreach field is required.', 'bloomreach_field');
   }
   validateIdentityType(input.identity_type);
+  validatePriority(input.priority);
+  validateStatus(input.status);
   assertEventInProject(projectId, input.trigger_event_id);
   assertSourceInProject(projectId, input.source_id);
 
@@ -153,7 +170,7 @@ export function updateIdentityRule(
   id: string,
   updates: Partial<IdentityRuleInput>
 ): IdentityRuleRow {
-  getIdentityRuleOrThrow(projectId, id);
+  const existing = getIdentityRuleOrThrow(projectId, id);
   if (updates.name !== undefined && !updates.name.trim()) {
     throw new ValidationError('Identity rule name is required.', 'name');
   }
@@ -161,8 +178,16 @@ export function updateIdentityRule(
     throw new ValidationError('Bloomreach field is required.', 'bloomreach_field');
   }
   if (updates.identity_type !== undefined) validateIdentityType(updates.identity_type);
-  if (updates.trigger_event_id !== undefined) assertEventInProject(projectId, updates.trigger_event_id);
+  // Defensive (T-1-06 integration fix): deleteEvent now nulls out trigger_event_id for rules that
+  // point at the event it removes, so a stale reference should no longer occur; but skip
+  // re-validating an unchanged value regardless, so a save that doesn't touch trigger_event_id
+  // never fails just because the referenced event became soft-deleted through some other path.
+  if (updates.trigger_event_id !== undefined && updates.trigger_event_id !== existing.trigger_event_id) {
+    assertEventInProject(projectId, updates.trigger_event_id);
+  }
   if (updates.source_id !== undefined) assertSourceInProject(projectId, updates.source_id);
+  if (updates.priority !== undefined) validatePriority(updates.priority);
+  if (updates.status !== undefined) validateStatus(updates.status);
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (updates.bloomreach_field !== undefined) patch.bloomreach_field = updates.bloomreach_field.trim();

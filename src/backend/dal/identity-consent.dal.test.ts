@@ -129,6 +129,91 @@ describe('identity-rule.dal', () => {
     expect(reloaded.trigger_event_id).toBeNull();
     expect(reloaded.source_id).toBeNull();
   });
+
+  it('nulls trigger_event_id when the event is soft-deleted (T-1-06 integration fix, reviewer WARNING)', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'account_created' });
+    const rule = IdentityRuleDAL.createIdentityRule(projectId, {
+      bloomreach_field: 'registered',
+      identity_type: 'hard',
+      name: 'Registration email',
+      trigger_event_id: event.id,
+    });
+    expect(rule.trigger_event_id).toBe(event.id);
+
+    EventDAL.deleteEvent(projectId, event.id); // soft delete (sets deleted_at), not a hard DELETE
+
+    const reloaded = IdentityRuleDAL.getIdentityRuleOrThrow(projectId, rule.id);
+    expect(reloaded.trigger_event_id).toBeNull();
+
+    // The stale-reference guard is now moot in the normal flow, but the defensive fallback still
+    // lets a save that doesn't touch trigger_event_id go through even if it were still stale.
+    const updated = IdentityRuleDAL.updateIdentityRule(projectId, rule.id, { owner: 'Jane' });
+    expect(updated.owner).toBe('Jane');
+  });
+
+  it('does not re-validate an unchanged trigger_event_id even if it pointed at a since soft-deleted event (defensive)', () => {
+    const db = getDb();
+    const event = EventDAL.createEvent(projectId, { name: 'account_created' });
+    const rule = IdentityRuleDAL.createIdentityRule(projectId, {
+      bloomreach_field: 'registered',
+      identity_type: 'hard',
+      name: 'Registration email',
+      trigger_event_id: event.id,
+    });
+    // Simulate a stale reference slipping through some other path: soft-delete the event directly
+    // without going through EventDAL.deleteEvent, so trigger_event_id is left pointing at it.
+    db.prepare('UPDATE events SET deleted_at = ? WHERE id = ?').run(new Date().toISOString(), event.id);
+
+    // A PATCH that repeats the same trigger_event_id (unchanged) must not fail even though the
+    // event is now soft-deleted.
+    const updated = IdentityRuleDAL.updateIdentityRule(projectId, rule.id, {
+      trigger_event_id: event.id,
+      owner: 'Jane',
+    });
+    expect(updated.owner).toBe('Jane');
+    expect(updated.trigger_event_id).toBe(event.id);
+
+    // But changing it to a *different* soft-deleted (or otherwise invalid) event still fails.
+    const other = EventDAL.createEvent(projectId, { name: 'other_event' });
+    db.prepare('UPDATE events SET deleted_at = ? WHERE id = ?').run(new Date().toISOString(), other.id);
+    expect(() =>
+      IdentityRuleDAL.updateIdentityRule(projectId, rule.id, { trigger_event_id: other.id })
+    ).toThrow(BadRequestError);
+  });
+
+  it('validates priority and status against enums.ts (LOW 3)', () => {
+    expect(() =>
+      IdentityRuleDAL.createIdentityRule(projectId, {
+        bloomreach_field: 'registered',
+        identity_type: 'hard',
+        name: 'Rule',
+        priority: 'urgent',
+      })
+    ).toThrow(ValidationError);
+    expect(() =>
+      IdentityRuleDAL.createIdentityRule(projectId, {
+        bloomreach_field: 'registered',
+        identity_type: 'hard',
+        name: 'Rule',
+        status: 'done',
+      })
+    ).toThrow(ValidationError);
+    const rule = IdentityRuleDAL.createIdentityRule(projectId, {
+      bloomreach_field: 'registered',
+      identity_type: 'hard',
+      name: 'Rule',
+      priority: 'high',
+      status: 'planned',
+    });
+    expect(rule.priority).toBe('high');
+    expect(rule.status).toBe('planned');
+    expect(() => IdentityRuleDAL.updateIdentityRule(projectId, rule.id, { priority: 'urgent' })).toThrow(
+      ValidationError
+    );
+    expect(() => IdentityRuleDAL.updateIdentityRule(projectId, rule.id, { status: 'done' })).toThrow(
+      ValidationError
+    );
+  });
 });
 
 describe('consent-category.dal', () => {
@@ -171,6 +256,28 @@ describe('consent-category.dal', () => {
     // Still rejects a key that is neither the seed nor this project's additions.
     expect(() =>
       ConsentCategoryDAL.createConsentCategory(projectId, { name: 'other', standard_key: 'other_project_key' })
+    ).toThrow(ValidationError);
+  });
+
+  it('trims standard_key before validating (LOW 5)', () => {
+    const category = ConsentCategoryDAL.createConsentCategory(projectId, {
+      name: 'brand_consent',
+      standard_key: '  newsletter  ',
+    });
+    expect(category.standard_key).toBe('newsletter');
+  });
+
+  it('validates status against enums.ts (LOW 3)', () => {
+    expect(() =>
+      ConsentCategoryDAL.createConsentCategory(projectId, { name: 'brand_consent', status: 'done' })
+    ).toThrow(ValidationError);
+    const category = ConsentCategoryDAL.createConsentCategory(projectId, {
+      name: 'brand_consent',
+      status: 'planned',
+    });
+    expect(category.status).toBe('planned');
+    expect(() =>
+      ConsentCategoryDAL.updateConsentCategory(projectId, category.id, { status: 'done' })
     ).toThrow(ValidationError);
   });
 

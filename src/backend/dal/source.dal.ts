@@ -18,6 +18,7 @@ export interface SourceUsageRow {
   source_id: string;
   property_count: number;
   event_count: number;
+  identity_rule_count: number;
 }
 
 export function listSources(projectId: string): SourceRow[] {
@@ -108,7 +109,11 @@ export function deleteSource(projectId: string, id: string): void {
   getDb().prepare('DELETE FROM sources WHERE id = ? AND project_id = ?').run(id, projectId);
 }
 
-/** Usage counts per source from `event_sources` and `event_properties.source_id`. */
+/**
+ * Usage counts per source from `event_sources`, `event_properties.source_id` and (LOW 7, reviewer
+ * T-1-06 pass) `identity_rules.source_id`, so deleting a source that an identity rule still points
+ * at (silently SET NULL by the schema) is visible before the user confirms the delete.
+ */
 export function getSourceUsage(projectId: string): SourceUsageRow[] {
   const db = getDb();
   const sourceIds = (
@@ -142,9 +147,22 @@ export function getSourceUsage(projectId: string): SourceUsageRow[] {
     propertyCounts.set(row.source_id, row.n);
   }
 
+  const identityRuleCounts = new Map<string, number>();
+  for (const row of db
+    .prepare(
+      `SELECT source_id, COUNT(*) as n
+       FROM identity_rules
+       WHERE project_id = ? AND source_id IS NOT NULL
+       GROUP BY source_id`
+    )
+    .all(projectId) as { source_id: string; n: number }[]) {
+    identityRuleCounts.set(row.source_id, row.n);
+  }
+
   return sourceIds.map((source_id) => ({
     source_id,
     property_count: propertyCounts.get(source_id) ?? 0,
     event_count: eventCounts.get(source_id) ?? 0,
+    identity_rule_count: identityRuleCounts.get(source_id) ?? 0,
   }));
 }

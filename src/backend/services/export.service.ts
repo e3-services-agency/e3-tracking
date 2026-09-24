@@ -27,13 +27,19 @@ import type { CodegenEventNameOverrides } from '../../types/schema';
 import { listIdentityRules } from '../dal/identity-rule.dal';
 import { listConsentCategories } from '../dal/consent-category.dal';
 import { listSources } from '../dal/source.dal';
+import { listUseCases } from '../dal/use-case.dal';
+import { listRequirements } from '../dal/requirement.dal';
+import { computeRequirementsMatrix, buildTargetLabelResolver } from './requirements-matrix.service';
 import {
   renderIdentityRulesSection,
   renderConsentCategoriesSection,
   renderVariantsSubsection,
   renderStandardEventMappingsSection,
+  renderUseCasesSection,
+  renderRequirementsMatrixSection,
   type VariantForDocs,
   type StandardEventMappingForDocs,
+  type UseCaseForDocs,
 } from './docs/sections';
 import { escapeHtml } from './htmlEscape';
 
@@ -297,6 +303,36 @@ function buildIdentityAndConsentSectionsHtml(projectId: string): string {
 }
 
 /**
+ * Renders the "Use cases" section: every non-deleted use case with its ordered requirements
+ * resolved to display names (T-1-07 acceptance: "Docs export includes use cases with their ordered
+ * requirements"), via the same `buildTargetLabelResolver` the requirements matrix uses.
+ */
+function buildUseCasesSectionHtml(projectId: string): string {
+  const useCases = listUseCases(projectId);
+  const labelFor = buildTargetLabelResolver(projectId);
+  const useCasesForDocs: UseCaseForDocs[] = useCases.map((useCase) => {
+    const requirements = listRequirements(projectId, useCase.id);
+    return {
+      code: useCase.code,
+      name: useCase.name,
+      type: useCase.type,
+      priority: useCase.priority,
+      status: useCase.status,
+      owner: useCase.owner,
+      description: useCase.description,
+      narrative: useCase.narrative,
+      requirements: requirements.map((req) => ({
+        target_label: labelFor(req),
+        level: req.level,
+        status: req.status,
+        note: req.note,
+      })),
+    };
+  });
+  return renderUseCasesSection(useCasesForDocs);
+}
+
+/**
  * Renders every non-deleted event of the project, plus the identity rules and consent categories
  * sections, into one self-contained HTML document.
  */
@@ -323,6 +359,8 @@ export async function generateProjectDocumentationHtml(projectId: string): Promi
   );
 
   const identityAndConsentHtml = buildIdentityAndConsentSectionsHtml(projectId);
+  const useCasesHtml = buildUseCasesSectionHtml(projectId);
+  const requirementsMatrixHtml = renderRequirementsMatrixSection(computeRequirementsMatrix(projectId));
 
   const propertyNameByEventAndId = new Map<string, string>();
   for (const event of events) {
@@ -365,6 +403,8 @@ export async function generateProjectDocumentationHtml(projectId: string): Promi
   ${sections.join('\n')}
   ${identityAndConsentHtml}
   ${standardEventMappingsHtml}
+  ${useCasesHtml}
+  ${requirementsMatrixHtml}
 </body>
 </html>`;
 }

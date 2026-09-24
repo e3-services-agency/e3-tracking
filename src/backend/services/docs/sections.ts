@@ -56,6 +56,34 @@ export interface StandardEventMappingForDocs {
   field_map: Record<string, string | null>;
 }
 
+/** Minimal shape one requirement row needs for the use case's ordered requirement list (T-1-07). */
+export interface RequirementForDocs {
+  /** Already-resolved display label for the target, e.g. "purchase.total_price" or "checkout[status=success]". */
+  target_label: string;
+  level: string;
+  status?: string | null;
+  note?: string | null;
+}
+
+/** Minimal shape the "Use cases" section needs; requirements already in `sort_order` (T-1-07). */
+export interface UseCaseForDocs {
+  code?: string | null;
+  name: string;
+  type?: string | null;
+  priority?: string | null;
+  status?: string | null;
+  owner?: string | null;
+  description?: string | null;
+  narrative?: string | null;
+  requirements: RequirementForDocs[];
+}
+
+/** Minimal shape the computed requirements matrix section needs (T-1-07, CONTEXT.md 3.2). */
+export interface RequirementsMatrixForDocs {
+  use_cases: { id: string; code: string | null; name: string }[];
+  rows: { label: string; cells: Record<string, string | null> }[];
+}
+
 function cell(value: string | null | undefined): string {
   const text = value == null || value === '' ? '—' : value;
   return `<td>${escapeHtml(text)}</td>`;
@@ -197,6 +225,81 @@ export function renderStandardEventMappingsSection(mappings: StandardEventMappin
       <tbody>
         ${rows}
       </tbody>
+    </table>
+  </section>`;
+}
+
+/**
+ * Renders the "Use cases" documentation section (T-1-07 acceptance: "Docs export includes use
+ * cases with their ordered requirements"): one subsection per use case, its metadata, narrative,
+ * and an ordered table of its requirements resolved to display names.
+ */
+export function renderUseCasesSection(useCases: UseCaseForDocs[]): string {
+  if (useCases.length === 0) {
+    return '<section id="use-cases"><h2>Use cases</h2><p>No use cases defined.</p></section>';
+  }
+  const items = useCases
+    .map((useCase) => {
+      const rows = useCase.requirements
+        .map(
+          (req) => `<tr>
+            ${cell(req.target_label)}
+            ${cell(req.level)}
+            ${cell(req.status)}
+            ${cell(req.note)}
+          </tr>`
+        )
+        .join('\n');
+      const requirementsTable =
+        useCase.requirements.length === 0
+          ? '<p class="empty">No requirements defined.</p>'
+          : `<table>
+              <thead><tr><th>Target</th><th>Level</th><th>Status</th><th>Note</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>`;
+      return `<div class="use-case">
+        <h3>${escapeHtml(useCase.code ? `${useCase.code} — ${useCase.name}` : useCase.name)}</h3>
+        <dl class="use-case-meta">
+          ${useCase.type ? `<dt>Type</dt><dd>${escapeHtml(useCase.type)}</dd>` : ''}
+          ${useCase.priority ? `<dt>Priority</dt><dd>${escapeHtml(useCase.priority)}</dd>` : ''}
+          ${useCase.status ? `<dt>Status</dt><dd>${escapeHtml(useCase.status)}</dd>` : ''}
+          ${useCase.owner ? `<dt>Owner</dt><dd>${escapeHtml(useCase.owner)}</dd>` : ''}
+        </dl>
+        ${useCase.description ? `<p class="description">${escapeHtml(useCase.description)}</p>` : ''}
+        ${useCase.narrative ? `<p class="narrative">${escapeHtml(useCase.narrative)}</p>` : ''}
+        <h4>Requirements</h4>
+        ${requirementsTable}
+      </div>`;
+    })
+    .join('\n');
+  return `<section id="use-cases">
+    <h2>Use cases</h2>
+    ${items}
+  </section>`;
+}
+
+/**
+ * Renders the computed requirements matrix (CONTEXT.md 3.2: "computed, not authored"): rows =
+ * distinct requirement targets, columns = use cases, cell = level.
+ */
+export function renderRequirementsMatrixSection(matrix: RequirementsMatrixForDocs): string {
+  if (matrix.use_cases.length === 0 || matrix.rows.length === 0) {
+    return '<section id="requirements-matrix"><h2>Requirements matrix</h2><p>No requirements defined yet.</p></section>';
+  }
+  const header = matrix.use_cases
+    .map((uc) => `<th>${escapeHtml(uc.code ? `${uc.code} — ${uc.name}` : uc.name)}</th>`)
+    .join('');
+  const rows = matrix.rows
+    .map((row) => {
+      const cells = matrix.use_cases.map((uc) => cell(row.cells[uc.id] ?? null)).join('');
+      return `<tr>${cell(row.label)}${cells}</tr>`;
+    })
+    .join('\n');
+  return `<section id="requirements-matrix">
+    <h2>Requirements matrix</h2>
+    <table>
+      <thead><tr><th>Target</th>${header}</tr></thead>
+      <tbody>${rows}</tbody>
     </table>
   </section>`;
 }

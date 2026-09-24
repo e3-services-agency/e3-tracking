@@ -6,6 +6,7 @@
 import { Router, type Request, type Response } from 'express';
 import * as EventDAL from '../dal/event.dal';
 import * as VariantDAL from '../dal/variant.dal';
+import * as UseCaseDAL from '../dal/use-case.dal';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -148,6 +149,20 @@ router.delete('/:id/properties/:propertyId', (req: Request, res: Response) => {
   try {
     EventDAL.detachPropertyFromEvent(req.projectId!, req.params.id, req.params.propertyId);
     res.status(204).end();
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+/**
+ * Read-only: use cases in this project whose requirements reference the event directly or via one
+ * of its variants (T-1-07 acceptance: "event editor lists the use cases that reference the event or
+ * its variants (read-only)").
+ */
+router.get('/:id/use-cases', (req: Request, res: Response) => {
+  try {
+    EventDAL.getEventOrThrow(req.projectId!, req.params.id);
+    res.status(200).json(UseCaseDAL.listUseCasesReferencingEvent(req.projectId!, req.params.id));
   } catch (err) {
     handleRouteError(err, res);
   }

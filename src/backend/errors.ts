@@ -158,6 +158,33 @@ export class EnumInUseError extends BadRequestError {
   }
 }
 
+/**
+ * A `Requirement.target_kind` and its target id columns (`property_id`/`event_id`/`variant_id`)
+ * do not match the shape that kind requires, or a target id does not belong to this project, or
+ * (for `event_property`/`variant_property`) the property is not linked to the target's event
+ * (T-1-07). 400.
+ */
+export class RequirementTargetInvalidError extends BadRequestError {
+  readonly code = 'REQUIREMENT_TARGET_INVALID';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'RequirementTargetInvalidError';
+  }
+}
+
+/**
+ * Two rows in the same `PUT /use-cases/:id/requirements` list resolve to the same target
+ * (`target_kind` + non-null `property_id`/`event_id`/`variant_id`) — reviewer fix round LOW 6: the
+ * old behaviour silently accepted both and let the matrix cell show whichever insert ran last. 400.
+ */
+export class RequirementDuplicateTargetError extends BadRequestError {
+  readonly code = 'REQUIREMENT_DUPLICATE';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'RequirementDuplicateTargetError';
+  }
+}
+
 /** Use when a resource is not found or does not belong to the workspace (404). */
 export class NotFoundError extends Error {
   readonly code = 'NOT_FOUND';

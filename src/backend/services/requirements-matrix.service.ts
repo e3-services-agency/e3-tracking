@@ -1,0 +1,137 @@
+/**
+ * Computed requirements matrix (CONTEXT.md 3.2: "The requirements matrix is computed, not
+ * authored"; plan "Target data model" Requirement section: "rows = distinct targets, columns = use
+ * cases, cell = level"; T-1-07 acceptance capability 8). Rows are the distinct requirement targets
+ * across every non-deleted use case in the project (customer properties, events, variants, and
+ * event/variant property pairs); columns are the project's non-deleted use cases in `sort_order`;
+ * a cell is the `level` (`R`/`O`) when that use case has a requirement on that target, else null.
+ */
+import { listUseCases, type UseCaseRow } from '../dal/use-case.dal';
+import { listRequirementsByProject, TARGET_SHAPES } from '../dal/requirement.dal';
+import { listEvents } from '../dal/event.dal';
+import { listProperties } from '../dal/property.dal';
+import { listVariantsByProject } from '../dal/variant.dal';
+
+export interface RequirementsMatrixUseCase {
+  id: string;
+  code: string | null;
+  name: string;
+}
+
+export interface RequirementsMatrixRow {
+  target_kind: string;
+  property_id: string | null;
+  event_id: string | null;
+  variant_id: string | null;
+  /** Human-readable label for the row, e.g. "purchase.total_price" or "cart_update[action=add]". */
+  label: string;
+  /** Keyed by use case id; `null` when that use case has no requirement on this target. */
+  cells: Record<string, string | null>;
+}
+
+export interface RequirementsMatrix {
+  use_cases: RequirementsMatrixUseCase[];
+  rows: RequirementsMatrixRow[];
+}
+
+function rowKey(target: { target_kind: string; property_id: string | null; event_id: string | null; variant_id: string | null }): string {
+  return `${target.target_kind}:${target.property_id ?? ''}:${target.event_id ?? ''}:${target.variant_id ?? ''}`;
+}
+
+export type TargetLabelResolver = (target: {
+  target_kind: string;
+  property_id: string | null;
+  event_id: string | null;
+  variant_id: string | null;
+}) => string;
+
+/**
+ * Builds a `(target) => label` resolver for the project (event/property/variant names, joined for
+ * the two `..._property` kinds), reused by both the matrix computation below and the "Use cases"
+ * docs section (`export.service.ts`), so the two never drift on how a target is displayed.
+ */
+export function buildTargetLabelResolver(projectId: string): TargetLabelResolver {
+  const eventNameById = new Map(listEvents(projectId).map((e) => [e.id, e.name]));
+  const propertyNameById = new Map(listProperties(projectId).map((p) => [p.id, p.name]));
+  const variantNameById = new Map(listVariantsByProject(projectId).map((v) => [v.id, v.name]));
+
+  // Fix round ERROR 2: once a target is deleted, its id column is nulled (see
+  // `requirement.dal.ts` `markRequirementsGap*`) — a `null` id must render as "(removed)", not a
+  // raw uuid (the previous fallback `... ?? row.property_id ?? ''` only handled a *resolved* id
+  // whose name lookup missed, and printed the empty string / the id itself for a null one).
+  const labelPart = (map: Map<string, string>, id: string | null): string => {
+    if (!id) return '(removed)';
+    return map.get(id) ?? id;
+  };
+
+  return (row) => {
+    switch (row.target_kind) {
+      case 'customer_property':
+        return labelPart(propertyNameById, row.property_id);
+      case 'event':
+        return labelPart(eventNameById, row.event_id);
+      case 'variant':
+        return labelPart(variantNameById, row.variant_id);
+      case 'event_property':
+        return `${labelPart(eventNameById, row.event_id)}.${labelPart(propertyNameById, row.property_id)}`;
+      case 'variant_property':
+        return `${labelPart(variantNameById, row.variant_id)}.${labelPart(propertyNameById, row.property_id)}`;
+      default:
+        return '';
+    }
+  };
+}
+
+export function computeRequirementsMatrix(projectId: string): RequirementsMatrix {
+  const useCases: UseCaseRow[] = listUseCases(projectId);
+  const requirements = listRequirementsByProject(projectId);
+  const labelFor = buildTargetLabelResolver(projectId);
+
+  const rowsByKey = new Map<string, RequirementsMatrixRow>();
+  for (const req of requirements) {
+    const target = {
+      target_kind: req.target_kind,
+      property_id: req.property_id,
+      event_id: req.event_id,
+      variant_id: req.variant_id,
+    };
+    // Second fix round ERROR A: a `gap` row that is still missing one of its `target_kind`'s
+    // required ids (e.g. an `event_property` detach nulls only `property_id`, `event_id` stays) is
+    // exempt from `replaceRequirements`' duplicate check for the same reason it must not collapse
+    // here either — grouping two such rows on `rowKey` (as an ordinary resolved row would) merged
+    // "two properties of the same event were removed" into one row whose cell showed only whichever
+    // requirement's `level` happened to be written last, silently dropping the other from the matrix
+    // and the docs export. Key every such row by its own requirement id instead, and disambiguate the
+    // label with the row's own note (the "target removed: <name>" `markRequirementsGap*` writes) or,
+    // failing that, its position in the use case's list.
+    const shape = TARGET_SHAPES[req.target_kind];
+    const isGapRemoved = req.status === 'gap' && (shape?.required ?? []).some((k) => !target[k]);
+    const key = isGapRemoved ? `gap:${req.id}` : rowKey(target);
+    let row = rowsByKey.get(key);
+    if (!row) {
+      // `labelFor` already renders the nulled part(s) as "(removed)" (base ERROR 2 fix); append the
+      // row's own note, or its position when there is none, so two such rows on the same event/variant
+      // read as distinct lines instead of silently merging.
+      const label = isGapRemoved
+        ? `${labelFor(target)}: ${req.note?.trim() || `requirement #${req.sort_order + 1}`}`
+        : labelFor(target);
+      row = { ...target, label, cells: {} };
+      rowsByKey.set(key, row);
+    }
+    row.cells[req.use_case_id] = req.level;
+  }
+
+  // Stable, readable ordering: by target_kind (matching REQUIREMENT_TARGET_KINDS declaration order
+  // via the fixed list below), then alphabetically by label.
+  const kindOrder = ['customer_property', 'event', 'event_property', 'variant', 'variant_property'];
+  const rows = Array.from(rowsByKey.values()).sort((a, b) => {
+    const kindDiff = kindOrder.indexOf(a.target_kind) - kindOrder.indexOf(b.target_kind);
+    if (kindDiff !== 0) return kindDiff;
+    return a.label.localeCompare(b.label);
+  });
+
+  return {
+    use_cases: useCases.map((uc) => ({ id: uc.id, code: uc.code, name: uc.name })),
+    rows,
+  };
+}

@@ -24,6 +24,9 @@ import identityRulesRouter from './routes/identity-rules';
 import consentCategoriesRouter from './routes/consent-categories';
 import standardEventMappingsRouter from './routes/standard-event-mappings';
 import projectVariantsRouter from './routes/project-variants';
+import useCaseTemplatesRouter from './routes/use-case-templates';
+import useCasesRouter from './routes/use-cases';
+import requirementsMatrixRouter from './routes/requirements-matrix';
 import { removedRouter } from './routes/removed';
 import { optionalAuth } from './middleware/auth';
 import { requireProject } from './middleware/project';
@@ -57,6 +60,8 @@ export function createApp(): express.Express {
 
   app.use('/api/clients', clientsRouter);
   app.use('/api/projects', projectsRouter);
+  // Global (not project-scoped), the library is shared across clients (D-06).
+  app.use('/api/use-case-templates', useCaseTemplatesRouter);
 
   // Project-scoped sub-routers (D-15): requireProject validates `:projectId` and sets req.projectId.
   app.use('/api/projects/:projectId/sources', requireProject, sourcesRouter);
@@ -70,6 +75,8 @@ export function createApp(): express.Express {
   app.use('/api/projects/:projectId/consent-categories', requireProject, consentCategoriesRouter);
   app.use('/api/projects/:projectId/standard-event-mappings', requireProject, standardEventMappingsRouter);
   app.use('/api/projects/:projectId/variants', requireProject, projectVariantsRouter);
+  app.use('/api/projects/:projectId/use-cases', requireProject, useCasesRouter);
+  app.use('/api/projects/:projectId/requirements-matrix', requireProject, requirementsMatrixRouter);
 
   // Public share-link mechanism (D-18): stub until phase 4 (see routes/shared.ts).
   app.use('/api/shared', sharedRouter);

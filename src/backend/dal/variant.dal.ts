@@ -23,6 +23,7 @@ import {
   type VariantCondition,
 } from '../../domain/variants';
 import { getEventOrThrow } from './event.dal';
+import { markRequirementsGapForVariantRemoval } from './requirement.dal';
 
 const MAX_DISCRIMINATOR_PROPERTIES = 2;
 
@@ -132,7 +133,7 @@ function getDiscriminatorPropertiesByEvent(eventId: string): Map<string, Discrim
  *
  * The returned `conditions` are canonicalized by `domain/variants.ts` `normalizeConditions`
  * (values de-duped and sorted, a one-value `in` collapsed to `equals`, conditions sorted by
- * property name) so `buildName`/`buildConditionsKey` always produce the same output regardless of
+ * `property_id`) so `buildName`/`buildConditionsKey` always produce the same output regardless of
  * the order the caller submitted conditions in — this is the actual ERROR 1 fix; the checks above
  * only reject malformed/contradictory input.
  */
@@ -203,9 +204,7 @@ function validateConditions(
     );
   }
 
-  const propertyNameById: Record<string, string> = {};
-  for (const [id, property] of discriminators) propertyNameById[id] = property.name;
-  const normalized = normalizeConditions(parsed, propertyNameById);
+  const normalized = normalizeConditions(parsed);
 
   return { conditions: normalized, discriminators, conditionsKey: buildConditionsKey(normalized) };
 }
@@ -294,12 +293,24 @@ export function updateVariant(
   return getVariantOrThrow(projectId, eventId, id);
 }
 
+/**
+ * T-1-07 fix round ERROR 2: a requirement targeting this variant (`variant`/`variant_property`)
+ * used to be left with a `variant_id` pointing at nothing after a hard delete, and
+ * `replaceRequirements` then rejected any later save of that row. Runs in the same transaction as
+ * the delete, marking those rows `status = 'gap'` with `variant_id` nulled and a "target removed:
+ * <name>" note (see `requirement.dal.ts` `markRequirementsGapForVariantRemoval`).
+ */
 export function deleteVariant(projectId: string, eventId: string, id: string): void {
-  getVariantOrThrow(projectId, eventId, id);
-  const result = getDb()
-    .prepare('DELETE FROM variants WHERE id = ? AND project_id = ? AND event_id = ?')
-    .run(id, projectId, eventId);
-  if (result.changes === 0) throw new NotFoundError('Variant not found.', 'variant');
+  const variant = getVariantOrThrow(projectId, eventId, id);
+  const db = getDb();
+  const run = db.transaction(() => {
+    markRequirementsGapForVariantRemoval(id, variant.name);
+    const result = db
+      .prepare('DELETE FROM variants WHERE id = ? AND project_id = ? AND event_id = ?')
+      .run(id, projectId, eventId);
+    if (result.changes === 0) throw new NotFoundError('Variant not found.', 'variant');
+  });
+  run();
 }
 
 /** Every variant of the project (all events), used by the docs export and the Standard events page. */

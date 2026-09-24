@@ -19,6 +19,7 @@ import { getPropertyById, type PropertyRow } from './property.dal';
 import { validateDerivedMetricsJson, validateExpirationJson, validateStringArray } from './validators';
 import { EVENT_PROPERTY_ROLES, EVENT_STATUSES, ENTITY_STATUSES, ORIGIN_TYPES, PRIORITIES } from '../../domain/enums';
 import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
+import { markRequirementsGapForDetach, markRequirementsGapForEventRemoval, markRequirementsGapForVariantRemoval } from './requirement.dal';
 
 const MAX_DISCRIMINATORS_PER_EVENT = 2;
 
@@ -425,27 +426,34 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
     .join(', ');
-  try {
-    db.prepare(`UPDATE events SET ${setClause} WHERE id = @id AND project_id = @project_id`).run({
-      ...patch,
-      id: eventId,
-      project_id: projectId,
-    });
-  } catch (err) {
-    mapWriteError(
-      err,
-      `An event named "${String(patch.name ?? '')}" already exists in this project.`,
-      `Failed to update event: ${(err as Error).message}`
-    );
-  }
 
-  if (input.source_ids !== undefined) {
-    replaceEventSources(projectId, eventId, input.source_ids ?? []);
-  }
+  // T-1-07 delta (carried from T-1-05 review): the rename and its variant-name/conditions
+  // regeneration must commit atomically, otherwise a crash between the two statements leaves
+  // variants displaying the old event name while `events.name` already changed.
+  const applyUpdate = db.transaction(() => {
+    try {
+      db.prepare(`UPDATE events SET ${setClause} WHERE id = @id AND project_id = @project_id`).run({
+        ...patch,
+        id: eventId,
+        project_id: projectId,
+      });
+    } catch (err) {
+      mapWriteError(
+        err,
+        `An event named "${String(patch.name ?? '')}" already exists in this project.`,
+        `Failed to update event: ${(err as Error).message}`
+      );
+    }
 
-  if (input.name !== undefined) {
-    regenerateVariantNamesForEvent(eventId, input.name.trim());
-  }
+    if (input.source_ids !== undefined) {
+      replaceEventSources(projectId, eventId, input.source_ids ?? []);
+    }
+
+    if (input.name !== undefined) {
+      regenerateVariantNamesForEvent(eventId, input.name.trim());
+    }
+  });
+  applyUpdate();
 
   return getEventOrThrow(projectId, eventId);
 }
@@ -499,7 +507,7 @@ function regenerateVariantNamesForEvent(eventId: string, eventName: string): voi
     'UPDATE variants SET name = ?, conditions_json = ?, conditions_key = ?, updated_at = ? WHERE id = ?'
   );
   for (const { id, conditions } of parsed) {
-    const normalized = normalizeConditions(conditions, propertyNameById);
+    const normalized = normalizeConditions(conditions);
     const name = generateVariantName(eventName, normalized, propertyNameById);
     const conditionsKey = buildConditionsKey(normalized);
     try {
@@ -524,9 +532,17 @@ function regenerateVariantNamesForEvent(eventId: string, eventName: string): voi
  * a ghost mapping pointing at an event that `listEvents`/the Standard events page/the docs export
  * no longer show, occupying the standard event key until manually overwritten, and orphaned
  * variants with no live event to belong to.
+ *
+ * T-1-07 fix round ERROR 2: before those variants are deleted (and before the event's own soft
+ * delete takes effect), every `requirements` row targeting this event directly (`target_kind =
+ * 'event'|'event_property'`) or via one of its variants (`'variant'|'variant_property'`) is marked
+ * `status = 'gap'` with its dangling id(s) nulled and a "target removed: <name>" note — see
+ * `requirement.dal.ts` `markRequirementsGap*`. Without this, `requirements.event_id`/`variant_id`
+ * kept pointing at rows that no longer resolve to anything the API would accept, freezing the whole
+ * use case's `PUT /requirements` until a human found and fixed every affected row by hand.
  */
 export function deleteEvent(projectId: string, eventId: string): void {
-  getEventOrThrow(projectId, eventId);
+  const event = getEventOrThrow(projectId, eventId);
   const now = nowIso();
   const db = getDb();
   const run = db.transaction(() => {
@@ -540,6 +556,15 @@ export function deleteEvent(projectId: string, eventId: string): void {
       'UPDATE identity_rules SET trigger_event_id = NULL, updated_at = ? WHERE trigger_event_id = ? AND project_id = ?'
     ).run(now, eventId, projectId);
     db.prepare('DELETE FROM standard_event_mappings WHERE event_id = ? AND project_id = ?').run(eventId, projectId);
+
+    markRequirementsGapForEventRemoval(eventId, event.name);
+    const variantRows = db
+      .prepare('SELECT id, name FROM variants WHERE event_id = ? AND project_id = ?')
+      .all(eventId, projectId) as { id: string; name: string }[];
+    for (const variant of variantRows) {
+      markRequirementsGapForVariantRemoval(variant.id, variant.name);
+    }
+
     db.prepare('DELETE FROM variants WHERE event_id = ? AND project_id = ?').run(eventId, projectId);
   });
   run();
@@ -736,16 +761,29 @@ export function updateEventProperty(
   return mapEventPropertyRow(row);
 }
 
+/**
+ * T-1-07 fix round ERROR 2: detaching a property that a requirement targets (`event_property` for
+ * this event, or `variant_property` on one of this event's variants) used to leave `requirements`
+ * pointing at a link that no longer exists; `assertPropertyLinkedToEvent` then rejected any later
+ * `PUT /requirements` for that row, even an unchanged re-save. Runs in the same transaction as the
+ * detach itself, marking those rows `status = 'gap'` with `property_id` nulled and a "target
+ * removed: <name>" note (see `requirement.dal.ts` `markRequirementsGapForDetach`).
+ */
 export function detachPropertyFromEvent(projectId: string, eventId: string, propertyId: string): void {
   getEventOrThrow(projectId, eventId);
   assertPropertyNotUsedByVariant(eventId, propertyId);
   const db = getDb();
-  const result = db
-    .prepare('DELETE FROM event_properties WHERE event_id = ? AND property_id = ?')
-    .run(eventId, propertyId);
-  if (result.changes === 0) {
-    throw new NotFoundError('This property is not attached to the event.', 'event_property');
-  }
+  const property = getPropertyById(projectId, propertyId);
+  const run = db.transaction(() => {
+    const result = db
+      .prepare('DELETE FROM event_properties WHERE event_id = ? AND property_id = ?')
+      .run(eventId, propertyId);
+    if (result.changes === 0) {
+      throw new NotFoundError('This property is not attached to the event.', 'event_property');
+    }
+    markRequirementsGapForDetach(eventId, propertyId, property?.name ?? propertyId);
+  });
+  run();
 }
 
 /** Replaces the whole ordered link list for the event in one transaction (`PUT /events/:id/properties`). */
@@ -804,10 +842,29 @@ export function replaceEventProperties(
     }
   }
 
+  // T-1-07 second fix round ERROR B: the Edit Event panel saves the whole property list through
+  // this function (`PUT /events/:id/properties`), never `DELETE /events/:id/properties/:propertyId`
+  // — so `markRequirementsGapForDetach` only ran for a caller that does not exist in the UI, and a
+  // property dropped from the list here left requirements pointing at a link this transaction was
+  // about to delete. Diff the ids that are about to disappear (present before, absent from
+  // `uniqueLinks`) and mark each one's requirements `gap` inside this same transaction, exactly like
+  // `detachPropertyFromEvent` does for a single property.
+  const currentPropertyIds = (
+    db.prepare('SELECT property_id FROM event_properties WHERE event_id = ?').all(eventId) as {
+      property_id: string;
+    }[]
+  ).map((r) => r.property_id);
+  const nextPropertyIds = new Set(uniqueLinks.map((l) => l.property_id));
+  const droppedPropertyIds = currentPropertyIds.filter((id) => !nextPropertyIds.has(id));
+
   const now = nowIso();
   try {
     const replace = db.transaction(() => {
       db.prepare('DELETE FROM event_properties WHERE event_id = ?').run(eventId);
+      for (const droppedId of droppedPropertyIds) {
+        const property = getPropertyById(projectId, droppedId);
+        markRequirementsGapForDetach(eventId, droppedId, property?.name ?? droppedId);
+      }
       const insert = db.prepare(
         `INSERT INTO event_properties (
           event_id, property_id, required, role, priority, status, source_id, payload_key,

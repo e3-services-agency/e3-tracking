@@ -18,6 +18,15 @@ export default defineConfig(({mode}) => {
     },
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',
+      // Local dev only (D-23): the API runs separately on 3001 via `npm run dev:api`;
+      // VITE_API_BASE_URL is unnecessary locally because of this proxy.
+      proxy: {
+        '/api': 'http://localhost:3001',
+        '/tracking-plan/api': {
+          target: 'http://localhost:3001',
+          rewrite: (requestPath: string) => requestPath.replace(/^\/tracking-plan/, ''),
+        },
+      },
     },
   };
 });

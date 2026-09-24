@@ -41,11 +41,25 @@ Frontend: React 19, TypeScript, Vite 6, Tailwind CSS 4, Zustand. Backend: Expres
 `npm run build:backend` (tsup) bundles `src/backend/app.ts` into a single ESM file at `api/_backend/app.js` plus its migration `.sql` files, for the Vercel serverless function at `api/index.ts` to import. `vite build` produces the frontend bundle in `dist/`. The Vercel-specific files (`api/index.ts`, `vercel.json`) are left untouched until phase 5 (D-23); there is no remote deployment in phase 1 (D-09) — every phase runs and is QA-tested on localhost only.
 
 ## Repository structure
-- `src/domain/` — pure, engine-agnostic domain logic: enums, standard Bloomreach event/property/catalog lists (`bloomreach.ts`), diff and comparison primitives. No server or database imports.
+- `src/domain/` — pure, engine-agnostic domain logic: enums, standard Bloomreach event/property/catalog lists (`bloomreach.ts`), `variants.ts` (variant condition evaluation, D-03). No server or database imports.
+  - `src/domain/diff/` — `primitives.ts` (`diffValue`, `diffRecordSets`) and `hash.ts`, shared by import planners and the comparison engine (D-22).
+  - `src/domain/import/` — pure parsers for the three Bloomreach formats: `dataMapping.ts`, `expirationSettings.ts`, `customerEventsExport.ts`. Strict-but-forgiving: malformed pieces become warnings, never thrown exceptions.
+  - `src/domain/comparison/` — `definitionVsObservations.ts`, comparison 3's pure engine (D-21); the only comparison implemented so far.
 - `src/backend/db/` — `index.ts` (singleton `better-sqlite3` connection, migration runner) and `migrations/*.sql` (ordered schema files).
 - `src/backend/dal/` — data access layer, one module per entity group, `(projectId, ...)` function shape; the only layer above `db/index.ts` that knows SQLite exists.
-- `src/backend/routes/` — Express routers, one per resource, mounted in `src/backend/app.ts`.
-- `src/backend/services/` — cross-entity logic (export, comparison) built on the DAL.
+- `src/backend/routes/` — Express routers, one per resource, mounted in `src/backend/app.ts`:
+  - Top level: `clients`, `projects`, `use-case-templates` (global, not project-scoped).
+  - Project-scoped (`/api/projects/:projectId/...`): `sources`, `properties`, `events`, `catalogs`, `bundles`, `files`, `export`, `identity-rules`, `consent-categories`, `standard-event-mappings`, `variants` (`project-variants.ts`), `use-cases`, `requirements-matrix`, `import` (`imports.ts`), `qa-runs`, `observations`, `comparison`, `findings`.
+  - `shared.ts` — public share-link mechanism, stub until phase 4 (D-18).
+  - `removed.ts` — unused since T-1-09, kept only as a reference for the 501-stub pattern.
+- `src/backend/services/` — cross-entity logic built on the DAL:
+  - `dataMappingImport.service.ts`, `expirationSettingsImport.service.ts`, `customerEventsExportImport.service.ts` — the three import planners, stateless preview-then-apply with a payload hash (D-22).
+  - `bloomreachExport.service.ts` — reconstructs `data-mapping.json`/`expiration-settings.json` from current entities.
+  - `comparison.service.ts` — comparison 3 orchestration: re-resolves observations against current definitions, calls the domain engine, upserts `Finding` rows by fingerprint (D-21).
+  - `eventResolution.ts` — shared event/variant resolution for a raw observed event, used by both the customer-events import and comparison recompute.
+  - `requirements-matrix.service.ts` — computes the requirements matrix (rows = requirement targets, columns = use cases, cell = level).
+  - `export.service.ts` and `docs/sections.ts` — project documentation HTML export (D-10, D-18).
+  - `codegen.service.ts` — per-event implementation snippets (GTM, Bloomreach Web SDK, Bloomreach Tracking API).
 - `src/backend/files/` — `FileStore` interface and the local filesystem implementation (D-14).
 - `src/backend/middleware/` — `auth.ts` (local auth mode, D-13) and `project.ts` (project-scope validation).
 - `src/features/` — frontend feature modules (`clients`, `projects`, `properties`, `events`).
@@ -54,5 +68,21 @@ Frontend: React 19, TypeScript, Vite 6, Tailwind CSS 4, Zustand. Backend: Expres
 - `.claude/team/` — board, tasks, decisions, plan, samples, QA reports; see "Start here" above.
 - `data/` — local SQLite database and uploaded files (gitignored).
 
+### Migrations (`src/backend/db/migrations/`)
+- `0001_core.sql` — schema v1: the full target data model (clients, projects, events, properties, variants, use cases, requirements, QA runs, observations, findings, and the rest).
+- `0002_bundles.sql` — property bundles table, missing from 0001 (D-26).
+- `0003_unique_soft_delete.sql` — makes the `projects.key`/`events`/`properties`/`property_bundles` unique constraints partial on `deleted_at IS NULL`, so delete-then-recreate with the same name works.
+- `0004_catalog_mapping_role_soft_delete.sql` — same partial-index fix for the catalog `mapping_role='main'` uniqueness.
+- `0005_identity_rules_on_delete.sql` — sets `ON DELETE` behaviour for `identity_rules.source_id`/`trigger_event_id` so deleting a referenced source or event no longer raises a raw FK error.
+- `0006_variants_conditions_key.sql` — normalizes variant conditions (dedupe/sort, collapse a one-value `in` to `equals`) so equivalent condition sets share one canonical identity.
+- `0007_use_case_code_soft_delete.sql` — same partial-index fix for `use_cases.UNIQUE(project_id, code)`.
+- `0008_findings_on_delete.sql` — sets `ON DELETE` behaviour for `findings.observation_id` (`SET NULL`) and `findings.qa_run_id` so recompute/delete don't hit FK errors.
+
+### Pages (`src/pages/`, matching the sidebar, `src/components/layout/Sidebar.tsx`)
+Events, Properties, Catalogs, Identity rules, Consent categories, Standard events, Use cases, Requirements matrix, Sources, Import, QA runs, Findings — plus Clients, Settings, Documentation, and Login.
+
+### Phase status
+Phase 1 is complete on `agent-setup`. Phase 2 is next: comparisons 1 and 2 (definition vs mapping, mapping vs observations), the certified data product card, event card UI, the machine-readable tracking-document JSON export, the MCP server (D-11, D-19), the QA narrative write-up, and QA run export.
+
 ## Domain quick reference
-See the `domain-model` skill. Core entities: Project, Event, Property, EventProperty (role normal/discriminator/context), Variant, CustomerProperty, IdentityRule, Catalog, ConsentCategory, UseCaseTemplate, UseCase, Requirement, Observation, Finding.
+See the `domain-model` skill. Core entities: Project, Event, Property, EventProperty (role normal/discriminator/context), Variant, CustomerProperty, IdentityRule, Catalog, ConsentCategory, UseCaseTemplate, UseCase, Requirement, Observation, Finding. See also `docs/DOMAIN.md` for the entity model in plain words.

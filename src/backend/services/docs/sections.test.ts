@@ -3,11 +3,15 @@ import {
   escapeHtml,
   renderConsentCategoriesSection,
   renderIdentityRulesSection,
+  renderRequirementsMatrixSection,
   renderStandardEventMappingsSection,
+  renderUseCasesSection,
   renderVariantsSubsection,
   type ConsentCategoryForDocs,
   type IdentityRuleForDocs,
+  type RequirementsMatrixForDocs,
   type StandardEventMappingForDocs,
+  type UseCaseForDocs,
   type VariantForDocs,
 } from './sections';
 
@@ -133,5 +137,82 @@ describe('renderStandardEventMappingsSection', () => {
     expect(html).toContain('cart_update[action=add]');
     expect(html).toContain('product_id → product_id');
     expect(html).not.toContain('total_price →');
+  });
+});
+
+describe('renderUseCasesSection', () => {
+  it('renders a placeholder when there are no use cases', () => {
+    const html = renderUseCasesSection([]);
+    expect(html).toContain('No use cases defined.');
+    expect(html).toContain('id="use-cases"');
+  });
+
+  it('renders one subsection per use case, its metadata/narrative and its ordered requirements', () => {
+    const useCases: UseCaseForDocs[] = [
+      {
+        code: 'UC-01',
+        name: 'Checkout tracking',
+        type: 'transactional',
+        priority: 'high',
+        status: 'approved',
+        owner: 'Jane',
+        narrative: 'Fires when the customer completes checkout.',
+        requirements: [
+          { target_label: 'checkout', level: 'R', status: 'open', note: null },
+          { target_label: 'email', level: 'O', status: null, note: 'Confirm with client' },
+        ],
+      },
+    ];
+    const html = renderUseCasesSection(useCases);
+    expect(html).toContain('UC-01 — Checkout tracking');
+    expect(html).toContain('transactional');
+    expect(html).toContain('high');
+    expect(html).toContain('Jane');
+    expect(html).toContain('Fires when the customer completes checkout.');
+    expect(html).toContain('checkout');
+    expect(html).toContain('email');
+    expect(html).toContain('Confirm with client');
+    // Order preserved: the event row appears before the customer_property row.
+    expect(html.indexOf('checkout')).toBeLessThan(html.indexOf('Confirm with client'));
+  });
+
+  it('renders a placeholder for a use case with no requirements', () => {
+    const html = renderUseCasesSection([{ name: 'Empty use case', requirements: [] }]);
+    expect(html).toContain('No requirements defined.');
+  });
+
+  it('escapes hostile use case text', () => {
+    const html = renderUseCasesSection([
+      { name: '<script>alert(1)</script>', requirements: [] },
+    ]);
+    expect(html).not.toContain('<script>alert(1)</script>');
+    expect(html).toContain('&lt;script&gt;');
+  });
+});
+
+describe('renderRequirementsMatrixSection', () => {
+  it('renders a placeholder when there are no use cases or rows', () => {
+    const html = renderRequirementsMatrixSection({ use_cases: [], rows: [] });
+    expect(html).toContain('No requirements defined yet.');
+    expect(html).toContain('id="requirements-matrix"');
+  });
+
+  it('renders one column per use case and one row per target, with the level in each cell', () => {
+    const matrix: RequirementsMatrixForDocs = {
+      use_cases: [
+        { id: 'uc1', code: 'UC-01', name: 'Checkout tracking' },
+        { id: 'uc2', code: null, name: 'Newsletter signup' },
+      ],
+      rows: [{ label: 'checkout', cells: { uc1: 'R', uc2: 'O' } }, { label: 'email', cells: { uc1: 'O' } }],
+    };
+    const html = renderRequirementsMatrixSection(matrix);
+    expect(html).toContain('UC-01 — Checkout tracking');
+    expect(html).toContain('Newsletter signup');
+    expect(html).toContain('checkout');
+    expect(html).toContain('email');
+    expect(html).toMatch(/<td>R<\/td>/);
+    expect(html).toMatch(/<td>O<\/td>/);
+    // uc2 has no requirement on "email": its cell renders as an em dash, not "undefined".
+    expect(html).not.toContain('undefined');
   });
 });

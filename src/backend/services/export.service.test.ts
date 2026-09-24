@@ -9,6 +9,8 @@ import * as ConsentCategoryDAL from '../dal/consent-category.dal';
 import * as SourceDAL from '../dal/source.dal';
 import * as VariantDAL from '../dal/variant.dal';
 import * as StandardEventMappingDAL from '../dal/standard-event-mapping.dal';
+import * as UseCaseDAL from '../dal/use-case.dal';
+import * as RequirementDAL from '../dal/requirement.dal';
 import { generateProjectDocumentationHtml } from './export.service';
 
 let projectId: string;
@@ -145,5 +147,31 @@ describe('generateProjectDocumentationHtml', () => {
     // Variant codegen snippet includes the discriminator's literal value (D-03/T-1-05); the
     // snippet is HTML-escaped in <pre><code> (single quotes become &#39;).
     expect(html).toMatch(/action: &#39;add&#39;/);
+  });
+
+  it('lists use cases with their ordered requirements resolved to names, and the requirements matrix (T-1-07)', async () => {
+    const event = EventDAL.createEvent(projectId, { name: 'checkout' });
+    const email = PropertyDAL.createProperty(projectId, { scope: 'customer', name: 'email', data_type: 'string' });
+
+    const useCase = UseCaseDAL.createUseCase(projectId, {
+      name: 'Checkout tracking',
+      type: 'transactional',
+      narrative: 'Fires when the customer completes checkout.',
+    });
+    RequirementDAL.replaceRequirements(projectId, useCase.id, [
+      { target_kind: 'event', event_id: event.id, level: 'R' },
+      { target_kind: 'customer_property', property_id: email.id, level: 'O' },
+    ]);
+
+    const html = await generateProjectDocumentationHtml(projectId);
+
+    expect(html).toContain('id="use-cases"');
+    expect(html).toContain('Checkout tracking');
+    expect(html).toContain('Fires when the customer completes checkout.');
+    // Requirements resolved to display names, in sort_order (event row before customer_property row).
+    expect(html).toMatch(/checkout[\s\S]*email/);
+
+    expect(html).toContain('id="requirements-matrix"');
+    expect(html).toContain('checkout');
   });
 });

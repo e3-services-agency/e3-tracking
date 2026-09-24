@@ -85,9 +85,9 @@ describe('GET /api/projects/:projectId/files/* (path traversal)', () => {
   it('rejects A/../B/file: a project-B file reached through a project-A URL (raw HTTP path, no client-side normalisation)', async () => {
     const stored = await getFileStore().put(projectBId, 'event_trigger', 'secret.png', Buffer.from('secret'), 'image/png');
     const res = await rawGet(`/api/projects/${projectAId}/files/${projectAId}/../${stored.path}`);
-    expect(res.status).not.toBe(200);
+    expect(res.status).toBe(400);
     const body = JSON.parse(res.text);
-    expect(body.error).toBeTruthy();
+    expect(body.code).toBe('INVALID_PATH');
   });
 
   it('rejects an encoded traversal segment (..%2F)', async () => {

@@ -25,7 +25,8 @@ export interface AttachedPropertyForCodegen {
   /**
    * When set to a boolean, snippet optional/required grouping uses this instead of
    * `isAttachedPropertyRequiredForTrigger(presence, property_required_override)`.
-   * Shared journey snippets set this to a boolean for every attached row (never undefined).
+   * Callers that already resolved requiredness elsewhere set this to a boolean for every
+   * attached row (never undefined).
    */
   required_for_trigger?: boolean;
   /** Catalog property id (attached row); used for nested resolution. */

@@ -5,7 +5,7 @@
  * FileStore (D-14) and render from `GET /api/projects/:id/files/*`.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Plus, Trash2, Loader2, Upload } from 'lucide-react';
+import { Plus, Trash2, Loader2, Upload, FileDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
@@ -76,6 +76,28 @@ export function Events() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [isDownloadingDocs, setIsDownloadingDocs] = useState(false);
+
+  const handleDownloadDocumentation = useCallback(async () => {
+    if (!activeProjectId) return;
+    setIsDownloadingDocs(true);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/export/documentation.html`);
+      if (!res.ok) return;
+      const html = await res.text();
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'tracking-documentation.html';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsDownloadingDocs(false);
+    }
+  }, [activeProjectId]);
 
   const loadEvents = useCallback(async () => {
     if (!hasValidProjectContext || !activeProjectId) return;
@@ -95,9 +117,20 @@ export function Events() {
           <h1 className="text-2xl font-bold text-gray-900">Events</h1>
           <p className="text-sm text-gray-500 mt-1">Tracking plan events.</p>
         </div>
-        <Button onClick={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }} className="gap-2">
-          <Plus className="w-4 h-4" /> Add Event
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => void handleDownloadDocumentation()}
+            disabled={isDownloadingDocs || !activeProjectId}
+            className="gap-2"
+          >
+            {isDownloadingDocs ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+            Documentation
+          </Button>
+          <Button onClick={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }} className="gap-2">
+            <Plus className="w-4 h-4" /> Add Event
+          </Button>
+        </div>
       </div>
 
       <div className="p-8 flex-1 overflow-y-auto">
@@ -334,9 +367,15 @@ function EventEditor({
     if (!event || !projectId) return;
     if (!window.confirm(`Delete event "${event.name}"?`)) return;
     setDeleting(true);
+    setSaveError(null);
     try {
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/events/${event.id}`, { method: 'DELETE' });
-      if (res.ok || res.status === 204) await onSaved();
+      if (res.ok || res.status === 204) {
+        await onSaved();
+      } else {
+        const data = await parseJson(res);
+        setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to delete.');
+      }
     } finally {
       setDeleting(false);
     }

@@ -217,6 +217,15 @@ function normalizeStandardEventAdditions(value: unknown): { key: string; fields:
         'standard_event_additions_json'
       );
     }
+    if (!SNAKE_CASE_RE.test(key)) {
+      // LOW 3 (second fix round): `key` becomes a Bloomreach data-mapping JSON key and a URL
+      // segment of /standard-event-mappings/:standardEvent, so it must follow the same snake_case
+      // rule already enforced on `fields` below.
+      throw new ValidationError(
+        `Standard event addition "key" must be snake_case: "${key}".`,
+        'standard_event_additions_json'
+      );
+    }
     if (seedKeys.has(key)) {
       throw new StandardEventExistsError(
         `"${key}" is already a standard Bloomreach event; choose a different key.`,

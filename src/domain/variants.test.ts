@@ -103,14 +103,30 @@ describe('generateVariantName', () => {
         ],
         { p1: 'purchase_status', p2: 'channel' }
       )
-    ).toBe('purchase[purchase_status=success,channel=web]');
+    ).toBe('purchase[channel=web,purchase_status=success]');
+  });
+
+  it('sorts its own copy by resolved display name, independent of input order (second fix round)', () => {
+    // Input is in property_id order (p1, p2) with names reversed alphabetically vs. p1/p2, mirroring
+    // the storage/key order produced by `normalizeConditions`; the rendered name still reads
+    // alphabetically by name.
+    expect(
+      generateVariantName(
+        'cart_update',
+        [
+          { property_id: 'p1', operator: 'equals', values: ['web'] },
+          { property_id: 'p2', operator: 'equals', values: ['add'] },
+        ],
+        { p1: 'zone', p2: 'action' }
+      )
+    ).toBe('cart_update[action=add,zone=web]');
   });
 });
 
-describe('normalizeConditions / buildConditionsKey (fix round ERROR 1)', () => {
+describe('normalizeConditions / buildConditionsKey (fix round ERROR 1, second fix round)', () => {
   const names = { p1: 'action', p2: 'channel' };
 
-  it('sorts conditions by resolved property name regardless of input order', () => {
+  it('sorts conditions by property_id regardless of input order (name-independent)', () => {
     const a = normalizeConditions(
       [
         { property_id: 'p2', operator: 'equals', values: ['web'] },
@@ -149,5 +165,36 @@ describe('normalizeConditions / buildConditionsKey (fix round ERROR 1)', () => {
     const a = normalizeConditions([{ property_id: 'p1', operator: 'equals', values: ['add'] }], names);
     const b = normalizeConditions([{ property_id: 'p1', operator: 'equals', values: ['remove'] }], names);
     expect(buildConditionsKey(a)).not.toBe(buildConditionsKey(b));
+  });
+
+  it('the key is unaffected by a property display-name change that would reorder a name-based sort (ERROR 1 reopened)', () => {
+    // Two discriminators p1="action", p2="channel": alphabetically p1 < p2. A rename of p1 to
+    // "zone" would flip the name-sort order (channel < zone) if the key were name-based; keying by
+    // property_id instead means the key never moves under a rename.
+    const before = normalizeConditions(
+      [
+        { property_id: 'p1', operator: 'equals', values: ['add'] },
+        { property_id: 'p2', operator: 'equals', values: ['web'] },
+      ],
+      { p1: 'action', p2: 'channel' }
+    );
+    const after = normalizeConditions(
+      [
+        { property_id: 'p1', operator: 'equals', values: ['add'] },
+        { property_id: 'p2', operator: 'equals', values: ['web'] },
+      ],
+      { p1: 'zone', p2: 'channel' }
+    );
+    expect(buildConditionsKey(before)).toBe(buildConditionsKey(after));
+
+    // And the equivalent submitted the other way round (p2 then p1) still collides on the same key.
+    const equivalentReordered = normalizeConditions(
+      [
+        { property_id: 'p2', operator: 'equals', values: ['web'] },
+        { property_id: 'p1', operator: 'equals', values: ['add'] },
+      ],
+      { p1: 'zone', p2: 'channel' }
+    );
+    expect(buildConditionsKey(before)).toBe(buildConditionsKey(equivalentReordered));
   });
 });

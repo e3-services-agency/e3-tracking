@@ -17,7 +17,7 @@ import {
   ENTITY_STATUSES,
 } from '../../domain/enums';
 import { STANDARD_CUSTOMER_PROPERTIES, isKnownStandardEvent, type StandardEventSeed } from '../../domain/bloomreach';
-import { generateVariantName, type VariantCondition } from '../../domain/variants';
+import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
 
 export interface AllowedValue {
   value: string;
@@ -388,6 +388,13 @@ function assertAllowedValuesNotRemovedWhileInUse(
  * other half of a variant name — a renamed discriminator property. Only touches non-deleted
  * events where `propertyId` is linked with role `discriminator`; see `event.dal.ts` for why
  * write-time regeneration (not read-time derivation) was chosen.
+ *
+ * Second fix round (ERROR 1 reopened): also re-runs `normalizeConditions`/`buildConditionsKey` and
+ * rewrites `conditions_json`/`conditions_key` alongside `name`, not just `name` — see the matching
+ * comment on `event.dal.ts`'s `regenerateVariantNamesForEvent` for why this is now belt-and-braces
+ * rather than the fix itself (canonical order is `property_id`-based and a rename never changes
+ * `property_id`). Wrapped in `mapWriteError` (INFO 5) instead of letting a UNIQUE violation surface
+ * as a raw 500.
  */
 function regenerateVariantNamesForPropertyRename(projectId: string, propertyId: string, newName: string): void {
   const db = getDb();
@@ -423,9 +430,22 @@ function regenerateVariantNamesForPropertyRename(projectId: string, propertyId: 
     });
 
     const now = nowIso();
-    const update = db.prepare('UPDATE variants SET name = ?, updated_at = ? WHERE id = ?');
+    const update = db.prepare(
+      'UPDATE variants SET name = ?, conditions_json = ?, conditions_key = ?, updated_at = ? WHERE id = ?'
+    );
     for (const { id, conditions } of parsed) {
-      update.run(generateVariantName(event.name, conditions, propertyNameById), now, id);
+      const normalized = normalizeConditions(conditions, propertyNameById);
+      const name = generateVariantName(event.name, normalized, propertyNameById);
+      const conditionsKey = buildConditionsKey(normalized);
+      try {
+        update.run(name, toJsonColumn(normalized), conditionsKey, now, id);
+      } catch (err) {
+        mapWriteError(
+          err,
+          `A variant named "${name}" already exists for this event.`,
+          `Failed to regenerate variant name/key on property rename: ${(err as Error).message}`
+        );
+      }
     }
   }
 }

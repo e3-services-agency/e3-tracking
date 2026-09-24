@@ -12,7 +12,13 @@ import * as PropertyDAL from './property.dal';
 import * as EventDAL from './event.dal';
 import * as VariantDAL from './variant.dal';
 import * as StandardEventMappingDAL from './standard-event-mapping.dal';
-import { BadRequestError, DiscriminatorInUseError, EnumInUseError, StandardEventExistsError } from '../errors';
+import {
+  BadRequestError,
+  ConflictError,
+  DiscriminatorInUseError,
+  EnumInUseError,
+  StandardEventExistsError,
+} from '../errors';
 import { getDb } from '../db';
 
 let projectId: string;
@@ -648,6 +654,84 @@ describe('event.dal / property.dal: variant names regenerate on event/property r
     const reloaded = VariantDAL.getVariantOrThrow(projectId, event.id, variant.id);
     expect(reloaded.name).toBe('cart_update[cart_action=add]');
   });
+
+  it('canonical identity survives a property rename that crosses the other discriminator alphabetically (ERROR 1 reopened, second fix round)', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'cart_update' });
+    const action = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'action',
+      data_type: 'string',
+      allowed_values_json: [{ value: 'add' }, { value: 'remove' }],
+    });
+    const channel = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'channel',
+      data_type: 'string',
+      allowed_values_json: [{ value: 'web' }, { value: 'app' }],
+    });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: action.id, role: 'discriminator' });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: channel.id, role: 'discriminator' });
+
+    const original = VariantDAL.createVariant(projectId, event.id, {
+      conditions: [
+        { property_id: action.id, operator: 'equals', values: ['add'] },
+        { property_id: channel.id, operator: 'equals', values: ['web'] },
+      ],
+    });
+    expect(original.name).toBe('cart_update[action=add,channel=web]');
+
+    // Renaming "action" to "zone" flips its alphabetical position relative to "channel" (was
+    // action < channel, now channel < zone), which used to reorder the name-sorted
+    // conditions_json/conditions_key and let a semantically identical variant slip past the
+    // UNIQUE(event_id, conditions_key) constraint.
+    PropertyDAL.updateProperty(projectId, action.id, { name: 'zone' });
+
+    const renamed = VariantDAL.getVariantOrThrow(projectId, event.id, original.id);
+    expect(renamed.name).toBe('cart_update[channel=web,zone=add]');
+
+    expect(() =>
+      VariantDAL.createVariant(projectId, event.id, {
+        conditions: [
+          { property_id: channel.id, operator: 'equals', values: ['web'] },
+          { property_id: action.id, operator: 'equals', values: ['add'] },
+        ],
+      })
+    ).toThrow(ConflictError);
+
+    // The original name/lookup keeps working after the rename (by id, not by the stale name).
+    expect(VariantDAL.getVariantOrThrow(projectId, event.id, original.id).name).toBe(
+      'cart_update[channel=web,zone=add]'
+    );
+  });
+
+  it('a conditions_key collision hit while regenerating on rename is a 409, not a raw 500 (INFO 5, second fix round)', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'cart_update' });
+    const action = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'action',
+      data_type: 'string',
+      allowed_values_json: [{ value: 'add' }, { value: 'remove' }],
+    });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: action.id, role: 'discriminator' });
+
+    const addVariant = VariantDAL.createVariant(projectId, event.id, {
+      conditions: [{ property_id: action.id, operator: 'equals', values: ['add'] }],
+    });
+    const removeVariant = VariantDAL.createVariant(projectId, event.id, {
+      conditions: [{ property_id: action.id, operator: 'equals', values: ['remove'] }],
+    });
+
+    // Simulate a pre-0006 row whose conditions_json/conditions_key were never reconciled with a
+    // sibling row (the migration only guarantees the placeholder key, `id`, is unique — it does not
+    // guarantee the row's `conditions_json` is actually distinct from another row's). Force
+    // `removeVariant`'s stored conditions to be identical to `addVariant`'s, bypassing the DAL, so
+    // the next regeneration recomputes the same canonical key for both.
+    getDb()
+      .prepare('UPDATE variants SET conditions_json = (SELECT conditions_json FROM variants WHERE id = ?) WHERE id = ?')
+      .run(addVariant.id, removeVariant.id);
+
+    expect(() => EventDAL.updateEvent(projectId, event.id, { name: 'basket_update' })).toThrow(ConflictError);
+  });
 });
 
 describe('property.dal: ENUM_IN_USE extended to variant conditions (fix round T-1-05 ERROR 2)', () => {
@@ -759,6 +843,27 @@ describe('project.dal: standard_event_additions_json validation (fix round WARNI
         standard_event_additions_json: [{ key: 'k4', fields: ['Also-Not-Snake'] }],
       })
     ).toThrow(BadRequestError);
+  });
+
+  it('rejects a non-snake_case "key" (400 VALIDATION_ERROR, second fix round LOW 3)', () => {
+    expect(() =>
+      ProjectDAL.updateProject(projectId, {
+        standard_event_additions_json: [{ key: 'My Event!', fields: ['a_b'] }],
+      })
+    ).toThrow(BadRequestError);
+    expect(() =>
+      ProjectDAL.updateProject(projectId, {
+        standard_event_additions_json: [{ key: 'CamelCase', fields: ['a_b'] }],
+      })
+    ).toThrow(BadRequestError);
+    try {
+      ProjectDAL.updateProject(projectId, {
+        standard_event_additions_json: [{ key: 'My Event!', fields: ['a_b'] }],
+      });
+    } catch (err) {
+      expect((err as { code?: string }).code).toBe('VALIDATION_ERROR');
+      expect((err as { field?: string }).field).toBe('standard_event_additions_json');
+    }
   });
 
   it('accepts a valid addition and it is usable by standard-event-mapping.dal', () => {

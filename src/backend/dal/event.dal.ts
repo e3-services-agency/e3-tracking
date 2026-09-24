@@ -18,7 +18,7 @@ import {
 import { getPropertyById, type PropertyRow } from './property.dal';
 import { validateDerivedMetricsJson, validateExpirationJson, validateStringArray } from './validators';
 import { EVENT_PROPERTY_ROLES, EVENT_STATUSES, ENTITY_STATUSES, ORIGIN_TYPES, PRIORITIES } from '../../domain/enums';
-import { generateVariantName, type VariantCondition } from '../../domain/variants';
+import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
 
 const MAX_DISCRIMINATORS_PER_EVENT = 2;
 
@@ -459,6 +459,15 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
  * enough that a small write-time cost is not a concern. Renaming can never collide: two variants
  * of the same event already have distinct (canonicalized) conditions, so distinct names, and only
  * the shared event-name prefix changes here.
+ *
+ * Second fix round (ERROR 1 reopened): also re-runs `normalizeConditions`/`buildConditionsKey` and
+ * rewrites `conditions_json`/`conditions_key` alongside `name`, not just `name`. This is no longer
+ * strictly required for canonical-identity stability by itself (`normalizeConditions` now sorts by
+ * `property_id`, which an event rename never changes), but keeps every derived column in lockstep
+ * with the current canonicalization rules on every write path, and covers a future
+ * `normalizeConditions` change that reintroduces a name-dependent tiebreaker. Wrapped in
+ * `mapWriteError` (INFO 5): a `conditions_key`/`name` UNIQUE hit here would otherwise surface as a
+ * raw 500 instead of a 409.
  */
 function regenerateVariantNamesForEvent(eventId: string, eventName: string): void {
   const db = getDb();
@@ -486,9 +495,22 @@ function regenerateVariantNamesForEvent(eventId: string, eventName: string): voi
   });
 
   const now = nowIso();
-  const update = db.prepare('UPDATE variants SET name = ?, updated_at = ? WHERE id = ?');
+  const update = db.prepare(
+    'UPDATE variants SET name = ?, conditions_json = ?, conditions_key = ?, updated_at = ? WHERE id = ?'
+  );
   for (const { id, conditions } of parsed) {
-    update.run(generateVariantName(eventName, conditions, propertyNameById), now, id);
+    const normalized = normalizeConditions(conditions, propertyNameById);
+    const name = generateVariantName(eventName, normalized, propertyNameById);
+    const conditionsKey = buildConditionsKey(normalized);
+    try {
+      update.run(name, toJsonColumn(normalized), conditionsKey, now, id);
+    } catch (err) {
+      mapWriteError(
+        err,
+        `A variant named "${name}" already exists for this event.`,
+        `Failed to regenerate variant name/key on event rename: ${(err as Error).message}`
+      );
+    }
   }
 }
 

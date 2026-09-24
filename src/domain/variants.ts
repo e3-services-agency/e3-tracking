@@ -45,29 +45,31 @@ export function evaluateVariant(
 
 /**
  * Canonicalizes a raw (already shape-validated) condition list so semantically identical inputs
- * always normalize to the same value (fix round ERROR 1): within each condition, values are
- * de-duplicated and sorted, and an `in` operator left with exactly one value collapses to
- * `equals`; across conditions, the list is sorted by the resolved property display name (falling
- * back to `property_id` when unresolved) so submission order never matters. The caller
- * (`variant.dal.ts`) is responsible for rejecting a `property_id` used by more than one condition
- * before calling this (a duplicate would silently collapse here, which is not the same thing as
- * "same value, different order").
+ * always normalize to the same value (fix round ERROR 1, reopened and fixed again in the second fix
+ * round): within each condition, values are de-duplicated and sorted, and an `in` operator left
+ * with exactly one value collapses to `equals`; across conditions, the list is sorted by
+ * `property_id` (immutable) rather than by the resolved property display name, so the canonical
+ * identity — and everything derived from it (`conditions_key`, and `conditions_json`'s stored
+ * order) — never depends on a name that can change later via a property rename. A rename only ever
+ * changes what a condition displays as, never which conditions are "the same" one; sorting by id
+ * keeps those two concerns fully decoupled (see `generateVariantName`, which sorts its own copy by
+ * name for display). The `propertyNameById` parameter is accepted for call-site symmetry with
+ * `generateVariantName` but is unused here. The caller (`variant.dal.ts`) is responsible for
+ * rejecting a `property_id` used by more than one condition before calling this (a duplicate would
+ * silently collapse here, which is not the same thing as "same value, different order").
  */
 export function normalizeConditions(
   conditions: VariantCondition[],
   propertyNameById: Record<string, string>
 ): VariantCondition[] {
+  void propertyNameById;
   return conditions
     .map((condition) => {
       const values = Array.from(new Set(condition.values)).sort();
       const operator: VariantOperator = condition.operator === 'in' && values.length === 1 ? 'equals' : condition.operator;
       return { property_id: condition.property_id, operator, values };
     })
-    .sort((a, b) => {
-      const nameA = propertyNameById[a.property_id] ?? a.property_id;
-      const nameB = propertyNameById[b.property_id] ?? b.property_id;
-      return nameA.localeCompare(nameB);
-    });
+    .sort((a, b) => a.property_id.localeCompare(b.property_id));
 }
 
 /**
@@ -87,14 +89,23 @@ export function buildConditionsKey(conditions: VariantCondition[]): string {
  * Generates the display/unique name for a variant: `event[prop=value]`,
  * `event[prop in (a|b)]`, or `event[p1=a,p2=b]` for two discriminators (plan "Target data model"
  * section Variant). `propertyNameById` resolves each condition's `property_id` to the property's
- * display name; an unresolved id falls back to the raw id so the function never throws.
+ * display name; an unresolved id falls back to the raw id so the function never throws. The input
+ * `conditions` order (canonically `property_id` order from `normalizeConditions`) is not mutated;
+ * this function sorts its own copy by the resolved display name so the name reads naturally (e.g.
+ * `action` before `channel`) independent of the storage/key order, which is intentionally id-based
+ * so it survives a rename (see `normalizeConditions`).
  */
 export function generateVariantName(
   eventName: string,
   conditions: VariantCondition[],
   propertyNameById: Record<string, string>
 ): string {
-  const parts = conditions.map((condition) => {
+  const displayOrder = [...conditions].sort((a, b) => {
+    const nameA = propertyNameById[a.property_id] ?? a.property_id;
+    const nameB = propertyNameById[b.property_id] ?? b.property_id;
+    return nameA.localeCompare(nameB);
+  });
+  const parts = displayOrder.map((condition) => {
     const propName = propertyNameById[condition.property_id] ?? condition.property_id;
     if (condition.operator === 'equals') {
       return `${propName}=${condition.values[0] ?? ''}`;

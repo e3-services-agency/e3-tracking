@@ -87,6 +87,8 @@ router.patch('/:id', (req: Request, res: Response) => {
       bloomreach_project_url: pick('bloomreach_project_url'),
       default_expiration_json:
         body.default_expiration_json === undefined ? undefined : body.default_expiration_json,
+      consent_key_additions_json:
+        body.consent_key_additions_json === undefined ? undefined : body.consent_key_additions_json,
     });
     res.status(200).json(project);
   } catch (err) {

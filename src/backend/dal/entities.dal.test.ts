@@ -300,4 +300,27 @@ describe('catalog.dal', () => {
       ValidationError
     );
   });
+
+  it('rejects an unknown mapping_role with a ValidationError, not the mapping_role 409 (T-1-06 delta)', () => {
+    expect(() =>
+      CatalogDAL.createCatalog(projectId, { name: 'Products', mapping_role: 'lookup' })
+    ).toThrow(ValidationError);
+    const catalog = CatalogDAL.createCatalog(projectId, { name: 'Products' });
+    expect(() => CatalogDAL.updateCatalog(projectId, catalog.id, { mapping_role: 'lookup' })).toThrow(
+      ValidationError
+    );
+    // null clears the role and is always valid.
+    const updated = CatalogDAL.updateCatalog(projectId, catalog.id, { mapping_role: 'main' });
+    expect(updated.mapping_role).toBe('main');
+    expect(CatalogDAL.updateCatalog(projectId, catalog.id, { mapping_role: null }).mapping_role).toBeNull();
+  });
+
+  it('surfaces an inline catalog field rename clash as a ConflictError (qa-tester observation on T-1-02)', () => {
+    const catalog = CatalogDAL.createCatalog(projectId, { name: 'Products' });
+    CatalogDAL.createCatalogField(projectId, catalog.id, { name: 'sku' });
+    const other = CatalogDAL.createCatalogField(projectId, catalog.id, { name: 'title' });
+    expect(() =>
+      CatalogDAL.updateCatalogField(projectId, catalog.id, other.id, { name: 'sku' })
+    ).toThrow(ConflictError);
+  });
 });

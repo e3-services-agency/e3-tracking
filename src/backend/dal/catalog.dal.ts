@@ -5,6 +5,18 @@
 import { getDb } from '../db';
 import { newId, nowIso, fromSqliteBool, toSqliteBool, mapWriteError } from '../db/util';
 import { NotFoundError, ValidationError } from '../errors';
+import { CATALOG_MAPPING_ROLES } from '../../domain/enums';
+
+/** `mapping_role` (T-1-06 delta): `null` clears the role; any other value must be a known one. */
+function validateMappingRole(mappingRole: string | null | undefined): void {
+  if (mappingRole === null || mappingRole === undefined) return;
+  if (!CATALOG_MAPPING_ROLES.includes(mappingRole as (typeof CATALOG_MAPPING_ROLES)[number])) {
+    throw new ValidationError(
+      `mapping_role must be one of ${CATALOG_MAPPING_ROLES.join(', ')} or null.`,
+      'mapping_role'
+    );
+  }
+}
 
 export interface CatalogRow {
   id: string;
@@ -97,6 +109,7 @@ export interface CatalogInput {
 export function createCatalog(projectId: string, input: CatalogInput): CatalogRow {
   const name = input.name.trim();
   if (!name) throw new ValidationError('Catalog name is required.', 'name');
+  validateMappingRole(input.mapping_role);
   const id = newId();
   const now = nowIso();
   try {
@@ -145,6 +158,7 @@ export function updateCatalog(
   if (input.name !== undefined && !input.name.trim()) {
     throw new ValidationError('Catalog name is required.', 'name');
   }
+  if (input.mapping_role !== undefined) validateMappingRole(input.mapping_role);
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (input.name !== undefined) patch.name = input.name.trim();
   if (input.description !== undefined) patch.description = input.description?.trim() || null;

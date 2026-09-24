@@ -9,7 +9,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-0-03 | 0 | Target model and phased plan | architect | T-0-02 | DONE | see below |
 | T-0-04 | 0 | User approval of plan, phase 1 tasks adopted | supervisor | T-0-03 | DONE | see below |
 | T-1-01 | 1 | SQLite persistence, schema v1, dev server, vitest, domain definitions module | implementer | T-0-04 | DONE | plan + delta |
-| T-1-02 | 1 | Local auth mode, local file store, Workspace to Project rename, Client entity, remove Supabase | implementer | T-1-01 | TODO | plan + delta |
+| T-1-02 | 1 | Local auth mode, local file store, Workspace to Project rename, Client entity, remove Supabase | implementer | T-1-01 | QA | plan + delta |
 | T-1-03 | 1 | Remove journeys, QA overlay, legacy store, metrics; project-scope HTML documentation export | implementer | T-1-02 | TODO | plan |
 | T-1-CP | 1 | Checkpoint report to user after T-1-03 | supervisor | T-1-03 | TODO | see below |
 | T-1-04 | 1 | Property and Event in the new model: allowed values, scope, role, required, payload key, expiration, card fields | implementer | T-1-02 | TODO | plan + delta |

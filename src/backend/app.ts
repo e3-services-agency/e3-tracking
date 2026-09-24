@@ -1,27 +1,27 @@
 /**
- * Express app: single entry point for all API routes.
- * The server MUST use this file (or a file that imports createApp from here) so that
- * /api/workspaces, /api/catalogs, and all other API routes are active.
+ * Express app: single entry point for all API routes (D-15: Project replaces Workspace).
  *
  * Usage:
  *   import { createApp } from './backend/app.js';
  *   const app = createApp();
  *   app.listen(process.env.PORT ?? 3001);
  *
- * Production: set CORS_ORIGIN (comma-separated origins) so the Vercel frontend can call the API.
+ * Local-first (D-09, D-13): `AUTH_MODE=local` by default, no remote dependency.
  */
 import express from 'express';
 import cors from 'cors';
-import workspacesRouter from './routes/workspaces';
-import catalogsRouter from './routes/catalogs';
-import eventsRouter from './routes/events';
-import metricsRouter from './routes/metrics';
-import propertiesRouter from './routes/properties';
+import clientsRouter from './routes/clients';
+import projectsRouter from './routes/projects';
 import sourcesRouter from './routes/sources';
-import journeysRouter from './routes/journeys';
+import propertiesRouter from './routes/properties';
+import eventsRouter from './routes/events';
+import catalogsRouter from './routes/catalogs';
 import bundlesRouter from './routes/bundles';
-import sharedRouter from './routes/shared';
+import filesRouter from './routes/files';
+import { removedRouter } from './routes/removed';
 import { optionalAuth } from './middleware/auth';
+import { requireProject } from './middleware/project';
+import { getDb } from './db';
 import { BadRequestError, ConfigError } from './errors';
 
 function getCorsOrigin(): string | string[] | boolean {
@@ -31,6 +31,10 @@ function getCorsOrigin(): string | string[] | boolean {
 }
 
 export function createApp(): express.Express {
+  // Open the database and run pending migrations before the first request (D-12); safe to call
+  // more than once (singleton connection), so `server.ts` calling `getDb()` too is a no-op.
+  getDb();
+
   const app = express();
 
   app.use(
@@ -38,25 +42,33 @@ export function createApp(): express.Express {
       origin: getCorsOrigin(),
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'x-workspace-id'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
       optionsSuccessStatus: 204,
     })
   );
   app.use(optionalAuth);
   app.use(express.json());
 
-  app.use('/api/workspaces', workspacesRouter);
-  app.use('/api/catalogs', catalogsRouter);
-  app.use('/api/events', eventsRouter);
-  app.use('/api/metrics', metricsRouter);
-  app.use('/api/properties', propertiesRouter);
-  app.use('/api/sources', sourcesRouter);
-  app.use('/api/journeys', journeysRouter);
-  app.use('/api/bundles', bundlesRouter);
-  app.use('/api/shared', sharedRouter);
+  app.use('/api/clients', clientsRouter);
+  app.use('/api/projects', projectsRouter);
 
-  // Simple health endpoint. Kept in Express so we don't need a separate
-  // Vercel function on the Hobby plan.
+  // Project-scoped sub-routers (D-15): requireProject validates `:projectId` and sets req.projectId.
+  app.use('/api/projects/:projectId/sources', requireProject, sourcesRouter);
+  app.use('/api/projects/:projectId/properties', requireProject, propertiesRouter);
+  app.use('/api/projects/:projectId/events', requireProject, eventsRouter);
+  app.use('/api/projects/:projectId/catalogs', requireProject, catalogsRouter);
+  app.use('/api/projects/:projectId/bundles', requireProject, bundlesRouter);
+  app.use('/api/projects/:projectId/files', requireProject, filesRouter);
+
+  // Removed in the schema rewrite (D-18); stubbed 501 so old clients fail soft, not silently.
+  app.use('/api/journeys', removedRouter('T-1-03'));
+  app.use('/api/metrics', removedRouter('T-1-03'));
+  app.use('/api/shared', removedRouter('T-1-03'));
+  app.use('/api/projects/:projectId/qa-runs', requireProject, removedRouter('T-1-05'));
+  app.use('/api/projects/:projectId/variants', requireProject, removedRouter('T-1-05'));
+
+  // Simple health endpoint. Kept in Express so we don't need a separate Vercel function on the
+  // Hobby plan.
   app.get('/api/health', (_req, res) => {
     res.status(200).json({ ok: true });
   });

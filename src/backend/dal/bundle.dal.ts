@@ -1,385 +1,246 @@
 /**
- * Property bundles: workspace-scoped groups of properties via `property_bundle_items`.
+ * Property bundles: project-scoped groups of properties via `property_bundle_items` (D-26: kept
+ * as a shell convenience, seed for a later event-template feature).
  */
-import { getSupabaseOrThrow } from '../db/supabase';
-import type { PropertyBundleRow } from '../../types/schema';
-import { BadRequestError, ConflictError, DatabaseError, NotFoundError } from '../errors';
+import { getDb } from '../db';
+import { newId, nowIso, mapWriteError } from '../db/util';
+import { BadRequestError, ConflictError, NotFoundError, ValidationError } from '../errors';
 
-const UNIQUE_VIOLATION_CODE = '23505';
+export interface PropertyBundleRow {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
 
 export type BundleWithPropertyIds = PropertyBundleRow & { property_ids: string[] };
 
-export async function validateBundleIdsInWorkspace(
-  workspaceId: string,
-  bundleIds: string[]
-): Promise<void> {
-  if (bundleIds.length === 0) return;
-  const supabase = getSupabaseOrThrow();
-  const { data, error } = await supabase
-    .from('property_bundles')
-    .select('id')
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null)
-    .in('id', bundleIds);
-
-  if (error) {
-    throw new DatabaseError(`Failed to validate bundle ids: ${error.message}`, error);
-  }
-  const found = new Set((data ?? []).map((r: { id: string }) => r.id));
-  for (const id of bundleIds) {
-    if (!found.has(id)) {
-      throw new BadRequestError(`Bundle not found in workspace: ${id}.`, 'bundle_ids');
-    }
-  }
-}
-
-async function validatePropertyIdsInWorkspace(
-  workspaceId: string,
-  propertyIds: string[]
-): Promise<void> {
+function validatePropertyIds(projectId: string, propertyIds: string[]): void {
   if (propertyIds.length === 0) return;
-  const supabase = getSupabaseOrThrow();
-  const { data, error } = await supabase
-    .from('properties')
-    .select('id')
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null)
-    .in('id', propertyIds);
-
-  if (error) {
-    throw new DatabaseError(`Failed to validate property ids: ${error.message}`, error);
-  }
-  const found = new Set((data ?? []).map((r: { id: string }) => r.id));
+  const db = getDb();
+  const placeholders = propertyIds.map(() => '?').join(', ');
+  const found = new Set(
+    (
+      db
+        .prepare(
+          `SELECT id FROM properties WHERE project_id = ? AND deleted_at IS NULL AND id IN (${placeholders})`
+        )
+        .all(projectId, ...propertyIds) as { id: string }[]
+    ).map((r) => r.id)
+  );
   for (const id of propertyIds) {
-    if (!found.has(id)) {
-      throw new BadRequestError(`Property not found in workspace: ${id}.`, 'property_ids');
-    }
+    if (!found.has(id)) throw new BadRequestError(`Property not found in project: ${id}.`, 'property_ids');
   }
 }
 
-/**
- * Replace all bundle memberships for a single property (junction rows).
- */
-export async function replacePropertyBundlesForProperty(
-  workspaceId: string,
-  propertyId: string,
-  bundleIds: string[]
-): Promise<void> {
-  const deduped = [...new Set(bundleIds)].filter(Boolean);
-  await validateBundleIdsInWorkspace(workspaceId, deduped);
-
-  const supabase = getSupabaseOrThrow();
-  const { data: prop, error: pErr } = await supabase
-    .from('properties')
-    .select('id')
-    .eq('id', propertyId)
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null)
-    .maybeSingle();
-
-  if (pErr) {
-    throw new DatabaseError(`Failed to verify property: ${pErr.message}`, pErr);
-  }
-  if (!prop) {
-    throw new NotFoundError('Property not found.', 'property');
-  }
-
-  const { error: delErr } = await supabase
-    .from('property_bundle_items')
-    .delete()
-    .eq('property_id', propertyId);
-
-  if (delErr) {
-    throw new DatabaseError(`Failed to clear bundle links: ${delErr.message}`, delErr);
-  }
-
-  if (deduped.length === 0) return;
-
-  const rows = deduped.map((bundle_id) => ({ bundle_id, property_id: propertyId }));
-  const { error: insErr } = await supabase.from('property_bundle_items').insert(rows);
-  if (insErr) {
-    throw new DatabaseError(`Failed to insert bundle links: ${insErr.message}`, insErr);
-  }
-}
-
-/**
- * Map property_id -> bundle ids (non-deleted bundles only).
- */
-export async function listBundleIdsByPropertyIds(
-  workspaceId: string,
+export function listBundleIdsByPropertyIds(
+  projectId: string,
   propertyIds: string[]
-): Promise<Map<string, string[]>> {
+): Map<string, string[]> {
   const out = new Map<string, string[]>();
-  for (const id of propertyIds) {
-    out.set(id, []);
-  }
+  for (const id of propertyIds) out.set(id, []);
   if (propertyIds.length === 0) return out;
 
-  const supabase = getSupabaseOrThrow();
-  const { data: items, error } = await supabase
-    .from('property_bundle_items')
-    .select('bundle_id, property_id')
-    .in('property_id', propertyIds);
+  const db = getDb();
+  const placeholders = propertyIds.map(() => '?').join(', ');
+  const rows = db
+    .prepare(
+      `SELECT pbi.bundle_id as bundle_id, pbi.property_id as property_id
+       FROM property_bundle_items pbi
+       JOIN property_bundles pb ON pb.id = pbi.bundle_id AND pb.project_id = ? AND pb.deleted_at IS NULL
+       WHERE pbi.property_id IN (${placeholders})`
+    )
+    .all(projectId, ...propertyIds) as { bundle_id: string; property_id: string }[];
 
-  if (error) {
-    throw new DatabaseError(`Failed to list bundle memberships: ${error.message}`, error);
+  for (const row of rows) {
+    const list = out.get(row.property_id);
+    if (list) list.push(row.bundle_id);
   }
-
-  const allBundleIds = [...new Set((items ?? []).map((r: { bundle_id: string }) => r.bundle_id))];
-  let validBundles = new Set<string>();
-  if (allBundleIds.length > 0) {
-    const { data: bundles, error: bErr } = await supabase
-      .from('property_bundles')
-      .select('id')
-      .eq('workspace_id', workspaceId)
-      .is('deleted_at', null)
-      .in('id', allBundleIds);
-    if (bErr) {
-      throw new DatabaseError(`Failed to validate bundles for properties: ${bErr.message}`, bErr);
-    }
-    validBundles = new Set((bundles ?? []).map((r: { id: string }) => r.id));
-  }
-
-  for (const row of items ?? []) {
-    const r = row as { bundle_id: string; property_id: string };
-    if (!validBundles.has(r.bundle_id)) continue;
-    const list = out.get(r.property_id);
-    if (list) list.push(r.bundle_id);
-  }
-
-  for (const [, ids] of out) {
-    ids.sort();
-  }
+  for (const ids of out.values()) ids.sort();
   return out;
 }
 
-export async function getBundlesByWorkspace(workspaceId: string): Promise<BundleWithPropertyIds[]> {
-  const supabase = getSupabaseOrThrow();
-  const { data: bundles, error: bErr } = await supabase
-    .from('property_bundles')
-    .select('*')
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null)
-    .order('name');
+export function replacePropertyBundlesForProperty(
+  projectId: string,
+  propertyId: string,
+  bundleIds: string[]
+): void {
+  const deduped = [...new Set(bundleIds)].filter(Boolean);
+  const db = getDb();
 
-  if (bErr) {
-    throw new DatabaseError(`Failed to list bundles: ${bErr.message}`, bErr);
+  if (deduped.length > 0) {
+    const placeholders = deduped.map(() => '?').join(', ');
+    const found = new Set(
+      (
+        db
+          .prepare(
+            `SELECT id FROM property_bundles WHERE project_id = ? AND deleted_at IS NULL AND id IN (${placeholders})`
+          )
+          .all(projectId, ...deduped) as { id: string }[]
+      ).map((r) => r.id)
+    );
+    for (const id of deduped) {
+      if (!found.has(id)) throw new BadRequestError(`Bundle not found in project: ${id}.`, 'bundle_ids');
+    }
   }
 
-  const rows = (bundles ?? []) as PropertyBundleRow[];
-  if (rows.length === 0) return [];
+  const property = db
+    .prepare('SELECT id FROM properties WHERE id = ? AND project_id = ? AND deleted_at IS NULL')
+    .get(propertyId, projectId);
+  if (!property) throw new NotFoundError('Property not found.', 'property');
 
-  const bundleIds = rows.map((b) => b.id);
-  const { data: items, error: iErr } = await supabase
-    .from('property_bundle_items')
-    .select('bundle_id, property_id')
-    .in('bundle_id', bundleIds);
-
-  if (iErr) {
-    throw new DatabaseError(`Failed to list bundle items: ${iErr.message}`, iErr);
-  }
-
-  const byBundle = new Map<string, string[]>();
-  for (const id of bundleIds) {
-    byBundle.set(id, []);
-  }
-  for (const it of items ?? []) {
-    const row = it as { bundle_id: string; property_id: string };
-    const list = byBundle.get(row.bundle_id);
-    if (list) list.push(row.property_id);
-  }
-  for (const [, ids] of byBundle) {
-    ids.sort();
-  }
-
-  return rows.map((b) => ({
-    ...b,
-    property_ids: byBundle.get(b.id) ?? [],
-  }));
+  const now = nowIso();
+  const replace = db.transaction(() => {
+    db.prepare('DELETE FROM property_bundle_items WHERE property_id = ?').run(propertyId);
+    const insert = db.prepare(
+      'INSERT INTO property_bundle_items (bundle_id, property_id, created_at) VALUES (?, ?, ?)'
+    );
+    for (const bundleId of deduped) insert.run(bundleId, propertyId, now);
+  });
+  replace();
 }
 
-export async function getBundleById(
-  workspaceId: string,
-  bundleId: string
-): Promise<BundleWithPropertyIds | null> {
-  const supabase = getSupabaseOrThrow();
-  const { data: bundle, error: bErr } = await supabase
-    .from('property_bundles')
-    .select('*')
-    .eq('id', bundleId)
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null)
-    .maybeSingle();
-
-  if (bErr) {
-    throw new DatabaseError(`Failed to fetch bundle: ${bErr.message}`, bErr);
-  }
-  if (!bundle) return null;
-
-  const { data: items, error: iErr } = await supabase
-    .from('property_bundle_items')
-    .select('property_id')
-    .eq('bundle_id', bundleId);
-
-  if (iErr) {
-    throw new DatabaseError(`Failed to fetch bundle items: ${iErr.message}`, iErr);
-  }
-
-  const property_ids = ((items ?? []) as { property_id: string }[])
-    .map((x) => x.property_id)
-    .sort();
-
-  return { ...(bundle as PropertyBundleRow), property_ids };
+function loadPropertyIds(bundleId: string): string[] {
+  const db = getDb();
+  return (
+    db
+      .prepare('SELECT property_id FROM property_bundle_items WHERE bundle_id = ? ORDER BY property_id')
+      .all(bundleId) as { property_id: string }[]
+  ).map((r) => r.property_id);
 }
 
-export async function createBundle(
-  workspaceId: string,
+export function listBundles(projectId: string): BundleWithPropertyIds[] {
+  const db = getDb();
+  const rows = db
+    .prepare('SELECT * FROM property_bundles WHERE project_id = ? AND deleted_at IS NULL ORDER BY name')
+    .all(projectId) as PropertyBundleRow[];
+  return rows.map((row) => ({ ...row, property_ids: loadPropertyIds(row.id) }));
+}
+
+export function getBundleById(projectId: string, bundleId: string): BundleWithPropertyIds | null {
+  const db = getDb();
+  const row = db
+    .prepare('SELECT * FROM property_bundles WHERE id = ? AND project_id = ? AND deleted_at IS NULL')
+    .get(bundleId, projectId) as PropertyBundleRow | undefined;
+  if (!row) return null;
+  return { ...row, property_ids: loadPropertyIds(row.id) };
+}
+
+export function getBundleOrThrow(projectId: string, bundleId: string): BundleWithPropertyIds {
+  const row = getBundleById(projectId, bundleId);
+  if (!row) throw new NotFoundError('Bundle not found.', 'bundle');
+  return row;
+}
+
+export function createBundle(
+  projectId: string,
   input: { name: string; description?: string | null; property_ids?: string[] | null }
-): Promise<BundleWithPropertyIds> {
+): BundleWithPropertyIds {
   const name = input.name.trim();
-  if (!name) {
-    throw new BadRequestError('Bundle name is required.', 'name');
-  }
+  if (!name) throw new ValidationError('Bundle name is required.', 'name');
 
   const propertyIds = [...new Set((input.property_ids ?? []).filter(Boolean))];
-  await validatePropertyIdsInWorkspace(workspaceId, propertyIds);
+  validatePropertyIds(projectId, propertyIds);
 
-  const supabase = getSupabaseOrThrow();
-  const { data: row, error: insErr } = await supabase
-    .from('property_bundles')
-    .insert({
-      workspace_id: workspaceId,
-      name,
-      description: input.description?.trim() ?? null,
-      deleted_at: null,
-    })
-    .select('*')
-    .single();
+  const db = getDb();
+  const existing = db
+    .prepare('SELECT id FROM property_bundles WHERE project_id = ? AND name = ? AND deleted_at IS NULL')
+    .get(projectId, name);
+  if (existing) throw new ConflictError('A bundle with that name already exists in this project.');
 
-  if (insErr) {
-    if (insErr.code === UNIQUE_VIOLATION_CODE) {
-      throw new ConflictError('A bundle with that name already exists in this workspace.');
-    }
-    throw new DatabaseError(`Failed to create bundle: ${insErr.message}`, insErr);
+  const id = newId();
+  const now = nowIso();
+  try {
+    const create = db.transaction(() => {
+      db.prepare(
+        'INSERT INTO property_bundles (id, project_id, name, description, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, NULL)'
+      ).run(id, projectId, name, input.description?.trim() || null, now, now);
+      const insert = db.prepare(
+        'INSERT INTO property_bundle_items (bundle_id, property_id, created_at) VALUES (?, ?, ?)'
+      );
+      for (const propertyId of propertyIds) insert.run(id, propertyId, now);
+    });
+    create();
+  } catch (err) {
+    mapWriteError(
+      err,
+      'A bundle with that name already exists in this project.',
+      `Failed to create bundle: ${(err as Error).message}`
+    );
   }
-
-  const created = row as PropertyBundleRow;
-
-  if (propertyIds.length > 0) {
-    const itemRows = propertyIds.map((property_id) => ({
-      bundle_id: created.id,
-      property_id,
-    }));
-    const { error: linkErr } = await supabase.from('property_bundle_items').insert(itemRows);
-    if (linkErr) {
-      try {
-        await supabase.from('property_bundles').delete().eq('id', created.id);
-      } catch (cleanupErr) {
-        console.error('[bundle.dal] Failed to roll back bundle after items insert error', cleanupErr);
-      }
-      throw new DatabaseError(`Failed to link bundle properties: ${linkErr.message}`, linkErr);
-    }
-  }
-
-  return { ...created, property_ids: propertyIds };
+  return getBundleOrThrow(projectId, id);
 }
 
-export async function updateBundle(
-  workspaceId: string,
+export function updateBundle(
+  projectId: string,
   bundleId: string,
   input: { name?: string; description?: string | null; property_ids?: string[] | null }
-): Promise<BundleWithPropertyIds> {
-  const existing = await getBundleById(workspaceId, bundleId);
-  if (!existing) {
-    throw new NotFoundError('Bundle not found.', 'bundle');
-  }
+): BundleWithPropertyIds {
+  getBundleOrThrow(projectId, bundleId);
+  const db = getDb();
 
-  const supabase = getSupabaseOrThrow();
-  const patch: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-  };
-
+  const patch: Record<string, unknown> = {};
   if (input.name !== undefined) {
-    const n = input.name.trim();
-    if (!n) {
-      throw new BadRequestError('Bundle name cannot be empty.', 'name');
-    }
-    patch.name = n;
+    const name = input.name.trim();
+    if (!name) throw new ValidationError('Bundle name cannot be empty.', 'name');
+    const clash = db
+      .prepare(
+        'SELECT id FROM property_bundles WHERE project_id = ? AND name = ? AND id != ? AND deleted_at IS NULL'
+      )
+      .get(projectId, name, bundleId);
+    if (clash) throw new ConflictError('A bundle with that name already exists in this project.');
+    patch.name = name;
   }
-  if (input.description !== undefined) {
-    patch.description = input.description?.trim() ?? null;
-  }
+  if (input.description !== undefined) patch.description = input.description?.trim() || null;
 
-  const needsRowUpdate =
-    input.name !== undefined ||
-    input.description !== undefined ||
-    input.property_ids !== undefined;
-
-  if (needsRowUpdate) {
-    const { error: upErr } = await supabase
-      .from('property_bundles')
-      .update(patch)
-      .eq('id', bundleId)
-      .eq('workspace_id', workspaceId)
-      .is('deleted_at', null);
-
-    if (upErr) {
-      if (upErr.code === UNIQUE_VIOLATION_CODE) {
-        throw new ConflictError('A bundle with that name already exists in this workspace.');
-      }
-      throw new DatabaseError(`Failed to update bundle: ${upErr.message}`, upErr);
+  if (Object.keys(patch).length > 0) {
+    patch.updated_at = nowIso();
+    const setClause = Object.keys(patch)
+      .map((k) => `${k} = @${k}`)
+      .join(', ');
+    try {
+      db.prepare(`UPDATE property_bundles SET ${setClause} WHERE id = @id AND project_id = @project_id`).run({
+        ...patch,
+        id: bundleId,
+        project_id: projectId,
+      });
+    } catch (err) {
+      mapWriteError(
+        err,
+        'A bundle with that name already exists in this project.',
+        `Failed to update bundle: ${(err as Error).message}`
+      );
     }
   }
 
   if (input.property_ids !== undefined) {
     const propertyIds = [...new Set((input.property_ids ?? []).filter(Boolean))];
-    await validatePropertyIdsInWorkspace(workspaceId, propertyIds);
-
-    const { error: delErr } = await supabase
-      .from('property_bundle_items')
-      .delete()
-      .eq('bundle_id', bundleId);
-    if (delErr) {
-      throw new DatabaseError(`Failed to clear bundle items: ${delErr.message}`, delErr);
-    }
-
-    if (propertyIds.length > 0) {
-      const itemRows = propertyIds.map((property_id) => ({
-        bundle_id: bundleId,
-        property_id,
-      }));
-      const { error: insErr } = await supabase.from('property_bundle_items').insert(itemRows);
-      if (insErr) {
-        throw new DatabaseError(`Failed to insert bundle items: ${insErr.message}`, insErr);
-      }
-    }
+    validatePropertyIds(projectId, propertyIds);
+    const now = nowIso();
+    const replace = db.transaction(() => {
+      db.prepare('DELETE FROM property_bundle_items WHERE bundle_id = ?').run(bundleId);
+      const insert = db.prepare(
+        'INSERT INTO property_bundle_items (bundle_id, property_id, created_at) VALUES (?, ?, ?)'
+      );
+      for (const propertyId of propertyIds) insert.run(bundleId, propertyId, now);
+    });
+    replace();
   }
 
-  const next = await getBundleById(workspaceId, bundleId);
-  if (!next) {
-    throw new DatabaseError('Bundle disappeared after update.');
-  }
-  return next;
+  return getBundleOrThrow(projectId, bundleId);
 }
 
-export async function deleteBundle(workspaceId: string, bundleId: string): Promise<void> {
-  const supabase = getSupabaseOrThrow();
-  const { data, error } = await supabase
-    .from('property_bundles')
-    .update({
-      deleted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', bundleId)
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null)
-    .select('id')
-    .maybeSingle();
-
-  if (error) {
-    throw new DatabaseError(`Failed to delete bundle: ${error.message}`, error);
-  }
-  if (!data) {
-    throw new NotFoundError('Bundle not found.', 'bundle');
-  }
+export function deleteBundle(projectId: string, bundleId: string): void {
+  getBundleOrThrow(projectId, bundleId);
+  const db = getDb();
+  const now = nowIso();
+  db.prepare('UPDATE property_bundles SET deleted_at = ?, updated_at = ? WHERE id = ? AND project_id = ?').run(
+    now,
+    now,
+    bundleId,
+    projectId
+  );
 }

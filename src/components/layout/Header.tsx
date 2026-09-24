@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AGENCY_CONFIG } from '@/src/config/agency';
-import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
-import { WorkspaceSwitcher } from './WorkspaceSwitcher';
+import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
+import { ProjectSwitcher } from './ProjectSwitcher';
 
 const SPACE_BLUE = 'var(--e3-space-blue)';
 const E3_WHITE = 'var(--e3-white)';
@@ -9,10 +9,9 @@ const E3_WHITE = 'var(--e3-white)';
 const LOGO_SRC = `${window.location.origin}/tracking-plan/branding/agency-logo.png`;
 
 export function Header() {
-  const { workspaceShellSettings, activeWorkspaceDisplayName } = useWorkspaceShell();
-  const clientLogoUrl = workspaceShellSettings?.client_logo_url ?? null;
-  const clientName =
-    workspaceShellSettings?.client_name?.trim() || activeWorkspaceDisplayName || null;
+  const { projectShellSettings, activeProjectDisplayName } = useProjectShell();
+  const clientLogoUrl = null as string | null; // client_logo_path is a local FileStore path, not a URL yet (T-1-02 keeps the header simple)
+  const clientName = projectShellSettings?.client_name?.trim() || activeProjectDisplayName || null;
   const hasClientBranding = !!(clientLogoUrl || clientName);
   const [logoError, setLogoError] = useState(false);
 
@@ -23,10 +22,7 @@ export function Header() {
     >
       <div className="flex items-center gap-4">
         {logoError ? (
-          <span
-            className="text-sm font-bold"
-            style={{ color: E3_WHITE, fontFamily: 'DM Sans, sans-serif' }}
-          >
+          <span className="text-sm font-bold" style={{ color: E3_WHITE, fontFamily: 'DM Sans, sans-serif' }}>
             {AGENCY_CONFIG.name}
           </span>
         ) : (
@@ -38,42 +34,16 @@ export function Header() {
             onError={() => setLogoError(true)}
           />
         )}
-        <div
-          className="h-6 w-px bg-current opacity-30"
-          style={{ color: E3_WHITE }}
-          aria-hidden
-        />
-        <span
-          className="text-sm font-medium"
-          style={{ color: E3_WHITE }}
-        >
-          Tracking Portal
-        </span>
+        <div className="h-6 w-px bg-current opacity-30" style={{ color: E3_WHITE }} aria-hidden />
+        <span className="text-sm font-medium" style={{ color: E3_WHITE }}>Tracking Portal</span>
       </div>
 
       <div className="flex items-center gap-4">
-        <WorkspaceSwitcher />
+        <ProjectSwitcher />
         {hasClientBranding ? (
-          <>
-            {clientLogoUrl && (
-              <img
-                src={clientLogoUrl}
-                alt=""
-                className="h-7 max-h-7 w-auto object-contain"
-              />
-            )}
-            <span
-              className="text-sm font-medium"
-              style={{ color: E3_WHITE }}
-            >
-              {clientName}
-            </span>
-          </>
+          <span className="text-sm font-medium" style={{ color: E3_WHITE }}>{clientName}</span>
         ) : (
-          <span
-            className="text-xs font-medium px-2.5 py-1 rounded border border-white/20"
-            style={{ color: E3_WHITE }}
-          >
+          <span className="text-xs font-medium px-2.5 py-1 rounded border border-white/20" style={{ color: E3_WHITE }}>
             Internal Project
           </span>
         )}

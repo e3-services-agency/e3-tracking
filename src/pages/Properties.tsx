@@ -1,375 +1,335 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useStore } from '@/src/store';
+/**
+ * Properties: table with scope filter + plain create/edit form against
+ * `/api/projects/:projectId/properties` (D-24). Enum/role/allowed-values editors come in T-1-04;
+ * this task stores their columns untouched with sensible defaults (D-07 simplified UI).
+ */
+import React, { useCallback, useEffect, useState } from 'react';
+import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
-import { Plus, Loader2, AlertCircle, Layers } from 'lucide-react';
-import { PropertiesList } from '@/src/features/properties/PropertiesList';
-import { PropertyEditorSheet } from '@/src/features/properties/PropertyEditorSheet';
-import { BundleEditor } from '@/src/features/properties/editor/BundleEditor';
-import {
-  useProperties,
-  type PropertyUpdatePayload,
-} from '@/src/features/properties/hooks/useProperties';
-import { useBundles } from '@/src/features/properties/hooks/useBundles';
-import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
+import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
-import type { CreatePropertyInput, PropertyRow } from '@/src/types/schema';
-import type { PropertyBundle } from '@/src/types';
+import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
+import { fetchWithAuth } from '@/src/lib/api';
+import { API_BASE } from '@/src/config/env';
+import { PRIORITIES, ENTITY_STATUSES, PROPERTY_SCOPES, ORIGIN_TYPES } from '@/src/domain/enums';
+import { PROPERTY_DATA_TYPES, PROPERTY_DATA_FORMATS } from '@/src/types/schema';
 
-/** Matches Events table "Event Properties" cell text: `text-xs text-gray-600` (see eventTableColumns.tsx). */
-function BundlePropertiesCell({
-  bundle,
-  properties,
-}: {
-  bundle: PropertyBundle;
-  properties: PropertyRow[];
-}) {
-  const [isExpanded, setIsExpanded] = useState(false);
+interface PropertyRow {
+  id: string;
+  project_id: string;
+  scope: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  notes: string | null;
+  data_type: string;
+  data_formats_json: string[];
+  pii: boolean;
+  property_type: string;
+  priority: string | null;
+  status: string | null;
+  bloomreach_customer_property: string | null;
+  bundle_ids?: string[];
+}
 
-  const resolvedProperties = bundle.propertyIds
-    .map((id) => properties.find((p) => p.id === id))
-    .filter((p): p is PropertyRow => p != null);
+interface BundleRow {
+  id: string;
+  name: string;
+  property_ids: string[];
+}
 
-  const visibleProperties = isExpanded
-    ? resolvedProperties
-    : resolvedProperties.slice(0, 5);
+async function parseJson(res: Response): Promise<any> {
+  return res.json().catch(() => ({}));
+}
 
-  const hiddenCount = resolvedProperties.length - 5;
+export function Properties() {
+  const { activeProjectId, hasValidProjectContext } = useProjectShell();
+  const [properties, setProperties] = useState<PropertyRow[]>([]);
+  const [bundles, setBundles] = useState<BundleRow[]>([]);
+  const [scopeFilter, setScopeFilter] = useState<string>('');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
 
-  if (bundle.propertyIds.length === 0) {
-    return (
-      <span
-        className="text-xs text-gray-400 italic"
-        onClick={(e) => e.stopPropagation()}
-      >
-        —
-      </span>
-    );
-  }
+  const load = useCallback(async () => {
+    if (!hasValidProjectContext || !activeProjectId) return;
+    const qs = scopeFilter ? `?scope=${scopeFilter}` : '';
+    const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/properties${qs}`);
+    const data = await parseJson(res);
+    if (res.ok) setProperties(Array.isArray(data) ? data : []);
 
-  if (resolvedProperties.length === 0) {
-    return (
-      <span
-        className="text-xs text-gray-400 italic"
-        onClick={(e) => e.stopPropagation()}
-      >
-        —
-      </span>
-    );
-  }
+    const bundleRes = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/bundles`);
+    const bundleData = await parseJson(bundleRes);
+    if (bundleRes.ok) setBundles(Array.isArray(bundleData) ? bundleData : []);
+  }, [hasValidProjectContext, activeProjectId, scopeFilter]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const selected = selectedId ? properties.find((p) => p.id === selectedId) : null;
 
   return (
-    <div
-      className="min-w-0 max-w-[min(22rem,100%)]"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div className="flex flex-col gap-1">
-        {visibleProperties.map((p) => (
-          <span
-            key={p.id}
-            className="text-xs text-gray-600 leading-snug break-words"
-          >
-            {p.name}
-          </span>
-        ))}
+    <div className="flex-1 flex flex-col h-full">
+      <div className="p-8 border-b bg-white flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Properties</h1>
+          <p className="text-sm text-gray-500 mt-1">Event and customer properties (D-24).</p>
+        </div>
+        <Button onClick={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }} className="gap-2">
+          <Plus className="w-4 h-4" /> Add Property
+        </Button>
       </div>
-      {!isExpanded && hiddenCount > 0 ? (
-        <button
-          type="button"
-          className="mt-1 text-left text-xs text-[var(--color-info)] hover:underline cursor-pointer font-medium"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsExpanded(true);
-          }}
-        >
-          + {hiddenCount} more
-        </button>
-      ) : null}
-      {isExpanded && hiddenCount > 0 ? (
-        <button
-          type="button"
-          className="mt-1 text-left text-xs text-[var(--color-info)] hover:underline cursor-pointer font-medium"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsExpanded(false);
-          }}
-        >
-          Show less
-        </button>
-      ) : null}
+
+      <div className="p-8 flex-1 overflow-y-auto">
+        <div className="mb-6 flex gap-2">
+          <select value={scopeFilter} onChange={(e) => setScopeFilter(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+            <option value="">All scopes</option>
+            {PROPERTY_SCOPES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="bg-white rounded-lg border shadow-sm">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-6 py-3 font-medium text-gray-500">Name</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Scope</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Data type</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {properties.map((p) => (
+                <tr key={p.id} onClick={() => { setSelectedId(p.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
+                  <td className="px-6 py-4 font-medium text-gray-900">{p.name}</td>
+                  <td className="px-6 py-4 text-gray-500">{p.scope}</td>
+                  <td className="px-6 py-4 text-gray-500">{p.data_type}</td>
+                  <td className="px-6 py-4 text-gray-500">{p.status ?? '—'}</td>
+                </tr>
+              ))}
+              {properties.length === 0 && (
+                <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">No properties found.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title={isCreating ? 'Create Property' : 'Edit Property'}>
+        <PropertyEditor
+          key={isCreating ? 'create' : selectedId ?? 'none'}
+          property={selected}
+          isCreating={isCreating}
+          bundles={bundles}
+          projectId={activeProjectId}
+          onSaved={async () => { await load(); setIsSheetOpen(false); }}
+          onClose={() => setIsSheetOpen(false)}
+        />
+      </Sheet>
     </div>
   );
 }
 
-export function Properties() {
-  const { selectedItemIdToEdit, setSelectedItemIdToEdit } = useStore();
-  const { hasValidWorkspaceContext } = useWorkspaceShell();
-  const {
-    properties: apiProperties,
-    isLoading: apiPropertiesLoading,
-    error: apiPropertiesError,
-    refetch: refetchApiProperties,
-    createProperty,
-    updateProperty,
-    deleteProperty,
-    mutationError,
-    clearMutationError,
-  } = useProperties();
+function PropertyEditor({
+  property,
+  isCreating,
+  bundles,
+  projectId,
+  onSaved,
+  onClose,
+}: {
+  property: PropertyRow | null | undefined;
+  isCreating: boolean;
+  bundles: BundleRow[];
+  projectId: string;
+  onSaved: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const [scope, setScope] = useState(property?.scope ?? 'event');
+  const [name, setName] = useState(property?.name ?? '');
+  const [description, setDescription] = useState(property?.description ?? '');
+  const [category, setCategory] = useState(property?.category ?? '');
+  const [notes, setNotes] = useState(property?.notes ?? '');
+  const [dataType, setDataType] = useState(property?.data_type ?? 'string');
+  const [dataFormats, setDataFormats] = useState<string[]>(property?.data_formats_json ?? []);
+  const [pii, setPii] = useState(property?.pii ?? false);
+  const [propertyType, setPropertyType] = useState(property?.property_type ?? 'custom');
+  const [priority, setPriority] = useState(property?.priority ?? '');
+  const [status, setStatus] = useState(property?.status ?? '');
+  const [bloomreachCustomerProperty, setBloomreachCustomerProperty] = useState(property?.bloomreach_customer_property ?? '');
+  const [bundleIds, setBundleIds] = useState<string[]>(property?.bundle_ids ?? []);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  const {
-    bundles,
-    isLoading: bundlesLoading,
-    error: bundlesError,
-    refetch: refetchBundles,
-  } = useBundles();
+  const toggleFormat = (fmt: string) => {
+    setDataFormats((prev) => (prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt]));
+  };
+  const toggleBundle = (id: string) => {
+    setBundleIds((prev) => (prev.includes(id) ? prev.filter((b) => b !== id) : [...prev, id]));
+  };
 
-  const updatePropertyWithBundleSync = useCallback(
-    async (id: string, payload: PropertyUpdatePayload) => {
-      const result = await updateProperty(id, payload);
-      if (result.success && Object.prototype.hasOwnProperty.call(payload, 'bundle_ids')) {
-        await refetchBundles();
+  const trimmedName = name.trim();
+  const nameError = trimmedName ? null : 'Name is required.';
+
+  const handleSave = async () => {
+    if (!trimmedName || !projectId) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const body = {
+        scope,
+        name: trimmedName,
+        description: description.trim() || null,
+        category: category.trim() || null,
+        notes: notes.trim() || null,
+        data_type: dataType,
+        data_formats_json: dataFormats,
+        pii,
+        property_type: propertyType,
+        priority: priority || null,
+        status: status || null,
+        bloomreach_customer_property: scope === 'customer' ? bloomreachCustomerProperty.trim() || null : null,
+        bundle_ids: bundleIds,
+      };
+      const url = isCreating
+        ? `${API_BASE}/api/projects/${projectId}/properties`
+        : `${API_BASE}/api/projects/${projectId}/properties/${property?.id}`;
+      const res = await fetchWithAuth(url, { method: isCreating ? 'POST' : 'PATCH', body: JSON.stringify(body) });
+      const data = await parseJson(res);
+      if (!res.ok) {
+        setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to save.');
+        return;
       }
-      return result;
-    },
-    [updateProperty, refetchBundles]
-  );
-
-  const createPropertyWithBundleSync = useCallback(
-    async (payload: CreatePropertyInput) => {
-      const result = await createProperty(payload);
-      if (
-        result.success &&
-        Array.isArray(payload.bundle_ids) &&
-        payload.bundle_ids.length > 0
-      ) {
-        await refetchBundles();
-      }
-      return result;
-    },
-    [createProperty, refetchBundles]
-  );
-
-  const [mainTab, setMainTab] = useState<'properties' | 'bundles'>('properties');
-  const [isNewPropertySheetOpen, setIsNewPropertySheetOpen] = useState(false);
-  const [apiPropertyEditId, setApiPropertyEditId] = useState<string | null>(null);
-
-  const [bundleSheetOpen, setBundleSheetOpen] = useState(false);
-  const [bundleEditId, setBundleEditId] = useState<string | null>(null);
-  const [bundleCreating, setBundleCreating] = useState(false);
-
-  /**
-   * Same contract as Events: resolve after properties finish loading; never leave selectedItemIdToEdit stuck;
-   * no fallback if the id is not in the workspace API list.
-   */
-  useEffect(() => {
-    if (!selectedItemIdToEdit) return;
-    if (apiPropertiesLoading) return;
-
-    const property = apiProperties.find((p) => p.id === selectedItemIdToEdit);
-    if (property) {
-      setApiPropertyEditId(property.id);
-      setIsNewPropertySheetOpen(true);
-      setMainTab('properties');
+      await onSaved();
+    } finally {
+      setSaving(false);
     }
-    setSelectedItemIdToEdit(null);
-  }, [selectedItemIdToEdit, apiProperties, apiPropertiesLoading, setSelectedItemIdToEdit]);
-
-  const handleCloseApiPropertySheet = () => {
-    setIsNewPropertySheetOpen(false);
-    setApiPropertyEditId(null);
   };
 
-  const handleCloseBundleSheet = () => {
-    setBundleSheetOpen(false);
-    setBundleEditId(null);
-    setBundleCreating(false);
+  const handleDelete = async () => {
+    if (!property || !projectId) return;
+    if (!window.confirm(`Delete property "${property.name}"?`)) return;
+    setDeleting(true);
+    setSaveError(null);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/properties/${property.id}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) {
+        const data = await parseJson(res);
+        setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to delete.');
+        return;
+      }
+      await onSaved();
+    } finally {
+      setDeleting(false);
+    }
   };
-
-  const selectedBundle = bundleEditId ? bundles.find((b) => b.id === bundleEditId) ?? null : null;
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-gray-50">
-      <div className="p-8 border-b bg-white flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Properties</h1>
-          <p className="text-sm text-gray-500 mt-1 max-w-3xl">
-            Definitions for the current workspace, loaded and saved via the API.
-          </p>
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-gray-700">Scope</label>
+        <select value={scope} onChange={(e) => setScope(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+          {PROPERTY_SCOPES.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-gray-700">Name (snake_case)</label>
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. total_price" />
+        {nameError && <p className="text-xs text-red-600">{nameError}</p>}
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-gray-700">Description</label>
+        <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Category</label>
+          <Input value={category} onChange={(e) => setCategory(e.target.value)} />
         </div>
-        <div className="flex items-center gap-2">
-          {mainTab === 'properties' ? (
-            <Button
-              onClick={() => {
-                setApiPropertyEditId(null);
-                setIsNewPropertySheetOpen(true);
-              }}
-              className="gap-2"
-              disabled={!hasValidWorkspaceContext}
-              title={
-                !hasValidWorkspaceContext
-                  ? 'Select a valid workspace in the header before creating a property.'
-                  : undefined
-              }
-            >
-              <Plus className="w-4 h-4" /> New property
-            </Button>
-          ) : (
-            <Button
-              onClick={() => {
-                setBundleEditId(null);
-                setBundleCreating(true);
-                setBundleSheetOpen(true);
-              }}
-              className="gap-2"
-              disabled={!hasValidWorkspaceContext}
-              title={
-                !hasValidWorkspaceContext
-                  ? 'Select a valid workspace in the header before creating a bundle.'
-                  : undefined
-              }
-            >
-              <Plus className="w-4 h-4" /> Create bundle
-            </Button>
-          )}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Data type</label>
+          <select value={dataType} onChange={(e) => setDataType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+            {PROPERTY_DATA_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
         </div>
       </div>
-
-      <div className="px-8 pt-4 border-b bg-white shrink-0">
-        <nav className="flex gap-1" aria-label="Properties workspace sections">
-          <button
-            type="button"
-            onClick={() => setMainTab('properties')}
-            className={`px-4 py-2 text-sm font-medium rounded-t-md border-b-2 -mb-px transition-colors ${
-              mainTab === 'properties'
-                ? 'border-[var(--color-info)] text-[var(--color-info)] bg-gray-50'
-                : 'border-transparent text-gray-500 hover:text-gray-800'
-            }`}
-          >
-            Properties
-          </button>
-          <button
-            type="button"
-            onClick={() => setMainTab('bundles')}
-            className={`px-4 py-2 text-sm font-medium rounded-t-md border-b-2 -mb-px transition-colors inline-flex items-center gap-2 ${
-              mainTab === 'bundles'
-                ? 'border-[var(--color-info)] text-[var(--color-info)] bg-gray-50'
-                : 'border-transparent text-gray-500 hover:text-gray-800'
-            }`}
-          >
-            <Layers className="w-4 h-4" /> Bundles
-          </button>
-        </nav>
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-gray-700">Data formats</label>
+        <div className="flex flex-wrap gap-2">
+          {PROPERTY_DATA_FORMATS.map((fmt) => (
+            <label key={fmt} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1">
+              <input type="checkbox" checked={dataFormats.includes(fmt)} onChange={() => toggleFormat(fmt)} />
+              {fmt}
+            </label>
+          ))}
+        </div>
       </div>
-
-      <div className="p-8 flex-1 overflow-hidden flex flex-col">
-        {mainTab === 'properties' && (
-          <PropertiesList
-            onOpenCreate={() => {
-              setApiPropertyEditId(null);
-              setIsNewPropertySheetOpen(true);
-            }}
-            allowCreate={hasValidWorkspaceContext}
-            onOpenProperty={(id) => {
-              setApiPropertyEditId(id);
-              setIsNewPropertySheetOpen(true);
-            }}
-            properties={apiProperties}
-            isLoading={apiPropertiesLoading}
-            error={apiPropertiesError}
-            refetch={refetchApiProperties}
-            mutationError={mutationError}
-            clearMutationError={clearMutationError}
-          />
-        )}
-
-        {mainTab === 'bundles' && (
-          <div className="flex-1 flex flex-col min-h-0">
-            {bundlesLoading && (
-              <div className="flex items-center gap-2 text-gray-600 py-8">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Loading bundles…
-              </div>
-            )}
-            {!bundlesLoading && bundlesError && (
-              <div
-                className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 flex gap-2 items-start"
-                role="alert"
-              >
-                <AlertCircle className="w-5 h-5 shrink-0" />
-                {bundlesError}
-              </div>
-            )}
-            {!bundlesLoading && !bundlesError && (
-              <div className="bg-white rounded-lg border shadow-sm flex-1 overflow-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-gray-50 border-b sticky top-0 z-10">
-                    <tr>
-                      <th className="px-6 py-3 font-medium text-gray-500">Name</th>
-                      <th className="px-6 py-3 font-medium text-gray-500">Description</th>
-                      <th className="px-6 py-3 font-medium text-gray-500">Properties</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {bundles.map((b) => (
-                      <tr
-                        key={b.id}
-                        onClick={() => {
-                          setBundleCreating(false);
-                          setBundleEditId(b.id);
-                          setBundleSheetOpen(true);
-                        }}
-                        className="hover:bg-gray-50 cursor-pointer transition-colors"
-                      >
-                        <td className="px-6 py-4 font-medium text-gray-900">{b.name}</td>
-                        <td className="px-6 py-4 text-gray-600 max-w-md truncate">
-                          {b.description || '—'}
-                        </td>
-                        <td className="px-6 py-4 text-gray-500 align-top min-w-0">
-                          <BundlePropertiesCell bundle={b} properties={apiProperties} />
-                        </td>
-                      </tr>
-                    ))}
-                    {bundles.length === 0 && (
-                      <tr>
-                        <td colSpan={3} className="px-6 py-10 text-center text-gray-500">
-                          No bundles yet. Create one to group properties for faster event setup.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Priority</label>
+          <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+            <option value="">—</option>
+            {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Status</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+            <option value="">—</option>
+            {ENTITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-gray-700">Property type</label>
+        <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+          {ORIGIN_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </div>
+      <label className="flex items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" checked={pii} onChange={(e) => setPii(e.target.checked)} /> Contains PII
+      </label>
+      {scope === 'customer' && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Bloomreach customer property key</label>
+          <Input value={bloomreachCustomerProperty} onChange={(e) => setBloomreachCustomerProperty(e.target.value)} placeholder="e.g. email" className="font-mono" />
+        </div>
+      )}
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-gray-700">Notes</label>
+        <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
+      </div>
+      {bundles.length > 0 && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Bundles</label>
+          <div className="flex flex-wrap gap-2">
+            {bundles.map((b) => (
+              <label key={b.id} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1">
+                <input type="checkbox" checked={bundleIds.includes(b.id)} onChange={() => toggleBundle(b.id)} />
+                {b.name}
+              </label>
+            ))}
           </div>
-        )}
+        </div>
+      )}
+
+      {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{saveError}</div>}
+
+      <div className="pt-6 border-t flex justify-between">
+        {!isCreating && property ? (
+          <Button variant="destructive" onClick={() => void handleDelete()} disabled={saving || deleting} className="gap-2">
+            {deleting ? (<><Loader2 className="w-4 h-4 animate-spin" /> Deleting…</>) : (<><Trash2 className="w-4 h-4" /> Delete</>)}
+          </Button>
+        ) : <div />}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onClose} disabled={saving || deleting}>Cancel</Button>
+          <Button onClick={() => void handleSave()} disabled={saving || deleting || !trimmedName}>{saving ? 'Saving…' : 'Save Property'}</Button>
+        </div>
       </div>
-
-      <PropertyEditorSheet
-        isOpen={isNewPropertySheetOpen}
-        onClose={handleCloseApiPropertySheet}
-        initialProperty={apiPropertyEditId ? apiProperties.find((p) => p.id === apiPropertyEditId) ?? null : null}
-        workspaceProperties={apiProperties}
-        createProperty={createPropertyWithBundleSync}
-        updateProperty={updatePropertyWithBundleSync}
-        deleteProperty={deleteProperty}
-        mutationError={mutationError}
-        clearMutationError={clearMutationError}
-      />
-
-      <Sheet
-        isOpen={bundleSheetOpen}
-        onClose={handleCloseBundleSheet}
-        title={bundleCreating ? 'Create bundle' : 'Edit bundle'}
-        className="w-[500px]"
-      >
-        <BundleEditor
-          key={bundleCreating ? 'new' : bundleEditId ?? 'none'}
-          bundle={bundleCreating ? null : selectedBundle}
-          isCreating={bundleCreating}
-          onClose={handleCloseBundleSheet}
-          onSuccess={() => void refetchBundles()}
-          workspaceProperties={apiProperties}
-        />
-      </Sheet>
     </div>
   );
 }

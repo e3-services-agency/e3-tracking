@@ -61,6 +61,7 @@ export function Sidebar({
   ];
 
   const bottomNavItems = [
+    { id: 'clients', label: 'Clients', icon: Database },
     { id: 'settings', label: 'Settings', icon: Settings },
     { id: 'documentation', label: 'Documentation', icon: BookOpen },
   ];

@@ -1,245 +1,65 @@
+/**
+ * Source routes, mounted at `/api/projects/:projectId/sources` behind `requireProject`.
+ */
 import { Router, type Request, type Response } from 'express';
-import { requireWorkspace } from '../middleware/workspace';
 import * as SourceDAL from '../dal/source.dal';
-import { ConflictError, DatabaseError, NotFoundError } from '../errors';
+import { handleRouteError } from './routeErrors';
 
-const router = Router();
+const router = Router({ mergeParams: true });
 
-router.get('/', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
-  const workspaceId = req.workspaceId;
-  if (!workspaceId) {
-    res.status(403).json({
-      error: 'Workspace context required.',
-      code: 'WORKSPACE_REQUIRED',
-    });
-    return;
-  }
-
+router.get('/', (req: Request, res: Response) => {
   try {
-    const sources = await SourceDAL.listSources(workspaceId);
-    res.status(200).json(sources);
+    res.status(200).json(SourceDAL.listSources(req.projectId!));
   } catch (err) {
-    if (err instanceof DatabaseError) {
-      res.status(500).json({
-        error: err.message,
-        code: err.code,
-      });
-      return;
-    }
-    res.status(500).json({
-      error: 'An unexpected error occurred.',
-      code: 'INTERNAL_ERROR',
-    });
+    handleRouteError(err, res);
   }
 });
 
-router.get('/usage', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
-  const workspaceId = req.workspaceId;
-  if (!workspaceId) {
-    res.status(403).json({
-      error: 'Workspace context required.',
-      code: 'WORKSPACE_REQUIRED',
-    });
-    return;
-  }
+router.get('/usage', (req: Request, res: Response) => {
   try {
-    const usage = await SourceDAL.getSourceUsage(workspaceId);
-    res.status(200).json(usage);
+    res.status(200).json(SourceDAL.getSourceUsage(req.projectId!));
   } catch (err) {
-    if (err instanceof DatabaseError) {
-      res.status(500).json({
-        error: err.message,
-        code: err.code,
-      });
-      return;
-    }
-    res.status(500).json({
-      error: 'An unexpected error occurred.',
-      code: 'INTERNAL_ERROR',
-    });
+    handleRouteError(err, res);
   }
 });
 
-router.post('/', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
-  const workspaceId = req.workspaceId;
-  if (!workspaceId) {
-    res.status(403).json({
-      error: 'Workspace context required.',
-      code: 'WORKSPACE_REQUIRED',
-    });
-    return;
-  }
-
-  const body = req.body as Record<string, unknown>;
+router.post('/', (req: Request, res: Response) => {
+  const body = req.body as { name?: unknown; color?: unknown };
   const name = typeof body.name === 'string' ? body.name.trim() : '';
-  const color =
-    typeof body.color === 'string'
-      ? body.color.trim() || null
-      : body.color === null || typeof body.color === 'undefined'
-        ? null
-        : undefined;
-
   if (!name) {
-    res.status(400).json({
-      error: 'Source name is required.',
-      code: 'NAME_REQUIRED',
-      field: 'name',
-    });
+    res.status(400).json({ error: 'name is required.', code: 'NAME_REQUIRED', field: 'name' });
     return;
   }
-
-  if (typeof color === 'undefined') {
-    res.status(400).json({
-      error: 'color must be a string when provided.',
-      code: 'COLOR_INVALID',
-      field: 'color',
-    });
-    return;
-  }
-
   try {
-    const source = await SourceDAL.createSource(workspaceId, { name, color });
+    const source = SourceDAL.createSource(req.projectId!, {
+      name,
+      color: typeof body.color === 'string' ? body.color : null,
+    });
     res.status(201).json(source);
   } catch (err) {
-    if (err instanceof ConflictError) {
-      res.status(409).json({
-        error: err.message,
-        code: err.code,
-      });
-      return;
-    }
-    if (err instanceof DatabaseError) {
-      res.status(500).json({
-        error: err.message,
-        code: err.code,
-      });
-      return;
-    }
-    res.status(500).json({
-      error: 'An unexpected error occurred.',
-      code: 'INTERNAL_ERROR',
-    });
+    handleRouteError(err, res);
   }
 });
 
-router.patch('/:id', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
-  const workspaceId = req.workspaceId;
-  if (!workspaceId) {
-    res.status(403).json({
-      error: 'Workspace context required.',
-      code: 'WORKSPACE_REQUIRED',
-    });
-    return;
-  }
-
-  const id = typeof req.params.id === 'string' ? req.params.id.trim() : '';
-  if (!id) {
-    res.status(400).json({
-      error: 'Source id is required.',
-      code: 'ID_REQUIRED',
-      field: 'id',
-    });
-    return;
-  }
-
-  const body = (req.body ?? {}) as Record<string, unknown>;
-
-  const patch: { name?: string; color?: string | null } = {};
-
-  if (typeof body.name !== 'undefined') {
-    if (typeof body.name !== 'string' || !body.name.trim()) {
-      res.status(400).json({
-        error: 'Source name is required.',
-        code: 'NAME_REQUIRED',
-        field: 'name',
-      });
-      return;
-    }
-    patch.name = body.name.trim();
-  }
-
-  if (typeof body.color !== 'undefined') {
-    if (body.color === null) {
-      patch.color = null;
-    } else if (typeof body.color === 'string') {
-      patch.color = body.color.trim() || null;
-    } else {
-      res.status(400).json({
-        error: 'color must be a string or null when provided.',
-        code: 'COLOR_INVALID',
-        field: 'color',
-      });
-      return;
-    }
-  }
-
-  if (Object.keys(patch).length === 0) {
-    res.status(400).json({
-      error: 'No updatable fields provided.',
-      code: 'NO_FIELDS',
-    });
-    return;
-  }
-
+router.patch('/:id', (req: Request, res: Response) => {
+  const body = req.body as { name?: unknown; color?: unknown };
   try {
-    const source = await SourceDAL.updateSource(workspaceId, id, patch);
+    const source = SourceDAL.updateSource(req.projectId!, req.params.id, {
+      name: typeof body.name === 'string' ? body.name : undefined,
+      color: body.color === undefined ? undefined : (body.color as string | null),
+    });
     res.status(200).json(source);
   } catch (err) {
-    if (err instanceof NotFoundError) {
-      res.status(404).json({ error: err.message, code: err.code });
-      return;
-    }
-    if (err instanceof ConflictError) {
-      res.status(409).json({ error: err.message, code: err.code });
-      return;
-    }
-    if (err instanceof DatabaseError) {
-      res.status(500).json({ error: err.message, code: err.code });
-      return;
-    }
-    res.status(500).json({
-      error: 'An unexpected error occurred.',
-      code: 'INTERNAL_ERROR',
-    });
+    handleRouteError(err, res);
   }
 });
 
-router.delete('/:id', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
-  const workspaceId = req.workspaceId;
-  if (!workspaceId) {
-    res.status(403).json({
-      error: 'Workspace context required.',
-      code: 'WORKSPACE_REQUIRED',
-    });
-    return;
-  }
-
-  const id = typeof req.params.id === 'string' ? req.params.id.trim() : '';
-  if (!id) {
-    res.status(400).json({
-      error: 'Source id is required.',
-      code: 'ID_REQUIRED',
-      field: 'id',
-    });
-    return;
-  }
-
+router.delete('/:id', (req: Request, res: Response) => {
   try {
-    await SourceDAL.softDeleteSource(workspaceId, id);
-    res.status(204).send();
+    SourceDAL.deleteSource(req.projectId!, req.params.id);
+    res.status(204).end();
   } catch (err) {
-    if (err instanceof NotFoundError) {
-      res.status(404).json({ error: err.message, code: err.code });
-      return;
-    }
-    if (err instanceof DatabaseError) {
-      res.status(500).json({ error: err.message, code: err.code });
-      return;
-    }
-    res.status(500).json({
-      error: 'An unexpected error occurred.',
-      code: 'INTERNAL_ERROR',
-    });
+    handleRouteError(err, res);
   }
 });
 

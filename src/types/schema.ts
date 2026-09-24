@@ -545,7 +545,7 @@ export interface QARunRow {
 export interface QARunEvidenceRow {
   id: string;
   qa_run_id: string;
-  image_url: string; // Supabase Storage public URL
+  image_url: string; // remote storage public URL
   sort_order: number;
   created_at: string;
 }

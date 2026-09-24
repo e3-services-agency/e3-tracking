@@ -1,76 +1,39 @@
 /**
- * Global auth state: session, user, loading. useAuth() for app-wide access.
+ * Global auth state (D-13: local single-user auth mode). Keeps the `useAuth()` shape
+ * (`user, loading, signIn, signOut, getAccessToken`) the rest of the app already depends on, but
+ * the `local` provider never talks to a remote service: `user` is always the local admin,
+ * `loading` is always false, `getAccessToken()` resolves to `null` (no bearer token is needed;
+ * the backend's own `AUTH_MODE=local` treats every request as authenticated), and `signIn`/
+ * `signOut` are no-ops. A future remote provider would replace only this file.
  */
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import type { User, Session } from '@supabase/supabase-js';
-import { getSupabaseClient } from '@/src/lib/supabase';
+import React, { createContext, useContext, useCallback, useMemo } from 'react';
+
+interface LocalUser {
+  id: string;
+  email: string;
+}
 
 interface AuthState {
-  user: User | null;
-  session: Session | null;
+  user: LocalUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
 }
 
+const LOCAL_USER: LocalUser = { id: 'local-user', email: 'local@e3-tracking.local' };
+
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-  const supabase = getSupabaseClient();
+  const signIn = useCallback(async (): Promise<{ error: string | null }> => ({ error: null }), []);
+  const signOut = useCallback(async (): Promise<void> => {}, []);
+  const getAccessToken = useCallback(async (): Promise<string | null> => null, []);
 
-  useEffect(() => {
-    supabase.auth
-      .getSession()
-      .then(({ data: { session: s } }) => {
-        setSession(s);
-        setUser(s?.user ?? null);
-      })
-      .catch(() => {
-        setSession(null);
-        setUser(null);
-      })
-      .finally(() => setLoading(false));
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [supabase.auth]);
-
-  const signIn = useCallback(
-    async (email: string, password: string): Promise<{ error: string | null }> => {
-      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-      if (error) return { error: error.message };
-      return { error: null };
-    },
-    [supabase.auth]
+  const value = useMemo<AuthState>(
+    () => ({ user: LOCAL_USER, loading: false, signIn, signOut, getAccessToken }),
+    [signIn, signOut, getAccessToken]
   );
-
-  const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
-  }, [supabase.auth]);
-
-  const getAccessToken = useCallback(async (): Promise<string | null> => {
-    const { data: { session: s } } = await supabase.auth.getSession();
-    return s?.access_token ?? null;
-  }, [supabase.auth]);
-
-  const value: AuthState = {
-    user,
-    session,
-    loading,
-    signIn,
-    signOut,
-    getAccessToken,
-  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -28,7 +28,7 @@ export type BadRequestDetails = {
 
 /** Invalid client payload (400). */
 export class BadRequestError extends Error {
-  readonly code = 'BAD_REQUEST';
+  readonly code: string = 'BAD_REQUEST';
   constructor(
     message: string,
     public readonly field?: string,
@@ -36,6 +36,20 @@ export class BadRequestError extends Error {
   ) {
     super(message);
     this.name = 'BadRequestError';
+  }
+}
+
+/**
+ * Blank/invalid field on an otherwise well-formed request (400). Subclass of `BadRequestError`
+ * so `routeErrors.ts`'s `instanceof BadRequestError` check already maps it; its own class and
+ * code exist so callers (and tests) can tell "you sent something empty" apart from other 400s
+ * without inspecting the message (fix round finding #7: validation must be 400, not 409).
+ */
+export class ValidationError extends BadRequestError {
+  readonly code = 'VALIDATION_ERROR';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'ValidationError';
   }
 }
 
@@ -48,7 +62,7 @@ export class NotFoundError extends Error {
   }
 }
 
-/** Use when required env (e.g. SUPABASE_*) is missing. Map to 503 CONFIG_ERROR. */
+/** Use when required configuration env is missing/invalid. Map to 503 CONFIG_ERROR. */
 export class ConfigError extends Error {
   readonly code = 'CONFIG_ERROR';
   constructor(message: string) {

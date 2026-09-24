@@ -1,208 +1,55 @@
 /**
- * Property bundles CRUD. Requires `x-workspace-id` (see requireWorkspace).
+ * Property bundle routes, mounted at `/api/projects/:projectId/bundles` (D-26: kept as a shell
+ * convenience).
  */
 import { Router, type Request, type Response } from 'express';
-import { requireWorkspace } from '../middleware/workspace';
 import * as BundleDAL from '../dal/bundle.dal';
-import { BadRequestError, ConflictError, DatabaseError, NotFoundError } from '../errors';
+import { handleRouteError } from './routeErrors';
 
-const router = Router();
+const router = Router({ mergeParams: true });
 
-router.get('/', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
-  const workspaceId = req.workspaceId;
-  if (!workspaceId) {
-    res.status(403).json({ error: 'Workspace context required.', code: 'WORKSPACE_REQUIRED' });
-    return;
-  }
+router.get('/', (req: Request, res: Response) => {
   try {
-    const list = await BundleDAL.getBundlesByWorkspace(workspaceId);
-    res.status(200).json(list);
+    res.status(200).json(BundleDAL.listBundles(req.projectId!));
   } catch (err) {
-    console.error(err);
-    if (err instanceof DatabaseError) {
-      res.status(500).json({ error: err.message, code: err.code });
-      return;
-    }
-    res.status(500).json({ error: 'An unexpected error occurred.', code: 'INTERNAL_ERROR' });
+    handleRouteError(err, res);
   }
 });
 
-router.get('/:id', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
-  const workspaceId = req.workspaceId;
-  if (!workspaceId) {
-    res.status(403).json({ error: 'Workspace context required.', code: 'WORKSPACE_REQUIRED' });
-    return;
-  }
-  const bundleId = req.params.id;
+router.post('/', (req: Request, res: Response) => {
+  const body = req.body as { name?: unknown; description?: unknown; property_ids?: unknown };
   try {
-    const row = await BundleDAL.getBundleById(workspaceId, bundleId);
-    if (!row) {
-      res.status(404).json({ error: 'Bundle not found.', code: 'NOT_FOUND' });
-      return;
-    }
-    res.status(200).json(row);
-  } catch (err) {
-    console.error(err);
-    if (err instanceof DatabaseError) {
-      res.status(500).json({ error: err.message, code: err.code });
-      return;
-    }
-    res.status(500).json({ error: 'An unexpected error occurred.', code: 'INTERNAL_ERROR' });
-  }
-});
-
-router.post('/', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
-  const workspaceId = req.workspaceId;
-  if (!workspaceId) {
-    res.status(403).json({ error: 'Workspace context required.', code: 'WORKSPACE_REQUIRED' });
-    return;
-  }
-  const body = req.body as Record<string, unknown>;
-  const name = typeof body.name === 'string' ? body.name : '';
-  const description =
-    typeof body.description === 'string' || body.description === null
-      ? body.description
-      : undefined;
-  let property_ids: string[] | null | undefined;
-  if (body.property_ids !== undefined) {
-    if (!Array.isArray(body.property_ids)) {
-      res.status(400).json({
-        error: 'property_ids must be an array of strings when provided.',
-        code: 'INVALID_PAYLOAD',
-        field: 'property_ids',
-      });
-      return;
-    }
-    for (let i = 0; i < body.property_ids.length; i += 1) {
-      if (typeof body.property_ids[i] !== 'string') {
-        res.status(400).json({
-          error: 'property_ids must be an array of strings.',
-          code: 'INVALID_PAYLOAD',
-          field: 'property_ids',
-        });
-        return;
-      }
-    }
-    property_ids = [...new Set(body.property_ids.map((s) => String(s).trim()).filter(Boolean))];
-  }
-
-  try {
-    const created = await BundleDAL.createBundle(workspaceId, {
-      name,
-      description: description === undefined ? undefined : description,
-      property_ids: property_ids ?? null,
+    const bundle = BundleDAL.createBundle(req.projectId!, {
+      name: String(body.name ?? ''),
+      description: typeof body.description === 'string' ? body.description : null,
+      property_ids: Array.isArray(body.property_ids) ? (body.property_ids as string[]) : null,
     });
-    res.status(201).json(created);
+    res.status(201).json(bundle);
   } catch (err) {
-    console.error(err);
-    if (err instanceof BadRequestError) {
-      res.status(400).json({ error: err.message, code: err.code, field: err.field });
-      return;
-    }
-    if (err instanceof ConflictError) {
-      res.status(409).json({ error: err.message, code: err.code });
-      return;
-    }
-    if (err instanceof DatabaseError) {
-      res.status(500).json({ error: err.message, code: err.code });
-      return;
-    }
-    res.status(500).json({ error: 'An unexpected error occurred.', code: 'INTERNAL_ERROR' });
+    handleRouteError(err, res);
   }
 });
 
-router.patch('/:id', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
-  const workspaceId = req.workspaceId;
-  if (!workspaceId) {
-    res.status(403).json({ error: 'Workspace context required.', code: 'WORKSPACE_REQUIRED' });
-    return;
-  }
-  const bundleId = req.params.id;
-  const body = req.body as Record<string, unknown>;
-  const input: {
-    name?: string;
-    description?: string | null;
-    property_ids?: string[] | null;
-  } = {};
-
-  if (typeof body.name === 'string') input.name = body.name;
-  if (body.description !== undefined) {
-    input.description =
-      typeof body.description === 'string' || body.description === null ? body.description : null;
-  }
-  if (body.property_ids !== undefined) {
-    if (!Array.isArray(body.property_ids)) {
-      res.status(400).json({
-        error: 'property_ids must be an array of strings when provided.',
-        code: 'INVALID_PAYLOAD',
-        field: 'property_ids',
-      });
-      return;
-    }
-    for (let i = 0; i < body.property_ids.length; i += 1) {
-      if (typeof body.property_ids[i] !== 'string') {
-        res.status(400).json({
-          error: 'property_ids must be an array of strings.',
-          code: 'INVALID_PAYLOAD',
-          field: 'property_ids',
-        });
-        return;
-      }
-    }
-    input.property_ids = [...new Set(body.property_ids.map((s) => String(s).trim()).filter(Boolean))];
-  }
-
-  if (Object.keys(input).length === 0) {
-    res.status(400).json({ error: 'No valid fields to update.', code: 'NO_UPDATES' });
-    return;
-  }
-
+router.patch('/:id', (req: Request, res: Response) => {
+  const body = req.body as { name?: unknown; description?: unknown; property_ids?: unknown };
   try {
-    const updated = await BundleDAL.updateBundle(workspaceId, bundleId, input);
-    res.status(200).json(updated);
+    const bundle = BundleDAL.updateBundle(req.projectId!, req.params.id, {
+      name: typeof body.name === 'string' ? body.name : undefined,
+      description: 'description' in body ? (body.description as string | null) : undefined,
+      property_ids: Array.isArray(body.property_ids) ? (body.property_ids as string[]) : undefined,
+    });
+    res.status(200).json(bundle);
   } catch (err) {
-    console.error(err);
-    if (err instanceof BadRequestError) {
-      res.status(400).json({ error: err.message, code: err.code, field: err.field });
-      return;
-    }
-    if (err instanceof ConflictError) {
-      res.status(409).json({ error: err.message, code: err.code });
-      return;
-    }
-    if (err instanceof NotFoundError) {
-      res.status(404).json({ error: err.message, code: err.code });
-      return;
-    }
-    if (err instanceof DatabaseError) {
-      res.status(500).json({ error: err.message, code: err.code });
-      return;
-    }
-    res.status(500).json({ error: 'An unexpected error occurred.', code: 'INTERNAL_ERROR' });
+    handleRouteError(err, res);
   }
 });
 
-router.delete('/:id', requireWorkspace, async (req: Request, res: Response): Promise<void> => {
-  const workspaceId = req.workspaceId;
-  if (!workspaceId) {
-    res.status(403).json({ error: 'Workspace context required.', code: 'WORKSPACE_REQUIRED' });
-    return;
-  }
-  const bundleId = req.params.id;
+router.delete('/:id', (req: Request, res: Response) => {
   try {
-    await BundleDAL.deleteBundle(workspaceId, bundleId);
-    res.status(204).send();
+    BundleDAL.deleteBundle(req.projectId!, req.params.id);
+    res.status(204).end();
   } catch (err) {
-    console.error(err);
-    if (err instanceof NotFoundError) {
-      res.status(404).json({ error: err.message, code: err.code });
-      return;
-    }
-    if (err instanceof DatabaseError) {
-      res.status(500).json({ error: err.message, code: err.code });
-      return;
-    }
-    res.status(500).json({ error: 'An unexpected error occurred.', code: 'INTERNAL_ERROR' });
+    handleRouteError(err, res);
   }
 });
 

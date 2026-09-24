@@ -40,6 +40,7 @@ describe('getDb on :memory:', () => {
     const db = getDb();
     const migrations = db.prepare('SELECT id FROM schema_migrations').all() as { id: string }[];
     expect(migrations.map((m) => m.id)).toContain('0001_core.sql');
+    expect(migrations.map((m) => m.id)).toContain('0002_bundles.sql');
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
@@ -67,6 +68,8 @@ describe('getDb on :memory:', () => {
       'qa_runs',
       'observations',
       'findings',
+      'property_bundles',
+      'property_bundle_items',
     ]) {
       expect(tables, `missing table ${table}`).toContain(table);
     }
@@ -94,6 +97,19 @@ describe('getDb on :memory:', () => {
     const db = getDb();
     const result = db.pragma('foreign_keys', { simple: true });
     expect(result).toBe(1);
+  });
+
+  it('leaves no dangling foreign keys after the 0003 table-rebuild migration', () => {
+    const db = getDb();
+    expect(db.pragma('foreign_key_check')).toEqual([]);
+    // The rebuild's temp tables must not leak into the final schema.
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
+      .all()
+      .map((row) => (row as { name: string }).name);
+    for (const leftover of ['projects_new', 'events_new', 'properties_new', 'property_bundles_new']) {
+      expect(tables).not.toContain(leftover);
+    }
   });
 });
 
@@ -211,9 +227,16 @@ describe('inserting and linking core entities on :memory:', () => {
   });
 });
 
+const ALL_MIGRATION_FILES = [
+  '0001_core.sql',
+  '0002_bundles.sql',
+  '0003_unique_soft_delete.sql',
+  '0004_catalog_mapping_role_soft_delete.sql',
+];
+
 describe('listMigrationFiles', () => {
-  it('lists exactly the 0001_core.sql migration', () => {
-    expect(listMigrationFiles()).toEqual(['0001_core.sql']);
+  it('lists every ordered migration file', () => {
+    expect(listMigrationFiles()).toEqual(ALL_MIGRATION_FILES);
   });
 });
 
@@ -225,15 +248,15 @@ describe('migration idempotency', () => {
     try {
       const first = getDb();
       const firstRows = first.prepare('SELECT id FROM schema_migrations').all() as { id: string }[];
-      expect(firstRows.map((row) => row.id)).toEqual(['0001_core.sql']);
+      expect(firstRows.map((row) => row.id)).toEqual(ALL_MIGRATION_FILES);
 
-      // Reopen the same file: runMigrations must see 0001_core.sql already applied and not
-      // re-run it (which would fail with "table clients already exists").
+      // Reopen the same file: runMigrations must see both migrations already applied and not
+      // re-run them (which would fail with "table clients already exists").
       closeDb();
       const second = getDb();
       const secondRows = second.prepare('SELECT id FROM schema_migrations').all() as { id: string }[];
-      expect(secondRows.map((row) => row.id)).toEqual(['0001_core.sql']);
-      expect(secondRows).toHaveLength(1);
+      expect(secondRows.map((row) => row.id)).toEqual(ALL_MIGRATION_FILES);
+      expect(secondRows).toHaveLength(ALL_MIGRATION_FILES.length);
     } finally {
       closeDb();
       for (const suffix of ['', '-wal', '-shm']) {

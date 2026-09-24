@@ -46,7 +46,7 @@ export interface CodegenSnippets {
 
 type CodegenMethodKey = keyof CodegenEventNameOverrides;
 
-export type CodegenWorkspaceConfig = {
+export type CodegenProjectConfig = {
   /**
    * Bloomreach Tracking API customer identifier key inside `customer_ids`.
    * Default (back-compat): "registered"
@@ -331,7 +331,7 @@ export function buildCodegenSnippets(
   canonicalEventName: string,
   attached: AttachedPropertyForCodegen[],
   overrides?: CodegenEventNameOverrides | null,
-  workspaceConfig?: CodegenWorkspaceConfig
+  projectConfig?: CodegenProjectConfig
 ): CodegenSnippets {
   const safeCanonical = canonicalEventName?.trim() || 'event_name';
   const props = orderCodegenPropsForSnippetDisplay(
@@ -340,7 +340,7 @@ export function buildCodegenSnippets(
 
   const dataLayer = buildDataLayerSnippet(safeCanonical, props, overrides);
   const bloomreachSdk = buildBloomreachSdkSnippet(safeCanonical, props, overrides);
-  const bloomreachApi = buildBloomreachApiSnippet(safeCanonical, props, overrides, workspaceConfig);
+  const bloomreachApi = buildBloomreachApiSnippet(safeCanonical, props, overrides, projectConfig);
 
   return { dataLayer, bloomreachSdk, bloomreachApi };
 }
@@ -464,12 +464,12 @@ function buildBloomreachApiSnippet(
   canonicalEventName: string,
   props: AttachedPropertyForCodegen[],
   overrides: CodegenEventNameOverrides | null | undefined,
-  workspaceConfig?: CodegenWorkspaceConfig
+  projectConfig?: CodegenProjectConfig
 ): string {
   const eventName = resolveOutputEventName(canonicalEventName, 'bloomreachApi', overrides);
   const rawKey =
-    typeof workspaceConfig?.bloomreachApiCustomerIdKey === 'string'
-      ? workspaceConfig.bloomreachApiCustomerIdKey.trim()
+    typeof projectConfig?.bloomreachApiCustomerIdKey === 'string'
+      ? projectConfig.bloomreachApiCustomerIdKey.trim()
       : '';
   const customerIdKey = rawKey || 'registered';
   const properties: Record<string, unknown> = {};

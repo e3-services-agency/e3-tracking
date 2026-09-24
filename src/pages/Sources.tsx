@@ -1,48 +1,64 @@
-import React, { useState, useEffect } from 'react';
-import { useStore, useActiveData } from '@/src/store';
-import { Source } from '@/src/types';
+/**
+ * Sources: plain table + create/edit form against `/api/projects/:projectId/sources` (D-15).
+ * Simplified UI (D-07).
+ */
+import React, { useCallback, useEffect, useState } from 'react';
+import { Search, Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
-import { Search, Plus, Trash2, Loader2 } from 'lucide-react';
-import { useWorkspaceShell } from '@/src/features/workspaces/context/WorkspaceShellContext';
-import {
-  createWorkspaceSource,
-  deleteWorkspaceSource,
-  getWorkspaceSourceUsage,
-  listWorkspaceSources,
-  updateWorkspaceSource,
-  type SourceUsageSummary,
-} from '@/src/features/events/lib/eventTriggerSourcesApi';
+import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
+import { fetchWithAuth } from '@/src/lib/api';
+import { API_BASE } from '@/src/config/env';
+
+interface SourceRow {
+  id: string;
+  project_id: string;
+  name: string;
+  color: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface SourceUsage {
+  source_id: string;
+  property_count: number;
+  event_count: number;
+}
+
+async function parseJson(res: Response): Promise<any> {
+  return res.json().catch(() => ({}));
+}
 
 export function Sources() {
-  const data = useActiveData();
-  const { syncSourcesFromApi } = useStore();
-  const { activeWorkspaceId, hasValidWorkspaceContext } = useWorkspaceShell();
-  const [usageBySourceId, setUsageBySourceId] = useState<Record<string, SourceUsageSummary>>({});
-
-  useEffect(() => {
-    if (!hasValidWorkspaceContext || !activeWorkspaceId?.trim()) return;
-    void listWorkspaceSources(activeWorkspaceId).then((r) => {
-      if (r.success) syncSourcesFromApi(r.data);
-    });
-    void getWorkspaceSourceUsage(activeWorkspaceId).then((r) => {
-      if (!r.success) return;
-      const next: Record<string, SourceUsageSummary> = {};
-      for (const row of r.data) {
-        next[row.source_id] = row;
-      }
-      setUsageBySourceId(next);
-    });
-  }, [hasValidWorkspaceContext, activeWorkspaceId, syncSourcesFromApi]);
+  const { activeProjectId, hasValidProjectContext } = useProjectShell();
+  const [sources, setSources] = useState<SourceRow[]>([]);
+  const [usageBySourceId, setUsageBySourceId] = useState<Record<string, SourceUsage>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
 
-  const filteredSources = data.sources.filter(s =>
-    s.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const load = useCallback(async () => {
+    if (!hasValidProjectContext || !activeProjectId) return;
+    const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/sources`);
+    const data = await parseJson(res);
+    if (res.ok) setSources(Array.isArray(data) ? data : []);
+
+    const usageRes = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/sources/usage`);
+    const usageData = await parseJson(usageRes);
+    if (usageRes.ok && Array.isArray(usageData)) {
+      const next: Record<string, SourceUsage> = {};
+      for (const row of usageData as SourceUsage[]) next[row.source_id] = row;
+      setUsageBySourceId(next);
+    }
+  }, [hasValidProjectContext, activeProjectId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const filteredSources = sources.filter((s) => s.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const handleOpenSource = (id: string) => {
     setSelectedSourceId(id);
@@ -56,7 +72,7 @@ export function Sources() {
     setIsSheetOpen(true);
   };
 
-  const selectedSource = selectedSourceId ? data.sources.find(s => s.id === selectedSourceId) : null;
+  const selectedSource = selectedSourceId ? sources.find((s) => s.id === selectedSourceId) : null;
 
   return (
     <div className="flex-1 flex flex-col h-full">
@@ -86,38 +102,26 @@ export function Sources() {
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-6 py-3 font-medium text-gray-500">Name</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Color Tag</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Color</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Used In</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {filteredSources.map(source => {
+              {filteredSources.map((source) => {
                 const usage = usageBySourceId[source.id];
-                const propertyCount = usage?.property_count ?? 0;
-                const eventCount = usage?.event_count ?? 0;
                 return (
-                  <tr
-                    key={source.id}
-                    onClick={() => handleOpenSource(source.id)}
-                    className="hover:bg-gray-50 cursor-pointer transition-colors"
-                  >
+                  <tr key={source.id} onClick={() => handleOpenSource(source.id)} className="hover:bg-gray-50 cursor-pointer transition-colors">
                     <td className="px-6 py-4 font-medium text-gray-900">{source.name}</td>
-                    <td className="px-6 py-4">
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${source.color || 'bg-gray-100 text-gray-800'}`}>
-                        {source.name}
-                      </span>
-                    </td>
+                    <td className="px-6 py-4 text-gray-500">{source.color || '—'}</td>
                     <td className="px-6 py-4 text-gray-500">
-                      Properties: {propertyCount} · Events: {eventCount}
+                      Properties: {usage?.property_count ?? 0} · Events: {usage?.event_count ?? 0}
                     </td>
                   </tr>
                 );
               })}
               {filteredSources.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-6 py-8 text-center text-gray-500">
-                    No sources found.
-                  </td>
+                  <td colSpan={3} className="px-6 py-8 text-center text-gray-500">No sources found.</td>
                 </tr>
               )}
             </tbody>
@@ -125,16 +129,17 @@ export function Sources() {
         </div>
       </div>
 
-      <Sheet
-        isOpen={isSheetOpen}
-        onClose={() => setIsSheetOpen(false)}
-        title={isCreating ? "Create Source" : "Edit Source"}
-      >
+      <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title={isCreating ? 'Create Source' : 'Edit Source'}>
         <SourceEditor
           key={isCreating ? 'create' : selectedSourceId ?? 'none'}
           source={selectedSource}
           isCreating={isCreating}
           usage={selectedSourceId ? usageBySourceId[selectedSourceId] : undefined}
+          projectId={activeProjectId}
+          onSaved={async () => {
+            await load();
+            setIsSheetOpen(false);
+          }}
           onClose={() => setIsSheetOpen(false)}
         />
       </Sheet>
@@ -146,122 +151,71 @@ function SourceEditor({
   source,
   isCreating,
   usage,
+  projectId,
+  onSaved,
   onClose,
 }: {
-  source: Source | null | undefined;
+  source: SourceRow | null | undefined;
   isCreating: boolean;
-  usage?: SourceUsageSummary;
+  usage?: SourceUsage;
+  projectId: string;
+  onSaved: () => Promise<void>;
   onClose: () => void;
 }) {
-  const { upsertSourceFromApi, deleteSource } = useStore();
-  const { activeWorkspaceId, hasValidWorkspaceContext } = useWorkspaceShell();
-
   const [name, setName] = useState(source?.name || '');
-  const [color, setColor] = useState(source?.color || 'bg-gray-100 text-gray-800');
+  const [color, setColor] = useState(source?.color || '');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     setName(source?.name || '');
-    setColor(source?.color || 'bg-gray-100 text-gray-800');
+    setColor(source?.color || '');
     setSaveError(null);
   }, [source?.id, isCreating]);
 
-  const colorOptions = [
-    { label: 'Gray', value: 'bg-gray-100 text-gray-800' },
-    { label: 'Blue', value: 'bg-blue-100 text-blue-800' },
-    { label: 'Green', value: 'bg-green-100 text-green-800' },
-    { label: 'Purple', value: 'bg-purple-100 text-purple-800' },
-    { label: 'Orange', value: 'bg-orange-100 text-orange-800' },
-    { label: 'Pink', value: 'bg-pink-100 text-pink-800' },
-  ];
-
   const handleSave = async () => {
-    if (!name.trim()) return;
-    setSaveError(null);
-
-    if (!hasValidWorkspaceContext || !activeWorkspaceId?.trim()) {
-      setSaveError(
-        isCreating
-          ? 'Select a workspace before creating a source.'
-          : 'Select a workspace before saving.'
-      );
-      return;
-    }
-
-    if (isCreating) {
-      setIsSaving(true);
-      try {
-        const result = await createWorkspaceSource({
-          workspaceId: activeWorkspaceId,
-          name: name.trim(),
-          color: color || null,
-        });
-        if (!result.success) {
-          setSaveError(result.error);
-          return;
-        }
-        upsertSourceFromApi(result.data);
-        onClose();
-      } finally {
-        setIsSaving(false);
-      }
-      return;
-    }
-
-    if (!source) return;
+    if (!name.trim() || !projectId) return;
     setIsSaving(true);
+    setSaveError(null);
     try {
-      const result = await updateWorkspaceSource({
-        workspaceId: activeWorkspaceId,
-        id: source.id,
-        name: name.trim(),
-        color: color || null,
+      const url = isCreating
+        ? `${API_BASE}/api/projects/${projectId}/sources`
+        : `${API_BASE}/api/projects/${projectId}/sources/${source?.id}`;
+      const res = await fetchWithAuth(url, {
+        method: isCreating ? 'POST' : 'PATCH',
+        body: JSON.stringify({ name: name.trim(), color: color.trim() || null }),
       });
-      if (!result.success) {
-        setSaveError(result.error);
+      const data = await parseJson(res);
+      if (!res.ok) {
+        setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to save.');
         return;
       }
-      upsertSourceFromApi(result.data);
-      onClose();
+      await onSaved();
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!source) return;
-    setSaveError(null);
-
-    if (!hasValidWorkspaceContext || !activeWorkspaceId?.trim()) {
-      setSaveError('Select a workspace before deleting.');
-      return;
-    }
-
+    if (!source || !projectId) return;
     const propertyCount = usage?.property_count ?? 0;
     const eventCount = usage?.event_count ?? 0;
     const usageNote =
       propertyCount > 0 || eventCount > 0
-        ? `\n\nThis source is referenced by ${propertyCount} propert${propertyCount === 1 ? 'y' : 'ies'} and ${eventCount} event${eventCount === 1 ? '' : 's'}. Those references will lose their source label.`
+        ? `\n\nThis source is referenced by ${propertyCount} propert${propertyCount === 1 ? 'y' : 'ies'} and ${eventCount} event${eventCount === 1 ? '' : 's'}.`
         : '';
-    const confirmed = window.confirm(
-      `Delete source "${source.name}"?${usageNote}`
-    );
-    if (!confirmed) return;
-
+    if (!window.confirm(`Delete source "${source.name}"?${usageNote}`)) return;
     setIsDeleting(true);
+    setSaveError(null);
     try {
-      const result = await deleteWorkspaceSource({
-        workspaceId: activeWorkspaceId,
-        id: source.id,
-      });
-      if (!result.success) {
-        setSaveError(result.error);
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/sources/${source.id}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) {
+        const data = await parseJson(res);
+        setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to delete.');
         return;
       }
-      deleteSource(source.id);
-      onClose();
+      await onSaved();
     } finally {
       setIsDeleting(false);
     }
@@ -271,74 +225,25 @@ function SourceEditor({
     <div className="space-y-6">
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">Source Name</label>
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. iOS App"
-          disabled={isSaving}
-        />
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. iOS App" disabled={isSaving} />
       </div>
-
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Color Tag</label>
-        <div className="grid grid-cols-3 gap-2">
-          {colorOptions.map(opt => (
-            <button
-              key={opt.value}
-              type="button"
-              disabled={isSaving}
-              onClick={() => setColor(opt.value)}
-              className={`flex items-center justify-center py-2 rounded-md border text-sm font-medium transition-all ${
-                color === opt.value ? 'ring-2 ring-[var(--color-info)] ring-offset-1' : 'hover:bg-gray-50'
-              } ${opt.value}`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        <label className="text-sm font-medium text-gray-700">Color (optional)</label>
+        <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="e.g. blue" disabled={isSaving} />
       </div>
-
       {saveError && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">
-          {saveError}
-        </div>
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{saveError}</div>
       )}
-
       <div className="pt-6 border-t flex justify-between">
         {!isCreating && source ? (
-          <Button
-            variant="destructive"
-            onClick={() => void handleDelete()}
-            disabled={isSaving || isDeleting}
-            className="gap-2"
-          >
-            {isDeleting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" /> Deleting…
-              </>
-            ) : (
-              <>
-                <Trash2 className="w-4 h-4" /> Delete
-              </>
-            )}
+          <Button variant="destructive" onClick={() => void handleDelete()} disabled={isSaving || isDeleting} className="gap-2">
+            {isDeleting ? (<><Loader2 className="w-4 h-4 animate-spin" /> Deleting…</>) : (<><Trash2 className="w-4 h-4" /> Delete</>)}
           </Button>
         ) : <div />}
         <div className="flex gap-2">
-          <Button variant="outline" onClick={onClose} disabled={isSaving || isDeleting}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => void handleSave()}
-            disabled={isSaving || isDeleting}
-            className="gap-2"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" /> Saving…
-              </>
-            ) : (
-              'Save Source'
-            )}
+          <Button variant="outline" onClick={onClose} disabled={isSaving || isDeleting}>Cancel</Button>
+          <Button onClick={() => void handleSave()} disabled={isSaving || isDeleting} className="gap-2">
+            {isSaving ? (<><Loader2 className="w-4 h-4 animate-spin" /> Saving…</>) : 'Save Source'}
           </Button>
         </div>
       </div>

@@ -1,6 +1,18 @@
-import { getSupabaseOrThrow } from '../db/supabase';
-import type { SourceRow } from '../../types/schema';
-import { ConflictError, DatabaseError, NotFoundError } from '../errors';
+/**
+ * Source Data Access Layer. Every function takes `projectId`; all queries enforce `project_id`.
+ */
+import { getDb } from '../db';
+import { newId, nowIso, mapWriteError } from '../db/util';
+import { ConflictError, NotFoundError, ValidationError } from '../errors';
+
+export interface SourceRow {
+  id: string;
+  project_id: string;
+  name: string;
+  color: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface SourceUsageRow {
   source_id: string;
@@ -8,278 +20,126 @@ export interface SourceUsageRow {
   event_count: number;
 }
 
-export async function listSources(workspaceId: string): Promise<SourceRow[]> {
-  const supabase = getSupabaseOrThrow();
-  const { data, error } = await supabase
-    .from('sources')
-    .select('*')
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null)
-    .order('name', { ascending: true });
-
-  if (error) {
-    throw new DatabaseError(`Failed to list sources: ${error.message}`, error);
-  }
-
-  return (data ?? []) as SourceRow[];
+export function listSources(projectId: string): SourceRow[] {
+  const db = getDb();
+  return db
+    .prepare('SELECT * FROM sources WHERE project_id = ? ORDER BY name')
+    .all(projectId) as SourceRow[];
 }
 
-export async function createSource(
-  workspaceId: string,
+export function getSourceOrThrow(projectId: string, id: string): SourceRow {
+  const db = getDb();
+  const row = db
+    .prepare('SELECT * FROM sources WHERE id = ? AND project_id = ?')
+    .get(id, projectId) as SourceRow | undefined;
+  if (!row) throw new NotFoundError('Source not found.', 'source');
+  return row;
+}
+
+export function createSource(
+  projectId: string,
   input: { name: string; color?: string | null }
-): Promise<SourceRow> {
-  const supabase = getSupabaseOrThrow();
+): SourceRow {
   const name = input.name.trim();
-  if (!name) {
-    throw new DatabaseError('Source name is required.');
+  if (!name) throw new ValidationError('Source name is required.', 'name');
+
+  const db = getDb();
+  const existing = db
+    .prepare('SELECT id FROM sources WHERE project_id = ? AND name = ?')
+    .get(projectId, name);
+  if (existing) throw new ConflictError('A source with that name already exists.');
+
+  const id = newId();
+  const now = nowIso();
+  try {
+    db.prepare(
+      'INSERT INTO sources (id, project_id, name, color, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(id, projectId, name, input.color ?? null, now, now);
+  } catch (err) {
+    mapWriteError(err, 'A source with that name already exists.', `Failed to create source: ${(err as Error).message}`);
   }
-
-  const { data: existing, error: existingError } = await supabase
-    .from('sources')
-    .select('id')
-    .eq('workspace_id', workspaceId)
-    .eq('name', name)
-    .is('deleted_at', null)
-    .maybeSingle();
-
-  if (existingError) {
-    throw new DatabaseError(
-      `Failed to check existing source: ${existingError.message}`,
-      existingError
-    );
-  }
-  if (existing) {
-    throw new ConflictError('A source with that name already exists.');
-  }
-
-  const payload = {
-    workspace_id: workspaceId,
-    name,
-    color: input.color ?? null,
-    deleted_at: null,
-  };
-
-  const { data, error } = await supabase
-    .from('sources')
-    .insert(payload)
-    .select('*')
-    .single();
-
-  if (error) {
-    throw new DatabaseError(`Failed to create source: ${error.message}`, error);
-  }
-
-  return data as SourceRow;
+  return getSourceOrThrow(projectId, id);
 }
 
-/**
- * Update a source (rename and/or color change). Soft-deleted rows are not editable.
- *
- * - Workspace-scoped: ignores rows in other workspaces.
- * - Name uniqueness: rejects renames that would collide with another non-deleted source
- *   in the same workspace (excluding `id`).
- * - Color: pass `null` (or empty string at the route layer) to clear; `undefined` means
- *   "leave unchanged".
- */
-export async function updateSource(
-  workspaceId: string,
+export function updateSource(
+  projectId: string,
   id: string,
   input: { name?: string; color?: string | null }
-): Promise<SourceRow> {
-  const supabase = getSupabaseOrThrow();
-
-  const { data: existing, error: fetchError } = await supabase
-    .from('sources')
-    .select('id')
-    .eq('workspace_id', workspaceId)
-    .eq('id', id)
-    .is('deleted_at', null)
-    .maybeSingle();
-
-  if (fetchError) {
-    throw new DatabaseError(
-      `Failed to load source for update: ${fetchError.message}`,
-      fetchError
-    );
-  }
-  if (!existing) {
-    throw new NotFoundError('Source not found.', 'source');
-  }
+): SourceRow {
+  getSourceOrThrow(projectId, id);
+  const db = getDb();
 
   const patch: Record<string, unknown> = {};
-
-  if (typeof input.name !== 'undefined') {
+  if (input.name !== undefined) {
     const trimmed = input.name.trim();
-    if (!trimmed) {
-      throw new DatabaseError('Source name is required.');
-    }
-
-    const { data: nameClash, error: nameClashError } = await supabase
-      .from('sources')
-      .select('id')
-      .eq('workspace_id', workspaceId)
-      .eq('name', trimmed)
-      .neq('id', id)
-      .is('deleted_at', null)
-      .maybeSingle();
-    if (nameClashError) {
-      throw new DatabaseError(
-        `Failed to check source name uniqueness: ${nameClashError.message}`,
-        nameClashError
-      );
-    }
-    if (nameClash) {
-      throw new ConflictError('A source with that name already exists.');
-    }
-
+    if (!trimmed) throw new ValidationError('Source name is required.', 'name');
+    const clash = db
+      .prepare('SELECT id FROM sources WHERE project_id = ? AND name = ? AND id != ?')
+      .get(projectId, trimmed, id);
+    if (clash) throw new ConflictError('A source with that name already exists.');
     patch.name = trimmed;
   }
+  if (input.color !== undefined) patch.color = input.color;
 
-  if (typeof input.color !== 'undefined') {
-    patch.color = input.color;
+  if (Object.keys(patch).length === 0) return getSourceOrThrow(projectId, id);
+
+  patch.updated_at = nowIso();
+  const setClause = Object.keys(patch)
+    .map((k) => `${k} = @${k}`)
+    .join(', ');
+  try {
+    db.prepare(`UPDATE sources SET ${setClause} WHERE id = @id AND project_id = @project_id`).run({
+      ...patch,
+      id,
+      project_id: projectId,
+    });
+  } catch (err) {
+    mapWriteError(
+      err,
+      'A source with that name already exists.',
+      `Failed to update source: ${(err as Error).message}`
+    );
   }
-
-  if (Object.keys(patch).length === 0) {
-    // Nothing to update; return the existing row to keep callers simple.
-    const { data: row, error: readError } = await supabase
-      .from('sources')
-      .select('*')
-      .eq('workspace_id', workspaceId)
-      .eq('id', id)
-      .is('deleted_at', null)
-      .single();
-    if (readError) {
-      throw new DatabaseError(
-        `Failed to read source after no-op update: ${readError.message}`,
-        readError
-      );
-    }
-    return row as SourceRow;
-  }
-
-  patch.updated_at = new Date().toISOString();
-
-  const { data, error } = await supabase
-    .from('sources')
-    .update(patch)
-    .eq('workspace_id', workspaceId)
-    .eq('id', id)
-    .is('deleted_at', null)
-    .select('*')
-    .single();
-
-  if (error) {
-    throw new DatabaseError(`Failed to update source: ${error.message}`, error);
-  }
-
-  return data as SourceRow;
+  return getSourceOrThrow(projectId, id);
 }
 
-/**
- * Soft-delete a source by setting `deleted_at`. Existing `event_sources` /
- * `property_sources` references are left intact; the affected rows simply
- * stop appearing in lists and label resolvers (which all filter
- * `deleted_at IS NULL`).
- */
-export async function softDeleteSource(
-  workspaceId: string,
-  id: string
-): Promise<{ id: string }> {
-  const supabase = getSupabaseOrThrow();
-
-  const { data, error } = await supabase
-    .from('sources')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('workspace_id', workspaceId)
-    .eq('id', id)
-    .is('deleted_at', null)
-    .select('id')
-    .maybeSingle();
-
-  if (error) {
-    throw new DatabaseError(`Failed to delete source: ${error.message}`, error);
-  }
-  if (!data) {
-    throw new NotFoundError('Source not found.', 'source');
-  }
-
-  return { id: (data as { id: string }).id };
+export function deleteSource(projectId: string, id: string): void {
+  getSourceOrThrow(projectId, id);
+  getDb().prepare('DELETE FROM sources WHERE id = ? AND project_id = ?').run(id, projectId);
 }
 
-/**
- * Usage counts per source from canonical relations:
- * - property_sources (joined to non-deleted properties in workspace)
- * - event_sources (joined to non-deleted events in workspace)
- */
-export async function getSourceUsage(workspaceId: string): Promise<SourceUsageRow[]> {
-  const supabase = getSupabaseOrThrow();
-
-  const { data: sources, error: sourceErr } = await supabase
-    .from('sources')
-    .select('id')
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null);
-  if (sourceErr) {
-    throw new DatabaseError(`Failed to list sources for usage: ${sourceErr.message}`, sourceErr);
-  }
-
-  const sourceIds = (sources ?? []).map((r: { id: string }) => r.id);
+/** Usage counts per source from `event_sources` and `event_properties.source_id`. */
+export function getSourceUsage(projectId: string): SourceUsageRow[] {
+  const db = getDb();
+  const sourceIds = (
+    db.prepare('SELECT id FROM sources WHERE project_id = ?').all(projectId) as { id: string }[]
+  ).map((r) => r.id);
   if (sourceIds.length === 0) return [];
 
-  const { data: properties, error: propErr } = await supabase
-    .from('properties')
-    .select('id')
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null);
-  if (propErr) {
-    throw new DatabaseError(`Failed to list properties for source usage: ${propErr.message}`, propErr);
-  }
-  const propertyIds = new Set((properties ?? []).map((r: { id: string }) => r.id));
-
-  const { data: events, error: eventErr } = await supabase
-    .from('events')
-    .select('id')
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null);
-  if (eventErr) {
-    throw new DatabaseError(`Failed to list events for source usage: ${eventErr.message}`, eventErr);
-  }
-  const eventIds = new Set((events ?? []).map((r: { id: string }) => r.id));
-
-  const { data: propLinks, error: propLinkErr } = await supabase
-    .from('property_sources')
-    .select('source_id, property_id')
-    .in('source_id', sourceIds);
-  if (propLinkErr) {
-    throw new DatabaseError(`Failed to list property_sources: ${propLinkErr.message}`, propLinkErr);
-  }
-
-  const { data: eventLinks, error: eventLinkErr } = await supabase
-    .from('event_sources')
-    .select('source_id, event_id')
-    .in('source_id', sourceIds);
-  if (eventLinkErr) {
-    throw new DatabaseError(`Failed to list event_sources: ${eventLinkErr.message}`, eventLinkErr);
+  const eventCounts = new Map<string, number>();
+  for (const row of db
+    .prepare(
+      `SELECT es.source_id as source_id, COUNT(*) as n
+       FROM event_sources es
+       JOIN events e ON e.id = es.event_id AND e.deleted_at IS NULL
+       WHERE e.project_id = ?
+       GROUP BY es.source_id`
+    )
+    .all(projectId) as { source_id: string; n: number }[]) {
+    eventCounts.set(row.source_id, row.n);
   }
 
   const propertyCounts = new Map<string, number>();
-  const eventCounts = new Map<string, number>();
-
-  for (const sid of sourceIds) {
-    propertyCounts.set(sid, 0);
-    eventCounts.set(sid, 0);
-  }
-
-  for (const row of propLinks ?? []) {
-    const r = row as { source_id: string; property_id: string };
-    if (!propertyIds.has(r.property_id)) continue;
-    propertyCounts.set(r.source_id, (propertyCounts.get(r.source_id) ?? 0) + 1);
-  }
-
-  for (const row of eventLinks ?? []) {
-    const r = row as { source_id: string; event_id: string };
-    if (!eventIds.has(r.event_id)) continue;
-    eventCounts.set(r.source_id, (eventCounts.get(r.source_id) ?? 0) + 1);
+  for (const row of db
+    .prepare(
+      `SELECT ep.source_id as source_id, COUNT(*) as n
+       FROM event_properties ep
+       JOIN events e ON e.id = ep.event_id AND e.deleted_at IS NULL
+       WHERE e.project_id = ? AND ep.source_id IS NOT NULL
+       GROUP BY ep.source_id`
+    )
+    .all(projectId) as { source_id: string; n: number }[]) {
+    propertyCounts.set(row.source_id, row.n);
   }
 
   return sourceIds.map((source_id) => ({
@@ -287,65 +147,4 @@ export async function getSourceUsage(workspaceId: string): Promise<SourceUsageRo
     property_count: propertyCounts.get(source_id) ?? 0,
     event_count: eventCounts.get(source_id) ?? 0,
   }));
-}
-
-/**
- * Comma-separated source names per property (export HTML property table).
- */
-export async function getPropertySourceLabelsByPropertyIds(
-  workspaceId: string,
-  propertyIds: string[]
-): Promise<Map<string, string>> {
-  const unique = [...new Set(propertyIds.filter((id) => typeof id === 'string' && id.length > 0))];
-  const out = new Map<string, string>();
-  if (unique.length === 0) return out;
-
-  const supabase = getSupabaseOrThrow();
-  const { data: links, error: linkErr } = await supabase
-    .from('property_sources')
-    .select('property_id, source_id')
-    .in('property_id', unique);
-  if (linkErr) {
-    throw new DatabaseError(`Failed to list property_sources: ${linkErr.message}`, linkErr);
-  }
-
-  const sourceIds = [
-    ...new Set((links ?? []).map((r: { source_id: string }) => r.source_id)),
-  ];
-  if (sourceIds.length === 0) {
-    for (const pid of unique) out.set(pid, '—');
-    return out;
-  }
-
-  const { data: sources, error: srcErr } = await supabase
-    .from('sources')
-    .select('id, name')
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null)
-    .in('id', sourceIds);
-  if (srcErr) {
-    throw new DatabaseError(`Failed to load sources: ${srcErr.message}`, srcErr);
-  }
-
-  const nameById = new Map(
-    (sources ?? []).map((s: { id: string; name: string }) => [s.id, s.name])
-  );
-  const namesByProp = new Map<string, string[]>();
-  for (const row of links ?? []) {
-    const r = row as { property_id: string; source_id: string };
-    const n = nameById.get(r.source_id);
-    if (!n) continue;
-    const arr = namesByProp.get(r.property_id) ?? [];
-    arr.push(n);
-    namesByProp.set(r.property_id, arr);
-  }
-
-  for (const pid of unique) {
-    const list = namesByProp.get(pid);
-    out.set(
-      pid,
-      list && list.length > 0 ? [...new Set(list)].sort().join(', ') : '—'
-    );
-  }
-  return out;
 }

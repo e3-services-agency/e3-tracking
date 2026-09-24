@@ -13,7 +13,7 @@ You test the running app. You do not fix code.
 3. Read `CLAUDE.md` for how to start the app.
 
 ## Procedure
-- Start the app via the `run` skill or the project's launch config, never with an ad-hoc background shell.
+- Start the app with `preview_start` using the launch config entry `e3-tracking` from `.claude/launch.json` (runs `npm run dev`, app on port 3000, API on 3001). Never start it with an ad-hoc background shell. Read `docs/QA-LOCAL.md` when it exists.
 - Execute every acceptance criterion as a concrete scenario. Prefer `read_page` and `get_page_text` for verification; screenshots only for layout.
 - Run the import/export round trips from the skill. Diff exported JSON against the fixture and report every difference.
 - Capture console errors and failed network requests.

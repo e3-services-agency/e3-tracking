@@ -8,7 +8,9 @@ description: The shared entity model, variant rules, and Bloomreach format contr
 The authoritative narrative is `.claude/team/CONTEXT.md`. This skill is the compact reference.
 
 ## Entities
-- **Project**: one client engagement. Owns everything below.
+- **Client**: a Bloomreach account (mother company). name, key, bloomreach_account_id, notes. Owns Projects.
+- **Project**: one Bloomreach project (brand). client_id, name, key, bloomreach_project_token, bloomreach_api_base_url, bloomreach_project_url, default expiration, settings. Owns everything below. Sharing between sibling projects is copy with provenance (origin_project_id, origin_entity_id), never inheritance (D-27).
+- **StandardEventMapping**: standard_event key (seed list plus project additions), event_id, optional variant_id, field_map (Bloomreach field to project property). Mappings with an empty filter have variant_id null.
 - **Event**: name (snake_case), description, owner, page, trigger, identity, purpose, event type (custom/system), sources (live, historical, daily), priority, status, expiration (enabled, count, units), documentation card fields.
 - **Property**: name (snake_case), category, description, data type, data format, PII flag, example values, presence, property type (custom/system), allowed values (for enums), notes.
 - **EventProperty**: links Event to Property with required flag, priority, status, source, role (`normal` | `discriminator` | `context`).
@@ -21,7 +23,8 @@ The authoritative narrative is `.claude/team/CONTEXT.md`. This skill is the comp
 - **UseCaseTemplate**: library item (id, name, type marketing/transactional, description, default requirements).
 - **UseCase**: client instance of a template (or ad hoc), priority, status, owner, notes.
 - **Requirement**: UseCase to (CustomerProperty | Variant or Event plus Property) with level R/O and status. The requirements matrix is a computed view over these.
-- **Observation**: an event instance from a Bloomreach export or the QA overlay: type, timestamp, properties, source (export/frontend), captured at.
+- **Observation**: an event instance from a Bloomreach export or an agent browsing the site via MCP: type, timestamp, properties, source (export/agent), page URL, context values, captured at, run id.
+- **QaRun**: groups observations submitted in one agent session or one export paste, with agent or user name, environment, started and finished at.
 - **Finding**: result of a comparison: kind, severity, entity refs, expected, actual.
 
 ## Variant rules
@@ -42,6 +45,9 @@ The authoritative narrative is `.claude/team/CONTEXT.md`. This skill is the comp
 - Mapping vs observations: mapped properties absent in live events.
 - Definition vs observations: missing required properties, type mismatch (string vs number/bool/array), format violations, values outside enums, inconsistent shape of the same property across events, rounding drift on monetary fields.
 - Expiration affects expectations: do not flag an event as missing if it is past its expiration window.
+
+## MCP surface (D-11)
+Read: `list_events`, `get_event_card`, `list_use_cases`, `get_use_case`, `get_expected_payload(event|variant)`, `list_findings`. Write: `submit_observation`, `submit_observations_batch` (accepts the Bloomreach export shape). Compute: `run_comparison(scope)`, `get_coverage_grid(use_case|event)`. Local-first over stdio; the server shares the local database with the app.
 
 ## Certified status
 Event status becomes `certified` only when all three comparisons have zero findings of severity error for that event.

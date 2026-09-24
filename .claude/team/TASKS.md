@@ -1,13 +1,26 @@
 # Task backlog
 
-Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. Phase 0 = setup, audit, plan.
+Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. Phase 0 = setup, audit, plan. Detailed acceptance criteria for phase 1 live in `reports/PLAN-2026-09-24.md` section "Phase 1 task proposals"; the sections below list only deltas and additions decided after the plan (D-25, D-26, D-27).
 
 | ID | Phase | Title | Owner | Depends on | Status | Acceptance |
 |----|-------|-------|-------|------------|--------|------------|
 | T-0-01 | 0 | Scaffold agents, skills, team files, CLAUDE.md | supervisor | - | DONE | see below |
-| T-0-02 | 0 | Read-only repository audit | repo-auditor | T-0-01 | TODO | see below |
-| T-0-03 | 0 | Target model and phased plan | architect | T-0-02 | TODO | see below |
-| T-0-04 | 0 | User approval of plan, phase 1 tasks adopted | supervisor | T-0-03 | TODO | see below |
+| T-0-02 | 0 | Read-only repository audit | repo-auditor | T-0-01 | DONE | see below |
+| T-0-03 | 0 | Target model and phased plan | architect | T-0-02 | DONE | see below |
+| T-0-04 | 0 | User approval of plan, phase 1 tasks adopted | supervisor | T-0-03 | DONE | see below |
+| T-1-01 | 1 | SQLite persistence, schema v1, dev server, vitest, domain definitions module | implementer | T-0-04 | TODO | plan + delta |
+| T-1-02 | 1 | Local auth mode, local file store, Workspace to Project rename, Client entity, remove Supabase | implementer | T-1-01 | TODO | plan + delta |
+| T-1-03 | 1 | Remove journeys, QA overlay, legacy store, metrics; project-scope HTML documentation export | implementer | T-1-02 | TODO | plan |
+| T-1-CP | 1 | Checkpoint report to user after T-1-03 | supervisor | T-1-03 | TODO | see below |
+| T-1-04 | 1 | Property and Event in the new model: allowed values, scope, role, required, payload key, expiration, card fields | implementer | T-1-02 | TODO | plan + delta |
+| T-1-05 | 1 | Variant with discriminator conditions and StandardEventMapping; remove old EventVariant | implementer | T-1-04 | TODO | plan + delta |
+| T-1-06 | 1 | IdentityRule, ConsentCategory, Catalog extensions: API and tables | implementer | T-1-02 | TODO | plan + delta |
+| T-1-07 | 1 | UseCaseTemplate, UseCase, ordered Requirement: API and tables | implementer | T-1-05 | TODO | plan |
+| T-1-08 | 1 | Shared diff primitives; data mapping and expiration settings import with diff and export | implementer | T-1-05, T-1-06 | TODO | plan + delta |
+| T-1-09 | 1 | QaRun, Observation, Finding; customer events export import; definition-vs-observations comparison | implementer | T-1-08 | TODO | plan + delta |
+| T-1-10 | 1 | CLAUDE.md code-derived sections, .env.example, docs/QA-LOCAL.md | docs-writer | T-1-03 | TODO | plan + delta |
+
+Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktrees after T-1-02 merges. Everything else is sequential per the dependency column.
 
 ## Acceptance criteria
 
@@ -21,4 +34,38 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 - `reports/PLAN-<date>.md` following the `refactor-plan` template; decision records appended; phase 1 tasks proposed in this table's format; phase 1 includes core model plus import of all three fixtures with diff.
 
 ### T-0-04
-- User has approved the plan on the board; phase 1 rows added to this table with owners and criteria.
+- User approved the plan on 2026-09-24 with both standing authorisations (commit per accepted task and merge into `agent-setup`; report per phase plus a checkpoint after T-1-03). D-25, D-26, D-27 recorded. Phase 1 rows adopted.
+
+### T-1-01 delta (in addition to the plan section)
+- `0001_core.sql` also creates `clients` (id, key unique, name, bloomreach_account_id, notes, timestamps) and `projects.client_id NOT NULL` FK plus `projects.bloomreach_project_token`, `bloomreach_api_base_url`, `bloomreach_project_url` (D-27).
+- `src/domain/enums.ts` implements D-25: priority `critical|high|medium|low`; event status `planned|in_review|implemented|ignored`; finding kinds incl. `missing_event|unexpected_event|unmapped_catalog`; severities; expiration units.
+- `src/domain/bloomreach.ts` exposes seed lists (standard events with field lists, `main_columns`, standard customer properties, standard consent keys, known system event types per D-25 Q5) as extensible arrays, not closed unions (D-26). Project-level additions are stored in `projects.standard_event_additions_json` and `projects.consent_key_additions_json`.
+- `.gitignore` gains `data/`.
+
+### T-1-02 delta
+- `/api/clients` CRUD (list, create, update; delete only when no projects). `POST /api/projects` requires `client_id`. `GET /api/projects` returns projects with their client; the switcher groups by client.
+- Project settings form edits the three Bloomreach identifiers and the client.
+- Local user name resolution per D-25 Q8: `E3_LOCAL_USER_NAME`, else git `user.name`, else "Local user".
+- qa-tester: create a client, create two projects under it, switch between them, data stays separate.
+
+### T-1-CP checkpoint
+- Supervisor posts a report to the user after T-1-03 merges: app boots via the `e3-tracking` launch entry with no network, old code is gone (grep for `supabase`, `journey`, `qaOverlay`, `xyflow` in `src/` returns nothing), test summary line, list of what is intentionally rough until T-1-09. No new phase 1 task starts before the user acknowledges, except T-1-04 and T-1-06 which may already be in progress in parallel.
+
+### T-1-04 delta
+- Priority and status selects use the D-25 values from `enums.ts`.
+- Property bundles remain functional after the Property model changes (D-26).
+
+### T-1-05 delta
+- `StandardEventMapping.standard_event` accepts seed keys plus `projects.standard_event_additions_json`; the Standard events page has an "add standard event" form (key, field list) writing to that column (D-26).
+
+### T-1-06 delta
+- `ConsentCategory.standard_key` accepts seed keys plus project additions; the page has an "add standard consent key" form (D-26).
+
+### T-1-08 delta
+- Data mapping import must not reject unknown `standard_events` keys or unknown `consents` keys; it proposes them as project additions in the diff (D-26). Export writes project additions back.
+
+### T-1-09 delta
+- Known system event types from `bloomreach.ts` do not raise `unexpected_event` (D-25 Q5). `missing_event` severity depends on run kind (agent session error, export paste warning). Rounding tolerance 0.01 on `money` properties.
+
+### T-1-10 delta
+- `docs/QA-LOCAL.md` names the launch entry `e3-tracking` from `.claude/launch.json` (D-25 Q9) and documents `E3_LOCAL_USER_NAME`, `E3_DB_PATH`, `E3_PROJECT_KEY`.

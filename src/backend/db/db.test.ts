@@ -40,6 +40,7 @@ describe('getDb on :memory:', () => {
     const db = getDb();
     const migrations = db.prepare('SELECT id FROM schema_migrations').all() as { id: string }[];
     expect(migrations.map((m) => m.id)).toContain('0001_core.sql');
+    expect(migrations.map((m) => m.id)).toContain('0002_bundles.sql');
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
@@ -67,6 +68,8 @@ describe('getDb on :memory:', () => {
       'qa_runs',
       'observations',
       'findings',
+      'property_bundles',
+      'property_bundle_items',
     ]) {
       expect(tables, `missing table ${table}`).toContain(table);
     }
@@ -212,8 +215,8 @@ describe('inserting and linking core entities on :memory:', () => {
 });
 
 describe('listMigrationFiles', () => {
-  it('lists exactly the 0001_core.sql migration', () => {
-    expect(listMigrationFiles()).toEqual(['0001_core.sql']);
+  it('lists every ordered migration file', () => {
+    expect(listMigrationFiles()).toEqual(['0001_core.sql', '0002_bundles.sql']);
   });
 });
 
@@ -225,15 +228,15 @@ describe('migration idempotency', () => {
     try {
       const first = getDb();
       const firstRows = first.prepare('SELECT id FROM schema_migrations').all() as { id: string }[];
-      expect(firstRows.map((row) => row.id)).toEqual(['0001_core.sql']);
+      expect(firstRows.map((row) => row.id)).toEqual(['0001_core.sql', '0002_bundles.sql']);
 
-      // Reopen the same file: runMigrations must see 0001_core.sql already applied and not
-      // re-run it (which would fail with "table clients already exists").
+      // Reopen the same file: runMigrations must see both migrations already applied and not
+      // re-run them (which would fail with "table clients already exists").
       closeDb();
       const second = getDb();
       const secondRows = second.prepare('SELECT id FROM schema_migrations').all() as { id: string }[];
-      expect(secondRows.map((row) => row.id)).toEqual(['0001_core.sql']);
-      expect(secondRows).toHaveLength(1);
+      expect(secondRows.map((row) => row.id)).toEqual(['0001_core.sql', '0002_bundles.sql']);
+      expect(secondRows).toHaveLength(2);
     } finally {
       closeDb();
       for (const suffix of ['', '-wal', '-shm']) {

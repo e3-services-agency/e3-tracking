@@ -48,7 +48,7 @@ export class NotFoundError extends Error {
   }
 }
 
-/** Use when required env (e.g. SUPABASE_*) is missing. Map to 503 CONFIG_ERROR. */
+/** Use when required configuration env is missing/invalid. Map to 503 CONFIG_ERROR. */
 export class ConfigError extends Error {
   readonly code = 'CONFIG_ERROR';
   constructor(message: string) {

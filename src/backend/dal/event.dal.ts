@@ -1,1524 +1,514 @@
 /**
- * Events Data Access Layer.
- * Every function takes workspaceId; all queries enforce workspace_id.
- * Attached properties: only non–soft-deleted properties are included.
- * Transactional integrity: attachPropertyToEvent verifies event and property belong to workspace.
+ * Event Data Access Layer. Every function takes `projectId`; all queries enforce `project_id`.
+ * `EventProperty` (D-16) carries `required`/`role`/`payload_key`/etc. per event; enums
+ * (`allowed_values_json`) live once on `Property` (T-1-04 adds the enum/role editors and the
+ * `ROLE_REQUIRES_ENUM`/`MAX_DISCRIMINATORS` validation described in the plan).
  */
-import { getSupabaseOrThrow } from '../db/supabase';
-import type {
-  EventRow,
-  EventType,
-  EventTriggerEntry,
-  EventPropertyRow,
-  CreateEventInput,
-  EventPropertyPresence,
-  PropertyDataFormat,
-  PropertyNameMapping,
-  PropertyExampleValue,
-  EventVariantRow,
-  EventVariantSummary,
-  EventVariantOverridesV1,
-  CodegenEventNameOverrides,
-  ObjectChildFieldSnapshot,
-  PropertyRow,
-  PropertyValueSchema,
-} from '../../types/schema';
-import { PROPERTY_DATA_FORMATS } from '../../types/schema';
+import { getDb } from '../db';
+import { newId, nowIso, parseJsonColumn, toJsonColumn, fromSqliteBool } from '../db/util';
 import { ConflictError, DatabaseError, NotFoundError } from '../errors';
-import {
-  listEventVariantSummariesForBaseEventIds,
-  listEventVariantsByBaseEvent,
-  parseEventVariantOverridesJson,
-} from './event-variant.dal';
-import { mapPropertyDbRowToRow } from './property.dal';
+import { getPropertyById, type PropertyRow } from './property.dal';
 
-const UNIQUE_VIOLATION_CODE = '23505';
-
-const OBJECT_CHILD_REF_FETCH_ROUNDS = 24;
-
-async function countJourneysUsingEvents(
-  workspaceId: string,
-  eventIds: string[]
-): Promise<Map<string, number>> {
-  const counts = new Map<string, number>();
-  for (const id of eventIds) counts.set(id, 0);
-  if (eventIds.length === 0) return counts;
-
-  const supabase = getSupabaseOrThrow();
-
-  const { data: joinRows, error: joinError } = await supabase
-    .from('journey_events')
-    .select('journey_id, event_id')
-    .in('event_id', eventIds);
-
-  if (joinError) {
-    throw new DatabaseError(
-      `Failed to fetch journey-event links: ${joinError.message}`,
-      joinError
-    );
-  }
-
-  const journeyIds = [
-    ...new Set(
-      (joinRows ?? [])
-        .map((r: any) => String(r?.journey_id ?? '').trim())
-        .filter(Boolean)
-    ),
-  ];
-
-  if (journeyIds.length === 0) return counts;
-
-  const { data: journeys, error: journeysError } = await supabase
-    .from('journeys')
-    .select('id')
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null)
-    .in('id', journeyIds);
-
-  if (journeysError) {
-    throw new DatabaseError(
-      `Failed to fetch journeys for usage: ${journeysError.message}`,
-      journeysError
-    );
-  }
-
-  const validJourneyIds = new Set(
-    (journeys ?? [])
-      .map((j: any) => String(j?.id ?? '').trim())
-      .filter(Boolean)
-  );
-
-  const journeyIdSetByEventId = new Map<string, Set<string>>();
-  for (const id of eventIds) journeyIdSetByEventId.set(id, new Set());
-  for (const raw of joinRows ?? []) {
-    const r = raw as any;
-    const eid = String(r?.event_id ?? '').trim();
-    const jid = String(r?.journey_id ?? '').trim();
-    if (!eid || !jid) continue;
-    if (!validJourneyIds.has(jid)) continue;
-    if (!journeyIdSetByEventId.has(eid)) continue;
-    journeyIdSetByEventId.get(eid)!.add(jid);
-  }
-
-  for (const [eid, set] of journeyIdSetByEventId.entries()) {
-    counts.set(eid, set.size);
-  }
-  return counts;
-}
-
-async function countJourneysUsingEvent(
-  workspaceId: string,
-  eventId: string
-): Promise<number> {
-  const map = await countJourneysUsingEvents(workspaceId, [eventId]);
-  return map.get(eventId) ?? 0;
-}
-
-function buildObjectChildFieldSnapshots(
-  parent: PropertyRow,
-  propertyById: Map<string, PropertyRow>,
-  stack: Set<string>
-): Record<string, ObjectChildFieldSnapshot> | null {
-  const refs = parent.object_child_property_refs_json;
-  const schema = parent.value_schema_json;
-  if (!refs || Object.keys(refs).length === 0) {
-    return null;
-  }
-  if (!schema || (schema.type !== 'object' && schema.type !== 'array')) {
-    return null;
-  }
-  if (parent.data_type === 'array') {
-    const childId = refs['$items'];
-    if (!childId || !schema.items || schema.type !== 'array') {
-      return null;
-    }
-  } else {
-    if (schema.type !== 'object') {
-      return null;
-    }
-  }
-
-  const out: Record<string, ObjectChildFieldSnapshot> = {};
-  const entries =
-    parent.data_type === 'array'
-      ? ([['$items', refs['$items']] as const] as const)
-      : (Object.entries(refs) as Array<[string, string]>);
-  for (const [fieldKey, childId] of entries) {
-    if (!childId) continue;
-    const child = propertyById.get(childId);
-    if (!child) {
-      out[fieldKey] = {
-        property_id: childId,
-        property_name: '(missing property)',
-        missing: true,
-      };
-      continue;
-    }
-    if (stack.has(childId)) {
-      out[fieldKey] = {
-        property_id: child.id,
-        property_name: child.name,
-        property_description: child.description ?? null,
-        property_data_type: child.data_type,
-        property_data_formats: child.data_formats,
-        property_example_values_json: normalizePropertyExampleValues(
-          child.example_values_json ?? null
-        ),
-        property_value_schema_json: child.value_schema_json,
-        property_object_child_property_refs_json: child.object_child_property_refs_json,
-        object_child_snapshots_by_field: null,
-        cycle_break: true,
-      };
-      continue;
-    }
-    const nextStack = new Set(stack);
-    nextStack.add(parent.id);
-    let nested: Record<string, ObjectChildFieldSnapshot> | null = null;
-    if (child.data_type === 'object' && child.object_child_property_refs_json) {
-      nested = buildObjectChildFieldSnapshots(child, propertyById, nextStack);
-    }
-    out[fieldKey] = {
-      property_id: child.id,
-      property_name: child.name,
-      property_description: child.description ?? null,
-      property_data_type: child.data_type,
-      property_data_formats: child.data_formats,
-      property_example_values_json: normalizePropertyExampleValues(
-        child.example_values_json ?? null
-      ),
-      property_value_schema_json: child.value_schema_json,
-      property_object_child_property_refs_json: child.object_child_property_refs_json,
-      object_child_snapshots_by_field: nested,
-    };
-  }
-  return Object.keys(out).length > 0 ? out : null;
-}
-
-function normalizePropertyExampleValues(
-  raw: unknown
-): PropertyExampleValue[] | null {
-  if (!Array.isArray(raw) || raw.length === 0) return null;
-  const out: PropertyExampleValue[] = [];
-  for (const item of raw) {
-    if (!item || typeof item !== 'object') continue;
-    const o = item as Record<string, unknown>;
-    if (!('value' in o)) continue;
-    out.push({
-      value: o.value,
-      label: typeof o.label === 'string' ? o.label : undefined,
-      notes: typeof o.notes === 'string' ? o.notes : undefined,
-    });
-  }
-  return out.length > 0 ? out : null;
-}
-
-type EventPropertyDefinitionIndexRow = {
-  property_id: string;
-  required: unknown;
-  example_values?: unknown;
-  updated_at?: unknown;
-};
-
-function indexEventPropertyDefinitions(
-  defRows: EventPropertyDefinitionIndexRow[] | null | undefined
-): {
-  requiredByPropertyId: Map<string, boolean | null>;
-  exampleOverrideByPropertyId: Map<string, PropertyExampleValue[] | null>;
-  definitionUpdatedAtByPropertyId: Map<string, string | null>;
-} {
-  const requiredByPropertyId = new Map<string, boolean | null>();
-  const exampleOverrideByPropertyId = new Map<string, PropertyExampleValue[] | null>();
-  const definitionUpdatedAtByPropertyId = new Map<string, string | null>();
-  for (const raw of defRows ?? []) {
-    const d = raw;
-    const req = d.required;
-    requiredByPropertyId.set(d.property_id, typeof req === 'boolean' ? req : null);
-    if (Object.prototype.hasOwnProperty.call(d, 'example_values')) {
-      const normalized = normalizePropertyExampleValues(
-        (d as { example_values?: unknown }).example_values ?? null
-      );
-      exampleOverrideByPropertyId.set(d.property_id, normalized);
-    }
-    if (Object.prototype.hasOwnProperty.call(d, 'updated_at')) {
-      const ts = (d as { updated_at?: unknown }).updated_at;
-      definitionUpdatedAtByPropertyId.set(
-        d.property_id,
-        typeof ts === 'string' && ts.trim() !== '' ? ts : null
-      );
-    }
-  }
-  return {
-    requiredByPropertyId,
-    exampleOverrideByPropertyId,
-    definitionUpdatedAtByPropertyId,
-  };
-}
-
-function buildAttachedPropertiesForEventLinks(
-  rows: EventPropertyRow[],
-  propertyById: Map<string, PropertyRow>,
-  requiredByPropertyId: Map<string, boolean | null>,
-  exampleOverrideByPropertyId: Map<string, PropertyExampleValue[] | null>,
-  definitionUpdatedAtByPropertyId: Map<string, string | null>
-): EventPropertyWithDetails[] {
-  return rows
-    .filter((r) => propertyById.has(r.property_id))
-    .map((r) => {
-      const pr = propertyById.get(r.property_id);
-      const snapshots =
-        pr && (pr.data_type === 'object' || pr.data_type === 'array')
-          ? buildObjectChildFieldSnapshots(pr, propertyById, new Set())
-          : null;
-      return {
-        ...r,
-        property_name: pr?.name ?? '',
-        property_description: pr?.description ?? null,
-        property_data_type: pr?.data_type ?? null,
-        property_data_formats: pr?.data_formats ?? null,
-        property_example_values_json:
-          exampleOverrideByPropertyId.get(r.property_id) ??
-          normalizePropertyExampleValues(pr?.example_values_json ?? null),
-        property_value_schema_json: pr?.value_schema_json ?? null,
-        property_object_child_property_refs_json: pr?.object_child_property_refs_json ?? null,
-        object_child_snapshots_by_field: snapshots,
-        property_required_override: requiredByPropertyId.get(r.property_id) ?? null,
-        definition_updated_at:
-          definitionUpdatedAtByPropertyId.get(r.property_id) ?? null,
-      };
-    });
-}
-
-function safeVariantOverridesForBatchRead(raw: unknown): EventVariantOverridesV1 {
-  try {
-    return parseEventVariantOverridesJson(raw);
-  } catch {
-    return {};
-  }
-}
-
-function mapEventVariantRowForBatch(row: Record<string, unknown>): EventVariantRow {
-  return {
-    id: String(row.id),
-    workspace_id: String(row.workspace_id),
-    base_event_id: String(row.base_event_id),
-    name: String(row.name),
-    description: row.description != null ? String(row.description) : null,
-    overrides_json: safeVariantOverridesForBatchRead(row.overrides_json),
-    created_at: String(row.created_at),
-    updated_at: String(row.updated_at),
-    deleted_at: row.deleted_at != null ? String(row.deleted_at) : null,
-  };
+export interface EventRow {
+  id: string;
+  project_id: string;
+  name: string;
+  business_name: string | null;
+  description: string | null;
+  purpose: string | null;
+  page: string | null;
+  trigger_text: string | null;
+  grain: string | null;
+  identity_note: string | null;
+  triggers_json: unknown;
+  event_type: string;
+  owner_business: string | null;
+  owner_technical: string | null;
+  priority: string | null;
+  status: string;
+  expiration_json: unknown;
+  not_suitable_for: string | null;
+  agent_instructions: string | null;
+  derived_metrics_json: unknown;
+  tags_json: unknown;
+  codegen_event_name_overrides_json: unknown;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
 }
 
 type EventDbRow = Omit<
   EventRow,
-  'categories' | 'tags' | 'triggers' | 'event_type' | 'codegen_event_name_overrides'
-> & {
-  event_type?: EventType | null;
-  categories_json?: unknown | null;
-  tags_json?: unknown | null;
-  triggers_json?: unknown | null;
-  codegen_event_name_overrides?: unknown | null;
-};
+  'triggers_json' | 'expiration_json' | 'derived_metrics_json' | 'tags_json' | 'codegen_event_name_overrides_json'
+>;
 
-function normalizeStringArray(value: unknown): string[] | null {
-  if (!Array.isArray(value)) return null;
-
-  const normalized = value
-    .filter((entry): entry is string => typeof entry === 'string')
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-
-  return [...new Set(normalized)];
-}
-
-const CODEGEN_OVERRIDE_KEYS = ['dataLayer', 'bloomreachSdk', 'bloomreachApi'] as const;
-
-export function normalizeCodegenEventNameOverrides(
-  raw: unknown
-): CodegenEventNameOverrides | null {
-  if (raw === null || raw === undefined) return null;
-  if (typeof raw !== 'object' || Array.isArray(raw)) return null;
-  const o = raw as Record<string, unknown>;
-  const out: CodegenEventNameOverrides = {};
-  for (const k of CODEGEN_OVERRIDE_KEYS) {
-    const v = o[k];
-    if (v === null || v === undefined) continue;
-    if (typeof v === 'string' && v.trim() !== '') out[k] = v.trim();
-  }
-  return Object.keys(out).length > 0 ? out : null;
-}
-
-function normalizeEventTriggers(value: unknown): EventTriggerEntry[] | null {
-  if (!Array.isArray(value)) return null;
-
-  const normalized = value
-    .map((entry, index): EventTriggerEntry | null => {
-      if (!entry || typeof entry !== 'object') return null;
-      const raw = entry as Record<string, unknown>;
-      const title = typeof raw.title === 'string' ? raw.title.trim() : '';
-      const description =
-        typeof raw.description === 'string' ? raw.description.trim() : '';
-
-      if (!title || !description) return null;
-
-      return {
-        title,
-        description,
-        image: typeof raw.image === 'string' ? raw.image : null,
-        source: typeof raw.source === 'string' ? raw.source : null,
-        order:
-          typeof raw.order === 'number' && Number.isFinite(raw.order)
-            ? raw.order
-            : index,
-      } satisfies EventTriggerEntry;
-    })
-    .filter((entry): entry is EventTriggerEntry => entry !== null)
-    .sort((a, b) => a.order - b.order);
-
-  return normalized;
-}
-
-function mapEventRow(row: EventDbRow | null): EventRow | null {
-  if (row === null) return null;
-
-  const { categories_json, tags_json, triggers_json } = row;
+function mapEventRow(row: EventDbRow): EventRow {
+  const raw = row as unknown as Record<string, unknown>;
   return {
-    id: row.id,
-    workspace_id: row.workspace_id,
-    name: row.name,
-    description: row.description,
-    purpose: row.purpose ?? null,
-    event_type: row.event_type ?? null,
-    owner_team_id: row.owner_team_id ?? null,
-    categories: normalizeStringArray(categories_json),
-    tags: normalizeStringArray(tags_json),
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    deleted_at: row.deleted_at,
-    triggers: normalizeEventTriggers(triggers_json),
-    codegen_event_name_overrides: normalizeCodegenEventNameOverrides(
-      row.codegen_event_name_overrides
-    ),
+    ...row,
+    triggers_json: parseJsonColumn(raw.triggers_json, []),
+    expiration_json: parseJsonColumn(raw.expiration_json, null),
+    derived_metrics_json: parseJsonColumn(raw.derived_metrics_json, []),
+    tags_json: parseJsonColumn(raw.tags_json, []),
+    codegen_event_name_overrides_json: parseJsonColumn(raw.codegen_event_name_overrides_json, null),
   };
 }
 
-async function listEventSourceIds(
-  workspaceId: string,
-  eventId: string
-): Promise<string[]> {
-  const supabase = getSupabaseOrThrow();
-  const { data, error } = await supabase
-    .from('event_sources')
-    .select('source_id')
-    .eq('event_id', eventId);
-
-  if (error) {
-    throw new DatabaseError(`Failed to fetch event sources: ${error.message}`, error);
-  }
-
-  const sourceIds = (data ?? []).map((row: { source_id: string }) => row.source_id);
-  return validateSourceIds(workspaceId, sourceIds);
-}
-
-async function validateSourceIds(
-  workspaceId: string,
-  sourceIds: string[]
-): Promise<string[]> {
-  const uniqueSourceIds = [...new Set(sourceIds.map((value) => value.trim()).filter(Boolean))];
-  if (uniqueSourceIds.length === 0) return [];
-
-  const supabase = getSupabaseOrThrow();
-  const { data, error } = await supabase
-    .from('sources')
-    .select('id')
-    .eq('workspace_id', workspaceId)
-    .in('id', uniqueSourceIds)
-    .is('deleted_at', null);
-
-  if (error) {
-    throw new DatabaseError(`Failed to validate sources: ${error.message}`, error);
-  }
-
-  const foundIds = new Set((data ?? []).map((row: { id: string }) => row.id));
-  if (foundIds.size !== uniqueSourceIds.length) {
-    throw new NotFoundError(
-      'One or more sources were not found in this workspace.',
-      'source'
-    );
-  }
-
-  return uniqueSourceIds;
-}
-
-async function replaceEventSources(
-  workspaceId: string,
-  eventId: string,
-  sourceIds: string[]
-): Promise<void> {
-  const validSourceIds = await validateSourceIds(workspaceId, sourceIds);
-  const supabase = getSupabaseOrThrow();
-
-  const { error: deleteError } = await supabase
-    .from('event_sources')
-    .delete()
-    .eq('event_id', eventId);
-
-  if (deleteError) {
-    throw new DatabaseError(`Failed to clear event sources: ${deleteError.message}`, deleteError);
-  }
-
-  if (validSourceIds.length === 0) {
-    return;
-  }
-
-  const { error: insertError } = await supabase
-    .from('event_sources')
-    .insert(
-      validSourceIds.map((sourceId) => ({
-        event_id: eventId,
-        source_id: sourceId,
-      }))
-    );
-
-  if (insertError) {
-    throw new DatabaseError(`Failed to save event sources: ${insertError.message}`, insertError);
-  }
-}
-
-/**
- * Returns an event by id only if it belongs to the workspace.
- */
-export async function getEventById(
-  workspaceId: string,
-  eventId: string
-): Promise<EventRow | null> {
-  const supabase = getSupabaseOrThrow();
-  const { data, error } = await supabase
-    .from('events')
-    .select('*')
-    .eq('id', eventId)
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null)
-    .maybeSingle();
-
-  if (error) {
-    throw new DatabaseError(`Failed to fetch event: ${error.message}`, error);
-  }
-  return mapEventRow(data as EventDbRow | null);
-}
-
-/**
- * Returns a property by id only if it belongs to the workspace and is not soft-deleted.
- */
-export async function getPropertyById(
-  workspaceId: string,
-  propertyId: string
-): Promise<{ id: string; workspace_id: string } | null> {
-  const supabase = getSupabaseOrThrow();
-  const { data, error } = await supabase
-    .from('properties')
-    .select('id, workspace_id')
-    .eq('id', propertyId)
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null)
-    .maybeSingle();
-
-  if (error) {
-    throw new DatabaseError(`Failed to fetch property: ${error.message}`, error);
-  }
-  return data as { id: string; workspace_id: string } | null;
-}
-
-/**
- * Creates an event in the workspace.
- *
- * @throws ConflictError when UNIQUE(workspace_id, name) is violated (409).
- * @throws DatabaseError for other DB failures.
- */
-export async function createEvent(
-  workspaceId: string,
-  eventData: CreateEventInput
-): Promise<EventRow> {
-  const supabase = getSupabaseOrThrow();
-
-  const row = {
-    workspace_id: workspaceId,
-    name: eventData.name.trim(),
-    description: eventData.description?.trim() ?? null,
-    purpose: eventData.purpose?.trim() ?? null,
-    event_type: eventData.event_type ?? null,
-    owner_team_id: eventData.owner_team_id?.trim() || null,
-    categories_json: eventData.categories ?? null,
-    tags_json: eventData.tags ?? null,
-    triggers_json: eventData.triggers ?? null,
-    codegen_event_name_overrides:
-      normalizeCodegenEventNameOverrides(eventData.codegen_event_name_overrides) ?? null,
-    deleted_at: null,
-  };
-
-  const sourceIds = Array.isArray(eventData.source_ids)
-    ? await validateSourceIds(workspaceId, eventData.source_ids)
-    : [];
-
-  const { data, error } = await supabase
-    .from('events')
-    .insert(row)
-    .select()
-    .single();
-
-  if (error) {
-    if (error.code === UNIQUE_VIOLATION_CODE) {
-      throw new ConflictError(
-        `An event with the same name already exists in this workspace.`,
-        `name="${row.name}"`
-      );
-    }
-    throw new DatabaseError(`Failed to create event: ${error.message}`, error);
-  }
-
-  if (data === null) {
-    throw new DatabaseError('Create event returned no row.');
-  }
-
-  if (sourceIds.length > 0) {
-    await replaceEventSources(workspaceId, (data as EventDbRow).id, sourceIds);
-  }
-
-  return mapEventRow(data as EventDbRow)!;
-}
-
-/**
- * Updates core event fields in the workspace.
- *
- * @throws NotFoundError when the event is not in the workspace.
- * @throws ConflictError when UNIQUE(workspace_id, name) is violated (409).
- * @throws DatabaseError for other DB failures.
- */
-export async function updateEvent(
-  workspaceId: string,
-  eventId: string,
-  eventData: CreateEventInput
-): Promise<EventRow> {
-  const existing = await getEventById(workspaceId, eventId);
-  if (existing === null) {
-    throw new NotFoundError(
-      `Event not found or does not belong to this workspace.`,
-      'event'
-    );
-  }
-
-  const supabase = getSupabaseOrThrow();
-  const row: Record<string, unknown> = {
-    name: eventData.name.trim(),
-    description: eventData.description?.trim() ?? null,
-    purpose: eventData.purpose?.trim() ?? null,
-    event_type: eventData.event_type ?? null,
-    owner_team_id: eventData.owner_team_id?.trim() || null,
-    updated_at: new Date().toISOString(),
-  };
-  let sourceIds: string[] | undefined;
-  if ('categories' in eventData) {
-    row.categories_json = eventData.categories ?? null;
-  }
-  if ('tags' in eventData) {
-    row.tags_json = eventData.tags ?? null;
-  }
-  if ('triggers' in eventData) {
-    row.triggers_json = eventData.triggers ?? null;
-  }
-  if ('codegen_event_name_overrides' in eventData) {
-    row.codegen_event_name_overrides =
-      normalizeCodegenEventNameOverrides(eventData.codegen_event_name_overrides) ?? null;
-  }
-  if ('source_ids' in eventData && Array.isArray(eventData.source_ids)) {
-    sourceIds = await validateSourceIds(workspaceId, eventData.source_ids);
-  } else if ('source_ids' in eventData && eventData.source_ids === null) {
-    sourceIds = [];
-  }
-
-  const { data, error } = await supabase
-    .from('events')
-    .update(row)
-    .eq('id', eventId)
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null)
-    .select()
-    .single();
-
-  if (error) {
-    if (error.code === UNIQUE_VIOLATION_CODE) {
-      throw new ConflictError(
-        `An event with the same name already exists in this workspace.`,
-        `name="${row.name}"`
-      );
-    }
-    throw new DatabaseError(`Failed to update event: ${error.message}`, error);
-  }
-
-  if (data === null) {
-    throw new DatabaseError('Update event returned no row.');
-  }
-
-  if (sourceIds !== undefined) {
-    await replaceEventSources(workspaceId, eventId, sourceIds);
-  }
-
-  return mapEventRow(data as EventDbRow)!;
-}
-
-/**
- * Soft-deletes an event in the workspace.
- *
- * @throws NotFoundError when the event is not in the workspace.
- * @throws DatabaseError for DB failures.
- */
-export async function deleteEvent(
-  workspaceId: string,
-  eventId: string
-): Promise<void> {
-  const existing = await getEventById(workspaceId, eventId);
-  if (existing === null) {
-    throw new NotFoundError(
-      `Event not found or does not belong to this workspace.`,
-      'event'
-    );
-  }
-
-  const usedInJourneysCount = await countJourneysUsingEvent(workspaceId, eventId);
-  if (usedInJourneysCount > 0) {
-    throw new ConflictError(
-      `Event cannot be deleted because it is used in ${usedInJourneysCount} journey${
-        usedInJourneysCount === 1 ? '' : 's'
-      }.`,
-      `used_in_journeys_count=${usedInJourneysCount}`
-    );
-  }
-
-  const supabase = getSupabaseOrThrow();
-  const now = new Date().toISOString();
-  const { error } = await supabase
-    .from('events')
-    .update({
-      deleted_at: now,
-      updated_at: now,
-    })
-    .eq('id', eventId)
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null);
-
-  if (error) {
-    throw new DatabaseError(`Failed to delete event: ${error.message}`, error);
-  }
-}
-
-/**
- * Attaches a property to an event with the given presence.
- * Verifies both event_id and property_id belong to the same workspaceId.
- *
- * @throws NotFoundError when event or property is not found in the workspace (404).
- * @throws ConflictError when the pair (event_id, property_id) already exists (409).
- * @throws DatabaseError for other DB failures.
- */
-export async function attachPropertyToEvent(
-  workspaceId: string,
-  eventId: string,
-  propertyId: string,
-  presence: EventPropertyPresence
-): Promise<EventPropertyRow> {
-  const event = await getEventById(workspaceId, eventId);
-  if (event === null) {
-    throw new NotFoundError(
-      `Event not found or does not belong to this workspace.`,
-      'event'
-    );
-  }
-
-  const property = await getPropertyById(workspaceId, propertyId);
-  if (property === null) {
-    throw new NotFoundError(
-      `Property not found or does not belong to this workspace.`,
-      'property'
-    );
-  }
-
-  const supabase = getSupabaseOrThrow();
-  const row = {
-    event_id: eventId,
-    property_id: propertyId,
-    presence,
-  };
-
-  const { data, error } = await supabase
-    .from('event_properties')
-    .insert(row)
-    .select()
-    .single();
-
-  if (error) {
-    if (error.code === UNIQUE_VIOLATION_CODE) {
-      throw new ConflictError(
-        `This property is already attached to the event.`,
-        `event_id="${eventId}", property_id="${propertyId}"`
-      );
-    }
-    throw new DatabaseError(
-      `Failed to attach property to event: ${error.message}`,
-      error
-    );
-  }
-
-  if (data === null) {
-    throw new DatabaseError('Attach property returned no row.');
-  }
-
-  return data as EventPropertyRow;
-}
-
-/**
- * Detaches a property from an event.
- * Verifies the event and property belong to the workspace.
- *
- * @throws NotFoundError when event, property, or link is not found in workspace.
- * @throws DatabaseError for other DB failures.
- */
-export async function detachPropertyFromEvent(
-  workspaceId: string,
-  eventId: string,
-  propertyId: string
-): Promise<void> {
-  await getEventById(workspaceId, eventId);
-  await getPropertyById(workspaceId, propertyId);
-
-  const supabase = getSupabaseOrThrow();
-  const { data, error } = await supabase
-    .from('event_properties')
-    .delete()
-    .eq('event_id', eventId)
-    .eq('property_id', propertyId)
-    .select('event_id, property_id')
-    .maybeSingle();
-
-  if (error) {
-    throw new DatabaseError(
-      `Failed to detach property from event: ${error.message}`,
-      error
-    );
-  }
-  if (data === null) {
-    throw new NotFoundError(
-      `This property is not attached to the event.`,
-      'event_property'
-    );
-  }
-}
-
-/** Event with attached property count (only non–soft-deleted properties). */
-export interface EventWithPropertyCount extends EventRow {
-  attached_property_count: number;
-  /** Non-deleted variants for this base event (trigger picker + list). */
-  variants: EventVariantSummary[];
-}
-
-/**
- * Lists all non-deleted events for the workspace with attached property counts.
- * Counts include only properties that are not soft-deleted.
- */
-export async function listEvents(
-  workspaceId: string
-): Promise<EventWithPropertyCount[]> {
-  const supabase = getSupabaseOrThrow();
-
-  const { data: events, error: eventsError } = await supabase
-    .from('events')
-    .select('*')
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null)
-    .order('name');
-
-  if (eventsError) {
-    throw new DatabaseError(
-      `Failed to list events: ${eventsError.message}`,
-      eventsError
-    );
-  }
-
-  const eventList = (events ?? []).map((event) => mapEventRow(event as EventDbRow)!);
-  if (eventList.length === 0) {
-    return [];
-  }
-
-  const eventIds = eventList.map((e) => e.id);
-
-  const { data: joinRows, error: joinError } = await supabase
-    .from('event_properties')
-    .select('event_id, property_id')
-    .in('event_id', eventIds);
-
-  if (joinError) {
-    throw new DatabaseError(
-      `Failed to fetch event-property links: ${joinError.message}`,
-      joinError
-    );
-  }
-
-  const propertyIds = [
-    ...new Set((joinRows ?? []).map((r: { property_id: string }) => r.property_id)),
-  ];
-
-  let nonDeletedPropertyIds = new Set<string>();
-  if (propertyIds.length > 0) {
-    const { data: props, error: propsError } = await supabase
-      .from('properties')
-      .select('id')
-      .in('id', propertyIds)
-      .is('deleted_at', null);
-
-    if (propsError) {
-      throw new DatabaseError(
-        `Failed to fetch properties: ${propsError.message}`,
-        propsError
-      );
-    }
-    nonDeletedPropertyIds = new Set((props ?? []).map((p: { id: string }) => p.id));
-  }
-
-  const countByEventId = new Map<string, number>();
-  for (const eid of eventIds) {
-    countByEventId.set(eid, 0);
-  }
-  for (const row of joinRows ?? []) {
-    const r = row as { event_id: string; property_id: string };
-    if (nonDeletedPropertyIds.has(r.property_id)) {
-      countByEventId.set(
-        r.event_id,
-        (countByEventId.get(r.event_id) ?? 0) + 1
-      );
-    }
-  }
-
-  const variantByEventId = await listEventVariantSummariesForBaseEventIds(workspaceId, eventIds);
-  const usedInJourneysCountByEventId = await countJourneysUsingEvents(workspaceId, eventIds);
-
-  return eventList.map((event) => ({
-    ...event,
-    attached_property_count: countByEventId.get(event.id) ?? 0,
-    variants: variantByEventId.get(event.id) ?? [],
-    used_in_journeys_count: usedInJourneysCountByEventId.get(event.id) ?? 0,
-  }));
-}
-
-/** Event property attachment with property snapshot (for editor). */
-export interface EventPropertyWithDetails extends EventPropertyRow {
-  property_name: string;
-  property_description?: string | null;
-  property_data_type?: string | null;
-  property_data_formats?: PropertyDataFormat[] | null;
-  /** From `properties.example_values_json` (catalog examples). */
-  property_example_values_json?: PropertyExampleValue[] | null;
-  /** From `properties.value_schema_json` when attached property is object/array. */
-  property_value_schema_json?: PropertyValueSchema | null;
-  /** From `properties.object_child_property_refs_json` for object types. */
-  property_object_child_property_refs_json?: Record<string, string> | null;
-  /**
-   * Pre-resolved nested fields for object properties (canonical child properties).
-   * Built server-side for export/codegen; not a separate registry.
-   */
-  object_child_snapshots_by_field?: Record<string, ObjectChildFieldSnapshot> | null;
-  /**
-   * From `event_property_definitions.required` when a row exists for this (event, property).
-   * `null` means no override row or `required` unset — not the same as "optional".
-   */
-  property_required_override?: boolean | null;
-  /**
-   * `event_property_definitions.updated_at` for this (event, property) override row,
-   * or `null` when no override row exists. The shared docs export falls back to
-   * `updated_at` (the junction `event_properties.updated_at` from `EventPropertyRow`,
-   * i.e. attach time) when this is null.
-   */
-  definition_updated_at?: string | null;
-}
-
-/**
- * Fetches one event by id with its attached properties (only non–soft-deleted properties).
- *
- * @throws NotFoundError when event is not in workspace.
- */
-export async function getEventWithProperties(
-  workspaceId: string,
-  eventId: string
-): Promise<{
-  event: EventRow;
-  attached_properties: EventPropertyWithDetails[];
-  source_ids: string[];
-  variants: EventVariantRow[];
-}> {
-  const event = await getEventById(workspaceId, eventId);
-  if (event === null) {
-    throw new NotFoundError(
-      `Event not found or does not belong to this workspace.`,
-      'event'
-    );
-  }
-
-  const usedInJourneysCount = await countJourneysUsingEvent(workspaceId, eventId);
-  const eventWithUsage = { ...event, used_in_journeys_count: usedInJourneysCount };
-
-  const supabase = getSupabaseOrThrow();
-
-  const { data: links, error: linkError } = await supabase
-    .from('event_properties')
-    .select('event_id, property_id, presence, created_at, updated_at')
-    .eq('event_id', eventId);
-
-  if (linkError) {
-    throw new DatabaseError(
-      `Failed to fetch event properties: ${linkError.message}`,
-      linkError
-    );
-  }
-
-  const variants = await listEventVariantsByBaseEvent(workspaceId, eventId);
-
-  const rows = (links ?? []) as EventPropertyRow[];
-  if (rows.length === 0) {
-    return {
-      event: eventWithUsage,
-      attached_properties: [],
-      source_ids: await listEventSourceIds(workspaceId, eventId),
-      variants,
-    };
-  }
-
-  const propertyIds = [...new Set(rows.map((r) => r.property_id))];
-
-  const { data: defRows, error: defError } = await supabase
-    .from('event_property_definitions')
-    .select('property_id, required, example_values, updated_at')
-    .eq('workspace_id', workspaceId)
-    .eq('event_id', eventId)
-    .in('property_id', propertyIds);
-
-  if (defError) {
-    throw new DatabaseError(
-      `Failed to fetch event property definitions: ${defError.message}`,
-      defError
-    );
-  }
-
-  const {
-    requiredByPropertyId,
-    exampleOverrideByPropertyId,
-    definitionUpdatedAtByPropertyId,
-  } = indexEventPropertyDefinitions(
-    (defRows ?? []) as EventPropertyDefinitionIndexRow[]
-  );
-
-  const { data: props, error: propsError } = await supabase
-    .from('properties')
-    .select('*')
-    .in('id', propertyIds)
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null);
-
-  if (propsError) {
-    throw new DatabaseError(
-      `Failed to fetch properties: ${propsError.message}`,
-      propsError
-    );
-  }
-
-  const propertyById = new Map<string, PropertyRow>();
-  for (const raw of props ?? []) {
-    const pr = mapPropertyDbRowToRow(raw);
-    if (pr) {
-      propertyById.set(pr.id, pr);
-    }
-  }
-
-  let frontier: string[] = [];
-  for (const pr of propertyById.values()) {
-    if (
-      (pr.data_type === 'object' || pr.data_type === 'array') &&
-      pr.object_child_property_refs_json
-    ) {
-      for (const pid of Object.values(pr.object_child_property_refs_json)) {
-        if (!propertyById.has(pid)) {
-          frontier.push(pid);
-        }
-      }
-    }
-  }
-
-  for (let round = 0; round < OBJECT_CHILD_REF_FETCH_ROUNDS && frontier.length > 0; round += 1) {
-    const unique = [...new Set(frontier)];
-    frontier = [];
-    const { data: moreRows, error: moreErr } = await supabase
-      .from('properties')
-      .select('*')
-      .eq('workspace_id', workspaceId)
-      .in('id', unique)
-      .is('deleted_at', null);
-
-    if (moreErr) {
-      throw new DatabaseError(
-        `Failed to fetch nested property refs: ${moreErr.message}`,
-        moreErr
-      );
-    }
-
-    for (const raw of moreRows ?? []) {
-      const pr = mapPropertyDbRowToRow(raw);
-      if (!pr) {
-        continue;
-      }
-      if (!propertyById.has(pr.id)) {
-        propertyById.set(pr.id, pr);
-        if (
-          (pr.data_type === 'object' || pr.data_type === 'array') &&
-          pr.object_child_property_refs_json
-        ) {
-          for (const pid of Object.values(pr.object_child_property_refs_json)) {
-            if (!propertyById.has(pid)) {
-              frontier.push(pid);
-            }
-          }
-        }
-      }
-    }
-  }
-
-  const attached_properties = buildAttachedPropertiesForEventLinks(
-    rows,
-    propertyById,
-    requiredByPropertyId,
-    exampleOverrideByPropertyId,
-    definitionUpdatedAtByPropertyId
-  );
-
-  return {
-    event: eventWithUsage,
-    attached_properties,
-    source_ids: await listEventSourceIds(workspaceId, eventId),
-    variants,
-  };
-}
-
-/**
- * Same attached-property shape as {@link getEventWithProperties} for shared journey / codegen caches.
- * Omits `used_in_journeys_count`, `listEventSourceIds`, and per-event journey usage queries.
- */
-export type EventWithPropertiesPayload = {
-  event: EventRow;
-  attached_properties: EventPropertyWithDetails[];
-  source_ids: string[];
-  variants: EventVariantRow[];
-};
-
-/**
- * Batch-load events with properties for many event ids (constant small number of queries vs N × getEventWithProperties).
- * Skips journey usage counts and source id resolution — not needed for shared journey views.
- */
-export async function getEventsWithPropertiesBatch(
-  workspaceId: string,
-  eventIds: string[]
-): Promise<Map<string, EventWithPropertiesPayload>> {
-  const uniqueIds = [...new Set(eventIds.map((id) => id.trim()).filter(Boolean))];
-  const out = new Map<string, EventWithPropertiesPayload>();
-  if (uniqueIds.length === 0) {
-    return out;
-  }
-
-  const supabase = getSupabaseOrThrow();
-
-  const { data: eventData, error: eventError } = await supabase
-    .from('events')
-    .select('*')
-    .eq('workspace_id', workspaceId)
-    .in('id', uniqueIds)
-    .is('deleted_at', null);
-
-  if (eventError) {
-    throw new DatabaseError(`Failed to fetch events: ${eventError.message}`, eventError);
-  }
-
-  const eventsById = new Map<string, EventRow>();
-  for (const raw of eventData ?? []) {
-    const row = mapEventRow(raw as EventDbRow | null);
-    if (row) {
-      eventsById.set(row.id, row);
-    }
-  }
-
-  const foundEventIds = [...eventsById.keys()];
-  if (foundEventIds.length === 0) {
-    return out;
-  }
-
-  const { data: allLinks, error: linkError } = await supabase
-    .from('event_properties')
-    .select('event_id, property_id, presence, created_at, updated_at')
-    .in('event_id', foundEventIds);
-
-  if (linkError) {
-    throw new DatabaseError(`Failed to fetch event properties: ${linkError.message}`, linkError);
-  }
-
-  const linksByEventId = new Map<string, EventPropertyRow[]>();
-  for (const link of (allLinks ?? []) as EventPropertyRow[]) {
-    const list = linksByEventId.get(link.event_id) ?? [];
-    list.push(link);
-    linksByEventId.set(link.event_id, list);
-  }
-
-  const { data: batchDefRows, error: defError } = await supabase
-    .from('event_property_definitions')
-    .select('event_id, property_id, required, example_values, updated_at')
-    .eq('workspace_id', workspaceId)
-    .in('event_id', foundEventIds);
-
-  if (defError) {
-    throw new DatabaseError(
-      `Failed to fetch event property definitions: ${defError.message}`,
-      defError
-    );
-  }
-
-  const defsByEventId = new Map<string, EventPropertyDefinitionIndexRow[]>();
-  for (const raw of batchDefRows ?? []) {
-    const d = raw as {
-      event_id: string;
-      property_id: string;
-      required: unknown;
-      example_values?: unknown;
-      updated_at?: unknown;
-    };
-    const list = defsByEventId.get(d.event_id) ?? [];
-    list.push({
-      property_id: d.property_id,
-      required: d.required,
-      example_values: d.example_values,
-      updated_at: d.updated_at,
-    });
-    defsByEventId.set(d.event_id, list);
-  }
-
-  const allAttachedPropertyIds = new Set<string>();
-  for (const rows of linksByEventId.values()) {
-    for (const r of rows) {
-      allAttachedPropertyIds.add(r.property_id);
-    }
-  }
-
-  const propertyById = new Map<string, PropertyRow>();
-  const seedIds = [...allAttachedPropertyIds];
-  if (seedIds.length > 0) {
-    const { data: props, error: propsError } = await supabase
-      .from('properties')
-      .select('*')
-      .in('id', seedIds)
-      .eq('workspace_id', workspaceId)
-      .is('deleted_at', null);
-
-    if (propsError) {
-      throw new DatabaseError(`Failed to fetch properties: ${propsError.message}`, propsError);
-    }
-
-    for (const raw of props ?? []) {
-      const pr = mapPropertyDbRowToRow(raw);
-      if (pr) {
-        propertyById.set(pr.id, pr);
-      }
-    }
-  }
-
-  let frontier: string[] = [];
-  for (const pr of propertyById.values()) {
-    if (
-      (pr.data_type === 'object' || pr.data_type === 'array') &&
-      pr.object_child_property_refs_json
-    ) {
-      for (const pid of Object.values(pr.object_child_property_refs_json)) {
-        if (!propertyById.has(pid)) {
-          frontier.push(pid);
-        }
-      }
-    }
-  }
-
-  for (let round = 0; round < OBJECT_CHILD_REF_FETCH_ROUNDS && frontier.length > 0; round += 1) {
-    const unique = [...new Set(frontier)];
-    frontier = [];
-    const { data: moreRows, error: moreErr } = await supabase
-      .from('properties')
-      .select('*')
-      .eq('workspace_id', workspaceId)
-      .in('id', unique)
-      .is('deleted_at', null);
-
-    if (moreErr) {
-      throw new DatabaseError(
-        `Failed to fetch nested property refs: ${moreErr.message}`,
-        moreErr
-      );
-    }
-
-    for (const raw of moreRows ?? []) {
-      const pr = mapPropertyDbRowToRow(raw);
-      if (!pr) {
-        continue;
-      }
-      if (!propertyById.has(pr.id)) {
-        propertyById.set(pr.id, pr);
-        if (
-          (pr.data_type === 'object' || pr.data_type === 'array') &&
-          pr.object_child_property_refs_json
-        ) {
-          for (const pid of Object.values(pr.object_child_property_refs_json)) {
-            if (!propertyById.has(pid)) {
-              frontier.push(pid);
-            }
-          }
-        }
-      }
-    }
-  }
-
-  const { data: variantRows, error: variantError } = await supabase
-    .from('event_variants')
-    .select('*')
-    .eq('workspace_id', workspaceId)
-    .in('base_event_id', foundEventIds)
-    .is('deleted_at', null)
-    .order('name');
-
-  if (variantError) {
-    throw new DatabaseError(`Failed to list event variants: ${variantError.message}`, variantError);
-  }
-
-  const variantsByBaseEventId = new Map<string, EventVariantRow[]>();
-  for (const eid of foundEventIds) {
-    variantsByBaseEventId.set(eid, []);
-  }
-  for (const raw of variantRows ?? []) {
-    const vr = mapEventVariantRowForBatch(raw as Record<string, unknown>);
-    const list = variantsByBaseEventId.get(vr.base_event_id) ?? [];
-    list.push(vr);
-    variantsByBaseEventId.set(vr.base_event_id, list);
-  }
-
-  for (const eid of uniqueIds) {
-    const event = eventsById.get(eid);
-    if (!event) {
-      continue;
-    }
-    const linkRows = linksByEventId.get(eid) ?? [];
-    const defIndex = indexEventPropertyDefinitions(defsByEventId.get(eid) ?? []);
-    const attached_properties = buildAttachedPropertiesForEventLinks(
-      linkRows,
-      propertyById,
-      defIndex.requiredByPropertyId,
-      defIndex.exampleOverrideByPropertyId,
-      defIndex.definitionUpdatedAtByPropertyId
-    );
-    out.set(eid, {
-      event,
-      attached_properties,
-      source_ids: [],
-      variants: variantsByBaseEventId.get(eid) ?? [],
-    });
-  }
-
-  return out;
-}
-
-/**
- * Updates the presence of an already-attached property on an event.
- * Verifies event and property belong to the workspace.
- *
- * @throws NotFoundError when event or property link is not found in workspace.
- */
-export async function updatePropertyPresenceOnEvent(
-  workspaceId: string,
-  eventId: string,
-  propertyId: string,
-  presence: EventPropertyPresence
-): Promise<EventPropertyRow> {
-  await getEventById(workspaceId, eventId);
-  await getPropertyById(workspaceId, propertyId);
-
-  const supabase = getSupabaseOrThrow();
-  const { data, error } = await supabase
-    .from('event_properties')
-    .update({ presence, updated_at: new Date().toISOString() })
-    .eq('event_id', eventId)
-    .eq('property_id', propertyId)
-    .select()
-    .single();
-
-  if (error) {
-    throw new DatabaseError(
-      `Failed to update presence: ${error.message}`,
-      error
-    );
-  }
-  if (data === null) {
-    throw new NotFoundError(
-      `This property is not attached to the event.`,
-      'event_property'
-    );
-  }
-  return data as EventPropertyRow;
-}
-
-/** Presence value for "always sent" (used by QA payload validation). */
-const ALWAYS_SENT = 'always_sent';
-
-/**
- * JSON payload key for a property row (payload_key mapping when set, else canonical name).
- */
-export function resolvePayloadKeyForPropertyRow(row: {
+export interface EventInput {
   name: string;
-  name_mappings_json: unknown;
-}): string {
-  let key = row.name;
-  if (Array.isArray(row.name_mappings_json)) {
-    const typedMappings = row.name_mappings_json.filter(
-      (mapping): mapping is PropertyNameMapping =>
-        Boolean(mapping) &&
-        typeof mapping === 'object' &&
-        typeof (mapping as PropertyNameMapping).system === 'string' &&
-        typeof (mapping as PropertyNameMapping).name === 'string'
-    );
-    const preferredMapping =
-      typedMappings.find((mapping) => mapping.role === 'payload_key') ?? typedMappings[0];
+  business_name?: string | null;
+  description?: string | null;
+  purpose?: string | null;
+  page?: string | null;
+  trigger_text?: string | null;
+  grain?: string | null;
+  identity_note?: string | null;
+  event_type?: string;
+  owner_business?: string | null;
+  owner_technical?: string | null;
+  priority?: string | null;
+  status?: string;
+  expiration_json?: unknown;
+  not_suitable_for?: string | null;
+  agent_instructions?: string | null;
+  derived_metrics_json?: unknown;
+  tags_json?: unknown;
+  source_ids?: string[] | null;
+}
 
-    if (preferredMapping?.name) {
-      key = String(preferredMapping.name);
+const DEFAULT_EVENT_TYPE = 'custom';
+const DEFAULT_EVENT_STATUS = 'planned';
+
+export interface EventWithCounts extends EventRow {
+  attached_property_count: number;
+}
+
+export function listEvents(projectId: string): EventWithCounts[] {
+  const db = getDb();
+  const rows = db
+    .prepare('SELECT * FROM events WHERE project_id = ? AND deleted_at IS NULL ORDER BY name')
+    .all(projectId) as EventDbRow[];
+  const counts = new Map(
+    (
+      db
+        .prepare(
+          `SELECT ep.event_id as event_id, COUNT(*) as n
+           FROM event_properties ep
+           JOIN events e ON e.id = ep.event_id
+           WHERE e.project_id = ?
+           GROUP BY ep.event_id`
+        )
+        .all(projectId) as { event_id: string; n: number }[]
+    ).map((r) => [r.event_id, r.n])
+  );
+  return rows.map((row) => {
+    const event = mapEventRow(row);
+    return { ...event, attached_property_count: counts.get(event.id) ?? 0 };
+  });
+}
+
+export function getEventById(projectId: string, eventId: string): EventRow | null {
+  const db = getDb();
+  const row = db
+    .prepare('SELECT * FROM events WHERE id = ? AND project_id = ? AND deleted_at IS NULL')
+    .get(eventId, projectId) as EventDbRow | undefined;
+  return row ? mapEventRow(row) : null;
+}
+
+export function getEventOrThrow(projectId: string, eventId: string): EventRow {
+  const row = getEventById(projectId, eventId);
+  if (!row) throw new NotFoundError('Event not found or does not belong to this project.', 'event');
+  return row;
+}
+
+function validateSourceIds(projectId: string, sourceIds: string[]): string[] {
+  const unique = [...new Set(sourceIds.map((v) => v.trim()).filter(Boolean))];
+  if (unique.length === 0) return [];
+  const db = getDb();
+  const placeholders = unique.map(() => '?').join(', ');
+  const found = new Set(
+    (
+      db.prepare(`SELECT id FROM sources WHERE project_id = ? AND id IN (${placeholders})`).all(
+        projectId,
+        ...unique
+      ) as { id: string }[]
+    ).map((r) => r.id)
+  );
+  for (const id of unique) {
+    if (!found.has(id)) throw new NotFoundError('One or more sources were not found in this project.', 'source');
+  }
+  return unique;
+}
+
+function replaceEventSources(projectId: string, eventId: string, sourceIds: string[]): void {
+  const valid = validateSourceIds(projectId, sourceIds);
+  const db = getDb();
+  const now = nowIso();
+  const replace = db.transaction(() => {
+    db.prepare('DELETE FROM event_sources WHERE event_id = ?').run(eventId);
+    const insert = db.prepare(
+      'INSERT INTO event_sources (event_id, source_id, kind, created_at) VALUES (?, ?, ?, ?)'
+    );
+    for (const sourceId of valid) insert.run(eventId, sourceId, 'live', now);
+  });
+  replace();
+}
+
+export function listEventSourceIds(projectId: string, eventId: string): string[] {
+  getEventOrThrow(projectId, eventId);
+  return (
+    getDb()
+      .prepare('SELECT source_id FROM event_sources WHERE event_id = ?')
+      .all(eventId) as { source_id: string }[]
+  ).map((r) => r.source_id);
+}
+
+export function createEvent(projectId: string, input: EventInput): EventRow {
+  const name = input.name.trim();
+  if (!name) throw new ConflictError('Event name is required.');
+
+  const db = getDb();
+  const existing = db
+    .prepare('SELECT id FROM events WHERE project_id = ? AND name = ? AND deleted_at IS NULL')
+    .get(projectId, name);
+  if (existing) throw new ConflictError(`An event named "${name}" already exists in this project.`);
+
+  const id = newId();
+  const now = nowIso();
+  try {
+    db.prepare(
+      `INSERT INTO events (
+        id, project_id, name, business_name, description, purpose, page, trigger_text, grain,
+        identity_note, triggers_json, event_type, owner_business, owner_technical, priority,
+        status, expiration_json, not_suitable_for, agent_instructions, derived_metrics_json,
+        tags_json, codegen_event_name_overrides_json, created_at, updated_at, deleted_at
+      ) VALUES (
+        @id, @project_id, @name, @business_name, @description, @purpose, @page, @trigger_text, @grain,
+        @identity_note, NULL, @event_type, @owner_business, @owner_technical, @priority,
+        @status, @expiration_json, @not_suitable_for, @agent_instructions, @derived_metrics_json,
+        @tags_json, NULL, @created_at, @updated_at, NULL
+      )`
+    ).run({
+      id,
+      project_id: projectId,
+      name,
+      business_name: input.business_name?.trim() || null,
+      description: input.description?.trim() || null,
+      purpose: input.purpose?.trim() || null,
+      page: input.page?.trim() || null,
+      trigger_text: input.trigger_text?.trim() || null,
+      grain: input.grain?.trim() || null,
+      identity_note: input.identity_note?.trim() || null,
+      event_type: input.event_type || DEFAULT_EVENT_TYPE,
+      owner_business: input.owner_business?.trim() || null,
+      owner_technical: input.owner_technical?.trim() || null,
+      priority: input.priority ?? null,
+      status: input.status || DEFAULT_EVENT_STATUS,
+      expiration_json: toJsonColumn(input.expiration_json ?? null),
+      not_suitable_for: input.not_suitable_for?.trim() || null,
+      agent_instructions: input.agent_instructions?.trim() || null,
+      derived_metrics_json: toJsonColumn(input.derived_metrics_json ?? []),
+      tags_json: toJsonColumn(input.tags_json ?? []),
+      created_at: now,
+      updated_at: now,
+    });
+  } catch (err) {
+    throw new DatabaseError(`Failed to create event: ${(err as Error).message}`, err);
+  }
+
+  if (input.source_ids !== undefined && input.source_ids !== null) {
+    replaceEventSources(projectId, id, input.source_ids);
+  }
+
+  return getEventOrThrow(projectId, id);
+}
+
+export function updateEvent(projectId: string, eventId: string, input: Partial<EventInput>): EventRow {
+  getEventOrThrow(projectId, eventId);
+  const db = getDb();
+
+  if (input.name !== undefined) {
+    const name = input.name.trim();
+    const clash = db
+      .prepare('SELECT id FROM events WHERE project_id = ? AND name = ? AND id != ? AND deleted_at IS NULL')
+      .get(projectId, name, eventId);
+    if (clash) throw new ConflictError(`An event named "${name}" already exists in this project.`);
+  }
+
+  const patch: Record<string, unknown> = { updated_at: nowIso() };
+  if (input.name !== undefined) patch.name = input.name.trim();
+  if (input.business_name !== undefined) patch.business_name = input.business_name?.trim() || null;
+  if (input.description !== undefined) patch.description = input.description?.trim() || null;
+  if (input.purpose !== undefined) patch.purpose = input.purpose?.trim() || null;
+  if (input.page !== undefined) patch.page = input.page?.trim() || null;
+  if (input.trigger_text !== undefined) patch.trigger_text = input.trigger_text?.trim() || null;
+  if (input.grain !== undefined) patch.grain = input.grain?.trim() || null;
+  if (input.identity_note !== undefined) patch.identity_note = input.identity_note?.trim() || null;
+  if (input.event_type !== undefined) patch.event_type = input.event_type;
+  if (input.owner_business !== undefined) patch.owner_business = input.owner_business?.trim() || null;
+  if (input.owner_technical !== undefined) patch.owner_technical = input.owner_technical?.trim() || null;
+  if (input.priority !== undefined) patch.priority = input.priority;
+  if (input.status !== undefined) patch.status = input.status;
+  if (input.expiration_json !== undefined) patch.expiration_json = toJsonColumn(input.expiration_json);
+  if (input.not_suitable_for !== undefined) patch.not_suitable_for = input.not_suitable_for?.trim() || null;
+  if (input.agent_instructions !== undefined) {
+    patch.agent_instructions = input.agent_instructions?.trim() || null;
+  }
+  if (input.derived_metrics_json !== undefined) {
+    patch.derived_metrics_json = toJsonColumn(input.derived_metrics_json);
+  }
+  if (input.tags_json !== undefined) patch.tags_json = toJsonColumn(input.tags_json);
+
+  const setClause = Object.keys(patch)
+    .map((k) => `${k} = @${k}`)
+    .join(', ');
+  try {
+    db.prepare(`UPDATE events SET ${setClause} WHERE id = @id AND project_id = @project_id`).run({
+      ...patch,
+      id: eventId,
+      project_id: projectId,
+    });
+  } catch (err) {
+    throw new DatabaseError(`Failed to update event: ${(err as Error).message}`, err);
+  }
+
+  if (input.source_ids !== undefined) {
+    replaceEventSources(projectId, eventId, input.source_ids ?? []);
+  }
+
+  return getEventOrThrow(projectId, eventId);
+}
+
+export function deleteEvent(projectId: string, eventId: string): void {
+  getEventOrThrow(projectId, eventId);
+  const now = nowIso();
+  getDb()
+    .prepare('UPDATE events SET deleted_at = ?, updated_at = ? WHERE id = ? AND project_id = ?')
+    .run(now, now, eventId, projectId);
+}
+
+// ----- EventProperty (D-16) -----
+
+export interface EventPropertyRow {
+  event_id: string;
+  property_id: string;
+  required: boolean;
+  role: string;
+  priority: string | null;
+  status: string | null;
+  source_id: string | null;
+  payload_key: string | null;
+  description_override: string | null;
+  example_values_override_json: unknown;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventPropertyWithDetails extends EventPropertyRow {
+  property: PropertyRow;
+}
+
+export interface EventPropertyInput {
+  property_id: string;
+  required?: boolean;
+  role?: string;
+  priority?: string | null;
+  status?: string | null;
+  source_id?: string | null;
+  payload_key?: string | null;
+  description_override?: string | null;
+  example_values_override_json?: unknown;
+  sort_order?: number;
+}
+
+type EventPropertyDbRow = Omit<EventPropertyRow, 'required' | 'example_values_override_json'>;
+
+function mapEventPropertyRow(row: EventPropertyDbRow): EventPropertyRow {
+  const raw = row as unknown as Record<string, unknown>;
+  return {
+    ...row,
+    required: fromSqliteBool(raw.required),
+    example_values_override_json: parseJsonColumn(raw.example_values_override_json, null),
+  };
+}
+
+export function getEventWithProperties(
+  projectId: string,
+  eventId: string
+): { event: EventRow; properties: EventPropertyWithDetails[]; source_ids: string[] } {
+  const event = getEventOrThrow(projectId, eventId);
+  const db = getDb();
+  const linkRows = db
+    .prepare('SELECT * FROM event_properties WHERE event_id = ? ORDER BY sort_order, created_at')
+    .all(eventId) as EventPropertyDbRow[];
+
+  const properties: EventPropertyWithDetails[] = [];
+  for (const raw of linkRows) {
+    const link = mapEventPropertyRow(raw);
+    const property = getPropertyById(projectId, link.property_id);
+    if (!property) continue; // property soft-deleted; link is stale but left intact (T-1-02 keeps it simple)
+    properties.push({ ...link, property });
+  }
+
+  return { event, properties, source_ids: listEventSourceIds(projectId, eventId) };
+}
+
+const DEFAULT_ROLE = 'normal';
+
+export function attachPropertyToEvent(
+  projectId: string,
+  eventId: string,
+  input: EventPropertyInput
+): EventPropertyRow {
+  getEventOrThrow(projectId, eventId);
+  const property = getPropertyById(projectId, input.property_id);
+  if (!property) throw new NotFoundError('Property not found or does not belong to this project.', 'property');
+
+  const db = getDb();
+  const existing = db
+    .prepare('SELECT 1 FROM event_properties WHERE event_id = ? AND property_id = ?')
+    .get(eventId, input.property_id);
+  if (existing) {
+    throw new ConflictError('This property is already attached to the event.');
+  }
+
+  const now = nowIso();
+  const maxOrder = (
+    db.prepare('SELECT COALESCE(MAX(sort_order), -1) as m FROM event_properties WHERE event_id = ?').get(
+      eventId
+    ) as { m: number }
+  ).m;
+
+  try {
+    db.prepare(
+      `INSERT INTO event_properties (
+        event_id, property_id, required, role, priority, status, source_id, payload_key,
+        description_override, example_values_override_json, sort_order, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      eventId,
+      input.property_id,
+      input.required ? 1 : 0,
+      input.role || DEFAULT_ROLE,
+      input.priority ?? null,
+      input.status ?? null,
+      input.source_id ?? null,
+      input.payload_key?.trim() || null,
+      input.description_override?.trim() || null,
+      toJsonColumn(input.example_values_override_json ?? null),
+      input.sort_order ?? maxOrder + 1,
+      now,
+      now
+    );
+  } catch (err) {
+    throw new DatabaseError(`Failed to attach property to event: ${(err as Error).message}`, err);
+  }
+
+  const row = db
+    .prepare('SELECT * FROM event_properties WHERE event_id = ? AND property_id = ?')
+    .get(eventId, input.property_id) as EventPropertyDbRow;
+  return mapEventPropertyRow(row);
+}
+
+export function updateEventProperty(
+  projectId: string,
+  eventId: string,
+  propertyId: string,
+  updates: Partial<EventPropertyInput>
+): EventPropertyRow {
+  getEventOrThrow(projectId, eventId);
+  const db = getDb();
+  const existing = db
+    .prepare('SELECT * FROM event_properties WHERE event_id = ? AND property_id = ?')
+    .get(eventId, propertyId);
+  if (!existing) throw new NotFoundError('This property is not attached to the event.', 'event_property');
+
+  const patch: Record<string, unknown> = { updated_at: nowIso() };
+  if (updates.required !== undefined) patch.required = updates.required ? 1 : 0;
+  if (updates.role !== undefined) patch.role = updates.role;
+  if (updates.priority !== undefined) patch.priority = updates.priority;
+  if (updates.status !== undefined) patch.status = updates.status;
+  if (updates.source_id !== undefined) patch.source_id = updates.source_id;
+  if (updates.payload_key !== undefined) patch.payload_key = updates.payload_key?.trim() || null;
+  if (updates.description_override !== undefined) {
+    patch.description_override = updates.description_override?.trim() || null;
+  }
+  if (updates.example_values_override_json !== undefined) {
+    patch.example_values_override_json = toJsonColumn(updates.example_values_override_json);
+  }
+  if (updates.sort_order !== undefined) patch.sort_order = updates.sort_order;
+
+  const setClause = Object.keys(patch)
+    .map((k) => `${k} = @${k}`)
+    .join(', ');
+  db.prepare(
+    `UPDATE event_properties SET ${setClause} WHERE event_id = @event_id AND property_id = @property_id`
+  ).run({ ...patch, event_id: eventId, property_id: propertyId });
+
+  const row = db
+    .prepare('SELECT * FROM event_properties WHERE event_id = ? AND property_id = ?')
+    .get(eventId, propertyId) as EventPropertyDbRow;
+  return mapEventPropertyRow(row);
+}
+
+export function detachPropertyFromEvent(projectId: string, eventId: string, propertyId: string): void {
+  getEventOrThrow(projectId, eventId);
+  const db = getDb();
+  const result = db
+    .prepare('DELETE FROM event_properties WHERE event_id = ? AND property_id = ?')
+    .run(eventId, propertyId);
+  if (result.changes === 0) {
+    throw new NotFoundError('This property is not attached to the event.', 'event_property');
+  }
+}
+
+/** Replaces the whole ordered link list for the event in one transaction (`PUT /events/:id/properties`). */
+export function replaceEventProperties(
+  projectId: string,
+  eventId: string,
+  links: EventPropertyInput[]
+): EventPropertyWithDetails[] {
+  getEventOrThrow(projectId, eventId);
+  const db = getDb();
+
+  for (const link of links) {
+    if (!getPropertyById(projectId, link.property_id)) {
+      throw new NotFoundError(
+        `Property not found or does not belong to this project: ${link.property_id}.`,
+        'property'
+      );
     }
   }
-  return key;
-}
 
-/**
- * All attached event_properties rows with resolved payload keys (any presence).
- * First binding wins when two properties share the same payload key (rare).
- *
- * @throws NotFoundError when event is not in workspace.
- */
-export async function listPayloadKeyPropertyBindingsForEvent(
-  workspaceId: string,
-  eventId: string
-): Promise<Array<{ property_id: string; payload_key: string }>> {
-  const event = await getEventById(workspaceId, eventId);
-  if (event === null) {
-    throw new NotFoundError(
-      'Event not found or does not belong to this workspace.',
-      'event'
+  const now = nowIso();
+  const replace = db.transaction(() => {
+    db.prepare('DELETE FROM event_properties WHERE event_id = ?').run(eventId);
+    const insert = db.prepare(
+      `INSERT INTO event_properties (
+        event_id, property_id, required, role, priority, status, source_id, payload_key,
+        description_override, example_values_override_json, sort_order, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
-  }
-
-  const supabase = getSupabaseOrThrow();
-
-  const { data: links, error: linkError } = await supabase
-    .from('event_properties')
-    .select('property_id')
-    .eq('event_id', eventId);
-
-  if (linkError) {
-    throw new DatabaseError(
-      `Failed to fetch event properties: ${linkError.message}`,
-      linkError
-    );
-  }
-
-  const rows = links ?? [];
-  if (rows.length === 0) return [];
-
-  const propertyIds = [...new Set(rows.map((r: { property_id: string }) => r.property_id))];
-
-  const { data: props, error: propsError } = await supabase
-    .from('properties')
-    .select('id, name, name_mappings_json')
-    .in('id', propertyIds)
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null);
-
-  if (propsError) {
-    throw new DatabaseError(
-      `Failed to fetch properties: ${propsError.message}`,
-      propsError
-    );
-  }
-
-  const out: Array<{ property_id: string; payload_key: string }> = [];
-  for (const p of props ?? []) {
-    const row = p as { id: string; name: string; name_mappings_json: unknown };
-    out.push({
-      property_id: row.id,
-      payload_key: resolvePayloadKeyForPropertyRow(row),
+    links.forEach((link, index) => {
+      insert.run(
+        eventId,
+        link.property_id,
+        link.required ? 1 : 0,
+        link.role || DEFAULT_ROLE,
+        link.priority ?? null,
+        link.status ?? null,
+        link.source_id ?? null,
+        link.payload_key?.trim() || null,
+        link.description_override?.trim() || null,
+        toJsonColumn(link.example_values_override_json ?? null),
+        link.sort_order ?? index,
+        now,
+        now
+      );
     });
-  }
-  return out;
-}
+  });
+  replace();
 
-/**
- * Returns the list of payload keys that must be present for the event's "always_sent" properties.
- * Each key is either the property's canonical name or the first payload_key/alias mapping.
- * Used by validatePayload (journey QA) to check actualJson.
- *
- * @throws NotFoundError when event is not in workspace.
- */
-export async function getAlwaysSentPropertyKeysForEvent(
-  workspaceId: string,
-  eventId: string
-): Promise<string[]> {
-  const event = await getEventById(workspaceId, eventId);
-  if (event === null) {
-    throw new NotFoundError(
-      'Event not found or does not belong to this workspace.',
-      'event'
-    );
-  }
-
-  const supabase = getSupabaseOrThrow();
-
-  const { data: links, error: linkError } = await supabase
-    .from('event_properties')
-    .select('property_id')
-    .eq('event_id', eventId)
-    .eq('presence', ALWAYS_SENT);
-
-  if (linkError) {
-    throw new DatabaseError(
-      `Failed to fetch event properties: ${linkError.message}`,
-      linkError
-    );
-  }
-
-  const rows = links ?? [];
-  if (rows.length === 0) return [];
-
-  const propertyIds = [...new Set(rows.map((r: { property_id: string }) => r.property_id))];
-
-  const { data: props, error: propsError } = await supabase
-    .from('properties')
-    .select('id, name, name_mappings_json')
-    .in('id', propertyIds)
-    .eq('workspace_id', workspaceId)
-    .is('deleted_at', null);
-
-  if (propsError) {
-    throw new DatabaseError(
-      `Failed to fetch properties: ${propsError.message}`,
-      propsError
-    );
-  }
-
-  const keys: string[] = [];
-  for (const p of props ?? []) {
-    const row = p as { id: string; name: string; name_mappings_json: unknown };
-    keys.push(resolvePayloadKeyForPropertyRow(row));
-  }
-  return keys;
+  return getEventWithProperties(projectId, eventId).properties;
 }

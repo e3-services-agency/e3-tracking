@@ -15,9 +15,9 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-1-04 | 1 | Property and Event in the new model: allowed values, scope, role, required, payload key, expiration, card fields | implementer | T-1-02 | DONE | plan + delta |
 | T-1-05 | 1 | Variant with discriminator conditions and StandardEventMapping; remove old EventVariant | implementer | T-1-04 | DONE | plan + delta |
 | T-1-06 | 1 | IdentityRule, ConsentCategory, Catalog extensions: API and tables | implementer | T-1-02 | DONE | plan + delta |
-| T-1-07 | 1 | UseCaseTemplate, UseCase, ordered Requirement: API and tables | implementer | T-1-05 | QA | plan + delta |
-| T-1-08 | 1 | Shared diff primitives; data mapping and expiration settings import with diff and export | implementer | T-1-05, T-1-06 | QA | plan + delta |
-| T-1-09 | 1 | QaRun, Observation, Finding; customer events export import; definition-vs-observations comparison | implementer | T-1-08 | TODO | plan + delta |
+| T-1-07 | 1 | UseCaseTemplate, UseCase, ordered Requirement: API and tables | implementer | T-1-05 | DONE | plan + delta |
+| T-1-08 | 1 | Shared diff primitives; data mapping and expiration settings import with diff and export | implementer | T-1-05, T-1-06 | DONE | plan + delta |
+| T-1-09 | 1 | QaRun, Observation, Finding; customer events export import; definition-vs-observations comparison | implementer | T-1-08 | IN_PROGRESS | plan + delta |
 | T-1-10 | 1 | CLAUDE.md code-derived sections, .env.example, docs/QA-LOCAL.md | docs-writer | T-1-03 | DONE | plan + delta |
 
 Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktrees after T-1-02 merges. Everything else is sequential per the dependency column.
@@ -82,3 +82,6 @@ Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktree
 ### T-1-07 delta
 - Carried from T-1-05 review: wrap event rename and property rename together with their variant regeneration in one db.transaction (event.dal.ts and property.dal.ts); remove the stale "sorted by property name" comment in variant.dal.ts and the unused propertyNameById parameter in domain/variants.ts.
 - Add UseCase type and status and Requirement status enums to src/domain/enums.ts.
+
+### T-1-09 delta (carried findings)
+- From T-1-08 review: plan-time discriminator checks miss an unlinked property on an event with two discriminators, a context-linked property, and a duplicate attribute in one filter (apply 400s cleanly); expiration variant create still swallows ConflictError; blocked promotion leaves the add-allowed-value item in preview. From T-1-07 review: unresolved template rows are labelled (removed) rather than (unresolved). From T-1-07 QA: no UI field for use case code. Fix in T-1-09 only if touched; otherwise list in the phase 1 exit report.

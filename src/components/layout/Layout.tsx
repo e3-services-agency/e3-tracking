@@ -18,6 +18,7 @@ import { ConsentCategories } from '@/src/pages/ConsentCategories';
 import { StandardEvents } from '@/src/pages/StandardEvents';
 import { UseCases } from '@/src/pages/UseCases';
 import { RequirementsMatrix } from '@/src/pages/RequirementsMatrix';
+import { Import } from '@/src/pages/Import';
 
 const DEFAULT_BRAND_PRIMARY = 'var(--e3-emerald)';
 const SIDEBAR_COLLAPSED_KEY = 'e3-tracking.sidebarCollapsed';
@@ -62,6 +63,8 @@ function mainRouteStateFromRestPath(restPath: string): { tab: string } {
       return { tab: 'requirementsMatrix' };
     case '/sources':
       return { tab: 'sources' };
+    case '/import':
+      return { tab: 'import' };
     case '/clients':
       return { tab: 'clients' };
     case '/settings':
@@ -211,6 +214,7 @@ function LayoutInner() {
     if (activeTab === 'useCases') pushPath('/use-cases', activeProjectKey);
     if (activeTab === 'requirementsMatrix') pushPath('/requirements-matrix', activeProjectKey);
     if (activeTab === 'sources') pushPath('/sources', activeProjectKey);
+    if (activeTab === 'import') pushPath('/import', activeProjectKey);
     if (activeTab === 'clients') pushPath('/clients', activeProjectKey);
     if (activeTab === 'settings') pushPath('/settings', activeProjectKey);
     if (activeTab === 'documentation') pushPath('/documentation', activeProjectKey);
@@ -245,6 +249,7 @@ function LayoutInner() {
         {activeTab === 'useCases' && <UseCases />}
         {activeTab === 'requirementsMatrix' && <RequirementsMatrix />}
         {activeTab === 'sources' && <Sources />}
+        {activeTab === 'import' && <Import />}
         {activeTab === 'settings' && <Settings />}
         {activeTab === 'documentation' && <Documentation />}
       </>

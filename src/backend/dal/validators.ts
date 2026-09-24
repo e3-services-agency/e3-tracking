@@ -7,7 +7,16 @@
 import { BadRequestError } from '../errors';
 import { EXPIRATION_UNITS } from '../../domain/enums';
 
-/** `null` clears the value; otherwise `{enabled: boolean, count: positive integer, units: EXPIRATION_UNITS}`. */
+/**
+ * `null` clears the value; otherwise `{enabled: boolean, count: positive integer|null,
+ * units: EXPIRATION_UNITS|null}`. `count`/`units` are only required when `enabled` is `true`
+ * (T-1-08 delta): a disabled expiration with no duration — e.g. Bloomreach
+ * `expiration-settings.json`'s `{enabled: false, duration: null}` (`consent`, `other`) — must be
+ * representable so the import/export round trip does not lose it; forcing a duration on a
+ * disabled toggle was never a real constraint (the UI's disabled expiration editor has no count
+ * to give). When `enabled` is `false`, `count`/`units` may still be provided (and are validated if
+ * so) so an event can be disabled while remembering its last configured duration.
+ */
 export function validateExpirationJson(value: unknown, field: string): void {
   if (value === undefined || value === null) return;
   if (typeof value !== 'object' || Array.isArray(value)) {
@@ -17,11 +26,20 @@ export function validateExpirationJson(value: unknown, field: string): void {
   if (typeof v.enabled !== 'boolean') {
     throw new BadRequestError(`${field}.enabled must be a boolean.`, field);
   }
-  if (!Number.isInteger(v.count) || (v.count as number) <= 0) {
-    throw new BadRequestError(`${field}.count must be a positive integer.`, field);
+  const countProvided = v.count !== null && v.count !== undefined;
+  const unitsProvided = v.units !== null && v.units !== undefined;
+  if (countProvided !== unitsProvided) {
+    throw new BadRequestError(`${field}.count and ${field}.units must be provided together.`, field);
   }
-  if (!(EXPIRATION_UNITS as readonly string[]).includes(String(v.units))) {
-    throw new BadRequestError(`${field}.units must be one of: ${EXPIRATION_UNITS.join(', ')}.`, field);
+  if (v.enabled || countProvided) {
+    if (!Number.isInteger(v.count) || (v.count as number) <= 0) {
+      throw new BadRequestError(`${field}.count must be a positive integer.`, field);
+    }
+  }
+  if (v.enabled || unitsProvided) {
+    if (!(EXPIRATION_UNITS as readonly string[]).includes(String(v.units))) {
+      throw new BadRequestError(`${field}.units must be one of: ${EXPIRATION_UNITS.join(', ')}.`, field);
+    }
   }
 }
 

@@ -29,6 +29,12 @@ export interface ProjectRow {
   default_expiration_json: unknown;
   standard_event_additions_json: unknown;
   consent_key_additions_json: unknown;
+  /**
+   * Bloomreach data-mapping fields with no dedicated columns, kept verbatim for round-trip export
+   * (T-1-08, PLAN "Import / export contracts" > Data mapping point 7): `{_id, catalogs,
+   * custom_events}` as parsed from the last imported `data-mapping.json`.
+   */
+  bloomreach_mapping_meta_json: unknown;
   share_token: string | null;
   share_access: string | null;
   created_at: string;
@@ -42,7 +48,10 @@ export interface ProjectWithClient extends ProjectRow {
 
 type ProjectDbRow = Omit<
   ProjectRow,
-  'default_expiration_json' | 'standard_event_additions_json' | 'consent_key_additions_json'
+  | 'default_expiration_json'
+  | 'standard_event_additions_json'
+  | 'consent_key_additions_json'
+  | 'bloomreach_mapping_meta_json'
 >;
 
 function mapProjectRow(row: ProjectDbRow): ProjectRow {
@@ -59,6 +68,10 @@ function mapProjectRow(row: ProjectDbRow): ProjectRow {
     consent_key_additions_json: parseJsonColumn(
       (row as unknown as Record<string, unknown>).consent_key_additions_json,
       []
+    ),
+    bloomreach_mapping_meta_json: parseJsonColumn(
+      (row as unknown as Record<string, unknown>).bloomreach_mapping_meta_json,
+      null
     ),
   };
 }
@@ -184,6 +197,8 @@ export interface UpdateProjectInput {
    * event" form on the Standard events page PATCHes the full array here, `[{key, fields}]`.
    */
   standard_event_additions_json?: unknown;
+  /** `{_id, catalogs, custom_events}` verbatim from the last imported data-mapping.json (T-1-08). */
+  bloomreach_mapping_meta_json?: unknown;
 }
 
 /**
@@ -191,9 +206,12 @@ export interface UpdateProjectInput {
  * a `key` colliding with a `bloomreach.ts` seed key or another addition in the same array is now
  * a 400 `STANDARD_EVENT_EXISTS`, not a silent drop (previously stored and then invisible —
  * `mergeStandardEvents` prefers the seed, so a seed-colliding addition round-tripped through the
- * API with no error and the UI's add form appeared to do nothing). `fields` must be a non-empty
- * array of snake_case strings, per the task brief; an empty/missing/non-array `fields`, or an
- * entry that is not a snake_case string, is now also a 400 instead of silently becoming `[]`.
+ * API with no error and the UI's add form appeared to do nothing). `fields` must be an array of
+ * snake_case strings, but may be empty (T-1-08 fix round ERROR 1: the data-mapping importer must
+ * be able to record an unknown standard event that names no fields of its own, e.g. only an
+ * `event` block with an empty filter — D-26 says the key is added unconditionally, not "only if it
+ * has fields"); a missing/non-array `fields`, or an entry that is not a snake_case string, is
+ * still a 400 instead of silently becoming `[]`.
  */
 function normalizeStandardEventAdditions(value: unknown): { key: string; fields: string[] }[] {
   if (!Array.isArray(value)) {
@@ -240,9 +258,9 @@ function normalizeStandardEventAdditions(value: unknown): { key: string; fields:
     }
     seenKeys.add(key);
 
-    if (!Array.isArray(row.fields) || row.fields.length === 0) {
+    if (!Array.isArray(row.fields)) {
       throw new ValidationError(
-        `Standard event "${key}" needs a non-empty "fields" array.`,
+        `Standard event "${key}" needs a "fields" array (may be empty).`,
         'standard_event_additions_json'
       );
     }
@@ -339,6 +357,9 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
     patch.standard_event_additions_json = toJsonColumn(
       normalizeStandardEventAdditions(updates.standard_event_additions_json)
     );
+  }
+  if (updates.bloomreach_mapping_meta_json !== undefined) {
+    patch.bloomreach_mapping_meta_json = toJsonColumn(updates.bloomreach_mapping_meta_json);
   }
 
   const setClause = Object.keys(patch)

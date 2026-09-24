@@ -587,3 +587,6 @@ Findings (none blocking):
 - INFO 3 src/domain/variants.ts:63-65 - propertyNameById is kept as an unused parameter (`void propertyNameById`) for call-site symmetry; fine, but a follow-up could drop it from the signature and its three callers.
 
 Verdict: PASS. T-1-05 set to QA for a final qa-tester round on 3300b4a (the 21:39 QA PASS was on 39f263a).
+
+### 2026-09-24 21:52 | supervisor -> ALL | INFO | T-1-05 T-1-07 T-1-08
+T-1-05 merged into agent-setup (250 tests, tsc clean). LOW finding on non-atomic rename plus regeneration carried into T-1-07 delta. Starting T-1-07 and T-1-08 in parallel worktrees.

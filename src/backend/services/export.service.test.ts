@@ -7,6 +7,8 @@ import * as EventDAL from '../dal/event.dal';
 import * as IdentityRuleDAL from '../dal/identity-rule.dal';
 import * as ConsentCategoryDAL from '../dal/consent-category.dal';
 import * as SourceDAL from '../dal/source.dal';
+import * as VariantDAL from '../dal/variant.dal';
+import * as StandardEventMappingDAL from '../dal/standard-event-mapping.dal';
 import { generateProjectDocumentationHtml } from './export.service';
 
 let projectId: string;
@@ -103,5 +105,45 @@ describe('generateProjectDocumentationHtml', () => {
     expect(html).toContain('id="consent-categories"');
     expect(html).toContain('Newsletter');
     expect(html).toContain('newsletter');
+  });
+
+  it('lists a variant under its event and a standard event mapping row (T-1-05)', async () => {
+    const action = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'action',
+      data_type: 'string',
+      allowed_values_json: [{ value: 'add' }, { value: 'remove' }],
+    });
+    const cartUpdate = EventDAL.createEvent(projectId, { name: 'cart_update' });
+    EventDAL.attachPropertyToEvent(projectId, cartUpdate.id, {
+      property_id: action.id,
+      role: 'discriminator',
+    });
+
+    const variant = VariantDAL.createVariant(projectId, cartUpdate.id, {
+      conditions: [{ property_id: action.id, operator: 'equals', values: ['add'] }],
+    });
+
+    StandardEventMappingDAL.upsertStandardEventMapping(projectId, 'add_to_cart', {
+      event_id: cartUpdate.id,
+      variant_id: variant.id,
+      field_map_json: {},
+    });
+
+    const html = await generateProjectDocumentationHtml(projectId);
+
+    // Variant listed under its event, with its generated name and formatted condition.
+    expect(html).toContain(variant.name);
+    expect(html).toContain('action = add');
+
+    // Standard event mappings section with the mapping row.
+    expect(html).toContain('id="standard-event-mappings"');
+    expect(html).toContain('add_to_cart');
+    expect(html).toContain('cart_update');
+    expect(html).toContain(variant.name);
+
+    // Variant codegen snippet includes the discriminator's literal value (D-03/T-1-05); the
+    // snippet is HTML-escaped in <pre><code> (single quotes become &#39;).
+    expect(html).toMatch(/action: &#39;add&#39;/);
   });
 });

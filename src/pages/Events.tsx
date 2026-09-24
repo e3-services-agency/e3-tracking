@@ -17,6 +17,7 @@ import { PRIORITIES, EVENT_STATUSES, ORIGIN_TYPES } from '@/src/domain/enums';
 import { ExpirationEditor, type ExpirationValue } from '@/src/features/events/components/ExpirationEditor';
 import { DerivedMetricsEditor, type DerivedMetricRow } from '@/src/features/events/components/DerivedMetricsEditor';
 import { LinkedPropertiesEditor, type LinkedPropertyRow } from '@/src/features/events/components/LinkedPropertiesEditor';
+import { VariantsSection, type DiscriminatorProperty } from '@/src/features/events/components/VariantsSection';
 
 interface EventRow {
   id: string;
@@ -197,6 +198,7 @@ function EventEditor({
   const [sourceIds, setSourceIds] = useState<string[]>([]);
   const [allProperties, setAllProperties] = useState<PropertyRow[]>([]);
   const [allSources, setAllSources] = useState<SourceRow[]>([]);
+  const [standardEventByVariantId, setStandardEventByVariantId] = useState<Record<string, string>>({});
   const [addPropertyId, setAddPropertyId] = useState('');
 
   const [name, setName] = useState('');
@@ -260,6 +262,16 @@ function EventEditor({
           setTriggers(Array.isArray(ev.triggers_json) ? ev.triggers_json : []);
           setLinks(Array.isArray(data.properties) ? data.properties : []);
           setSourceIds(Array.isArray(data.source_ids) ? data.source_ids : []);
+
+          const mappingsRes = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/standard-event-mappings`);
+          const mappingsData = await parseJson(mappingsRes);
+          if (mappingsRes.ok && Array.isArray(mappingsData)) {
+            const byVariant: Record<string, string> = {};
+            for (const m of mappingsData) {
+              if (m.event_id === eventId && m.variant_id) byVariant[m.variant_id] = m.standard_event;
+            }
+            setStandardEventByVariantId(byVariant);
+          }
         }
         setLoading(false);
       }
@@ -509,6 +521,21 @@ function EventEditor({
             <Button type="button" variant="outline" onClick={addLink} disabled={!addPropertyId}>Attach</Button>
           </div>
         </div>
+      )}
+
+      {!isCreating && eventId && (
+        <VariantsSection
+          projectId={projectId}
+          eventId={eventId}
+          discriminators={links
+            .filter((l) => l.role === 'discriminator')
+            .map<DiscriminatorProperty>((l) => ({
+              id: l.property_id,
+              name: l.property.name,
+              allowed_values_json: l.property.allowed_values_json ?? [],
+            }))}
+          standardEventByVariantId={standardEventByVariantId}
+        />
       )}
 
       <div className="space-y-3 border-t pt-4">

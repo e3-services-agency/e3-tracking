@@ -37,6 +37,25 @@ export interface ConsentCategoryForDocs {
   status?: string | null;
 }
 
+/** Minimal shape the per-event variants subsection needs (T-1-05). */
+export interface VariantForDocs {
+  name: string;
+  description?: string | null;
+  /** Already-formatted condition text, e.g. "action = add", built by the caller from conditions_json. */
+  conditionsText: string;
+  /** The standard event this variant maps to, if any (from StandardEventMapping.variant_id). */
+  standard_event?: string | null;
+}
+
+/** Minimal shape the "Standard event mappings" section needs (T-1-05). */
+export interface StandardEventMappingForDocs {
+  standard_event: string;
+  event_name: string;
+  variant_name?: string | null;
+  /** `{bloomreach_field: property_name | payload_key}`, already resolved by the caller. */
+  field_map: Record<string, string | null>;
+}
+
 function cell(value: string | null | undefined): string {
   const text = value == null || value === '' ? '—' : value;
   return `<td>${escapeHtml(text)}</td>`;
@@ -109,6 +128,71 @@ export function renderConsentCategoriesSection(categories: ConsentCategoryForDoc
     <table>
       <thead>
         <tr><th>Client category</th><th>Standard key</th><th>Description</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  </section>`;
+}
+
+/**
+ * Renders the "Variants" subsection nested under one event's section (T-1-05 acceptance: "docs
+ * export lists variants under each event"). Each row shows the generated name, the human-readable
+ * conditions and the standard event it maps to, if any.
+ */
+export function renderVariantsSubsection(variants: VariantForDocs[]): string {
+  if (variants.length === 0) return '';
+  const rows = variants
+    .map(
+      (variant) => `<tr class="variant-row">
+        ${cell(variant.name)}
+        ${cell(variant.conditionsText)}
+        ${cell(variant.description)}
+        ${cell(variant.standard_event)}
+      </tr>`
+    )
+    .join('\n');
+  return `<div class="variants">
+    <h3>Variants</h3>
+    <table>
+      <thead>
+        <tr><th>Variant</th><th>Conditions</th><th>Description</th><th>Standard event</th></tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  </div>`;
+}
+
+/**
+ * Renders the project-level "Standard event mappings" section (T-1-05 acceptance): one row per
+ * `StandardEventMapping`, the mapped event/variant and a summary of the field map.
+ */
+export function renderStandardEventMappingsSection(mappings: StandardEventMappingForDocs[]): string {
+  if (mappings.length === 0) {
+    return '<section id="standard-event-mappings"><h2>Standard event mappings</h2><p>No standard event mappings defined.</p></section>';
+  }
+  const rows = mappings
+    .map((mapping) => {
+      const fieldMapText = Object.entries(mapping.field_map)
+        .filter(([, v]) => v)
+        .map(([field, v]) => `${field} → ${v}`)
+        .join(', ');
+      return `<tr>
+        ${cell(mapping.standard_event)}
+        ${cell(mapping.event_name)}
+        ${cell(mapping.variant_name)}
+        ${cell(fieldMapText)}
+      </tr>`;
+    })
+    .join('\n');
+  return `<section id="standard-event-mappings">
+    <h2>Standard event mappings</h2>
+    <table>
+      <thead>
+        <tr><th>Standard event</th><th>Event</th><th>Variant</th><th>Field map</th></tr>
       </thead>
       <tbody>
         ${rows}

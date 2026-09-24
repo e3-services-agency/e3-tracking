@@ -1,8 +1,9 @@
 /**
  * Events: table + plain editor against `/api/projects/:projectId/events` (D-16). Linked
- * properties are edited as the full ordered list (`PUT /events/:id/properties`); role/required
- * badges and allowed-values editors come in T-1-04. Trigger images upload through the local
- * FileStore (D-14) and render from `GET /api/projects/:id/files/*`.
+ * properties are edited as the full ordered list (`PUT /events/:id/properties`); T-1-04 adds the
+ * role/allowed-values validation and badges, `expiration_json` and `derived_metrics_json`
+ * editors. Trigger images upload through the local FileStore (D-14) and render from
+ * `GET /api/projects/:id/files/*`.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus, Trash2, Loader2, Upload, FileDown } from 'lucide-react';
@@ -12,7 +13,10 @@ import { Sheet } from '@/src/components/ui/Sheet';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
-import { PRIORITIES, EVENT_STATUSES, ORIGIN_TYPES, EVENT_PROPERTY_ROLES, ENTITY_STATUSES } from '@/src/domain/enums';
+import { PRIORITIES, EVENT_STATUSES, ORIGIN_TYPES } from '@/src/domain/enums';
+import { ExpirationEditor, type ExpirationValue } from '@/src/features/events/components/ExpirationEditor';
+import { DerivedMetricsEditor, type DerivedMetricRow } from '@/src/features/events/components/DerivedMetricsEditor';
+import { LinkedPropertiesEditor, type LinkedPropertyRow } from '@/src/features/events/components/LinkedPropertiesEditor';
 
 interface EventRow {
   id: string;
@@ -29,8 +33,10 @@ interface EventRow {
   owner_technical: string | null;
   priority: string | null;
   status: string;
+  expiration_json: ExpirationValue | null;
   not_suitable_for: string | null;
   agent_instructions: string | null;
+  derived_metrics_json: DerivedMetricRow[];
   tags_json: string[];
   triggers_json: TriggerEntry[];
   attached_property_count?: number;
@@ -48,17 +54,7 @@ interface PropertyRow {
   id: string;
   name: string;
   scope: string;
-}
-
-interface EventPropertyLink {
-  property_id: string;
-  required: boolean;
-  role: string;
-  priority: string | null;
-  status: string | null;
-  source_id: string | null;
-  payload_key: string | null;
-  property: PropertyRow;
+  allowed_values_json?: { value: string; label?: string | null; standard_event?: string | null }[] | null;
 }
 
 interface SourceRow {
@@ -68,6 +64,11 @@ interface SourceRow {
 
 async function parseJson(res: Response): Promise<any> {
   return res.json().catch(() => ({}));
+}
+
+function expirationSummary(expiration: ExpirationValue | null): string {
+  if (!expiration || !expiration.enabled) return 'project default';
+  return `${expiration.count} ${expiration.units}`;
 }
 
 export function Events() {
@@ -141,6 +142,7 @@ export function Events() {
                 <th className="px-6 py-3 font-medium text-gray-500">Name</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Type</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Status</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Expiration</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Properties</th>
               </tr>
             </thead>
@@ -150,11 +152,12 @@ export function Events() {
                   <td className="px-6 py-4 font-medium text-gray-900">{ev.name}</td>
                   <td className="px-6 py-4 text-gray-500">{ev.event_type}</td>
                   <td className="px-6 py-4 text-gray-500">{ev.status}</td>
+                  <td className="px-6 py-4 text-gray-500">{expirationSummary(ev.expiration_json)}</td>
                   <td className="px-6 py-4 text-gray-500">{ev.attached_property_count ?? 0}</td>
                 </tr>
               ))}
               {events.length === 0 && (
-                <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">No events found.</td></tr>
+                <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No events found.</td></tr>
               )}
             </tbody>
           </table>
@@ -174,6 +177,8 @@ export function Events() {
   );
 }
 
+const EMPTY_EXPIRATION: ExpirationValue = { enabled: false, count: 30, units: 'days' };
+
 function EventEditor({
   eventId,
   projectId,
@@ -188,7 +193,7 @@ function EventEditor({
   const isCreating = eventId === null;
   const [loading, setLoading] = useState(!isCreating);
   const [event, setEvent] = useState<EventRow | null>(null);
-  const [links, setLinks] = useState<EventPropertyLink[]>([]);
+  const [links, setLinks] = useState<LinkedPropertyRow[]>([]);
   const [sourceIds, setSourceIds] = useState<string[]>([]);
   const [allProperties, setAllProperties] = useState<PropertyRow[]>([]);
   const [allSources, setAllSources] = useState<SourceRow[]>([]);
@@ -207,8 +212,10 @@ function EventEditor({
   const [ownerTechnical, setOwnerTechnical] = useState('');
   const [priority, setPriority] = useState('');
   const [status, setStatus] = useState('planned');
+  const [expiration, setExpiration] = useState<ExpirationValue>(EMPTY_EXPIRATION);
   const [notSuitableFor, setNotSuitableFor] = useState('');
   const [agentInstructions, setAgentInstructions] = useState('');
+  const [derivedMetrics, setDerivedMetrics] = useState<DerivedMetricRow[]>([]);
   const [triggers, setTriggers] = useState<TriggerEntry[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -246,8 +253,10 @@ function EventEditor({
           setOwnerTechnical(ev.owner_technical ?? '');
           setPriority(ev.priority ?? '');
           setStatus(ev.status);
+          setExpiration(ev.expiration_json ?? EMPTY_EXPIRATION);
           setNotSuitableFor(ev.not_suitable_for ?? '');
           setAgentInstructions(ev.agent_instructions ?? '');
+          setDerivedMetrics(Array.isArray(ev.derived_metrics_json) ? ev.derived_metrics_json : []);
           setTriggers(Array.isArray(ev.triggers_json) ? ev.triggers_json : []);
           setLinks(Array.isArray(data.properties) ? data.properties : []);
           setSourceIds(Array.isArray(data.source_ids) ? data.source_ids : []);
@@ -263,14 +272,10 @@ function EventEditor({
     if (!property) return;
     setLinks((prev) => [
       ...prev,
-      { property_id: property.id, required: false, role: 'normal', priority: null, status: null, source_id: null, payload_key: null, property },
+      { property_id: property.id, required: false, role: 'normal', priority: null, status: null, source_id: null, payload_key: null, description_override: null, property },
     ]);
     setAddPropertyId('');
   };
-
-  const removeLink = (propertyId: string) => setLinks((prev) => prev.filter((l) => l.property_id !== propertyId));
-  const updateLink = (propertyId: string, patch: Partial<EventPropertyLink>) =>
-    setLinks((prev) => prev.map((l) => (l.property_id === propertyId ? { ...l, ...patch } : l)));
 
   const addTrigger = () => setTriggers((prev) => [...prev, { title: '', description: '', order: prev.length }]);
   const updateTrigger = (index: number, patch: Partial<TriggerEntry>) =>
@@ -319,8 +324,12 @@ function EventEditor({
         owner_technical: ownerTechnical.trim() || null,
         priority: priority || null,
         status,
+        expiration_json: expiration.enabled ? expiration : null,
         not_suitable_for: notSuitableFor.trim() || null,
         agent_instructions: agentInstructions.trim() || null,
+        derived_metrics_json: derivedMetrics
+          .filter((m) => m.name.trim() && m.expression.trim())
+          .map((m) => ({ name: m.name.trim(), expression: m.expression.trim(), description: m.description?.trim() || null })),
         source_ids: sourceIds,
       };
       const url = isCreating
@@ -346,6 +355,7 @@ function EventEditor({
               status: l.status,
               source_id: l.source_id,
               payload_key: l.payload_key,
+              description_override: l.description_override,
               sort_order: i,
             })),
           }),
@@ -459,6 +469,9 @@ function EventEditor({
           </select>
         </div>
       </div>
+
+      <ExpirationEditor value={expiration} onChange={setExpiration} inheritHint="Disabled: inherits the project default expiration." />
+
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">Not suitable for</label>
         <Input value={notSuitableFor} onChange={(e) => setNotSuitableFor(e.target.value)} />
@@ -467,6 +480,8 @@ function EventEditor({
         <label className="text-sm font-medium text-gray-700">Agent instructions</label>
         <Input value={agentInstructions} onChange={(e) => setAgentInstructions(e.target.value)} />
       </div>
+
+      <DerivedMetricsEditor values={derivedMetrics} onChange={setDerivedMetrics} />
 
       {allSources.length > 0 && (
         <div className="space-y-2">
@@ -485,35 +500,7 @@ function EventEditor({
       {!isCreating && (
         <div className="space-y-3 border-t pt-4">
           <h3 className="text-sm font-semibold text-gray-900">Linked properties</h3>
-          {links.map((link) => (
-            <div key={link.property_id} className="border rounded-md p-3 space-y-2 bg-gray-50">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-sm text-gray-900">{link.property.name}</span>
-                <button type="button" onClick={() => removeLink(link.property_id)} className="text-red-500 hover:text-red-700">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-2 items-center text-xs">
-                <label className="flex items-center gap-1">
-                  <input type="checkbox" checked={link.required} onChange={(e) => updateLink(link.property_id, { required: e.target.checked })} />
-                  Required
-                </label>
-                <select value={link.role} onChange={(e) => updateLink(link.property_id, { role: e.target.value })} className="h-8 rounded border border-gray-300 px-2">
-                  {EVENT_PROPERTY_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-                </select>
-                <select value={link.status ?? ''} onChange={(e) => updateLink(link.property_id, { status: e.target.value || null })} className="h-8 rounded border border-gray-300 px-2">
-                  <option value="">status —</option>
-                  {ENTITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <Input
-                  value={link.payload_key ?? ''}
-                  onChange={(e) => updateLink(link.property_id, { payload_key: e.target.value || null })}
-                  placeholder="payload key override"
-                  className="h-8 w-40 text-xs"
-                />
-              </div>
-            </div>
-          ))}
+          <LinkedPropertiesEditor links={links} onChange={setLinks} sources={allSources} />
           <div className="flex gap-2">
             <select value={addPropertyId} onChange={(e) => setAddPropertyId(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm flex-1">
               <option value="">Select a property to attach…</option>

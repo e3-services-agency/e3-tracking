@@ -1,7 +1,8 @@
 /**
  * Properties: table with scope filter + plain create/edit form against
- * `/api/projects/:projectId/properties` (D-24). Enum/role/allowed-values editors come in T-1-04;
- * this task stores their columns untouched with sensible defaults (D-07 simplified UI).
+ * `/api/projects/:projectId/properties` (D-24). T-1-04 adds the allowed-values editor, the
+ * customer-property mapping select and the data type / format / priority / status selects that
+ * `src/domain/enums.ts` and `src/domain/bloomreach.ts` define.
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
@@ -11,8 +12,16 @@ import { Sheet } from '@/src/components/ui/Sheet';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
-import { PRIORITIES, ENTITY_STATUSES, PROPERTY_SCOPES, ORIGIN_TYPES } from '@/src/domain/enums';
-import { PROPERTY_DATA_TYPES, PROPERTY_DATA_FORMATS } from '@/src/types/schema';
+import {
+  PRIORITIES,
+  ENTITY_STATUSES,
+  PROPERTY_SCOPES,
+  ORIGIN_TYPES,
+  PROPERTY_DATA_TYPES,
+  PROPERTY_DATA_FORMATS,
+} from '@/src/domain/enums';
+import { STANDARD_CUSTOMER_PROPERTIES, type StandardEventSeed } from '@/src/domain/bloomreach';
+import { AllowedValuesEditor, type AllowedValueRow } from '@/src/features/properties/components/AllowedValuesEditor';
 
 interface PropertyRow {
   id: string;
@@ -26,6 +35,7 @@ interface PropertyRow {
   data_formats_json: string[];
   pii: boolean;
   property_type: string;
+  allowed_values_json: AllowedValueRow[];
   priority: string | null;
   status: string | null;
   bloomreach_customer_property: string | null;
@@ -46,6 +56,7 @@ export function Properties() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [bundles, setBundles] = useState<BundleRow[]>([]);
+  const [standardEventAdditions, setStandardEventAdditions] = useState<StandardEventSeed[] | null>(null);
   const [scopeFilter, setScopeFilter] = useState<string>('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -61,6 +72,14 @@ export function Properties() {
     const bundleRes = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/bundles`);
     const bundleData = await parseJson(bundleRes);
     if (bundleRes.ok) setBundles(Array.isArray(bundleData) ? bundleData : []);
+
+    const projectRes = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}`);
+    const projectData = await parseJson(projectRes);
+    if (projectRes.ok) {
+      setStandardEventAdditions(
+        Array.isArray(projectData?.standard_event_additions_json) ? projectData.standard_event_additions_json : null
+      );
+    }
   }, [hasValidProjectContext, activeProjectId, scopeFilter]);
 
   useEffect(() => {
@@ -98,20 +117,35 @@ export function Properties() {
                 <th className="px-6 py-3 font-medium text-gray-500">Name</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Scope</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Data type</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Enum</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Priority</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {properties.map((p) => (
-                <tr key={p.id} onClick={() => { setSelectedId(p.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
-                  <td className="px-6 py-4 font-medium text-gray-900">{p.name}</td>
-                  <td className="px-6 py-4 text-gray-500">{p.scope}</td>
-                  <td className="px-6 py-4 text-gray-500">{p.data_type}</td>
-                  <td className="px-6 py-4 text-gray-500">{p.status ?? '—'}</td>
-                </tr>
-              ))}
+              {properties.map((p) => {
+                const enumCount = Array.isArray(p.allowed_values_json) ? p.allowed_values_json.length : 0;
+                return (
+                  <tr key={p.id} onClick={() => { setSelectedId(p.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
+                    <td className="px-6 py-4 font-medium text-gray-900">{p.name}</td>
+                    <td className="px-6 py-4 text-gray-500">{p.scope}</td>
+                    <td className="px-6 py-4 text-gray-500">{p.data_type}</td>
+                    <td className="px-6 py-4">
+                      {enumCount > 0 ? (
+                        <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 text-xs px-2 py-0.5 border border-blue-200">
+                          enum · {enumCount}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">{p.priority ?? '—'}</td>
+                    <td className="px-6 py-4 text-gray-500">{p.status ?? '—'}</td>
+                  </tr>
+                );
+              })}
               {properties.length === 0 && (
-                <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">No properties found.</td></tr>
+                <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">No properties found.</td></tr>
               )}
             </tbody>
           </table>
@@ -124,6 +158,7 @@ export function Properties() {
           property={selected}
           isCreating={isCreating}
           bundles={bundles}
+          standardEventAdditions={standardEventAdditions}
           projectId={activeProjectId}
           onSaved={async () => { await load(); setIsSheetOpen(false); }}
           onClose={() => setIsSheetOpen(false)}
@@ -137,6 +172,7 @@ function PropertyEditor({
   property,
   isCreating,
   bundles,
+  standardEventAdditions,
   projectId,
   onSaved,
   onClose,
@@ -144,6 +180,7 @@ function PropertyEditor({
   property: PropertyRow | null | undefined;
   isCreating: boolean;
   bundles: BundleRow[];
+  standardEventAdditions: StandardEventSeed[] | null;
   projectId: string;
   onSaved: () => Promise<void>;
   onClose: () => void;
@@ -157,6 +194,7 @@ function PropertyEditor({
   const [dataFormats, setDataFormats] = useState<string[]>(property?.data_formats_json ?? []);
   const [pii, setPii] = useState(property?.pii ?? false);
   const [propertyType, setPropertyType] = useState(property?.property_type ?? 'custom');
+  const [allowedValues, setAllowedValues] = useState<AllowedValueRow[]>(property?.allowed_values_json ?? []);
   const [priority, setPriority] = useState(property?.priority ?? '');
   const [status, setStatus] = useState(property?.status ?? '');
   const [bloomreachCustomerProperty, setBloomreachCustomerProperty] = useState(property?.bloomreach_customer_property ?? '');
@@ -190,9 +228,17 @@ function PropertyEditor({
         data_formats_json: dataFormats,
         pii,
         property_type: propertyType,
+        allowed_values_json: allowedValues
+          .filter((v) => v.value.trim())
+          .map((v) => ({
+            value: v.value.trim(),
+            label: v.label?.trim() || null,
+            description: v.description?.trim() || null,
+            standard_event: v.standard_event || null,
+          })),
         priority: priority || null,
         status: status || null,
-        bloomreach_customer_property: scope === 'customer' ? bloomreachCustomerProperty.trim() || null : null,
+        bloomreach_customer_property: scope === 'customer' ? bloomreachCustomerProperty || null : null,
         bundle_ids: bundleIds,
       };
       const url = isCreating
@@ -268,6 +314,13 @@ function PropertyEditor({
           ))}
         </div>
       </div>
+
+      <AllowedValuesEditor
+        values={allowedValues}
+        onChange={setAllowedValues}
+        standardEventAdditions={standardEventAdditions}
+      />
+
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
           <label className="text-sm font-medium text-gray-700">Priority</label>
@@ -295,8 +348,17 @@ function PropertyEditor({
       </label>
       {scope === 'customer' && (
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Bloomreach customer property key</label>
-          <Input value={bloomreachCustomerProperty} onChange={(e) => setBloomreachCustomerProperty(e.target.value)} placeholder="e.g. email" className="font-mono" />
+          <label className="text-sm font-medium text-gray-700">Bloomreach customer property</label>
+          <select
+            value={bloomreachCustomerProperty}
+            onChange={(e) => setBloomreachCustomerProperty(e.target.value)}
+            className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-mono"
+          >
+            <option value="">—</option>
+            {STANDARD_CUSTOMER_PROPERTIES.map((key) => (
+              <option key={key} value={key}>{key}</option>
+            ))}
+          </select>
         </div>
       )}
       <div className="space-y-2">

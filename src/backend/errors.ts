@@ -53,6 +53,40 @@ export class ValidationError extends BadRequestError {
   }
 }
 
+/**
+ * EventProperty.role is `discriminator` or `context` but the property has no `allowed_values_json`
+ * (D-03, D-16; T-1-04 delta). 400.
+ */
+export class RoleRequiresEnumError extends BadRequestError {
+  readonly code = 'ROLE_REQUIRES_ENUM';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'RoleRequiresEnumError';
+  }
+}
+
+/** An event already has two `discriminator`-role properties (D-03 rule 3; T-1-04 delta). 400. */
+export class MaxDiscriminatorsError extends BadRequestError {
+  readonly code = 'MAX_DISCRIMINATORS';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'MaxDiscriminatorsError';
+  }
+}
+
+/**
+ * `Property.allowed_values_json` would be emptied, or would drop a value, while the property is
+ * still linked with role `discriminator`/`context` on one or more events (T-1-04 fix round
+ * ERROR 3; domain rule 1). 400.
+ */
+export class EnumInUseError extends BadRequestError {
+  readonly code = 'ENUM_IN_USE';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'EnumInUseError';
+  }
+}
+
 /** Use when a resource is not found or does not belong to the workspace (404). */
 export class NotFoundError extends Error {
   readonly code = 'NOT_FOUND';

@@ -3,6 +3,7 @@ import {
   COMPARISON_IDS,
   ENTITY_STATUSES,
   EVENT_PROPERTY_ROLES,
+  EVENT_SOURCE_KINDS,
   EVENT_STATUSES,
   EXPIRATION_UNITS,
   FINDING_KINDS,
@@ -12,7 +13,10 @@ import {
   CATALOG_MAPPING_ROLES,
   ORIGIN_TYPES,
   PRIORITIES,
+  PROPERTY_DATA_FORMATS,
+  PROPERTY_DATA_TYPES,
   PROPERTY_SCOPES,
+  QA_RUN_ENVIRONMENTS,
   QA_RUN_KINDS,
   REQUIREMENT_LEVELS,
   REQUIREMENT_TARGET_KINDS,
@@ -38,6 +42,10 @@ const arrays: Record<string, readonly string[]> = {
   FINDING_STATUSES,
   IDENTITY_TYPES,
   CATALOG_MAPPING_ROLES,
+  PROPERTY_DATA_TYPES,
+  PROPERTY_DATA_FORMATS,
+  EVENT_SOURCE_KINDS,
+  QA_RUN_ENVIRONMENTS,
 };
 
 describe('enum arrays', () => {
@@ -90,5 +98,23 @@ describe('D-25 required values', () => {
 
   it('expiration units are days, weeks, months, years', () => {
     expect(EXPIRATION_UNITS).toEqual(['days', 'weeks', 'months', 'years']);
+  });
+});
+
+describe('T-1-04 delta: property data type/format, event_sources.kind, QaRun.environment', () => {
+  it('PROPERTY_DATA_FORMATS includes "money" (drives the rounding-drift QA rule, D-25 Q12)', () => {
+    expect(PROPERTY_DATA_FORMATS).toContain('money');
+  });
+
+  it('PROPERTY_DATA_TYPES is string|number|boolean|timestamp|object|array', () => {
+    expect(PROPERTY_DATA_TYPES).toEqual(['string', 'number', 'boolean', 'timestamp', 'object', 'array']);
+  });
+
+  it('EVENT_SOURCE_KINDS is live|historical|daily', () => {
+    expect(EVENT_SOURCE_KINDS).toEqual(['live', 'historical', 'daily']);
+  });
+
+  it('QA_RUN_ENVIRONMENTS is production|staging|dev', () => {
+    expect(QA_RUN_ENVIRONMENTS).toEqual(['production', 'staging', 'dev']);
   });
 });

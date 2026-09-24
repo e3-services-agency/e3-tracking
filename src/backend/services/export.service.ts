@@ -41,8 +41,10 @@ interface TriggerEntry {
 function toAttachedPropertyForCodegen(link: EventPropertyWithDetails): AttachedPropertyForCodegen {
   return {
     property_name: link.payload_key?.trim() || link.property.name,
-    // D-16 dropped presence; `required` maps to the closest codegen grouping (required vs optional).
-    presence: link.required ? 'always_sent' : 'sometimes_sent',
+    // D-16 dropped presence; codegen reads `EventProperty.required` directly (T-1-03/T-1-04
+    // integration WARNING 4: this must stay `required`, never `presence`, or every property
+    // silently renders as optional in the generated snippets/docs).
+    required: link.required,
     property_data_type: link.property.data_type,
     property_data_formats: (link.property.data_formats_json as string[] | null) ?? null,
     property_example_values_json:

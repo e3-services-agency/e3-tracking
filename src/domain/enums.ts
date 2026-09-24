@@ -114,3 +114,32 @@ export type FindingSeverity = (typeof FINDING_SEVERITIES)[number];
 // No manual "mute": resolved only by `runComparison` no longer producing the fingerprint (D-21).
 export const FINDING_STATUSES = ['open', 'resolved'] as const;
 export type FindingStatus = (typeof FINDING_STATUSES)[number];
+
+// ----- Property data type and data formats (T-1-04 delta: moved from src/types/schema.ts, a
+// reviewer finding on T-1-01; `src/types/schema.ts` re-exports these for its legacy consumers) -----
+export const PROPERTY_DATA_TYPES = ['string', 'number', 'boolean', 'timestamp', 'object', 'array'] as const;
+export type PropertyDataType = (typeof PROPERTY_DATA_TYPES)[number];
+
+// `money` is new (T-1-04 delta): a monetary amount, drives the rounding-drift QA rule (D-21, D-25 Q12).
+export const PROPERTY_DATA_FORMATS = [
+  'uuid',
+  'iso8601_datetime',
+  'iso8601_date',
+  'unix_seconds',
+  'unix_milliseconds',
+  'email',
+  'uri',
+  'currency_code',
+  'country_code',
+  'language_code',
+  'money',
+] as const;
+export type PropertyDataFormat = (typeof PROPERTY_DATA_FORMATS)[number];
+
+// ----- event_sources.kind (T-1-04 delta: reviewer finding on T-1-01) -----
+export const EVENT_SOURCE_KINDS = ['live', 'historical', 'daily'] as const;
+export type EventSourceKind = (typeof EVENT_SOURCE_KINDS)[number];
+
+// ----- QaRun.environment (T-1-04 delta: reviewer finding on T-1-01) -----
+export const QA_RUN_ENVIRONMENTS = ['production', 'staging', 'dev'] as const;
+export type QaRunEnvironment = (typeof QA_RUN_ENVIRONMENTS)[number];

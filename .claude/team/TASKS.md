@@ -8,7 +8,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-0-02 | 0 | Read-only repository audit | repo-auditor | T-0-01 | DONE | see below |
 | T-0-03 | 0 | Target model and phased plan | architect | T-0-02 | DONE | see below |
 | T-0-04 | 0 | User approval of plan, phase 1 tasks adopted | supervisor | T-0-03 | DONE | see below |
-| T-1-01 | 1 | SQLite persistence, schema v1, dev server, vitest, domain definitions module | implementer | T-0-04 | QA | plan + delta |
+| T-1-01 | 1 | SQLite persistence, schema v1, dev server, vitest, domain definitions module | implementer | T-0-04 | DONE | plan + delta |
 | T-1-02 | 1 | Local auth mode, local file store, Workspace to Project rename, Client entity, remove Supabase | implementer | T-1-01 | TODO | plan + delta |
 | T-1-03 | 1 | Remove journeys, QA overlay, legacy store, metrics; project-scope HTML documentation export | implementer | T-1-02 | TODO | plan |
 | T-1-CP | 1 | Checkpoint report to user after T-1-03 | supervisor | T-1-03 | TODO | see below |
@@ -54,18 +54,21 @@ Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktree
 ### T-1-04 delta
 - Priority and status selects use the D-25 values from `enums.ts`.
 - Property bundles remain functional after the Property model changes (D-26).
+- Move `PROPERTY_DATA_TYPES` and data formats (incl. `money`) from `src/types/schema.ts` into `src/domain/enums.ts`; add event_sources kind and QaRun environment there too (reviewer finding on T-1-01).
 
 ### T-1-05 delta
 - `StandardEventMapping.standard_event` accepts seed keys plus `projects.standard_event_additions_json`; the Standard events page has an "add standard event" form (key, field list) writing to that column (D-26).
 
 ### T-1-06 delta
 - `ConsentCategory.standard_key` accepts seed keys plus project additions; the page has an "add standard consent key" form (D-26).
+- Add identity_type and catalog mapping_role enums to `src/domain/enums.ts` (reviewer finding on T-1-01). T-1-07 adds UseCase type/status and Requirement status the same way.
 
 ### T-1-08 delta
 - Data mapping import must not reject unknown `standard_events` keys or unknown `consents` keys; it proposes them as project additions in the diff (D-26). Export writes project additions back.
 
 ### T-1-09 delta
 - Known system event types from `bloomreach.ts` do not raise `unexpected_event` (D-25 Q5). `missing_event` severity depends on run kind (agent session error, export paste warning). Rounding tolerance 0.01 on `money` properties.
+- Correction to the plan's engine test: on the fixture, `unexpected_event` fires only for `paper_catalogue` and `loyalty_update`; `campaign`, `survey`, `support_ticket`, `managed_endpoint` are suppressed as known system types.
 
 ### T-1-10 delta
 - `docs/QA-LOCAL.md` names the launch entry `e3-tracking` from `.claude/launch.json` (D-25 Q9) and documents `E3_LOCAL_USER_NAME`, `E3_DB_PATH`, `E3_PROJECT_KEY`.

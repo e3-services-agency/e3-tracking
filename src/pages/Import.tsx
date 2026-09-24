@@ -1,13 +1,16 @@
 /**
- * Import page (T-1-08, D-04, D-22): one paste box per Bloomreach format, a Preview button, a
- * checkbox table of the proposed diff, an Apply button, and a result summary. The "customer events
- * export" box is present but disabled — its preview/apply lands on the findings table in T-1-09.
- * Export buttons below download the two supported formats as `.json`.
+ * Import page (T-1-08/T-1-09, D-04, D-22): one paste box per Bloomreach format, a Preview button, a
+ * checkbox table of the proposed diff, an Apply button, and a result summary. The third box
+ * (`CustomerEventsImportBox`, T-1-09) is a different shape from the other two — its "diff" is a
+ * resolution preview (per-type counts, resolved/unknown, duplicates), not proposed entity writes —
+ * and its apply lands on the Findings page filtered to the new run. Export buttons below download
+ * the two data-mapping/expiration-settings formats as `.json`.
  */
 import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
+import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 
@@ -216,6 +219,222 @@ function ImportBox({
   );
 }
 
+interface CustomerEventsTypeSummary {
+  type: string;
+  count: number;
+  resolved: boolean;
+  known_system: boolean;
+  variants: string[];
+}
+
+interface CustomerEventsPreviewResult {
+  items: DiffItem[];
+  type_summary: CustomerEventsTypeSummary[];
+  duplicate_count: number;
+  warnings: string[];
+  payload_hash: string;
+  run_header: { kind: string; customer_id: string | null };
+}
+
+interface CustomerEventsApplyResult {
+  run: { id: string; kind: string };
+  inserted: number;
+  skipped: number;
+  comparison: { open: Record<string, number> };
+}
+
+/**
+ * The third Import box (T-1-09): unlike `ImportBox` (T-1-08 data-mapping/expiration-settings),
+ * this format proposes no definition writes — the "diff" is a resolution preview (per-type counts,
+ * resolved/unknown, duplicates) and `apply` creates a `QaRun` + `Observation`s and runs comparison
+ * 3, landing on the Findings page filtered to the new run (plan T-1-09 acceptance).
+ */
+function CustomerEventsImportBox({ projectId }: { projectId: string }) {
+  const [text, setText] = useState('');
+  const [preview, setPreview] = useState<CustomerEventsPreviewResult | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<CustomerEventsApplyResult | null>(null);
+  const setRequestedTab = useStore((s) => s.setRequestedTab);
+  const setPendingFindingsRunId = useStore((s) => s.setPendingFindingsRunId);
+
+  const handlePreview = async () => {
+    setError(null);
+    setSummary(null);
+    let json: unknown;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      setError('This is not valid JSON.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/import/customer-events-export/preview`, {
+        method: 'POST',
+        body: JSON.stringify(json),
+      });
+      const data = await parseJson(res);
+      if (!res.ok) {
+        setError(typeof data?.error === 'string' ? data.error : 'Preview failed.');
+        setPreview(null);
+        return;
+      }
+      const result = data as CustomerEventsPreviewResult;
+      setPreview(result);
+      setSelected(new Set(result.items.filter((i) => i.default_selected).map((i) => i.id)));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApply = async () => {
+    if (!preview) return;
+    setError(null);
+    let payload: unknown;
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      setError('This is not valid JSON.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/import/customer-events-export/apply`, {
+        method: 'POST',
+        body: JSON.stringify({
+          payload,
+          payload_hash: preview.payload_hash,
+          selected_item_ids: Array.from(selected),
+        }),
+      });
+      const data = await parseJson(res);
+      if (!res.ok) {
+        if (data?.code === 'PAYLOAD_CHANGED') {
+          setError('The pasted JSON changed since preview; re-run preview before applying.');
+        } else {
+          setError(typeof data?.error === 'string' ? data.error : 'Apply failed.');
+        }
+        return;
+      }
+      const result = data as CustomerEventsApplyResult;
+      setSummary(result);
+      setPreview(null);
+      // Land on the Findings page filtered to this run (T-1-09 acceptance).
+      setPendingFindingsRunId(result.run.id);
+      setRequestedTab('findings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <div className="bg-white rounded-lg border shadow-sm p-4 space-y-3">
+      <h2 className="text-base font-semibold text-gray-900">Customer events export</h2>
+      <textarea
+        className="w-full h-32 rounded-md border border-gray-300 px-3 py-2 text-xs font-mono"
+        placeholder="Paste customer-events-export.json here…"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+      <div className="flex items-center gap-2">
+        <Button type="button" variant="outline" onClick={() => void handlePreview()} disabled={!text.trim() || loading}>
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+          Preview
+        </Button>
+        {preview && (
+          <Button type="button" onClick={() => void handleApply()} disabled={loading || selected.size === 0}>
+            Apply ({selected.size} selected)
+          </Button>
+        )}
+      </div>
+
+      {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>}
+
+      {preview && preview.warnings.length > 0 && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 space-y-1">
+          {preview.warnings.map((w, i) => (
+            <div key={i}>{w}</div>
+          ))}
+        </div>
+      )}
+
+      {preview && (
+        <>
+          <div className="text-sm text-gray-600">
+            {preview.items.length} event(s) parsed, {preview.duplicate_count} duplicate(s) already present elsewhere in
+            this project (deselected by default).
+          </div>
+          <div className="border rounded-md overflow-hidden">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-3 py-2 font-medium text-gray-500">Type</th>
+                  <th className="px-3 py-2 font-medium text-gray-500">Count</th>
+                  <th className="px-3 py-2 font-medium text-gray-500">Resolution</th>
+                  <th className="px-3 py-2 font-medium text-gray-500">Variant(s)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {preview.type_summary.map((t) => (
+                  <tr key={t.type}>
+                    <td className="px-3 py-2 font-mono">{t.type}</td>
+                    <td className="px-3 py-2">{t.count}</td>
+                    <td className="px-3 py-2 text-gray-500">
+                      {t.resolved ? 'resolved' : t.known_system ? 'known system type (unresolved)' : 'unknown (unexpected_event)'}
+                    </td>
+                    <td className="px-3 py-2 text-gray-500">{t.variants.join(', ') || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="border rounded-md overflow-hidden">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-3 py-2 w-8" />
+                  <th className="px-3 py-2 font-medium text-gray-500">Event</th>
+                  <th className="px-3 py-2 font-medium text-gray-500">Note</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {preview.items.map((item) => (
+                  <tr key={item.id}>
+                    <td className="px-3 py-2">
+                      <input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} />
+                    </td>
+                    <td className="px-3 py-2 font-mono">{item.entity_key}</td>
+                    <td className="px-3 py-2 text-gray-500">{item.note}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {summary && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          Created QA run with {summary.inserted} observation(s) ({summary.skipped} skipped). Open findings:{' '}
+          {summary.comparison.open.error ?? 0} error, {summary.comparison.open.warning ?? 0} warning,{' '}
+          {summary.comparison.open.info ?? 0} info. See the Findings page.
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Import() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
 
@@ -237,7 +456,7 @@ export function Import() {
       <div className="p-8 flex-1 overflow-y-auto space-y-6">
         <ImportBox format="data-mapping" title="Data mapping" projectId={activeProjectId} />
         <ImportBox format="expiration-settings" title="Expiration settings" projectId={activeProjectId} />
-        <ImportBox format="data-mapping" title="Customer events export" disabled projectId={activeProjectId} />
+        <CustomerEventsImportBox projectId={activeProjectId} />
 
         <div className="bg-white rounded-lg border shadow-sm p-4 space-y-3">
           <h2 className="text-base font-semibold text-gray-900">Export</h2>

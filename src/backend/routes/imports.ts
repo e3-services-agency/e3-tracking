@@ -8,6 +8,10 @@
 import { Router, type Request, type Response } from 'express';
 import { previewDataMapping, applyDataMapping } from '../services/dataMappingImport.service';
 import { previewExpirationSettings, applyExpirationSettings } from '../services/expirationSettingsImport.service';
+import {
+  previewCustomerEventsExport,
+  applyCustomerEventsExport,
+} from '../services/customerEventsExportImport.service';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -56,6 +60,27 @@ router.post('/expiration-settings/apply', (req: Request, res: Response) => {
   try {
     const { payload, payload_hash, selected_item_ids } = parseApplyBody(req);
     res.status(200).json(applyExpirationSettings(req.projectId!, payload, payload_hash, selected_item_ids));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.post('/customer-events-export/preview', (req: Request, res: Response) => {
+  try {
+    res.status(200).json(previewCustomerEventsExport(req.projectId!, req.body));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.post('/customer-events-export/apply', (req: Request, res: Response) => {
+  try {
+    const { payload, payload_hash, selected_item_ids } = parseApplyBody(req);
+    res
+      .status(200)
+      .json(
+        applyCustomerEventsExport(req.projectId!, payload, payload_hash, selected_item_ids, req.userName ?? null)
+      );
   } catch (err) {
     handleRouteError(err, res);
   }

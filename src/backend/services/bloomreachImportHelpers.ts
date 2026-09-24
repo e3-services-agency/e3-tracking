@@ -71,21 +71,16 @@ export function findMatchingVariant(
   return null;
 }
 
-const propertyNameCache = new Map<string, Map<string, string>>();
-
+/**
+ * Always reads the current name from the DAL (fix round ERROR 4): a process-lifetime cache here
+ * used to survive a rename between two imports in the same server process — `action` renamed to
+ * `cart_action` between paste #1 and paste #2 kept resolving to the stale name `action`, so
+ * `findMatchingVariant` (which compares by *name*, not id, since Bloomreach JSON has no ids) never
+ * matched the already-existing variant, proposed a duplicate `create variant`, and then — because
+ * `createVariant`'s resulting `ConflictError` is swallowed — silently upserted the standard event
+ * mapping with `variant_id: null` instead. `getPropertyById` is an indexed single-row lookup, so
+ * paying it again per condition per plan build is not worth caching incorrectly for.
+ */
 function resolvePropertyName(projectId: string, propertyId: string): string | null {
-  let cache = propertyNameCache.get(projectId);
-  if (!cache) {
-    cache = new Map<string, string>();
-    propertyNameCache.set(projectId, cache);
-  }
-  if (cache.has(propertyId)) return cache.get(propertyId) ?? null;
-  const row = PropertyDAL.getPropertyById(projectId, propertyId);
-  if (row) cache.set(propertyId, row.name);
-  return row ? row.name : null;
-}
-
-/** Clears the property-name cache (tests only; a long-lived server process never needs this since ids never get reused). */
-export function clearPropertyNameCache(): void {
-  propertyNameCache.clear();
+  return PropertyDAL.getPropertyById(projectId, propertyId)?.name ?? null;
 }

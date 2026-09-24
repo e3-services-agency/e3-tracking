@@ -8,6 +8,7 @@
 import { getDb } from '../db';
 import * as EventDAL from '../dal/event.dal';
 import * as ProjectDAL from '../dal/project.dal';
+import * as VariantDAL from '../dal/variant.dal';
 import {
   parseExpirationSettings,
   type ExpirationBlock,
@@ -17,8 +18,9 @@ import {
 import { payloadHash } from '../../domain/diff/hash';
 import type { DiffItem } from '../../domain/diff/types';
 import { KNOWN_SYSTEM_EVENT_TYPES } from '../../domain/bloomreach';
-import { PayloadChangedError } from '../errors';
-import { findEventByName } from './bloomreachImportHelpers';
+import { generateVariantName, type VariantCondition } from '../../domain/variants';
+import { ConflictError, PayloadChangedError } from '../errors';
+import { findEventByName, findPropertyByName, findMatchingVariant } from './bloomreachImportHelpers';
 
 interface PlanStep {
   id: string;
@@ -70,6 +72,14 @@ function buildPlan(projectId: string, model: ExpirationSettingsModel): PlanResul
   const items: DiffItem[] = [];
   const warnings = [...model.warnings];
   const steps: PlanStep[] = [];
+  const plannedIds = new Set<string>();
+
+  function addItem(item: DiffItem, run: () => void): void {
+    if (plannedIds.has(item.id)) return;
+    plannedIds.add(item.id);
+    items.push(item);
+    steps.push({ id: item.id, run });
+  }
 
   for (const ev of model.events) planExpirationEvent(ev);
   planProjectDefault(model.other);
@@ -77,24 +87,40 @@ function buildPlan(projectId: string, model: ExpirationSettingsModel): PlanResul
   return { items, warnings, steps };
 
   function planExpirationEvent(ev: ExpirationSettingsEvent): void {
+    const desired = normalizeBlock(
+      ev.expiration,
+      warnings,
+      ev.filter.length > 0 ? `events[type=${ev.type}].filter.expiration` : `events[type=${ev.type}].expiration`
+    );
+    // fix round ERROR 3 (PLAN "Expiration settings": non-empty filter -> Variant with
+    // Variant.expiration_json): an entry with a filter targets the matching Variant, never the
+    // whole Event, and each entry gets its own id (no more two filter entries of the same event
+    // type colliding on one `event_expiration:<type>` id).
+    if (ev.filter.length > 0) {
+      planVariantExpiration(ev, desired);
+      return;
+    }
+    planWholeEventExpiration(ev, desired);
+  }
+
+  function planWholeEventExpiration(ev: ExpirationSettingsEvent, desired: ExpirationBlock): void {
     const id = `event_expiration:${ev.type}`;
-    const desired = normalizeBlock(ev.expiration, warnings, `events[type=${ev.type}].expiration`);
+    if (plannedIds.has(id)) return;
     const existingEvent = findEventByName(projectId, ev.type);
     const eventType = KNOWN_SYSTEM_EVENT_TYPES.includes(ev.type) ? 'system' : 'custom';
 
     if (!existingEvent) {
-      items.push({
-        id,
-        op: 'create',
-        entity_type: 'event',
-        entity_key: ev.type,
-        changes: [],
-        default_selected: true,
-        note: `Create ${eventType} event "${ev.type}" with expiration ${describeExpiration(desired)}.`,
-      });
-      steps.push({
-        id,
-        run: () => {
+      addItem(
+        {
+          id,
+          op: 'create',
+          entity_type: 'event',
+          entity_key: ev.type,
+          changes: [],
+          default_selected: true,
+          note: `Create ${eventType} event "${ev.type}" with expiration ${describeExpiration(desired)}.`,
+        },
+        () => {
           if (!findEventByName(projectId, ev.type)) {
             EventDAL.createEvent(projectId, { name: ev.type, event_type: eventType, expiration_json: desired });
           } else {
@@ -103,30 +129,121 @@ function buildPlan(projectId: string, model: ExpirationSettingsModel): PlanResul
               EventDAL.updateEvent(projectId, row.id, { expiration_json: desired });
             }
           }
-        },
-      });
+        }
+      );
       return;
     }
 
     if (expirationEqual(existingEvent.expiration_json, desired)) return;
-    items.push({
-      id,
-      op: 'update',
-      entity_type: 'event',
-      entity_key: ev.type,
-      changes: [{ field: 'expiration_json', before: existingEvent.expiration_json, after: desired }],
-      default_selected: true,
-      note: `Set expiration on "${ev.type}" to ${describeExpiration(desired)}.`,
-    });
-    steps.push({
-      id,
-      run: () => {
+    addItem(
+      {
+        id,
+        op: 'update',
+        entity_type: 'event',
+        entity_key: ev.type,
+        changes: [{ field: 'expiration_json', before: existingEvent.expiration_json, after: desired }],
+        default_selected: true,
+        note: `Set expiration on "${ev.type}" to ${describeExpiration(desired)}.`,
+      },
+      () => {
         const row = findEventByName(projectId, ev.type);
         if (row && !expirationEqual(row.expiration_json, desired)) {
           EventDAL.updateEvent(projectId, row.id, { expiration_json: desired });
         }
+      }
+    );
+  }
+
+  /**
+   * fix round ERROR 3: resolves the filter to the Variant it names (each condition's property must
+   * already be linked to the event as a `discriminator` — an expiration import never itself
+   * promotes a role or creates a property, unlike the data-mapping import; PLAN scopes this format
+   * to Event/Variant.expiration_json only). No matching discriminator link -> a warning and skip
+   * (never falls back to writing the whole Event).
+   */
+  function planVariantExpiration(ev: ExpirationSettingsEvent, desired: ExpirationBlock): void {
+    const existingEvent = findEventByName(projectId, ev.type);
+    if (!existingEvent) {
+      warnings.push(`events[type=${ev.type}].filter targets event "${ev.type}", which does not exist yet; skipped.`);
+      return;
+    }
+    const { properties: linked } = EventDAL.getEventWithProperties(projectId, existingEvent.id);
+    const conditions: VariantCondition[] = [];
+    const identityNames: Record<string, string> = {};
+    for (const cond of ev.filter) {
+      const prop = findPropertyByName(projectId, 'event', cond.property);
+      const link = prop ? linked.find((p) => p.property_id === prop.id) : undefined;
+      if (!prop || !link || link.role !== 'discriminator') {
+        warnings.push(
+          `events[type=${ev.type}].filter references property "${cond.property}", which is not linked to "${ev.type}" as a discriminator; skipped.`
+        );
+        return;
+      }
+      conditions.push({ property_id: prop.id, operator: cond.operator, values: cond.values });
+      identityNames[prop.id] = prop.name;
+    }
+
+    const displayName = generateVariantName(ev.type, conditions, identityNames);
+    const id = `variant_expiration:${displayName}`;
+    if (plannedIds.has(id)) return;
+    const existingVariant = findMatchingVariant(projectId, existingEvent.id, ev.filter);
+    const existingVariantRow = existingVariant ? VariantDAL.getVariantByIdInProject(projectId, existingVariant.id) : null;
+
+    if (!existingVariant) {
+      addItem(
+        {
+          id,
+          op: 'create',
+          entity_type: 'variant',
+          entity_key: displayName,
+          changes: [],
+          default_selected: true,
+          note: `Create variant "${displayName}" with expiration ${describeExpiration(desired)}.`,
+        },
+        () => {
+          const event = findEventByName(projectId, ev.type);
+          if (!event) return;
+          const already = findMatchingVariant(projectId, event.id, ev.filter);
+          if (already) {
+            const row = VariantDAL.getVariantByIdInProject(projectId, already.id);
+            if (row && !expirationEqual(row.expiration_json, desired)) {
+              VariantDAL.updateVariant(projectId, event.id, already.id, { expiration_json: desired });
+            }
+            return;
+          }
+          try {
+            VariantDAL.createVariant(projectId, event.id, { conditions, expiration_json: desired });
+          } catch (err) {
+            if (err instanceof ConflictError) return;
+            throw err;
+          }
+        }
+      );
+      return;
+    }
+
+    if (expirationEqual(existingVariantRow?.expiration_json ?? null, desired)) return;
+    addItem(
+      {
+        id,
+        op: 'update',
+        entity_type: 'variant',
+        entity_key: displayName,
+        changes: [{ field: 'expiration_json', before: existingVariantRow?.expiration_json ?? null, after: desired }],
+        default_selected: true,
+        note: `Set expiration on variant "${displayName}" to ${describeExpiration(desired)}.`,
       },
-    });
+      () => {
+        const event = findEventByName(projectId, ev.type);
+        if (!event) return;
+        const variant = findMatchingVariant(projectId, event.id, ev.filter);
+        if (!variant) return;
+        const row = VariantDAL.getVariantByIdInProject(projectId, variant.id);
+        if (row && !expirationEqual(row.expiration_json, desired)) {
+          VariantDAL.updateVariant(projectId, event.id, variant.id, { expiration_json: desired });
+        }
+      }
+    );
   }
 
   function planProjectDefault(other: ExpirationBlock): void {

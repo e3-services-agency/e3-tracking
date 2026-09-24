@@ -22,7 +22,8 @@ import * as ConsentCategoryDAL from '../dal/consent-category.dal';
 import * as ProjectDAL from '../dal/project.dal';
 import { parseDataMapping, type DataMappingModel, type DataMappingStandardEvent } from '../../domain/import/dataMapping';
 import { payloadHash } from '../../domain/diff/hash';
-import type { DiffItem } from '../../domain/diff/types';
+import { diffValue } from '../../domain/diff/primitives';
+import type { DiffItem, DiffItemChange } from '../../domain/diff/types';
 import { isKnownStandardEvent, isKnownConsentKey, STANDARD_CUSTOMER_PROPERTIES, type StandardEventSeed } from '../../domain/bloomreach';
 import { generateVariantName, type VariantCondition } from '../../domain/variants';
 import { BadRequestError, ConflictError, PayloadChangedError } from '../errors';
@@ -39,6 +40,13 @@ function fieldMapsEqual(a: Record<string, string | null>, b: Record<string, stri
 interface PlanStep {
   id: string;
   run: () => void;
+  /** Ids of other plan steps this step needs to have actually run first (fix round WARNING 6): an
+   *  unselected or unmet dependency makes this step's own selection a no-op — it is reported as
+   *  skipped instead of silently writing a partial/inconsistent record (e.g. a mapping with
+   *  `variant_id: null` because its variant's own create step never ran). Only ids present in
+   *  `plannedIds` are meaningful; an id naming something that already existed (no step proposed)
+   *  is never a blocking dependency. */
+  dependsOn?: string[];
 }
 
 interface PlanResult {
@@ -66,11 +74,16 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
   const steps: PlanStep[] = [];
   const plannedIds = new Set<string>();
 
-  function addItem(item: DiffItem, run: () => void): void {
+  function addItem(item: DiffItem, run: () => void, dependsOn?: string[]): void {
     if (plannedIds.has(item.id)) return;
     plannedIds.add(item.id);
     items.push(item);
-    steps.push({ id: item.id, run });
+    steps.push({ id: item.id, run, dependsOn: dependsOn?.length ? dependsOn : undefined });
+  }
+
+  /** `id` only if it names a step actually proposed this run (i.e. a real dependency); otherwise omitted. */
+  function depIf(id: string): string | null {
+    return plannedIds.has(id) ? id : null;
   }
 
   const project = ProjectDAL.getProjectOrThrow(projectId);
@@ -107,29 +120,43 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
     if (!discriminatorAgg.has(propName)) planEventProperty(propName, [], undefined);
   }
 
-  // ---- Phase 4: variants + standard event mappings ----
+  // ---- Phase 3.5: promote a filter attribute already linked with role "normal" to "discriminator"
+  // (fix round ERROR 5): a project whose events were defined before the mapping was pasted (the
+  // normal intake order) already has the property attached, just with the wrong role; without this
+  // step the variant-creation step below fails with CONDITION_NOT_DISCRIMINATOR. ----
+  for (const se of mappedEvents) {
+    for (const cond of se.filter) {
+      planRolePromotion(se.eventType as string, cond.property);
+    }
+  }
+
+  // ---- Phase 4: project additions for unknown standard event / consent keys (D-26: never
+  // rejected), run before Phase 5/7 which upsert against those keys (fix round ERROR 1: D-26
+  // says an unknown key is never rejected, but the DAL validates standard_event/standard_key
+  // against seed + project additions, so the addition must exist before anything upserts against
+  // it — and every unknown standard event gets an addition, even one with no field keys). ----
+  for (const se of model.standardEvents) {
+    if (!isKnownStandardEvent(se.key, standardAdditions)) planStandardEventAddition(se, standardAdditions);
+  }
+  for (const [stdKey, clientName] of Object.entries(model.consents)) {
+    if (clientName && !isKnownConsentKey(stdKey, consentAdditions)) planConsentKeyAddition(stdKey, consentAdditions);
+  }
+
+  // ---- Phase 5: variants + standard event mappings ----
   for (const se of mappedEvents) {
     const eventName = se.eventType as string;
     if (se.filter.length > 0) planVariant(eventName, se.filter);
     planStandardEventMapping(se, eventName);
   }
 
-  // ---- Phase 5: customer properties ----
+  // ---- Phase 6: customer properties ----
   for (const [stdKey, propName] of Object.entries(model.customerProperties)) {
     if (propName) planCustomerProperty(stdKey, propName);
   }
 
-  // ---- Phase 6: consents ----
+  // ---- Phase 7: consents ----
   for (const [stdKey, clientName] of Object.entries(model.consents)) {
     if (clientName) planConsent(stdKey, clientName);
-  }
-
-  // ---- Phase 7: project additions for unknown standard event / consent keys (D-26: never rejected) ----
-  for (const se of model.standardEvents) {
-    if (!isKnownStandardEvent(se.key, standardAdditions)) planStandardEventAddition(se, standardAdditions);
-  }
-  for (const [stdKey, clientName] of Object.entries(model.consents)) {
-    if (clientName && !isKnownConsentKey(stdKey, consentAdditions)) planConsentKeyAddition(stdKey, consentAdditions);
   }
 
   // ---- Phase 8: catalogs / _id / custom_events round trip + empty-catalog-block warning ----
@@ -265,6 +292,7 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
     const id = `consent:${stdKey}`;
     if (plannedIds.has(id)) return;
     const existingByKey = ConsentCategoryDAL.listConsentCategories(projectId).find((c) => c.standard_key === stdKey);
+    const additionDeps = [depIf(`project_addition:consent_key:${stdKey}`)].filter((d): d is string => d !== null);
 
     if (existingByKey) {
       if (existingByKey.name === clientName) return;
@@ -281,7 +309,8 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
         () => {
           const row = ConsentCategoryDAL.listConsentCategories(projectId).find((c) => c.standard_key === stdKey);
           if (row && row.name !== clientName) ConsentCategoryDAL.updateConsentCategory(projectId, row.id, { name: clientName });
-        }
+        },
+        additionDeps
       );
       return;
     }
@@ -305,6 +334,52 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
         } else if (!already.standard_key) {
           ConsentCategoryDAL.updateConsentCategory(projectId, already.id, { standard_key: stdKey });
         }
+      },
+      additionDeps
+    );
+  }
+
+  /**
+   * A filter attribute already attached to the event with role "normal" (fix round ERROR 5): the
+   * normal Bloomreach intake order defines events first, then pastes the mapping, so this is the
+   * common case, not an edge case. `ensureLinked` (used by variant/mapping creation) only attaches
+   * a property that is not linked at all — it never changes an existing link's role — so without
+   * an explicit promotion step a pre-linked "normal" property can never become a discriminator and
+   * variant creation always fails with CONDITION_NOT_DISCRIMINATOR.
+   */
+  function planRolePromotion(eventName: string, propName: string): void {
+    const id = `event_property:${eventName}.${propName}:role`;
+    if (plannedIds.has(id)) return;
+    const event = findEventByName(projectId, eventName);
+    const prop = findPropertyByName(projectId, 'event', propName);
+    if (!event || !prop) return; // event/property itself is being created this run; ensureLinked attaches it fresh as "discriminator"
+    const { properties } = EventDAL.getEventWithProperties(projectId, event.id);
+    const link = properties.find((p) => p.property_id === prop.id);
+    if (!link || link.role !== 'normal') return; // not linked yet, or already discriminator/context
+
+    addItem(
+      {
+        id,
+        op: 'update',
+        entity_type: 'event_property',
+        entity_key: `${eventName}.${propName}`,
+        changes: [{ field: 'role', before: 'normal', after: 'discriminator' }],
+        default_selected: true,
+        note: `Promote property "${propName}" on event "${eventName}" from role "normal" to "discriminator" (used as a variant filter).`,
+      },
+      () => {
+        const ev = findEventByName(projectId, eventName);
+        const p = findPropertyByName(projectId, 'event', propName);
+        if (!ev || !p) return;
+        const { properties: current } = EventDAL.getEventWithProperties(projectId, ev.id);
+        const l = current.find((x) => x.property_id === p.id);
+        if (!l || l.role !== 'normal') return;
+        try {
+          EventDAL.updateEventProperty(projectId, ev.id, p.id, { role: 'discriminator' });
+        } catch (err) {
+          if (err instanceof BadRequestError) return; // e.g. the allowed value it needs was not applied (dependency not selected)
+          throw err;
+        }
       }
     );
   }
@@ -321,6 +396,12 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
 
     const existingEvent = findEventByName(projectId, eventName);
     if (existingEvent && findMatchingVariant(projectId, existingEvent.id, filter)) return;
+
+    const dependsOn = [
+      depIf(`event:${eventName}`),
+      ...filter.map((c) => depIf(`property:event:${c.property}`)),
+      ...filter.map((c) => depIf(`event_property:${eventName}.${c.property}:role`)),
+    ].filter((d): d is string => d !== null);
 
     addItem(
       { id, op: 'create', entity_type: 'variant', entity_key: displayName, changes: [], default_selected: true, note: `Create variant "${displayName}".` },
@@ -341,7 +422,8 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
           if (err instanceof ConflictError) return;
           throw err;
         }
-      }
+      },
+      dependsOn
     );
   }
 
@@ -362,24 +444,54 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
             Object.fromEntries(se.filter.map((c) => [c.property, c.property]))
           )
         : eventName;
+    const variantItemId = se.filter.length > 0 ? `variant:${target}` : null;
 
-    const desiredChanged = (): boolean => {
-      if (!existing) return true;
-      const currentEvent = EventDAL.getEventById(projectId, existing.event_id);
-      if (!currentEvent || currentEvent.name !== eventName) return true;
-      const currentVariant = existing.variant_id ? VariantDAL.getVariantByIdInProject(projectId, existing.variant_id) : null;
-      const wantVariant = se.filter.length > 0;
-      if (wantVariant !== Boolean(currentVariant)) return true;
+    const currentEvent = existing ? EventDAL.getEventById(projectId, existing.event_id) : null;
+    const currentVariant =
+      existing?.variant_id ? VariantDAL.getVariantByIdInProject(projectId, existing.variant_id) : null;
+
+    // Resolve the variant this mapping *should* point at right now, by name (fix round ERROR 2): a
+    // re-import with a changed filter value must repoint an already-mapped standard event at the
+    // new/created variant, not just notice "still has a variant" and stop looking. When the
+    // desired variant does not exist yet, `desiredVariantLabel` still equals its deterministic
+    // generated name (`target`), so the comparison below still detects the change; the real lookup
+    // happens again in `run()` once the variant has actually been created.
+    const desiredVariantLabel = se.filter.length > 0 ? target : null;
+
+    // fix round WARNING 7: use the diff primitives so `changes` carries real field-level
+    // before/after pairs the UI can render, instead of an empty array with only the note as prose.
+    const changes: DiffItemChange[] = [];
+    if (existing) {
+      const eventDiff = diffValue('standard_event_mapping', se.key, 'event', currentEvent?.name ?? null, eventName);
+      if (eventDiff) changes.push({ field: 'event', before: eventDiff.before, after: eventDiff.after });
+
+      const variantDiff = diffValue(
+        'standard_event_mapping',
+        se.key,
+        'variant',
+        currentVariant?.name ?? null,
+        desiredVariantLabel
+      );
+      if (variantDiff) changes.push({ field: 'variant', before: variantDiff.before, after: variantDiff.after });
+
       const currentFieldNames = Object.fromEntries(
         Object.entries(existing.field_map_json).map(([field, propId]) => [
           field,
           propId ? PropertyDAL.getPropertyById(projectId, propId)?.name ?? propId : null,
         ])
       );
-      return !fieldMapsEqual(currentFieldNames, se.fieldMap);
-    };
+      const fieldDiff = diffValue('standard_event_mapping', se.key, 'field_map_json', currentFieldNames, se.fieldMap);
+      if (fieldDiff) changes.push({ field: 'field_map_json', before: fieldDiff.before, after: fieldDiff.after });
+    }
 
-    if (!desiredChanged()) return;
+    if (existing && changes.length === 0) return;
+
+    const dependsOn = [
+      depIf(`event:${eventName}`),
+      variantItemId ? depIf(variantItemId) : null,
+      ...Object.values(se.fieldMap).map((propName) => (propName ? depIf(`property:event:${propName}`) : null)),
+      depIf(`project_addition:standard_event:${se.key}`),
+    ].filter((d): d is string => d !== null);
 
     addItem(
       {
@@ -387,7 +499,7 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
         op: existing ? 'update' : 'create',
         entity_type: 'standard_event_mapping',
         entity_key: se.key,
-        changes: [],
+        changes,
         default_selected: true,
         note: `Map "${se.key}" -> ${target}${fieldSummary}.`,
       },
@@ -411,21 +523,40 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
         }
 
         const variant = se.filter.length > 0 ? findMatchingVariant(projectId, event.id, se.filter) : null;
+        const previousVariantId = existing?.variant_id ?? null;
 
         StandardEventMappingDAL.upsertStandardEventMapping(projectId, se.key, {
           event_id: event.id,
           variant_id: variant?.id ?? null,
           field_map_json: fieldMapIds,
         });
-      }
+
+        // fix round ERROR 2: the old variant is left in place (imports are additive, D-04), but a
+        // variant no longer referenced by any mapping after this repoint is worth flagging.
+        const newVariantId = variant?.id ?? null;
+        if (previousVariantId && previousVariantId !== newVariantId) {
+          const stillUsed = StandardEventMappingDAL.listStandardEventMappings(projectId).some(
+            (m) => m.variant_id === previousVariantId
+          );
+          if (!stillUsed) {
+            const oldVariant = VariantDAL.getVariantByIdInProject(projectId, previousVariantId);
+            warnings.push(
+              `Variant "${oldVariant?.name ?? previousVariantId}" is no longer mapped by any standard event mapping.`
+            );
+          }
+        }
+      },
+      dependsOn
     );
   }
 
   function planStandardEventAddition(se: DataMappingStandardEvent, additions: StandardEventSeed[]): void {
     const id = `project_addition:standard_event:${se.key}`;
     if (plannedIds.has(id)) return;
+    // fix round ERROR 1: an unknown standard event with no field keys (e.g. only an `event` block,
+    // no other fields in the object) still gets an addition — D-26 says the key is added, not
+    // "added only if it has fields" — so it can be applied at all; `fields` may legitimately be [].
     const fields = Object.keys(se.fieldMap);
-    if (fields.length === 0) return; // nothing to record as a field list
     addItem(
       {
         id,
@@ -531,21 +662,59 @@ export function applyDataMapping(
   const skipped: string[] = [];
 
   const db = getDb();
+  const runtimeWarnings: string[] = [];
   const run = db.transaction(() => {
-    const { items, steps } = buildPlan(projectId, model);
+    const { items, steps, warnings: planWarnings } = buildPlan(projectId, model);
+    const stepById = new Map(steps.map((s) => [s.id, s]));
+
+    // fix round WARNING 6: a step only actually runs when it is selected *and* every plan step it
+    // depends on (its `dependsOn`, e.g. the property/variant a mapping needs) is also selected and
+    // itself runnable — otherwise it is reported as skipped, with a reason, instead of writing a
+    // partial/inconsistent record (a mapping upserted with `variant_id: null` because its variant
+    // step never ran, or a variant silently created with 0 conditions).
+    const runnable = new Map<string, boolean>();
+    function canRun(id: string): boolean {
+      if (runnable.has(id)) return runnable.get(id) as boolean;
+      const step = stepById.get(id);
+      if (!step || !selected.has(id)) {
+        runnable.set(id, false);
+        return false;
+      }
+      runnable.set(id, true); // provisional, guards against a cycle; overwritten below if a dep fails
+      let ok = true;
+      for (const dep of step.dependsOn ?? []) {
+        if (!stepById.has(dep)) continue; // not something this run proposes; already satisfied
+        if (!canRun(dep)) {
+          ok = false;
+          break;
+        }
+      }
+      runnable.set(id, ok);
+      return ok;
+    }
+
     for (const item of items) {
-      if (selected.has(item.id)) {
+      if (canRun(item.id)) {
         applied.push(item.id);
       } else {
         skipped.push(item.id);
+        if (selected.has(item.id)) {
+          const step = stepById.get(item.id);
+          const unmetDep = (step?.dependsOn ?? []).find((dep) => stepById.has(dep) && !canRun(dep));
+          if (unmetDep) {
+            runtimeWarnings.push(`Skipped "${item.id}": depends on "${unmetDep}", which was not applied.`);
+          }
+        }
       }
     }
     for (const step of steps) {
-      if (selected.has(step.id)) step.run();
+      if (canRun(step.id)) step.run();
     }
+    runtimeWarnings.push(...planWarnings);
   });
   run();
 
   const finalPlan = buildPlan(projectId, model);
-  return { applied, skipped, warnings: finalPlan.warnings };
+  const warnings = Array.from(new Set([...finalPlan.warnings, ...runtimeWarnings]));
+  return { applied, skipped, warnings };
 }

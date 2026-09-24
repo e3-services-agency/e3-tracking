@@ -206,9 +206,12 @@ export interface UpdateProjectInput {
  * a `key` colliding with a `bloomreach.ts` seed key or another addition in the same array is now
  * a 400 `STANDARD_EVENT_EXISTS`, not a silent drop (previously stored and then invisible —
  * `mergeStandardEvents` prefers the seed, so a seed-colliding addition round-tripped through the
- * API with no error and the UI's add form appeared to do nothing). `fields` must be a non-empty
- * array of snake_case strings, per the task brief; an empty/missing/non-array `fields`, or an
- * entry that is not a snake_case string, is now also a 400 instead of silently becoming `[]`.
+ * API with no error and the UI's add form appeared to do nothing). `fields` must be an array of
+ * snake_case strings, but may be empty (T-1-08 fix round ERROR 1: the data-mapping importer must
+ * be able to record an unknown standard event that names no fields of its own, e.g. only an
+ * `event` block with an empty filter — D-26 says the key is added unconditionally, not "only if it
+ * has fields"); a missing/non-array `fields`, or an entry that is not a snake_case string, is
+ * still a 400 instead of silently becoming `[]`.
  */
 function normalizeStandardEventAdditions(value: unknown): { key: string; fields: string[] }[] {
   if (!Array.isArray(value)) {
@@ -255,9 +258,9 @@ function normalizeStandardEventAdditions(value: unknown): { key: string; fields:
     }
     seenKeys.add(key);
 
-    if (!Array.isArray(row.fields) || row.fields.length === 0) {
+    if (!Array.isArray(row.fields)) {
       throw new ValidationError(
-        `Standard event "${key}" needs a non-empty "fields" array.`,
+        `Standard event "${key}" needs a "fields" array (may be empty).`,
         'standard_event_additions_json'
       );
     }

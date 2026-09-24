@@ -10,6 +10,8 @@ import { closeDb } from '../db';
 import * as ClientDAL from '../dal/client.dal';
 import * as ProjectDAL from '../dal/project.dal';
 import * as EventDAL from '../dal/event.dal';
+import * as PropertyDAL from '../dal/property.dal';
+import * as VariantDAL from '../dal/variant.dal';
 import { previewExpirationSettings, applyExpirationSettings } from './expirationSettingsImport.service';
 import { exportExpirationSettings } from './bloomreachExport.service';
 import { PayloadChangedError } from '../errors';
@@ -99,6 +101,100 @@ describe('applyExpirationSettings', () => {
     const summary = applyExpirationSettings(projectId, fixture, preview.payload_hash, selected);
     expect(summary.skipped).toEqual([consentItem.id]);
     expect(EventDAL.listEvents(projectId).find((e) => e.name === 'consent')).toBeUndefined();
+  });
+});
+
+// fix round (2026-09-24 22:36 reviewer FAIL) regression test.
+describe('fix round: ERROR 3 - a filtered expiration entry targets the Variant, not the Event', () => {
+  it('two entries for the same event type (one plain, one filtered) each get their own DiffItem and write the right target', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'cart_update' });
+    const property = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'action',
+      data_type: 'string',
+      allowed_values_json: [{ value: 'add' }],
+    });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: property.id, role: 'discriminator' });
+    VariantDAL.createVariant(projectId, event.id, {
+      conditions: [{ property_id: property.id, operator: 'equals', values: ['add'] }],
+    });
+
+    const raw = {
+      events: [
+        {
+          type: 'cart_update',
+          filter: [],
+          expiration: { enabled: true, duration: { count: 3, units: 'months' } },
+        },
+        {
+          type: 'cart_update',
+          filter: [
+            {
+              attribute: { property: 'action', type: 'property' },
+              constraint: { operands: [{ type: 'constant', value: 'add' }], operator: 'equals', type: 'string' },
+            },
+          ],
+          expiration: { enabled: true, duration: { count: 1, units: 'years' } },
+        },
+      ],
+      other: { enabled: false, duration: null },
+    };
+
+    const preview = previewExpirationSettings(projectId, raw);
+    const eventItem = preview.items.find((i) => i.entity_type === 'event' && i.entity_key === 'cart_update');
+    const variantItem = preview.items.find((i) => i.entity_type === 'variant');
+    expect(eventItem).toBeDefined();
+    expect(variantItem).toBeDefined();
+    expect(eventItem!.id).not.toBe(variantItem!.id); // unique per entry (no duplicate DiffItem ids)
+    expect(variantItem!.entity_key).toBe('cart_update[action=add]');
+
+    const summary = applyExpirationSettings(projectId, raw, preview.payload_hash, preview.items.map((i) => i.id));
+    expect(summary.skipped).toEqual([]);
+
+    const updatedEvent = EventDAL.listEvents(projectId).find((e) => e.name === 'cart_update')!;
+    expect(updatedEvent.expiration_json).toEqual({ enabled: true, count: 3, units: 'months' });
+
+    const variant = VariantDAL.listVariants(projectId, event.id).find((v) => v.name === 'cart_update[action=add]')!;
+    expect(variant.expiration_json).toEqual({ enabled: true, count: 1, units: 'years' });
+
+    // Export emits `filter` from the variant's own conditions, not the whole-event entry's [].
+    const exported = exportExpirationSettings(projectId);
+    const entries = (exported.events as { type: string; filter: unknown[]; expiration: unknown }[]).filter(
+      (e) => e.type === 'cart_update'
+    );
+    expect(entries).toHaveLength(2);
+    const filteredEntry = entries.find((e) => e.filter.length > 0)!;
+    expect(filteredEntry.filter).toEqual([
+      {
+        attribute: { property: 'action', type: 'property' },
+        constraint: { operands: [{ type: 'constant', value: 'add' }], operator: 'equals', type: 'string' },
+      },
+    ]);
+  });
+
+  it('warns and skips (never falls back to the Event) when the filter property is not a discriminator', () => {
+    EventDAL.createEvent(projectId, { name: 'cart_update' });
+    const raw = {
+      events: [
+        {
+          type: 'cart_update',
+          filter: [
+            {
+              attribute: { property: 'action', type: 'property' },
+              constraint: { operands: [{ type: 'constant', value: 'add' }], operator: 'equals', type: 'string' },
+            },
+          ],
+          expiration: { enabled: true, duration: { count: 1, units: 'years' } },
+        },
+      ],
+      other: { enabled: false, duration: null },
+    };
+    const preview = previewExpirationSettings(projectId, raw);
+    expect(preview.items.some((i) => i.entity_type === 'event' || i.entity_type === 'variant')).toBe(false);
+    expect(preview.warnings.some((w) => w.includes('action') && w.includes('discriminator'))).toBe(true);
+
+    const updatedEvent = EventDAL.listEvents(projectId).find((e) => e.name === 'cart_update')!;
+    expect(updatedEvent.expiration_json).toBeNull();
   });
 });
 

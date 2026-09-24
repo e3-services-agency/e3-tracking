@@ -89,12 +89,19 @@ function ImportBox({
   const handleApply = async () => {
     if (!preview) return;
     setError(null);
+    let payload: unknown;
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      setError('This is not valid JSON.');
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/import/${format}/apply`, {
         method: 'POST',
         body: JSON.stringify({
-          payload: JSON.parse(text),
+          payload,
           payload_hash: preview.payload_hash,
           selected_item_ids: Array.from(selected),
         }),
@@ -195,6 +202,14 @@ function ImportBox({
       {summary && (
         <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
           Applied {summary.applied.length} item(s){summary.skipped.length > 0 ? `, skipped ${summary.skipped.length}` : ''}.
+        </div>
+      )}
+
+      {summary && summary.warnings.length > 0 && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 space-y-1">
+          {summary.warnings.map((w, i) => (
+            <div key={i}>{w}</div>
+          ))}
         </div>
       )}
     </div>

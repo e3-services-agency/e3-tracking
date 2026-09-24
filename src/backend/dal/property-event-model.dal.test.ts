@@ -441,6 +441,26 @@ describe('event.dal: event field validation (fix round ERROR 1)', () => {
     );
   });
 
+  it('rejects a half-filled duration when disabled (T-1-08 fix round LOW 10: count/units must be provided together)', () => {
+    expect(() =>
+      EventDAL.createEvent(projectId, { name: 'e7b', expiration_json: { enabled: false, count: 3, units: null } })
+    ).toThrow(BadRequestError);
+    expect(() =>
+      EventDAL.createEvent(projectId, { name: 'e7c', expiration_json: { enabled: false, count: null, units: 'days' } })
+    ).toThrow(BadRequestError);
+    // both null (disabled, no remembered duration) and both provided (disabled, remembers a duration) are still fine.
+    const cleared = EventDAL.createEvent(projectId, {
+      name: 'e7d',
+      expiration_json: { enabled: false, count: null, units: null },
+    });
+    expect(cleared.expiration_json).toEqual({ enabled: false, count: null, units: null });
+    const remembered = EventDAL.createEvent(projectId, {
+      name: 'e7e',
+      expiration_json: { enabled: false, count: 3, units: 'days' },
+    });
+    expect(remembered.expiration_json).toEqual({ enabled: false, count: 3, units: 'days' });
+  });
+
   it('rejects malformed derived_metrics_json and non-string tags_json entries', () => {
     expect(() => EventDAL.createEvent(projectId, { name: 'e8', derived_metrics_json: 'revenue' as any })).toThrow(
       BadRequestError
@@ -820,16 +840,18 @@ describe('project.dal: standard_event_additions_json validation (fix round WARNI
     ).toThrow(StandardEventExistsError);
   });
 
-  it('rejects a missing/non-array/empty "fields"', () => {
+  it('rejects a missing/non-array "fields"', () => {
     expect(() =>
       ProjectDAL.updateProject(projectId, { standard_event_additions_json: [{ key: 'k1' }] })
     ).toThrow(BadRequestError);
     expect(() =>
       ProjectDAL.updateProject(projectId, { standard_event_additions_json: [{ key: 'k2', fields: 'a' }] })
     ).toThrow(BadRequestError);
-    expect(() =>
-      ProjectDAL.updateProject(projectId, { standard_event_additions_json: [{ key: 'k3', fields: [] }] })
-    ).toThrow(BadRequestError);
+  });
+
+  it('accepts an empty "fields" array (T-1-08 fix round ERROR 1: an unknown standard event with no fields of its own, e.g. only an `event` block)', () => {
+    const updated = ProjectDAL.updateProject(projectId, { standard_event_additions_json: [{ key: 'k3', fields: [] }] });
+    expect(updated.standard_event_additions_json).toEqual([{ key: 'k3', fields: [] }]);
   });
 
   it('rejects a non-snake_case field name', () => {

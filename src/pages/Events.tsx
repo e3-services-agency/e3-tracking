@@ -68,7 +68,8 @@ async function parseJson(res: Response): Promise<any> {
 }
 
 function expirationSummary(expiration: ExpirationValue | null): string {
-  if (!expiration || !expiration.enabled) return 'project default';
+  if (!expiration) return 'project default';
+  if (!expiration.enabled) return 'Disabled';
   return `${expiration.count} ${expiration.units}`;
 }
 

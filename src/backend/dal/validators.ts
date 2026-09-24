@@ -28,6 +28,9 @@ export function validateExpirationJson(value: unknown, field: string): void {
   }
   const countProvided = v.count !== null && v.count !== undefined;
   const unitsProvided = v.units !== null && v.units !== undefined;
+  if (countProvided !== unitsProvided) {
+    throw new BadRequestError(`${field}.count and ${field}.units must be provided together.`, field);
+  }
   if (v.enabled || countProvided) {
     if (!Number.isInteger(v.count) || (v.count as number) <= 0) {
       throw new BadRequestError(`${field}.count must be a positive integer.`, field);

@@ -87,6 +87,30 @@ describe('data-mapping import/export', () => {
   });
 });
 
+describe('malformed JSON body (T-1-08 fix round LOW 8)', () => {
+  it('maps a body-parser JSON syntax error to 400 INVALID_JSON, not 500', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/import/data-mapping/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: 'not json',
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('INVALID_JSON');
+  });
+
+  it('maps a bare JSON literal (e.g. 42, rejected by strict mode) to 400 INVALID_JSON', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/import/data-mapping/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '42',
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('INVALID_JSON');
+  });
+});
+
 describe('expiration-settings import/export', () => {
   it('preview then apply creates events and the export diffs clean', async () => {
     const preview = await postJson(

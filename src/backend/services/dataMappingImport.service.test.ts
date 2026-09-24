@@ -178,3 +178,199 @@ describe('exportDataMapping round trip', () => {
     expect(normalize(exported)).toEqual(normalize(fixture));
   });
 });
+
+// fix round (2026-09-24 22:36 reviewer FAIL) regression tests.
+describe('fix round: ERROR 1 - unknown standard event/consent keys applied end to end', () => {
+  it('applies an unknown standard event key (with fields) and adds a project_addition before the mapping', () => {
+    const raw = { standard_events: { travel_booking: { event: { type: 'booking', filter: [] }, price: { property: 'price' } } } };
+    const preview = previewDataMapping(projectId, raw);
+    const additionItem = preview.items.find((i) => i.id === 'project_addition:standard_event:travel_booking')!;
+    expect(additionItem).toBeDefined();
+    const mappingItem = preview.items.find((i) => i.id === 'standard_event_mapping:travel_booking')!;
+    expect(mappingItem).toBeDefined();
+    // Addition step comes before the mapping step in the plan (apply order).
+    expect(preview.items.indexOf(additionItem)).toBeLessThan(preview.items.indexOf(mappingItem));
+
+    const summary = applyDataMapping(projectId, raw, preview.payload_hash, preview.items.map((i) => i.id));
+    expect(summary.applied).toContain('project_addition:standard_event:travel_booking');
+    expect(summary.applied).toContain('standard_event_mapping:travel_booking');
+    expect(summary.skipped).toEqual([]);
+
+    const project = ProjectDAL.getProjectOrThrow(projectId);
+    expect(project.standard_event_additions_json).toEqual([{ key: 'travel_booking', fields: ['price'] }]);
+    const mapping = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'travel_booking');
+    expect(mapping).not.toBeNull();
+  });
+
+  it('applies an unknown standard event key with no other fields (empty field list addition)', () => {
+    const raw = { standard_events: { loyalty_scan: { event: { type: 'loyalty_scan', filter: [] } } } };
+    const preview = previewDataMapping(projectId, raw);
+    const additionItem = preview.items.find((i) => i.id === 'project_addition:standard_event:loyalty_scan')!;
+    expect(additionItem).toBeDefined();
+
+    const summary = applyDataMapping(projectId, raw, preview.payload_hash, preview.items.map((i) => i.id));
+    expect(summary.applied).toContain('project_addition:standard_event:loyalty_scan');
+    expect(summary.applied).toContain('standard_event_mapping:loyalty_scan');
+
+    const project = ProjectDAL.getProjectOrThrow(projectId);
+    expect(project.standard_event_additions_json).toEqual([{ key: 'loyalty_scan', fields: [] }]);
+  });
+
+  it('applies an unknown standard consent key end to end', () => {
+    const raw = { consents: { loyalty_program: 'loyalty_consent' } };
+    const preview = previewDataMapping(projectId, raw);
+    const additionItem = preview.items.find((i) => i.id === 'project_addition:consent_key:loyalty_program')!;
+    const consentItem = preview.items.find((i) => i.id === 'consent:loyalty_program')!;
+    expect(additionItem).toBeDefined();
+    expect(consentItem).toBeDefined();
+    expect(preview.items.indexOf(additionItem)).toBeLessThan(preview.items.indexOf(consentItem));
+
+    const summary = applyDataMapping(projectId, raw, preview.payload_hash, preview.items.map((i) => i.id));
+    expect(summary.skipped).toEqual([]);
+    const project = ProjectDAL.getProjectOrThrow(projectId);
+    expect(project.consent_key_additions_json).toEqual(['loyalty_program']);
+    const consent = ConsentCategoryDAL.listConsentCategories(projectId).find((c) => c.standard_key === 'loyalty_program');
+    expect(consent?.name).toBe('loyalty_consent');
+  });
+});
+
+describe('fix round: ERROR 2 - a changed filter value repoints the mapping', () => {
+  it('re-import with a changed operand value creates the new variant and repoints add_to_cart at it', () => {
+    const first = previewDataMapping(projectId, fixture);
+    applyDataMapping(projectId, fixture, first.payload_hash, first.items.map((i) => i.id));
+
+    const changed = JSON.parse(JSON.stringify(fixture));
+    changed.standard_events.add_to_cart.event.filter[0].constraint.operands[0].value = 'added';
+
+    const preview = previewDataMapping(projectId, changed);
+    const variantItem = preview.items.find((i) => i.entity_type === 'variant' && i.entity_key === 'cart_update[action=added]');
+    expect(variantItem).toBeDefined();
+    const mappingItem = preview.items.find((i) => i.id === 'standard_event_mapping:add_to_cart')!;
+    expect(mappingItem).toBeDefined();
+    expect(mappingItem.op).toBe('update');
+    expect(mappingItem.changes.some((c) => c.field === 'variant')).toBe(true);
+
+    const summary = applyDataMapping(projectId, changed, preview.payload_hash, preview.items.map((i) => i.id));
+    expect(summary.skipped).toEqual([]);
+
+    const mapping = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'add_to_cart')!;
+    const cartUpdate = EventDAL.listEvents(projectId).find((e) => e.name === 'cart_update')!;
+    const variants = VariantDAL.listVariants(projectId, cartUpdate.id);
+    const newVariant = variants.find((v) => v.name === 'cart_update[action=added]')!;
+    expect(mapping.variant_id).toBe(newVariant.id);
+
+    // A second preview is empty: the export now emits "added", proving the mapping actually moved.
+    const second = previewDataMapping(projectId, changed);
+    expect(second.items).toEqual([]);
+    const exported = exportDataMapping(projectId);
+    const addToCart = (exported.standard_events as Record<string, { event: { filter: { constraint: { operands: { value: string }[] } }[] } }>).add_to_cart;
+    expect(addToCart.event.filter[0].constraint.operands[0].value).toBe('added');
+
+    // The old variant is left in place but is no longer referenced by any mapping (warned).
+    const oldVariant = variants.find((v) => v.name === 'cart_update[action=add]');
+    expect(oldVariant).toBeDefined();
+    expect(summary.warnings.some((w) => w.includes('cart_update[action=add]') && w.includes('no longer mapped'))).toBe(true);
+  });
+});
+
+describe('fix round: ERROR 5 - promoting a pre-linked "normal" filter attribute to discriminator', () => {
+  it('promotes the property role before creating the variant, when events are defined before the mapping is pasted', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'cart_update' });
+    const property = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'action', data_type: 'string' });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: property.id, role: 'normal' });
+
+    const preview = previewDataMapping(projectId, fixture);
+    const promotionItem = preview.items.find((i) => i.id === 'event_property:cart_update.action:role')!;
+    expect(promotionItem).toBeDefined();
+    expect(promotionItem.op).toBe('update');
+    expect(promotionItem.changes).toEqual([{ field: 'role', before: 'normal', after: 'discriminator' }]);
+
+    const summary = applyDataMapping(projectId, fixture, preview.payload_hash, preview.items.map((i) => i.id));
+    expect(summary.skipped).toEqual([]);
+
+    const { properties } = EventDAL.getEventWithProperties(projectId, event.id);
+    const link = properties.find((p) => p.property_id === property.id)!;
+    expect(link.role).toBe('discriminator');
+
+    const variants = VariantDAL.listVariants(projectId, event.id);
+    expect(variants.map((v) => v.name)).toContain('cart_update[action=add]');
+  });
+});
+
+describe('fix round: ERROR 4 - property rename between two imports is picked up fresh', () => {
+  it('resolves the renamed property by its new name on a second import, without a stale-cache duplicate', () => {
+    const first = previewDataMapping(projectId, fixture);
+    applyDataMapping(projectId, fixture, first.payload_hash, first.items.map((i) => i.id));
+
+    const actionProperty = PropertyDAL.listProperties(projectId, { scope: 'event' }).find((p) => p.name === 'action')!;
+    PropertyDAL.updateProperty(projectId, actionProperty.id, { name: 'cart_action' });
+
+    const renamed = JSON.parse(JSON.stringify(fixture));
+    renamed.standard_events.add_to_cart.event.filter[0].attribute.property = 'cart_action';
+
+    const preview = previewDataMapping(projectId, renamed);
+    // No duplicate "create variant" or "create property" proposed: the existing variant/property
+    // resolve correctly under the new name.
+    expect(preview.items.filter((i) => i.entity_type === 'variant')).toEqual([]);
+    expect(preview.items.some((i) => i.entity_type === 'property' && i.entity_key === 'cart_action')).toBe(false);
+
+    const summary = applyDataMapping(projectId, renamed, preview.payload_hash, preview.items.map((i) => i.id));
+    expect(summary.skipped).toEqual([]);
+
+    const mapping = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'add_to_cart')!;
+    expect(mapping.variant_id).not.toBeNull();
+    const cartUpdate = EventDAL.listEvents(projectId).find((e) => e.name === 'cart_update')!;
+    const variant = VariantDAL.listVariants(projectId, cartUpdate.id).find((v) => v.id === mapping.variant_id)!;
+    expect(variant.name).toBe('cart_update[cart_action=add]');
+  });
+});
+
+describe('fix round: WARNING 6 - dependency-deselected steps are reported skipped, not partially written', () => {
+  it('skips the variant and the mapping (never variant_id: null) when their property dependency is deselected', () => {
+    const preview = previewDataMapping(projectId, fixture);
+    const propertyItemId = 'property:event:action';
+    const variantItemId = preview.items.find((i) => i.entity_type === 'variant' && i.entity_key === 'cart_update[action=add]')!.id;
+    const mappingItemId = 'standard_event_mapping:add_to_cart';
+    const selected = preview.items.map((i) => i.id).filter((id) => id !== propertyItemId);
+
+    const summary = applyDataMapping(projectId, fixture, preview.payload_hash, selected);
+    expect(summary.skipped).toEqual(expect.arrayContaining([variantItemId, mappingItemId]));
+    expect(summary.applied).not.toContain(variantItemId);
+    expect(summary.applied).not.toContain(mappingItemId);
+    expect(summary.warnings.some((w) => w.includes(variantItemId) || w.includes(mappingItemId))).toBe(true);
+
+    const mapping = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'add_to_cart');
+    expect(mapping).toBeNull();
+    const events = EventDAL.listEvents(projectId);
+    const cartUpdate = events.find((e) => e.name === 'cart_update')!;
+    expect(VariantDAL.listVariants(projectId, cartUpdate.id)).toEqual([]);
+  });
+
+  it('does not create a variant when only the variant item is selected on an empty project', () => {
+    const preview = previewDataMapping(projectId, fixture);
+    const variantItemId = preview.items.find((i) => i.entity_type === 'variant' && i.entity_key === 'cart_update[action=add]')!.id;
+
+    const summary = applyDataMapping(projectId, fixture, preview.payload_hash, [variantItemId]);
+    expect(summary.applied).toEqual([]);
+    expect(summary.skipped).toContain(variantItemId);
+    expect(EventDAL.listEvents(projectId)).toEqual([]);
+  });
+});
+
+describe('fix round: WARNING 7 - DiffItem.changes is populated for standard_event_mapping updates', () => {
+  it('shows event/field_map_json before-after on an update', () => {
+    const first = previewDataMapping(projectId, fixture);
+    applyDataMapping(projectId, fixture, first.payload_hash, first.items.map((i) => i.id));
+
+    const changed = JSON.parse(JSON.stringify(fixture));
+    changed.standard_events.purchase_item.total_price = null;
+
+    const preview = previewDataMapping(projectId, changed);
+    const mappingItem = preview.items.find((i) => i.id === 'standard_event_mapping:purchase_item')!;
+    expect(mappingItem.changes.length).toBeGreaterThan(0);
+    const fieldChange = mappingItem.changes.find((c) => c.field === 'field_map_json')!;
+    expect(fieldChange).toBeDefined();
+    expect((fieldChange.before as Record<string, string | null>).total_price).toBe('price');
+    expect((fieldChange.after as Record<string, string | null>).total_price).toBeNull();
+  });
+});

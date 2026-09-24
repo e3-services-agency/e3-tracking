@@ -90,10 +90,22 @@ export function createApp(): express.Express {
 
   // Global error handler: expose error.message and error.stack in JSON so the Network tab shows the real error.
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction): void => {
+    if (res.headersSent) return;
+
+    // fix round LOW 8: `express.json()` throws a plain `SyntaxError` (type `entity.parse.failed`)
+    // for malformed JSON (e.g. a bare word like `abc`, or a bare `null`/number, which `strict`
+    // mode also rejects at the top level) — this used to fall through to the generic 500
+    // INTERNAL_ERROR branch below with a stack trace, even though it is entirely the caller's
+    // fault. The Import page's preview/apply endpoints are the first to take arbitrary pasted
+    // JSON as the whole request body, so this is now reachable from normal use, not just a test.
+    if (err instanceof SyntaxError && (err as SyntaxError & { type?: string; status?: number }).type === 'entity.parse.failed') {
+      res.status(400).json({ error: 'Request body is not valid JSON.', code: 'INVALID_JSON' });
+      return;
+    }
+
     if (!(err instanceof BadRequestError)) {
       console.error(err);
     }
-    if (res.headersSent) return;
     const message = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : undefined;
     const code =

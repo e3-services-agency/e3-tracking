@@ -50,6 +50,8 @@ import * as PropertyDAL from '../dal/property.dal';
 import * as ObservationDAL from '../dal/observation.dal';
 import * as QaRunDAL from '../dal/qa-run.dal';
 import * as FindingDAL from '../dal/finding.dal';
+import * as ConsentCategoryDAL from '../dal/consent-category.dal';
+import * as CatalogDAL from '../dal/catalog.dal';
 import * as RuleDAL from '../dal/rule.dal';
 import { createEventResolver } from './eventResolution';
 import {
@@ -67,11 +69,17 @@ import {
   runDefinitionVsDataManager,
   type DataManagerDefinitionSnapshot,
   type DataManagerEvidence,
+  type DmDefCustomerProperty,
 } from '../../domain/comparison/definitionVsDataManager';
+import { runDefinitionVsMapping, type DefinitionVsMappingInput } from '../../domain/comparison/definitionVsMapping';
+import { runMappingVsObservations } from '../../domain/comparison/mappingVsObservations';
+import { toDataManagerDefinitionSnapshot, buildMappingSnapshotFromDefinition, type MappingSnapshot, type DefConsentCategory } from '../../domain/comparison/snapshot';
 import { runRules, runItemSchemaChecks, type ItemSchemaCheck, type RulesEngineRule } from '../../domain/rules/runRules';
+import { refKey } from '../../domain/rules/types';
 import type { ItemSchemaField, RulePropertyRef, RuleSnapshot } from '../../domain/rules/types';
 import { parseDataManagerEvents, type DataManagerEventsModel } from '../../domain/import/dataManagerEvents';
 import { parseDataManagerCustomers, type DataManagerCustomersModel } from '../../domain/import/dataManagerCustomers';
+import { mergeStandardEvents, mergeConsentKeys, STANDARD_CUSTOMER_PROPERTIES, type StandardEventSeed } from '../../domain/bloomreach';
 import type { AllowedValue } from '../dal/property.dal';
 import type { ComparisonId, FindingKind } from '../../domain/enums';
 
@@ -105,6 +113,16 @@ export function buildDefinitionSnapshot(projectId: string): DefinitionSnapshot {
         data_type: link.property.data_type,
         data_formats: Array.isArray(link.property.data_formats_json) ? (link.property.data_formats_json as string[]) : [],
         allowed_values: allowedValuesRaw.length > 0 ? allowedValuesRaw.map((v) => v.value) : null,
+        // T-2-05: carried through for `definitionVsMapping.ts`'s `unmapped_standard_event` check.
+        allowed_value_hints:
+          allowedValuesRaw.length > 0
+            ? allowedValuesRaw.map((v) => ({ value: v.value, standard_event: v.standard_event ?? null }))
+            : undefined,
+        // T-2-05 fix round Finding 1: carried through so `buildRuleSnapshot`/`buildItemSchemaChecks`
+        // never need a second `getEventWithProperties` read.
+        item_schema: Array.isArray(link.property.item_schema_json)
+          ? (link.property.item_schema_json as DefEventProperty['item_schema'])
+          : null,
       };
     });
     return {
@@ -191,32 +209,16 @@ function qaRunIdForFinding(finding: EngineFinding, qaRunIdByObservationId: Map<s
 }
 
 /**
- * `DataManagerDefinitionSnapshot` for comparison 4 (T-2-04): every event's `custom`-only property
- * links (event scope) plus every customer-scope Property, both reduced to just the name/data
- * type/formats the engine compares against Data Manager. Built separately from
- * `buildDefinitionSnapshot` (comparison 3's snapshot) since the two engines need different shapes
- * of the same underlying `Event`/`Property` rows and there is no shared consumer of the combined
- * shape yet (plan's `snapshot.ts` extension is deferred to whichever later task actually needs one
- * `DefinitionSnapshot` shared by every comparison).
+ * `DataManagerDefinitionSnapshot` for comparison 4 (T-2-04, T-2-05 delta). T-2-05 fix (T-2-04
+ * review LOW: "one recompute now calls `listEvents` three times"): derived by the pure
+ * `snapshot.ts#toDataManagerDefinitionSnapshot` from the *already-loaded* comparison-3
+ * `DefinitionSnapshot` instead of re-querying `EventDAL.listEvents`/`getEventWithProperties` —
+ * `DefEventProperty` is a strict superset of what comparison 4 needs. Customer-scope properties
+ * still need their own `PropertyDAL.listProperties(scope: 'customer')` read (a different table,
+ * not part of the `listEvents` duplication this fix removes).
  */
-export function buildDataManagerDefinitionSnapshot(projectId: string): DataManagerDefinitionSnapshot {
-  const events: DataManagerDefinitionSnapshot['events'] = EventDAL.listEvents(projectId).map((event) => {
-    const { properties } = EventDAL.getEventWithProperties(projectId, event.id);
-    return {
-      id: event.id,
-      name: event.name,
-      status: event.status,
-      class: event.class,
-      properties: properties.map((link) => ({
-        property_id: link.property_id,
-        name: link.property.name,
-        data_type: link.property.data_type,
-        data_formats: Array.isArray(link.property.data_formats_json) ? (link.property.data_formats_json as string[]) : [],
-      })),
-    };
-  });
-
-  const customer_properties: DataManagerDefinitionSnapshot['customer_properties'] = PropertyDAL.listProperties(projectId, {
+export function buildDataManagerDefinitionSnapshot(projectId: string, definition: DefinitionSnapshot): DataManagerDefinitionSnapshot {
+  const customer_properties: DmDefCustomerProperty[] = PropertyDAL.listProperties(projectId, {
     scope: 'customer',
   }).map((p) => ({
     property_id: p.id,
@@ -225,7 +227,54 @@ export function buildDataManagerDefinitionSnapshot(projectId: string): DataManag
     data_formats: Array.isArray(p.data_formats_json) ? (p.data_formats_json as string[]) : [],
   }));
 
-  return { events, customer_properties };
+  return toDataManagerDefinitionSnapshot(definition, customer_properties);
+}
+
+/**
+ * `MappingSnapshot` for comparisons 1 and 2 (T-2-05), built from the already-loaded `definition`
+ * (events/variants/standard event mappings, no extra `listEvents` call) plus the standard-event
+ * seed list, consent categories and catalog existence, each a small dedicated DAL read.
+ */
+export function buildMappingSnapshot(projectId: string, definition: DefinitionSnapshot): MappingSnapshot {
+  const project = ProjectDAL.getProjectOrThrow(projectId);
+  const standardAdditions = (project.standard_event_additions_json as StandardEventSeed[] | null) ?? [];
+  const allStandardEvents = mergeStandardEvents(standardAdditions);
+  const consentAdditions = (project.consent_key_additions_json as string[] | null) ?? [];
+  const consentKeys = mergeConsentKeys(consentAdditions);
+  const consentCategories: DefConsentCategory[] = ConsentCategoryDAL.listConsentCategories(projectId).map((c) => ({
+    name: c.name,
+    standard_key: c.standard_key,
+  }));
+  const customerProps = PropertyDAL.listProperties(projectId, { scope: 'customer' });
+  const customerPropertiesByStandardKey: Record<string, string | null> = {};
+  for (const key of STANDARD_CUSTOMER_PROPERTIES) {
+    const prop = customerProps.find((p) => p.bloomreach_customer_property === key);
+    customerPropertiesByStandardKey[key] = prop ? prop.name : null;
+  }
+  const meta = (project.bloomreach_mapping_meta_json ?? null) as { catalogs?: { main?: string | null; variant?: string | null } } | null;
+  const catalogs = { main: meta?.catalogs?.main ?? null, variant: meta?.catalogs?.variant ?? null };
+
+  return buildMappingSnapshotFromDefinition(
+    definition,
+    allStandardEvents,
+    consentCategories,
+    consentKeys,
+    customerPropertiesByStandardKey,
+    catalogs
+  );
+}
+
+/** `DefinitionVsMappingInput` for comparison 1 (T-2-05): the subset of `definition` plus catalog existence and consent categories. */
+export function buildDefinitionVsMappingInput(projectId: string, definition: DefinitionSnapshot): DefinitionVsMappingInput {
+  const consentCategories: DefConsentCategory[] = ConsentCategoryDAL.listConsentCategories(projectId).map((c) => ({
+    name: c.name,
+    standard_key: c.standard_key,
+  }));
+  return {
+    events: definition.events,
+    hasCatalog: CatalogDAL.listCatalogs(projectId).length > 0,
+    consentCategories,
+  };
 }
 
 /** Parses the project's two stored Data Manager snapshots (T-2-04); absent snapshot -> `null` (no findings, see `definitionVsDataManager.ts`'s module comment). */
@@ -241,22 +290,29 @@ export function buildDataManagerEvidence(projectId: string): DataManagerEvidence
 }
 
 /**
- * `RuleSnapshot.propertiesById` for the whole project (T-2-07): every event's linked properties,
- * not just one event's — a `cross_event` rule's `child` side needs to resolve a *different*
- * event's properties than the rule's own `event_id`, so the snapshot the evaluator gets must cover
- * every event up front rather than being rebuilt per rule.
+ * `RuleSnapshot.propertiesById` for the whole project (T-2-07), derived from the already-loaded
+ * `DefinitionSnapshot` (T-2-05 fix round Finding 1: no extra `EventDAL.listEvents`/
+ * `getEventWithProperties` calls — `definition.events[].properties[]` already carries every
+ * event's own linked-property rows, `payload_key` and `item_schema` included). Every event's
+ * properties are covered, not just one event's — a `cross_event` rule's `child` side needs to
+ * resolve a *different* event's properties than the rule's own `event_id`.
+ *
+ * Keyed by `refKey(event.id, property.property_id)` (T-2-05 fix round Finding 2, `types.ts`'s
+ * `RuleSnapshot` doc comment), not bare `property_id`: the same `Property` row can be linked to more
+ * than one event with a different per-link `payload_key` on each (D-16, e.g. `purchase_id` linked to
+ * both `purchase` and `purchase_item`) — keying by `property_id` alone silently kept only whichever
+ * event's link this loop visited last.
  */
-export function buildRuleSnapshot(projectId: string): RuleSnapshot {
+export function buildRuleSnapshot(projectId: string, definition: DefinitionSnapshot): RuleSnapshot {
   const project = ProjectDAL.getProjectOrThrow(projectId);
   const propertiesById: Record<string, RulePropertyRef> = {};
-  for (const event of EventDAL.listEvents(projectId)) {
-    const { properties } = EventDAL.getEventWithProperties(projectId, event.id);
-    for (const link of properties) {
-      propertiesById[link.property_id] = {
-        property_id: link.property_id,
-        payload_key: link.payload_key ?? link.property.name,
-        data_type: link.property.data_type,
-        item_schema: (link.property.item_schema_json as ItemSchemaField[] | null) ?? null,
+  for (const event of definition.events) {
+    for (const prop of event.properties) {
+      propertiesById[refKey(event.id, prop.property_id)] = {
+        property_id: prop.property_id,
+        payload_key: prop.payload_key ?? prop.name,
+        data_type: prop.data_type,
+        item_schema: (prop.item_schema as ItemSchemaField[] | null | undefined) ?? null,
       };
     }
   }
@@ -297,19 +353,21 @@ export function buildRulesEngineRules(projectId: string, customEventIds: Iterabl
 }
 
 /** Every array-typed linked property with a non-empty `item_schema_json` on a *custom*-class event
- * (T-2-07, D-30 ItemSchema). */
-export function buildItemSchemaChecks(projectId: string, customEventIds: Iterable<string>): ItemSchemaCheck[] {
+ * (T-2-07, D-30 ItemSchema). T-2-05 fix round Finding 1: derived from the already-loaded
+ * `DefinitionSnapshot`, no `getEventWithProperties` read per event. */
+export function buildItemSchemaChecks(definition: DefinitionSnapshot, customEventIds: Iterable<string>): ItemSchemaCheck[] {
+  const customEventIdSet = new Set(customEventIds);
   const checks: ItemSchemaCheck[] = [];
-  for (const eventId of customEventIds) {
-    const { properties } = EventDAL.getEventWithProperties(projectId, eventId);
-    for (const link of properties) {
-      const itemSchema = (link.property.item_schema_json as ItemSchemaField[] | null) ?? null;
-      if (link.property.data_type !== 'array' || !itemSchema || itemSchema.length === 0) continue;
+  for (const event of definition.events) {
+    if (!customEventIdSet.has(event.id)) continue;
+    for (const prop of event.properties) {
+      const itemSchema = (prop.item_schema as ItemSchemaField[] | null | undefined) ?? null;
+      if (prop.data_type !== 'array' || !itemSchema || itemSchema.length === 0) continue;
       checks.push({
-        event_id: eventId,
-        property_id: link.property_id,
-        property_name: link.property.name,
-        payload_key: link.payload_key ?? link.property.name,
+        event_id: event.id,
+        property_id: prop.property_id,
+        property_name: prop.name,
+        payload_key: prop.payload_key ?? prop.name,
         item_schema: itemSchema,
       });
     }
@@ -370,20 +428,26 @@ function upsertAndResolve(projectId: string, run: EngineRun): { open: Record<str
  * `open`/`produced`/`resolved`) and `by_comparison`, keyed by `ComparisonId`.
  */
 export function runComparison(projectId: string): ComparisonSummary {
+  // T-2-05: `definition` is the one `EventDAL.listEvents` call for the whole recompute; every other
+  // engine's own snapshot (`dataManagerDefinition`, `mappingSnapshot`, `definitionVsMappingInput`) is
+  // derived from it purely, or reads a different, small table (customer properties, consent
+  // categories, catalogs) — never a second `listEvents` (T-2-04 review LOW, snapshot builder spy test).
   const definition = buildDefinitionSnapshot(projectId);
   const resolve = createEventResolver(projectId);
   const { observations, qaRunIdByObservationId } = buildEngineObservations(projectId, resolve);
-  const dataManagerDefinition = buildDataManagerDefinitionSnapshot(projectId);
+  const dataManagerDefinition = buildDataManagerDefinitionSnapshot(projectId, definition);
   const dataManagerEvidence = buildDataManagerEvidence(projectId);
+  const mappingSnapshot = buildMappingSnapshot(projectId, definition);
+  const definitionVsMappingInput = buildDefinitionVsMappingInput(projectId, definition);
 
   // T-2-07: the rules evaluator and item schema checks run as part of `definition_vs_observations`
   // (plan "Rules evaluator" / "T-2-07"), not a separate comparison — their findings are merged
   // into the same engine's output array before upsert, so they share its stale-fingerprint
   // resolution scope.
   const customEventIds = definition.events.filter((e) => e.class === 'custom').map((e) => e.id);
-  const ruleSnapshot = buildRuleSnapshot(projectId);
+  const ruleSnapshot = buildRuleSnapshot(projectId, definition);
   const rulesEngineRules = buildRulesEngineRules(projectId, customEventIds);
-  const itemSchemaChecks = buildItemSchemaChecks(projectId, customEventIds);
+  const itemSchemaChecks = buildItemSchemaChecks(definition, customEventIds);
 
   const runs: EngineRun[] = [
     {
@@ -399,6 +463,16 @@ export function runComparison(projectId: string): ComparisonSummary {
       comparison: 'data_manager',
       findings: runDefinitionVsDataManager(dataManagerDefinition, dataManagerEvidence),
       qaRunIdByObservationId: null,
+    },
+    {
+      comparison: 'definition_vs_mapping',
+      findings: runDefinitionVsMapping(definitionVsMappingInput, mappingSnapshot),
+      qaRunIdByObservationId: null,
+    },
+    {
+      comparison: 'mapping_vs_observations',
+      findings: runMappingVsObservations(definition.events, mappingSnapshot, observations),
+      qaRunIdByObservationId,
     },
   ];
 

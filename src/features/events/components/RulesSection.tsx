@@ -49,6 +49,9 @@ interface RuleTemplateSummary {
   name: string;
   description: string;
   applicable: boolean;
+  /** T-2-05 fix round (T-2-07 review WARNING 3): why `applicable` is `false`, from the DAL's
+   * `RuleTemplate.reason`; `null` when `applicable` is `true`. */
+  reason: string | null;
 }
 
 async function parseJson(res: Response): Promise<any> {
@@ -107,6 +110,9 @@ export function RulesSection({
   const [form, setForm] = useState(emptyForm());
   const [creating, setCreating] = useState(false);
   const [applyingTemplate, setApplyingTemplate] = useState<string | null>(null);
+  // T-2-05 fix round (T-2-07 review WARNING 3, D-07 simplified UI): the non-applicable templates
+  // collapse behind this toggle instead of always showing as disabled buttons.
+  const [showNotApplicable, setShowNotApplicable] = useState(false);
 
   const load = useCallback(async () => {
     const [rulesRes, templatesRes, variantsRes] = await Promise.all([
@@ -264,22 +270,55 @@ export function RulesSection({
       <h3 className="text-sm font-semibold text-gray-900">Rules</h3>
 
       {templates.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {templates.map((t) => (
-            <Button
-              key={t.key}
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!t.applicable || applyingTemplate === t.key}
-              title={t.applicable ? t.description : `Not applicable: ${t.description}`}
-              onClick={() => void handleApplyTemplate(t.key)}
-              className="gap-1"
-            >
-              {applyingTemplate === t.key ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-              {t.name}
-            </Button>
-          ))}
+        <div className="space-y-1">
+          {(() => {
+            const applicableTemplates = templates.filter((t) => t.applicable);
+            const notApplicableTemplates = templates.filter((t) => !t.applicable);
+            return (
+              <>
+                {applicableTemplates.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {applicableTemplates.map((t) => (
+                      <Button
+                        key={t.key}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={applyingTemplate === t.key}
+                        title={t.description}
+                        onClick={() => void handleApplyTemplate(t.key)}
+                        className="gap-1"
+                      >
+                        {applyingTemplate === t.key ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                        {t.name}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+                {notApplicableTemplates.length > 0 && (
+                  <div className="text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setShowNotApplicable((v) => !v)}
+                      className="text-gray-500 hover:text-gray-700 underline"
+                    >
+                      {showNotApplicable ? 'Hide' : 'Show'} {notApplicableTemplates.length} not-applicable template
+                      {notApplicableTemplates.length === 1 ? '' : 's'}
+                    </button>
+                    {showNotApplicable && (
+                      <ul className="mt-1 space-y-1 text-gray-500">
+                        {notApplicableTemplates.map((t) => (
+                          <li key={t.key}>
+                            <span className="font-medium text-gray-600">{t.name}:</span> {t.reason ?? t.description}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
 

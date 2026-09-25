@@ -68,6 +68,14 @@ beforeEach(() => {
       EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: created.id, role: 'normal' });
     }
   }
+
+  // T-2-05 fix round ruling (T-2-07 LOW 4, D-25 Q12): the purchase_items_total rule template is now
+  // only proposed once total_price already carries the money format, which the first apply above
+  // predates (it retypes total_price afterward) — re-preview/apply the same mapping fixture so the
+  // rule actually gets created (idempotent no-op on every other item, matching
+  // dataMappingImport.service.test.ts's own two-step pattern).
+  const secondPreview = previewDataMapping(projectId, dataMappingFixture);
+  applyDataMapping(projectId, dataMappingFixture, secondPreview.payload_hash, secondPreview.items.map((i) => i.id));
 });
 
 afterEach(() => {

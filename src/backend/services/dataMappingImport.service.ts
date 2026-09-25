@@ -28,6 +28,10 @@ import type { DiffItem, DiffItemChange } from '../../domain/diff/types';
 import { isKnownStandardEvent, isKnownConsentKey, STANDARD_CUSTOMER_PROPERTIES, type StandardEventSeed } from '../../domain/bloomreach';
 import { generateVariantName, type VariantCondition } from '../../domain/variants';
 import { BadRequestError, ConflictError, PayloadChangedError } from '../errors';
+import { runDefinitionVsMapping } from '../../domain/comparison/definitionVsMapping';
+import { mappingSnapshotFromParsedModel } from '../../domain/comparison/snapshot';
+import type { EngineFinding } from '../../domain/comparison/definitionVsObservations';
+import { buildDefinitionSnapshot, buildDefinitionVsMappingInput } from './comparison.service';
 import {
   findEventByName,
   findPropertyByName,
@@ -74,6 +78,13 @@ export interface DataMappingPreviewResult {
   items: DiffItem[];
   warnings: string[];
   payload_hash: string;
+  /**
+   * T-2-05 (plan "MappingSnapshot ... from a parsed file in `previewDataMapping`"): comparison 1
+   * (`definition_vs_mapping`) run against the *current stored definition* and the *pasted* mapping —
+   * never persisted (D-22: a pasted mapping can be compared without being applied). Lets the preview
+   * screen show e.g. a renamed consent category before the user commits to applying anything.
+   */
+  findings: EngineFinding[];
 }
 
 export interface DataMappingApplySummary {
@@ -746,6 +757,15 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
    * created earlier in this same plan); the actual applicability/idempotence check (does the rule
    * already exist, do the resolved properties actually satisfy the template) happens in `run()`,
    * once every earlier phase has actually written.
+   *
+   * T-2-05 fix round ruling (T-2-07 LOW 4, D-25 Q12): the template requires the `money` data format
+   * on the resolved `total_price` property, same as phase 1's `computeRoundingDrift` did. The
+   * format is never something *this* import sets (it is not part of `data-mapping.json`), so on a
+   * brand-new mapping the property will not have it yet — proposing the item anyway would just
+   * defer the same failure to `run()`, silently producing a warning instead of a create. Checked
+   * here instead, before `addItem`, so the diff never shows a "create" the applicability check is
+   * already known to reject: a warning is pushed and the item is not proposed at all until the
+   * property is retyped and preview is re-run.
    */
   function planPurchaseItemsTotalRule(): void {
     const id = 'rule:purchase_items_total';
@@ -765,6 +785,19 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
     if (existingPurchaseEvent) {
       const existingRules = RuleDAL.listRulesByEvent(projectId, existingPurchaseEvent.id);
       if (existingRules.some((r) => r.template_key === 'purchase_items_total')) return;
+    }
+
+    // T-2-05 fix round ruling: only propose when the mapped total_price property already carries
+    // the money format; otherwise warn instead of proposing a create the applicability check would
+    // reject.
+    const totalPricePropertyName = purchaseSe.fieldMap.total_price;
+    const totalPriceProperty = totalPricePropertyName ? findPropertyByName(projectId, 'event', totalPricePropertyName) : null;
+    const totalPriceFormats = Array.isArray(totalPriceProperty?.data_formats_json) ? (totalPriceProperty.data_formats_json as string[]) : [];
+    if (!totalPriceProperty || !totalPriceFormats.includes('money')) {
+      warnings.push(
+        `Could not propose the "Purchase total matches its items" rule: "${totalPricePropertyName ?? 'total_price'}" needs the "money" data format before this rule can be applied; retype it and re-run preview (D-25 Q12).`
+      );
+      return;
     }
 
     const dependsOn = [
@@ -812,7 +845,22 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
 export function previewDataMapping(projectId: string, rawJson: unknown): DataMappingPreviewResult {
   const model = parseDataMapping(rawJson);
   const { items, warnings } = buildPlan(projectId, model);
-  return { items, warnings, payload_hash: payloadHash(rawJson) };
+
+  // T-2-05: comparison 1 against the *current stored* definition and the *pasted* mapping, never
+  // persisted (D-22). Uses the same `DefinitionSnapshot`/`DefinitionVsMappingInput` builders
+  // `comparison.service.ts`'s `runComparison` uses, so a preview finding and a post-apply finding
+  // are computed identically.
+  const definition = buildDefinitionSnapshot(projectId);
+  const definitionVsMappingInput = buildDefinitionVsMappingInput(projectId, definition);
+  const mappingSnapshot = mappingSnapshotFromParsedModel({
+    standardEvents: model.standardEvents,
+    customerProperties: model.customerProperties,
+    consents: model.consents,
+    catalogs: { main: model.catalogs.main, variant: model.catalogs.variant },
+  });
+  const findings = runDefinitionVsMapping(definitionVsMappingInput, mappingSnapshot);
+
+  return { items, warnings, payload_hash: payloadHash(rawJson), findings };
 }
 
 export function applyDataMapping(

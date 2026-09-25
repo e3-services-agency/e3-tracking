@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { evaluateRule, resolveTolerance } from './evaluate';
+import { refKey } from './types';
 import type { RuleDefinition, RuleObservation, RuleSnapshot } from './types';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -32,8 +33,8 @@ function obs(id: string, event_id: string | null, properties: Record<string, unk
 describe('evaluateRule: membership', () => {
   const snap = snapshot({
     propertiesById: {
-      prop_product_id: { property_id: 'prop_product_id', payload_key: 'product_id', data_type: 'string' },
-      prop_product_list: { property_id: 'prop_product_list', payload_key: 'product_list', data_type: 'array' },
+      [refKey('e1', 'prop_product_id')]: { property_id: 'prop_product_id', payload_key: 'product_id', data_type: 'string' },
+      [refKey('e1', 'prop_product_list')]: { property_id: 'prop_product_list', payload_key: 'product_list', data_type: 'array' },
     },
   });
   const rule: RuleDefinition = {
@@ -72,8 +73,8 @@ describe('evaluateRule: membership', () => {
 describe('evaluateRule: arithmetic with money tolerance', () => {
   const snap = snapshot({
     propertiesById: {
-      prop_total_price: { property_id: 'prop_total_price', payload_key: 'total_price', data_type: 'number' },
-      prop_product_list: { property_id: 'prop_product_list', payload_key: 'product_list', data_type: 'array' },
+      [refKey('e1', 'prop_total_price')]: { property_id: 'prop_total_price', payload_key: 'total_price', data_type: 'number' },
+      [refKey('e1', 'prop_product_list')]: { property_id: 'prop_product_list', payload_key: 'product_list', data_type: 'array' },
     },
     money_tolerance_percent: 1,
     money_tolerance_floor: 0.01,
@@ -142,8 +143,8 @@ describe('evaluateRule: arithmetic with money tolerance', () => {
 describe('evaluateRule: arithmetic with count (non-numeric list items)', () => {
   const snap = snapshot({
     propertiesById: {
-      prop_total_quantity: { property_id: 'prop_total_quantity', payload_key: 'total_quantity', data_type: 'number' },
-      prop_product_list: { property_id: 'prop_product_list', payload_key: 'product_list', data_type: 'array' },
+      [refKey('e1', 'prop_total_quantity')]: { property_id: 'prop_total_quantity', payload_key: 'total_quantity', data_type: 'number' },
+      [refKey('e1', 'prop_product_list')]: { property_id: 'prop_product_list', payload_key: 'product_list', data_type: 'array' },
     },
   });
   const rule: RuleDefinition = {
@@ -198,9 +199,9 @@ describe('evaluateRule: arithmetic with count (non-numeric list items)', () => {
 describe('evaluateRule: bound', () => {
   const snap = snapshot({
     propertiesById: {
-      prop_total_price: { property_id: 'prop_total_price', payload_key: 'total_price', data_type: 'number' },
-      prop_purchase_id: { property_id: 'prop_purchase_id', payload_key: 'purchase_id', data_type: 'string' },
-      prop_purchase_ts: { property_id: 'prop_purchase_ts', payload_key: 'purchased_at', data_type: 'timestamp' },
+      [refKey('e1', 'prop_total_price')]: { property_id: 'prop_total_price', payload_key: 'total_price', data_type: 'number' },
+      [refKey('e1', 'prop_purchase_id')]: { property_id: 'prop_purchase_id', payload_key: 'purchase_id', data_type: 'string' },
+      [refKey('e1', 'prop_purchase_ts')]: { property_id: 'prop_purchase_ts', payload_key: 'purchased_at', data_type: 'timestamp' },
     },
   });
 
@@ -289,11 +290,15 @@ describe('evaluateRule: bound', () => {
 describe('evaluateRule: cross_event (purchase_items_total, reproduces 28 vs 28.4)', () => {
   const snap = snapshot({
     propertiesById: {
-      prop_total_price: { property_id: 'prop_total_price', payload_key: 'total_price', data_type: 'number' },
-      prop_purchase_id: { property_id: 'prop_purchase_id', payload_key: 'purchase_id', data_type: 'string' },
-      prop_item_price: { property_id: 'prop_item_price', payload_key: 'price', data_type: 'number' },
-      prop_item_quantity: { property_id: 'prop_item_quantity', payload_key: 'quantity', data_type: 'number' },
-      prop_item_purchase_id: { property_id: 'prop_item_purchase_id', payload_key: 'purchase_id', data_type: 'string' },
+      [refKey('event_purchase', 'prop_total_price')]: { property_id: 'prop_total_price', payload_key: 'total_price', data_type: 'number' },
+      [refKey('event_purchase', 'prop_purchase_id')]: { property_id: 'prop_purchase_id', payload_key: 'purchase_id', data_type: 'string' },
+      [refKey('event_purchase_item', 'prop_item_price')]: { property_id: 'prop_item_price', payload_key: 'price', data_type: 'number' },
+      [refKey('event_purchase_item', 'prop_item_quantity')]: { property_id: 'prop_item_quantity', payload_key: 'quantity', data_type: 'number' },
+      // T-2-05 fix round probe: the child's join property is a *different Property row* here
+      // (`prop_item_purchase_id`), but the regression this fix targets is the *same* Property row
+      // linked to both events with a different payload_key per link — covered separately in
+      // comparison.service.test.ts (`relinks purchase_item.purchase_id with payload_key order_id`).
+      [refKey('event_purchase_item', 'prop_item_purchase_id')]: { property_id: 'prop_item_purchase_id', payload_key: 'purchase_id', data_type: 'string' },
     },
     money_tolerance_percent: 1,
     money_tolerance_floor: 0.01,
@@ -355,6 +360,58 @@ describe('evaluateRule: cross_event (purchase_items_total, reproduces 28 vs 28.4
       obs('item_2', 'event_purchase_item', { purchase_id: 'pu_OTHER', price: 999, quantity: 1 }),
     ];
     expect(evaluateRule(rule, parent, items, snap).passed).toBe(true);
+  });
+
+  // T-2-05 fix round, Finding 2: the *same* Property row (`prop_purchase_id`) linked to both
+  // `event_purchase` and `event_purchase_item`, each with its own `payload_key` (D-16) — the parent
+  // reads the shared property under `purchase_id`, the child under a differently-named
+  // `order_id` (the exact "relink purchase_item.purchase_id with payload_key order_id" probe).
+  // Before the fix, a `propertiesById` keyed by bare `property_id` kept only whichever event's
+  // link was inserted last, so the join read the wrong payload key on one side and silently
+  // treated the join key as absent (`NO_MATCH_OUTCOME`/skipped) instead of joining the children.
+  it('resolves a shared property_id\'s payload_key per event when the same Property is linked to both sides of the join with different payload keys', () => {
+    const sharedSnap = snapshot({
+      propertiesById: {
+        [refKey('event_purchase', 'prop_total_price')]: { property_id: 'prop_total_price', payload_key: 'total_price', data_type: 'number' },
+        [refKey('event_purchase', 'prop_purchase_id')]: { property_id: 'prop_purchase_id', payload_key: 'purchase_id', data_type: 'string' },
+        [refKey('event_purchase_item', 'prop_item_price')]: { property_id: 'prop_item_price', payload_key: 'price', data_type: 'number' },
+        [refKey('event_purchase_item', 'prop_item_quantity')]: { property_id: 'prop_item_quantity', payload_key: 'quantity', data_type: 'number' },
+        // Same property_id as the parent's join property, but linked to the child event under a
+        // different payload_key.
+        [refKey('event_purchase_item', 'prop_purchase_id')]: { property_id: 'prop_purchase_id', payload_key: 'order_id', data_type: 'string' },
+      },
+      money_tolerance_percent: 1,
+      money_tolerance_floor: 0.01,
+    });
+    const sharedRule: RuleDefinition = {
+      kind: 'cross_event',
+      expression: {
+        kind: 'cross_event',
+        child_event_id: 'event_purchase_item',
+        join: { parent_property_id: 'prop_purchase_id', child_property_id: 'prop_purchase_id' },
+        child: {
+          ref: 'aggregate',
+          fn: 'sum',
+          of: {
+            ref: 'product',
+            left: { ref: 'property', property_id: 'prop_item_price' },
+            right: { ref: 'property', property_id: 'prop_item_quantity' },
+          },
+        },
+        comparator: 'eq',
+        target: { ref: 'property', property_id: 'prop_total_price' },
+      },
+      tolerance_mode: 'money',
+    };
+    const parent = obs('purchase_1', 'event_purchase', { purchase_id: 'pu_1', total_price: 28 });
+    const items = [
+      obs('item_1', 'event_purchase_item', { order_id: 'pu_1', price: 14.2, quantity: 1 }),
+      obs('item_2', 'event_purchase_item', { order_id: 'pu_1', price: 14.2, quantity: 1 }),
+    ];
+    const outcome = evaluateRule(sharedRule, parent, items, sharedSnap);
+    expect(outcome.skipped).toBeFalsy(); // the children were found and joined, not silently missed
+    expect(outcome.passed).toBe(false); // 28.4 sum vs 28 target, beyond the money tolerance
+    expect(outcome.actual).toBeCloseTo(28.4);
   });
 });
 

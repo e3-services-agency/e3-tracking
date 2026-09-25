@@ -325,6 +325,14 @@ describe('rule.dal: listRuleTemplates', () => {
     expect(byKey.cart_update_totals).toBe(true);
     expect(byKey.purchase_refund_negative).toBe(false);
     expect(byKey.purchase_items_total).toBe(false);
+
+    // T-2-05 fix round (T-2-07 review WARNING 3): every non-applicable template carries a specific
+    // reason, not just its generic description; applicable ones carry none.
+    const byKeyFull = Object.fromEntries(summaries.map((s) => [s.key, s]));
+    expect(byKeyFull.cart_update_item_in_list.reason).toBeNull();
+    expect(byKeyFull.purchase_refund_negative.reason).toBeTruthy();
+    expect(byKeyFull.purchase_refund_negative.reason).not.toBe(byKeyFull.purchase_refund_negative.description);
+    expect(byKeyFull.purchase_items_total.reason).toBeTruthy();
   });
 
   it('returns every template with applicable false when no event_id is given', () => {
@@ -393,7 +401,13 @@ describe('rule.dal: createRulesFromTemplate', () => {
       purchaseEventId = EventDAL.createEvent(projectId, { name: 'purchase' }).id;
       purchaseItemEventId = EventDAL.createEvent(projectId, { name: 'purchase_item' }).id;
 
-      purchaseTotalPriceId = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'purchase_total_price', data_type: 'number' }).id;
+      // T-2-05 fix round ruling (D-25 Q12): purchase_items_total requires the money format on total_price.
+      purchaseTotalPriceId = PropertyDAL.createProperty(projectId, {
+        scope: 'event',
+        name: 'purchase_total_price',
+        data_type: 'number',
+        data_formats_json: ['money'],
+      }).id;
       purchaseIdPropId = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'purchase_purchase_id', data_type: 'string' }).id;
       purchaseStatusPropId = PropertyDAL.createProperty(projectId, {
         scope: 'event',
@@ -446,6 +460,27 @@ describe('rule.dal: createRulesFromTemplate', () => {
       expect(rule.severity).toBe('warning');
       expect(rule.tolerance_mode).toBe('money');
       expect((rule.expression_json as { child_event_id: string }).child_event_id).toBe(purchaseItemEventId);
+    });
+
+    // T-2-05 fix round ruling (T-2-07 LOW 4, D-25 Q12): purchase_items_total requires the money
+    // format on total_price; everything else about the fixture already resolves.
+    it('purchase_items_total is not applicable when total_price lacks the money format, with a reason naming it, and from-template 400s TEMPLATE_REQUIRES_MONEY_FORMAT', () => {
+      PropertyDAL.updateProperty(projectId, purchaseTotalPriceId, { data_formats_json: [] });
+
+      const summaries = RuleDAL.listRuleTemplates(projectId, purchaseEventId);
+      const summary = summaries.find((s) => s.key === 'purchase_items_total')!;
+      expect(summary.applicable).toBe(false);
+      expect(summary.reason).toContain('money');
+      expect(summary.reason).toContain('purchase_total_price');
+
+      let caught: unknown;
+      try {
+        RuleDAL.createRulesFromTemplate(projectId, purchaseEventId, 'purchase_items_total');
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeInstanceOf(BadRequestError);
+      expect((caught as { code: string }).code).toBe('TEMPLATE_REQUIRES_MONEY_FORMAT');
     });
   });
 });

@@ -126,13 +126,45 @@ describe('runDefinitionVsDataManager', () => {
     expect(findings.some((f) => f.event_id === 'event_purchase' && f.property_id === 'prop_total_price')).toBe(false);
   });
 
-  it('produces unexpected_property (warning) for purchase Data Manager properties the definition does not link', () => {
+  it('produces unexpected_property (info) for exactly the 24 purchase Data Manager properties the definition does not link, excluding SDK_DEFAULT_PROPERTIES (T-2-05 delta, D-37, D-38)', () => {
     const findings = runDefinitionVsDataManager(definition, { events: dmEvents, customers: null });
     const purchaseUnexpected = findings.filter((f) => f.kind === 'unexpected_property' && f.event_id === 'event_purchase');
-    const names = purchaseUnexpected.map((f) => (f.actual_json as { property: string }).property);
-    expect(names).toContain('payment_method');
-    expect(names).toContain('region');
-    expect(purchaseUnexpected.every((f) => f.severity === 'warning')).toBe(true);
+    const names = purchaseUnexpected.map((f) => (f.actual_json as { property: string }).property).sort();
+    // 30 properties on `purchase` in the fixture, minus the 2 the test definition links
+    // (total_price, purchase_id), minus the 4 SDK_DEFAULT_PROPERTIES (os, browser, device, location).
+    expect(names).toEqual(
+      [
+        'currency',
+        'has_voucher',
+        'is_gift',
+        'is_sample',
+        'local_currency',
+        'payment_method',
+        'payment_type',
+        'product_ids',
+        'product_list',
+        'purchase_reason',
+        'purchase_source_id',
+        'purchase_source_name',
+        'purchase_source_type',
+        'purchase_status',
+        'region',
+        'retailer',
+        'shipping_company',
+        'shipping_cost',
+        'shipping_country',
+        'shipping_type',
+        'source',
+        'total_price_local_currency',
+        'total_quantity',
+        'voucher_code',
+      ].sort()
+    );
+    expect(names).not.toContain('os');
+    expect(names).not.toContain('browser');
+    expect(names).not.toContain('device');
+    expect(names).not.toContain('location');
+    expect(purchaseUnexpected.every((f) => f.severity === 'info')).toBe(true);
   });
 
   it('produces missing_event (warning) for a defined custom event absent from the snapshot, but not for an sdk/platform event', () => {
@@ -155,6 +187,52 @@ describe('runDefinitionVsDataManager', () => {
     const unmapped = findings.filter((f) => f.kind === 'unmapped_property' && f.property_id === 'prop_made_up');
     expect(unmapped).toHaveLength(1);
     expect(unmapped[0].severity).toBe('warning');
+  });
+
+  it('never raises unmapped_property/unexpected_property for SDK_DEFAULT_PROPERTIES even when explicitly linked (T-2-05 delta, D-38)', () => {
+    const defWithSdkDefault: DataManagerDefinitionSnapshot = {
+      ...definition,
+      events: definition.events.map((e) =>
+        e.name === 'purchase'
+          ? { ...e, properties: [...e.properties, { property_id: 'prop_browser', name: 'browser', data_type: 'string', data_formats: [] }] }
+          : e
+      ),
+    };
+    const findings = runDefinitionVsDataManager(defWithSdkDefault, { events: dmEvents, customers: null });
+    expect(findings.some((f) => f.property_id === 'prop_browser')).toBe(false);
+    expect(findings.some((f) => f.kind === 'unexpected_property' && (f.actual_json as { property: string })?.property === 'browser')).toBe(
+      false
+    );
+  });
+
+  it('reports an unrecognized Data Manager type as a type_mismatch warning, not an unconditional error (T-2-05 delta, T-2-04 review LOW)', () => {
+    const defWithGeo: DataManagerDefinitionSnapshot = {
+      events: [],
+      customer_properties: [{ property_id: 'prop_geo', name: 'geo', data_type: 'string', data_formats: [] }],
+    };
+    const dmCustomersWithGeo = {
+      ...dmCustomers,
+      properties: [
+        ...dmCustomers.properties,
+        {
+          property: 'geo',
+          type: 'geo_point',
+          source: 'user',
+          private: false,
+          used: true,
+          deleting: false,
+          locked_for_contact_migration: false,
+          description: null,
+          example_values: null,
+          dm_index: 999,
+          group: null,
+        },
+      ],
+    };
+    const findings = runDefinitionVsDataManager(defWithGeo, { events: null, customers: dmCustomersWithGeo });
+    const mismatch = findings.find((f) => f.kind === 'type_mismatch' && f.property_id === 'prop_geo');
+    expect(mismatch?.severity).toBe('warning');
+    expect(mismatch?.message).toMatch(/unknown Data Manager type/i);
   });
 
   it('checks customer-scope properties only when a customers snapshot is stored', () => {

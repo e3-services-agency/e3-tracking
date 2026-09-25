@@ -8,7 +8,7 @@
  */
 import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn, toSqliteBool, fromSqliteBool, mapWriteError } from '../db/util';
-import { BadRequestError, NotFoundError, RuleExpressionInvalidError, ValidationError } from '../errors';
+import { BadRequestError, NotFoundError, RuleExpressionInvalidError, TemplateRequiresMoneyFormatError, ValidationError } from '../errors';
 import { RULE_KINDS, RULE_REPORT_KINDS, RULE_SEVERITIES, RULE_TOLERANCE_MODES } from '../../domain/enums';
 import type { RuleKind, RuleReportKind, RuleSeverity, RuleToleranceMode } from '../../domain/enums';
 import { RuleExpressionError, validateExpression, type ValidatableProperty, type ValidationContext } from '../../domain/rules/validate';
@@ -16,6 +16,7 @@ import {
   RULE_TEMPLATES,
   getRuleTemplate,
   listApplicableTemplates,
+  purchaseItemsTotalNeedsMoneyFormat,
   type RuleTemplateInstance,
   type TemplateContext,
   type TemplateEventSnapshot,
@@ -173,6 +174,7 @@ export function buildTemplateEventSnapshot(projectId: string, eventId: string): 
       name: link.property.name,
       role: link.role as 'normal' | 'discriminator' | 'context',
       data_type: link.property.data_type,
+      data_formats: Array.isArray(link.property.data_formats_json) ? (link.property.data_formats_json as string[]) : [],
       item_schema: (link.property.item_schema_json as ItemSchemaField[] | null) ?? null,
     })),
     standard_field_map: standardFieldMap,
@@ -420,6 +422,9 @@ export interface RuleTemplateSummary {
   name: string;
   description: string;
   applicable: boolean;
+  /** T-2-05 fix round (T-2-07 review WARNING 3): why `applicable` is `false` — `null` when
+   * `applicable` is `true` (nothing to explain) or `eventId` was omitted (no event to check against). */
+  reason: string | null;
 }
 
 /** `GET /rule-templates`: every seed template, with `applicable` computed against `eventId` when
@@ -428,17 +433,21 @@ export interface RuleTemplateSummary {
  * gets the catalog, not a false "yes". */
 export function listRuleTemplates(projectId: string, eventId?: string): RuleTemplateSummary[] {
   if (!eventId) {
-    return RULE_TEMPLATES.map((t) => ({ key: t.key, name: t.name, description: t.description, applicable: false }));
+    return RULE_TEMPLATES.map((t) => ({ key: t.key, name: t.name, description: t.description, applicable: false, reason: null }));
   }
   getEventOrThrow(projectId, eventId);
   const snapshot = buildTemplateEventSnapshot(projectId, eventId);
   const context = buildTemplateContext(projectId);
-  return RULE_TEMPLATES.map((t) => ({
-    key: t.key,
-    name: t.name,
-    description: t.description,
-    applicable: t.applicable(snapshot, context),
-  }));
+  return RULE_TEMPLATES.map((t) => {
+    const applicable = t.applicable(snapshot, context);
+    return {
+      key: t.key,
+      name: t.name,
+      description: t.description,
+      applicable,
+      reason: applicable ? null : t.reason(snapshot, context),
+    };
+  });
 }
 
 /** `POST /events/:id/rules/from-template/:key`: instantiates the template (which may produce more
@@ -451,10 +460,13 @@ export function createRulesFromTemplate(projectId: string, eventId: string, temp
   const snapshot = buildTemplateEventSnapshot(projectId, eventId);
   const context = buildTemplateContext(projectId);
   if (!template.applicable(snapshot, context)) {
-    throw new BadRequestError(
-      `Template "${templateKey}" is not applicable to this event (its required properties/item schema/variant are not set up).`,
-      'template_key'
-    );
+    // T-2-05 fix round (T-2-07 LOW 4 ruling, D-25 Q12): purchase_items_total needs the money format
+    // on total_price; every other required property/child event already resolves in this case, so
+    // it gets its own error code instead of the generic "not applicable" 400.
+    if (templateKey === 'purchase_items_total' && purchaseItemsTotalNeedsMoneyFormat(snapshot, context)) {
+      throw new TemplateRequiresMoneyFormatError(template.reason(snapshot, context), 'template_key');
+    }
+    throw new BadRequestError(template.reason(snapshot, context), 'template_key');
   }
 
   const instances: RuleTemplateInstance[] = template.instantiate(snapshot, context);

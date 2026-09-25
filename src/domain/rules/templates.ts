@@ -20,6 +20,8 @@ export interface TemplateEventProperty {
   name: string;
   role: 'normal' | 'discriminator' | 'context';
   data_type: string;
+  /** T-2-05 fix round addition: needed by `purchase_items_total`'s money-format requirement (D-25 Q12). */
+  data_formats: string[];
   item_schema: ItemSchemaField[] | null;
 }
 
@@ -64,6 +66,14 @@ export interface RuleTemplate {
   description: string;
   applicable: (event: TemplateEventSnapshot, context: TemplateContext) => boolean;
   instantiate: (event: TemplateEventSnapshot, context: TemplateContext) => RuleTemplateInstance[];
+  /**
+   * T-2-05 fix round (T-2-07 review WARNING 3): a human-readable reason `applicable` is currently
+   * `false`, e.g. "no `product_list` property is linked to this event" — `rule.dal.ts`'s
+   * `listRuleTemplates` surfaces this so the UI can show *why* a template is disabled instead of
+   * repeating its generic description. Only called when `applicable` already returned `false`; its
+   * return value when applicable is unspecified/unused.
+   */
+  reason: (event: TemplateEventSnapshot, context: TemplateContext) => string;
 }
 
 function resolveByStandardOrName(
@@ -96,6 +106,13 @@ const cartUpdateItemInList: RuleTemplate = {
     const productId = resolveByStandardOrName(event, 'product_id', 'product_id');
     const productList = resolveByStandardOrName(event, 'product_list', 'product_list');
     return !!productId && hasItemSchemaField(productList, 'product_id');
+  },
+  reason: (event) => {
+    const productId = resolveByStandardOrName(event, 'product_id', 'product_id');
+    const productList = resolveByStandardOrName(event, 'product_list', 'product_list');
+    if (!productId) return 'No "product_id" property is linked to this event (directly or via the standard field map).';
+    if (!productList) return 'No "product_list" property is linked to this event.';
+    return `"${productList.name}" has no "product_id" field in its item schema.`;
   },
   instantiate: (event) => {
     const productId = resolveByStandardOrName(event, 'product_id', 'product_id')!;
@@ -137,6 +154,18 @@ const cartUpdateTotals: RuleTemplate = {
       !!totalPrice &&
       !!totalQuantity
     );
+  },
+  reason: (event) => {
+    const productList = resolveByStandardOrName(event, 'product_list', 'product_list');
+    const totalPrice = resolveByStandardOrName(event, 'total_price', 'total_price');
+    const totalQuantity = resolveByStandardOrName(event, 'total_quantity', 'total_quantity');
+    if (!productList) return 'No "product_list" property is linked to this event.';
+    if (!hasItemSchemaField(productList, 'price') || !hasItemSchemaField(productList, 'quantity')) {
+      return `"${productList.name}" needs both "price" and "quantity" fields in its item schema.`;
+    }
+    if (!totalPrice) return 'No "total_price" property is linked to this event.';
+    if (!totalQuantity) return 'No "total_quantity" property is linked to this event.';
+    return 'Not applicable.';
   },
   instantiate: (event) => {
     const productList = resolveByStandardOrName(event, 'product_list', 'product_list')!;
@@ -210,6 +239,11 @@ const purchaseRefundNegative: RuleTemplate = {
     const totalPrice = resolveByStandardOrName(event, 'total_price', 'total_price');
     return !!totalPrice && !!findRefundedVariant(event);
   },
+  reason: (event) => {
+    const totalPrice = resolveByStandardOrName(event, 'total_price', 'total_price');
+    if (!totalPrice) return 'No "total_price" property is linked to this event.';
+    return 'No variant condition on "purchase_status" has a "refunded" value.';
+  },
   instantiate: (event) => {
     const totalPrice = resolveByStandardOrName(event, 'total_price', 'total_price')!;
     const variant = findRefundedVariant(event)!;
@@ -248,10 +282,33 @@ const purchaseItemsTotal: RuleTemplate = {
     const purchaseId = resolveByStandardOrName(event, 'purchase_id', 'purchase_id');
     const child = context.childEvent;
     if (!totalPrice || !purchaseId || !child) return false;
+    // T-2-05 fix round ruling (T-2-07 LOW 4, D-25 Q12): requires the money format on total_price,
+    // matching phase 1's computeRoundingDrift.
+    if (!totalPrice.data_formats.includes('money')) return false;
     const childPrice = resolveByStandardOrName(child, 'total_price', 'price');
     const childQuantity = resolveByStandardOrName(child, 'total_quantity', 'quantity');
     const childPurchaseId = resolveByStandardOrName(child, 'purchase_id', 'purchase_id');
     return !!childPrice && !!childQuantity && !!childPurchaseId;
+  },
+  /** The last-checked reason doubles as the specific "needs money format" signal `rule.dal.ts`'s
+   * `createRulesFromTemplate` maps to `TEMPLATE_REQUIRES_MONEY_FORMAT` (T-2-05 fix round). */
+  reason: (event, context) => {
+    const totalPrice = resolveByStandardOrName(event, 'total_price', 'total_price');
+    const purchaseId = resolveByStandardOrName(event, 'purchase_id', 'purchase_id');
+    const child = context.childEvent;
+    if (!totalPrice) return 'No "total_price" property is linked to this event.';
+    if (!purchaseId) return 'No "purchase_id" property is linked to this event.';
+    if (!child) return 'No event is mapped to the "purchase_item" standard event.';
+    if (!totalPrice.data_formats.includes('money')) {
+      return `"${totalPrice.name}" needs the "money" data format before this rule can be applied (D-25 Q12).`;
+    }
+    const childPrice = resolveByStandardOrName(child, 'total_price', 'price');
+    const childQuantity = resolveByStandardOrName(child, 'total_quantity', 'quantity');
+    const childPurchaseId = resolveByStandardOrName(child, 'purchase_id', 'purchase_id');
+    if (!childPrice || !childQuantity || !childPurchaseId) {
+      return `"${child.event_name}" is missing its price/quantity/purchase_id properties.`;
+    }
+    return 'Not applicable.';
   },
   instantiate: (event, context) => {
     const totalPrice = resolveByStandardOrName(event, 'total_price', 'total_price')!;
@@ -296,6 +353,25 @@ export const RULE_TEMPLATES: readonly RuleTemplate[] = [
   purchaseRefundNegative,
   purchaseItemsTotal,
 ];
+
+/**
+ * True specifically when `purchase_items_total` is inapplicable *only* because `total_price` is
+ * missing the `money` data format (every other required property/child event already resolves) —
+ * `rule.dal.ts`'s `createRulesFromTemplate` uses this to distinguish the dedicated
+ * `TEMPLATE_REQUIRES_MONEY_FORMAT` (400) from the generic "not applicable" 400 (T-2-05 fix round,
+ * T-2-07 LOW 4 ruling).
+ */
+export function purchaseItemsTotalNeedsMoneyFormat(event: TemplateEventSnapshot, context: TemplateContext): boolean {
+  const totalPrice = resolveByStandardOrName(event, 'total_price', 'total_price');
+  const purchaseId = resolveByStandardOrName(event, 'purchase_id', 'purchase_id');
+  const child = context.childEvent;
+  if (!totalPrice || !purchaseId || !child) return false;
+  const childPrice = resolveByStandardOrName(child, 'total_price', 'price');
+  const childQuantity = resolveByStandardOrName(child, 'total_quantity', 'quantity');
+  const childPurchaseId = resolveByStandardOrName(child, 'purchase_id', 'purchase_id');
+  if (!childPrice || !childQuantity || !childPurchaseId) return false;
+  return !totalPrice.data_formats.includes('money');
+}
 
 export function getRuleTemplate(key: string): RuleTemplate | undefined {
   return RULE_TEMPLATES.find((t) => t.key === key);

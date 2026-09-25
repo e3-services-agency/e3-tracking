@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { runRules, runItemSchemaChecks, type ItemSchemaCheck, type RulesEngineRule } from './runRules';
 import { getRuleTemplate } from './templates';
 import type { EngineObservation } from '../comparison/definitionVsObservations';
+import { refKey } from './types';
 import type { RuleSnapshot } from './types';
 
 function snapshot(overrides?: Partial<RuleSnapshot>): RuleSnapshot {
@@ -22,8 +23,8 @@ function obs(id: string, event_id: string | null, variant_id: string | null, pro
 describe('runRules: membership (rule_violation)', () => {
   const snap = snapshot({
     propertiesById: {
-      p_product_id: { property_id: 'p_product_id', payload_key: 'product_id', data_type: 'string' },
-      p_product_list: { property_id: 'p_product_list', payload_key: 'product_list', data_type: 'array' },
+      [refKey('event_cart_update', 'p_product_id')]: { property_id: 'p_product_id', payload_key: 'product_id', data_type: 'string' },
+      [refKey('event_cart_update', 'p_product_list')]: { property_id: 'p_product_list', payload_key: 'product_list', data_type: 'array' },
     },
   });
   const rule: RulesEngineRule = {
@@ -89,7 +90,7 @@ describe('runRules: membership (rule_violation)', () => {
 describe('runRules: variant scoping', () => {
   const snap = snapshot({
     propertiesById: {
-      p_total_price: { property_id: 'p_total_price', payload_key: 'total_price', data_type: 'number' },
+      [refKey('event_purchase', 'p_total_price')]: { property_id: 'p_total_price', payload_key: 'total_price', data_type: 'number' },
     },
   });
   const rule: RulesEngineRule = {
@@ -124,11 +125,11 @@ describe('runRules: variant scoping', () => {
 describe('runRules: cross_event (purchase_items_total template, reproduces 28 vs 28.4, one finding per join key)', () => {
   const snap = snapshot({
     propertiesById: {
-      p_total_price: { property_id: 'p_total_price', payload_key: 'total_price', data_type: 'number' },
-      p_purchase_id: { property_id: 'p_purchase_id', payload_key: 'purchase_id', data_type: 'string' },
-      p_price: { property_id: 'p_price', payload_key: 'price', data_type: 'number' },
-      p_quantity: { property_id: 'p_quantity', payload_key: 'quantity', data_type: 'number' },
-      p_item_purchase_id: { property_id: 'p_item_purchase_id', payload_key: 'purchase_id', data_type: 'string' },
+      [refKey('event_purchase', 'p_total_price')]: { property_id: 'p_total_price', payload_key: 'total_price', data_type: 'number' },
+      [refKey('event_purchase', 'p_purchase_id')]: { property_id: 'p_purchase_id', payload_key: 'purchase_id', data_type: 'string' },
+      [refKey('event_purchase_item', 'p_price')]: { property_id: 'p_price', payload_key: 'price', data_type: 'number' },
+      [refKey('event_purchase_item', 'p_quantity')]: { property_id: 'p_quantity', payload_key: 'quantity', data_type: 'number' },
+      [refKey('event_purchase_item', 'p_item_purchase_id')]: { property_id: 'p_item_purchase_id', payload_key: 'purchase_id', data_type: 'string' },
     },
     money_tolerance_percent: 1,
     money_tolerance_floor: 0.01,
@@ -141,8 +142,11 @@ describe('runRules: cross_event (purchase_items_total template, reproduces 28 vs
         event_id: 'event_purchase',
         event_name: 'purchase',
         properties: [
-          { property_id: 'p_total_price', name: 'total_price', role: 'normal', data_type: 'number', item_schema: null },
-          { property_id: 'p_purchase_id', name: 'purchase_id', role: 'normal', data_type: 'string', item_schema: null },
+          // T-2-05 fix round ruling (D-25 Q12): money format, so the template's own `applicable`
+          // would also accept this snapshot (not exercised by `instantiate` directly, but kept
+          // realistic).
+          { property_id: 'p_total_price', name: 'total_price', role: 'normal', data_type: 'number', data_formats: ['money'], item_schema: null },
+          { property_id: 'p_purchase_id', name: 'purchase_id', role: 'normal', data_type: 'string', data_formats: [], item_schema: null },
         ],
         standard_field_map: {},
         variants: [],
@@ -152,9 +156,9 @@ describe('runRules: cross_event (purchase_items_total template, reproduces 28 vs
           event_id: 'event_purchase_item',
           event_name: 'purchase_item',
           properties: [
-            { property_id: 'p_price', name: 'price', role: 'normal', data_type: 'number', item_schema: null },
-            { property_id: 'p_quantity', name: 'quantity', role: 'normal', data_type: 'number', item_schema: null },
-            { property_id: 'p_item_purchase_id', name: 'purchase_id', role: 'normal', data_type: 'string', item_schema: null },
+            { property_id: 'p_price', name: 'price', role: 'normal', data_type: 'number', data_formats: [], item_schema: null },
+            { property_id: 'p_quantity', name: 'quantity', role: 'normal', data_type: 'number', data_formats: [], item_schema: null },
+            { property_id: 'p_item_purchase_id', name: 'purchase_id', role: 'normal', data_type: 'string', data_formats: [], item_schema: null },
           ],
           standard_field_map: {},
           variants: [],

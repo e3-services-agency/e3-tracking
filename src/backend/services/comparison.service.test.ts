@@ -197,6 +197,26 @@ describe('batched resolver (T-2-04, D-21 "Batched resolution")', () => {
 
     listEventsSpy.mockRestore();
   });
+
+  // LOW 9 fix: two listEvents calls total (the comparison-3 snapshot plus the batched resolver),
+  // not one — every other engine's snapshot is a pure projection of the one already-loaded
+  // DefinitionSnapshot (see the in-body comment), so this is the floor, not a stray duplicate.
+  it('a full runComparison over all four engines issues exactly two listEvents calls: the shared snapshot and the resolver (T-2-05, snapshot.ts)', () => {
+    const mappingPreview = previewDataMapping(projectId, dataMappingFixture);
+    applyDataMapping(projectId, dataMappingFixture, mappingPreview.payload_hash, mappingPreview.items.map((i) => i.id));
+    const eventsPreview = previewCustomerEventsExport(projectId, eventsFixture);
+    applyCustomerEventsExport(projectId, eventsFixture, eventsPreview.payload_hash, eventsPreview.items.map((i) => i.id), 'Jan');
+
+    const listEventsSpy = vi.spyOn(EventDAL, 'listEvents');
+    runComparison(projectId);
+    // One call to build the comparison-3 `DefinitionSnapshot` (`buildDefinitionSnapshot`) plus one
+    // to build the batched resolver (`createEventResolver`) — comparison 4's `dataManagerDefinition`,
+    // comparison 1's `definitionVsMappingInput` and comparisons 1/2's `mappingSnapshot` are all pure
+    // projections of the one `DefinitionSnapshot` already loaded (`snapshot.ts`), not further
+    // `listEvents` calls.
+    expect(listEventsSpy).toHaveBeenCalledTimes(2);
+    listEventsSpy.mockRestore();
+  });
 });
 
 describe('multi-comparison orchestrator (T-2-04)', () => {
@@ -222,8 +242,10 @@ describe('multi-comparison orchestrator (T-2-04)', () => {
     expect(summary.by_comparison.definition_vs_observations).toBeDefined();
     expect(summary.by_comparison.data_manager).toBeDefined();
     expect(summary.by_comparison.data_manager.produced).toBeGreaterThan(0);
+    // T-2-05: two more engines (definition_vs_mapping, mapping_vs_observations) now also produce
+    // findings in the same recompute; the total is the sum across every comparison in by_comparison.
     expect(summary.produced).toBe(
-      summary.by_comparison.definition_vs_observations.produced + summary.by_comparison.data_manager.produced
+      Object.values(summary.by_comparison).reduce((sum, c) => sum + c.produced, 0)
     );
 
     const dataManagerFindingsBefore = FindingDAL.listFindings(projectId, { comparison: 'data_manager', status: 'open' });

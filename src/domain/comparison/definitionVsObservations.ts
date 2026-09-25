@@ -11,14 +11,17 @@
  *
  * Format checks implemented for `format_violation` (T-1-09 task: "document which are
  * implemented"), against `src/domain/enums.ts`'s `PROPERTY_DATA_FORMATS`: `email`, `uri`, `uuid`,
- * `iso8601_date`, `iso8601_datetime`, `currency_code`, `country_code`, `language_code`. Not
- * checked: `unix_seconds`/`unix_milliseconds` (a plain number cannot be distinguished from any
- * other number without a plausible-range heuristic, which would be more guess than check) and
- * `money` (drives the `rounding_drift` rule instead of a format check — D-25 Q12).
+ * `iso8601_date`, `iso8601_datetime`, `currency_code`, `country_code`, `language_code`,
+ * `e164_phone`. Not checked: `unix_seconds`/`unix_milliseconds` (a plain number cannot be
+ * distinguished from any other number without a plausible-range heuristic, which would be more
+ * guess than check) and `money` (drives the `rounding_drift` rule instead of a format check — D-25
+ * Q12). `jsType`/`matchesDataType`/`FORMAT_CHECKS` moved to `./valueChecks.ts` (T-2-05: the single
+ * shared value-check module every comparison engine and the rules evaluator import).
  */
 import { KNOWN_SYSTEM_EVENT_TYPES, SDK_DEFAULT_PROPERTIES } from '../bloomreach';
 import type { VariantCondition } from '../variants';
 import type { ComparisonId, EventClass, FindingKind, FindingSeverity } from '../enums';
+import { jsType, matchesDataType, FORMAT_CHECKS } from './valueChecks';
 
 export interface ExpirationBlock {
   enabled: boolean;
@@ -35,6 +38,23 @@ export interface DefEventProperty {
   data_type: string;
   data_formats: string[];
   allowed_values: string[] | null;
+  /**
+   * T-2-05 addition: the `standard_event` hint recorded per allowed value when the data-mapping
+   * import created/grew this discriminator's value list (`dataMappingImport.service.ts`'s
+   * `planEventProperty`) — `null` for a value added by hand or with no hint. Optional/additive: only
+   * `comparison/definitionVsMapping.ts`'s `unmapped_standard_event` check reads it; every other
+   * consumer of `DefEventProperty` (comparisons 3/4, the rules evaluator) ignores it.
+   */
+  allowed_value_hints?: { value: string; standard_event: string | null }[];
+  /**
+   * T-2-05 fix round addition: the linked property's `item_schema_json` (D-30 ItemSchema), carried
+   * through so `comparison.service.ts`'s `buildRuleSnapshot`/`buildItemSchemaChecks` (T-2-07) can
+   * derive both the rules `RuleSnapshot` and the item-schema checks from this one already-loaded
+   * `DefinitionSnapshot` instead of a second `EventDAL.getEventWithProperties` read per event.
+   * `undefined`/`null` for a non-array property or one with no schema set; every other consumer of
+   * `DefEventProperty` ignores this field, same convention as `allowed_value_hints`.
+   */
+  item_schema?: { field: string; data_type: string; data_formats?: string[]; required?: boolean }[] | null;
 }
 
 export interface DefVariant {
@@ -105,52 +125,6 @@ const UNIT_SECONDS: Record<string, number> = {
 function fp(kind: FindingKind, eventId: string | null, variantId: string | null, propertyId: string | null, detail: string): string {
   return [COMPARISON, kind, eventId ?? '', variantId ?? '', propertyId ?? '', detail].join('|');
 }
-
-function jsType(value: unknown): string {
-  if (value === null || value === undefined) return 'null';
-  if (Array.isArray(value)) return 'array';
-  return typeof value;
-}
-
-/** `data_type` acceptance rule (plan comparison-3 table: `timestamp` accepts number or ISO string). */
-function matchesDataType(dataType: string, value: unknown): boolean {
-  const type = jsType(value);
-  switch (dataType) {
-    case 'string':
-      return type === 'string';
-    case 'number':
-      return type === 'number';
-    case 'boolean':
-      return type === 'boolean';
-    case 'object':
-      return type === 'object';
-    case 'array':
-      return type === 'array';
-    case 'timestamp':
-      return type === 'number' || (type === 'string' && !Number.isNaN(Date.parse(String(value))));
-    default:
-      return true;
-  }
-}
-
-const FORMAT_CHECKS: Record<string, (value: string) => boolean> = {
-  email: (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
-  uri: (v) => {
-    try {
-      new URL(v);
-      return true;
-    } catch {
-      return false;
-    }
-  },
-  uuid: (v) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v),
-  iso8601_date: (v) => /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)),
-  iso8601_datetime: (v) =>
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/.test(v) && !Number.isNaN(Date.parse(v)),
-  currency_code: (v) => /^[A-Z]{3}$/.test(v),
-  country_code: (v) => /^[A-Z]{2}$/.test(v),
-  language_code: (v) => /^[a-z]{2}$/.test(v),
-};
 
 function payloadKeyFor(prop: DefEventProperty): string {
   return prop.payload_key ?? prop.name;

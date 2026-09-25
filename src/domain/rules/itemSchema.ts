@@ -1,11 +1,13 @@
 /**
  * Item schema validator (D-30 ItemSchema, T-2-06): for an array-typed linked property with
  * `item_schema_json`, checks each item's required fields, `data_type` and `data_formats` against
- * `valueChecks.ts`. Returns violations; the caller (comparison engine, T-2-07) turns each into one
- * `item_schema_violation` finding per `(event, property, field, reason)` (plan "Rules evaluator").
+ * `src/domain/comparison/valueChecks.ts` (T-2-05: the single shared value-check module, folding in
+ * this file's former local copy). Returns violations; the caller (comparison engine, T-2-07) turns
+ * each into one `item_schema_violation` finding per `(event, property, field, reason)` (plan "Rules
+ * evaluator").
  */
 import type { ItemSchemaField, ItemSchemaViolation } from './types';
-import { checkDataFormat, checkDataType } from './valueChecks';
+import { checkDataFormat, checkDataType } from '../comparison/valueChecks';
 
 /** Validates one array of items against an `ItemSchemaField[]`. `items` that are not plain
  * objects are skipped for field-level checks (a missing/malformed item is a shape problem outside

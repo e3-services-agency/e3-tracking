@@ -160,9 +160,28 @@ describe('applyDataMapping', () => {
 });
 
 // T-2-07 (D-31): the fixture maps both "purchase" and "purchase_item", so the import proposes
-// instantiating the purchase_items_total rounding_drift rule template.
+// instantiating the purchase_items_total rounding_drift rule template — but only once the mapped
+// total_price property carries the "money" data format (T-2-05 fix round ruling on T-2-07 LOW 4,
+// D-25 Q12): a fresh import creates properties as plain `string` (the data-mapping format itself
+// carries no type info), so the very first preview/apply never proposes the rule and instead warns;
+// the rule is only proposed once the property has been retyped to money and preview re-run.
 describe('applyDataMapping proposes the purchase_items_total rule template (D-31, T-2-07)', () => {
-  it('preview proposes "rule:purchase_items_total", selected by default', () => {
+  function retypeTotalPriceToMoney(): void {
+    const prop = PropertyDAL.listProperties(projectId, { scope: 'event' }).find((p) => p.name === 'total_price');
+    if (prop) PropertyDAL.updateProperty(projectId, prop.id, { data_type: 'number', data_formats_json: ['money'] });
+  }
+
+  it('the first preview/apply (total_price still a plain string) does not propose the rule and warns instead', () => {
+    const preview = previewDataMapping(projectId, fixture);
+    expect(preview.items.find((i) => i.id === 'rule:purchase_items_total')).toBeUndefined();
+    expect(preview.warnings.some((w) => w.includes('money') && w.includes('total_price'))).toBe(true);
+  });
+
+  it('preview proposes "rule:purchase_items_total", selected by default, once total_price has the money format', () => {
+    const first = previewDataMapping(projectId, fixture);
+    applyDataMapping(projectId, fixture, first.payload_hash, first.items.map((i) => i.id));
+    retypeTotalPriceToMoney();
+
     const preview = previewDataMapping(projectId, fixture);
     const item = preview.items.find((i) => i.id === 'rule:purchase_items_total');
     expect(item).toBeDefined();
@@ -172,6 +191,10 @@ describe('applyDataMapping proposes the purchase_items_total rule template (D-31
   });
 
   it('apply creates the rule on the purchase event, template_key set, report_kind rounding_drift', () => {
+    const first = previewDataMapping(projectId, fixture);
+    applyDataMapping(projectId, fixture, first.payload_hash, first.items.map((i) => i.id));
+    retypeTotalPriceToMoney();
+
     const preview = previewDataMapping(projectId, fixture);
     const summary = applyDataMapping(projectId, fixture, preview.payload_hash, preview.items.map((i) => i.id));
     expect(summary.applied).toContain('rule:purchase_items_total');
@@ -188,9 +211,13 @@ describe('applyDataMapping proposes the purchase_items_total rule template (D-31
   it('is idempotent: a second preview/apply after a full apply proposes and creates no duplicate rule', () => {
     const first = previewDataMapping(projectId, fixture);
     applyDataMapping(projectId, fixture, first.payload_hash, first.items.map((i) => i.id));
+    retypeTotalPriceToMoney();
 
     const second = previewDataMapping(projectId, fixture);
-    expect(second.items.find((i) => i.id === 'rule:purchase_items_total')).toBeUndefined();
+    applyDataMapping(projectId, fixture, second.payload_hash, second.items.map((i) => i.id));
+
+    const third = previewDataMapping(projectId, fixture);
+    expect(third.items.find((i) => i.id === 'rule:purchase_items_total')).toBeUndefined();
 
     const purchaseEvent = EventDAL.listEvents(projectId).find((e) => e.name === 'purchase')!;
     expect(RuleDAL.listRulesByEvent(projectId, purchaseEvent.id).filter((r) => r.template_key === 'purchase_items_total')).toHaveLength(1);
@@ -225,6 +252,41 @@ describe('exportDataMapping round trip', () => {
       return clone;
     };
     expect(normalize(exported)).toEqual(normalize(fixture));
+  });
+});
+
+describe('previewDataMapping findings (T-2-05, comparison 1 against the pasted file, not persisted)', () => {
+  it('lists a rename_mismatch when the pasted mapping renames the newsletter consent, without persisting anything', () => {
+    const first = previewDataMapping(projectId, fixture);
+    applyDataMapping(projectId, fixture, first.payload_hash, first.items.map((i) => i.id));
+
+    const mutated = JSON.parse(JSON.stringify(fixture));
+    mutated.consents.newsletter = 'newsletter_consent'; // stored category is named "brand_consent"
+    const preview = previewDataMapping(projectId, mutated);
+
+    const consentFinding = preview.findings.find((f) => f.kind === 'rename_mismatch' && f.fingerprint.includes('consent:newsletter'));
+    expect(consentFinding).toBeDefined();
+    expect(consentFinding?.severity).toBe('warning');
+    expect(consentFinding?.message).toContain('newsletter_consent');
+
+    // Preview never writes anything (D-22): the stored category is untouched.
+    const stored = ConsentCategoryDAL.listConsentCategories(projectId).find((c) => c.standard_key === 'newsletter');
+    expect(stored?.name).toBe('brand_consent');
+  });
+
+  it('an as-pasted-fixture preview lists only the fixture\'s own genuine field renames (purchase_item.total_price -> price, total_quantity -> quantity), nothing else', () => {
+    const first = previewDataMapping(projectId, fixture);
+    applyDataMapping(projectId, fixture, first.payload_hash, first.items.map((i) => i.id));
+    const second = previewDataMapping(projectId, fixture);
+    // The plan's rule ("standard field name differs from the property's payload_key ?? name") is
+    // exactly what the fixture itself does here: Bloomreach's `total_price`/`total_quantity` fields
+    // map to client properties genuinely named `price`/`quantity` (`data-mapping.json`'s
+    // `purchase_item` block) — a real, by-design rename, correctly reported every time, not a bug
+    // introduced by re-pasting the same file.
+    expect(second.findings.map((f) => f.kind)).toEqual(['rename_mismatch', 'rename_mismatch']);
+    expect(second.findings.every((f) => f.fingerprint.startsWith('definition_vs_mapping|rename_mismatch|') && f.fingerprint.includes('purchase_item:total_'))).toBe(
+      true
+    );
   });
 });
 

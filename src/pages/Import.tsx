@@ -35,10 +35,18 @@ function formatChangeValue(value: unknown): string {
   return String(value);
 }
 
+interface PreviewFinding {
+  kind: string;
+  severity: 'error' | 'warning' | 'info';
+  message: string;
+}
+
 interface PreviewResult {
   items: DiffItem[];
   warnings: string[];
   payload_hash: string;
+  /** T-2-05: only the data-mapping preview sets this (comparison 1 against the pasted file, D-22, never persisted). */
+  findings?: PreviewFinding[];
 }
 
 interface ApplySummary {
@@ -197,6 +205,17 @@ function ImportBox({
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 space-y-1">
           {preview.warnings.map((w, i) => (
             <div key={i}>{w}</div>
+          ))}
+        </div>
+      )}
+
+      {preview && preview.findings && preview.findings.length > 0 && (
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 space-y-1">
+          <div className="font-medium">Definition vs mapping (comparison 1, not applied):</div>
+          {preview.findings.map((f, i) => (
+            <div key={i}>
+              [{f.severity}] {f.kind}: {f.message}
+            </div>
           ))}
         </div>
       )}

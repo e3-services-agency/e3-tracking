@@ -21,18 +21,18 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-1-10 | 1 | CLAUDE.md code-derived sections, .env.example, docs/QA-LOCAL.md | docs-writer | T-1-03 | DONE | plan + delta |
 | T-1-EXIT | 1 | Phase 1 exit: full qa-roundtrip on merged agent-setup, docs refresh, post-merge fixes, report to user | supervisor | T-1-09 | DONE | see below |
 | T-2-00 | 2 | Phase 2 plan: target model deltas, task list from the seed, decision records | architect | T-1-EXIT | DONE | see below |
-| T-2-01 | 2 | Event class custom/sdk/platform, class lists and SDK default properties, engine skips non-custom, Vite watch ignore | implementer | T-2-00 | QA | see below |
-| T-2-02 | 2 | Data Manager meta columns, type mapping module, customers parser, import with diff and byte-equivalent export | implementer | T-2-01 | TODO | see below |
+| T-2-01 | 2 | Event class custom/sdk/platform, class lists and SDK default properties, engine skips non-custom, Vite watch ignore | implementer | T-2-00 | DONE | see below |
+| T-2-02 | 2 | Data Manager meta columns, type mapping module, customers parser, import with diff and byte-equivalent export | implementer | T-2-01 | IN_PROGRESS | see below |
 | T-2-03 | 2 | Data Manager events parser, import with diff (collisions, class deselection, source rule), export with passthrough, Import page | implementer | T-2-02 | TODO | see below |
 | T-2-04 | 2 | Multi-comparison orchestrator, batched resolver, comparison 4 definition vs Data Manager | implementer | T-2-03 | TODO | see below |
 | T-2-05 | 2 | Comparisons 1 and 2 engines, mapping snapshot, preview findings for pasted mapping | implementer | T-2-04 | TODO | see below |
-| T-2-06 | 2 | Rules domain: table, item schema, tolerance settings, operator registry, evaluator, templates, DAL and API | implementer | T-2-01 | TODO | see below |
+| T-2-06 | 2 | Rules domain: table, item schema, tolerance settings, operator registry, evaluator, templates, DAL and API | implementer | T-2-01 | IN_PROGRESS | see below |
 | T-2-07 | 2 | Rules integration: engine wiring, rounding_drift via template, data-mapping import proposes the template, rules and item schema UI | implementer | T-2-04, T-2-06 | TODO | see below |
 | T-2-08 | 2 | document.service EventCard, certification, coverage grid, tracking-document.json, docs/TRACKING-DOCUMENT.md | implementer | T-2-05, T-2-07 | TODO | see below |
 | T-2-09 | 2 | Event card page, certified column, findings and QA runs page additions | implementer | T-2-08 | TODO | see below |
 | T-2-10 | 2 | MCP server: dependencies, stdio process, tools, .mcp.json, docs/MCP.md smoke test | implementer | T-2-08 | TODO | see below |
-| T-2-11 | 2 | Use case narrative generation, QA run export, use case coverage | implementer | T-2-01 | TODO | see below |
-| T-2-12 | 2 | Identity alignment: identifier_name, transformations, sdk_call, identity codegen, ASCII validation | implementer | T-2-01 | TODO | see below |
+| T-2-11 | 2 | Use case narrative generation, QA run export, use case coverage | implementer | T-2-01 | IN_PROGRESS | see below |
+| T-2-12 | 2 | Identity alignment: identifier_name, transformations, sdk_call, identity codegen, ASCII validation | implementer | T-2-01 | IN_PROGRESS | see below |
 | T-2-13 | 2 | Docs refresh: CLAUDE.md, docs/DOMAIN.md, docs/QA-LOCAL.md, qa-roundtrip scenario 8 correction proposal | docs-writer | T-2-09, T-2-10, T-2-11, T-2-12 | TODO | see below |
 | T-2-EXIT | 2 | Phase 2 exit: qa-roundtrip 1 to 8 plus MCP smoke on merged agent-setup, report to user | supervisor | T-2-13 | TODO | see below |
 

@@ -996,3 +996,6 @@ Worktree agent-a9ab30dd6a782c369, branch task/T-2-01-event-class at 7de6e85. Fre
 Cleanup: killed only the node/vite/tsx processes belonging to worktree agent-a9ab30dd6a782c369 (PIDs 35884, 28072, 6116, 30884, 29908, 2628, 4824, matched by command line); confirmed via netstat that port 3001 has no listener afterward, port 3000's only listener is the pre-existing Docker process (PID 30524), untouched. Scratch DB/files removed from the worktree (data/qa-t201.sqlite*, data/qa-t201-files/); `git status` in the worktree is clean.
 
 Recommend T-2-01 -> DONE.
+
+### 2026-09-25 10:25 | supervisor -> ALL | INFO | T-2-01
+T-2-01 merged into agent-setup (518 tests, tsc clean). Low findings (EventClass typing, migration test asserts for indexes, class shown in Data Manager preview, docs) carried to T-2-02 and T-2-13. Starting T-2-02, T-2-06, T-2-11, T-2-12 in parallel worktrees. Reviewer definition updated with the junction rule.

@@ -62,7 +62,10 @@ export function createApp(): express.Express {
     })
   );
   app.use(optionalAuth);
-  app.use(express.json());
+  // T-2-03: default 100kb is too small for a pasted `data-manager-events.json` (the fixture alone is
+  // ~360kb; a real Bloomreach project with 61+ event definitions and hundreds of properties is
+  // comparable or larger) — every Bloomreach JSON paste box (D-04) shares this one body parser.
+  app.use(express.json({ limit: '20mb' }));
 
   app.use('/api/clients', clientsRouter);
   app.use('/api/projects', projectsRouter);

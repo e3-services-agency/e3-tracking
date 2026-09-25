@@ -8,6 +8,7 @@ import {
   exportDataMapping,
   exportExpirationSettings,
   exportDataManagerCustomers,
+  exportDataManagerEvents,
 } from '../services/bloomreachExport.service';
 import { buildIdentityCodegen } from '../services/codegen.service';
 import { listIdentityRules } from '../dal/identity-rule.dal';
@@ -74,6 +75,19 @@ router.get('/qa-runs/:runId/customer-events-export.json', (req: Request, res: Re
 router.get('/data-manager-customers.json', (req: Request, res: Response) => {
   try {
     res.status(200).json(exportDataManagerCustomers(req.projectId!));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+// Data Manager events export (T-2-03, D-28, D-35): round-trips what the project's Data Manager
+// events import produced, plus passthrough of deselected sdk/platform (or never-selected) events
+// from the stored snapshot. `?passthrough=false` returns only the live app definition (D-35's
+// documented alternative), defaulting to `true` so the bridge gets the whole file back.
+router.get('/data-manager-events.json', (req: Request, res: Response) => {
+  try {
+    const passthrough = req.query.passthrough !== 'false';
+    res.status(200).json(exportDataManagerEvents(req.projectId!, { passthrough }));
   } catch (err) {
     handleRouteError(err, res);
   }

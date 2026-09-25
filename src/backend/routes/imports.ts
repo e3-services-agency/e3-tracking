@@ -16,6 +16,7 @@ import {
   previewDataManagerCustomers,
   applyDataManagerCustomers,
 } from '../services/dataManagerCustomersImport.service';
+import { previewDataManagerEvents, applyDataManagerEvents } from '../services/dataManagerEventsImport.service';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -102,6 +103,23 @@ router.post('/data-manager-customers/apply', (req: Request, res: Response) => {
   try {
     const { payload, payload_hash, selected_item_ids } = parseApplyBody(req);
     res.status(200).json(applyDataManagerCustomers(req.projectId!, payload, payload_hash, selected_item_ids));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.post('/data-manager-events/preview', (req: Request, res: Response) => {
+  try {
+    res.status(200).json(previewDataManagerEvents(req.projectId!, req.body));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.post('/data-manager-events/apply', (req: Request, res: Response) => {
+  try {
+    const { payload, payload_hash, selected_item_ids } = parseApplyBody(req);
+    res.status(200).json(applyDataManagerEvents(req.projectId!, payload, payload_hash, selected_item_ids));
   } catch (err) {
     handleRouteError(err, res);
   }

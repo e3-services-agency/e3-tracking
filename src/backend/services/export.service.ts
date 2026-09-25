@@ -20,6 +20,8 @@ import {
   buildCodegenSnippets,
   buildIdentityCodegen,
   jsonSampleValueForProperty,
+  toAttachedPropertyForCodegen,
+  attachedPropertiesForVariant,
   type AttachedPropertyForCodegen,
   type CodegenSnippets,
 } from './codegen.service';
@@ -40,11 +42,15 @@ import {
   renderStandardEventMappingsSection,
   renderUseCasesSection,
   renderRequirementsMatrixSection,
+  renderCertificationBadge,
+  renderRulesTable,
+  renderCoverageSummary,
   type VariantForDocs,
   type StandardEventMappingForDocs,
   type UseCaseForDocs,
 } from './docs/sections';
 import { escapeHtml } from './htmlEscape';
+import { buildEventCard } from './document.service';
 
 export { escapeHtml };
 
@@ -54,22 +60,6 @@ interface TriggerEntry {
   image_path?: string | null;
   source?: string | null;
   order?: number;
-}
-
-function toAttachedPropertyForCodegen(link: EventPropertyWithDetails): AttachedPropertyForCodegen {
-  return {
-    property_name: link.payload_key?.trim() || link.property.name,
-    // D-16 dropped presence; codegen reads `EventProperty.required` directly (T-1-03/T-1-04
-    // integration WARNING 4: this must stay `required`, never `presence`, or every property
-    // silently renders as optional in the generated snippets/docs).
-    required: link.required,
-    property_data_type: link.property.data_type,
-    property_data_formats: (link.property.data_formats_json as string[] | null) ?? null,
-    property_example_values_json:
-      (link.property.example_values_json as AttachedPropertyForCodegen['property_example_values_json']) ?? null,
-    property_value_schema_json:
-      (link.property.value_schema_json as AttachedPropertyForCodegen['property_value_schema_json']) ?? null,
-  };
 }
 
 /**
@@ -160,28 +150,6 @@ function formatConditionsText(variant: VariantRow, propertyNameById: Map<string,
     .join(', ');
 }
 
-/**
- * Builds the attached-property list for a variant's codegen snippet, overriding each
- * discriminator property's example value with its condition's literal value (T-1-05 acceptance:
- * "codegen snippets for a variant include the discriminator values as literals").
- */
-function attachedPropertiesForVariant(
-  properties: EventPropertyWithDetails[],
-  variant: VariantRow
-): AttachedPropertyForCodegen[] {
-  const conditionByProperty = new Map(
-    (variant.conditions_json as VariantRow['conditions_json']).map((c) => [c.property_id, c])
-  );
-  return properties.map((link) => {
-    const attached = toAttachedPropertyForCodegen(link);
-    const condition = conditionByProperty.get(link.property_id);
-    if (condition && condition.values.length > 0) {
-      attached.property_example_values_json = [{ value: condition.values[0] }];
-    }
-    return attached;
-  });
-}
-
 function codegenBlock(label: string, code: string): string {
   return `<div class="codegen-snippet">
     <h4>${escapeHtml(label)}</h4>
@@ -212,6 +180,14 @@ async function buildEventSectionHtml(
   );
   const triggersHtml = await buildTriggersHtml(projectId, (event.triggers_json as TriggerEntry[]) ?? []);
   const propertyNameById = new Map(properties.map((link) => [link.property_id, link.property.name]));
+
+  // T-2-08 acceptance: "the HTML documentation export renders the card sections (certification,
+  // rules, coverage summary) from the same EventCard" -- one extra `buildEventCard` call per event
+  // (docs export is not a hot path), so this and the event card page/tracking document never drift.
+  const card = buildEventCard(projectId, event.id);
+  const certificationHtml = renderCertificationBadge(card.certification);
+  const rulesHtml = renderRulesTable(card.rules);
+  const coverageSummaryHtml = renderCoverageSummary(card.coverage);
 
   const variantsHtml = renderVariantsSubsection(
     variants.map<VariantForDocs>((variant) => ({
@@ -248,6 +224,7 @@ async function buildEventSectionHtml(
       ${event.trigger_text ? `<dt>Trigger</dt><dd>${escapeHtml(event.trigger_text)}</dd>` : ''}
       ${event.identity_note ? `<dt>Identity note</dt><dd>${escapeHtml(event.identity_note)}</dd>` : ''}
     </dl>
+    ${certificationHtml}
     ${event.description ? `<p class="description">${escapeHtml(event.description)}</p>` : ''}
     ${event.purpose ? `<p class="purpose"><strong>Purpose:</strong> ${escapeHtml(event.purpose)}</p>` : ''}
     ${triggersHtml}
@@ -259,6 +236,8 @@ async function buildEventSectionHtml(
     ${buildCodegenHtml(codegen)}
     ${variantsHtml}
     ${variantCodegenHtml}
+    ${rulesHtml}
+    ${coverageSummaryHtml}
   </section>`;
 }
 

@@ -56,4 +56,10 @@ export interface DiffItem {
    * checked and disabled rather than implying the user's toggle has any effect.
    */
   locked?: boolean;
+  /**
+   * `EventClass` (T-2-03, D-29): set on the Data Manager events import's per-event `DiffItem`s so
+   * the Import page's preview table can show a `class` column and a "select all custom" toggle
+   * without hardcoding event-name lists in the UI. Omitted for every other item.
+   */
+  class?: string;
 }

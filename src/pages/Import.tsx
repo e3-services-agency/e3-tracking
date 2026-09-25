@@ -24,6 +24,8 @@ interface DiffItem {
   note?: string;
   /** Always applied regardless of the checkbox (D-35's Data Manager snapshot items). */
   locked?: boolean;
+  /** `EventClass` (T-2-03): set on the Data Manager events per-event items only. */
+  class?: string;
 }
 
 /** `null`/`undefined` render as "(none)"; objects/arrays are JSON-stringified; everything else as-is. */
@@ -49,18 +51,21 @@ async function parseJson(res: Response): Promise<any> {
   return res.json().catch(() => ({}));
 }
 
-type Format = 'data-mapping' | 'expiration-settings' | 'data-manager-customers';
+type Format = 'data-mapping' | 'expiration-settings' | 'data-manager-customers' | 'data-manager-events';
 
 function ImportBox({
   format,
   title,
   disabled,
   projectId,
+  showClassColumn,
 }: {
   format: Format;
   title: string;
   disabled?: boolean;
   projectId: string;
+  /** T-2-03: Data Manager events box shows the `class` column and a "select all custom" toggle. */
+  showClassColumn?: boolean;
 }) {
   const [text, setText] = useState('');
   const [preview, setPreview] = useState<PreviewResult | null>(null);
@@ -144,6 +149,21 @@ function ImportBox({
     });
   };
 
+  /** T-2-03: selects every `class: "custom"` item (events, plus the properties/links that come with
+   * them) and deselects every sdk/platform item, leaving locked (always-applied) items untouched. */
+  const selectAllCustom = () => {
+    if (!preview) return;
+    setSelected((prev) => {
+      const next = new Set(prev);
+      for (const item of preview.items) {
+        if (item.locked || item.class === undefined) continue;
+        if (item.class === 'custom') next.add(item.id);
+        else next.delete(item.id);
+      }
+      return next;
+    });
+  };
+
   return (
     <div className="bg-white rounded-lg border shadow-sm p-4 space-y-3">
       <h2 className="text-base font-semibold text-gray-900">{title}</h2>
@@ -162,6 +182,11 @@ function ImportBox({
         {preview && (
           <Button type="button" onClick={() => void handleApply()} disabled={loading || selected.size === 0}>
             Apply ({selected.size} selected)
+          </Button>
+        )}
+        {preview && showClassColumn && (
+          <Button type="button" variant="outline" onClick={selectAllCustom}>
+            Select all custom
           </Button>
         )}
       </div>
@@ -185,6 +210,7 @@ function ImportBox({
                 <th className="px-3 py-2 font-medium text-gray-500">Op</th>
                 <th className="px-3 py-2 font-medium text-gray-500">Entity</th>
                 <th className="px-3 py-2 font-medium text-gray-500">Key</th>
+                {showClassColumn && <th className="px-3 py-2 font-medium text-gray-500">Class</th>}
                 <th className="px-3 py-2 font-medium text-gray-500">Changes</th>
                 <th className="px-3 py-2 font-medium text-gray-500">Note</th>
               </tr>
@@ -192,7 +218,7 @@ function ImportBox({
             <tbody className="divide-y">
               {preview.items.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-4 text-center text-gray-400">
+                  <td colSpan={showClassColumn ? 7 : 6} className="px-3 py-4 text-center text-gray-400">
                     Nothing to propose — everything already matches.
                   </td>
                 </tr>
@@ -210,6 +236,7 @@ function ImportBox({
                   <td className="px-3 py-2 font-mono">{item.op}</td>
                   <td className="px-3 py-2">{item.entity_type}</td>
                   <td className="px-3 py-2 font-mono">{item.entity_key}</td>
+                  {showClassColumn && <td className="px-3 py-2 font-mono">{item.class ?? '—'}</td>}
                   <td className="px-3 py-2 text-gray-500">
                     {item.changes.length > 0 && (
                       <ul className="space-y-0.5">
@@ -485,6 +512,12 @@ export function Import() {
         <ImportBox format="data-mapping" title="Data mapping" projectId={activeProjectId} />
         <ImportBox format="expiration-settings" title="Expiration settings" projectId={activeProjectId} />
         <ImportBox format="data-manager-customers" title="Data Manager customers" projectId={activeProjectId} />
+        <ImportBox
+          format="data-manager-events"
+          title="Data Manager events"
+          projectId={activeProjectId}
+          showClassColumn
+        />
         <CustomerEventsImportBox projectId={activeProjectId} />
 
         <div className="bg-white rounded-lg border shadow-sm p-4 space-y-3">
@@ -503,6 +536,11 @@ export function Import() {
             <a href={downloadUrl('export/data-manager-customers.json')} download="data-manager-customers.json">
               <Button type="button" variant="outline">
                 Download data-manager-customers.json
+              </Button>
+            </a>
+            <a href={downloadUrl('export/data-manager-events.json')} download="data-manager-events.json">
+              <Button type="button" variant="outline">
+                Download data-manager-events.json
               </Button>
             </a>
           </div>

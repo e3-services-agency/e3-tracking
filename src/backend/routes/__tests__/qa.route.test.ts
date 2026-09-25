@@ -97,6 +97,15 @@ describe('customer-events-export import + comparison + findings (T-1-09)', () =>
     expect(body.observations.length).toBe(19);
   });
 
+  it('GET /export/qa-runs/:runId/customer-events-export.json re-emits the run in the Bloomreach shape (T-2-11)', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/export/qa-runs/${runId}/customer-events-export.json`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.customer_id).toBe(eventsFixture.customer_id);
+    expect(body.events).toHaveLength(19);
+    expect(body.events[0].timestamp).toBeGreaterThanOrEqual(body.events[body.events.length - 1].timestamp);
+  });
+
   it('PATCH /qa-runs/:id archives the run', async () => {
     const res = await fetch(`${baseUrl}/api/projects/${projectId}/qa-runs/${runId}`, {
       method: 'PATCH',

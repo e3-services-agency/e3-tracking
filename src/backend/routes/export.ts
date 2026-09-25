@@ -5,6 +5,7 @@
 import { Router, type Request, type Response } from 'express';
 import { generateProjectDocumentationHtml } from '../services/export.service';
 import { exportDataMapping, exportExpirationSettings } from '../services/bloomreachExport.service';
+import { exportQaRunAsCustomerEventsExport } from '../services/qaRunExport.service';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -32,6 +33,16 @@ router.get('/data-mapping.json', (req: Request, res: Response) => {
 router.get('/expiration-settings.json', (req: Request, res: Response) => {
   try {
     res.status(200).json(exportExpirationSettings(req.projectId!));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+// QA run export (T-2-11, PLAN "QA run export"): re-emits a run's observations in the Bloomreach
+// customer-events-export.json shape.
+router.get('/qa-runs/:runId/customer-events-export.json', (req: Request, res: Response) => {
+  try {
+    res.status(200).json(exportQaRunAsCustomerEventsExport(req.projectId!, req.params.runId));
   } catch (err) {
     handleRouteError(err, res);
   }

@@ -343,6 +343,11 @@ function QaRunDetail({
         <Button type="button" variant="outline" onClick={viewFindings}>
           View findings for this run
         </Button>
+        <a href={`${API_BASE}/api/projects/${projectId}/export/qa-runs/${runId}/customer-events-export.json`} download="customer-events-export.json">
+          <Button type="button" variant="outline">
+            Download customer-events-export.json
+          </Button>
+        </a>
       </div>
 
       {comparisonResult && (

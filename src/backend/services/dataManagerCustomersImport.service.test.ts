@@ -130,6 +130,121 @@ describe('applyDataManagerCustomers', () => {
     expect(cityItem).toBeUndefined(); // no other field differs, so no item at all
     expect(preview2.warnings.some((w) => w.includes('City'))).toBe(true);
   });
+
+  it('reviewer ERROR 1: money format survives a format-only re-import (no data_type item proposed, no format wipe)', () => {
+    // "company_name" is number/"user" in the fixture; seed it as number/[money] (a pure app
+    // enrichment with no Bloomreach counterpart, D-37) and matching every other fixture field so the
+    // only possible diff is the type/format comparison itself.
+    PropertyDAL.createProperty(projectId, {
+      scope: 'customer',
+      name: 'company_name',
+      data_type: 'number',
+      data_formats_json: ['money'],
+      category: 'Personal Data',
+      pii: true,
+      description: 'updated by DWH',
+    });
+
+    const preview = previewDataManagerCustomers(projectId, fixture);
+    const item = preview.items.find((i) => i.entity_key === 'company_name');
+    expect(item).toBeUndefined(); // no field differs at all: no item proposed
+
+    const selected = preview.items.filter((i) => i.default_selected).map((i) => i.id);
+    applyDataManagerCustomers(projectId, fixture, preview.payload_hash, selected);
+
+    const companyName = PropertyDAL.listProperties(projectId, { scope: 'customer' }).find(
+      (p) => p.name === 'company_name'
+    );
+    expect(companyName?.data_formats_json).toEqual(['money']); // never wiped
+  });
+
+  it('reviewer ERROR 1: email format survives a format-only re-import of a standard customer property', () => {
+    // "email" is a STANDARD_CUSTOMER_PROPERTIES entry, default group, source "user", type "string"
+    // in the fixture; seed it as string/[email] (app enrichment) with `bloomreach_customer_property`
+    // already set so the only possible diff is the type/format comparison itself.
+    PropertyDAL.createProperty(projectId, {
+      scope: 'customer',
+      name: 'email',
+      data_type: 'string',
+      data_formats_json: ['email'],
+      bloomreach_customer_property: 'email',
+    });
+
+    const preview = previewDataManagerCustomers(projectId, fixture);
+    const item = preview.items.find((i) => i.entity_key === 'email');
+    expect(item).toBeUndefined();
+
+    const selected = preview.items.filter((i) => i.default_selected).map((i) => i.id);
+    applyDataManagerCustomers(projectId, fixture, preview.payload_hash, selected);
+
+    const email = PropertyDAL.listProperties(projectId, { scope: 'customer' }).find((p) => p.name === 'email');
+    expect(email?.data_formats_json).toEqual(['email']);
+  });
+
+  it('reviewer ERROR 1: a format-only difference on a source="data" property does not warn "Data Manager type differs"', () => {
+    // "City" is source "data", type "string" in the fixture: seeding it as string/[country_code]
+    // (app enrichment) must not trigger the source="data" type-differs warning — it is not a real
+    // Bloomreach type difference, just an app-added format with no Bloomreach counterpart.
+    PropertyDAL.createProperty(projectId, {
+      scope: 'customer',
+      name: 'City',
+      data_type: 'string',
+      data_formats_json: ['country_code'],
+    });
+
+    const preview = previewDataManagerCustomers(projectId, fixture);
+    expect(preview.items.find((i) => i.entity_key === 'City')).toBeUndefined();
+    expect(preview.warnings.some((w) => w.includes('City'))).toBe(false);
+    expect(preview.warnings.some((w) => w.includes('Data Manager type differs'))).toBe(false);
+  });
+
+  it('reviewer ERROR 1: a real source="user" type change keeps compatible existing formats on top of the new Bloomreach-implied ones', () => {
+    // "company_name" is number/"user" in the fixture; seed it as string/[email] first (a real type
+    // change, string -> number): "email" is not compatible with "number" and must be dropped, while
+    // the property still gets the new number type.
+    PropertyDAL.createProperty(projectId, {
+      scope: 'customer',
+      name: 'company_name',
+      data_type: 'string',
+      data_formats_json: ['email'],
+      category: 'Personal Data',
+    });
+    const preview = previewDataManagerCustomers(projectId, fixture);
+    const item = preview.items.find((i) => i.entity_key === 'company_name');
+    expect(item?.changes.some((c) => c.field === 'data_type')).toBe(true);
+
+    applyDataManagerCustomers(projectId, fixture, preview.payload_hash, [item!.id, 'project:data_manager_customers_snapshot']);
+    const row = PropertyDAL.listProperties(projectId, { scope: 'customer' }).find((p) => p.name === 'company_name');
+    expect(row?.data_type).toBe('number');
+    expect(row?.data_formats_json).toEqual([]);
+  });
+
+  it('reviewer ERROR 2: a payload with zero properties (the events export shape) proposes no items and warns, and never stores the snapshot', () => {
+    const eventsShapePayload = {
+      default_group: {
+        events: [{ type: 'purchase', properties: { are_all_used: false, default_group: { properties: [] } } }],
+      },
+    };
+    const preview = previewDataManagerCustomers(projectId, eventsShapePayload);
+    expect(preview.items).toEqual([]);
+    expect(preview.warnings.some((w) => /events export/.test(w))).toBe(true);
+    expect(preview.warnings.some((w) => /nothing to import/.test(w))).toBe(true);
+
+    const result = applyDataManagerCustomers(projectId, eventsShapePayload, preview.payload_hash, []);
+    expect(result.applied).toEqual([]);
+    const project = ProjectDAL.getProjectOrThrow(projectId);
+    expect(project.data_manager_customers_json).toBeNull();
+  });
+
+  it('reviewer ERROR 2: an empty-but-well-formed payload ("{}") also proposes no snapshot item and warns', () => {
+    const preview = previewDataManagerCustomers(projectId, {});
+    expect(preview.items).toEqual([]);
+    expect(preview.warnings.some((w) => /nothing to import/.test(w))).toBe(true);
+
+    applyDataManagerCustomers(projectId, {}, preview.payload_hash, []);
+    const project = ProjectDAL.getProjectOrThrow(projectId);
+    expect(project.data_manager_customers_json).toBeNull();
+  });
 });
 
 describe('exportDataManagerCustomers round trip', () => {
@@ -161,5 +276,35 @@ describe('exportDataManagerCustomers round trip', () => {
       private: false,
       type: 'string',
     });
+  });
+
+  it('reviewer INFO 6: exports the app type reverse-mapped once the user changes it after import; the stored raw unrecognized type is a fallback only', () => {
+    // Import a property with an unrecognized Data Manager type: falls back to app type
+    // string/no-formats, and the original raw "geo_point" is kept on `bloomreach_meta_json.raw.type`
+    // (D-37) so a re-export can still round-trip it verbatim *while the app type is untouched*.
+    const payload = { default_group: { properties: [{ property: 'geo', type: 'geo_point' }] } };
+    const preview = previewDataManagerCustomers(projectId, payload);
+    applyDataManagerCustomers(
+      projectId,
+      payload,
+      preview.payload_hash,
+      preview.items.filter((i) => i.default_selected).map((i) => i.id)
+    );
+
+    const before = exportDataManagerCustomers(projectId);
+    const rowBefore = (before.default_group as { properties: Record<string, unknown>[] }).properties.find(
+      (p) => p.property === 'geo'
+    );
+    expect(rowBefore?.type).toBe('geo_point'); // fallback: app type is still the untouched string placeholder
+
+    // The user now changes the property's app type away from the placeholder (e.g. to "number").
+    const geo = PropertyDAL.listProperties(projectId, { scope: 'customer' }).find((p) => p.name === 'geo')!;
+    PropertyDAL.updateProperty(projectId, geo.id, { data_type: 'number', data_formats_json: [] });
+
+    const after = exportDataManagerCustomers(projectId);
+    const rowAfter = (after.default_group as { properties: Record<string, unknown>[] }).properties.find(
+      (p) => p.property === 'geo'
+    );
+    expect(rowAfter?.type).toBe('number'); // reverse-mapped current type wins, not the stale raw fallback
   });
 });

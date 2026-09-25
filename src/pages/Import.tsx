@@ -22,6 +22,15 @@ interface DiffItem {
   changes: { field: string; before: unknown; after: unknown }[];
   default_selected: boolean;
   note?: string;
+  /** Always applied regardless of the checkbox (D-35's Data Manager snapshot items). */
+  locked?: boolean;
+}
+
+/** `null`/`undefined` render as "(none)"; objects/arrays are JSON-stringified; everything else as-is. */
+function formatChangeValue(value: unknown): string {
+  if (value === null || value === undefined) return '(none)';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
 }
 
 interface PreviewResult {
@@ -125,11 +134,12 @@ function ImportBox({
     }
   };
 
-  const toggle = (id: string) => {
+  const toggle = (item: DiffItem) => {
+    if (item.locked) return; // not deselectable (D-35); checkbox is rendered disabled
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(item.id)) next.delete(item.id);
+      else next.add(item.id);
       return next;
     });
   };
@@ -175,13 +185,14 @@ function ImportBox({
                 <th className="px-3 py-2 font-medium text-gray-500">Op</th>
                 <th className="px-3 py-2 font-medium text-gray-500">Entity</th>
                 <th className="px-3 py-2 font-medium text-gray-500">Key</th>
+                <th className="px-3 py-2 font-medium text-gray-500">Changes</th>
                 <th className="px-3 py-2 font-medium text-gray-500">Note</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {preview.items.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-3 py-4 text-center text-gray-400">
+                  <td colSpan={6} className="px-3 py-4 text-center text-gray-400">
                     Nothing to propose — everything already matches.
                   </td>
                 </tr>
@@ -189,11 +200,28 @@ function ImportBox({
               {preview.items.map((item) => (
                 <tr key={item.id}>
                   <td className="px-3 py-2">
-                    <input type="checkbox" checked={selected.has(item.id)} onChange={() => toggle(item.id)} />
+                    <input
+                      type="checkbox"
+                      checked={item.locked || selected.has(item.id)}
+                      disabled={item.locked}
+                      onChange={() => toggle(item)}
+                    />
                   </td>
                   <td className="px-3 py-2 font-mono">{item.op}</td>
                   <td className="px-3 py-2">{item.entity_type}</td>
                   <td className="px-3 py-2 font-mono">{item.entity_key}</td>
+                  <td className="px-3 py-2 text-gray-500">
+                    {item.changes.length > 0 && (
+                      <ul className="space-y-0.5">
+                        {item.changes.map((c, i) => (
+                          <li key={i}>
+                            <span className="font-mono">{c.field}</span>: {formatChangeValue(c.before)} →{' '}
+                            {formatChangeValue(c.after)}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-gray-500">{item.note}</td>
                 </tr>
               ))}

@@ -86,6 +86,36 @@ describe('parseDataManagerCustomers', () => {
     expect(model2.warnings.length).toBeGreaterThan(0);
   });
 
+  it('reviewer WARNING 3: a duplicate property name across the file collapses to one property (last wins) and warns once', () => {
+    const model = parseDataManagerCustomers({
+      default_group: { properties: [{ property: 'x', type: 'string' }] },
+      groups: [{ name: 'G', properties: [{ property: 'x', type: 'number' }] }],
+    });
+    expect(model.properties).toHaveLength(1);
+    expect(model.properties[0]).toMatchObject({ property: 'x', type: 'number', group: 'G' }); // last wins
+    expect(model.warnings.filter((w) => w.includes('"x"')).length).toBe(1); // exactly one warning
+  });
+
+  it('reviewer ERROR 2: detects the Data Manager events shape (properties nested under "events") and warns instead of silently parsing 0 properties with no explanation', () => {
+    const model = parseDataManagerCustomers({
+      default_group: { events: [{ type: 'purchase', properties: { default_group: { properties: [] } } }] },
+    });
+    expect(model.properties).toEqual([]);
+    expect(model.warnings.some((w) => /events export/.test(w))).toBe(true);
+  });
+
+  it('reviewer WARNING 5: a non-boolean flag warns and falls back to its default instead of being silently coerced', () => {
+    const model = parseDataManagerCustomers({
+      default_group: {
+        properties: [{ property: 'a', type: 'string', private: 'true', used: 'false', deleting: 1 }],
+      },
+    });
+    expect(model.properties[0]).toMatchObject({ private: false, used: true, deleting: false });
+    expect(model.warnings.some((w) => w.includes('.private must be a boolean'))).toBe(true);
+    expect(model.warnings.some((w) => w.includes('.used must be a boolean'))).toBe(true);
+    expect(model.warnings.some((w) => w.includes('.deleting must be a boolean'))).toBe(true);
+  });
+
   it('keeps null and the literal "(empty)" sentinel distinct on description/example_values', () => {
     const model = parseDataManagerCustomers({
       default_group: {

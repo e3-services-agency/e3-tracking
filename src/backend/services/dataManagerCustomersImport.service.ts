@@ -23,7 +23,8 @@ import {
   type DataManagerCustomerProperty,
   type DataManagerCustomersModel,
 } from '../../domain/import/dataManagerCustomers';
-import { toAppType } from '../../domain/bloomreach/dataManagerTypes';
+import { toAppType, toDataManagerType, formatsCompatibleWithType } from '../../domain/bloomreach/dataManagerTypes';
+import type { PropertyDataFormat } from '../../domain/enums';
 import { payloadHash } from '../../domain/diff/hash';
 import type { DiffItem, DiffItemChange } from '../../domain/diff/types';
 import { STANDARD_CUSTOMER_PROPERTIES } from '../../domain/bloomreach';
@@ -71,13 +72,6 @@ function normalizeDescription(raw: string | null): string | null {
 function normalizeExampleValues(raw: string | null): { value: string }[] {
   if (raw === null || raw === EMPTY_SENTINEL || raw === '') return [];
   return [{ value: raw }];
-}
-
-function sameFormats(a: readonly string[], b: readonly string[]): boolean {
-  if (a.length !== b.length) return false;
-  const as = [...a].sort();
-  const bs = [...b].sort();
-  return as.every((v, i) => v === bs[i]);
 }
 
 interface CustomerPropertyMeta {
@@ -160,13 +154,29 @@ function buildPlan(projectId: string, model: DataManagerCustomersModel, rawJson:
     const currentFormats = Array.isArray(existing.data_formats_json)
       ? (existing.data_formats_json as string[])
       : [];
-    const typeDiffers = existing.data_type !== appType.data_type || !sameFormats(currentFormats, appType.data_formats);
+    // D-37 reverse rule (reviewer ERROR 1 fix): compare the *reverse-mapped* Data Manager type of
+    // the existing property against the incoming Bloomreach type, never the raw app `data_type`
+    // plus exact `data_formats`. App-added formats with no Bloomreach counterpart (`email`,
+    // `money`, `country_code`, ...) must never make a format-only difference look like a real type
+    // change, and must never be wiped by an import that leaves the Data Manager type unchanged
+    // (e.g. `string`/`[email]` stays `string`/`[email]`, `number`/`[money]` stays `number`/`[money]`).
+    const currentDmType = toDataManagerType(existing.data_type, currentFormats).type;
+    const typeDiffers = currentDmType !== prop.type;
+    let nextFormats: readonly string[] = currentFormats;
     if (typeDiffers) {
       if (prop.source === 'user') {
+        // A real type change: keep whichever existing app-added formats are still meaningful for
+        // the new app data_type (e.g. `money` survives string->number is false, but a genuine
+        // number->number with `money` already present would never reach this branch); on top of
+        // whatever the new Bloomreach type itself implies (e.g. `long_text` for "long text").
+        const kept = currentFormats.filter((f) =>
+          formatsCompatibleWithType(appType.data_type).includes(f as PropertyDataFormat)
+        );
+        nextFormats = Array.from(new Set([...appType.data_formats, ...kept]));
         changes.push({
           field: 'data_type',
           before: currentFormats.length ? `${existing.data_type}/${currentFormats.join(',')}` : existing.data_type,
-          after: appType.data_formats.length ? `${appType.data_type}/${appType.data_formats.join(',')}` : appType.data_type,
+          after: nextFormats.length ? `${appType.data_type}/${nextFormats.join(',')}` : appType.data_type,
         });
       } else {
         warnings.push(
@@ -207,7 +217,7 @@ function buildPlan(projectId: string, model: DataManagerCustomersModel, rawJson:
         const patch: Partial<PropertyDAL.PropertyInput> = {};
         if (changes.some((c) => c.field === 'data_type')) {
           patch.data_type = appType.data_type;
-          patch.data_formats_json = appType.data_formats;
+          patch.data_formats_json = nextFormats;
         }
         if (changes.some((c) => c.field === 'category')) patch.category = category;
         if (changes.some((c) => c.field === 'pii')) patch.pii = pii;
@@ -223,6 +233,19 @@ function buildPlan(projectId: string, model: DataManagerCustomersModel, rawJson:
   }
 
   // ---- Snapshot step: always present, always applied regardless of selection (see module comment). ----
+  // Reviewer ERROR 2 fix: refuse the snapshot entirely (no item, no step, hard warning) when the
+  // parsed model has zero properties — either because the payload is not a customers document at
+  // all (e.g. a `data-manager-events.json` export, flagged separately by the parser) or because it
+  // is genuinely empty (`{}`, `{"groups":[]}`). Silently snapshotting an empty/wrong-shaped payload
+  // would overwrite `Project.data_manager_customers_json`/`data_manager_meta_json.customers` — the
+  // comparison-4 evidence store — with garbage and no way to notice.
+  if (model.properties.length === 0) {
+    warnings.push(
+      'No customer properties found in this payload; nothing to import. The Data Manager customers snapshot was not stored.'
+    );
+    return { items, warnings, steps };
+  }
+
   const project = ProjectDAL.getProjectOrThrow(projectId);
   const desiredCustomersMeta = {
     are_all_used: model.are_all_used,
@@ -241,6 +264,7 @@ function buildPlan(projectId: string, model: DataManagerCustomersModel, rawJson:
     changes: [{ field: 'data_manager_customers_json', before: null, after: '(snapshot; always applied)' }],
     default_selected: true,
     note: 'Store the Data Manager customers snapshot (always applied; not deselectable).',
+    locked: true,
   });
   steps.push({
     id: SNAPSHOT_STEP_ID,

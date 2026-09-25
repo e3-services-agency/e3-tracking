@@ -166,11 +166,24 @@ export function exportDataManagerCustomers(projectId: string): Record<string, un
   function buildRow(p: PropertyDAL.PropertyRow): Record<string, unknown> {
     const propMeta = (p.bloomreach_meta_json ?? null) as CustomerPropertyMeta | null;
     const formats = Array.isArray(p.data_formats_json) ? (p.data_formats_json as string[]) : [];
-    const type = propMeta?.raw?.type ?? toDataManagerType(p.data_type, formats).type;
+    // INFO 6 fix: `raw.type` is only ever stored for a property imported with an *unrecognized*
+    // Data Manager type (see `dataManagerCustomersImport.service.ts`'s `buildMeta`), where the app
+    // type falls back to plain `string`/no formats. It is a fallback only — if the user has since
+    // changed the property's app type away from that plain-string placeholder, the reverse-mapped
+    // current type must win so the export reflects the edit; `raw.type` is used only while the app
+    // type still looks like the unrecognized-type placeholder (data-losing round trip is documented,
+    // not silently perpetuated once the user has actually changed the type).
+    const reverseMappedType = toDataManagerType(p.data_type, formats).type;
+    const type = propMeta?.raw?.type && reverseMappedType === 'string' ? propMeta.raw.type : reverseMappedType;
     const exampleValuesArr = Array.isArray(p.example_values_json)
       ? (p.example_values_json as { value: unknown }[])
       : [];
     const description = p.description !== null ? p.description : (propMeta?.raw?.description ?? null);
+    // Only the first example value is exported (D-28/D-37): Bloomreach's `example_values` field is a
+    // single string, while the app stores a list (`example_values_json`) for future multi-value
+    // support; joining/concatenating multiple values would not round-trip to any real Bloomreach
+    // shape, so the fixture (which only ever has zero or one example value) is matched exactly by
+    // taking the first entry and documenting the choice here rather than attempting to join.
     const example_values =
       exampleValuesArr.length > 0 ? String(exampleValuesArr[0].value) : (propMeta?.raw?.example_values ?? null);
     const defaults = propMeta ? null : APP_BORN_CUSTOMER_DEFAULTS;

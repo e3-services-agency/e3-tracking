@@ -15,6 +15,19 @@ function readStringOrNull(value: unknown): string | null {
   return typeof value === 'string' ? value : String(value);
 }
 
+/**
+ * Reviewer WARNING 5 fix: a Bloomreach boolean flag arriving as a non-boolean (e.g. the string
+ * `"true"`) is no longer silently coerced (which previously turned `private:"true"` into `false`
+ * and `used:"false"` into `true`, the opposite of what the string looks like it means) — it warns
+ * and falls back to `defaultValue` instead.
+ */
+function readBoolFlag(raw: unknown, defaultValue: boolean, path: string, field: string, warnings: string[]): boolean {
+  if (raw === undefined) return defaultValue;
+  if (typeof raw === 'boolean') return raw;
+  warnings.push(`${path}.${field} must be a boolean; got ${JSON.stringify(raw)}, treated as ${defaultValue}.`);
+  return defaultValue;
+}
+
 export interface DataManagerCustomerProperty {
   /** Bloomreach property name (matched against `Property.name` for scope `customer`). */
   property: string;
@@ -70,11 +83,11 @@ function parseProperty(
     type,
     description: readStringOrNull(raw.description),
     example_values: readStringOrNull(raw.example_values),
-    private: raw.private === true,
+    private: readBoolFlag(raw.private, false, path, 'private', warnings),
     source: typeof raw.source === 'string' && raw.source.trim() ? raw.source.trim() : 'user',
-    used: raw.used !== false,
-    deleting: raw.deleting === true,
-    locked_for_contact_migration: raw.locked_for_contact_migration === true,
+    used: readBoolFlag(raw.used, true, path, 'used', warnings),
+    deleting: readBoolFlag(raw.deleting, false, path, 'deleting', warnings),
+    locked_for_contact_migration: readBoolFlag(raw.locked_for_contact_migration, false, path, 'locked_for_contact_migration', warnings),
     group,
     dm_index: index,
   };
@@ -97,6 +110,20 @@ export function parseDataManagerCustomers(json: unknown): DataManagerCustomersMo
   const default_private = json.default_private === true;
   const properties: DataManagerCustomerProperty[] = [];
   let index = 0;
+
+  // Reviewer ERROR 2 fix: `data-manager-events.json` nests each event's own `properties` object
+  // under a `default_group.events[]`/`groups[].events[]` array instead of `default_group.properties`
+  // directly, so it otherwise silently parses to zero properties and zero warnings here — say so
+  // explicitly instead of letting the caller mistake "wrong file" for "empty project".
+  const looksLikeEvents =
+    (isPlainObject(json.default_group) && Array.isArray((json.default_group as Record<string, unknown>).events)) ||
+    (Array.isArray(json.groups) &&
+      json.groups.some((g) => isPlainObject(g) && Array.isArray((g as Record<string, unknown>).events)));
+  if (looksLikeEvents) {
+    warnings.push(
+      'This looks like a Data Manager events export (properties nested under "events"), not a customers export; parsed 0 customer properties.'
+    );
+  }
 
   if (json.default_group !== undefined) {
     if (isPlainObject(json.default_group)) {
@@ -141,5 +168,21 @@ export function parseDataManagerCustomers(json: unknown): DataManagerCustomersMo
     }
   }
 
-  return { are_all_used, default_private, group_order, properties, warnings };
+  // Reviewer WARNING 3 fix: a property name repeated anywhere in the file (default group and/or
+  // named groups) previously produced two `DiffItem`s sharing the same id (duplicate React keys,
+  // the second silently lost) with no warning. Last occurrence wins (matches file order = later
+  // Data Manager group takes precedence, the same "last write wins" rule already used for the
+  // customer-events-export duplicate-event-in-payload case); collapse to one property and warn once
+  // per duplicated name.
+  const lastIndexByName = new Map<string, number>();
+  properties.forEach((p, i) => lastIndexByName.set(p.property, i));
+  const duplicateNames = new Set(
+    properties.filter((p, i) => lastIndexByName.get(p.property) !== i).map((p) => p.property)
+  );
+  for (const name of duplicateNames) {
+    warnings.push(`Property "${name}" is defined more than once in this payload; the last definition wins.`);
+  }
+  const dedupedProperties = properties.filter((p, i) => lastIndexByName.get(p.property) === i);
+
+  return { are_all_used, default_private, group_order, properties: dedupedProperties, warnings };
 }

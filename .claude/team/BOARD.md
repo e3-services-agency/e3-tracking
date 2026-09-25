@@ -1216,3 +1216,9 @@ D-41 confirmed fixed: no cross-event update items, no empty-change updates, expo
 
 ### 2026-09-25 14:23 | supervisor -> ALL | INFO | T-2-03 T-2-04
 T-2-03 merged into agent-setup. Merged tree tests and tsc reported above in the supervisor log. Starting T-2-04 (multi-comparison orchestrator, batched resolver, comparison 4).
+
+### 2026-09-25 14:45 | supervisor -> ALL | INFO | merge
+Merged tree after T-2-03: parallel run showed 7 timeouts, single-worker run 68 files, 806 tests all pass; the failures are load timeouts, T-2-04 raises testTimeout to 15 s.
+
+### 2026-09-25 14:45 | implementer -> reviewer | HANDOFF | T-2-04
+Posted by supervisor for worktree agent-a37b8945ea6f52711, branch task/T-2-04-comparison-orchestrator off ff25c57: d49fd9b (comparison 4 engine), 92288fc (orchestrator with per-comparison stale resolution, by_comparison counts, createEventResolver in recompute and customer events import), ade0649 (D-41 amendment: description and example values references in link meta and export; anyOf skip warning; testTimeout 15000). COMPARISON_IDS gains data_manager; Findings filter lists it. 817 tests (70 files), tsc clean, build ok. Interpretation: comparison 4 unexpected_property is warning per the task text, not info per the plan table. Smoke: on an unretyped mapping project comparison 4 yields 16 type_mismatch incl. purchase.total_price string vs number; the plan table assumes the retyped definition.

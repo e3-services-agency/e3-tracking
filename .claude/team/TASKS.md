@@ -24,7 +24,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-2-01 | 2 | Event class custom/sdk/platform, class lists and SDK default properties, engine skips non-custom, Vite watch ignore | implementer | T-2-00 | DONE | see below |
 | T-2-02 | 2 | Data Manager meta columns, type mapping module, customers parser, import with diff and byte-equivalent export | implementer | T-2-01 | DONE | see below |
 | T-2-03 | 2 | Data Manager events parser, import with diff (collisions, class deselection, source rule), export with passthrough, Import page | implementer | T-2-02 | DONE | see below |
-| T-2-04 | 2 | Multi-comparison orchestrator, batched resolver, comparison 4 definition vs Data Manager | implementer | T-2-03 | IN_PROGRESS | see below |
+| T-2-04 | 2 | Multi-comparison orchestrator, batched resolver, comparison 4 definition vs Data Manager | implementer | T-2-03 | REVIEW | see below |
 | T-2-05 | 2 | Comparisons 1 and 2 engines, mapping snapshot, preview findings for pasted mapping | implementer | T-2-04 | TODO | see below |
 | T-2-06 | 2 | Rules domain: table, item schema, tolerance settings, operator registry, evaluator, templates, DAL and API | implementer | T-2-01 | DONE | see below |
 | T-2-07 | 2 | Rules integration: engine wiring, rounding_drift via template, data-mapping import proposes the template, rules and item schema UI | implementer | T-2-04, T-2-06 | TODO | see below |

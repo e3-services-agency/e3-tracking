@@ -10,13 +10,20 @@
  * D-29 (custom events only): checks that touch events only look at `class === 'custom'` events;
  * `sdk`/`platform` events never produce findings here, matching comparisons 2/3.
  *
- * Severities: the T-2-04 task text is explicit and supersedes the plan table's "info" for
- * `unexpected_property` — `type_mismatch` is `error`; `unmapped_property`, `missing_event` and
- * `unexpected_property` are all `warning` (D-21 "one severity per kind" is a per-comparison
- * choice, not a cross-comparison constant: comparison 3 uses `info` for its own
- * `unexpected_property`/`unexpected_event`, comparison 4 uses `warning` for all its non-type
- * findings, since a Data Manager property the app definition never linked, or an app event/property
- * Data Manager does not (yet) hold, is stronger evidence than an unexpectedly-observed payload key).
+ * Severities (T-2-05 delta, corrected against the T-2-04 review): `type_mismatch` is `error`
+ * except when the *Data Manager* type itself is not one of `KNOWN_DATA_MANAGER_TYPES` (an app type
+ * genuinely cannot be compared against an unrecognized Bloomreach type — this is `warning`, not an
+ * unconditional error the app cannot help the user fix, T-2-04 review LOW finding); `unmapped_property`
+ * and `missing_event` are `warning`; `unexpected_property` is `info` per D-37/D-21 (the T-2-04 code
+ * had shipped `warning`, a documented deviation the T-2-04 review flagged against the accepted
+ * decision record — this task corrects the two literals back to `info`, D-40).
+ *
+ * D-38 (T-2-04 review WARNING, carried into this task's delta): `SDK_DEFAULT_PROPERTIES` (`os`,
+ * `browser`, `device`, `location`) are never `unexpected_property` or `unmapped_property` on any
+ * event, matching comparison 3's own exclusion (`definitionVsObservations.ts`) — a Data Manager
+ * events file always lists them (the SDK adds them to every event), so without this guard every
+ * custom event would carry four spurious findings whenever its properties were not individually
+ * linked to those four names.
  *
  * No findings at all when a snapshot is absent: `dataManager.events === null` skips every
  * event-scope check (`type_mismatch`/`unmapped_property`/`unexpected_property` on events,
@@ -25,10 +32,11 @@
  * "no customers evidence yet" case) — a project that has never gone through either Data Manager
  * import produces zero comparison-4 findings, not a false "everything is missing".
  */
-import { toDataManagerType } from '../bloomreach/dataManagerTypes';
+import { toDataManagerType, KNOWN_DATA_MANAGER_TYPES } from '../bloomreach/dataManagerTypes';
+import { SDK_DEFAULT_PROPERTIES } from '../bloomreach';
 import type { DataManagerEventsModel } from '../import/dataManagerEvents';
 import type { DataManagerCustomersModel } from '../import/dataManagerCustomers';
-import type { ComparisonId, EventClass } from '../enums';
+import type { ComparisonId, EventClass, FindingSeverity } from '../enums';
 import type { EngineFinding } from './definitionVsObservations';
 
 export interface DmDefEventProperty {
@@ -76,6 +84,11 @@ function defDmType(prop: { data_type: string; data_formats: string[] }): string 
   return toDataManagerType(prop.data_type, prop.data_formats).type;
 }
 
+/** True for the eight Bloomreach types this module actually knows how to compare (D-37, T-2-05 delta). */
+function isKnownDmType(dmType: string): boolean {
+  return (KNOWN_DATA_MANAGER_TYPES as readonly string[]).includes(dmType);
+}
+
 export function runDefinitionVsDataManager(
   definition: DataManagerDefinitionSnapshot,
   dataManager: DataManagerEvidence
@@ -114,30 +127,41 @@ export function runDefinitionVsDataManager(
 
       // type_mismatch: the Data Manager type for a linked property differs from the reverse-mapped
       // definition type, compared per event occurrence (so the same property name can mismatch on
-      // one event and not another, e.g. cart_update.total_price vs purchase.total_price).
+      // one event and not another, e.g. cart_update.total_price vs purchase.total_price). T-2-05
+      // delta: when `dmProp.type` is not one of `KNOWN_DATA_MANAGER_TYPES` the app cannot represent
+      // it at all, so the finding is a `warning` ("unknown Data Manager type") instead of an
+      // unconditional `error` the user can only clear in Bloomreach, not in the app (T-2-04 review LOW).
       for (const prop of event.properties) {
         const dmProp = dmPropByName.get(prop.name);
         if (!dmProp) continue; // handled by unmapped_property below
         const expectedDm = defDmType(prop);
         if (dmProp.type === expectedDm) continue;
+        const known = isKnownDmType(dmProp.type);
+        const severity: FindingSeverity = known ? 'error' : 'warning';
+        const message = known
+          ? `Property "${prop.name}" on event "${event.name}" is Data Manager type "${dmProp.type}", expected "${expectedDm}" (app data type "${prop.data_type}").`
+          : `Property "${prop.name}" on event "${event.name}" has unknown Data Manager type "${dmProp.type}", which the app cannot represent (app data type "${prop.data_type}").`;
         findings.push({
           comparison: COMPARISON,
           kind: 'type_mismatch',
-          severity: 'error',
+          severity,
           event_id: event.id,
           variant_id: null,
           property_id: prop.property_id,
           observation_id: null,
           expected_json: { data_manager_type: expectedDm },
           actual_json: { data_manager_type: dmProp.type },
-          message: `Property "${prop.name}" on event "${event.name}" is Data Manager type "${dmProp.type}", expected "${expectedDm}" (app data type "${prop.data_type}").`,
+          message,
           fingerprint: fp('type_mismatch', event.id, prop.property_id, dmProp.type),
         });
       }
 
-      // unmapped_property: a definition property linked to this event that Data Manager does not hold.
+      // unmapped_property: a definition property linked to this event that Data Manager does not
+      // hold. D-38: SDK_DEFAULT_PROPERTIES are attached to every event by the SDK itself, never a
+      // real app-definition gap.
       for (const prop of event.properties) {
         if (dmPropByName.has(prop.name)) continue;
+        if (SDK_DEFAULT_PROPERTIES.includes(prop.name)) continue;
         findings.push({
           comparison: COMPARISON,
           kind: 'unmapped_property',
@@ -153,14 +177,17 @@ export function runDefinitionVsDataManager(
         });
       }
 
-      // unexpected_property: a Data Manager property on this event that the definition does not link.
+      // unexpected_property: a Data Manager property on this event that the definition does not
+      // link. D-37/D-21: `info` severity (T-2-05 delta corrects the T-2-04 code's `warning` back to
+      // the accepted decision record). D-38: SDK_DEFAULT_PROPERTIES never count as unexpected.
       const defPropByName = new Set(event.properties.map((p) => p.name));
       for (const dmProp of dmEvent.properties) {
         if (defPropByName.has(dmProp.property)) continue;
+        if (SDK_DEFAULT_PROPERTIES.includes(dmProp.property)) continue;
         findings.push({
           comparison: COMPARISON,
           kind: 'unexpected_property',
-          severity: 'warning',
+          severity: 'info',
           event_id: event.id,
           variant_id: null,
           property_id: null,
@@ -198,17 +225,22 @@ export function runDefinitionVsDataManager(
       }
       const expectedDm = defDmType(prop);
       if (dmProp.type === expectedDm) continue;
+      const known = isKnownDmType(dmProp.type);
+      const severity: FindingSeverity = known ? 'error' : 'warning';
+      const message = known
+        ? `Customer property "${prop.name}" is Data Manager type "${dmProp.type}", expected "${expectedDm}" (app data type "${prop.data_type}").`
+        : `Customer property "${prop.name}" has unknown Data Manager type "${dmProp.type}", which the app cannot represent (app data type "${prop.data_type}").`;
       findings.push({
         comparison: COMPARISON,
         kind: 'type_mismatch',
-        severity: 'error',
+        severity,
         event_id: null,
         variant_id: null,
         property_id: prop.property_id,
         observation_id: null,
         expected_json: { data_manager_type: expectedDm },
         actual_json: { data_manager_type: dmProp.type },
-        message: `Customer property "${prop.name}" is Data Manager type "${dmProp.type}", expected "${expectedDm}" (app data type "${prop.data_type}").`,
+        message,
         fingerprint: fp('type_mismatch', null, prop.property_id, dmProp.type),
       });
     }
@@ -219,7 +251,7 @@ export function runDefinitionVsDataManager(
       findings.push({
         comparison: COMPARISON,
         kind: 'unexpected_property',
-        severity: 'warning',
+        severity: 'info',
         event_id: null,
         variant_id: null,
         property_id: null,

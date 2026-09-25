@@ -400,9 +400,11 @@ describe('D-41 fix round: MEDIUM 4, properties/links only for selected events', 
     const result = applyDataManagerEvents(projectId, eventsFixture, preview.payload_hash, selected);
 
     expect(result.skipped).toContain(shareSourcePropertyItem.id);
-    expect(
-      result.warnings.some((w) => w.includes(`Skipped "${shareSourcePropertyItem.id}"`) && w.includes('none of its events'))
-    ).toBe(true);
+    // T-2-05 delta (tighten weak assertion): exactly one such warning, not merely "at least one".
+    const matchingWarnings = result.warnings.filter(
+      (w) => w.includes(`Skipped "${shareSourcePropertyItem.id}"`) && w.includes('none of its events')
+    );
+    expect(matchingWarnings).toHaveLength(1);
   });
 });
 

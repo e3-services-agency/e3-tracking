@@ -10,11 +10,18 @@ interface SheetProps {
   children: React.ReactNode;
   className?: string;
   hideHeader?: boolean;
+  /**
+   * Fires once the closing exit animation has actually finished (fix round point 3): `isOpen`
+   * turning `false` and the panel actually disappearing from the page are two different moments
+   * (the spring exit transition below takes time), and callers that need to know "is the editor
+   * really gone" — e.g. Properties.tsx's frozen row order — must use this, not `isOpen`.
+   */
+  onExitComplete?: () => void;
 }
 
-export function Sheet({ isOpen, onClose, title, children, className, hideHeader }: SheetProps) {
+export function Sheet({ isOpen, onClose, title, children, className, hideHeader, onExitComplete }: SheetProps) {
   return (
-    <AnimatePresence>
+    <AnimatePresence onExitComplete={onExitComplete}>
       {isOpen && (
         <>
           <motion.div

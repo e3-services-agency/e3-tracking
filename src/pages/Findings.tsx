@@ -4,7 +4,7 @@
  * `pendingFindingsRunId` from the store once (set by `QaRuns.tsx`'s "View findings for this run"
  * and by `Import.tsx`'s customer-events-export apply) to pre-filter by the observation's run.
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
@@ -12,6 +12,7 @@ import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { COMPARISON_IDS, FINDING_KINDS, FINDING_SEVERITIES, FINDING_STATUSES } from '@/src/domain/enums';
+import { showEmptyState, showLoadingPlaceholder } from '@/src/domain/loadingState';
 
 interface FindingRow {
   id: string;
@@ -51,7 +52,10 @@ export function Findings() {
   const [severity, setSeverity] = useState('');
   const [eventId, setEventId] = useState('');
   const [status, setStatus] = useState('open');
-  const [loading, setLoading] = useState(false);
+  // Starts `true`: the mount effect below fires a load immediately whenever the project context is
+  // already valid (fix round re-sweep 02:16 FAIL: "No findings match these filters" showed briefly
+  // before the findings fetch resolved on SPA navigation).
+  const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,8 +73,17 @@ export function Findings() {
 
   const eventNameById = useMemo(() => new Map(events.map((e) => [e.id, e.name])), [events]);
 
+  // Fetch race guard (fix round, same pattern as StandardEvents.tsx/QaRuns.tsx): filters and the
+  // project id can both change quickly (e.g. project switch right after adjusting a filter), so
+  // only the latest `load()` call may write to state.
+  const loadTokenRef = useRef(0);
+
   const load = useCallback(async () => {
-    if (!hasValidProjectContext || !activeProjectId) return;
+    if (!hasValidProjectContext || !activeProjectId) {
+      setLoading(false);
+      return;
+    }
+    const token = ++loadTokenRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -83,21 +96,36 @@ export function Findings() {
       if (runIdFilter) params.set('qa_run_id', runIdFilter);
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/findings?${params.toString()}`);
       const data = await parseJson(res);
+      const eventsRes = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/events`);
+      const eventsData = await parseJson(eventsRes);
+      if (token !== loadTokenRef.current) return; // a newer load() has since started; discard this one
       if (!res.ok) {
         setError(typeof data?.error === 'string' ? data.error : 'Failed to load findings.');
         setFindings([]);
         return;
       }
-      setFindings(Array.isArray(data) ? data : []);
-
-      const eventsRes = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/events`);
-      const eventsData = await parseJson(eventsRes);
-      if (eventsRes.ok) setEvents(Array.isArray(eventsData) ? eventsData.map((e: { id: string; name: string }) => ({ id: e.id, name: e.name })) : []);
+      // A 200 whose body isn't a JSON array (unreadable body, or an unexpected shape) is an error,
+      // never a silent empty list (reviewer PASS finding 1 on 7de9a5b, same pattern as QaRuns.tsx).
+      if (!Array.isArray(data)) {
+        console.error('Unexpected findings response shape', data);
+        setError('Unexpected response');
+        setFindings([]);
+        return;
+      }
+      setFindings(data);
+      if (eventsRes.ok) {
+        if (Array.isArray(eventsData)) {
+          setEvents(eventsData.map((e: { id: string; name: string }) => ({ id: e.id, name: e.name })));
+        } else {
+          console.error('Unexpected events response shape', eventsData);
+        }
+      }
     } catch {
+      if (token !== loadTokenRef.current) return;
       setError('Failed to load findings.');
       setFindings([]);
     } finally {
-      setLoading(false);
+      if (token === loadTokenRef.current) setLoading(false);
     }
   }, [hasValidProjectContext, activeProjectId, comparison, kind, severity, eventId, status, runIdFilter]);
 
@@ -202,7 +230,7 @@ export function Findings() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {!loading && findings.map((f) => (
+              {findings.map((f) => (
                 <tr key={f.id}>
                   <td className="px-6 py-4">
                     <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${SEVERITY_BADGE[f.severity] ?? ''}`}>
@@ -217,14 +245,14 @@ export function Findings() {
                   <td className="px-6 py-4 text-gray-500">{new Date(f.last_seen_at).toLocaleString()}</td>
                 </tr>
               ))}
-              {!loading && findings.length === 0 && (
+              {showEmptyState(loading, findings.length) && (
                 <tr>
                   <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                     No findings match these filters.
                   </td>
                 </tr>
               )}
-              {loading && (
+              {showLoadingPlaceholder(loading, findings.length) && (
                 <tr>
                   <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
                     Loading…

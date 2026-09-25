@@ -4,7 +4,7 @@
  * with its observations, archive/finish actions, and a "Run comparison" button (D-21: comparison
  * always recomputes over the whole project; this button is a convenience trigger after a run).
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Sheet } from '@/src/components/ui/Sheet';
@@ -12,6 +12,8 @@ import { useProjectShell } from '@/src/features/projects/context/ProjectShellCon
 import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
+import { parseQaRunsResponse } from '@/src/domain/qaRunsResponse';
+import { showEmptyState, showLoadingPlaceholder } from '@/src/domain/loadingState';
 
 interface QaRunRow {
   id: string;
@@ -45,22 +47,50 @@ export function QaRuns() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Tracks every load from the moment it starts, including on activeProjectId change and SPA
+  // navigation (fix round re-sweep 02:16 FAIL: "No QA runs yet" showed briefly before the runs
+  // fetch resolved). Starts `true` since the mount effect below fires a load immediately.
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch race guard (fix round FAIL-2 observation, same pattern as StandardEvents.tsx): only the
+  // latest `load()` call for the current project may write to state, so an in-flight request for a
+  // project the user has since navigated away from can't overwrite the current project's runs with
+  // a stale (e.g. empty) list.
+  const loadTokenRef = useRef(0);
 
   const load = useCallback(async () => {
-    if (!hasValidProjectContext || !activeProjectId) return;
+    if (!hasValidProjectContext || !activeProjectId) {
+      setIsLoading(false);
+      return;
+    }
+    const token = ++loadTokenRef.current;
+    setIsLoading(true);
     setError(null);
     try {
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/qa-runs`);
       const data = await parseJson(res);
-      if (!res.ok) {
+      if (token !== loadTokenRef.current) return; // a newer load() has since started; discard this one
+      const result = parseQaRunsResponse<QaRunRow>(res.ok, data);
+      if (result.kind === 'not-ok') {
         setError(typeof data?.error === 'string' ? data.error : 'Failed to load QA runs.');
         setRuns([]);
         return;
       }
-      setRuns(Array.isArray(data) ? data : []);
+      if (result.kind === 'invalid-shape') {
+        // A 200 whose body isn't a JSON array (unreadable body, or an unexpected shape) is an
+        // error, never a silent empty list (reviewer PASS finding 1 on 7de9a5b).
+        console.error('Unexpected qa-runs response shape', data);
+        setError('Unexpected response');
+        setRuns([]);
+        return;
+      }
+      setRuns(result.runs);
     } catch {
+      if (token !== loadTokenRef.current) return;
       setError('Failed to load QA runs.');
       setRuns([]);
+    } finally {
+      if (token === loadTokenRef.current) setIsLoading(false);
     }
   }, [hasValidProjectContext, activeProjectId]);
 
@@ -115,7 +145,14 @@ export function QaRuns() {
                   <td className="px-6 py-4 text-gray-500">{run.archived ? 'Yes' : 'No'}</td>
                 </tr>
               ))}
-              {runs.length === 0 && (
+              {showLoadingPlaceholder(isLoading, runs.length) && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                    Loading…
+                  </td>
+                </tr>
+              )}
+              {showEmptyState(isLoading, runs.length) && (
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                     No QA runs yet — apply a customer events export from the Import page.

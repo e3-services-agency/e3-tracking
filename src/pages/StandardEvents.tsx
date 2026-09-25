@@ -3,7 +3,7 @@
  * project's `standard_event_additions_json`, D-26) with its mapping to a project Event (+ optional
  * Variant) and a field map editor (T-1-05). "Add standard event" appends a project addition.
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -12,13 +12,9 @@ import { useProjectShell } from '@/src/features/projects/context/ProjectShellCon
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { mergeStandardEvents, type StandardEventSeed } from '@/src/domain/bloomreach';
+import { buildStandardEventRows, type StandardEventMappingLike } from '@/src/domain/standardEventRows';
 
-interface MappingRow {
-  standard_event: string;
-  event_id: string;
-  variant_id: string | null;
-  field_map_json: Record<string, string | null>;
-}
+type MappingRow = StandardEventMappingLike;
 
 interface EventOption {
   id: string;
@@ -47,32 +43,73 @@ export function StandardEvents() {
   const [allVariants, setAllVariants] = useState<VariantOption[]>([]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  // Tracks every load from the moment it starts (fix round re-sweep 02:16 FAIL: SPA navigation
+  // showed a dash for every row for a moment before the mapping fetch resolved). Starts `true`
+  // since the very first render already has a load about to run (the effect below fires
+  // unconditionally on mount/activeProjectId change).
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [newKey, setNewKey] = useState('');
   const [newFields, setNewFields] = useState('');
   const [addingKey, setAddingKey] = useState(false);
   const [addKeyError, setAddKeyError] = useState<string | null>(null);
 
+  // `loadTokenRef` guards against a fetch race across project switches or overlapping SPA
+  // navigations (fix round FAIL-1 observation, T-1-07 merge QA's "transient uuids"): each call to
+  // `load()` stamps a token before starting its four fetches, and only applies its results if it is
+  // still the *latest* call by the time they resolve. Without this, an in-flight load for a
+  // previous/stale project id could resolve after a newer one and silently overwrite fresh state
+  // (e.g. `mappings` from a project with no mappings replacing the current project's, showing a
+  // dash for every row) or mix `events`/`mappings` from two different projects.
+  const loadTokenRef = useRef(0);
+
   const load = useCallback(async () => {
-    if (!hasValidProjectContext || !activeProjectId) return;
+    if (!hasValidProjectContext || !activeProjectId) {
+      setIsLoading(false);
+      return;
+    }
+    const token = ++loadTokenRef.current;
+    setIsLoading(true);
+    setLoadError(null);
     const [projectRes, mappingsRes, eventsRes, variantsRes] = await Promise.all([
       fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}`),
       fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/standard-event-mappings`),
       fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/events`),
       fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/variants`),
     ]);
-    const projectData = await parseJson(projectRes);
+    const [projectData, mappingsData, eventsData, variantsData] = await Promise.all([
+      parseJson(projectRes),
+      parseJson(mappingsRes),
+      parseJson(eventsRes),
+      parseJson(variantsRes),
+    ]);
+    if (token !== loadTokenRef.current) return; // a newer load() has since started; discard this one
     if (projectRes.ok && Array.isArray(projectData.standard_event_additions_json)) {
       setAdditions(projectData.standard_event_additions_json);
     }
-    const mappingsData = await parseJson(mappingsRes);
-    if (mappingsRes.ok) setMappings(Array.isArray(mappingsData) ? mappingsData : []);
-    const eventsData = await parseJson(eventsRes);
-    if (eventsRes.ok) setEvents(Array.isArray(eventsData) ? eventsData.map((e: any) => ({ id: e.id, name: e.name })) : []);
-    const variantsData = await parseJson(variantsRes);
-    if (variantsRes.ok) {
-      setAllVariants(Array.isArray(variantsData) ? variantsData.map((v: any) => ({ id: v.id, name: v.name })) : []);
+    // A 200 whose body isn't the expected array shape (unreadable body -> parseJson's `{}`, or a
+    // genuinely wrong shape) is an error, never a silent empty list (reviewer PASS finding 1 on
+    // 7de9a5b: this exact path reproduced FAIL-1's "mapped event/variant show dashes" with a 200
+    // and no console output).
+    let shapeError = false;
+    if (mappingsRes.ok) {
+      if (Array.isArray(mappingsData)) setMappings(mappingsData);
+      else shapeError = true;
     }
+    if (eventsRes.ok) {
+      if (Array.isArray(eventsData)) setEvents(eventsData.map((e: any) => ({ id: e.id, name: e.name })));
+      else shapeError = true;
+    }
+    if (variantsRes.ok) {
+      if (Array.isArray(variantsData)) setAllVariants(variantsData.map((v: any) => ({ id: v.id, name: v.name })));
+      else shapeError = true;
+    }
+    if (shapeError) {
+      console.error('Unexpected standard-event-mappings response shape', { mappingsData, eventsData, variantsData });
+      setLoadError('Unexpected response');
+    }
+    setIsLoading(false);
   }, [hasValidProjectContext, activeProjectId]);
 
   useEffect(() => {
@@ -80,9 +117,11 @@ export function StandardEvents() {
   }, [load]);
 
   const standardEvents = useMemo(() => mergeStandardEvents(additions), [additions]);
+  const rows = useMemo(
+    () => buildStandardEventRows(standardEvents, mappings, events, allVariants),
+    [standardEvents, mappings, events, allVariants]
+  );
   const mappingByKey = useMemo(() => new Map(mappings.map((m) => [m.standard_event, m])), [mappings]);
-  const eventNameById = useMemo(() => new Map(events.map((e) => [e.id, e.name])), [events]);
-  const variantNameById = useMemo(() => new Map(allVariants.map((v) => [v.id, v.name])), [allVariants]);
 
   const addStandardEvent = async () => {
     const key = newKey.trim();
@@ -144,6 +183,7 @@ export function StandardEvents() {
           </Button>
         </div>
         {addKeyError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{addKeyError}</div>}
+        {loadError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{loadError}</div>}
 
         <div className="bg-white rounded-lg border shadow-sm">
           <table className="w-full text-left text-sm">
@@ -156,25 +196,18 @@ export function StandardEvents() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {standardEvents.map((se) => {
-                const mapping = mappingByKey.get(se.key);
-                return (
-                  <tr
-                    key={se.key}
-                    className="hover:bg-gray-50 cursor-pointer"
-                    onClick={() => { setSelectedKey(se.key); setIsSheetOpen(true); }}
-                  >
-                    <td className="px-6 py-4 font-medium text-gray-900 font-mono">{se.key}</td>
-                    <td className="px-6 py-4 text-gray-500">{se.fields.length}</td>
-                    <td className="px-6 py-4 text-gray-500">
-                      {mapping ? eventNameById.get(mapping.event_id) ?? mapping.event_id : '—'}
-                    </td>
-                    <td className="px-6 py-4 text-gray-500 font-mono">
-                      {mapping?.variant_id ? variantNameById.get(mapping.variant_id) ?? mapping.variant_id : '—'}
-                    </td>
-                  </tr>
-                );
-              })}
+              {rows.map((row) => (
+                <tr
+                  key={row.key}
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => { setSelectedKey(row.key); setIsSheetOpen(true); }}
+                >
+                  <td className="px-6 py-4 font-medium text-gray-900 font-mono">{row.key}</td>
+                  <td className="px-6 py-4 text-gray-500">{row.fieldCount}</td>
+                  <td className="px-6 py-4 text-gray-500">{isLoading ? 'Loading…' : row.mappedEventName ?? '—'}</td>
+                  <td className="px-6 py-4 text-gray-500 font-mono">{isLoading ? 'Loading…' : row.mappedVariantName ?? '—'}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

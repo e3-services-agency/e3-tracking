@@ -170,6 +170,19 @@ Decision:
 - Rules render on the event card as guardrails and are returned by the MCP expected-payload tool.
 Consequences: New finding kinds `rule_violation` (error), `item_schema_violation` (error), `bound_violation` (error). Phase 2 seed gains the rules layer ahead of the MCP server. Seed rules shipped for cart_update (item in product_list, total_price and total_quantity sums) and purchase refunds (negative amounts) as templates the user can apply.
 
+## D-40 Supervisor rulings on the phase 2 plan's routine open questions
+Date: 2026-09-25  Status: accepted (user may override)
+Context: PLAN-PHASE2-2026-09-25 listed nine open questions. Seven have a conventional default; questions 3 (export passthrough semantics) and 8 (narrative language) go to the user.
+Decision:
+- Q1 Comparison 4 expectations follow the fixture; qa-roundtrip scenario 8 corrected (purchase.total_price is number and user-defined; the string findings are on purchase_item, cart_update, checkout, view_item).
+- Q2 App-born entities export with Bloomreach defaults: source user, used false, deleting false, private from the PII flag, real_time_analytics true, forbidden false, locked_for_contact_migration false.
+- Q4 Every rule carries a severity (error default, warning allowed); bound rules may report as warning.
+- Q5 Rename bloomreach_field to identifier_name (no legacy compatibility, D-02).
+- Q6 Add @modelcontextprotocol/sdk and zod as dependencies; tools accept an optional agent_name recorded on the QA run.
+- Q7 Data Manager names not in the sdk or platform lists default to class custom.
+- Q9 The tracking document carries the findings summary per event plus the list of open findings of every severity, uncapped; agents need the detail.
+Consequences: enums.ts gains rule severity; export defaults live in the type mapping module; identity rule column renamed by migration 0013.
+
 ## D-25 Supervisor rulings on the plan's routine open questions
 Date: 2026-09-24  Status: accepted (user may override)
 Context: PLAN-2026-09-24 listed 13 open questions. Nine have a conventional default consistent with CONTEXT.md and the legacy workbook; the supervisor settled them so implementation is not blocked. Questions 3, 6, 11, 13 go to the user.
@@ -200,3 +213,57 @@ Date: 2026-09-24  Status: accepted
 Context: A Bloomreach account holds several projects (a mother company with brands A, B, C). The plan had Project as the top level with nothing above it. The schema is written fresh in T-1-01, so adding a level now is cheap and later is expensive.
 Decision: New entity `Client` (name, key, `bloomreach_account_id`, notes). `Project` belongs to exactly one Client and gains `bloomreach_project_token`, `bloomreach_api_base_url`, `bloomreach_project_url`. Definitions, mappings, observations, findings and certification stay project-scoped because each brand has its own Bloomreach project. The project switcher groups by client; MCP `list_projects` returns projects grouped by client. Sharing across brands is copy with provenance: in phase 3, definitions can be copied from a sibling project (each copy records `origin_project_id` and `origin_entity_id`) and a drift compare view shows differences between projects. No inheritance or override chains. The name Client was chosen over Account to avoid collision with user accounts (project_members, local user, future remote auth); the Bloomreach link is explicit through `bloomreach_account_id`.
 Consequences: T-1-01 adds the `clients` table and the project columns; T-1-02 adds `/api/clients` CRUD and groups the switcher. Frontend URL stays `/p/<projectKey>`. Copy and compare join the phase 3 scope next to the use case library import.
+
+## D-31 Rules are typed JSON expressions evaluated through an operator registry
+Date: 2026-09-25  Status: accepted
+Context: D-30 introduces arithmetic, membership, bound and cross-event rules. They must be authored in a plain form, validated on write, rendered on the event card, returned by MCP, and extended later with new operators without touching the engine. Options were a string DSL with a parser, free-form JavaScript, or structured JSON parts.
+Decision: `Rule.expression_json` holds typed parts (`Operand` refs `property | list_field | constant | product | aggregate`, and per-kind shapes `Arithmetic`, `Membership`, `Bound`, `CrossEvent`). Aggregates, comparators and bound checks live in `src/domain/rules/operators.ts` as registries keyed by the enums in `enums.ts`; `evaluate.ts` walks expressions and never names an operator. Tolerance is a rule field (`none | money | absolute | percent`), with `money` resolved from the project percent and floor. `report_kind` defaults from the kind and may be `rounding_drift` only for a money cross-event rule, which preserves the phase 1 scenario 4 finding. `version` increments on edit and is part of the finding fingerprint. The hard-coded `computeRoundingDrift` is deleted; the `purchase_items_total` template is proposed by the data-mapping import when both mappings resolve, and the engine test instantiates it.
+Consequences: Adding an operator touches `enums.ts`, `operators.ts` and one test (acceptance criterion in T-2-06). No string parsing, no eval. Rules are limited to what the grammar expresses; anything else is a new part type, recorded by a decision. Existing local databases are not migrated: dev data is disposable and the template re-proposes the rule.
+
+## D-32 Use case narratives are generated locally from templates, no LLM dependency
+Date: 2026-09-25  Status: accepted
+Context: D-10 requires a generated, editable narrative per use case. An LLM would give richer prose but adds a remote dependency (against D-09), non-deterministic tests and a cost per regeneration for text that is mostly structural.
+Decision: `src/domain/narrative/useCaseNarrative.ts` is a pure, deterministic English template (intro, numbered flow from requirement order, customer data, gaps, guardrails). `narrative_edited_at` records manual edits; regenerating over a newer edit requires `force`. An LLM generator is not built; if wanted later it is a second implementation of the same signature behind `E3_NARRATIVE_MODE`.
+Consequences: Narratives are testable by snapshot and identical across machines. Language is English until a project-level language setting is requested (open question 8).
+
+## D-33 MCP server uses the official TypeScript SDK over stdio with zod schemas, tools as plain functions
+Date: 2026-09-25  Status: accepted
+Context: D-19 fixed the sibling stdio process; the SDK, schema library and handler shape were open. Only `src/backend/server.ts` writes to stdout today, so the DAL is safe to import in a stdio process.
+Decision: `@modelcontextprotocol/sdk` (`McpServer`, `StdioServerTransport`) with `zod` input schemas. Handlers in `src/mcp/tools/*.ts` are plain async functions returning JSON-serialisable data; `server.ts` only registers them. All MCP logging goes to stderr through `src/mcp/log.ts`; a test guards that `src/mcp` and `src/backend/db` never write to `process.stdout`. `.mcp.json` at the repo root, `npm run mcp` via tsx, `E3_PROJECT_KEY` default per D-25 Q7, `agent_name` parameter for QaRun actor.
+Consequences: Two new dependencies. Handlers are unit-tested against `:memory:` without a transport and can be mounted on Express over HTTP in phase 5. The MCP process is not bundled by tsup in phase 2.
+
+## D-34 Tracking document schema is versioned by an integer, additive within a version
+Date: 2026-09-25  Status: accepted
+Context: Capability 14 exposes a machine-readable document that agents and prompts will depend on; silent shape changes would break them.
+Decision: `{format: 'e3-tracking-document', version: 1}`. The TypeScript type `TrackingDocumentV1` in `src/domain/document/trackingDocument.ts` is the contract; `docs/TRACKING-DOCUMENT.md` documents it with a fixture-generated example; a vitest snapshot guards it. Adding fields never bumps the version; renaming or removing a field bumps it and the previous version stays available for one phase behind `?version=`. `EventCard` is the shared unit for the card page, HTML export, tracking document and MCP `get_event_card`.
+Consequences: One builder (`document.service.ts`) feeds every consumer. Breaking changes are visible in the snapshot test and the decision log.
+
+## D-35 Data Manager events merge by name; `source` decides whether a type is a proposal or evidence; deselected events pass through on export
+Date: 2026-09-25  Status: accepted
+Context: The Data Manager events file lists 61 definitions, six of which already exist from the data-mapping fixture and five from expiration settings. Each property carries `source: user` (defined by a person in Bloomreach) or `source: data` (inferred from incoming data). D-29 deselects sdk and platform events by default, yet the bridge expects the whole file back byte-equivalent.
+Decision: Events match existing rows by `name = type` and become `update` items (category, description when empty, new links); class is never changed by import. Property type from a `source: user` row is proposed as a definition update (selected); a type from a `source: data` row is never proposed, it is stored as `dm_type` in the link meta and reported by comparison 4. The same name with different types across events creates the Property once (first `user` occurrence, else first) and warns once. The last applied payloads are stored verbatim on the project (`data_manager_events_json`, `data_manager_customers_json`) as the comparison 4 snapshot. Export emits every Event row plus a passthrough of snapshot events with neither a live nor a soft-deleted Event row, so deselected sdk/platform events round-trip; an event deleted in the app is dropped. Per-event-property flags live in `event_properties.bloomreach_meta_json`; `Event.category` mirrors `Property.category` for groups.
+Consequences: Byte equivalence (sorted-key serialisation) holds on the fixture after a default-selection import. `pii` is per Property while Data Manager `private` is per event property; import ORs, export writes the Property value (documented lossy corner). The snapshot makes comparison 4 independent of what the user selected.
+
+## D-36 Event class migration: add `class`, map `system` rows by list, drop `event_type`
+Date: 2026-09-25  Status: accepted
+Context: D-29 replaces `event_type custom|system` with `class custom|sdk|platform`. Existing local databases hold `system` rows created by the expiration import (`session_start`, `consent`, ...). D-02 forbids compatibility shims.
+Decision: Migration 0009 adds `events.class NOT NULL DEFAULT 'custom'`, sets `sdk` for `system` rows whose name is in `SDK_EVENT_TYPES`, `platform` for the rest of the `system` rows, then drops `event_type` (table rebuild if `DROP COLUMN` is unavailable). `ORIGIN_TYPES` stays for `Property.property_type`. `bloomreach.ts` splits the known system list into `SDK_EVENT_TYPES` and `PLATFORM_EVENT_TYPES`; names the reference marks as shareable with client custom events default to `custom`.
+Consequences: One field, one meaning; the API and UI speak `class` only. Certification is not applicable to sdk/platform events (`applicable: false`), and the engine validates custom events only.
+
+## D-37 Comparison 4 finding set and the Bloomreach type mapping
+Date: 2026-09-25  Status: accepted
+Context: D-28 names `type_mismatch` and `unmapped_property` for the definition-vs-Data-Manager comparison and requires types to map both ways. Bloomreach types are `string, number, boolean, date, datetime, list, long text, url`; the app has six data types plus formats.
+Decision: `src/domain/bloomreach/dataManagerTypes.ts` maps `long text` to `string + long_text` (new format), `url` to `string + uri`, `date` to `timestamp + iso8601_date`, `datetime` to `timestamp`, `list` to `array`, the rest one to one; `object` exports as `string` with a warning. Comparison `data_manager` reports `type_mismatch` (error) when the mapped types differ, `unmapped_property` (warning) for definition properties Data Manager lacks, `missing_event` (warning) for a defined custom event absent from Data Manager, `unexpected_property` (info) for Data Manager properties the definition lacks; custom events only. The comparison participates in certification.
+Consequences: Two existing kinds are reused beyond D-28's two (documented extension). The fixture yields mismatches on `purchase_item.price`/`quantity`, `cart_update.total_price`/`total_quantity`, `checkout.total_price`, `view_item.price`/`stock_level` and none on `purchase.total_price`; the qa-roundtrip skill's scenario 8 text must be corrected.
+
+## D-38 Identity rules align with Bloomreach: `identifier_name`, transformations, SDK call; codegen emits identify/update/anonymize
+Date: 2026-09-25  Status: accepted
+Context: The identity reference describes hard and soft identifiers, case sensitivity (trim, lowercase), the re-identification rule (pass all hard ids in one call), anonymize on logout, and SDK default properties on every event. Phase 1 stored `bloomreach_field`, a type and free text.
+Decision: `bloomreach_field` is renamed `identifier_name`; `transformations_json` (`trim`, `lowercase`) and `sdk_call` (`identify | update | anonymize`, nullable) are added. Codegen builds one `identify` object with every hard identifier (soft ids never passed), wraps values with their transformations, an `update` call from mapped customer properties, and `anonymize` for logout rules. `SDK_DEFAULT_PROPERTIES` are never `unexpected_property` or `unmapped_property`; event and property names must be ASCII (400); the tracking document reports counts against the 255 limits.
+Consequences: The re-identification rule is enforced by construction in the snippet, not modelled as data. Any client with custom identifier names enters them as `identifier_name`.
+
+## D-39 Migration numbers are pre-assigned per task so parallel worktrees merge cleanly
+Date: 2026-09-25  Status: accepted
+Context: Four phase 2 tasks can run in parallel after T-2-01 and each adds a migration. The runner applies every file not recorded in `schema_migrations`, in filename order, so a lower number merged later still applies.
+Decision: 0009 T-2-01 (event class), 0010 T-2-02 (Data Manager meta), 0011 T-2-06 (rules, item schema, tolerance), 0012 T-2-11 (narrative edited at), 0013 T-2-12 (identity). A task needing an unplanned migration asks the supervisor for the next number on the board before creating the file. Migrations must not depend on a higher-numbered file.
+Consequences: No renumbering at merge time; each migration is self-contained.

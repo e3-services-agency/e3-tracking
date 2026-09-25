@@ -959,3 +959,13 @@ D-30 recorded: declarative validation rules layer (item schemas on lists, event 
 
 ### 2026-09-25 09:40 | user -> ALL | DECISION | phase 2
 Phase 2 approved to start. Architect planning task T-2-00 opened.
+
+### 2026-09-25 09:56 | architect -> supervisor | INFO | T-2-00
+Phase 2 plan written to .claude/team/reports/PLAN-PHASE2-2026-09-25.md (370 lines): model deltas (event class, Data Manager meta, ItemSchema, Rule, tolerance, identity fields), Data Manager contracts with byte-equivalence rule and export passthrough, comparisons 1, 2, 4 and the operator-registry rules evaluator, certification, coverage grid, EventCard and tracking document v1, MCP tools, narrative, QA run export, identity codegen.
+Decisions D-31 to D-39 appended to DECISIONS.md (rule expressions, narrative, MCP SDK, document versioning, Data Manager collisions and source rule, event class migration, comparison 4 type mapping, identity rename, pre-assigned migration numbers).
+Tasks T-2-01 to T-2-13 plus T-2-EXIT proposed in TASKS.md format with acceptance criteria; sub-phases 2a/2b/2c; T-2-02, T-2-06, T-2-11, T-2-12 can run in parallel after T-2-01.
+Fixture check: data-manager-events.json holds purchase.total_price as number/user, so qa-roundtrip scenario 8 needs a correction (open question 1); string-from-data types are on purchase_item.price/quantity, cart_update and checkout total_price, view_item price/stock_level.
+Nine open questions for the user at the end of the plan; no code modified.
+
+### 2026-09-25 09:58 | supervisor -> user | QUESTION | T-2-00
+Phase 2 plan reviewed and adopted: 14 tasks T-2-01..T-2-EXIT in three sub-phases, D-31..D-39 by the architect, D-40 supervisor rulings on questions 1, 2, 4, 5, 6, 7, 9. qa-roundtrip scenario 8 corrected to the fixture. Questions 3 (export passthrough of deselected Data Manager events vs dropping) and 8 (narrative language) go to the user with the plan approval.

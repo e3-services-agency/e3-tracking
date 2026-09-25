@@ -3,6 +3,7 @@ import {
   escapeHtml,
   renderConsentCategoriesSection,
   renderIdentityRulesSection,
+  renderIdentityCodegenSection,
   renderRequirementsMatrixSection,
   renderStandardEventMappingsSection,
   renderUseCasesSection,
@@ -31,14 +32,14 @@ describe('renderIdentityRulesSection', () => {
   it('renders one row per rule, in the given order, with an em dash for missing fields', () => {
     const rules: IdentityRuleForDocs[] = [
       {
-        bloomreach_field: 'registered',
+        identifier_name: 'registered',
         identity_type: 'hard',
         name: 'Registration email',
         trigger_event_name: 'account_created',
         owner: 'Jane',
       },
       {
-        bloomreach_field: 'cookie',
+        identifier_name: 'cookie',
         identity_type: 'soft',
         name: 'Anonymous cookie',
       },
@@ -59,10 +60,38 @@ describe('renderIdentityRulesSection', () => {
 
   it('escapes rule text so a name containing markup cannot break the document', () => {
     const html = renderIdentityRulesSection([
-      { bloomreach_field: 'email_id', identity_type: 'hard', name: '<script>alert(1)</script>' },
+      { identifier_name: 'email_id', identity_type: 'hard', name: '<script>alert(1)</script>' },
     ]);
     expect(html).not.toContain('<script>alert(1)</script>');
     expect(html).toContain('&lt;script&gt;');
+  });
+
+  it('renders transformations and sdk_call when present', () => {
+    const html = renderIdentityRulesSection([
+      {
+        identifier_name: 'email_id',
+        identity_type: 'hard',
+        name: 'Login email',
+        transformations: ['trim', 'lowercase'],
+        sdk_call: 'identify',
+      },
+    ]);
+    expect(html).toContain('trim, lowercase');
+    expect(html).toContain('identify');
+  });
+});
+
+describe('renderIdentityCodegenSection', () => {
+  it('renders the three snippets in <pre> blocks, escaped', () => {
+    const html = renderIdentityCodegenSection({
+      identify: "exponea.identify({ registered: '<x>' });",
+      update: 'exponea.update({});',
+      anonymize: 'exponea.anonymize();',
+    });
+    expect(html).toContain('id="identity-codegen"');
+    expect(html).toContain('&lt;x&gt;');
+    expect(html).toContain('exponea.update({});');
+    expect(html).toContain('exponea.anonymize();');
   });
 });
 

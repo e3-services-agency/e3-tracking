@@ -84,7 +84,7 @@ describe('generateProjectDocumentationHtml', () => {
     const loginEvent = EventDAL.createEvent(projectId, { name: 'login' });
 
     IdentityRuleDAL.createIdentityRule(projectId, {
-      bloomreach_field: 'cookie',
+      identifier_name: 'cookie',
       identity_type: 'hard',
       name: 'Login cookie rule',
       trigger_event_id: loginEvent.id,

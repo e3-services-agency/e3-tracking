@@ -8,6 +8,7 @@ import { exportDataMapping, exportExpirationSettings } from '../services/bloomre
 import { buildIdentityCodegen } from '../services/codegen.service';
 import { listIdentityRules } from '../dal/identity-rule.dal';
 import { listProperties } from '../dal/property.dal';
+import { exportQaRunAsCustomerEventsExport } from '../services/qaRunExport.service';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -49,6 +50,16 @@ router.get('/codegen/identity', (req: Request, res: Response) => {
     const rules = listIdentityRules(req.projectId!);
     const customerProperties = listProperties(req.projectId!, { scope: 'customer' });
     res.status(200).json(buildIdentityCodegen(rules, customerProperties));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+// QA run export (T-2-11, PLAN "QA run export"): re-emits a run's observations in the Bloomreach
+// customer-events-export.json shape.
+router.get('/qa-runs/:runId/customer-events-export.json', (req: Request, res: Response) => {
+  try {
+    res.status(200).json(exportQaRunAsCustomerEventsExport(req.projectId!, req.params.runId));
   } catch (err) {
     handleRouteError(err, res);
   }

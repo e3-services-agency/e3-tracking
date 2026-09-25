@@ -250,6 +250,20 @@ export class RuleExpressionInvalidError extends BadRequestError {
   }
 }
 
+/**
+ * `POST /use-cases/:id/narrative/regenerate` without `force: true` when the stored narrative was
+ * edited by hand more recently than it was last generated (`narrative_edited_at` set, D-32). 409,
+ * so the UI can show "you edited this narrative; regenerate anyway?" instead of silently
+ * overwriting the human's text.
+ */
+export class NarrativeEditedError extends ConflictError {
+  readonly code = 'NARRATIVE_EDITED';
+  constructor(message: string) {
+    super(message);
+    this.name = 'NarrativeEditedError';
+  }
+}
+
 /** Use when a resource is not found or does not belong to the workspace (404). */
 export class NotFoundError extends Error {
   readonly code = 'NOT_FOUND';

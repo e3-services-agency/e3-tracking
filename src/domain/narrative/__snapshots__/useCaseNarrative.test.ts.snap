@@ -1,0 +1,25 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`generateUseCaseNarrative > matches the snapshot for a synthetic add-to-cart / checkout / purchase use case 1`] = `
+"Add to cart to purchase is a transactional use case. Tracks the shopper from adding an item to a confirmed purchase.
+
+## Flow
+
+1. The site sends \`cart_update[action=add]\` with required \`product_id\`, \`total_price\` and optional \`voucher_code\`.
+2. The site sends \`checkout\` with required \`total_price\`.
+3. The site sends \`purchase\` with required \`total_price\`.
+
+## Customer data
+
+- Customer property \`email\` (required).
+- Customer property \`loyalty_id\` (optional).
+
+## Gaps
+
+- checkout.total_price: not yet mapped.
+- loyalty_id: Client has not confirmed a loyalty id property yet.
+
+## Guardrails
+
+- \`purchase\`: purchase_items_total -- Sum of purchase_item totals should match purchase.total_price within tolerance."
+`;

@@ -10,6 +10,109 @@ import { escapeHtml } from '../htmlEscape';
 
 export { escapeHtml };
 
+/**
+ * Small safe renderer for the exact markdown subset `useCaseNarrative.ts` (D-32) emits: `## `
+ * headings, `1. ` numbered lists, `- ` bullet lists, blank-line-separated paragraphs, and
+ * `` `code` `` inline spans (WARNING 3 fix round: the narrative used to be dropped into one
+ * `<p>` verbatim, so headings/lists/backticks collapsed into a run-on paragraph). Every line is
+ * run through `escapeHtml` before any markdown syntax is interpreted, so the output is exactly as
+ * safe against injection as the plain-paragraph version it replaces (backticks are not touched by
+ * `escapeHtml`, so wrapping `` `x` `` in `<code>` after escaping cannot reintroduce a raw tag).
+ * Anything outside this subset (arbitrary HTML, other markdown syntax) is rendered as escaped
+ * plain text, not interpreted -- this is not a general markdown parser.
+ */
+function renderNarrativeInline(text: string): string {
+  return escapeHtml(text).replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
+type NarrativeBlock =
+  | { kind: 'heading'; text: string }
+  | { kind: 'ol'; items: string[] }
+  | { kind: 'ul'; items: string[] }
+  | { kind: 'p'; text: string };
+
+/**
+ * Single shared set of line-type regexes, used identically for *detecting* a line's type and for
+ * *excluding* that type from the paragraph collector below (T-2-11 fix round, ERROR 1: the original
+ * heading detector was anchored (`/^##\s+(.*)$/`, `.` never matches `\r` and `$` requires end of
+ * string) but the paragraph exclusion used the looser, unanchored `/^##\s+/`, which *did* match a
+ * CRLF heading line. On a line like `"## Flow\r"` the heading branch failed to match, fell through
+ * to the paragraph branch, and the paragraph branch's own exclusion then rejected the very same
+ * line, so the while loop at :72 (old line numbers) never consumed it: `paraLines` stayed empty, an
+ * empty `p` block was pushed every iteration, and `i` never advanced -- an infinite loop that grows
+ * `blocks` until the single-threaded Express process runs out of memory, taking down the whole API
+ * for every user on one `GET /export/documentation.html`). Both call sites now use these same three
+ * regexes, so a line that matches for exclusion always also matches for detection.
+ */
+const HEADING_RE = /^##\s+(.*)$/;
+const ORDERED_RE = /^\d+\.\s+(.*)$/;
+const BULLET_RE = /^-\s+(.*)$/;
+
+/** Normalizes `\r\n` and lone `\r` line endings to `\n` before parsing (same fix round). */
+function normalizeLineEndings(text: string): string {
+  return text.replace(/\r\n?/g, '\n');
+}
+
+function parseNarrativeBlocks(markdown: string): NarrativeBlock[] {
+  const lines = normalizeLineEndings(markdown).split('\n');
+  const blocks: NarrativeBlock[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const startIndex = i;
+    const line = lines[i];
+    if (line.trim() === '') {
+      i++;
+      continue;
+    }
+    const heading = HEADING_RE.exec(line);
+    if (heading) {
+      blocks.push({ kind: 'heading', text: heading[1] });
+      i++;
+    } else if (ORDERED_RE.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && ORDERED_RE.test(lines[i])) {
+        items.push(ORDERED_RE.exec(lines[i])![1]);
+        i++;
+      }
+      blocks.push({ kind: 'ol', items });
+    } else if (BULLET_RE.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && BULLET_RE.test(lines[i])) {
+        items.push(BULLET_RE.exec(lines[i])![1]);
+        i++;
+      }
+      blocks.push({ kind: 'ul', items });
+    } else {
+      // Plain paragraph: consecutive non-blank lines that are not headings/list items, joined with a space.
+      const paraLines: string[] = [];
+      while (i < lines.length && lines[i].trim() !== '' && !HEADING_RE.test(lines[i]) && !ORDERED_RE.test(lines[i]) && !BULLET_RE.test(lines[i])) {
+        paraLines.push(lines[i]);
+        i++;
+      }
+      blocks.push({ kind: 'p', text: paraLines.join(' ') });
+    }
+    // Every branch above must consume at least one line; a loop that doesn't advance `i` would hang
+    // the process exactly like the ERROR 1 bug this replaces. Guard it explicitly rather than trust
+    // the branches forever.
+    if (i === startIndex) {
+      throw new Error(`parseNarrativeBlocks: no progress at line ${startIndex} (${JSON.stringify(line)})`);
+    }
+  }
+  return blocks;
+}
+
+/** `narrative markdown (D-32 subset) -> HTML fragment`, headings/lists/inline code/paragraphs, fully escaped. */
+export function renderNarrativeHtml(markdown: string): string {
+  return parseNarrativeBlocks(markdown)
+    .map((block) => {
+      if (block.kind === 'heading') return `<h5>${renderNarrativeInline(block.text)}</h5>`;
+      if (block.kind === 'ol') return `<ol>${block.items.map((item) => `<li>${renderNarrativeInline(item)}</li>`).join('')}</ol>`;
+      if (block.kind === 'ul') return `<ul>${block.items.map((item) => `<li>${renderNarrativeInline(item)}</li>`).join('')}</ul>`;
+      return `<p>${renderNarrativeInline(block.text)}</p>`;
+    })
+    .join('\n');
+}
+
 /** Minimal shape the identity rules section needs; DAL row plus resolved display names. */
 export interface IdentityRuleForDocs {
   identifier_name: string;
@@ -305,7 +408,7 @@ export function renderUseCasesSection(useCases: UseCaseForDocs[]): string {
           ${useCase.owner ? `<dt>Owner</dt><dd>${escapeHtml(useCase.owner)}</dd>` : ''}
         </dl>
         ${useCase.description ? `<p class="description">${escapeHtml(useCase.description)}</p>` : ''}
-        ${useCase.narrative ? `<p class="narrative">${escapeHtml(useCase.narrative)}</p>` : ''}
+        ${useCase.narrative ? `<div class="narrative">${renderNarrativeHtml(useCase.narrative)}</div>` : ''}
         <h4>Requirements</h4>
         ${requirementsTable}
       </div>`;

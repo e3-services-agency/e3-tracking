@@ -39,7 +39,9 @@ describe('use-case.dal', () => {
     const updated = UseCaseDAL.updateUseCase(projectId, a.id, { status: 'approved', narrative: 'Sends a welcome email.' });
     expect(updated.status).toBe('approved');
     expect(updated.narrative).toBe('Sends a welcome email.');
-    expect(updated.narrative_generated_at).not.toBeNull();
+    // T-2-11 / D-32: a manual PATCH is an edit, not a regeneration -- it records narrative_edited_at.
+    expect(updated.narrative_edited_at).not.toBeNull();
+    expect(updated.narrative_generated_at).toBeNull();
 
     UseCaseDAL.deleteUseCase(projectId, a.id);
     expect(() => UseCaseDAL.getUseCaseOrThrow(projectId, a.id)).toThrow(NotFoundError);
@@ -130,5 +132,30 @@ describe('use-case.dal', () => {
     );
     // The failed PATCH must not have partially applied.
     expect(UseCaseDAL.getUseCaseOrThrow(projectId, a.id).template_id).toBeNull();
+  });
+
+  it('regenerateUseCaseNarrative sets narrative_generated_at and clears a prior manual edit (T-2-11, D-32)', () => {
+    const a = UseCaseDAL.createUseCase(projectId, { name: 'A' });
+    const edited = UseCaseDAL.updateUseCase(projectId, a.id, { narrative: 'Hand-written text.' });
+    expect(edited.narrative_edited_at).not.toBeNull();
+
+    const regenerated = UseCaseDAL.regenerateUseCaseNarrative(projectId, a.id, 'Generated text.');
+    expect(regenerated.narrative).toBe('Generated text.');
+    expect(regenerated.narrative_generated_at).not.toBeNull();
+    expect(regenerated.narrative_edited_at).toBeNull();
+  });
+
+  // T-2-11 fix round, ERROR 1: a narrative with `\r\n`/lone `\r` used to be stored verbatim, so
+  // `sections.ts`'s renderer had to normalize on every read and every future edit/paste carried the
+  // CR forward. Normalizing once on write makes `\n`-only the one on-disk representation.
+  it('normalizes CRLF and lone-CR narrative line endings to `\\n` on create, manual PATCH and regenerate', () => {
+    const created = UseCaseDAL.createUseCase(projectId, { name: 'A', narrative: 'Intro\r\n\r\n## Flow\r\n\r\n1. a' });
+    expect(created.narrative).toBe('Intro\n\n## Flow\n\n1. a');
+
+    const edited = UseCaseDAL.updateUseCase(projectId, created.id, { narrative: 'Hand\r\nwritten\rtext.' });
+    expect(edited.narrative).toBe('Hand\nwritten\ntext.');
+
+    const regenerated = UseCaseDAL.regenerateUseCaseNarrative(projectId, created.id, 'Generated\r\ntext.');
+    expect(regenerated.narrative).toBe('Generated\ntext.');
   });
 });

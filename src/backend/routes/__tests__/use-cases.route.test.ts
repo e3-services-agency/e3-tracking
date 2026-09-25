@@ -336,3 +336,108 @@ describe('use case templates and requirements matrix', () => {
     expect(body.map((uc: { name: string }) => uc.name)).toEqual(['Checkout tracking']);
   });
 });
+
+describe('use case narrative regeneration (T-2-11, D-32)', () => {
+  it('regenerates a narrative from the resolved requirements', async () => {
+    const ucRes = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Narrative use case', type: 'transactional' }),
+    });
+    const uc = await ucRes.json();
+    await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${uc.id}/requirements`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requirements: [{ target_kind: 'event', event_id: eventId, level: 'R' }],
+      }),
+    });
+
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${uc.id}/narrative/regenerate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.narrative).toContain('checkout');
+    expect(body.narrative_generated_at).not.toBeNull();
+    expect(body.narrative_edited_at).toBeNull();
+  });
+
+  it('returns 409 NARRATIVE_EDITED when a manual edit is newer, and applies with force: true', async () => {
+    const ucRes = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Edited narrative use case' }),
+    });
+    const uc = await ucRes.json();
+
+    const patchRes = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${uc.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ narrative: 'Hand-written narrative.' }),
+    });
+    expect((await patchRes.json()).narrative_edited_at).not.toBeNull();
+
+    const blockedRes = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${uc.id}/narrative/regenerate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(blockedRes.status).toBe(409);
+    expect((await blockedRes.json()).code).toBe('NARRATIVE_EDITED');
+
+    const forcedRes = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${uc.id}/narrative/regenerate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ force: true }),
+    });
+    expect(forcedRes.status).toBe(200);
+    const forced = await forcedRes.json();
+    expect(forced.narrative).not.toBe('Hand-written narrative.');
+    expect(forced.narrative_edited_at).toBeNull();
+  });
+
+  it('returns 404 for a use case that does not exist', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/does-not-exist/narrative/regenerate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('use case coverage (T-2-11, "Coverage grid")', () => {
+  it('GET /:id/coverage reports one row per requirement, satisfied from in-scope observations', async () => {
+    const ucRes = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Coverage use case' }),
+    });
+    const uc = await ucRes.json();
+    await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${uc.id}/requirements`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requirements: [
+          { target_kind: 'event', event_id: eventId, level: 'R' },
+          { target_kind: 'customer_property', property_id: customerPropertyId, level: 'O' },
+        ],
+      }),
+    });
+
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${uc.id}/coverage`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.total_count).toBe(2);
+    expect(body.rows.find((r: { target_kind: string }) => r.target_kind === 'event').satisfied).toBe(false);
+    expect(body.rows.find((r: { target_kind: string }) => r.target_kind === 'customer_property').satisfied).toBe(false);
+  });
+
+  it('returns 404 for a use case that does not exist', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/does-not-exist/coverage`);
+    expect(res.status).toBe(404);
+  });
+});

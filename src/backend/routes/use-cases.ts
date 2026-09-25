@@ -7,6 +7,8 @@ import { Router, type Request, type Response } from 'express';
 import * as UseCaseDAL from '../dal/use-case.dal';
 import * as RequirementDAL from '../dal/requirement.dal';
 import * as UseCaseTemplateDAL from '../dal/use-case-template.dal';
+import { regenerateNarrative } from '../services/useCaseNarrative.service';
+import { computeUseCaseCoverage } from '../services/useCaseCoverage.service';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -78,6 +80,28 @@ router.patch('/:id', (req: Request, res: Response) => {
       inputFromBody(req.body as Record<string, unknown>)
     );
     res.status(200).json(useCase);
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+/** `POST /:id/narrative/regenerate` body `{force?: boolean}` (D-32): 409 `NARRATIVE_EDITED` when the stored narrative was edited by hand more recently than it was generated, unless `force` is true. */
+router.post('/:id/narrative/regenerate', (req: Request, res: Response) => {
+  const body = req.body as Record<string, unknown>;
+  const force = body.force === true;
+  try {
+    const useCase = regenerateNarrative(req.projectId!, req.params.id, force);
+    res.status(200).json(useCase);
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+/** `GET /:id/coverage` (PLAN "Coverage grid"): per-requirement observation coverage, for the use case page and (once merged) the T-2-08 coverage grid. */
+router.get('/:id/coverage', (req: Request, res: Response) => {
+  try {
+    UseCaseDAL.getUseCaseOrThrow(req.projectId!, req.params.id);
+    res.status(200).json(computeUseCaseCoverage(req.projectId!, req.params.id));
   } catch (err) {
     handleRouteError(err, res);
   }

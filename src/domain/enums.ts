@@ -96,8 +96,11 @@ export const COMPARISON_IDS = [
 ] as const;
 export type ComparisonId = (typeof COMPARISON_IDS)[number];
 
-// ----- Finding kind (D-21) -----
-// The twelve kinds from the qa-roundtrip skill plus three additions from D-21.
+// ----- Finding kind (D-21, D-30) -----
+// The twelve kinds from the qa-roundtrip skill, three additions from D-21, and three more from
+// D-30 (rules layer, T-2-06): `rule_violation`/`bound_violation` are errors, `item_schema_violation`
+// is an error; `rounding_drift` (already listed above) becomes a `RULE_REPORT_KINDS` value once a
+// rule's `report_kind` is `rounding_drift` (D-31) — the finding kind itself is unchanged.
 export const FINDING_KINDS = [
   'missing_required',
   'type_mismatch',
@@ -114,6 +117,9 @@ export const FINDING_KINDS = [
   'missing_event',
   'unexpected_event',
   'unmapped_catalog',
+  'rule_violation',
+  'item_schema_violation',
+  'bound_violation',
 ] as const;
 export type FindingKind = (typeof FINDING_KINDS)[number];
 
@@ -132,6 +138,8 @@ export const PROPERTY_DATA_TYPES = ['string', 'number', 'boolean', 'timestamp', 
 export type PropertyDataType = (typeof PROPERTY_DATA_TYPES)[number];
 
 // `money` is new (T-1-04 delta): a monetary amount, drives the rounding-drift QA rule (D-21, D-25 Q12).
+// `e164_phone` is new (D-30, T-2-06): starts with `+` or `00`, then digits only, 8 to 15 digits
+// total; checked by `src/domain/rules/valueChecks.ts`'s `isE164Phone`.
 export const PROPERTY_DATA_FORMATS = [
   'uuid',
   'iso8601_datetime',
@@ -144,6 +152,7 @@ export const PROPERTY_DATA_FORMATS = [
   'country_code',
   'language_code',
   'money',
+  'e164_phone',
 ] as const;
 export type PropertyDataFormat = (typeof PROPERTY_DATA_FORMATS)[number];
 
@@ -172,3 +181,41 @@ export type UseCaseStatus = (typeof USE_CASE_STATUSES)[number];
 // Also spelled out explicitly in the plan's Requirement section.
 export const REQUIREMENT_STATUSES = ['open', 'resolved', 'gap'] as const;
 export type RequirementStatus = (typeof REQUIREMENT_STATUSES)[number];
+
+// ----- Rules (D-30, D-31, T-2-06) -----
+// `src/domain/rules/*` is the extension point (D-30 acceptance criterion): adding an operator
+// touches only this module (a new enum member), `src/domain/rules/operators.ts` (a new registry
+// entry) and one test.
+
+/** `Rule.kind`: what shape of check the expression is (D-30). */
+export const RULE_KINDS = ['arithmetic', 'membership', 'bound', 'cross_event'] as const;
+export type RuleKind = (typeof RULE_KINDS)[number];
+
+/** `Operand{ref:'aggregate'}.fn`: reducer applied to a list of numbers. */
+export const RULE_AGGREGATES = ['sum', 'count', 'min', 'max'] as const;
+export type RuleAggregate = (typeof RULE_AGGREGATES)[number];
+
+/** Numeric comparators shared by `Arithmetic.comparator` and `CrossEvent.comparator`, and reused
+ * by `RULE_BOUND_CHECKS` below. */
+export const RULE_COMPARATORS = ['eq', 'neq', 'lt', 'lte', 'gt', 'gte'] as const;
+export type RuleComparator = (typeof RULE_COMPARATORS)[number];
+
+/** `Bound.check`: the comparators plus two checks with no `bound` operand needed. */
+export const RULE_BOUND_CHECKS = [...RULE_COMPARATORS, 'non_empty', 'not_future'] as const;
+export type RuleBoundCheck = (typeof RULE_BOUND_CHECKS)[number];
+
+/** `Rule.tolerance_mode`: `money` resolves from the project's percent/floor (D-30); `absolute`/
+ * `percent` use `Rule.tolerance_value`; `none` is exact. */
+export const RULE_TOLERANCE_MODES = ['none', 'money', 'absolute', 'percent'] as const;
+export type RuleToleranceMode = (typeof RULE_TOLERANCE_MODES)[number];
+
+/** `Rule.report_kind`: which `FindingKind` a violation produces. Defaults from `kind` (`bound` ->
+ * `bound_violation`, else `rule_violation`); `rounding_drift` is allowed only for a `cross_event`
+ * rule with `tolerance_mode = 'money'` (D-31), preserving the phase 1 scenario 4 finding. */
+export const RULE_REPORT_KINDS = ['rule_violation', 'bound_violation', 'rounding_drift'] as const;
+export type RuleReportKind = (typeof RULE_REPORT_KINDS)[number];
+
+/** `Rule.severity` (D-40 Q4): every rule carries a severity; default `error`, `warning` allowed
+ * (e.g. a bound rule that is advisory rather than a hard violation). */
+export const RULE_SEVERITIES = ['error', 'warning'] as const;
+export type RuleSeverity = (typeof RULE_SEVERITIES)[number];

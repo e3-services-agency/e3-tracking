@@ -947,3 +947,6 @@ User provided Bloomreach Data Manager exports for customers (101 properties) and
 
 ### 2026-09-25 09:12 | user -> ALL | INFO | phase 2
 User shared Bloomreach identity and Web SDK tracking documentation. Condensed to samples/bloomreach-identity-reference.md; CONTEXT.md identity bullet extended (hard and soft IDs, transformations, identify and anonymize calls, SDK default properties os, browser, device, location); phase 2 seed item 6 added for identity model alignment and SDK default property handling in the comparison engine.
+
+### 2026-09-25 09:16 | user -> ALL | INFO | phase 2
+User shared Bloomreach system events documentation. Condensed to samples/bloomreach-system-events-reference.md; CONTEXT.md gains a system events bullet; phase 2 seed item 7 added: system event seed upgrade with attribute lists and enums so QA validates system events instead of only suppressing them.

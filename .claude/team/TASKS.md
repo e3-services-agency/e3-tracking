@@ -86,6 +86,7 @@ Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktree
 3. Event card page and the machine-readable tracking document JSON.
 4. MCP server (D-11, D-19) with the tool surface from the domain-model skill.
 5. Use case narrative generation, QA run export as customer events JSON, Vite watch ignore for `.claude/**`.
+7. System event seed upgrade (see samples/bloomreach-system-events-reference.md): bloomreach.ts carries system event definitions with attribute lists and enums (campaign.status, campaign.action_type, experiment.action, notification_state.platform); QA validates system events against them rather than only suppressing unexpected_event; page_visit missing_event suppressed unless enabled in the definition; notification_state default expiration 90 days as the seed value.
 6. Identity model alignment with Bloomreach semantics (see samples/bloomreach-identity-reference.md): identity rule gains identifier name, transformation (lowercase, trim), SDK call (identify, update, anonymize), and the re-identification rule; codegen emits identify and update snippets from identity rules; the comparison engine treats the SDK default properties os, browser, device, location as expected on frontend observations and validates event and property names are ASCII and within the 255 limits.
 
 ### Phase 2 carry-over notes (from phase 1 reviews, none blocking)

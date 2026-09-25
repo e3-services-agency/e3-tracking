@@ -950,3 +950,6 @@ User shared Bloomreach identity and Web SDK tracking documentation. Condensed to
 
 ### 2026-09-25 09:16 | user -> ALL | INFO | phase 2
 User shared Bloomreach system events documentation. Condensed to samples/bloomreach-system-events-reference.md; CONTEXT.md gains a system events bullet; phase 2 seed item 7 added: system event seed upgrade with attribute lists and enums so QA validates system events instead of only suppressing them.
+
+### 2026-09-25 09:21 | user -> ALL | DECISION | phase 2
+D-29 recorded: custom events are the focus (transactional first, then behavioural); sdk and platform events are informational, never validated, deselected by default on Data Manager import. Phase 2 seed item 7 reduced accordingly.

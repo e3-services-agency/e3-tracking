@@ -13,7 +13,9 @@ import type {
   PropertyExampleValue,
   PropertyValueSchema,
 } from '../../types/schema';
-import type { PropertyDataFormat } from '../../domain/enums';
+import type { PropertyDataFormat, IdentityTransformation } from '../../domain/enums';
+import { IDENTITY_TRANSFORMATIONS } from '../../domain/enums';
+import { BLOOMREACH_SPECIAL_CUSTOMER_ATTRIBUTES } from '../../domain/bloomreach';
 
 export interface AttachedPropertyForCodegen {
   property_name: string;
@@ -480,4 +482,154 @@ function buildBloomreachApiSnippet(
     return `// Optional properties: ${optionalNames}\n\n${json}\n\n// cURL example:\n${curlExample}`;
   }
   return `${json}\n\n// cURL example:\n${curlExample}`;
+}
+
+/* --------------------------------------------------------------------------------------------
+ * Identity codegen (D-38, T-2-12): identify/update/anonymize snippets built from a project's
+ * IdentityRule rows and its customer-scope properties. Pure — takes already-fetched DAL rows, no
+ * DB access, so it is unit-testable without `:memory:` SQLite (`buildIdentityCodegen.test.ts`).
+ * ------------------------------------------------------------------------------------------ */
+
+/** Minimal shape `buildIdentityCodegen` needs from `identity_rules` (`IdentityRuleDAL.IdentityRuleRow`). */
+export interface IdentityRuleForCodegen {
+  identifier_name: string;
+  identity_type: string;
+  transformations_json: string[];
+  sdk_call: string | null;
+  trigger_text?: string | null;
+  name?: string;
+}
+
+/** Minimal shape `buildIdentityCodegen` needs from customer-scope `properties` rows. */
+export interface CustomerPropertyForCodegen {
+  name: string;
+  bloomreach_customer_property?: string | null;
+}
+
+export interface IdentityCodegenSnippets {
+  identify: string;
+  update: string;
+  anonymize: string;
+}
+
+/** Valid JS identifier from an arbitrary identifier name, for the snippet's raw-value variable. */
+function toCamelCaseVariable(name: string): string {
+  const parts = name
+    .trim()
+    .split(/[^a-zA-Z0-9]+/)
+    .filter(Boolean);
+  if (parts.length === 0) return 'value';
+  const [first, ...rest] = parts;
+  const head = /^[0-9]/.test(first) ? `_${first}` : first;
+  return (
+    head.toLowerCase() +
+    rest.map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join('')
+  );
+}
+
+/**
+ * Canonical-order (per `IDENTITY_TRANSFORMATIONS`, not storage order) JS expression wrapping a raw
+ * value variable, e.g. `String(email).trim().toLowerCase()` for `['lowercase', 'trim']` stored.
+ */
+function wrapWithTransformations(rawVar: string, transformations: string[]): string {
+  let expr = `String(${rawVar})`;
+  for (const t of IDENTITY_TRANSFORMATIONS as readonly IdentityTransformation[]) {
+    if (!transformations.includes(t)) continue;
+    if (t === 'trim') expr += '.trim()';
+    if (t === 'lowercase') expr += '.toLowerCase()';
+  }
+  return expr;
+}
+
+/**
+ * `identify` snippet (D-38): every hard identifier of the project passed in one call (the
+ * re-identification rule enforced by construction, not modelled as data); soft ids (`cookie`) are
+ * never passed. A single hard id named `registered` uses the SDK's plain string form; any other
+ * shape (a custom identifier, or two or more hard ids) uses the object form.
+ */
+function buildIdentifySnippet(hardRules: IdentityRuleForCodegen[]): string {
+  if (hardRules.length === 0) {
+    return '// No hard identity rules configured; exponea.identify() has nothing to send yet.';
+  }
+  if (hardRules.length === 1 && hardRules[0].identifier_name === 'registered') {
+    const rule = hardRules[0];
+    const rawVar = toCamelCaseVariable(rule.identifier_name);
+    const lines = [`// ${rawVar}: raw value for the hard identifier "registered"`];
+    lines.push(`exponea.identify(${wrapWithTransformations(rawVar, rule.transformations_json)});`);
+    return lines.join('\n');
+  }
+  const lines: string[] = [];
+  for (const rule of hardRules) {
+    const rawVar = toCamelCaseVariable(rule.identifier_name);
+    lines.push(`// ${rawVar}: raw value for the hard identifier "${rule.identifier_name}"`);
+  }
+  lines.push('exponea.identify({');
+  for (const rule of hardRules) {
+    const rawVar = toCamelCaseVariable(rule.identifier_name);
+    lines.push(`  ${rule.identifier_name}: ${wrapWithTransformations(rawVar, rule.transformations_json)},`);
+  }
+  lines.push('});');
+  return lines.join('\n');
+}
+
+/**
+ * `update` snippet (D-38): one entry per customer property mapped to a Bloomreach customer
+ * attribute (`bloomreach_customer_property`); attributes the identity reference calls out as
+ * special (email, phone in E.164, ...) get a comment.
+ */
+function buildUpdateSnippet(customerProperties: CustomerPropertyForCodegen[]): string {
+  const mapped = customerProperties.filter((p) => p.bloomreach_customer_property?.trim());
+  if (mapped.length === 0) {
+    return '// No customer properties mapped to a Bloomreach customer attribute yet.';
+  }
+  const sorted = [...mapped].sort((a, b) =>
+    (a.bloomreach_customer_property ?? '').localeCompare(b.bloomreach_customer_property ?? '', undefined, {
+      sensitivity: 'base',
+    })
+  );
+  const lines = ['exponea.update({'];
+  for (const p of sorted) {
+    const key = p.bloomreach_customer_property!.trim();
+    const rawVar = toCamelCaseVariable(p.name);
+    const special = BLOOMREACH_SPECIAL_CUSTOMER_ATTRIBUTES.includes(key);
+    const comment =
+      key === 'phone' ? ' // special attribute, E.164 format (e.g. +14155550123)' : special ? ' // special attribute' : '';
+    lines.push(`  ${key}: ${rawVar},${comment}`);
+  }
+  lines.push('});');
+  return lines.join('\n');
+}
+
+/**
+ * `anonymize` snippet (D-38): one call per logout rule (`sdk_call = 'anonymize'`), its
+ * `trigger_text` noted as a comment. Bloomreach's `anonymize()` takes no arguments, so multiple
+ * logout rules still produce one call with every trigger listed above it.
+ */
+function buildAnonymizeSnippet(anonymizeRules: IdentityRuleForCodegen[]): string {
+  if (anonymizeRules.length === 0) {
+    return '// No logout (anonymize) rule configured.';
+  }
+  const lines = anonymizeRules.map(
+    (rule) => `// Logout: ${rule.trigger_text?.trim() || rule.name || rule.identifier_name}`
+  );
+  lines.push('exponea.anonymize();');
+  return lines.join('\n');
+}
+
+/**
+ * Builds the three identity Web SDK snippets for a project (D-38, T-2-12): `identify` from every
+ * hard `IdentityRule`, `update` from customer properties mapped to a Bloomreach customer
+ * attribute, `anonymize` from rules with `sdk_call = 'anonymize'`.
+ */
+export function buildIdentityCodegen(
+  rules: IdentityRuleForCodegen[],
+  customerProperties: CustomerPropertyForCodegen[]
+): IdentityCodegenSnippets {
+  const hardRules = rules.filter((r) => r.identity_type === 'hard');
+  const anonymizeRules = rules.filter((r) => r.sdk_call === 'anonymize');
+  return {
+    identify: buildIdentifySnippet(hardRules),
+    update: buildUpdateSnippet(customerProperties),
+    anonymize: buildAnonymizeSnippet(anonymizeRules),
+  };
 }

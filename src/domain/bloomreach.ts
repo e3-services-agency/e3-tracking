@@ -202,6 +202,32 @@ export const KNOWN_SYSTEM_EVENT_TYPES: ReadonlyArray<string> = [...SDK_EVENT_TYP
 export const SDK_DEFAULT_PROPERTIES: ReadonlyArray<string> = ['os', 'browser', 'device', 'location'];
 
 /**
+ * Bloomreach platform limits the identity reference names (D-38): 255 event types per project,
+ * 255 properties per event. Enforced at write time (`event.dal.ts`, `LIMIT_EVENT_TYPES` /
+ * `LIMIT_EVENT_PROPERTIES`) and reported by `limits.service.ts` for the tracking document (T-2-08).
+ */
+export const BLOOMREACH_LIMITS = {
+  MAX_EVENT_TYPES_PER_PROJECT: 255,
+  MAX_PROPERTIES_PER_EVENT: 255,
+} as const;
+
+/**
+ * `update()` special customer attributes the identity reference names (D-38): case-sensitive keys
+ * the Web SDK treats specially (`phone` expects E.164). Used by identity codegen's `update`
+ * snippet to annotate a mapped `Property.bloomreach_customer_property` that matches one.
+ */
+export const BLOOMREACH_SPECIAL_CUSTOMER_ATTRIBUTES: ReadonlyArray<string> = [
+  'first_name',
+  'last_name',
+  'company_name',
+  'photo',
+  'email',
+  'phone',
+  'language',
+  'domain',
+];
+
+/**
  * `Event.class` for a raw Bloomreach event type name (D-36): `sdk` when in `SDK_EVENT_TYPES`,
  * `platform` when in `PLATFORM_EVENT_TYPES`, `custom` otherwise (including the shareable names
  * the reference lists — D-40 Q7, selectable in the Data Manager import preview).

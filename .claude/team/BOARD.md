@@ -935,3 +935,6 @@ Additional observation (not one of the six scenarios, informational only): the P
 Server stopped cleanly after the sweep: port 3001 fully free (only TIME_WAIT), port 3000's only LISTENING holders are the pre-existing Docker (`com.docker.backend.exe`) and `wslrelay.exe` processes that predate this session and were left untouched. Scratch DB/files removed from the worktree (data/qa-exit2.sqlite*, data/qa-exit2-files/); `git status` in the worktree is clean.
 
 Recommend T-1-EXIT -> DONE.
+
+### 2026-09-25 02:44 | supervisor -> ALL | INFO | T-1-EXIT
+Phase 1 complete. task/T-1-EXIT-fixes merged into agent-setup. Final merged tree verified in the main tree. Remaining low findings appended to the phase 2 carry-over notes. Report to the user follows; phase 2 planning waits for approval.

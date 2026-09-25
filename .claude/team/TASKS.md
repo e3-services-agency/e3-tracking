@@ -19,7 +19,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-1-08 | 1 | Shared diff primitives; data mapping and expiration settings import with diff and export | implementer | T-1-05, T-1-06 | DONE | plan + delta |
 | T-1-09 | 1 | QaRun, Observation, Finding; customer events export import; definition-vs-observations comparison | implementer | T-1-08 | DONE | plan + delta |
 | T-1-10 | 1 | CLAUDE.md code-derived sections, .env.example, docs/QA-LOCAL.md | docs-writer | T-1-03 | DONE | plan + delta |
-| T-1-EXIT | 1 | Phase 1 exit: full qa-roundtrip on merged agent-setup, docs refresh, post-merge fixes, report to user | supervisor | T-1-09 | IN_PROGRESS | see below |
+| T-1-EXIT | 1 | Phase 1 exit: full qa-roundtrip on merged agent-setup, docs refresh, post-merge fixes, report to user | supervisor | T-1-09 | DONE | see below |
 
 Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktrees after T-1-02 merges. Everything else is sequential per the dependency column.
 
@@ -96,3 +96,4 @@ Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktree
 
 ### T-1-09 delta (carried findings)
 - From T-1-08 review: plan-time discriminator checks miss an unlinked property on an event with two discriminators, a context-linked property, and a duplicate attribute in one filter (apply 400s cleanly); expiration variant create still swallows ConflictError; blocked promotion leaves the add-allowed-value item in preview. From T-1-07 review: unresolved template rows are labelled (removed) rather than (unresolved). From T-1-07 QA: no UI field for use case code. Fix in T-1-09 only if touched; otherwise list in the phase 1 exit report.
+- From T-1-EXIT review: propertyOrder tests do not constrain the rename and delete cases; StandardEvents load lacks catch/finally (thrown fetch leaves Loading forever) and non-ok responses show dashes silently; loadingState comment claims a spinner that is not rendered, stale rows visible across filter and project change; Properties page lacks the Loading state treatment.

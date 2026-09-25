@@ -58,6 +58,7 @@ function buildDefinition(): DefinitionSnapshot {
       id: EVENT.purchase,
       name: 'purchase',
       status: 'implemented',
+      class: 'custom',
       expiration: null,
       properties: [
         { property_id: PROP.totalPrice, name: 'total_price', payload_key: null, role: 'normal', required: true, data_type: 'number', data_formats: ['money'], allowed_values: null },
@@ -70,6 +71,7 @@ function buildDefinition(): DefinitionSnapshot {
       id: EVENT.purchaseItem,
       name: 'purchase_item',
       status: 'implemented',
+      class: 'custom',
       expiration: null,
       properties: [
         { property_id: PROP.price, name: 'price', payload_key: null, role: 'normal', required: true, data_type: 'number', data_formats: ['money'], allowed_values: null },
@@ -87,6 +89,7 @@ function buildDefinition(): DefinitionSnapshot {
       id: EVENT.cartUpdate,
       name: 'cart_update',
       status: 'implemented',
+      class: 'custom',
       expiration: null,
       properties: [
         { property_id: PROP.action, name: 'action', payload_key: null, role: 'discriminator', required: true, data_type: 'string', data_formats: [], allowed_values: ['add'] },
@@ -97,6 +100,7 @@ function buildDefinition(): DefinitionSnapshot {
       id: EVENT.checkout,
       name: 'checkout',
       status: 'implemented',
+      class: 'custom',
       expiration: null,
       properties: [],
     },
@@ -104,6 +108,7 @@ function buildDefinition(): DefinitionSnapshot {
       id: EVENT.viewItem,
       name: 'view_item',
       status: 'implemented',
+      class: 'custom',
       expiration: null,
       properties: [
         { property_id: PROP.price, name: 'price', payload_key: null, role: 'normal', required: false, data_type: 'number', data_formats: ['money'], allowed_values: null },
@@ -113,16 +118,21 @@ function buildDefinition(): DefinitionSnapshot {
       id: EVENT.viewCategory,
       name: 'view_category',
       status: 'implemented',
+      class: 'custom',
       expiration: null,
       properties: [],
     },
     {
       // Deliberately not present in the fixture's observed events, but has a long expiration so
       // `missing_event` is suppressed (T-1-09 acceptance): "no missing_event for session_start
-      // when its 3-month expiration suppresses it".
+      // when its 3-month expiration suppresses it". Kept `class: 'custom'` here (a real
+      // `session_start` would be `sdk`, D-36) so this fixture still exercises the
+      // expiration-suppression path on its own, independent of the T-2-01 class skip, which has
+      // its own dedicated test below.
       id: EVENT.sessionStart,
       name: 'session_start',
       status: 'implemented',
+      class: 'custom',
       expiration: { enabled: true, count: 3, units: 'months' },
       properties: [],
     },
@@ -255,6 +265,7 @@ describe('missing_event severity by run kind (D-25 Q4)', () => {
       id: 'event_never_observed',
       name: 'wishlist_view',
       status: 'implemented',
+      class: 'custom',
       expiration: null,
       properties: [],
     });
@@ -287,5 +298,85 @@ describe('isEventCertified', () => {
   });
   it('is true with no findings at all', () => {
     expect(isEventCertified([])).toBe(true);
+  });
+});
+
+describe('sdk/platform events never produce findings (T-2-01, D-29, D-36)', () => {
+  function definitionWithSdkEvent(overrides: Partial<DefEvent> = {}): DefinitionSnapshot {
+    return {
+      project_default_expiration: null,
+      events: [
+        {
+          id: 'event_session_start',
+          name: 'session_start',
+          status: 'implemented',
+          class: 'sdk',
+          expiration: null,
+          properties: [
+            { property_id: 'prop_duration', name: 'duration', payload_key: null, role: 'normal', required: true, data_type: 'number', data_formats: [], allowed_values: null },
+          ],
+          ...overrides,
+        },
+      ],
+      variants: [],
+      standard_event_mappings: [],
+    };
+  }
+
+  it('emits no missing_event for a never-observed sdk/platform event', () => {
+    const definition = definitionWithSdkEvent();
+    const findings = runDefinitionVsObservations(definition, [], { now: FIXED_NOW });
+    expect(findings.filter((f) => f.kind === 'missing_event')).toEqual([]);
+  });
+
+  it('emits no type_mismatch/missing_required for an sdk event observation with a wrong-typed payload', () => {
+    const definition = definitionWithSdkEvent();
+    const observations: EngineObservation[] = [
+      {
+        id: 'obs_sdk_1',
+        event_type: 'session_start',
+        event_id: 'event_session_start',
+        variant_id: null,
+        timestamp: FIXED_NOW - 10,
+        properties: { duration: 'not-a-number' },
+        run_kind: 'export_paste',
+      },
+    ];
+    const findings = runDefinitionVsObservations(definition, observations, { now: FIXED_NOW });
+    expect(findings).toEqual([]);
+  });
+
+  it('never flags SDK_DEFAULT_PROPERTIES (os, browser, device, location) as unexpected_property, even on a custom event', () => {
+    const definition: DefinitionSnapshot = {
+      project_default_expiration: null,
+      events: [
+        {
+          id: 'event_custom_1',
+          name: 'custom_event',
+          status: 'implemented',
+          class: 'custom',
+          expiration: null,
+          properties: [],
+        },
+      ],
+      variants: [],
+      standard_event_mappings: [],
+    };
+    const observations: EngineObservation[] = [
+      {
+        id: 'obs_custom_1',
+        event_type: 'custom_event',
+        event_id: 'event_custom_1',
+        variant_id: null,
+        timestamp: FIXED_NOW - 10,
+        properties: { os: 'iOS', browser: 'Safari', device: 'mobile', location: 'CZ', genuinely_unexpected: true },
+        run_kind: 'export_paste',
+      },
+    ];
+    const findings = runDefinitionVsObservations(definition, observations, { now: FIXED_NOW });
+    const unexpected = findings.filter((f) => f.kind === 'unexpected_property');
+    expect(unexpected.map((f) => (f.actual_json as { payload_key: string }).payload_key).sort()).toEqual([
+      'genuinely_unexpected',
+    ]);
   });
 });

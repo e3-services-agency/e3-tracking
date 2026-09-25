@@ -90,6 +90,7 @@ export function buildDefinitionSnapshot(projectId: string): DefinitionSnapshot {
       id: event.id,
       name: event.name,
       status: event.status,
+      class: event.class as DefEvent['class'],
       expiration: toExpirationBlock(event.expiration_json),
       properties: defProperties,
     };

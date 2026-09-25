@@ -16,7 +16,7 @@
  * `shape_inconsistent`) that are not attributable to a single run — see `comparison.service.ts`'s
  * module comment for the exact semantics.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { closeDb } from '../db';
@@ -25,16 +25,22 @@ import * as ProjectDAL from '../dal/project.dal';
 import * as PropertyDAL from '../dal/property.dal';
 import * as EventDAL from '../dal/event.dal';
 import * as ObservationDAL from '../dal/observation.dal';
+import * as QaRunDAL from '../dal/qa-run.dal';
 import * as FindingDAL from '../dal/finding.dal';
 import { previewDataMapping, applyDataMapping } from './dataMappingImport.service';
+import { previewDataManagerEvents, applyDataManagerEvents } from './dataManagerEventsImport.service';
 import { previewCustomerEventsExport, applyCustomerEventsExport } from './customerEventsExportImport.service';
 import { runComparison } from './comparison.service';
+import { createEventResolver } from './eventResolution';
 
 const dataMappingFixture = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, '../../../.claude/team/samples/data-mapping.json'), 'utf-8')
 );
 const eventsFixture = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, '../../../.claude/team/samples/customer-events-export.json'), 'utf-8')
+);
+const dataManagerEventsFixture = JSON.parse(
+  fs.readFileSync(path.resolve(__dirname, '../../../.claude/team/samples/data-manager-events.json'), 'utf-8')
 );
 
 const MAPPED_EVENT_TYPES = ['cart_update', 'checkout', 'purchase', 'purchase_item', 'view_category', 'view_item'];
@@ -167,5 +173,103 @@ describe('Finding.qa_run_id semantics (ERROR 2)', () => {
     const shapeInconsistent = openFindings.filter((f) => f.kind === 'shape_inconsistent');
     expect(shapeInconsistent.length).toBeGreaterThan(0);
     expect(shapeInconsistent.every((f) => f.qa_run_id === null)).toBe(true);
+  });
+});
+
+describe('batched resolver (T-2-04, D-21 "Batched resolution")', () => {
+  it('resolving the 19 fixture observations issues zero further listEvents calls beyond the one that built the resolver', () => {
+    const mappingPreview = previewDataMapping(projectId, dataMappingFixture);
+    applyDataMapping(projectId, dataMappingFixture, mappingPreview.payload_hash, mappingPreview.items.map((i) => i.id));
+
+    const eventsPreview = previewCustomerEventsExport(projectId, eventsFixture);
+    applyCustomerEventsExport(projectId, eventsFixture, eventsPreview.payload_hash, eventsPreview.items.map((i) => i.id), 'Jan');
+    const observations = ObservationDAL.listObservations(projectId);
+    expect(observations).toHaveLength(19);
+
+    const listEventsSpy = vi.spyOn(EventDAL, 'listEvents');
+    const resolve = createEventResolver(projectId);
+    expect(listEventsSpy).toHaveBeenCalledTimes(1); // building the resolver: the one allowed call.
+    listEventsSpy.mockClear();
+
+    for (const o of observations) resolve(o.event_type, o.properties_json);
+    expect(listEventsSpy).not.toHaveBeenCalled(); // resolving every observation reuses the cached map.
+
+    listEventsSpy.mockRestore();
+  });
+});
+
+describe('multi-comparison orchestrator (T-2-04)', () => {
+  it('returns by_comparison counts and scopes stale resolution per comparison id', () => {
+    const mappingPreview = previewDataMapping(projectId, dataMappingFixture);
+    applyDataMapping(projectId, dataMappingFixture, mappingPreview.payload_hash, mappingPreview.items.map((i) => i.id));
+    retypeForTypeMismatches();
+
+    const eventsPreview = previewCustomerEventsExport(projectId, eventsFixture);
+    applyCustomerEventsExport(projectId, eventsFixture, eventsPreview.payload_hash, eventsPreview.items.map((i) => i.id), 'Jan');
+
+    const dmEventsPreview = previewDataManagerEvents(projectId, dataManagerEventsFixture);
+    applyDataManagerEvents(
+      projectId,
+      dataManagerEventsFixture,
+      dmEventsPreview.payload_hash,
+      dmEventsPreview.items.filter((i) => i.default_selected).map((i) => i.id)
+    );
+
+    // applyDataManagerEvents does not itself call runComparison (unlike the customer-events import),
+    // so this is the first recompute since both imports landed.
+    const summary = runComparison(projectId);
+    expect(summary.by_comparison.definition_vs_observations).toBeDefined();
+    expect(summary.by_comparison.data_manager).toBeDefined();
+    expect(summary.by_comparison.data_manager.produced).toBeGreaterThan(0);
+    expect(summary.produced).toBe(
+      summary.by_comparison.definition_vs_observations.produced + summary.by_comparison.data_manager.produced
+    );
+
+    const dataManagerFindingsBefore = FindingDAL.listFindings(projectId, { comparison: 'data_manager', status: 'open' });
+    expect(dataManagerFindingsBefore.some((f) => f.kind === 'type_mismatch')).toBe(true);
+    const observationFindingsBefore = FindingDAL.listFindings(projectId, {
+      comparison: 'definition_vs_observations',
+      status: 'open',
+    });
+    expect(observationFindingsBefore.length).toBeGreaterThan(0);
+
+    // Recomputing again with the same definitions/evidence must reopen/refresh both comparisons'
+    // findings, not resolve either one out from under the other (per-comparison stale resolution).
+    const secondSummary = runComparison(projectId);
+    expect(secondSummary.by_comparison.data_manager.resolved).toBe(0);
+    expect(secondSummary.by_comparison.definition_vs_observations.resolved).toBe(0);
+    const dataManagerFindingsAfter = FindingDAL.listFindings(projectId, { comparison: 'data_manager', status: 'open' });
+    expect(dataManagerFindingsAfter.map((f) => f.fingerprint).sort()).toEqual(
+      dataManagerFindingsBefore.map((f) => f.fingerprint).sort()
+    );
+    const observationFindingsAfter = FindingDAL.listFindings(projectId, {
+      comparison: 'definition_vs_observations',
+      status: 'open',
+    });
+    expect(observationFindingsAfter.map((f) => f.fingerprint).sort()).toEqual(
+      observationFindingsBefore.map((f) => f.fingerprint).sort()
+    );
+
+    // Cross-comparison isolation, proven directly: archiving every run (so comparison 3 has zero
+    // observations in scope, resolving all of its own findings) must not touch comparison 4's open
+    // findings, which have no observation/QaRun dependency at all.
+    for (const runId of new Set(ObservationDAL.listObservations(projectId).map((o) => o.qa_run_id))) {
+      QaRunDAL.updateQaRun(projectId, runId, { archived: true });
+    }
+    const thirdSummary = runComparison(projectId);
+    expect(thirdSummary.by_comparison.data_manager.resolved).toBe(0);
+    const dataManagerFindingsStillOpen = FindingDAL.listFindings(projectId, { comparison: 'data_manager', status: 'open' });
+    expect(dataManagerFindingsStillOpen.map((f) => f.fingerprint).sort()).toEqual(
+      dataManagerFindingsAfter.map((f) => f.fingerprint).sort()
+    );
+    // Observation-anchored kinds (e.g. type_mismatch) are gone now that no observations are in
+    // scope; comparison 3's own resolution ran, comparison 4's did not.
+    const typeMismatchAfterArchive = FindingDAL.listFindings(projectId, {
+      comparison: 'definition_vs_observations',
+      kind: 'type_mismatch',
+      status: 'open',
+    });
+    expect(typeMismatchAfterArchive.length).toBe(0);
+    expect(thirdSummary.by_comparison.definition_vs_observations.resolved).toBeGreaterThan(0);
   });
 });

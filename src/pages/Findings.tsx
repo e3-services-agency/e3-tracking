@@ -1,5 +1,6 @@
 /**
- * Findings page (T-1-09, D-07 simplified UI): a table of comparison-3 findings with filters
+ * Findings page (T-1-09, D-07 simplified UI; T-2-04 adds comparison 4, `data_manager`): a table of
+ * findings from every comparison engine `POST /comparison/run` orchestrates, with filters
  * (comparison, kind, severity, event, status), from `enums.ts` — never hardcoded. Reads
  * `pendingFindingsRunId` from the store once (set by `QaRuns.tsx`'s "View findings for this run"
  * and by `Import.tsx`'s customer-events-export apply) to pre-filter by the observation's run.
@@ -161,7 +162,7 @@ export function Findings() {
       <div className="p-8 border-b bg-white flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Findings</h1>
-          <p className="text-sm text-gray-500 mt-1">Definition vs observations (comparison 3, D-21).</p>
+          <p className="text-sm text-gray-500 mt-1">Definition vs observations (comparison 3) and definition vs Data Manager (comparison 4, D-21/D-28).</p>
         </div>
         <Button type="button" onClick={() => void runComparison()} disabled={running} className="gap-2">
           {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}

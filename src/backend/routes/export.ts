@@ -4,7 +4,11 @@
  */
 import { Router, type Request, type Response } from 'express';
 import { generateProjectDocumentationHtml } from '../services/export.service';
-import { exportDataMapping, exportExpirationSettings } from '../services/bloomreachExport.service';
+import {
+  exportDataMapping,
+  exportExpirationSettings,
+  exportDataManagerCustomers,
+} from '../services/bloomreachExport.service';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -32,6 +36,16 @@ router.get('/data-mapping.json', (req: Request, res: Response) => {
 router.get('/expiration-settings.json', (req: Request, res: Response) => {
   try {
     res.status(200).json(exportExpirationSettings(req.projectId!));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+// Data Manager customers export (T-2-02, D-28): round-trips what the project's Data Manager
+// customers import produced (see bloomreachExport.service.ts's exportDataManagerCustomers).
+router.get('/data-manager-customers.json', (req: Request, res: Response) => {
+  try {
+    res.status(200).json(exportDataManagerCustomers(req.projectId!));
   } catch (err) {
     handleRouteError(err, res);
   }

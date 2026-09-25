@@ -19,6 +19,7 @@ import {
   STANDARD_CUSTOMER_PROPERTIES,
   type StandardEventSeed,
 } from '../../domain/bloomreach';
+import { toDataManagerType } from '../../domain/bloomreach/dataManagerTypes';
 import type { VariantCondition } from '../../domain/variants';
 
 function buildPropertyNameMap(projectId: string): Map<string, string> {
@@ -130,5 +131,92 @@ export function exportExpirationSettings(projectId: string): Record<string, unkn
     events: [...eventEntries, ...variantEntries],
     other: expirationToBlock(project.default_expiration_json),
     success: true,
+  };
+}
+
+interface CustomerPropertyMeta {
+  source?: string;
+  used?: boolean;
+  deleting?: boolean;
+  locked_for_contact_migration?: boolean;
+  dm_index?: number;
+  raw?: { description?: string | null; example_values?: string | null; type?: string };
+}
+
+/** App-born defaults for a customer property never touched by a Data Manager import (D-40 Q2). */
+const APP_BORN_CUSTOMER_DEFAULTS = { source: 'user', used: false, deleting: false, locked_for_contact_migration: false };
+
+/**
+ * Reconstructs `data-manager-customers.json` from the current `Property` rows (scope `customer`)
+ * plus their `bloomreach_meta_json` (T-2-02, D-28, D-35, D-37). Unlike `exportDataMapping`, this
+ * never needs a passthrough of the stored snapshot: every customer property Data Manager import
+ * becomes a live `Property` row (there is no sdk/platform-style deselection for customer scope), so
+ * the live rows are a complete reconstruction on their own.
+ */
+export function exportDataManagerCustomers(projectId: string): Record<string, unknown> {
+  const project = ProjectDAL.getProjectOrThrow(projectId);
+  const meta = (project.data_manager_meta_json ?? null) as
+    | { customers?: { are_all_used?: boolean; default_private?: boolean; group_order?: string[] } }
+    | null;
+  const customersMeta = meta?.customers ?? {};
+  const groupOrder = Array.isArray(customersMeta.group_order) ? customersMeta.group_order : [];
+
+  const properties = PropertyDAL.listProperties(projectId, { scope: 'customer' });
+
+  function buildRow(p: PropertyDAL.PropertyRow): Record<string, unknown> {
+    const propMeta = (p.bloomreach_meta_json ?? null) as CustomerPropertyMeta | null;
+    const formats = Array.isArray(p.data_formats_json) ? (p.data_formats_json as string[]) : [];
+    const type = propMeta?.raw?.type ?? toDataManagerType(p.data_type, formats).type;
+    const exampleValuesArr = Array.isArray(p.example_values_json)
+      ? (p.example_values_json as { value: unknown }[])
+      : [];
+    const description = p.description !== null ? p.description : (propMeta?.raw?.description ?? null);
+    const example_values =
+      exampleValuesArr.length > 0 ? String(exampleValuesArr[0].value) : (propMeta?.raw?.example_values ?? null);
+    const defaults = propMeta ? null : APP_BORN_CUSTOMER_DEFAULTS;
+    return {
+      deleting: propMeta?.deleting ?? defaults?.deleting ?? false,
+      description,
+      example_values,
+      locked_for_contact_migration: propMeta?.locked_for_contact_migration ?? defaults?.locked_for_contact_migration ?? false,
+      private: p.pii,
+      property: p.name,
+      source: propMeta?.source ?? defaults?.source ?? 'user',
+      type,
+      used: propMeta?.used ?? defaults?.used ?? false,
+    };
+  }
+
+  function dmIndexOf(p: PropertyDAL.PropertyRow): number {
+    const propMeta = (p.bloomreach_meta_json ?? null) as CustomerPropertyMeta | null;
+    return typeof propMeta?.dm_index === 'number' ? propMeta.dm_index : Number.POSITIVE_INFINITY;
+  }
+
+  function sortAndBuild(props: PropertyDAL.PropertyRow[]): Record<string, unknown>[] {
+    return [...props]
+      .sort((a, b) => dmIndexOf(a) - dmIndexOf(b) || a.name.localeCompare(b.name))
+      .map(buildRow);
+  }
+
+  const byCategory = new Map<string | null, PropertyDAL.PropertyRow[]>();
+  for (const p of properties) {
+    const key = p.category ?? null;
+    const bucket = byCategory.get(key) ?? [];
+    bucket.push(p);
+    byCategory.set(key, bucket);
+  }
+
+  const defaultGroupProps = byCategory.get(null) ?? [];
+  const namedCategories = [...byCategory.keys()].filter((k): k is string => k !== null);
+  const orderedCategories = [
+    ...groupOrder.filter((name) => namedCategories.includes(name)),
+    ...namedCategories.filter((name) => !groupOrder.includes(name)).sort(),
+  ];
+
+  return {
+    are_all_used: customersMeta.are_all_used ?? false,
+    default_group: { properties: sortAndBuild(defaultGroupProps) },
+    default_private: customersMeta.default_private ?? false,
+    groups: orderedCategories.map((name) => ({ name, properties: sortAndBuild(byCategory.get(name) ?? []) })),
   };
 }

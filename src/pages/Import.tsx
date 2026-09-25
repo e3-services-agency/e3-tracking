@@ -40,7 +40,7 @@ async function parseJson(res: Response): Promise<any> {
   return res.json().catch(() => ({}));
 }
 
-type Format = 'data-mapping' | 'expiration-settings';
+type Format = 'data-mapping' | 'expiration-settings' | 'data-manager-customers';
 
 function ImportBox({
   format,
@@ -456,6 +456,7 @@ export function Import() {
       <div className="p-8 flex-1 overflow-y-auto space-y-6">
         <ImportBox format="data-mapping" title="Data mapping" projectId={activeProjectId} />
         <ImportBox format="expiration-settings" title="Expiration settings" projectId={activeProjectId} />
+        <ImportBox format="data-manager-customers" title="Data Manager customers" projectId={activeProjectId} />
         <CustomerEventsImportBox projectId={activeProjectId} />
 
         <div className="bg-white rounded-lg border shadow-sm p-4 space-y-3">
@@ -469,6 +470,11 @@ export function Import() {
             <a href={downloadUrl('export/expiration-settings.json')} download="expiration-settings.json">
               <Button type="button" variant="outline">
                 Download expiration-settings.json
+              </Button>
+            </a>
+            <a href={downloadUrl('export/data-manager-customers.json')} download="data-manager-customers.json">
+              <Button type="button" variant="outline">
+                Download data-manager-customers.json
               </Button>
             </a>
           </div>

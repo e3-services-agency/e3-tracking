@@ -31,6 +31,8 @@ export interface UseCaseRow {
   notes: string | null;
   narrative: string | null;
   narrative_generated_at: string | null;
+  /** Set when a human saves the narrative by hand (`PATCH .../:id` with `narrative`), per D-32. `POST .../narrative/regenerate` clears it back to `null` on a successful regenerate. */
+  narrative_edited_at: string | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -197,8 +199,12 @@ export function updateUseCase(projectId: string, id: string, updates: Partial<Us
   if (updates.owner !== undefined) patch.owner = updates.owner?.trim() || null;
   if (updates.notes !== undefined) patch.notes = updates.notes?.trim() || null;
   if (updates.narrative !== undefined) {
+    // D-32 / T-2-11: a manual `PATCH .../:id` save is an *edit*, not a regeneration -- it records
+    // `narrative_edited_at`, never `narrative_generated_at` (that column is owned by
+    // `POST .../narrative/regenerate`, `regenerateUseCaseNarrative` below). This is what makes a
+    // later regenerate over a newer manual edit require `force`.
     patch.narrative = updates.narrative?.trim() || null;
-    patch.narrative_generated_at = nowIso();
+    patch.narrative_edited_at = nowIso();
   }
   if (updates.sort_order !== undefined) patch.sort_order = updates.sort_order;
 
@@ -216,6 +222,25 @@ export function updateUseCase(projectId: string, id: string, updates: Partial<Us
       `Failed to update use case: ${(err as Error).message}`
     );
   }
+  return getUseCaseOrThrow(projectId, id);
+}
+
+/**
+ * Stores a machine-generated narrative (`POST /use-cases/:id/narrative/regenerate`, D-32):
+ * sets `narrative` and `narrative_generated_at`, and clears `narrative_edited_at` -- the text is
+ * generated again, so it is no longer "edited by hand" until the next manual `PATCH`. The 409
+ * `NARRATIVE_EDITED` guard itself lives in `useCaseNarrative.service.ts` (it needs the generator
+ * and the `force` flag, not just DB access), not here.
+ */
+export function regenerateUseCaseNarrative(projectId: string, id: string, narrative: string): UseCaseRow {
+  getUseCaseOrThrow(projectId, id);
+  const now = nowIso();
+  getDb()
+    .prepare(
+      `UPDATE use_cases SET narrative = ?, narrative_generated_at = ?, narrative_edited_at = NULL, updated_at = ?
+       WHERE id = ? AND project_id = ?`
+    )
+    .run(narrative, now, now, id, projectId);
   return getUseCaseOrThrow(projectId, id);
 }
 

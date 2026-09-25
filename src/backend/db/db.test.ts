@@ -248,6 +248,8 @@ const ALL_MIGRATION_FILES = [
   '0007_use_case_code_soft_delete.sql',
   '0008_findings_on_delete.sql',
   '0009_event_class.sql',
+  // 0010 (T-2-02), 0011 (T-2-06) and 0013 (T-2-12) are parallel worktree tasks not yet merged here.
+  '0012_use_case_narrative.sql',
 ];
 
 describe('listMigrationFiles', () => {

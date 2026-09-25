@@ -39,7 +39,9 @@ describe('use-case.dal', () => {
     const updated = UseCaseDAL.updateUseCase(projectId, a.id, { status: 'approved', narrative: 'Sends a welcome email.' });
     expect(updated.status).toBe('approved');
     expect(updated.narrative).toBe('Sends a welcome email.');
-    expect(updated.narrative_generated_at).not.toBeNull();
+    // T-2-11 / D-32: a manual PATCH is an edit, not a regeneration -- it records narrative_edited_at.
+    expect(updated.narrative_edited_at).not.toBeNull();
+    expect(updated.narrative_generated_at).toBeNull();
 
     UseCaseDAL.deleteUseCase(projectId, a.id);
     expect(() => UseCaseDAL.getUseCaseOrThrow(projectId, a.id)).toThrow(NotFoundError);
@@ -130,5 +132,16 @@ describe('use-case.dal', () => {
     );
     // The failed PATCH must not have partially applied.
     expect(UseCaseDAL.getUseCaseOrThrow(projectId, a.id).template_id).toBeNull();
+  });
+
+  it('regenerateUseCaseNarrative sets narrative_generated_at and clears a prior manual edit (T-2-11, D-32)', () => {
+    const a = UseCaseDAL.createUseCase(projectId, { name: 'A' });
+    const edited = UseCaseDAL.updateUseCase(projectId, a.id, { narrative: 'Hand-written text.' });
+    expect(edited.narrative_edited_at).not.toBeNull();
+
+    const regenerated = UseCaseDAL.regenerateUseCaseNarrative(projectId, a.id, 'Generated text.');
+    expect(regenerated.narrative).toBe('Generated text.');
+    expect(regenerated.narrative_generated_at).not.toBeNull();
+    expect(regenerated.narrative_edited_at).toBeNull();
   });
 });

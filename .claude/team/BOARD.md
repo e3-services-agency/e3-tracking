@@ -1359,3 +1359,6 @@ No defects found against the T-2-05 acceptance scenarios. Recommend T-2-05 -> DO
 
 ### 2026-09-25 16:34 | supervisor -> ALL | INFO | T-2-05 T-2-08
 T-2-05 merged into agent-setup. Four comparison engines plus the rules evaluator run in one recompute. Follow-ups recorded in TASKS.md. Starting T-2-08 (EventCard builder, certification, coverage grid, tracking document JSON).
+
+### 2026-09-25 16:57 | implementer -> reviewer | HANDOFF | T-2-08
+Posted by supervisor for worktree agent-a359c41236cf0d56a, branch task/T-2-08-event-card-document off bc61045: 9c28a11 (certification and coverage domain), f109c58 (document.service EventCard and tracking document builder), e319310 (routes card, certification, coverage, tracking-document.json with version), a5c6a03 (docs export sections, JSON download button, docs/TRACKING-DOCUMENT.md). Certification per D-05: applicable for custom only, certified when not ignored, zero open error findings, at least one observation, with reasons. Coverage grid variants times context values. Codegen helpers moved to avoid an import cycle. Snapshot test on the full fixture project. 906 tests (78 files), tsc clean, build ok. Flags: use case coverage endpoint left as T-2-11 per-requirement shape; expiration source never variant; pre-existing codegen quirk with property names containing spaces renders invalid JS keys.

@@ -13,7 +13,7 @@ import { Sheet } from '@/src/components/ui/Sheet';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
-import { PRIORITIES, EVENT_STATUSES, ORIGIN_TYPES } from '@/src/domain/enums';
+import { PRIORITIES, EVENT_STATUSES, EVENT_CLASSES } from '@/src/domain/enums';
 import { ExpirationEditor, type ExpirationValue } from '@/src/features/events/components/ExpirationEditor';
 import { DerivedMetricsEditor, type DerivedMetricRow } from '@/src/features/events/components/DerivedMetricsEditor';
 import { LinkedPropertiesEditor, type LinkedPropertyRow } from '@/src/features/events/components/LinkedPropertiesEditor';
@@ -30,7 +30,7 @@ interface EventRow {
   trigger_text: string | null;
   grain: string | null;
   identity_note: string | null;
-  event_type: string;
+  class: string;
   owner_business: string | null;
   owner_technical: string | null;
   priority: string | null;
@@ -143,7 +143,7 @@ export function Events() {
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-6 py-3 font-medium text-gray-500">Name</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Type</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Class</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Status</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Expiration</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Properties</th>
@@ -153,7 +153,7 @@ export function Events() {
               {events.map((ev) => (
                 <tr key={ev.id} onClick={() => { setSelectedId(ev.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
                   <td className="px-6 py-4 font-medium text-gray-900">{ev.name}</td>
-                  <td className="px-6 py-4 text-gray-500">{ev.event_type}</td>
+                  <td className="px-6 py-4 text-gray-500">{ev.class}</td>
                   <td className="px-6 py-4 text-gray-500">{ev.status}</td>
                   <td className="px-6 py-4 text-gray-500">{expirationSummary(ev.expiration_json)}</td>
                   <td className="px-6 py-4 text-gray-500">{ev.attached_property_count ?? 0}</td>
@@ -211,7 +211,7 @@ function EventEditor({
   const [triggerText, setTriggerText] = useState('');
   const [grain, setGrain] = useState('');
   const [identityNote, setIdentityNote] = useState('');
-  const [eventType, setEventType] = useState('custom');
+  const [eventClass, setEventClass] = useState('custom');
   const [ownerBusiness, setOwnerBusiness] = useState('');
   const [ownerTechnical, setOwnerTechnical] = useState('');
   const [priority, setPriority] = useState('');
@@ -254,7 +254,7 @@ function EventEditor({
           setTriggerText(ev.trigger_text ?? '');
           setGrain(ev.grain ?? '');
           setIdentityNote(ev.identity_note ?? '');
-          setEventType(ev.event_type);
+          setEventClass(ev.class);
           setOwnerBusiness(ev.owner_business ?? '');
           setOwnerTechnical(ev.owner_technical ?? '');
           setPriority(ev.priority ?? '');
@@ -341,7 +341,7 @@ function EventEditor({
         grain: grain.trim() || null,
         identity_note: identityNote.trim() || null,
         triggers_json: triggers,
-        event_type: eventType,
+        class: eventClass,
         owner_business: ownerBusiness.trim() || null,
         owner_technical: ownerTechnical.trim() || null,
         priority: priority || null,
@@ -437,9 +437,9 @@ function EventEditor({
           <Input value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Type</label>
-          <select value={eventType} onChange={(e) => setEventType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            {ORIGIN_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          <label className="text-sm font-medium text-gray-700">Class</label>
+          <select value={eventClass} onChange={(e) => setEventClass(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+            {EVENT_CLASSES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
       </div>

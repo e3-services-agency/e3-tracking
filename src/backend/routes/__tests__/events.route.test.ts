@@ -37,16 +37,16 @@ afterAll(async () => {
 });
 
 describe('POST /api/projects/:projectId/events (field validation, T-1-04 fix round)', () => {
-  it('returns 400 with code and field for an invalid event_type', async () => {
+  it('returns 400 with code and field for an invalid class', async () => {
     const res = await fetch(`${baseUrl}/api/projects/${projectId}/events`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'route_event_1', event_type: 'weird' }),
+      body: JSON.stringify({ name: 'route_event_1', class: 'weird' }),
     });
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.code).toBe('BAD_REQUEST');
-    expect(body.field).toBe('event_type');
+    expect(body.field).toBe('class');
   });
 
   it('returns 400 with code and field for a malformed expiration_json', async () => {

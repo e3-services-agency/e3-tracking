@@ -47,6 +47,12 @@ export default defineConfig(({mode}) => {
     },
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',
+      // T-2-01: board/report writes by other agents and local SQLite/file writes under `data/`
+      // must never trigger an HMR reload while an agent is mid-QA on this dev server; `docs/`
+      // (generated documentation) is the same kind of out-of-band write.
+      watch: {
+        ignored: ['**/.claude/**', '**/data/**', '**/docs/**'],
+      },
       // Local dev only (D-23): the API runs separately on 3001 via `npm run dev:api`;
       // VITE_API_BASE_URL is unnecessary locally because of this proxy.
       proxy: {

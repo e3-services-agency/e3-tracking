@@ -417,8 +417,8 @@ describe('property.dal: ENUM_IN_USE guard on updateProperty (fix round ERROR 3)'
 });
 
 describe('event.dal: event field validation (fix round ERROR 1)', () => {
-  it('rejects an invalid event_type, priority or status (400 with field)', () => {
-    expect(() => EventDAL.createEvent(projectId, { name: 'e1', event_type: 'weird' })).toThrow(BadRequestError);
+  it('rejects an invalid class, priority or status (400 with field)', () => {
+    expect(() => EventDAL.createEvent(projectId, { name: 'e1', class: 'weird' })).toThrow(BadRequestError);
     expect(() => EventDAL.createEvent(projectId, { name: 'e2', priority: 'urgent' })).toThrow(BadRequestError);
     expect(() => EventDAL.createEvent(projectId, { name: 'e3', status: 'bogus' })).toThrow(BadRequestError);
   });
@@ -477,7 +477,7 @@ describe('event.dal: event field validation (fix round ERROR 1)', () => {
   it('accepts a valid event and applies the same validation on update', () => {
     const event = EventDAL.createEvent(projectId, {
       name: 'e12',
-      event_type: 'custom',
+      class: 'custom',
       priority: 'high',
       status: 'implemented',
       expiration_json: { enabled: true, count: 30, units: 'days' },
@@ -487,7 +487,7 @@ describe('event.dal: event field validation (fix round ERROR 1)', () => {
     expect(event.status).toBe('implemented');
 
     expect(() => EventDAL.updateEvent(projectId, event.id, { status: 'bogus' })).toThrow(BadRequestError);
-    expect(() => EventDAL.updateEvent(projectId, event.id, { event_type: 'weird' })).toThrow(BadRequestError);
+    expect(() => EventDAL.updateEvent(projectId, event.id, { class: 'weird' })).toThrow(BadRequestError);
   });
 });
 

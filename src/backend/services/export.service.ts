@@ -239,7 +239,7 @@ async function buildEventSectionHtml(
     <h2>${escapeHtml(event.name)}</h2>
     <dl class="event-meta">
       ${event.business_name ? `<dt>Business name</dt><dd>${escapeHtml(event.business_name)}</dd>` : ''}
-      <dt>Type</dt><dd>${escapeHtml(event.event_type)}</dd>
+      <dt>Class</dt><dd>${escapeHtml(event.class)}</dd>
       <dt>Status</dt><dd>${escapeHtml(event.status)}</dd>
       ${event.page ? `<dt>Page</dt><dd>${escapeHtml(event.page)}</dd>` : ''}
       ${event.trigger_text ? `<dt>Trigger</dt><dd>${escapeHtml(event.trigger_text)}</dd>` : ''}

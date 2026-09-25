@@ -17,27 +17,27 @@ import {
 } from '../errors';
 import { getPropertyById, type PropertyRow } from './property.dal';
 import { validateDerivedMetricsJson, validateExpirationJson, validateStringArray } from './validators';
-import { EVENT_PROPERTY_ROLES, EVENT_STATUSES, ENTITY_STATUSES, ORIGIN_TYPES, PRIORITIES } from '../../domain/enums';
+import { EVENT_PROPERTY_ROLES, EVENT_STATUSES, ENTITY_STATUSES, EVENT_CLASSES, PRIORITIES } from '../../domain/enums';
 import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
 import { markRequirementsGapForDetach, markRequirementsGapForEventRemoval, markRequirementsGapForVariantRemoval } from './requirement.dal';
 
 const MAX_DISCRIMINATORS_PER_EVENT = 2;
 
 /**
- * Cross-field validation for Event create/update (T-1-04 fix round ERROR 1): `event_type`,
- * `priority`, `status` against `src/domain/enums.ts`; `expiration_json` and
- * `derived_metrics_json` shape; `tags_json` string array.
+ * Cross-field validation for Event create/update (T-1-04 fix round ERROR 1; `class` replaces
+ * `event_type`, D-36): `class`, `priority`, `status` against `src/domain/enums.ts`;
+ * `expiration_json` and `derived_metrics_json` shape; `tags_json` string array.
  */
 function validateEventFields(fields: {
-  event_type?: string;
+  class?: string;
   priority?: string | null;
   status?: string;
   expiration_json?: unknown;
   derived_metrics_json?: unknown;
   tags_json?: unknown;
 }): void {
-  if (fields.event_type !== undefined && !(ORIGIN_TYPES as readonly string[]).includes(fields.event_type)) {
-    throw new BadRequestError(`event_type must be one of: ${ORIGIN_TYPES.join(', ')}.`, 'event_type');
+  if (fields.class !== undefined && !(EVENT_CLASSES as readonly string[]).includes(fields.class)) {
+    throw new BadRequestError(`class must be one of: ${EVENT_CLASSES.join(', ')}.`, 'class');
   }
   if (
     fields.priority !== undefined &&
@@ -165,7 +165,7 @@ export interface EventRow {
   grain: string | null;
   identity_note: string | null;
   triggers_json: unknown;
-  event_type: string;
+  class: string;
   owner_business: string | null;
   owner_technical: string | null;
   priority: string | null;
@@ -208,7 +208,7 @@ export interface EventInput {
   grain?: string | null;
   identity_note?: string | null;
   triggers_json?: unknown;
-  event_type?: string;
+  class?: string;
   owner_business?: string | null;
   owner_technical?: string | null;
   priority?: string | null;
@@ -221,7 +221,7 @@ export interface EventInput {
   source_ids?: string[] | null;
 }
 
-const DEFAULT_EVENT_TYPE = 'custom';
+const DEFAULT_EVENT_CLASS = 'custom';
 const DEFAULT_EVENT_STATUS = 'planned';
 
 export interface EventWithCounts extends EventRow {
@@ -335,12 +335,12 @@ export function createEvent(projectId: string, input: EventInput): EventRow {
     db.prepare(
       `INSERT INTO events (
         id, project_id, name, business_name, description, purpose, page, trigger_text, grain,
-        identity_note, triggers_json, event_type, owner_business, owner_technical, priority,
+        identity_note, triggers_json, class, owner_business, owner_technical, priority,
         status, expiration_json, not_suitable_for, agent_instructions, derived_metrics_json,
         tags_json, codegen_event_name_overrides_json, created_at, updated_at, deleted_at
       ) VALUES (
         @id, @project_id, @name, @business_name, @description, @purpose, @page, @trigger_text, @grain,
-        @identity_note, @triggers_json, @event_type, @owner_business, @owner_technical, @priority,
+        @identity_note, @triggers_json, @class, @owner_business, @owner_technical, @priority,
         @status, @expiration_json, @not_suitable_for, @agent_instructions, @derived_metrics_json,
         @tags_json, NULL, @created_at, @updated_at, NULL
       )`
@@ -356,7 +356,7 @@ export function createEvent(projectId: string, input: EventInput): EventRow {
       grain: input.grain?.trim() || null,
       identity_note: input.identity_note?.trim() || null,
       triggers_json: toJsonColumn(input.triggers_json ?? []),
-      event_type: input.event_type || DEFAULT_EVENT_TYPE,
+      class: input.class || DEFAULT_EVENT_CLASS,
       owner_business: input.owner_business?.trim() || null,
       owner_technical: input.owner_technical?.trim() || null,
       priority: input.priority ?? null,
@@ -408,7 +408,7 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
   if (input.grain !== undefined) patch.grain = input.grain?.trim() || null;
   if (input.identity_note !== undefined) patch.identity_note = input.identity_note?.trim() || null;
   if (input.triggers_json !== undefined) patch.triggers_json = toJsonColumn(input.triggers_json ?? []);
-  if (input.event_type !== undefined) patch.event_type = input.event_type;
+  if (input.class !== undefined) patch.class = input.class;
   if (input.owner_business !== undefined) patch.owner_business = input.owner_business?.trim() || null;
   if (input.owner_technical !== undefined) patch.owner_technical = input.owner_technical?.trim() || null;
   if (input.priority !== undefined) patch.priority = input.priority;

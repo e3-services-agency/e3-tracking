@@ -16,9 +16,9 @@
  * other number without a plausible-range heuristic, which would be more guess than check) and
  * `money` (drives the `rounding_drift` rule instead of a format check — D-25 Q12).
  */
-import { KNOWN_SYSTEM_EVENT_TYPES } from '../bloomreach';
+import { KNOWN_SYSTEM_EVENT_TYPES, SDK_DEFAULT_PROPERTIES } from '../bloomreach';
 import type { VariantCondition } from '../variants';
-import type { ComparisonId, FindingKind, FindingSeverity } from '../enums';
+import type { ComparisonId, EventClass, FindingKind, FindingSeverity } from '../enums';
 
 export interface ExpirationBlock {
   enabled: boolean;
@@ -49,6 +49,8 @@ export interface DefEvent {
   id: string;
   name: string;
   status: string;
+  /** D-29, D-36: the engine validates `custom` events only; `sdk`/`platform` never produce findings. */
+  class: EventClass;
   expiration: ExpirationBlock | null;
   properties: DefEventProperty[];
 }
@@ -188,7 +190,13 @@ export function runDefinitionVsObservations(
     for (const prop of event.properties) propertyNameById.set(prop.property_id, prop.name);
   }
 
-  const resolved = observations.filter((o) => o.event_id !== null);
+  // D-29/D-36: only `class = custom` events are validated. An observation resolved to a known
+  // sdk/platform event (non-null `event_id`, but that event's class is not `custom`) is treated
+  // like an unresolved-but-known observation below: no unexpected_event (its type is already
+  // suppressed via `KNOWN_SYSTEM_EVENT_TYPES`), and it never enters the custom-only checks or
+  // `missing_event`.
+  const customEventIds = new Set(definition.events.filter((e) => e.class === 'custom').map((e) => e.id));
+  const resolved = observations.filter((o) => o.event_id !== null && customEventIds.has(o.event_id));
   const unresolved = observations.filter((o) => o.event_id === null);
 
   // ---- unexpected_event (info; suppressed for known Bloomreach system types, D-25 Q5) ----
@@ -280,6 +288,8 @@ export function runDefinitionVsObservations(
     for (const obs of obsList) {
       for (const key of Object.keys(obs.properties)) {
         if (linkedKeys.has(key)) continue;
+        // D-38: attributes the Bloomreach SDK attaches to every event are never unexpected.
+        if (SDK_DEFAULT_PROPERTIES.includes(key)) continue;
         const ukey = `${eventId}|${key}`;
         if (!unexpectedPropertySeen.has(ukey)) unexpectedPropertySeen.set(ukey, obs);
       }
@@ -456,6 +466,7 @@ export function runDefinitionVsObservations(
   const missingEventSeverity: FindingSeverity = hasAgentSession ? 'error' : 'warning';
 
   for (const event of definition.events) {
+    if (event.class !== 'custom') continue;
     if (event.status === 'ignored') continue;
     if (observedEventIds.has(event.id)) continue;
     const expiration = effectiveExpiration(event, null, definition.project_default_expiration);

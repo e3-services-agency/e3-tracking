@@ -5,7 +5,7 @@
  * beyond the create Sheet.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, Loader2, ArrowUp, ArrowDown, ArrowLeft, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Loader2, ArrowUp, ArrowDown, ArrowLeft, Sparkles, RefreshCw } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
@@ -33,7 +33,23 @@ interface UseCaseRow {
   owner: string | null;
   notes: string | null;
   narrative: string | null;
+  narrative_generated_at: string | null;
+  narrative_edited_at: string | null;
   sort_order: number;
+}
+
+interface UseCaseCoverageRow {
+  requirement_id: string;
+  target_kind: string;
+  level: string;
+  satisfied: boolean;
+  observation_count: number;
+}
+
+interface UseCaseCoverage {
+  rows: UseCaseCoverageRow[];
+  satisfied_count: number;
+  total_count: number;
 }
 
 interface RequirementRow {
@@ -331,6 +347,10 @@ function UseCaseDetail({
   const [saving, setSaving] = useState(false);
   const [fieldsSaving, setFieldsSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [narrativeDraft, setNarrativeDraft] = useState('');
+  const [regenerating, setRegenerating] = useState(false);
+  const [narrativeError, setNarrativeError] = useState<string | null>(null);
+  const [coverage, setCoverage] = useState<UseCaseCoverage | null>(null);
 
   const load = useCallback(async () => {
     if (!projectId) return;
@@ -355,6 +375,7 @@ function UseCaseDetail({
     const ucData = await parseJson(ucRes);
     if (ucRes.ok) {
       setUseCase(ucData);
+      setNarrativeDraft(ucData.narrative ?? '');
       const rows: UIRequirementRow[] = Array.isArray(ucData.requirements) ? ucData.requirements : [];
       setRequirements(
         rows.map((r) => ({
@@ -368,6 +389,15 @@ function UseCaseDetail({
     const propsData = await parseJson(propsRes);
     if (propsRes.ok) setCustomerProperties(Array.isArray(propsData) ? propsData : []);
     setLoading(false);
+
+    // T-2-08's coverage grid is a parallel task; the use case coverage endpoint is deployed ahead
+    // of it, so a 404 here (route not yet merged) is tolerated -- the summary block just stays hidden.
+    try {
+      const coverageRes = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/use-cases/${useCaseId}/coverage`);
+      if (coverageRes.ok) setCoverage(await parseJson(coverageRes));
+    } catch {
+      // network error: leave the coverage block hidden, nothing else in the page depends on it.
+    }
   }, [projectId, useCaseId]);
 
   useEffect(() => {
@@ -502,6 +532,55 @@ function UseCaseDetail({
     }
   };
 
+  const saveNarrative = async () => {
+    if (!projectId || !useCase) return;
+    setFieldsSaving(true);
+    setNarrativeError(null);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/use-cases/${useCaseId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ narrative: narrativeDraft.trim() || null }),
+      });
+      const data = await parseJson(res);
+      if (!res.ok) {
+        setNarrativeError(typeof data?.error === 'string' ? data.error : 'Failed to save narrative.');
+        return;
+      }
+      setUseCase(data);
+      setNarrativeDraft(data.narrative ?? '');
+    } finally {
+      setFieldsSaving(false);
+    }
+  };
+
+  /** `POST .../narrative/regenerate` (D-32): 409 `NARRATIVE_EDITED` when the stored narrative was hand-edited more recently than it was generated; a confirm prompt offers `force: true`. */
+  const regenerateNarrative = async (force = false) => {
+    if (!projectId || !useCase) return;
+    setRegenerating(true);
+    setNarrativeError(null);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/use-cases/${useCaseId}/narrative/regenerate`, {
+        method: 'POST',
+        body: JSON.stringify({ force }),
+      });
+      const data = await parseJson(res);
+      if (res.status === 409) {
+        if (window.confirm('This narrative was edited by hand. Regenerate anyway and discard the manual edit?')) {
+          await regenerateNarrative(true);
+        }
+        return;
+      }
+      if (!res.ok) {
+        setNarrativeError(typeof data?.error === 'string' ? data.error : 'Failed to regenerate narrative.');
+        return;
+      }
+      setUseCase(data);
+      setNarrativeDraft(data.narrative ?? '');
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!projectId || !useCase) return;
     if (!window.confirm(`Delete use case "${useCase.name}"?`)) return;
@@ -599,16 +678,53 @@ function UseCaseDetail({
             />
           </div>
           <div className="space-y-2 col-span-2">
-            <label className="text-sm font-medium text-gray-700">Narrative (editable; regeneration is phase 2)</label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-gray-700">Narrative</label>
+              <div className="flex items-center gap-2">
+                {useCase.narrative_edited_at && (
+                  <span className="text-xs text-amber-600">Edited by hand</span>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void regenerateNarrative(false)}
+                  disabled={regenerating || fieldsSaving}
+                  className="gap-2"
+                >
+                  {regenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  Regenerate
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => void saveNarrative()}
+                  disabled={fieldsSaving || narrativeDraft === (useCase.narrative ?? '')}
+                >
+                  {fieldsSaving ? 'Saving…' : 'Save narrative'}
+                </Button>
+              </div>
+            </div>
+            {narrativeError && (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{narrativeError}</div>
+            )}
             <textarea
-              defaultValue={useCase.narrative ?? ''}
-              onBlur={(e) => void saveFields({ narrative: e.target.value.trim() || null })}
-              rows={4}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-              disabled={fieldsSaving}
+              value={narrativeDraft}
+              onChange={(e) => setNarrativeDraft(e.target.value)}
+              rows={8}
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-mono"
+              disabled={fieldsSaving || regenerating}
             />
           </div>
         </div>
+
+        {coverage && (
+          <div className="bg-white rounded-lg border shadow-sm p-6">
+            <h2 className="font-semibold text-gray-900 mb-2">Coverage</h2>
+            <p className="text-sm text-gray-500">
+              {coverage.satisfied_count} of {coverage.total_count} requirement{coverage.total_count === 1 ? '' : 's'} observed
+              in a non-archived QA run.
+            </p>
+          </div>
+        )}
 
         <div className="bg-white rounded-lg border shadow-sm">
           <div className="px-6 py-4 border-b flex items-center justify-between">

@@ -1147,3 +1147,6 @@ QA of task/T-2-11-narrative-qa-export at e0dcdb7, run from worktree `.claude/wor
 | 8 | Reload persistence on `/p/qa-t211/use-cases`: all requests 200 (`clients`, `projects`, `use-cases`, `use-case-templates`), zero supabase requests, no 500s | PASS |
 
 Exported file saved at `.claude/team/reports/qa/T-2-11/qa-run.export.json`. No FAILs to report.
+
+### 2026-09-25 11:56 | supervisor -> ALL | INFO | T-2-02 T-2-06 T-2-11 T-2-12 T-2-03
+T-2-12 (identity), T-2-06 (rules domain), T-2-11 (narrative, QA export, coverage) and T-2-02 (Data Manager customers) merged into agent-setup with append-hunk conflict resolution; one interleaved hunk in project.dal.ts fixed by hand. Merged tree: 65 test files, 768 tests, tsc clean, build ok. Migration list 0009 to 0013 complete. Review lows carried into TASKS.md notes. Starting T-2-03 (Data Manager events).

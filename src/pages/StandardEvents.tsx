@@ -43,6 +43,12 @@ export function StandardEvents() {
   const [allVariants, setAllVariants] = useState<VariantOption[]>([]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  // Tracks every load from the moment it starts (fix round re-sweep 02:16 FAIL: SPA navigation
+  // showed a dash for every row for a moment before the mapping fetch resolved). Starts `true`
+  // since the very first render already has a load about to run (the effect below fires
+  // unconditionally on mount/activeProjectId change).
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [newKey, setNewKey] = useState('');
   const [newFields, setNewFields] = useState('');
@@ -59,8 +65,13 @@ export function StandardEvents() {
   const loadTokenRef = useRef(0);
 
   const load = useCallback(async () => {
-    if (!hasValidProjectContext || !activeProjectId) return;
+    if (!hasValidProjectContext || !activeProjectId) {
+      setIsLoading(false);
+      return;
+    }
     const token = ++loadTokenRef.current;
+    setIsLoading(true);
+    setLoadError(null);
     const [projectRes, mappingsRes, eventsRes, variantsRes] = await Promise.all([
       fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}`),
       fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/standard-event-mappings`),
@@ -77,11 +88,28 @@ export function StandardEvents() {
     if (projectRes.ok && Array.isArray(projectData.standard_event_additions_json)) {
       setAdditions(projectData.standard_event_additions_json);
     }
-    if (mappingsRes.ok) setMappings(Array.isArray(mappingsData) ? mappingsData : []);
-    if (eventsRes.ok) setEvents(Array.isArray(eventsData) ? eventsData.map((e: any) => ({ id: e.id, name: e.name })) : []);
-    if (variantsRes.ok) {
-      setAllVariants(Array.isArray(variantsData) ? variantsData.map((v: any) => ({ id: v.id, name: v.name })) : []);
+    // A 200 whose body isn't the expected array shape (unreadable body -> parseJson's `{}`, or a
+    // genuinely wrong shape) is an error, never a silent empty list (reviewer PASS finding 1 on
+    // 7de9a5b: this exact path reproduced FAIL-1's "mapped event/variant show dashes" with a 200
+    // and no console output).
+    let shapeError = false;
+    if (mappingsRes.ok) {
+      if (Array.isArray(mappingsData)) setMappings(mappingsData);
+      else shapeError = true;
     }
+    if (eventsRes.ok) {
+      if (Array.isArray(eventsData)) setEvents(eventsData.map((e: any) => ({ id: e.id, name: e.name })));
+      else shapeError = true;
+    }
+    if (variantsRes.ok) {
+      if (Array.isArray(variantsData)) setAllVariants(variantsData.map((v: any) => ({ id: v.id, name: v.name })));
+      else shapeError = true;
+    }
+    if (shapeError) {
+      console.error('Unexpected standard-event-mappings response shape', { mappingsData, eventsData, variantsData });
+      setLoadError('Unexpected response');
+    }
+    setIsLoading(false);
   }, [hasValidProjectContext, activeProjectId]);
 
   useEffect(() => {
@@ -155,6 +183,7 @@ export function StandardEvents() {
           </Button>
         </div>
         {addKeyError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{addKeyError}</div>}
+        {loadError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{loadError}</div>}
 
         <div className="bg-white rounded-lg border shadow-sm">
           <table className="w-full text-left text-sm">
@@ -175,8 +204,8 @@ export function StandardEvents() {
                 >
                   <td className="px-6 py-4 font-medium text-gray-900 font-mono">{row.key}</td>
                   <td className="px-6 py-4 text-gray-500">{row.fieldCount}</td>
-                  <td className="px-6 py-4 text-gray-500">{row.mappedEventName ?? '—'}</td>
-                  <td className="px-6 py-4 text-gray-500 font-mono">{row.mappedVariantName ?? '—'}</td>
+                  <td className="px-6 py-4 text-gray-500">{isLoading ? 'Loading…' : row.mappedEventName ?? '—'}</td>
+                  <td className="px-6 py-4 text-gray-500 font-mono">{isLoading ? 'Loading…' : row.mappedVariantName ?? '—'}</td>
                 </tr>
               ))}
             </tbody>

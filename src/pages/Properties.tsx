@@ -22,6 +22,7 @@ import {
 } from '@/src/domain/enums';
 import { STANDARD_CUSTOMER_PROPERTIES, type StandardEventSeed } from '@/src/domain/bloomreach';
 import { AllowedValuesEditor, type AllowedValueRow } from '@/src/features/properties/components/AllowedValuesEditor';
+import { mergeFrozenOrder } from '@/src/domain/propertyOrder';
 
 interface PropertyRow {
   id: string;
@@ -88,26 +89,27 @@ export function Properties() {
 
   const selected = selectedId ? properties.find((p) => p.id === selectedId) : null;
 
-  // Stable display order while the editor sheet is open (fix round, QA non-blocking observation):
-  // a save re-fetches `properties` (server-sorted by name) and can move the just-edited row to a
-  // new position; if the row order changed under an *open* sheet, the next click (aimed at the old
-  // position) could land on a different row. `orderRef` freezes the row order for as long as the
-  // sheet stays open — patching in each row's fresh data by id — and only re-syncs to the server's
-  // order once the sheet is closed or on an explicit reload (`load()` while no sheet is open).
+  // Stable display order while the editor sheet is *visibly* open (fix round re-sweep 02:16 FAIL):
+  // a save re-fetches `properties` (server-sorted by name) and can move the just-edited row to a new
+  // position; if the row order changed under an open sheet, the next click (aimed at the old
+  // position) could land on a different row. `isSheetOpen` flips to `false` immediately on save
+  // (`onSaved` below), but the Sheet's exit animation keeps the panel visible for a few hundred ms
+  // after that — freezing on `isSheetOpen` alone re-sorted the table while "Edit Property" was still
+  // on screen. `orderFrozen` instead stays true until the Sheet's exit animation actually finishes
+  // (`onExitComplete`), so the frozen order holds for as long as the editor is visibly open and only
+  // re-syncs to the server's order once it is really gone (or on an explicit reload while closed).
+  const [orderFrozen, setOrderFrozen] = useState(false);
   const orderRef = useRef<string[]>([]);
   const displayProperties = useMemo(() => {
     const byId = new Map(properties.map((p) => [p.id, p]));
-    if (!isSheetOpen) {
+    if (!orderFrozen) {
       orderRef.current = properties.map((p) => p.id);
       return properties;
     }
-    const previousOrder = orderRef.current.filter((id) => byId.has(id));
-    const previousIds = new Set(previousOrder);
-    const newIds = properties.filter((p) => !previousIds.has(p.id)).map((p) => p.id);
-    const order = [...previousOrder, ...newIds];
+    const order = mergeFrozenOrder(orderRef.current, properties.map((p) => p.id));
     orderRef.current = order;
     return order.map((id) => byId.get(id)!);
-  }, [properties, isSheetOpen]);
+  }, [properties, orderFrozen]);
 
   return (
     <div className="flex-1 flex flex-col h-full">
@@ -116,7 +118,7 @@ export function Properties() {
           <h1 className="text-2xl font-bold text-gray-900">Properties</h1>
           <p className="text-sm text-gray-500 mt-1">Event and customer properties (D-24).</p>
         </div>
-        <Button onClick={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }} className="gap-2">
+        <Button onClick={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); setOrderFrozen(true); }} className="gap-2">
           <Plus className="w-4 h-4" /> Add Property
         </Button>
       </div>
@@ -147,7 +149,7 @@ export function Properties() {
               {displayProperties.map((p) => {
                 const enumCount = Array.isArray(p.allowed_values_json) ? p.allowed_values_json.length : 0;
                 return (
-                  <tr key={p.id} onClick={() => { setSelectedId(p.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
+                  <tr key={p.id} onClick={() => { setSelectedId(p.id); setIsCreating(false); setIsSheetOpen(true); setOrderFrozen(true); }} className="hover:bg-gray-50 cursor-pointer">
                     <td className="px-6 py-4 font-medium text-gray-900">{p.name}</td>
                     <td className="px-6 py-4 text-gray-500">{p.scope}</td>
                     <td className="px-6 py-4 text-gray-500">{p.data_type}</td>
@@ -173,7 +175,12 @@ export function Properties() {
         </div>
       </div>
 
-      <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title={isCreating ? 'Create Property' : 'Edit Property'}>
+      <Sheet
+        isOpen={isSheetOpen}
+        onClose={() => setIsSheetOpen(false)}
+        onExitComplete={() => setOrderFrozen(false)}
+        title={isCreating ? 'Create Property' : 'Edit Property'}
+      >
         <PropertyEditor
           key={isCreating ? 'create' : selectedId ?? 'none'}
           property={selected}

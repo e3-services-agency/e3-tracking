@@ -16,6 +16,14 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = __dirname;
 
+/**
+ * Deliberately stops at 0009 and skips straight to 0013: 0010-0012 are being developed on sibling
+ * task branches (T-2-02/T-2-06/T-2-11) in parallel with this one and are not present here. 0013 only
+ * touches `identity_rules`, so replaying 0001-0009 plus 0013 is enough to exercise its backfill in
+ * isolation; this test intentionally does not depend on 0010-0012 landing first or in any order, and
+ * should keep working unmodified once they are merged (they don't touch `identity_rules`, per the
+ * plan). If a future migration does touch `identity_rules` before 0013, add it to this list.
+ */
 const PRE_0013_MIGRATIONS = [
   '0001_core.sql',
   '0002_bundles.sql',

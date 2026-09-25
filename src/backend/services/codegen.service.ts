@@ -512,6 +512,18 @@ export interface IdentityCodegenSnippets {
   anonymize: string;
 }
 
+/**
+ * Reserved words that are syntax errors (or `strict`-mode errors) as a JS variable name; a
+ * camelCased raw-value variable that collides with one of these gets a trailing underscore.
+ */
+const JS_RESERVED_WORDS = new Set([
+  'break', 'case', 'catch', 'class', 'const', 'continue', 'debugger', 'default', 'delete', 'do',
+  'else', 'export', 'extends', 'finally', 'for', 'function', 'if', 'import', 'in', 'instanceof',
+  'new', 'return', 'super', 'switch', 'this', 'throw', 'try', 'typeof', 'var', 'void', 'while',
+  'with', 'yield', 'let', 'static', 'enum', 'await', 'implements', 'package', 'protected',
+  'interface', 'private', 'public', 'null', 'true', 'false',
+]);
+
 /** Valid JS identifier from an arbitrary identifier name, for the snippet's raw-value variable. */
 function toCamelCaseVariable(name: string): string {
   const parts = name
@@ -521,10 +533,20 @@ function toCamelCaseVariable(name: string): string {
   if (parts.length === 0) return 'value';
   const [first, ...rest] = parts;
   const head = /^[0-9]/.test(first) ? `_${first}` : first;
-  return (
+  const camel =
     head.toLowerCase() +
-    rest.map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join('')
-  );
+    rest.map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join('');
+  return JS_RESERVED_WORDS.has(camel) ? `${camel}_` : camel;
+}
+
+/** Whether `name` can be written as a bare JS object key (no quotes needed). */
+function isValidJsIdentifierName(name: string): boolean {
+  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name);
+}
+
+/** Object-literal key text: bare when it's a valid identifier, quoted otherwise (e.g. "email-id"). */
+function formatObjectKey(name: string): string {
+  return isValidJsIdentifierName(name) ? name : `'${name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }
 
 /**
@@ -566,7 +588,9 @@ function buildIdentifySnippet(hardRules: IdentityRuleForCodegen[]): string {
   lines.push('exponea.identify({');
   for (const rule of hardRules) {
     const rawVar = toCamelCaseVariable(rule.identifier_name);
-    lines.push(`  ${rule.identifier_name}: ${wrapWithTransformations(rawVar, rule.transformations_json)},`);
+    lines.push(
+      `  ${formatObjectKey(rule.identifier_name)}: ${wrapWithTransformations(rawVar, rule.transformations_json)},`
+    );
   }
   lines.push('});');
   return lines.join('\n');
@@ -594,7 +618,7 @@ function buildUpdateSnippet(customerProperties: CustomerPropertyForCodegen[]): s
     const special = BLOOMREACH_SPECIAL_CUSTOMER_ATTRIBUTES.includes(key);
     const comment =
       key === 'phone' ? ' // special attribute, E.164 format (e.g. +14155550123)' : special ? ' // special attribute' : '';
-    lines.push(`  ${key}: ${rawVar},${comment}`);
+    lines.push(`  ${formatObjectKey(key)}: ${rawVar},${comment}`);
   }
   lines.push('});');
   return lines.join('\n');
@@ -625,11 +649,27 @@ export function buildIdentityCodegen(
   rules: IdentityRuleForCodegen[],
   customerProperties: CustomerPropertyForCodegen[]
 ): IdentityCodegenSnippets {
-  const hardRules = rules.filter((r) => r.identity_type === 'hard');
+  const hardRules = dedupeHardRulesByIdentifierName(rules.filter((r) => r.identity_type === 'hard'));
   const anonymizeRules = rules.filter((r) => r.sdk_call === 'anonymize');
   return {
     identify: buildIdentifySnippet(hardRules),
     update: buildUpdateSnippet(customerProperties),
     anonymize: buildAnonymizeSnippet(anonymizeRules),
   };
+}
+
+/**
+ * A project can hold more than one hard-identity rule for the same `identifier_name` (e.g. an
+ * "identify" rule and a separate "anonymize" rule both scoped to "registered"): `exponea.identify()`
+ * sends one value per identifier, so dedupe to the first occurrence before building the snippet.
+ */
+function dedupeHardRulesByIdentifierName(hardRules: IdentityRuleForCodegen[]): IdentityRuleForCodegen[] {
+  const seen = new Set<string>();
+  const out: IdentityRuleForCodegen[] = [];
+  for (const rule of hardRules) {
+    if (seen.has(rule.identifier_name)) continue;
+    seen.add(rule.identifier_name);
+    out.push(rule);
+  }
+  return out;
 }

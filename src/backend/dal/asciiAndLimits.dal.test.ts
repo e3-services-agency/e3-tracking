@@ -51,6 +51,10 @@ describe('ASCII name validation', () => {
   it('accepts a plain ASCII name', () => {
     expect(EventDAL.createEvent(projectId, { name: 'purchase' }).name).toBe('purchase');
   });
+
+  it('rejects a name with a control character, not just non-ASCII bytes (T-2-12 fix round LOW 3)', () => {
+    expect(() => EventDAL.createEvent(projectId, { name: 'purchase\x01done' })).toThrow(NameNotAsciiError);
+  });
 });
 
 describe('the 255 event-types-per-project limit', () => {
@@ -66,6 +70,21 @@ describe('the 255 event-types-per-project limit', () => {
     }
     expect(getEventTypeLimitSummary(projectId)).toEqual({ count: 255, limit: 255, overLimit: false });
     expect(() => EventDAL.createEvent(projectId, { name: 'one_too_many' })).toThrow(LimitEventTypesError);
+  });
+
+  it('updateEvent on an existing event still succeeds at the 255-event limit (rename does not add a row)', () => {
+    const db = getDb();
+    const now = new Date().toISOString();
+    const insert = db.prepare(
+      `INSERT INTO events (id, project_id, name, class, status, created_at, updated_at)
+       VALUES (?, ?, ?, 'custom', 'planned', ?, ?)`
+    );
+    for (let i = 0; i < 255; i++) {
+      insert.run(`upd-seed-${i}`, projectId, `upd_event_${i}`, now, now);
+    }
+    expect(getEventTypeLimitSummary(projectId)).toEqual({ count: 255, limit: 255, overLimit: false });
+    const updated = EventDAL.updateEvent(projectId, 'upd-seed-0', { name: 'upd_event_0_renamed' });
+    expect(updated.name).toBe('upd_event_0_renamed');
   });
 });
 

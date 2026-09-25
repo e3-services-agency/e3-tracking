@@ -76,12 +76,13 @@ export function validateStringArray(value: unknown, field: string): void {
 
 /**
  * Event and property names must be ASCII (D-38, the identity reference's Web SDK limits): a
- * non-ASCII character (e.g. a diacritic) breaks event/property names at the SDK. 400
- * `NAME_NOT_ASCII` names the offending field so the UI can point at it directly.
+ * non-ASCII character (e.g. a diacritic) breaks event/property names at the SDK. Restricted to the
+ * printable ASCII range (`\x20`-`\x7E`, space through `~`) rather than the full 0-127 range, so
+ * control characters (e.g. a stray tab or a `\x01`) are also rejected, not just non-ASCII bytes.
+ * 400 `NAME_NOT_ASCII` names the offending field so the UI can point at it directly.
  */
 export function validateAsciiName(name: string, field: string): void {
-  // eslint-disable-next-line no-control-regex
-  if (!/^[\x00-\x7F]*$/.test(name)) {
+  if (!/^[\x20-\x7E]*$/.test(name)) {
     throw new NameNotAsciiError(`${field} must contain ASCII characters only.`, field);
   }
 }

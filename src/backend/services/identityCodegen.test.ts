@@ -95,4 +95,55 @@ describe('buildIdentityCodegen', () => {
     );
     expect(snippets.identify).toContain('No hard identity rules configured');
   });
+
+  it('identify: two hard rules on "registered" (an identify rule and a separate anonymize rule) dedupe to one entry (fix round WARNING 1)', () => {
+    const rules: IdentityRuleForCodegen[] = [
+      {
+        identifier_name: 'registered',
+        identity_type: 'hard',
+        transformations_json: ['lowercase'],
+        sdk_call: 'identify',
+      },
+      {
+        identifier_name: 'registered',
+        identity_type: 'hard',
+        transformations_json: [],
+        sdk_call: 'anonymize',
+        trigger_text: 'User clicks "Log out"',
+      },
+    ];
+    const snippets = buildIdentityCodegen(rules, []);
+    // Still the single-hard-id plain string form, not the multi-id object form, and only one call.
+    expect(snippets.identify).toContain('exponea.identify(String(registered).toLowerCase());');
+    expect(snippets.identify.match(/exponea\.identify\(/g)?.length).toBe(1);
+    expect(snippets.identify).not.toContain('{');
+  });
+
+  it('identify: a non-identifier key ("email-id") is quoted, and a reserved-word variable name ("class") gets a trailing underscore (fix round LOW 2)', () => {
+    const rules: IdentityRuleForCodegen[] = [
+      {
+        identifier_name: 'email-id',
+        identity_type: 'hard',
+        transformations_json: [],
+        sdk_call: 'identify',
+      },
+      {
+        identifier_name: 'class',
+        identity_type: 'hard',
+        transformations_json: [],
+        sdk_call: 'identify',
+      },
+    ];
+    const snippets = buildIdentityCodegen(rules, []);
+    expect(snippets.identify).toContain("'email-id': String(emailId),");
+    expect(snippets.identify).toContain('class: String(class_),');
+  });
+
+  it('update: a non-identifier Bloomreach attribute key is quoted (fix round LOW 2)', () => {
+    const customerProperties: CustomerPropertyForCodegen[] = [
+      { name: 'Class level', bloomreach_customer_property: 'class-level' },
+    ];
+    const snippets = buildIdentityCodegen([], customerProperties);
+    expect(snippets.update).toContain("'class-level': classLevel,");
+  });
 });

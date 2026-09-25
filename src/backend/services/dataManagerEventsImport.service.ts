@@ -147,6 +147,15 @@ interface EventPropertyLinkMeta {
    *  decide whether this link's verbatim Data Manager values are still valid or stale. */
   app_type_at_import: { data_type: string; data_formats: string[] };
   app_pii_at_import: boolean;
+  /** T-2-03 review carry-over (D-41 amendment): the app `Property.description`/first
+   *  `example_values_json` entry at the moment this link meta was written — the same "what the
+   *  import wrote" reference as `app_type_at_import`, but for these two fields specifically, so an
+   *  app edit to the shared `Property.description`/`example_values` after import is pushed on
+   *  export even while the Property's type/PII are still unchanged (previously, description/
+   *  example text only ever reached export by changing the type too — see
+   *  `bloomreachExport.service.ts`'s `fieldUnchangedSinceImport`). */
+  description_at_import: string | null;
+  example_values_at_import: string | null;
 }
 
 /**
@@ -160,6 +169,11 @@ interface EventPropertyLinkMeta {
  * fields — pre-fix-round data) captures the Property's current state as that reference for the
  * first time.
  */
+/** First entry of an `example_values_json`-shaped array, stringified, else `null` (same convention as `bloomreachExport.service.ts`'s own `firstExampleValue`). */
+function firstExampleValue(arr: unknown): string | null {
+  return Array.isArray(arr) && arr.length > 0 ? String((arr[0] as { value: unknown }).value) : null;
+}
+
 function buildLinkMeta(
   prop: DataManagerEventProperty,
   property: PropertyDAL.PropertyRow,
@@ -170,6 +184,16 @@ function buildLinkMeta(
     data_formats: Array.isArray(property.data_formats_json) ? (property.data_formats_json as string[]) : [],
   };
   const appPiiAtImport = priorMeta?.app_pii_at_import ?? property.pii;
+  // D-41 amendment: same "store those if not already" rule as `app_type_at_import`/`app_pii_at_import`
+  // above — a link that already carries these references keeps them frozen at what the import wrote
+  // then; only a brand-new link (or pre-fix-round data missing them) captures the Property's current
+  // text for the first time.
+  const descriptionAtImport =
+    priorMeta && priorMeta.description_at_import !== undefined ? priorMeta.description_at_import : property.description;
+  const exampleValuesAtImport =
+    priorMeta && priorMeta.example_values_at_import !== undefined
+      ? priorMeta.example_values_at_import
+      : firstExampleValue(property.example_values_json);
   return {
     dm_type: prop.type,
     private: prop.private,
@@ -181,6 +205,8 @@ function buildLinkMeta(
     raw: { description: prop.description, example_values: prop.example_values },
     app_type_at_import: appTypeAtImport,
     app_pii_at_import: appPiiAtImport,
+    description_at_import: descriptionAtImport,
+    example_values_at_import: exampleValuesAtImport,
   };
 }
 
@@ -598,6 +624,14 @@ export function applyDataManagerEvents(
           const unmetDep = (step?.dependsOn ?? []).find((dep) => stepById.has(dep) && !canRun(dep));
           if (unmetDep) {
             runtimeWarnings.push(`Skipped "${item.id}": depends on "${unmetDep}", which was not applied.`);
+          } else if (step?.anyOf && step.anyOf.length > 0 && !step.anyOf.some((dep) => stepById.has(dep) && canRun(dep))) {
+            // T-2-03 review carry-over: a shared property's `create` step (the only user of `anyOf`,
+            // see the `PlanStep.anyOf` comment) skipped because *every* event that carries it was
+            // deselected previously produced no explanation at all — the item just silently
+            // disappeared from `applied`. One warning, same shape as the `dependsOn` case above.
+            runtimeWarnings.push(
+              `Skipped "${item.id}": none of its events (${step.anyOf.join(', ')}) were applied.`
+            );
           }
         }
       }

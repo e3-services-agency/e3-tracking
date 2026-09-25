@@ -262,6 +262,12 @@ interface EventPropertyLinkMeta {
    *  compares the *current* Property against below. */
   app_type_at_import?: { data_type?: string; data_formats?: string[] };
   app_pii_at_import?: boolean;
+  /** T-2-03 review carry-over (D-41 amendment): see `dataManagerEventsImport.service.ts`'s
+   *  `buildLinkMeta` — the app `Property.description`/first `example_values_json` entry at the
+   *  moment this link meta was last written, compared below (independently of `app_type_at_import`)
+   *  so an app edit to either field alone still reaches export. */
+  description_at_import?: string | null;
+  example_values_at_import?: string | null;
 }
 
 /**
@@ -285,6 +291,25 @@ const APP_BORN_EVENT_DEFAULTS = { source: 'user', used: false, deleting: false, 
 /** First entry of an `example_values_json`-shaped array, stringified, else `null`. */
 function firstExampleValue(arr: unknown): string | null {
   return Array.isArray(arr) && arr.length > 0 ? String((arr[0] as { value: unknown }).value) : null;
+}
+
+/**
+ * T-2-03 review carry-over (D-41 amendment): true while the Property's current `description` (or
+ * first `example_values_json` entry, per `field`) still equals what the import last wrote into this
+ * link's own `description_at_import`/`example_values_at_import` reference — independent of
+ * `propertyUnchangedSinceImport`'s type/PII check, so editing only the description in the app (type
+ * untouched) still reaches export. Same "no reference recorded -> treat as unchanged" fallback as
+ * `propertyUnchangedSinceImport` for pre-fix-round links.
+ */
+function fieldUnchangedSinceImport(
+  lm: EventPropertyLinkMeta | null,
+  field: 'description' | 'example_values',
+  currentValue: string | null
+): boolean {
+  if (!lm) return true;
+  const ref = field === 'description' ? lm.description_at_import : lm.example_values_at_import;
+  if (ref === undefined) return true;
+  return ref === currentValue;
 }
 
 /**
@@ -375,12 +400,18 @@ export function exportDataManagerEvents(projectId: string, options: { passthroug
     const type = unchanged && lm?.dm_type ? lm.dm_type : toDataManagerType(p.data_type, formats).type;
     const overrideDescription = link.description_override;
     const overrideExample = firstExampleValue(link.example_values_override_json);
+    // T-2-03 review carry-over (D-41 amendment): description/example_values each have their own
+    // "unchanged since import" check (`fieldUnchangedSinceImport`), independent of `unchanged`
+    // (type/PII) above — an app edit to just the description, with the Property's type/PII untouched,
+    // must still reach export instead of being masked by `unchanged` staying `true`.
+    const descriptionUnchanged = fieldUnchangedSinceImport(lm, 'description', p.description);
+    const exampleUnchanged = fieldUnchangedSinceImport(lm, 'example_values', firstExampleValue(p.example_values_json));
     return {
       deleting: lm?.deleting ?? false,
-      description: resolveLinkText(overrideDescription, unchanged ? lm?.raw?.description : undefined, p.description),
+      description: resolveLinkText(overrideDescription, descriptionUnchanged ? lm?.raw?.description : undefined, p.description),
       example_values: resolveLinkText(
         overrideExample,
-        unchanged ? lm?.raw?.example_values : undefined,
+        exampleUnchanged ? lm?.raw?.example_values : undefined,
         firstExampleValue(p.example_values_json)
       ),
       private: unchanged && lm?.private !== undefined ? lm.private : p.pii,

@@ -82,6 +82,7 @@ export function Events() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [isDownloadingDocs, setIsDownloadingDocs] = useState(false);
+  const [isDownloadingTrackingDocument, setIsDownloadingTrackingDocument] = useState(false);
 
   const handleDownloadDocumentation = useCallback(async () => {
     if (!activeProjectId) return;
@@ -101,6 +102,31 @@ export function Events() {
       URL.revokeObjectURL(url);
     } finally {
       setIsDownloadingDocs(false);
+    }
+  }, [activeProjectId]);
+
+  // D-34, T-2-08 ("the Documentation page gets 'Download tracking document JSON'"): this project's
+  // documentation export lives on the Events page header (there is no separate per-project
+  // "Documentation" page -- `src/pages/Documentation.tsx` is the static Knowledge Base viewer), same
+  // place as the HTML documentation download above.
+  const handleDownloadTrackingDocument = useCallback(async () => {
+    if (!activeProjectId) return;
+    setIsDownloadingTrackingDocument(true);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/export/tracking-document.json`);
+      if (!res.ok) return;
+      const json = await res.text();
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'tracking-document.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsDownloadingTrackingDocument(false);
     }
   }, [activeProjectId]);
 
@@ -131,6 +157,15 @@ export function Events() {
           >
             {isDownloadingDocs ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
             Documentation
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => void handleDownloadTrackingDocument()}
+            disabled={isDownloadingTrackingDocument || !activeProjectId}
+            className="gap-2"
+          >
+            {isDownloadingTrackingDocument ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+            Tracking document JSON
           </Button>
           <Button onClick={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }} className="gap-2">
             <Plus className="w-4 h-4" /> Add Event

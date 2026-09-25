@@ -9,6 +9,9 @@ import {
   renderStandardEventMappingsSection,
   renderUseCasesSection,
   renderVariantsSubsection,
+  renderCertificationBadge,
+  renderRulesTable,
+  renderCoverageSummary,
   type ConsentCategoryForDocs,
   type IdentityRuleForDocs,
   type RequirementsMatrixForDocs,
@@ -20,6 +23,59 @@ import {
 describe('escapeHtml', () => {
   it('escapes the five HTML-significant characters', () => {
     expect(escapeHtml(`<b>"A" & 'B'</b>`)).toBe('&lt;b&gt;&quot;A&quot; &amp; &#39;B&#39;&lt;/b&gt;');
+  });
+});
+
+describe('renderCertificationBadge (T-2-08)', () => {
+  it('renders n/a for a non-applicable (sdk/platform) event', () => {
+    const html = renderCertificationBadge({ applicable: false, certified: false, reasons: ['not_applicable'] });
+    expect(html).toContain('n/a');
+  });
+
+  it('renders certified for a certified event', () => {
+    const html = renderCertificationBadge({ applicable: true, certified: true, reasons: [] });
+    expect(html).toContain('certified');
+    expect(html).not.toContain('not certified');
+  });
+
+  it('renders the blocking reasons for a not-certified custom event', () => {
+    const html = renderCertificationBadge({ applicable: true, certified: false, reasons: ['open_errors: 1'] });
+    expect(html).toContain('not certified');
+    expect(html).toContain('open_errors: 1');
+  });
+});
+
+describe('renderRulesTable (T-2-08)', () => {
+  it('renders an empty string when there are no rules', () => {
+    expect(renderRulesTable([])).toBe('');
+  });
+
+  it('renders one row per rule with its resolved expression text and tolerance', () => {
+    const html = renderRulesTable([
+      {
+        name: 'cart items total',
+        kind: 'arithmetic',
+        message: 'Totals must match.',
+        expression_text: 'sum(product_list[].price * product_list[].quantity) eq total_price',
+        tolerance: { mode: 'money', value: null },
+        enabled: true,
+      },
+    ]);
+    expect(html).toContain('cart items total');
+    expect(html).toContain('sum(product_list[].price * product_list[].quantity) eq total_price');
+    expect(html).toContain('money');
+    expect(html).toContain('enabled');
+  });
+});
+
+describe('renderCoverageSummary (T-2-08)', () => {
+  it('renders an empty string when the grid has no cells at all', () => {
+    expect(renderCoverageSummary({ observed_count: 0, unobserved_count: 0 })).toBe('');
+  });
+
+  it('renders the observed/total fraction', () => {
+    const html = renderCoverageSummary({ observed_count: 2, unobserved_count: 3 });
+    expect(html).toContain('2 of 5');
   });
 });
 

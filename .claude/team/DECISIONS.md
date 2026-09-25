@@ -183,6 +183,12 @@ Decision:
 - Q9 The tracking document carries the findings summary per event plus the list of open findings of every severity, uncapped; agents need the detail.
 Consequences: enums.ts gains rule severity; export defaults live in the type mapping module; identity rule column renamed by migration 0013.
 
+## D-41 Data Manager export precedence and cross-event type conflicts
+Date: 2026-09-25  Status: accepted
+Context: The Data Manager events fixture has the same property name with different types across events (total_price number on purchase, string on cart_update). D-35 byte-equivalence and D-28 "export pushes the definition back" cannot both hold when the shared Property has one type. The T-2-03 review found the planner proposing selected update items for these conflicts, rewriting definitions on every apply.
+Decision: Cross-event type conflicts never produce update items; the Property is created once from the first source=user occurrence (else the first occurrence) and every other occurrence is one warning per property, kept in link meta as comparison 4 evidence (D-35). On export, a link emits its stored verbatim Data Manager values (type, private, description, example values) only while the Property still equals what the import wrote (type and PII unchanged since the link meta was stored); once the user edits the Property in the app, the export emits the reverse-mapped definition and PII for every link of that Property. Snapshot passthrough of never-imported events stays as in D-35.
+Consequences: Untouched projects round-trip byte-equivalent; edited definitions are pushed back to Bloomreach on export; the planner emits no update item whose changes are empty; properties are created only for events that are selected.
+
 ## D-25 Supervisor rulings on the plan's routine open questions
 Date: 2026-09-24  Status: accepted (user may override)
 Context: PLAN-2026-09-24 listed 13 open questions. Nine have a conventional default consistent with CONTEXT.md and the legacy workbook; the supervisor settled them so implementation is not blocked. Questions 3, 6, 11, 13 go to the user.

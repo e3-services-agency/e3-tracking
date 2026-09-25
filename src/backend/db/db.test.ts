@@ -142,7 +142,7 @@ describe('inserting and linking core entities on :memory:', () => {
 
     const eventId = randomUUID();
     db.prepare(
-      `INSERT INTO events (id, project_id, name, event_type, status, created_at, updated_at)
+      `INSERT INTO events (id, project_id, name, class, status, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`
     ).run(eventId, projectId, 'purchase', 'custom', 'planned', ts, ts);
 
@@ -247,6 +247,7 @@ const ALL_MIGRATION_FILES = [
   '0006_variants_conditions_key.sql',
   '0007_use_case_code_soft_delete.sql',
   '0008_findings_on_delete.sql',
+  '0009_event_class.sql',
 ];
 
 describe('listMigrationFiles', () => {

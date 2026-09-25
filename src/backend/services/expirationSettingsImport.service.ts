@@ -17,7 +17,7 @@ import {
 } from '../../domain/import/expirationSettings';
 import { payloadHash } from '../../domain/diff/hash';
 import type { DiffItem } from '../../domain/diff/types';
-import { KNOWN_SYSTEM_EVENT_TYPES } from '../../domain/bloomreach';
+import { classifyEventType } from '../../domain/bloomreach';
 import { generateVariantName, type VariantCondition } from '../../domain/variants';
 import { ConflictError, PayloadChangedError } from '../errors';
 import { findEventByName, findPropertyByName, findMatchingVariant, canonicalizeFilter } from './bloomreachImportHelpers';
@@ -125,7 +125,7 @@ function buildPlan(projectId: string, model: ExpirationSettingsModel): PlanResul
     const id = `event_expiration:${ev.type}`;
     if (plannedIds.has(id)) return;
     const existingEvent = findEventByName(projectId, ev.type);
-    const eventType = KNOWN_SYSTEM_EVENT_TYPES.includes(ev.type) ? 'system' : 'custom';
+    const eventClass = classifyEventType(ev.type);
 
     if (!existingEvent) {
       addItem(
@@ -136,11 +136,11 @@ function buildPlan(projectId: string, model: ExpirationSettingsModel): PlanResul
           entity_key: ev.type,
           changes: [],
           default_selected: true,
-          note: `Create ${eventType} event "${ev.type}" with expiration ${describeExpiration(desired)}.`,
+          note: `Create ${eventClass} event "${ev.type}" with expiration ${describeExpiration(desired)}.`,
         },
         () => {
           if (!findEventByName(projectId, ev.type)) {
-            EventDAL.createEvent(projectId, { name: ev.type, event_type: eventType, expiration_json: desired });
+            EventDAL.createEvent(projectId, { name: ev.type, class: eventClass, expiration_json: desired });
           } else {
             const row = findEventByName(projectId, ev.type);
             if (row && !expirationEqual(row.expiration_json, desired)) {

@@ -65,10 +65,11 @@ describe('applyExpirationSettings', () => {
     const events = EventDAL.listEvents(projectId);
     const sessionStart = events.find((e) => e.name === 'session_start')!;
     expect(sessionStart.expiration_json).toEqual({ enabled: true, count: 3, units: 'months' });
-    expect(sessionStart.event_type).toBe('system');
+    expect(sessionStart.class).toBe('sdk');
 
     const consent = events.find((e) => e.name === 'consent')!;
     expect(consent.expiration_json).toEqual({ enabled: false, count: null, units: null });
+    expect(consent.class).toBe('platform');
 
     const project = ProjectDAL.getProjectOrThrow(projectId);
     expect(project.default_expiration_json).toEqual({ enabled: false, count: null, units: null });

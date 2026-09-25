@@ -21,5 +21,7 @@ Fixtures: `.claude/team/samples/customer-events-export.json`, `data-mapping.json
 6. **CSV export**: export events and properties as CSV; confirm headers and row counts.
 7. **Certified logic**: an event with zero error findings across all three comparisons shows `certified`; introduce a mismatch and confirm it drops.
 
+8. **Data Manager round trip** (phase 2, D-28): paste `data-manager-customers.json`, preview shows 101 properties in groups Personal Data, Campaign Data, Order Data plus the default group; apply; paste `data-manager-events.json`, preview shows 61 events incl. purchase with total_price typed string from data and the MentionMe group; apply; export both and deep-equal against the fixtures with no ignored fields. Run comparison: findings with comparison id data_manager for purchase.total_price, purchase_item.price and quantity (string in Data Manager vs number in the definition).
+
 ## Reporting
 Post `PASS` or `FAIL` on the board. For each failure: numbered steps, expected, actual, console or network evidence. Save exports under `.claude/team/reports/qa/<TASK-ID>/`.

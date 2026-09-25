@@ -40,7 +40,9 @@ The authoritative narrative is `.claude/team/CONTEXT.md`. This skill is the comp
 - **Data mapping** `data-mapping.json`: `standard_events.<std>.event = { type, filter: [{ attribute.property, constraint.operator, constraint.operands[].value }] }` plus per-field `{ property }` renames; also `customer_properties`, `consents`, `catalogs`. A filter is exactly a Variant condition list.
 - **Expiration settings** `expiration-settings.json`: `events: [{ type, filter, expiration: { enabled, duration: { count, units } } }]` plus `other` default.
 
-## Three-way comparison
+- **Data Manager customers** `data-manager-customers.json` and **Data Manager events** `data-manager-events.json` (D-28): Bloomreach definition exports. Groups map to property category; `private` to PII; types string, number, boolean, date, datetime, list, long text, url map to data type plus format. All other flags are kept in `bloomreach_meta_json` per entity and written back on export unchanged. The events file gives the type Bloomreach holds per property and feeds comparison 4.
+
+## Three-way comparison (plus comparison 4: definition vs Data Manager, D-28)
 - Definition vs mapping: mapped variants, renames, missing standard events, empty catalog block.
 - Mapping vs observations: mapped properties absent in live events.
 - Definition vs observations: missing required properties, type mismatch (string vs number/bool/array), format violations, values outside enums, inconsistent shape of the same property across events, rounding drift on monetary fields.

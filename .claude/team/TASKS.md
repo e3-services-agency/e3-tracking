@@ -80,6 +80,13 @@ Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktree
 ### T-1-EXIT
 - qa-tester runs qa-roundtrip scenarios 1 to 7 on agent-setup from the main tree (scenario 6 CSV deferred to phase 3; scenario 7 as resolve and reopen of a type mismatch until certification display lands in phase 2). First run 2026-09-25 01:27: all round trips PASS, FAIL on two post-merge display bugs (Standard events mapped columns show dashes; QA runs page shows empty state) plus an unreproduced cold-boot burst of 500s. Fix branch `task/T-1-EXIT-fixes` off agent-setup, then re-sweep, then report.
 
+### Phase 2 seed (for the architect, in priority order)
+1. Data Manager customers and events import with diff, byte-equivalent export, `bloomreach_meta_json` per entity, comparison 4 definition vs Data Manager (D-28). Fixtures in samples/.
+2. Comparisons 1 and 2, severity table applied end to end, certification derived and displayed, coverage grid.
+3. Event card page and the machine-readable tracking document JSON.
+4. MCP server (D-11, D-19) with the tool surface from the domain-model skill.
+5. Use case narrative generation, QA run export as customer events JSON, Vite watch ignore for `.claude/**`.
+
 ### Phase 2 carry-over notes (from phase 1 reviews, none blocking)
 - findings.qa_run_id ON DELETE CASCADE should become SET NULL before a DELETE /qa-runs route exists (T-1-09 LOW B).
 - Recompute re-resolves every observation with per-observation DAL reads (N+1); batch it when phase 2 adds comparisons 1 and 2.

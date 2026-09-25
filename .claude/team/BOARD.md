@@ -941,3 +941,6 @@ Phase 1 complete. task/T-1-EXIT-fixes merged into agent-setup. Final merged tree
 
 ### 2026-09-25 08:44 | supervisor -> ALL | INFO | T-1-DEPS
 Dependency hygiene merged (c525fa9): removed @google/genai, dotenv, autoprefixer; npm audit fix; multer 2.4.0, uuid 14.0.2. Audit 19 (1 critical, 9 high) to 4 (3 moderate, 1 low) remaining in vitest, esbuild via tsup and tsx, qs via express 4, all needing major bumps. 508 tests, tsc clean. Stopping before phase 2 per user.
+
+### 2026-09-25 09:06 | user -> ALL | DECISION | phase 2
+User provided Bloomreach Data Manager exports for customers (101 properties) and events (61 definitions) as fixtures; the bridge expects the same shape back. Recorded as D-28 and capability 15; phase 2 seed list added to TASKS.md with Data Manager import and export first. Phase 2 not started.

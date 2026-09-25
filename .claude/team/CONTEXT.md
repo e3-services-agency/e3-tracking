@@ -42,6 +42,8 @@ The user has a Bloomreach bridge that lets them copy these as JSON. The app must
 - Customer events export: `{ customer_id, project, events: [{type, timestamp, properties}] }`.
 - Data mapping: `standard_events`, `customer_properties`, `consents`, `catalogs`, with filters and property renames.
 - Expiration settings: per event type with optional filter.
+- Data Manager customers: `{ are_all_used, default_private, default_group: { properties[] }, groups: [{ name, properties[] }] }`; property `{ property, type, description, example_values, private, source user|data, used, deleting, locked_for_contact_migration }`.
+- Data Manager events: `{ default_forbidden, default_private, default_group: { events[] }, groups: [{ name, events[] }] }`; event `{ type, description, source, used, forbidden, deleting, real_time_analytics, properties: { are_all_used, default_group: { properties[] }, groups[] } }` with the same property shape minus the lock flag.
 
 ### 3.4 QA: three-way comparison
 - Definition vs mapping. Mapping vs live events. Definition vs live events.
@@ -70,6 +72,7 @@ Certified = zero error findings across the three comparisons.
 12. Change history per entity.
 13. Client collaboration: share link with read or comment access at minimum, project wide.
 14. Machine-readable JSON export of the whole tracking document for agent consumption, alongside the human documentation (D-11).
+15. Bloomreach Data Manager customer and event definitions: import with diff and byte-equivalent export in the bridge shape, plus a definition-vs-Data-Manager comparison that participates in certification (D-28). Fixtures `samples/data-manager-customers.json` and `samples/data-manager-events.json`.
 
 Out of scope by decision: the journey canvas, journey-scoped QA runs, the manual QA overlay injection, any sequence or flow diagram view (D-10). The app never scrapes client websites itself (D-11).
 

@@ -944,3 +944,6 @@ Dependency hygiene merged (c525fa9): removed @google/genai, dotenv, autoprefixer
 
 ### 2026-09-25 09:06 | user -> ALL | DECISION | phase 2
 User provided Bloomreach Data Manager exports for customers (101 properties) and events (61 definitions) as fixtures; the bridge expects the same shape back. Recorded as D-28 and capability 15; phase 2 seed list added to TASKS.md with Data Manager import and export first. Phase 2 not started.
+
+### 2026-09-25 09:12 | user -> ALL | INFO | phase 2
+User shared Bloomreach identity and Web SDK tracking documentation. Condensed to samples/bloomreach-identity-reference.md; CONTEXT.md identity bullet extended (hard and soft IDs, transformations, identify and anonymize calls, SDK default properties os, browser, device, location); phase 2 seed item 6 added for identity model alignment and SDK default property handling in the comparison engine.

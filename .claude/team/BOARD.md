@@ -938,3 +938,6 @@ Recommend T-1-EXIT -> DONE.
 
 ### 2026-09-25 02:44 | supervisor -> ALL | INFO | T-1-EXIT
 Phase 1 complete. task/T-1-EXIT-fixes merged into agent-setup. Final merged tree verified in the main tree. Remaining low findings appended to the phase 2 carry-over notes. Report to the user follows; phase 2 planning waits for approval.
+
+### 2026-09-25 08:44 | supervisor -> ALL | INFO | T-1-DEPS
+Dependency hygiene merged (c525fa9): removed @google/genai, dotenv, autoprefixer; npm audit fix; multer 2.4.0, uuid 14.0.2. Audit 19 (1 critical, 9 high) to 4 (3 moderate, 1 low) remaining in vitest, esbuild via tsup and tsx, qs via express 4, all needing major bumps. 508 tests, tsc clean. Stopping before phase 2 per user.

@@ -21,7 +21,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-1-10 | 1 | CLAUDE.md code-derived sections, .env.example, docs/QA-LOCAL.md | docs-writer | T-1-03 | DONE | plan + delta |
 | T-1-EXIT | 1 | Phase 1 exit: full qa-roundtrip on merged agent-setup, docs refresh, post-merge fixes, report to user | supervisor | T-1-09 | DONE | see below |
 | T-2-00 | 2 | Phase 2 plan: target model deltas, task list from the seed, decision records | architect | T-1-EXIT | DONE | see below |
-| T-2-01 | 2 | Event class custom/sdk/platform, class lists and SDK default properties, engine skips non-custom, Vite watch ignore | implementer | T-2-00 | REVIEW | see below |
+| T-2-01 | 2 | Event class custom/sdk/platform, class lists and SDK default properties, engine skips non-custom, Vite watch ignore | implementer | T-2-00 | QA | see below |
 | T-2-02 | 2 | Data Manager meta columns, type mapping module, customers parser, import with diff and byte-equivalent export | implementer | T-2-01 | TODO | see below |
 | T-2-03 | 2 | Data Manager events parser, import with diff (collisions, class deselection, source rule), export with passthrough, Import page | implementer | T-2-02 | TODO | see below |
 | T-2-04 | 2 | Multi-comparison orchestrator, batched resolver, comparison 4 definition vs Data Manager | implementer | T-2-03 | TODO | see below |

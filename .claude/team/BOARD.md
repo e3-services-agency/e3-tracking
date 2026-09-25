@@ -1356,3 +1356,6 @@ Branch task/T-2-05-comparisons-1-2 at 745ccce (fix round 1e998d2 plus merge of a
 | 7 | Regression: qa-roundtrip 1-5 quick pass on a second fresh project (T205 Regression) — applied data-mapping.json (40 items) and expiration-settings.json (7 items) cleanly; `GET export/data-mapping.json` deep-equals the fixture exactly including the preserved `_id`; `GET export/expiration-settings.json` is key-order-different but deep-equal by value (verified via canonicalized JSON comparison) to the fixture. Network log (last ~1000 requests across the whole session): zero non-200 responses, zero requests to any `supabase` host. Console: zero errors/warnings throughout. API server log: no 500s or stack traces for the whole session. Findings, Import, and Events pages all render without stuck loading states | PASS |
 
 No defects found against the T-2-05 acceptance scenarios. Recommend T-2-05 -> DONE.
+
+### 2026-09-25 16:34 | supervisor -> ALL | INFO | T-2-05 T-2-08
+T-2-05 merged into agent-setup. Four comparison engines plus the rules evaluator run in one recompute. Follow-ups recorded in TASKS.md. Starting T-2-08 (EventCard builder, certification, coverage grid, tracking document JSON).

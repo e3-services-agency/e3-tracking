@@ -144,4 +144,18 @@ describe('use-case.dal', () => {
     expect(regenerated.narrative_generated_at).not.toBeNull();
     expect(regenerated.narrative_edited_at).toBeNull();
   });
+
+  // T-2-11 fix round, ERROR 1: a narrative with `\r\n`/lone `\r` used to be stored verbatim, so
+  // `sections.ts`'s renderer had to normalize on every read and every future edit/paste carried the
+  // CR forward. Normalizing once on write makes `\n`-only the one on-disk representation.
+  it('normalizes CRLF and lone-CR narrative line endings to `\\n` on create, manual PATCH and regenerate', () => {
+    const created = UseCaseDAL.createUseCase(projectId, { name: 'A', narrative: 'Intro\r\n\r\n## Flow\r\n\r\n1. a' });
+    expect(created.narrative).toBe('Intro\n\n## Flow\n\n1. a');
+
+    const edited = UseCaseDAL.updateUseCase(projectId, created.id, { narrative: 'Hand\r\nwritten\rtext.' });
+    expect(edited.narrative).toBe('Hand\nwritten\ntext.');
+
+    const regenerated = UseCaseDAL.regenerateUseCaseNarrative(projectId, created.id, 'Generated\r\ntext.');
+    expect(regenerated.narrative).toBe('Generated\ntext.');
+  });
 });

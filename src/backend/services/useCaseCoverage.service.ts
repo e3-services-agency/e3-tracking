@@ -9,10 +9,14 @@
  * "Resolved" here means resolved *live*, the same way `comparison.service.ts` does (WARNING 2 fix
  * round): each observation's `event_type`/raw properties are matched against the event by name and
  * the variant by evaluating its discriminator conditions (`eventResolution.ts`'s
- * `resolveEventAndVariant`), not the observation's stored `event_id`/`variant_id` columns, which
- * are only refreshed by a comparison recompute. This way an observation captured before a variant
- * existed (or before an event was linked) still counts as soon as the definitions catch up, with no
- * need to run a comparison first.
+ * `createEventResolver`, a cached per-call resolver -- events-by-name built once, discriminator
+ * links/variants loaded at most once per distinct event id, so this whole function costs
+ * O(events + variants in the project) plus O(discriminators) per observation instead of re-running
+ * `listEvents`/`getEventWithProperties`/`listVariants` per observation; see that module's header
+ * for the measured before/after), not the observation's stored `event_id`/`variant_id` columns,
+ * which are only refreshed by a comparison recompute. This way an observation captured before a
+ * variant existed (or before an event was linked) still counts as soon as the definitions catch up,
+ * with no need to run a comparison first.
  *  - `event`/`event_property`: an observation resolved to the requirement's `event_id` (any
  *    variant, or none), and for `event_property` the property's payload key is present in that
  *    observation's raw properties.
@@ -28,7 +32,7 @@ import * as RequirementDAL from '../dal/requirement.dal';
 import * as ObservationDAL from '../dal/observation.dal';
 import { getEventWithProperties, type EventPropertyWithDetails } from '../dal/event.dal';
 import { listVariantsByProject } from '../dal/variant.dal';
-import { resolveEventAndVariant } from './eventResolution';
+import { createEventResolver } from './eventResolution';
 import type { ObservationRow } from '../dal/observation.dal';
 
 export interface UseCaseCoverageRow {
@@ -83,9 +87,11 @@ export function computeUseCaseCoverage(projectId: string, useCaseId: string): Us
 
   // WARNING 2 fix round: resolve every observation *live* against current definitions (same
   // resolution `comparison.service.ts` uses), not the observation's stored `event_id`/`variant_id`
-  // columns, which are only refreshed by a comparison recompute.
+  // columns, which are only refreshed by a comparison recompute. `createEventResolver` is built
+  // once per call and cached across every observation (see the module comment).
+  const resolveEventAndVariant = createEventResolver(projectId);
   const resolved: ResolvedObservation[] = observations.map((o) => {
-    const resolution = resolveEventAndVariant(projectId, o.event_type, o.properties_json);
+    const resolution = resolveEventAndVariant(o.event_type, o.properties_json);
     return { observation: o, event_id: resolution.event_id, variant_id: resolution.variant_id };
   });
 

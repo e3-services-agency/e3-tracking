@@ -31,49 +31,72 @@ type NarrativeBlock =
   | { kind: 'ul'; items: string[] }
   | { kind: 'p'; text: string };
 
+/**
+ * Single shared set of line-type regexes, used identically for *detecting* a line's type and for
+ * *excluding* that type from the paragraph collector below (T-2-11 fix round, ERROR 1: the original
+ * heading detector was anchored (`/^##\s+(.*)$/`, `.` never matches `\r` and `$` requires end of
+ * string) but the paragraph exclusion used the looser, unanchored `/^##\s+/`, which *did* match a
+ * CRLF heading line. On a line like `"## Flow\r"` the heading branch failed to match, fell through
+ * to the paragraph branch, and the paragraph branch's own exclusion then rejected the very same
+ * line, so the while loop at :72 (old line numbers) never consumed it: `paraLines` stayed empty, an
+ * empty `p` block was pushed every iteration, and `i` never advanced -- an infinite loop that grows
+ * `blocks` until the single-threaded Express process runs out of memory, taking down the whole API
+ * for every user on one `GET /export/documentation.html`). Both call sites now use these same three
+ * regexes, so a line that matches for exclusion always also matches for detection.
+ */
+const HEADING_RE = /^##\s+(.*)$/;
+const ORDERED_RE = /^\d+\.\s+(.*)$/;
+const BULLET_RE = /^-\s+(.*)$/;
+
+/** Normalizes `\r\n` and lone `\r` line endings to `\n` before parsing (same fix round). */
+function normalizeLineEndings(text: string): string {
+  return text.replace(/\r\n?/g, '\n');
+}
+
 function parseNarrativeBlocks(markdown: string): NarrativeBlock[] {
-  const lines = markdown.split('\n');
+  const lines = normalizeLineEndings(markdown).split('\n');
   const blocks: NarrativeBlock[] = [];
   let i = 0;
   while (i < lines.length) {
+    const startIndex = i;
     const line = lines[i];
     if (line.trim() === '') {
       i++;
       continue;
     }
-    const heading = /^##\s+(.*)$/.exec(line);
+    const heading = HEADING_RE.exec(line);
     if (heading) {
       blocks.push({ kind: 'heading', text: heading[1] });
       i++;
-      continue;
-    }
-    const orderedMatch = /^\d+\.\s+(.*)$/;
-    if (orderedMatch.test(line)) {
+    } else if (ORDERED_RE.test(line)) {
       const items: string[] = [];
-      while (i < lines.length && orderedMatch.test(lines[i])) {
-        items.push(orderedMatch.exec(lines[i])![1]);
+      while (i < lines.length && ORDERED_RE.test(lines[i])) {
+        items.push(ORDERED_RE.exec(lines[i])![1]);
         i++;
       }
       blocks.push({ kind: 'ol', items });
-      continue;
-    }
-    const bulletMatch = /^-\s+(.*)$/;
-    if (bulletMatch.test(line)) {
+    } else if (BULLET_RE.test(line)) {
       const items: string[] = [];
-      while (i < lines.length && bulletMatch.test(lines[i])) {
-        items.push(bulletMatch.exec(lines[i])![1]);
+      while (i < lines.length && BULLET_RE.test(lines[i])) {
+        items.push(BULLET_RE.exec(lines[i])![1]);
         i++;
       }
       blocks.push({ kind: 'ul', items });
-      continue;
+    } else {
+      // Plain paragraph: consecutive non-blank lines that are not headings/list items, joined with a space.
+      const paraLines: string[] = [];
+      while (i < lines.length && lines[i].trim() !== '' && !HEADING_RE.test(lines[i]) && !ORDERED_RE.test(lines[i]) && !BULLET_RE.test(lines[i])) {
+        paraLines.push(lines[i]);
+        i++;
+      }
+      blocks.push({ kind: 'p', text: paraLines.join(' ') });
     }
-    // Plain paragraph: consecutive non-blank lines that are not headings/list items, joined with a space.
-    const paraLines: string[] = [];
-    while (i < lines.length && lines[i].trim() !== '' && !/^##\s+/.test(lines[i]) && !orderedMatch.test(lines[i]) && !bulletMatch.test(lines[i])) {
-      paraLines.push(lines[i]);
-      i++;
+    // Every branch above must consume at least one line; a loop that doesn't advance `i` would hang
+    // the process exactly like the ERROR 1 bug this replaces. Guard it explicitly rather than trust
+    // the branches forever.
+    if (i === startIndex) {
+      throw new Error(`parseNarrativeBlocks: no progress at line ${startIndex} (${JSON.stringify(line)})`);
     }
-    blocks.push({ kind: 'p', text: paraLines.join(' ') });
   }
   return blocks;
 }

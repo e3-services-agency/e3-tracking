@@ -17,6 +17,18 @@ import {
   type UseCaseStatus,
 } from '../../domain/enums';
 
+/**
+ * Normalizes `\r\n`/lone `\r` to `\n` before a narrative is stored (T-2-11 fix round, ERROR 1):
+ * `docs/sections.ts`'s `renderNarrativeHtml` already normalizes on read, but storing CRLF verbatim
+ * meant every consumer had to remember to normalize, and the raw value shown back in the narrative
+ * editor (`PATCH` echoes the stored row) carried the CR through to a future edit/paste. Normalizing
+ * once here, on write, makes `\n`-only the one on-disk representation regardless of source (manual
+ * paste from a Windows editor, or an MCP agent write, D-10's T-2-10).
+ */
+function normalizeNarrativeLineEndings(text: string): string {
+  return text.replace(/\r\n?/g, '\n');
+}
+
 export interface UseCaseRow {
   id: string;
   project_id: string;
@@ -154,7 +166,7 @@ export function createUseCase(projectId: string, input: UseCaseInput): UseCaseRo
       status: input.status ?? null,
       owner: input.owner?.trim() || null,
       notes: input.notes?.trim() || null,
-      narrative: input.narrative?.trim() || null,
+      narrative: input.narrative ? normalizeNarrativeLineEndings(input.narrative.trim()) || null : null,
       narrative_generated_at: null,
       sort_order: input.sort_order ?? maxOrder + 1,
       created_at: now,
@@ -203,7 +215,7 @@ export function updateUseCase(projectId: string, id: string, updates: Partial<Us
     // `narrative_edited_at`, never `narrative_generated_at` (that column is owned by
     // `POST .../narrative/regenerate`, `regenerateUseCaseNarrative` below). This is what makes a
     // later regenerate over a newer manual edit require `force`.
-    patch.narrative = updates.narrative?.trim() || null;
+    patch.narrative = updates.narrative ? normalizeNarrativeLineEndings(updates.narrative.trim()) || null : null;
     patch.narrative_edited_at = nowIso();
   }
   if (updates.sort_order !== undefined) patch.sort_order = updates.sort_order;
@@ -240,7 +252,7 @@ export function regenerateUseCaseNarrative(projectId: string, id: string, narrat
       `UPDATE use_cases SET narrative = ?, narrative_generated_at = ?, narrative_edited_at = NULL, updated_at = ?
        WHERE id = ? AND project_id = ?`
     )
-    .run(narrative, now, now, id, projectId);
+    .run(normalizeNarrativeLineEndings(narrative), now, now, id, projectId);
   return getUseCaseOrThrow(projectId, id);
 }
 

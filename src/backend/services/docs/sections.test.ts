@@ -175,6 +175,60 @@ describe('renderNarrativeHtml', () => {
     const html = renderNarrativeHtml('Fires when the customer completes checkout.');
     expect(html).toBe('<p>Fires when the customer completes checkout.</p>');
   });
+
+  // T-2-11 fix round, ERROR 1: a `\r` at the end of a heading/list line used to defeat the
+  // heading regex but still match the paragraph collector's exclusion, so the paragraph branch
+  // consumed zero lines and the parser looped forever (OOM, hangs the whole single-threaded API).
+  describe('CRLF and lone-CR input (fix round ERROR 1)', () => {
+    it('parses a CRLF heading, numbered list and paragraph without hanging, dropping the CR', () => {
+      const markdown = 'Intro\r\n\r\n## Flow\r\n\r\n1. a\r\n2. b';
+      const html = renderNarrativeHtml(markdown);
+      expect(html).toBe('<p>Intro</p>\n<h5>Flow</h5>\n<ol><li>a</li><li>b</li></ol>');
+      expect(html).not.toContain('\r');
+    });
+
+    it('parses a CRLF bullet list without hanging, dropping the CR', () => {
+      const html = renderNarrativeHtml('- a\r\n- b');
+      expect(html).toBe('<ul><li>a</li><li>b</li></ul>');
+      expect(html).not.toContain('\r');
+    });
+
+    it('parses a lone-CR (old Mac style) line ending the same way as CRLF', () => {
+      const html = renderNarrativeHtml('## Flow\r\r1. a');
+      expect(html).toBe('<h5>Flow</h5>\n<ol><li>a</li></ol>');
+      expect(html).not.toContain('\r');
+    });
+
+    it('terminates and produces well-formed output for 200 random mixes of line-ending styles and block types', () => {
+      const lineKinds = [
+        () => '## Heading',
+        () => '1. item',
+        () => '- item',
+        () => 'plain text',
+        () => '',
+      ];
+      const endings = ['\n', '\r\n', '\r'];
+      // Deterministic pseudo-random generator so a failure is reproducible without a fixed seed file.
+      let seed = 42;
+      const rand = () => {
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+        return seed / 0x7fffffff;
+      };
+      for (let run = 0; run < 200; run++) {
+        const lineCount = 1 + Math.floor(rand() * 8);
+        let markdown = '';
+        for (let l = 0; l < lineCount; l++) {
+          const kind = lineKinds[Math.floor(rand() * lineKinds.length)];
+          markdown += kind();
+          markdown += endings[Math.floor(rand() * endings.length)];
+        }
+        // Each call must return, not hang -- that is the assertion. vitest's own timeout also
+        // catches a real infinite loop, but this makes the intent explicit per-run.
+        const html = renderNarrativeHtml(markdown);
+        expect(typeof html).toBe('string');
+      }
+    });
+  });
 });
 
 describe('renderUseCasesSection', () => {

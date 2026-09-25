@@ -4,6 +4,15 @@
  * plan-referenced `snapshot.ts`/`valueChecks.ts` module is expected to consolidate that — this
  * file only covers what T-2-06 needs: the item-level `data_type` check and the new `e164_phone`
  * format, D-30).
+ *
+ * Fix round note (reviewer FAIL 2026-09-25 11:08): this module is known to diverge from
+ * `definitionVsObservations.ts:136-153`'s `FORMAT_CHECKS`/`matchesDataType` (e.g. `iso8601_datetime`
+ * here accepts any `Date.parse`-able string, `uri` uses a regex instead of `new URL`, and there is
+ * no currency/country/language check). Per that review, ownership of a single shared module stays
+ * with T-2-05 (`src/domain/comparison/valueChecks.ts`, plan line 134): it will extract comparison
+ * 3's checks, fold in `isE164Phone` from here, delete this file, and repoint `itemSchema.ts` at the
+ * shared module. T-2-06 intentionally keeps this local copy until T-2-05 lands — do not duplicate
+ * further fixes here without updating that plan.
  */
 import { toNumber } from './operators';
 

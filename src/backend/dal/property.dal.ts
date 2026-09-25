@@ -625,6 +625,11 @@ export function updateProperty(
   }
   if (updates.item_schema_json !== undefined) {
     patch.item_schema_json = toJsonColumn(updates.item_schema_json);
+  } else if (updates.data_type !== undefined && updates.data_type !== 'array' && current.item_schema_json !== null) {
+    // T-2-06 fix round LOW: PATCH data_type away from "array" without an explicit item_schema_json
+    // left the old item schema in place (validateItemSchema only re-checks a schema the caller
+    // actually sent); clear it so a non-array property can't carry a stale item schema.
+    patch.item_schema_json = null;
   }
   if (updates.bloomreach_customer_property !== undefined) {
     patch.bloomreach_customer_property = updates.bloomreach_customer_property?.trim() || null;

@@ -90,6 +90,77 @@ describe('POST /api/projects/:projectId/events/:id/rules', () => {
     const body = await res.json();
     expect(body.code).toBe('RULE_EXPRESSION_INVALID');
   });
+
+  // Fix round (reviewer FAIL 2026-09-25 11:08, ERROR 1): every one of these malformed
+  // expression_json shapes used to reach the DAL as a raw TypeError and answer 500
+  // INTERNAL_ERROR instead of 400 RULE_EXPRESSION_INVALID.
+  async function postRule(kind: string, expression_json: unknown) {
+    return fetch(`${baseUrl}/api/projects/${projectId}/events/${eventId}/rules`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind, name: `malformed_${kind}_${Math.random()}`, expression_json }),
+    });
+  }
+
+  it('400s (not 500) for arithmetic with left: null', async () => {
+    const res = await postRule('arithmetic', {
+      kind: 'arithmetic',
+      left: null,
+      comparator: 'eq',
+      right: { ref: 'constant', value: 1 },
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe('RULE_EXPRESSION_INVALID');
+  });
+
+  it('400s (not 500) for arithmetic with left missing entirely', async () => {
+    const res = await postRule('arithmetic', {
+      kind: 'arithmetic',
+      comparator: 'eq',
+      right: { ref: 'constant', value: 1 },
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe('RULE_EXPRESSION_INVALID');
+  });
+
+  it('400s (not 500) for membership without haystack', async () => {
+    const res = await postRule('membership', {
+      kind: 'membership',
+      needle: { ref: 'property', property_id: productIdPropId },
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe('RULE_EXPRESSION_INVALID');
+  });
+
+  it('400s (not 500) for bound without subject', async () => {
+    const res = await postRule('bound', { kind: 'bound', check: 'non_empty' });
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe('RULE_EXPRESSION_INVALID');
+  });
+
+  it('400s (not 500) for cross_event without join', async () => {
+    const res = await postRule('cross_event', {
+      kind: 'cross_event',
+      child_event_id: eventId,
+      child: { ref: 'aggregate', fn: 'sum', of: { ref: 'property', property_id: productIdPropId } },
+      comparator: 'eq',
+      target: { ref: 'property', property_id: productIdPropId },
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe('RULE_EXPRESSION_INVALID');
+  });
+
+  it('400s (not 500) for cross_event without child', async () => {
+    const res = await postRule('cross_event', {
+      kind: 'cross_event',
+      child_event_id: eventId,
+      join: { parent_property_id: productIdPropId, child_property_id: productIdPropId },
+      comparator: 'eq',
+      target: { ref: 'property', property_id: productIdPropId },
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe('RULE_EXPRESSION_INVALID');
+  });
 });
 
 describe('GET /api/projects/:projectId/events/:id/rules', () => {

@@ -236,6 +236,45 @@ describe('rule.dal: uniqueness (event, variant, name)', () => {
   });
 });
 
+describe('rule.dal: tolerance_value must not be negative (fix round LOW)', () => {
+  it('rejects a negative tolerance_value on tolerance_mode absolute', () => {
+    expect(() =>
+      RuleDAL.createRule(projectId, cartUpdateEventId, membershipInput({ tolerance_mode: 'absolute', tolerance_value: -5 }))
+    ).toThrow(BadRequestError);
+  });
+
+  it('rejects a negative tolerance_value even alongside tolerance_mode none', () => {
+    expect(() =>
+      RuleDAL.createRule(projectId, cartUpdateEventId, membershipInput({ tolerance_mode: 'none', tolerance_value: -1 }))
+    ).toThrow(BadRequestError);
+  });
+
+  it('accepts a zero or positive tolerance_value', () => {
+    const rule = RuleDAL.createRule(
+      projectId,
+      cartUpdateEventId,
+      membershipInput({ tolerance_mode: 'absolute', tolerance_value: 0 })
+    );
+    expect(rule.tolerance_value).toBe(0);
+  });
+});
+
+describe('rule.dal: listRulesByEvent/listRulesByProject report status "broken" for a detached property (fix round LOW)', () => {
+  it('status is "ok" while the referenced properties stay linked, "broken" once one is detached', () => {
+    const rule = RuleDAL.createRule(projectId, cartUpdateEventId, membershipInput());
+    expect(RuleDAL.listRulesByEvent(projectId, cartUpdateEventId)[0].status).toBe('ok');
+    expect(RuleDAL.listRulesByProject(projectId).find((r) => r.id === rule.id)?.status).toBe('ok');
+
+    EventDAL.detachPropertyFromEvent(projectId, cartUpdateEventId, productIdPropId);
+
+    expect(RuleDAL.listRulesByEvent(projectId, cartUpdateEventId)[0].status).toBe('broken');
+    expect(RuleDAL.listRulesByProject(projectId).find((r) => r.id === rule.id)?.status).toBe('broken');
+    // The rule itself is untouched (still readable, still evaluable as a no-match) - only the
+    // list views flag it, they don't delete or disable it.
+    expect(RuleDAL.getRuleOrThrow(projectId, rule.id).enabled).toBe(true);
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Templates: cart_update_item_in_list, cart_update_totals directly on the beforeEach fixture;
 // purchase_refund_negative and purchase_items_total on a purpose-built purchase/purchase_item
@@ -282,6 +321,25 @@ describe('rule.dal: createRulesFromTemplate', () => {
     const bareEventId = EventDAL.createEvent(projectId, { name: 'bare_event' }).id;
     EventDAL.attachPropertyToEvent(projectId, bareEventId, { property_id: barePropId, role: 'normal' });
     expect(() => RuleDAL.createRulesFromTemplate(projectId, bareEventId, 'cart_update_item_in_list')).toThrow(BadRequestError);
+  });
+
+  it('is transactional: a 409 name clash on the second instantiated rule leaves neither behind (fix round LOW)', () => {
+    // Pre-seed a rule whose name collides with cart_update_totals's second instantiated rule, so
+    // the template's own transaction fails partway through on the second createRule() call.
+    const summaries = RuleDAL.listRuleTemplates(projectId, cartUpdateEventId);
+    expect(summaries.find((s) => s.key === 'cart_update_totals')?.applicable).toBe(true);
+
+    // Discover the two rule names the template would create, then pre-create the second one under
+    // a different template_key so the template's own second createRule() call 409s.
+    const before = RuleDAL.createRulesFromTemplate(projectId, cartUpdateEventId, 'cart_update_totals');
+    expect(before).toHaveLength(2);
+    for (const r of before) RuleDAL.deleteRule(projectId, r.id);
+    RuleDAL.createRule(projectId, cartUpdateEventId, membershipInput({ name: before[1].name }));
+
+    const countBefore = RuleDAL.listRulesByEvent(projectId, cartUpdateEventId).length;
+    expect(() => RuleDAL.createRulesFromTemplate(projectId, cartUpdateEventId, 'cart_update_totals')).toThrow();
+    // Only the pre-seeded rule remains; the template's first rule was rolled back, not left behind.
+    expect(RuleDAL.listRulesByEvent(projectId, cartUpdateEventId)).toHaveLength(countBefore);
   });
 
   describe('purchase_refund_negative and purchase_items_total (standard event mapping fixture)', () => {

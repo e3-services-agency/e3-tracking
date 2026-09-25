@@ -130,11 +130,23 @@ export interface RuleDefinition {
 
 export interface RuleOutcome {
   passed: boolean;
+  /** The defined/target-side value: arithmetic's `right` operand, cross_event's `target` (the
+   * parent property) — always the same side across every kind, so a downstream finding
+   * (T-2-07) reads consistently regardless of `Rule.kind`. */
   expected: unknown;
+  /** The observed/computed side: arithmetic's `left` operand, cross_event's aggregated
+   * `childValue` — always the counterpart of `expected` above. */
   actual: unknown;
   /** Join key for a cross_event rule (the parent's join property value) or `'any'` for every
    * other kind; used as part of the finding fingerprint (D-31, wired in T-2-07). */
   detail: string;
+  /** `true` when this observation could not be evaluated at all (e.g. a cross_event rule whose
+   * parent has no joined children) — distinct from `passed: true` (evaluated and matched) and
+   * `passed: false` (evaluated and violated). A skipped outcome must not be reported as either a
+   * pass or a violation (T-2-07 should not create/resolve a finding from it). */
+  skipped?: boolean;
+  /** Human-readable reason, set only when `skipped` is `true`. */
+  reason?: string;
 }
 
 export interface ItemSchemaViolation {

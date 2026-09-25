@@ -137,6 +137,42 @@ describe('evaluateRule: arithmetic with money tolerance', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Arithmetic with `count`: counts present items regardless of type, not just numeric ones.
+// ---------------------------------------------------------------------------
+describe('evaluateRule: arithmetic with count (non-numeric list items)', () => {
+  const snap = snapshot({
+    propertiesById: {
+      prop_total_quantity: { property_id: 'prop_total_quantity', payload_key: 'total_quantity', data_type: 'number' },
+      prop_product_list: { property_id: 'prop_product_list', payload_key: 'product_list', data_type: 'array' },
+    },
+  });
+  const rule: RuleDefinition = {
+    kind: 'arithmetic',
+    expression: {
+      kind: 'arithmetic',
+      left: {
+        ref: 'aggregate',
+        fn: 'count',
+        of: { ref: 'list_field', property_id: 'prop_product_list', field: 'product_id' },
+      },
+      comparator: 'eq',
+      right: { ref: 'property', property_id: 'prop_total_quantity' },
+    },
+    tolerance_mode: 'none',
+  };
+
+  it('counts two string product_ids as 2, matching total_quantity: 2 (not 0)', () => {
+    const observation = obs('o1', 'e1', {
+      total_quantity: 2,
+      product_list: [{ product_id: 'SKU-A' }, { product_id: 'SKU-B' }],
+    });
+    const outcome = evaluateRule(rule, observation, [], snap);
+    expect(outcome.actual).toBe(2);
+    expect(outcome.passed).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Bound: lt 0 (refund amounts), non_empty, not_future
 // ---------------------------------------------------------------------------
 describe('evaluateRule: bound', () => {
@@ -187,6 +223,44 @@ describe('evaluateRule: bound', () => {
       evaluateRule(rule, obs('o2', 'e1', { purchased_at: '2026-12-01T00:00:00Z' }), [], snap, { now }).passed
     ).toBe(false);
   });
+
+  it('not_future: Unix timestamps arriving as strings (Bloomreach payload convention)', () => {
+    const rule: RuleDefinition = {
+      kind: 'bound',
+      expression: { kind: 'bound', subject: { ref: 'property', property_id: 'prop_purchase_ts' }, check: 'not_future' },
+      tolerance_mode: 'none',
+    };
+    const now = Date.parse('2026-06-01T00:00:00Z') / 1000;
+    // Unix seconds, sent as a string: "1735689600" (2025-01-01T00:00:00Z) is in the past.
+    expect(
+      evaluateRule(rule, obs('o1', 'e1', { purchased_at: '1735689600' }), [], snap, { now }).passed
+    ).toBe(true);
+  });
+
+  it('not_future: a millisecond timestamp (above 1e12) is not misread as a far-future seconds value', () => {
+    const rule: RuleDefinition = {
+      kind: 'bound',
+      expression: { kind: 'bound', subject: { ref: 'property', property_id: 'prop_purchase_ts' }, check: 'not_future' },
+      tolerance_mode: 'none',
+    };
+    const now = Date.parse('2026-06-01T00:00:00Z') / 1000;
+    // 1735689600000 ms = 2025-01-01T00:00:00Z, in the past; read as raw seconds it would be
+    // the year 57970 (a false "future" violation).
+    expect(
+      evaluateRule(rule, obs('o1', 'e1', { purchased_at: 1735689600000 }), [], snap, { now }).passed
+    ).toBe(true);
+  });
+
+  it('not_future: an unparseable value is reported as a violation, not silently skipped', () => {
+    const rule: RuleDefinition = {
+      kind: 'bound',
+      expression: { kind: 'bound', subject: { ref: 'property', property_id: 'prop_purchase_ts' }, check: 'not_future' },
+      tolerance_mode: 'none',
+    };
+    const outcome = evaluateRule(rule, obs('o1', 'e1', { purchased_at: 'not a date' }), [], snap);
+    expect(outcome.passed).toBe(false);
+    expect(outcome.skipped).toBeFalsy();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -233,9 +307,19 @@ describe('evaluateRule: cross_event (purchase_items_total, reproduces 28 vs 28.4
     ];
     const outcome = evaluateRule(rule, parent, items, snap);
     expect(outcome.passed).toBe(false);
-    expect(outcome.expected).toBeCloseTo(28.4);
-    expect(outcome.actual).toBe(28);
+    // expected = target (the parent's total_price), actual = the computed child aggregate — same
+    // orientation as arithmetic's `right`/`left` (RuleOutcome doc comment, types.ts).
+    expect(outcome.expected).toBe(28);
+    expect(outcome.actual).toBeCloseTo(28.4);
     expect(outcome.detail).toBe('pu_1');
+  });
+
+  it('a purchase with no joined purchase_item siblings is skipped, not flagged as 0 vs target (phase 1 parity)', () => {
+    const parent = obs('purchase_1', 'event_purchase', { purchase_id: 'pu_1', total_price: 28 });
+    const outcome = evaluateRule(rule, parent, [], snap);
+    expect(outcome.skipped).toBe(true);
+    expect(outcome.passed).toBe(true);
+    expect(outcome.reason).toBeTruthy();
   });
 
   it('passes when the sum matches within the money tolerance', () => {

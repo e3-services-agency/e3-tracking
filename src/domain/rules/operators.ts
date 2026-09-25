@@ -20,10 +20,23 @@ export function toNumber(value: unknown): number | null {
   return null;
 }
 
-/** Coerces a value to a Unix-seconds timestamp, or `null`. Accepts a number (assumed seconds) or
- * an ISO-8601 string. */
+/** A raw numeric timestamp above this magnitude is assumed to be Unix milliseconds, at or below
+ * it Unix seconds (a seconds timestamp does not reach 1e12 until the year 33658; a milliseconds
+ * timestamp already passed 1e12 in 2001) — the same "look at the magnitude" heuristic Bloomreach's
+ * own event payloads rely on, since a raw observation carries no format metadata alongside the
+ * value itself. */
+const MS_TIMESTAMP_THRESHOLD = 1e12;
+
+/** Coerces a value to a Unix-seconds timestamp, or `null` when it cannot be parsed. Accepts a
+ * number or a numeric string (`toNumber`, magnitude decides seconds vs milliseconds — see
+ * `MS_TIMESTAMP_THRESHOLD`) or a non-numeric string parsed as ISO-8601 (`Date.parse`, e.g.
+ * `"2026-01-01T00:00:00Z"`); Bloomreach event payloads commonly send timestamps as strings, so
+ * `toNumber`'s string handling is tried first before falling back to `Date.parse`. */
 export function toTimestampSeconds(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  const numeric = toNumber(value);
+  if (numeric !== null) {
+    return Math.abs(numeric) > MS_TIMESTAMP_THRESHOLD ? numeric / 1000 : numeric;
+  }
   if (typeof value === 'string' && value.trim() !== '') {
     const parsed = Date.parse(value);
     return Number.isFinite(parsed) ? parsed / 1000 : null;
@@ -31,11 +44,22 @@ export function toTimestampSeconds(value: unknown): number | null {
   return null;
 }
 
-export const AGGREGATES: Record<RuleAggregate, (values: number[]) => number> = {
-  sum: (values) => values.reduce((total, v) => total + v, 0),
-  count: (values) => values.length,
-  min: (values) => (values.length === 0 ? 0 : Math.min(...values)),
-  max: (values) => (values.length === 0 ? 0 : Math.max(...values)),
+/** `count` counts every *present* item regardless of type (only `null`/`undefined` are dropped);
+ * `sum`/`min`/`max` are numeric aggregates and coerce each value with `toNumber` first, dropping
+ * whatever does not coerce. Each function owns its own coercion so `evaluate.ts` can pass the raw
+ * per-item/per-child values straight through without knowing which aggregates are numeric (D-30
+ * extension acceptance: a new aggregate is only a new entry here). */
+export const AGGREGATES: Record<RuleAggregate, (values: unknown[]) => number> = {
+  sum: (values) => values.reduce<number>((total, v) => { const n = toNumber(v); return n === null ? total : total + n; }, 0),
+  count: (values) => values.filter((v) => v !== null && v !== undefined).length,
+  min: (values) => {
+    const nums = values.map(toNumber).filter((v): v is number => v !== null);
+    return nums.length === 0 ? 0 : Math.min(...nums);
+  },
+  max: (values) => {
+    const nums = values.map(toNumber).filter((v): v is number => v !== null);
+    return nums.length === 0 ? 0 : Math.max(...nums);
+  },
 };
 
 /** `(left, right, tolerance) => boolean`. `tolerance` (always >= 0) only affects `eq`/`neq`: the

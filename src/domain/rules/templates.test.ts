@@ -194,8 +194,10 @@ describe('purchase_items_total', () => {
       snapshot
     );
     expect(outcome.passed).toBe(false);
-    expect(outcome.actual).toBe(28);
-    expect(outcome.expected).toBeCloseTo(28.4);
+    // expected = target (parent total_price), actual = computed child aggregate (fix round LOW:
+    // unified expected/actual orientation across rule kinds, see RuleOutcome in types.ts).
+    expect(outcome.expected).toBe(28);
+    expect(outcome.actual).toBeCloseTo(28.4);
   });
 });
 

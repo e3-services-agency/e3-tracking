@@ -20,7 +20,17 @@ import type {
   RuleSnapshot,
 } from './types';
 
-const NO_MATCH_OUTCOME: RuleOutcome = { passed: true, expected: null, actual: null, detail: 'any' };
+// `passed: true` (not a violation) plus `skipped: true` (not actually evaluated either) — the
+// operand(s) this rule needs are absent from the observation (e.g. an optional property the
+// caller didn't send), same "nothing to check" case as cross_event's no-joined-children skip.
+const NO_MATCH_OUTCOME: RuleOutcome = {
+  passed: true,
+  expected: null,
+  actual: null,
+  detail: 'any',
+  skipped: true,
+  reason: 'required operand value is missing from the observation',
+};
 
 function readProperty(observation: RuleObservation, propertyId: string, snapshot: RuleSnapshot): unknown {
   const ref = snapshot.propertiesById[propertyId];
@@ -94,9 +104,9 @@ function resolveAggregateOverList(operand: AggregateOperand, observation: RuleOb
   const ref = snapshot.propertiesById[listPropertyId];
   const raw = ref ? observation.properties[ref.payload_key] : undefined;
   const items = Array.isArray(raw) ? (raw as Record<string, unknown>[]) : [];
-  const values = items
-    .map((item) => toNumber(resolveItemOperand(operand.of, item)))
-    .filter((v): v is number => v !== null);
+  // Raw, uncoerced per-item values: AGGREGATES[fn] owns its own numeric coercion (operators.ts),
+  // so `count` can count non-numeric items too (an id list, not just amounts).
+  const values = items.map((item) => resolveItemOperand(operand.of, item));
   return AGGREGATES[operand.fn](values);
 }
 
@@ -169,10 +179,17 @@ function evaluateCrossEvent(
   const children = siblingObservations.filter(
     (o) => o.event_id === expression.child_event_id && String(o.properties[childJoinRef.payload_key]) === joinKey
   );
+  // No joined children: there is nothing to aggregate, so this observation cannot be evaluated
+  // (phase 1's `computeRoundingDrift`, `definitionVsObservations.ts:596-598`, skipped a purchase
+  // with no purchase_item siblings the same way, by never producing a finding for it). Report it
+  // as skipped, not as a `0` vs target mismatch, so a lone parent submission does not raise a
+  // false rounding_drift.
+  if (children.length === 0) {
+    return { passed: true, expected: null, actual: null, detail: joinKey, skipped: true, reason: 'no joined child observations' };
+  }
 
-  const values = children
-    .map((child) => toNumber(resolveObservationOperand(expression.child.of, child, snapshot)))
-    .filter((v): v is number => v !== null);
+  // Raw, uncoerced per-child values (see resolveAggregateOverList's comment).
+  const values = children.map((child) => resolveObservationOperand(expression.child.of, child, snapshot));
   const childValue = AGGREGATES[expression.child.fn](values);
 
   const target = toNumber(resolveObservationOperand(expression.target, parentObservation, snapshot));
@@ -180,7 +197,12 @@ function evaluateCrossEvent(
 
   const tolerance = resolveTolerance(rule.tolerance_mode, rule.tolerance_value, target, snapshot);
   const passed = COMPARATORS[expression.comparator](childValue, target, tolerance);
-  return { passed, expected: childValue, actual: target, detail: joinKey };
+  // expected/actual orientation (documented on RuleOutcome): `expected` is always the defined/
+  // target-side value (arithmetic's `right` operand; cross_event's `target`, the parent property),
+  // `actual` is always the observed/computed side (arithmetic's `left`; cross_event's aggregated
+  // `childValue`) — kept consistent across kinds so a downstream finding reads the same way
+  // regardless of rule kind (T-2-07).
+  return { passed, expected: target, actual: childValue, detail: joinKey };
 }
 
 /** Evaluates one rule against one observation. `siblingObservations` is only consulted for

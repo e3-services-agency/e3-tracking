@@ -43,6 +43,77 @@ describe('validateExpression: membership', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Malformed expressions (T-2-06 fix round, reviewer FAIL 2026-09-25 11:08): every one of these
+// used to escape validate.ts as a raw TypeError (dereferencing a missing sub-object), which the
+// DAL/route surfaced as a 500 INTERNAL_ERROR instead of 400 RULE_EXPRESSION_INVALID.
+// ---------------------------------------------------------------------------
+describe('validateExpression: malformed expressions raise RuleExpressionError, never a raw TypeError', () => {
+  it('arithmetic: left is null', () => {
+    const expression = {
+      kind: 'arithmetic',
+      left: null,
+      comparator: 'eq',
+      right: { ref: 'constant', value: 1 },
+    } as unknown as ArithmeticExpression;
+    expect(() => validateExpression('arithmetic', expression, context)).toThrow(RuleExpressionError);
+  });
+
+  it('arithmetic: left is missing entirely', () => {
+    const expression = {
+      kind: 'arithmetic',
+      comparator: 'eq',
+      right: { ref: 'constant', value: 1 },
+    } as unknown as ArithmeticExpression;
+    expect(() => validateExpression('arithmetic', expression, context)).toThrow(RuleExpressionError);
+  });
+
+  it('membership: haystack is missing', () => {
+    const expression = {
+      kind: 'membership',
+      needle: { ref: 'property', property_id: 'p_id' },
+    } as unknown as MembershipExpression;
+    expect(() => validateExpression('membership', expression, context)).toThrow(RuleExpressionError);
+  });
+
+  it('bound: subject is missing', () => {
+    const expression = { kind: 'bound', check: 'non_empty' } as unknown as BoundExpression;
+    expect(() => validateExpression('bound', expression, context)).toThrow(RuleExpressionError);
+  });
+
+  it('cross_event: join is missing', () => {
+    const expression = {
+      kind: 'cross_event',
+      child_event_id: 'event_purchase_item',
+      child: { ref: 'aggregate', fn: 'sum', of: { ref: 'property', property_id: 'p_price' } },
+      comparator: 'eq',
+      target: { ref: 'property', property_id: 'p_total' },
+    } as unknown as CrossEventExpression;
+    expect(() =>
+      validateExpression('cross_event', expression, {
+        properties: context.properties,
+        childProperties: { p_price: { property_id: 'p_price', data_type: 'number', item_schema: null } },
+      })
+    ).toThrow(RuleExpressionError);
+  });
+
+  it('cross_event: child is missing', () => {
+    const expression = {
+      kind: 'cross_event',
+      child_event_id: 'event_purchase_item',
+      join: { parent_property_id: 'p_total', child_property_id: 'p_price' },
+      comparator: 'eq',
+      target: { ref: 'property', property_id: 'p_total' },
+    } as unknown as CrossEventExpression;
+    expect(() =>
+      validateExpression('cross_event', expression, {
+        properties: context.properties,
+        childProperties: { p_price: { property_id: 'p_price', data_type: 'number', item_schema: null } },
+      })
+    ).toThrow(RuleExpressionError);
+  });
+});
+
 describe('validateExpression: arithmetic', () => {
   it('rejects an unknown comparator', () => {
     const expression = {
@@ -57,7 +128,9 @@ describe('validateExpression: arithmetic', () => {
   it('rejects an unknown aggregate inside an operand', () => {
     const expression: ArithmeticExpression = {
       kind: 'arithmetic',
-      left: { ref: 'aggregate', fn: 'avg' as never, of: { ref: 'list_field', property_id: 'p_list', field: 'product_id' } },
+      // "bogus" (not "avg"): avg is the plan's own extension example (D-30), so using it here would
+      // break a second test the moment someone actually adds it to RULE_AGGREGATES.
+      left: { ref: 'aggregate', fn: 'bogus' as never, of: { ref: 'list_field', property_id: 'p_list', field: 'product_id' } },
       comparator: 'eq',
       right: { ref: 'property', property_id: 'p_total' },
     };

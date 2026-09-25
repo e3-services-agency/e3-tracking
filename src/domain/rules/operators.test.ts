@@ -47,6 +47,12 @@ describe('AGGREGATES', () => {
     expect(AGGREGATES.min([])).toBe(0);
     expect(AGGREGATES.max([])).toBe(0);
   });
+  it('count counts every present value regardless of type; sum/min/max only coerce numerics', () => {
+    expect(AGGREGATES.count(['SKU-A', 'SKU-B'])).toBe(2);
+    expect(AGGREGATES.count(['SKU-A', null, undefined, 'SKU-B'])).toBe(2);
+    // sum/min/max drop the non-numeric entries instead of counting them.
+    expect(AGGREGATES.sum(['SKU-A', 1, 'SKU-B', 2])).toBe(3);
+  });
 });
 
 describe('COMPARATORS', () => {
@@ -94,6 +100,16 @@ describe('toNumber / toTimestampSeconds', () => {
     expect(toTimestampSeconds(1700000000)).toBe(1700000000);
     expect(toTimestampSeconds('2026-01-01T00:00:00Z')).toBe(Date.parse('2026-01-01T00:00:00Z') / 1000);
     expect(toTimestampSeconds('not a date')).toBeNull();
+  });
+  it('toTimestampSeconds accepts a numeric string as seconds (Bloomreach payload convention)', () => {
+    expect(toTimestampSeconds('1700000000')).toBe(1700000000);
+  });
+  it('toTimestampSeconds treats a value above 1e12 as milliseconds', () => {
+    expect(toTimestampSeconds(1700000000000)).toBe(1700000000);
+    expect(toTimestampSeconds('1700000000000')).toBe(1700000000);
+  });
+  it('toTimestampSeconds treats a value at or below 1e12 as seconds', () => {
+    expect(toTimestampSeconds(999999999999)).toBe(999999999999);
   });
 });
 

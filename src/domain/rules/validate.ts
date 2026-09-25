@@ -39,24 +39,52 @@ function fail(message: string): never {
   throw new RuleExpressionError(message);
 }
 
-function requireProperty(properties: Record<string, ValidatableProperty>, propertyId: string, where: string): ValidatableProperty {
-  const property = properties[propertyId];
-  if (!property) fail(`${where}: property "${propertyId}" is not linked to this event.`);
+/** `true` for a plain JSON object (not `null`, not an array) — the shape every operand/sub-object
+ * in the expression grammar must have before its fields can be dereferenced. Used to turn a
+ * malformed/missing part of `expression_json` (a client can submit anything) into a
+ * `RuleExpressionError` instead of a raw `TypeError` reaching the DAL. */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Fails with a clear message when `value` is not a non-empty string, e.g. a missing or `null`
+ * `property_id`/`field` ref. */
+function requirePropertyId(value: unknown, where: string): string {
+  if (typeof value !== 'string' || !value) fail(`${where}: a property reference is required.`);
+  return value;
+}
+
+function requireProperty(properties: Record<string, ValidatableProperty>, propertyId: unknown, where: string): ValidatableProperty {
+  const id = requirePropertyId(propertyId, where);
+  const property = properties[id];
+  if (!property) fail(`${where}: property "${id}" is not linked to this event.`);
   return property;
 }
 
-function requireListField(properties: Record<string, ValidatableProperty>, propertyId: string, field: string, where: string): void {
+function requireListField(properties: Record<string, ValidatableProperty>, propertyId: unknown, field: unknown, where: string): void {
   const property = requireProperty(properties, propertyId, where);
   if (property.data_type !== 'array') {
-    fail(`${where}: property "${propertyId}" must be data_type "array" to use a list field.`);
+    fail(`${where}: property "${String(propertyId)}" must be data_type "array" to use a list field.`);
   }
+  const fieldName = requirePropertyId(field, `${where}.field`);
   const schema = property.item_schema ?? [];
-  if (!schema.some((f) => f.field === field)) {
-    fail(`${where}: "${field}" is not a field of property "${propertyId}"'s item schema.`);
+  if (!schema.some((f) => f.field === fieldName)) {
+    fail(`${where}: "${fieldName}" is not a field of property "${String(propertyId)}"'s item schema.`);
   }
 }
 
+/** Fails with a clear message when `object` is missing or not a plain object, e.g. a malformed
+ * `haystack`/`join`/`child`/`subject` part of the expression. Returns `object` narrowed so the
+ * caller can dereference its fields. */
+function requireObject(object: unknown, where: string): Record<string, unknown> {
+  if (!isPlainObject(object)) fail(`${where}: is required.`);
+  return object;
+}
+
 function validateOperand(operand: Operand, properties: Record<string, ValidatableProperty>, where: string): void {
+  if (!isPlainObject(operand) || typeof operand.ref !== 'string') {
+    fail(`${where}: a valid operand is required.`);
+  }
   switch (operand.ref) {
     case 'property':
       requireProperty(properties, operand.property_id, where);
@@ -91,7 +119,8 @@ function validateArithmetic(expression: ArithmeticExpression, properties: Record
 
 function validateMembership(expression: MembershipExpression, properties: Record<string, ValidatableProperty>): void {
   validateOperand(expression.needle, properties, 'membership.needle');
-  requireListField(properties, expression.haystack.property_id, expression.haystack.field, 'membership.haystack');
+  const haystack = requireObject(expression.haystack, 'membership.haystack');
+  requireListField(properties, haystack.property_id, haystack.field, 'membership.haystack');
 }
 
 function validateBound(expression: BoundExpression, properties: Record<string, ValidatableProperty>): void {
@@ -99,7 +128,12 @@ function validateBound(expression: BoundExpression, properties: Record<string, V
     fail(`bound: unknown check "${expression.check}".`);
   }
   validateOperand(expression.subject, properties, 'bound.subject');
-  const needsBound = !['non_empty', 'not_future'].includes(expression.check);
+  // Every bound check that is also a comparator (RULE_COMPARATORS) needs a "bound" operand to
+  // compare against; the two comparator-less checks (non_empty/not_future) are exactly the
+  // RULE_BOUND_CHECKS members outside RULE_COMPARATORS (enums.ts), so this is derived from the
+  // enum rather than a hardcoded literal list (D-30 extension acceptance: a future bound check
+  // needs no edit here unless it also needs a bound operand).
+  const needsBound = (RULE_COMPARATORS as readonly string[]).includes(expression.check);
   if (needsBound && !expression.bound) fail(`bound: check "${expression.check}" requires a "bound" operand.`);
   if (expression.bound) validateOperand(expression.bound, properties, 'bound.bound');
 }
@@ -113,9 +147,11 @@ function validateAggregateOperand(operand: AggregateOperand, where: string): voi
 function validateCrossEvent(expression: CrossEventExpression, context: ValidationContext): void {
   if (!expression.child_event_id) fail('cross_event: child_event_id is required.');
   const childProperties = context.childProperties ?? {};
-  requireProperty(context.properties, expression.join.parent_property_id, 'cross_event.join.parent_property_id');
-  requireProperty(childProperties, expression.join.child_property_id, 'cross_event.join.child_property_id');
-  if (expression.child.ref !== 'aggregate') fail('cross_event.child must be an aggregate operand.');
+  const join = requireObject(expression.join, 'cross_event.join');
+  requireProperty(context.properties, join.parent_property_id, 'cross_event.join.parent_property_id');
+  requireProperty(childProperties, join.child_property_id, 'cross_event.join.child_property_id');
+  const child = requireObject(expression.child, 'cross_event.child');
+  if (child.ref !== 'aggregate') fail('cross_event.child must be an aggregate operand.');
   validateAggregateOperand(expression.child, 'cross_event.child');
   validateOperand(expression.child.of, childProperties, 'cross_event.child.of');
   if (!(RULE_COMPARATORS as readonly string[]).includes(expression.comparator)) {

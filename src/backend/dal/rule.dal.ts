@@ -44,6 +44,12 @@ export interface RuleRow {
   version: number;
   created_at: string;
   updated_at: string;
+  /** Computed only by the list endpoints (`listRulesByEvent`/`listRulesByProject`, see
+   * `computeRuleStatus`): `'broken'` when a property (or, for cross_event, the child event/
+   * property) `expression_json` references has since been detached/deleted from the event, so the
+   * rule would otherwise no-match silently (`NO_MATCH_OUTCOME`) at eval time instead of surfacing
+   * anywhere. Absent on single-rule reads (`getRuleById`/`getRuleOrThrow`, create/update). */
+  status?: 'ok' | 'broken';
 }
 
 type RuleDbRow = Omit<RuleRow, 'expression_json' | 'enabled'>;
@@ -73,17 +79,19 @@ export interface RuleInput {
 
 export function listRulesByEvent(projectId: string, eventId: string): RuleRow[] {
   getEventOrThrow(projectId, eventId);
-  return (
+  const rules = (
     getDb()
       .prepare('SELECT * FROM rules WHERE project_id = ? AND event_id = ? ORDER BY created_at')
       .all(projectId, eventId) as RuleDbRow[]
   ).map(mapRuleRow);
+  return rules.map((rule) => ({ ...rule, status: computeRuleStatus(projectId, rule) }));
 }
 
 export function listRulesByProject(projectId: string): RuleRow[] {
-  return (
+  const rules = (
     getDb().prepare('SELECT * FROM rules WHERE project_id = ? ORDER BY event_id, created_at').all(projectId) as RuleDbRow[]
   ).map(mapRuleRow);
+  return rules.map((rule) => ({ ...rule, status: computeRuleStatus(projectId, rule) }));
 }
 
 export function getRuleById(projectId: string, id: string): RuleRow | null {
@@ -128,6 +136,25 @@ function childPropertiesFor(projectId: string, expression: unknown): Record<stri
     // getEventWithProperties throws NotFoundError for a child_event_id outside this project;
     // validate.ts's own "not linked" check on the join/child refs surfaces that as a 400.
     return {};
+  }
+}
+
+/** Re-runs `validateExpression` against the properties currently linked to `rule.event_id` (and,
+ * for cross_event, the current child event) to catch a property/event that was detached or
+ * deleted after the rule was created — the DAL only validates at write time, so a rule can
+ * otherwise go stale silently and simply no-match every observation (`evaluate.ts`'s
+ * `NO_MATCH_OUTCOME`) instead of surfacing anywhere. Any error (including the target event itself
+ * having been deleted) is reported as `'broken'`. */
+function computeRuleStatus(projectId: string, rule: RuleRow): 'ok' | 'broken' {
+  try {
+    const context: ValidationContext = {
+      properties: propertiesById(projectId, rule.event_id),
+      childProperties: childPropertiesFor(projectId, rule.expression_json),
+    };
+    validateExpression(rule.kind, rule.expression_json, context);
+    return 'ok';
+  } catch {
+    return 'broken';
   }
 }
 
@@ -211,6 +238,9 @@ function validateRuleFields(projectId: string, eventId: string, input: RuleInput
   }
   if ((toleranceMode === 'absolute' || toleranceMode === 'percent') && input.tolerance_value == null) {
     throw new BadRequestError(`tolerance_value is required when tolerance_mode is "${toleranceMode}".`, 'tolerance_value');
+  }
+  if (input.tolerance_value != null && input.tolerance_value < 0) {
+    throw new BadRequestError('tolerance_value must not be negative.', 'tolerance_value');
   }
 
   const severity = (input.severity ?? DEFAULT_SEVERITY) as RuleSeverity;
@@ -413,21 +443,26 @@ export function createRulesFromTemplate(projectId: string, eventId: string, temp
   }
 
   const instances: RuleTemplateInstance[] = template.instantiate(snapshot, context);
-  return instances.map((instance) =>
-    createRule(projectId, eventId, {
-      variant_id: instance.variant_id ?? null,
-      kind: instance.kind,
-      name: instance.name,
-      message: instance.message,
-      expression_json: instance.expression,
-      tolerance_mode: instance.tolerance_mode,
-      tolerance_value: instance.tolerance_value,
-      report_kind: instance.report_kind,
-      severity: instance.severity,
-      template_key: templateKey,
-      enabled: true,
-    })
+  // Transactional: a template can instantiate more than one rule (e.g. cart_update_totals); if a
+  // later one fails (e.g. a 409 name clash), the earlier ones must not be left behind half-applied.
+  const createAll = getDb().transaction(() =>
+    instances.map((instance) =>
+      createRule(projectId, eventId, {
+        variant_id: instance.variant_id ?? null,
+        kind: instance.kind,
+        name: instance.name,
+        message: instance.message,
+        expression_json: instance.expression,
+        tolerance_mode: instance.tolerance_mode,
+        tolerance_value: instance.tolerance_value,
+        report_kind: instance.report_kind,
+        severity: instance.severity,
+        template_key: templateKey,
+        enabled: true,
+      })
+    )
   );
+  return createAll();
 }
 
 export { listApplicableTemplates };

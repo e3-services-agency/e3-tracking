@@ -46,6 +46,15 @@ export interface DefEventProperty {
    * consumer of `DefEventProperty` (comparisons 3/4, the rules evaluator) ignores it.
    */
   allowed_value_hints?: { value: string; standard_event: string | null }[];
+  /**
+   * T-2-05 fix round addition: the linked property's `item_schema_json` (D-30 ItemSchema), carried
+   * through so `comparison.service.ts`'s `buildRuleSnapshot`/`buildItemSchemaChecks` (T-2-07) can
+   * derive both the rules `RuleSnapshot` and the item-schema checks from this one already-loaded
+   * `DefinitionSnapshot` instead of a second `EventDAL.getEventWithProperties` read per event.
+   * `undefined`/`null` for a non-array property or one with no schema set; every other consumer of
+   * `DefEventProperty` ignores this field, same convention as `allowed_value_hints`.
+   */
+  item_schema?: { field: string; data_type: string; data_formats?: string[]; required?: boolean }[] | null;
 }
 
 export interface DefVariant {
@@ -421,8 +430,10 @@ export function runDefinitionVsObservations(
     });
   }
 
-  // ---- rounding_drift (warning; anchored on purchase/purchase_item standard event mappings, D-21/D-25 Q12) ----
-  findings.push(...computeRoundingDrift(definition, resolved));
+  // rounding_drift (D-21/D-25 Q12) used to be hard-coded here as `computeRoundingDrift`; T-2-07/
+  // D-31 replaces it with the `purchase_items_total` rule template, evaluated by
+  // `src/domain/rules/runRules.ts` inside the same `definition_vs_observations` comparison
+  // (`comparison.service.ts` merges its findings with this function's) — not duplicated here.
 
   // ---- missing_event (error for agent_session, warning otherwise, D-25 Q4) + expiration suppression ----
   const observedEventIds = new Set(resolved.map((o) => o.event_id as string));
@@ -494,92 +505,3 @@ export function runDefinitionVsObservations(
   return findings;
 }
 
-function toNumber(value: unknown): number | null {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
-  if (typeof value === 'string') {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
-}
-
-function findMapping(definition: DefinitionSnapshot, standardEvent: string): StandardMappingRef | undefined {
-  return definition.standard_event_mappings.find((m) => m.standard_event === standardEvent);
-}
-
-/**
- * D-21 rule: sum of `purchase_item.price * purchase_item.quantity` (the properties the
- * `purchase_item` standard event mapping's `total_price`/`total_quantity` fields point at) grouped
- * by `purchase_id`, versus the `purchase` standard event mapping's `total_price` field, tolerance
- * 0.01, only when the anchoring property carries the `money` data format (D-25 Q12).
- */
-function computeRoundingDrift(definition: DefinitionSnapshot, resolved: EngineObservation[]): EngineFinding[] {
-  const purchaseMapping = findMapping(definition, 'purchase');
-  const itemMapping = findMapping(definition, 'purchase_item');
-  if (!purchaseMapping || !itemMapping) return [];
-
-  const purchaseTotalPropId = purchaseMapping.field_map.total_price;
-  const purchasePurchaseIdPropId = purchaseMapping.field_map.purchase_id;
-  const itemPricePropId = itemMapping.field_map.total_price;
-  const itemQuantityPropId = itemMapping.field_map.total_quantity;
-  const itemPurchaseIdPropId = itemMapping.field_map.purchase_id;
-  if (!purchaseTotalPropId || !purchasePurchaseIdPropId || !itemPricePropId || !itemQuantityPropId || !itemPurchaseIdPropId) {
-    return [];
-  }
-
-  const purchaseEvent = definition.events.find((e) => e.id === purchaseMapping.event_id);
-  const itemEvent = definition.events.find((e) => e.id === itemMapping.event_id);
-  if (!purchaseEvent || !itemEvent) return [];
-
-  const totalPriceProp = purchaseEvent.properties.find((p) => p.property_id === purchaseTotalPropId);
-  const purchaseIdProp = purchaseEvent.properties.find((p) => p.property_id === purchasePurchaseIdPropId);
-  const itemPriceProp = itemEvent.properties.find((p) => p.property_id === itemPricePropId);
-  const itemQuantityProp = itemEvent.properties.find((p) => p.property_id === itemQuantityPropId);
-  const itemPurchaseIdProp = itemEvent.properties.find((p) => p.property_id === itemPurchaseIdPropId);
-  if (!totalPriceProp || !purchaseIdProp || !itemPriceProp || !itemQuantityProp || !itemPurchaseIdProp) return [];
-  if (!totalPriceProp.data_formats.includes('money')) return [];
-
-  const purchaseObsById = resolved.filter((o) => o.event_id === purchaseEvent.id);
-  const itemObs = resolved.filter((o) => o.event_id === itemEvent.id);
-
-  const purchaseByKey = new Map<string, EngineObservation>();
-  for (const obs of purchaseObsById) {
-    const key = obs.properties[payloadKeyFor(purchaseIdProp)];
-    if (key === undefined || key === null) continue;
-    purchaseByKey.set(String(key), obs);
-  }
-
-  const sumByKey = new Map<string, number>();
-  for (const obs of itemObs) {
-    const key = obs.properties[payloadKeyFor(itemPurchaseIdProp)];
-    if (key === undefined || key === null) continue;
-    const price = toNumber(obs.properties[payloadKeyFor(itemPriceProp)]);
-    const quantity = toNumber(obs.properties[payloadKeyFor(itemQuantityProp)]);
-    if (price === null || quantity === null) continue;
-    sumByKey.set(String(key), (sumByKey.get(String(key)) ?? 0) + price * quantity);
-  }
-
-  const findings: EngineFinding[] = [];
-  for (const [key, sum] of sumByKey) {
-    const purchaseObs = purchaseByKey.get(key);
-    if (!purchaseObs) continue;
-    const total = toNumber(purchaseObs.properties[payloadKeyFor(totalPriceProp)]);
-    if (total === null) continue;
-    const diff = Math.abs(sum - total);
-    if (diff <= 0.01) continue;
-    findings.push({
-      comparison: COMPARISON,
-      kind: 'rounding_drift',
-      severity: 'warning',
-      event_id: purchaseEvent.id,
-      variant_id: purchaseObs.variant_id,
-      property_id: totalPriceProp.property_id,
-      observation_id: purchaseObs.id,
-      expected_json: { items_total: sum },
-      actual_json: { purchase_total: total },
-      message: `Purchase "${key}" total_price ${total} does not match the sum of its items' price * quantity (${sum}), tolerance 0.01.`,
-      fingerprint: fp('rounding_drift', purchaseEvent.id, null, totalPriceProp.property_id, key),
-    });
-  }
-  return findings;
-}

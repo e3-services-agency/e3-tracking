@@ -11,6 +11,7 @@ import {
   type TemplateEventSnapshot,
 } from './templates';
 import { evaluateRule } from './evaluate';
+import { refKey } from './types';
 import type { RuleObservation, RuleSnapshot } from './types';
 
 function cartUpdateEvent(overrides?: Partial<TemplateEventSnapshot>): TemplateEventSnapshot {
@@ -18,20 +19,21 @@ function cartUpdateEvent(overrides?: Partial<TemplateEventSnapshot>): TemplateEv
     event_id: 'event_cart_update',
     event_name: 'cart_update',
     properties: [
-      { property_id: 'p_product_id', name: 'product_id', role: 'normal', data_type: 'string', item_schema: null },
+      { property_id: 'p_product_id', name: 'product_id', role: 'normal', data_type: 'string', data_formats: [], item_schema: null },
       {
         property_id: 'p_product_list',
         name: 'product_list',
         role: 'normal',
         data_type: 'array',
+        data_formats: [],
         item_schema: [
           { field: 'product_id', data_type: 'string', required: true },
           { field: 'price', data_type: 'number', required: true },
           { field: 'quantity', data_type: 'number', required: true },
         ],
       },
-      { property_id: 'p_total_price', name: 'total_price', role: 'normal', data_type: 'number', item_schema: null },
-      { property_id: 'p_total_quantity', name: 'total_quantity', role: 'normal', data_type: 'number', item_schema: null },
+      { property_id: 'p_total_price', name: 'total_price', role: 'normal', data_type: 'number', data_formats: [], item_schema: null },
+      { property_id: 'p_total_quantity', name: 'total_quantity', role: 'normal', data_type: 'number', data_formats: [], item_schema: null },
     ],
     standard_field_map: {},
     variants: [],
@@ -39,14 +41,16 @@ function cartUpdateEvent(overrides?: Partial<TemplateEventSnapshot>): TemplateEv
   };
 }
 
+/** T-2-05 fix round ruling (D-25 Q12): `total_price` carries the `money` format so
+ * `purchase_items_total` is applicable by default; tests that need it absent override explicitly. */
 function purchaseEvent(overrides?: Partial<TemplateEventSnapshot>): TemplateEventSnapshot {
   return {
     event_id: 'event_purchase',
     event_name: 'purchase',
     properties: [
-      { property_id: 'p_total_price', name: 'total_price', role: 'normal', data_type: 'number', item_schema: null },
-      { property_id: 'p_purchase_id', name: 'purchase_id', role: 'normal', data_type: 'string', item_schema: null },
-      { property_id: 'p_purchase_status', name: 'purchase_status', role: 'discriminator', data_type: 'string', item_schema: null },
+      { property_id: 'p_total_price', name: 'total_price', role: 'normal', data_type: 'number', data_formats: ['money'], item_schema: null },
+      { property_id: 'p_purchase_id', name: 'purchase_id', role: 'normal', data_type: 'string', data_formats: [], item_schema: null },
+      { property_id: 'p_purchase_status', name: 'purchase_status', role: 'discriminator', data_type: 'string', data_formats: [], item_schema: null },
     ],
     standard_field_map: {},
     variants: [
@@ -65,9 +69,9 @@ function purchaseItemEvent(): TemplateEventSnapshot {
     event_id: 'event_purchase_item',
     event_name: 'purchase_item',
     properties: [
-      { property_id: 'p_price', name: 'price', role: 'normal', data_type: 'number', item_schema: null },
-      { property_id: 'p_quantity', name: 'quantity', role: 'normal', data_type: 'number', item_schema: null },
-      { property_id: 'p_item_purchase_id', name: 'purchase_id', role: 'normal', data_type: 'string', item_schema: null },
+      { property_id: 'p_price', name: 'price', role: 'normal', data_type: 'number', data_formats: [], item_schema: null },
+      { property_id: 'p_quantity', name: 'quantity', role: 'normal', data_type: 'number', data_formats: [], item_schema: null },
+      { property_id: 'p_item_purchase_id', name: 'purchase_id', role: 'normal', data_type: 'string', data_formats: [], item_schema: null },
     ],
     standard_field_map: {},
     variants: [],
@@ -156,6 +160,16 @@ describe('purchase_items_total', () => {
     expect(template.applicable(purchaseEvent(), { childEvent: purchaseItemEvent() })).toBe(true);
   });
 
+  // T-2-05 fix round ruling (T-2-07 LOW 4, D-25 Q12): requires the money format on total_price.
+  it('is not applicable when total_price lacks the money format, with a reason naming it', () => {
+    const event = purchaseEvent({
+      properties: purchaseEvent().properties.map((p) => (p.name === 'total_price' ? { ...p, data_formats: [] } : p)),
+    });
+    const context = { childEvent: purchaseItemEvent() };
+    expect(template.applicable(event, context)).toBe(false);
+    expect(template.reason(event, context)).toContain('money');
+  });
+
   it('instantiates a cross_event rule with report_kind rounding_drift and severity warning', () => {
     const [instance] = template.instantiate(purchaseEvent(), { childEvent: purchaseItemEvent() });
     expect(instance.kind).toBe('cross_event');
@@ -168,11 +182,11 @@ describe('purchase_items_total', () => {
     const [instance] = template.instantiate(purchaseEvent(), { childEvent: purchaseItemEvent() });
     const snapshot: RuleSnapshot = {
       propertiesById: {
-        p_total_price: { property_id: 'p_total_price', payload_key: 'total_price', data_type: 'number' },
-        p_purchase_id: { property_id: 'p_purchase_id', payload_key: 'purchase_id', data_type: 'string' },
-        p_price: { property_id: 'p_price', payload_key: 'price', data_type: 'number' },
-        p_quantity: { property_id: 'p_quantity', payload_key: 'quantity', data_type: 'number' },
-        p_item_purchase_id: { property_id: 'p_item_purchase_id', payload_key: 'purchase_id', data_type: 'string' },
+        [refKey('event_purchase', 'p_total_price')]: { property_id: 'p_total_price', payload_key: 'total_price', data_type: 'number' },
+        [refKey('event_purchase', 'p_purchase_id')]: { property_id: 'p_purchase_id', payload_key: 'purchase_id', data_type: 'string' },
+        [refKey('event_purchase_item', 'p_price')]: { property_id: 'p_price', payload_key: 'price', data_type: 'number' },
+        [refKey('event_purchase_item', 'p_quantity')]: { property_id: 'p_quantity', payload_key: 'quantity', data_type: 'number' },
+        [refKey('event_purchase_item', 'p_item_purchase_id')]: { property_id: 'p_item_purchase_id', payload_key: 'purchase_id', data_type: 'string' },
       },
       money_tolerance_percent: 1,
       money_tolerance_floor: 0.01,

@@ -251,6 +251,20 @@ export class RuleExpressionInvalidError extends BadRequestError {
 }
 
 /**
+ * `POST /events/:id/rules/from-template/purchase_items_total` when the resolved `total_price`
+ * property (on the purchase-side event) does not carry the `money` data format (T-2-05 fix round,
+ * T-2-07 LOW 4 ruling, D-25 Q12) — every other required property/child event resolves, only the
+ * format is missing, so this is distinguished from the generic "not applicable" 400. 400.
+ */
+export class TemplateRequiresMoneyFormatError extends BadRequestError {
+  readonly code = 'TEMPLATE_REQUIRES_MONEY_FORMAT';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'TemplateRequiresMoneyFormatError';
+  }
+}
+
+/**
  * `POST /use-cases/:id/narrative/regenerate` without `force: true` when the stored narrative was
  * edited by hand more recently than it was last generated (`narrative_edited_at` set, D-32). 409,
  * so the UI can show "you edited this narrative; regenerate anyway?" instead of silently

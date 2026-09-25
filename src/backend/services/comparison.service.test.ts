@@ -27,6 +27,7 @@ import * as EventDAL from '../dal/event.dal';
 import * as ObservationDAL from '../dal/observation.dal';
 import * as QaRunDAL from '../dal/qa-run.dal';
 import * as FindingDAL from '../dal/finding.dal';
+import * as RuleDAL from '../dal/rule.dal';
 import { previewDataMapping, applyDataMapping } from './dataMappingImport.service';
 import { previewDataManagerEvents, applyDataManagerEvents } from './dataManagerEventsImport.service';
 import { previewCustomerEventsExport, applyCustomerEventsExport } from './customerEventsExportImport.service';
@@ -293,5 +294,111 @@ describe('multi-comparison orchestrator (T-2-04)', () => {
     });
     expect(typeMismatchAfterArchive.length).toBe(0);
     expect(thirdSummary.by_comparison.definition_vs_observations.resolved).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * T-2-07: the rules evaluator and item schema checks run inside `definition_vs_observations`.
+ * `cart_update_item_in_list` (membership: product_id must be present in product_list[].product_id)
+ * on a hand-built cart_update fixture — matches the qa-tester scenario in the task's handoff.
+ */
+describe('T-2-07: rules + item schema evaluation inside definition_vs_observations', () => {
+  let cartUpdateEventId: string;
+  let productIdPropId: string;
+  let productListPropId: string;
+
+  function submitObservation(properties: Record<string, unknown>, runKind: string = 'manual') {
+    const run = QaRunDAL.createQaRun(projectId, { kind: runKind });
+    ObservationDAL.createObservation(projectId, run.id, {
+      source: 'manual',
+      event_type: 'cart_update',
+      timestamp: Math.floor(Date.now() / 1000),
+      properties,
+    });
+    return run;
+  }
+
+  beforeEach(() => {
+    cartUpdateEventId = EventDAL.createEvent(projectId, { name: 'cart_update' }).id;
+    productIdPropId = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'product_id', data_type: 'string' }).id;
+    productListPropId = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'product_list',
+      data_type: 'array',
+      item_schema_json: [
+        { field: 'product_id', data_type: 'string', required: true },
+        { field: 'quantity', data_type: 'number', required: true },
+      ],
+    }).id;
+    EventDAL.attachPropertyToEvent(projectId, cartUpdateEventId, { property_id: productIdPropId, role: 'normal' });
+    EventDAL.attachPropertyToEvent(projectId, cartUpdateEventId, { property_id: productListPropId, role: 'normal' });
+  });
+
+  it('rule_violation appears when product_id is absent from product_list, and resolves once fixed', () => {
+    RuleDAL.createRulesFromTemplate(projectId, cartUpdateEventId, 'cart_update_item_in_list');
+
+    submitObservation({ product_id: 'p3', product_list: [{ product_id: 'p1', quantity: 1 }] });
+    const summary = runComparison(projectId);
+    expect(summary.by_comparison.definition_vs_observations.open.error).toBeGreaterThan(0);
+
+    const violations = FindingDAL.listFindings(projectId, { kind: 'rule_violation', status: 'open' });
+    expect(violations).toHaveLength(1);
+    expect(violations[0].message).toContain('product_id');
+    expect(violations[0].severity).toBe('error');
+
+    // Fix the payload: submit a passing observation instead (a fresh run; the old violating
+    // observation's run stays, but a real QA workflow re-runs after fixing the source/mapping —
+    // here the acceptance is "the finding resolves once no observation currently violates it", so
+    // archive the violating run first, matching how a corrected re-paste supersedes the bad one).
+    for (const runId of new Set(ObservationDAL.listObservations(projectId).map((o) => o.qa_run_id))) {
+      QaRunDAL.updateQaRun(projectId, runId, { archived: true });
+    }
+    submitObservation({ product_id: 'p1', product_list: [{ product_id: 'p1', quantity: 1 }] });
+    runComparison(projectId);
+    expect(FindingDAL.listFindings(projectId, { kind: 'rule_violation', status: 'open' })).toHaveLength(0);
+  });
+
+  it('disabling a rule resolves its findings on the next run', () => {
+    const rules = RuleDAL.createRulesFromTemplate(projectId, cartUpdateEventId, 'cart_update_item_in_list');
+    submitObservation({ product_id: 'p3', product_list: [{ product_id: 'p1' }] });
+    runComparison(projectId);
+    expect(FindingDAL.listFindings(projectId, { kind: 'rule_violation', status: 'open' })).toHaveLength(1);
+
+    RuleDAL.updateRule(projectId, rules[0].id, { enabled: false });
+    const summary = runComparison(projectId);
+    expect(FindingDAL.listFindings(projectId, { kind: 'rule_violation', status: 'open' })).toHaveLength(0);
+    expect(summary.by_comparison.definition_vs_observations.resolved).toBeGreaterThan(0);
+  });
+
+  it('editing a rule (version bump) resolves the old fingerprint and produces a new one', () => {
+    const rules = RuleDAL.createRulesFromTemplate(projectId, cartUpdateEventId, 'cart_update_item_in_list');
+    submitObservation({ product_id: 'p3', product_list: [{ product_id: 'p1' }] });
+    runComparison(projectId);
+    const before = FindingDAL.listFindings(projectId, { kind: 'rule_violation', status: 'open' });
+    expect(before).toHaveLength(1);
+    const oldFingerprint = before[0].fingerprint;
+
+    RuleDAL.updateRule(projectId, rules[0].id, { severity: 'warning' }); // any update bumps version
+    runComparison(projectId);
+    const after = FindingDAL.listFindings(projectId, { kind: 'rule_violation', status: 'open' });
+    expect(after).toHaveLength(1);
+    expect(after[0].fingerprint).not.toBe(oldFingerprint);
+    expect(after[0].severity).toBe('warning');
+    expect(FindingDAL.listFindings(projectId, { status: 'resolved' }).some((f) => f.fingerprint === oldFingerprint)).toBe(true);
+  });
+
+  it('item_schema_violation is raised for a missing required list item field and resolves once fixed', () => {
+    submitObservation({ product_id: 'p1', product_list: [{ product_id: 'p1' }] }); // quantity missing
+    runComparison(projectId);
+    const violations = FindingDAL.listFindings(projectId, { kind: 'item_schema_violation', status: 'open' });
+    expect(violations).toHaveLength(1);
+    expect((violations[0].expected_json as { field: string }).field).toBe('quantity');
+
+    for (const runId of new Set(ObservationDAL.listObservations(projectId).map((o) => o.qa_run_id))) {
+      QaRunDAL.updateQaRun(projectId, runId, { archived: true });
+    }
+    submitObservation({ product_id: 'p1', product_list: [{ product_id: 'p1', quantity: 2 }] });
+    runComparison(projectId);
+    expect(FindingDAL.listFindings(projectId, { kind: 'item_schema_violation', status: 'open' })).toHaveLength(0);
   });
 });

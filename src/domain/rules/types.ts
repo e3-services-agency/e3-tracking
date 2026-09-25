@@ -106,10 +106,28 @@ export interface RulePropertyRef {
   item_schema?: ItemSchemaField[] | null;
 }
 
+/**
+ * `propertiesById` is keyed by `refKey(event_id, property_id)`, not bare `property_id` (T-2-07
+ * review WARNING, T-2-05 fix round Finding 2): the same `Property` row can be linked to more than
+ * one `Event` with a different per-link `payload_key` on each link (D-16) — a `purchase_id`
+ * Property linked to both `purchase` and `purchase_item` is exactly this case in the seed
+ * `purchase_items_total` rule. Keying by `property_id` alone would keep only the last event's link
+ * (whichever event `buildRuleSnapshot` happened to iterate last), silently reading the wrong
+ * `payload_key` for every other event's link of that property. Every lookup site in `evaluate.ts`
+ * resolves the ref through `refKey` using the *event the observation/expression side actually
+ * belongs to* (the observation's own `event_id` for a plain property/aggregate/membership
+ * haystack; `CrossEventExpression.child_event_id` for the join's child side).
+ */
 export interface RuleSnapshot {
   propertiesById: Record<string, RulePropertyRef>;
   money_tolerance_percent: number;
   money_tolerance_floor: number;
+}
+
+/** Composite key for `RuleSnapshot.propertiesById` (see its doc comment): a `property_id` alone is
+ * ambiguous across the events it may be linked to with different `payload_key`s. */
+export function refKey(eventId: string, propertyId: string): string {
+  return `${eventId}:${propertyId}`;
 }
 
 /** A raw observation, keyed exactly like `definitionVsObservations.ts`'s `EngineObservation`:

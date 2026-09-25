@@ -25,6 +25,8 @@ interface ProjectDetail {
   bloomreach_api_base_url: string | null;
   bloomreach_project_url: string | null;
   default_expiration_json: { enabled: boolean; count: number; units: string } | null;
+  money_tolerance_percent: number;
+  money_tolerance_floor: number;
 }
 
 export function ProjectSettings() {
@@ -46,6 +48,8 @@ export function ProjectSettings() {
   const [expirationEnabled, setExpirationEnabled] = useState(false);
   const [expirationCount, setExpirationCount] = useState(30);
   const [expirationUnits, setExpirationUnits] = useState<string>('days');
+  const [moneyTolerancePercent, setMoneyTolerancePercent] = useState(1);
+  const [moneyToleranceFloor, setMoneyToleranceFloor] = useState(0.01);
 
   const fetchProject = useCallback(async () => {
     if (!activeProjectId) {
@@ -77,6 +81,8 @@ export function ProjectSettings() {
       setExpirationEnabled(p.default_expiration_json?.enabled ?? false);
       setExpirationCount(p.default_expiration_json?.count ?? 30);
       setExpirationUnits(p.default_expiration_json?.units ?? 'days');
+      setMoneyTolerancePercent(p.money_tolerance_percent ?? 1);
+      setMoneyToleranceFloor(p.money_tolerance_floor ?? 0.01);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Network error');
       setProject(null);
@@ -109,6 +115,8 @@ export function ProjectSettings() {
           default_expiration_json: expirationEnabled
             ? { enabled: true, count: expirationCount, units: expirationUnits }
             : { enabled: false, count: expirationCount, units: expirationUnits },
+          money_tolerance_percent: moneyTolerancePercent,
+          money_tolerance_floor: moneyToleranceFloor,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -216,6 +224,36 @@ export function ProjectSettings() {
               <option key={u} value={u}>{u}</option>
             ))}
           </select>
+        </div>
+      </div>
+
+      <div className="space-y-2 border-t pt-4">
+        <label className="block text-sm font-medium text-gray-700">Money tolerance (rules, D-30)</label>
+        <p className="text-xs text-gray-500">Used by rules with `tolerance_mode: money` (e.g. purchase totals vs items): tolerance = max(floor, percent% of the target).</p>
+        <div className="flex items-center gap-3 max-w-md">
+          <div className="flex items-center gap-1">
+            <Input
+              type="number"
+              min={0}
+              max={100}
+              step={0.1}
+              value={moneyTolerancePercent}
+              onChange={(e) => setMoneyTolerancePercent(Number(e.target.value) || 0)}
+              className="w-20"
+            />
+            <span className="text-xs text-gray-500">% of target</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Input
+              type="number"
+              min={0}
+              step={0.01}
+              value={moneyToleranceFloor}
+              onChange={(e) => setMoneyToleranceFloor(Number(e.target.value) || 0)}
+              className="w-20"
+            />
+            <span className="text-xs text-gray-500">absolute floor</span>
+          </div>
         </div>
       </div>
 

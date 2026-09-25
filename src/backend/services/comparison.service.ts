@@ -52,6 +52,7 @@ import * as QaRunDAL from '../dal/qa-run.dal';
 import * as FindingDAL from '../dal/finding.dal';
 import * as ConsentCategoryDAL from '../dal/consent-category.dal';
 import * as CatalogDAL from '../dal/catalog.dal';
+import * as RuleDAL from '../dal/rule.dal';
 import { createEventResolver } from './eventResolution';
 import {
   runDefinitionVsObservations,
@@ -73,6 +74,9 @@ import {
 import { runDefinitionVsMapping, type DefinitionVsMappingInput } from '../../domain/comparison/definitionVsMapping';
 import { runMappingVsObservations } from '../../domain/comparison/mappingVsObservations';
 import { toDataManagerDefinitionSnapshot, buildMappingSnapshotFromDefinition, type MappingSnapshot, type DefConsentCategory } from '../../domain/comparison/snapshot';
+import { runRules, runItemSchemaChecks, type ItemSchemaCheck, type RulesEngineRule } from '../../domain/rules/runRules';
+import { refKey } from '../../domain/rules/types';
+import type { ItemSchemaField, RulePropertyRef, RuleSnapshot } from '../../domain/rules/types';
 import { parseDataManagerEvents, type DataManagerEventsModel } from '../../domain/import/dataManagerEvents';
 import { parseDataManagerCustomers, type DataManagerCustomersModel } from '../../domain/import/dataManagerCustomers';
 import { mergeStandardEvents, mergeConsentKeys, STANDARD_CUSTOMER_PROPERTIES, type StandardEventSeed } from '../../domain/bloomreach';
@@ -114,6 +118,11 @@ export function buildDefinitionSnapshot(projectId: string): DefinitionSnapshot {
           allowedValuesRaw.length > 0
             ? allowedValuesRaw.map((v) => ({ value: v.value, standard_event: v.standard_event ?? null }))
             : undefined,
+        // T-2-05 fix round Finding 1: carried through so `buildRuleSnapshot`/`buildItemSchemaChecks`
+        // never need a second `getEventWithProperties` read.
+        item_schema: Array.isArray(link.property.item_schema_json)
+          ? (link.property.item_schema_json as DefEventProperty['item_schema'])
+          : null,
       };
     });
     return {
@@ -280,6 +289,92 @@ export function buildDataManagerEvidence(projectId: string): DataManagerEvidence
   return { events, customers };
 }
 
+/**
+ * `RuleSnapshot.propertiesById` for the whole project (T-2-07), derived from the already-loaded
+ * `DefinitionSnapshot` (T-2-05 fix round Finding 1: no extra `EventDAL.listEvents`/
+ * `getEventWithProperties` calls — `definition.events[].properties[]` already carries every
+ * event's own linked-property rows, `payload_key` and `item_schema` included). Every event's
+ * properties are covered, not just one event's — a `cross_event` rule's `child` side needs to
+ * resolve a *different* event's properties than the rule's own `event_id`.
+ *
+ * Keyed by `refKey(event.id, property.property_id)` (T-2-05 fix round Finding 2, `types.ts`'s
+ * `RuleSnapshot` doc comment), not bare `property_id`: the same `Property` row can be linked to more
+ * than one event with a different per-link `payload_key` on each (D-16, e.g. `purchase_id` linked to
+ * both `purchase` and `purchase_item`) — keying by `property_id` alone silently kept only whichever
+ * event's link this loop visited last.
+ */
+export function buildRuleSnapshot(projectId: string, definition: DefinitionSnapshot): RuleSnapshot {
+  const project = ProjectDAL.getProjectOrThrow(projectId);
+  const propertiesById: Record<string, RulePropertyRef> = {};
+  for (const event of definition.events) {
+    for (const prop of event.properties) {
+      propertiesById[refKey(event.id, prop.property_id)] = {
+        property_id: prop.property_id,
+        payload_key: prop.payload_key ?? prop.name,
+        data_type: prop.data_type,
+        item_schema: (prop.item_schema as ItemSchemaField[] | null | undefined) ?? null,
+      };
+    }
+  }
+  return {
+    propertiesById,
+    money_tolerance_percent: project.money_tolerance_percent,
+    money_tolerance_floor: project.money_tolerance_floor,
+  };
+}
+
+/** Every *enabled* rule on a *custom*-class event (D-29: only custom events are validated), mapped
+ * to `runRules`'s input shape (T-2-07). A disabled rule is simply omitted here — see
+ * `runRules.ts`'s module comment for why that alone is enough to resolve its findings. */
+export function buildRulesEngineRules(projectId: string, customEventIds: Iterable<string>): RulesEngineRule[] {
+  const rules: RulesEngineRule[] = [];
+  for (const eventId of customEventIds) {
+    for (const row of RuleDAL.listRulesByEvent(projectId, eventId)) {
+      if (!row.enabled) continue;
+      rules.push({
+        id: row.id,
+        version: row.version,
+        event_id: row.event_id,
+        variant_id: row.variant_id,
+        name: row.name,
+        message: row.message,
+        severity: row.severity,
+        report_kind: row.report_kind as RulesEngineRule['report_kind'],
+        definition: {
+          kind: row.kind,
+          expression: row.expression_json,
+          tolerance_mode: row.tolerance_mode,
+          tolerance_value: row.tolerance_value,
+        },
+      });
+    }
+  }
+  return rules;
+}
+
+/** Every array-typed linked property with a non-empty `item_schema_json` on a *custom*-class event
+ * (T-2-07, D-30 ItemSchema). T-2-05 fix round Finding 1: derived from the already-loaded
+ * `DefinitionSnapshot`, no `getEventWithProperties` read per event. */
+export function buildItemSchemaChecks(definition: DefinitionSnapshot, customEventIds: Iterable<string>): ItemSchemaCheck[] {
+  const customEventIdSet = new Set(customEventIds);
+  const checks: ItemSchemaCheck[] = [];
+  for (const event of definition.events) {
+    if (!customEventIdSet.has(event.id)) continue;
+    for (const prop of event.properties) {
+      const itemSchema = (prop.item_schema as ItemSchemaField[] | null | undefined) ?? null;
+      if (prop.data_type !== 'array' || !itemSchema || itemSchema.length === 0) continue;
+      checks.push({
+        event_id: event.id,
+        property_id: prop.property_id,
+        property_name: prop.name,
+        payload_key: prop.payload_key ?? prop.name,
+        item_schema: itemSchema,
+      });
+    }
+  }
+  return checks;
+}
+
 export interface ComparisonSummary {
   open: Record<string, number>;
   produced: number;
@@ -345,10 +440,23 @@ export function runComparison(projectId: string): ComparisonSummary {
   const mappingSnapshot = buildMappingSnapshot(projectId, definition);
   const definitionVsMappingInput = buildDefinitionVsMappingInput(projectId, definition);
 
+  // T-2-07: the rules evaluator and item schema checks run as part of `definition_vs_observations`
+  // (plan "Rules evaluator" / "T-2-07"), not a separate comparison — their findings are merged
+  // into the same engine's output array before upsert, so they share its stale-fingerprint
+  // resolution scope.
+  const customEventIds = definition.events.filter((e) => e.class === 'custom').map((e) => e.id);
+  const ruleSnapshot = buildRuleSnapshot(projectId, definition);
+  const rulesEngineRules = buildRulesEngineRules(projectId, customEventIds);
+  const itemSchemaChecks = buildItemSchemaChecks(definition, customEventIds);
+
   const runs: EngineRun[] = [
     {
       comparison: 'definition_vs_observations',
-      findings: runDefinitionVsObservations(definition, observations),
+      findings: [
+        ...runDefinitionVsObservations(definition, observations),
+        ...runRules(rulesEngineRules, observations, ruleSnapshot),
+        ...runItemSchemaChecks(itemSchemaChecks, observations),
+      ],
       qaRunIdByObservationId,
     },
     {

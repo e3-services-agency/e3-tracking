@@ -18,6 +18,7 @@ import { ExpirationEditor, type ExpirationValue } from '@/src/features/events/co
 import { DerivedMetricsEditor, type DerivedMetricRow } from '@/src/features/events/components/DerivedMetricsEditor';
 import { LinkedPropertiesEditor, type LinkedPropertyRow } from '@/src/features/events/components/LinkedPropertiesEditor';
 import { VariantsSection, type DiscriminatorProperty } from '@/src/features/events/components/VariantsSection';
+import { RulesSection, type RuleLinkedProperty } from '@/src/features/events/components/RulesSection';
 import { UseCasesForEventSection } from '@/src/features/events/components/UseCasesForEventSection';
 
 interface EventRow {
@@ -550,6 +551,19 @@ function EventEditor({
               allowed_values_json: l.property.allowed_values_json ?? [],
             }))}
           standardEventByVariantId={standardEventByVariantId}
+        />
+      )}
+
+      {!isCreating && eventId && (
+        <RulesSection
+          projectId={projectId}
+          eventId={eventId}
+          properties={links.map<RuleLinkedProperty>((l) => ({
+            property_id: l.property_id,
+            name: l.property.name,
+            data_type: (l.property as unknown as { data_type?: string }).data_type ?? 'string',
+            item_schema_json: (l.property as unknown as { item_schema_json?: { field: string; data_type: string }[] | null }).item_schema_json ?? null,
+          }))}
         />
       )}
 

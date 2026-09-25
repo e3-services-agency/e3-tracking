@@ -5,8 +5,18 @@
  * call goes through `operators.ts`'s registries (D-30 extension acceptance criterion, asserted by
  * `evaluate.test.ts`'s source-scan test). `comparison.service.ts` builds the `RuleSnapshot` and
  * calls this per rule per observation (wired in T-2-07, not here).
+ *
+ * T-2-05 fix round (Finding 2): every `snapshot.propertiesById` lookup goes through `refKey(eventId,
+ * propertyId)` (`types.ts`), not a bare `property_id` — see that type's doc comment. `eventId` is
+ * always the event the observation/expression side under resolution actually belongs to: the
+ * observation's own `event_id` for a plain property/aggregate/membership haystack read (every such
+ * read already receives the right `observation`, including a `cross_event` child during its own
+ * per-child resolution), `parentObservation.event_id` for the join's parent side, and
+ * `CrossEventExpression.child_event_id` for the join's child side (the one place no single
+ * observation is in scope yet — the join key must be read before any child is found).
  */
 import { AGGREGATES, BOUND_CHECKS, COMPARATORS, toNumber } from './operators';
+import { refKey } from './types';
 import type {
   AggregateOperand,
   ArithmeticExpression,
@@ -33,7 +43,7 @@ const NO_MATCH_OUTCOME: RuleOutcome = {
 };
 
 function readProperty(observation: RuleObservation, propertyId: string, snapshot: RuleSnapshot): unknown {
-  const ref = snapshot.propertiesById[propertyId];
+  const ref = snapshot.propertiesById[refKey(observation.event_id ?? '', propertyId)];
   if (!ref) return undefined;
   return observation.properties[ref.payload_key];
 }
@@ -98,11 +108,23 @@ function resolveObservationOperand(
   }
 }
 
-function resolveAggregateOverList(operand: AggregateOperand, observation: RuleObservation, snapshot: RuleSnapshot): number {
+/**
+ * T-2-07 (fix round from T-2-06 review): when the aggregate's list property is entirely absent
+ * from the observation (`raw === undefined`, the payload key was never sent), returns `null` so
+ * the caller treats this the same as a missing operand (`NO_MATCH_OUTCOME`, skipped) — the same
+ * "nothing to check" outcome `cross_event` already returns for a purchase with zero joined
+ * `purchase_item` siblings. Before this fix, an absent list silently aggregated as `[]` (`sum`/
+ * `count`/`min`/`max` of nothing = `0`), which a `sum(...) eq total_price` rule then reported as a
+ * false `0 != target` violation instead of "cannot evaluate, the list was never sent". A list
+ * property that *is* present but not an array (or `null`) still aggregates over `[]` as before —
+ * that is a shape problem `type_mismatch` already reports elsewhere, not this rule's job to skip.
+ */
+function resolveAggregateOverList(operand: AggregateOperand, observation: RuleObservation, snapshot: RuleSnapshot): number | null {
   const listPropertyId = findListPropertyId(operand.of);
   if (!listPropertyId) return AGGREGATES[operand.fn]([]);
-  const ref = snapshot.propertiesById[listPropertyId];
+  const ref = snapshot.propertiesById[refKey(observation.event_id ?? '', listPropertyId)];
   const raw = ref ? observation.properties[ref.payload_key] : undefined;
+  if (raw === undefined) return null;
   const items = Array.isArray(raw) ? (raw as Record<string, unknown>[]) : [];
   // Raw, uncoerced per-item values: AGGREGATES[fn] owns its own numeric coercion (operators.ts),
   // so `count` can count non-numeric items too (an id list, not just amounts).
@@ -146,7 +168,7 @@ function evaluateArithmetic(
 
 function evaluateMembership(expression: MembershipExpression, observation: RuleObservation, snapshot: RuleSnapshot): RuleOutcome {
   const needle = resolveObservationOperand(expression.needle, observation, snapshot);
-  const haystackRef = snapshot.propertiesById[expression.haystack.property_id];
+  const haystackRef = snapshot.propertiesById[refKey(observation.event_id ?? '', expression.haystack.property_id)];
   const raw = haystackRef ? observation.properties[haystackRef.payload_key] : undefined;
   const items = Array.isArray(raw) ? (raw as Record<string, unknown>[]) : [];
   const values = items.map((item) => item[expression.haystack.field]);
@@ -170,8 +192,8 @@ function evaluateCrossEvent(
   snapshot: RuleSnapshot,
   rule: RuleDefinition
 ): RuleOutcome {
-  const parentJoinRef = snapshot.propertiesById[expression.join.parent_property_id];
-  const childJoinRef = snapshot.propertiesById[expression.join.child_property_id];
+  const parentJoinRef = snapshot.propertiesById[refKey(parentObservation.event_id ?? '', expression.join.parent_property_id)];
+  const childJoinRef = snapshot.propertiesById[refKey(expression.child_event_id, expression.join.child_property_id)];
   const joinKeyRaw = parentJoinRef ? parentObservation.properties[parentJoinRef.payload_key] : undefined;
   if (joinKeyRaw === undefined || joinKeyRaw === null || !childJoinRef) return NO_MATCH_OUTCOME;
   const joinKey = String(joinKeyRaw);

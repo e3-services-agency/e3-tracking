@@ -14,6 +14,7 @@ import * as PropertyDAL from '../dal/property.dal';
 import * as VariantDAL from '../dal/variant.dal';
 import * as StandardEventMappingDAL from '../dal/standard-event-mapping.dal';
 import * as ConsentCategoryDAL from '../dal/consent-category.dal';
+import * as RuleDAL from '../dal/rule.dal';
 import { previewDataMapping, applyDataMapping } from './dataMappingImport.service';
 import { exportDataMapping } from './bloomreachExport.service';
 import { PayloadChangedError } from '../errors';
@@ -155,6 +156,81 @@ describe('applyDataMapping', () => {
     const summary = applyDataMapping(projectId, fixture, preview.payload_hash, selected);
     expect(summary.skipped).toEqual([consentItem.id]);
     expect(ConsentCategoryDAL.listConsentCategories(projectId)).toEqual([]);
+  });
+});
+
+// T-2-07 (D-31): the fixture maps both "purchase" and "purchase_item", so the import proposes
+// instantiating the purchase_items_total rounding_drift rule template — but only once the mapped
+// total_price property carries the "money" data format (T-2-05 fix round ruling on T-2-07 LOW 4,
+// D-25 Q12): a fresh import creates properties as plain `string` (the data-mapping format itself
+// carries no type info), so the very first preview/apply never proposes the rule and instead warns;
+// the rule is only proposed once the property has been retyped to money and preview re-run.
+describe('applyDataMapping proposes the purchase_items_total rule template (D-31, T-2-07)', () => {
+  function retypeTotalPriceToMoney(): void {
+    const prop = PropertyDAL.listProperties(projectId, { scope: 'event' }).find((p) => p.name === 'total_price');
+    if (prop) PropertyDAL.updateProperty(projectId, prop.id, { data_type: 'number', data_formats_json: ['money'] });
+  }
+
+  it('the first preview/apply (total_price still a plain string) does not propose the rule and warns instead', () => {
+    const preview = previewDataMapping(projectId, fixture);
+    expect(preview.items.find((i) => i.id === 'rule:purchase_items_total')).toBeUndefined();
+    expect(preview.warnings.some((w) => w.includes('money') && w.includes('total_price'))).toBe(true);
+  });
+
+  it('preview proposes "rule:purchase_items_total", selected by default, once total_price has the money format', () => {
+    const first = previewDataMapping(projectId, fixture);
+    applyDataMapping(projectId, fixture, first.payload_hash, first.items.map((i) => i.id));
+    retypeTotalPriceToMoney();
+
+    const preview = previewDataMapping(projectId, fixture);
+    const item = preview.items.find((i) => i.id === 'rule:purchase_items_total');
+    expect(item).toBeDefined();
+    expect(item?.op).toBe('create');
+    expect(item?.entity_type).toBe('rule');
+    expect(item?.default_selected).toBe(true);
+  });
+
+  it('apply creates the rule on the purchase event, template_key set, report_kind rounding_drift', () => {
+    const first = previewDataMapping(projectId, fixture);
+    applyDataMapping(projectId, fixture, first.payload_hash, first.items.map((i) => i.id));
+    retypeTotalPriceToMoney();
+
+    const preview = previewDataMapping(projectId, fixture);
+    const summary = applyDataMapping(projectId, fixture, preview.payload_hash, preview.items.map((i) => i.id));
+    expect(summary.applied).toContain('rule:purchase_items_total');
+
+    const purchaseEvent = EventDAL.listEvents(projectId).find((e) => e.name === 'purchase')!;
+    const rules = RuleDAL.listRulesByEvent(projectId, purchaseEvent.id);
+    const rule = rules.find((r) => r.template_key === 'purchase_items_total');
+    expect(rule).toBeDefined();
+    expect(rule?.kind).toBe('cross_event');
+    expect(rule?.report_kind).toBe('rounding_drift');
+    expect(rule?.tolerance_mode).toBe('money');
+  });
+
+  it('is idempotent: a second preview/apply after a full apply proposes and creates no duplicate rule', () => {
+    const first = previewDataMapping(projectId, fixture);
+    applyDataMapping(projectId, fixture, first.payload_hash, first.items.map((i) => i.id));
+    retypeTotalPriceToMoney();
+
+    const second = previewDataMapping(projectId, fixture);
+    applyDataMapping(projectId, fixture, second.payload_hash, second.items.map((i) => i.id));
+
+    const third = previewDataMapping(projectId, fixture);
+    expect(third.items.find((i) => i.id === 'rule:purchase_items_total')).toBeUndefined();
+
+    const purchaseEvent = EventDAL.listEvents(projectId).find((e) => e.name === 'purchase')!;
+    expect(RuleDAL.listRulesByEvent(projectId, purchaseEvent.id).filter((r) => r.template_key === 'purchase_items_total')).toHaveLength(1);
+  });
+
+  it('does not propose the rule when only one of purchase/purchase_item is mapped', () => {
+    const partial = {
+      standard_events: {
+        purchase: fixture.standard_events.purchase,
+      },
+    };
+    const preview = previewDataMapping(projectId, partial);
+    expect(preview.items.find((i) => i.id === 'rule:purchase_items_total')).toBeUndefined();
   });
 });
 

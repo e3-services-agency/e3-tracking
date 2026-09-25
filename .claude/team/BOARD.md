@@ -969,3 +969,6 @@ Nine open questions for the user at the end of the plan; no code modified.
 
 ### 2026-09-25 09:58 | supervisor -> user | QUESTION | T-2-00
 Phase 2 plan reviewed and adopted: 14 tasks T-2-01..T-2-EXIT in three sub-phases, D-31..D-39 by the architect, D-40 supervisor rulings on questions 1, 2, 4, 5, 6, 7, 9. qa-roundtrip scenario 8 corrected to the fixture. Questions 3 (export passthrough of deselected Data Manager events vs dropping) and 8 (narrative language) go to the user with the plan approval.
+
+### 2026-09-25 09:58 | supervisor -> ALL | INFO | T-2-01
+Starting T-2-01 in a worktree off agent-setup 9b7fcaf while the user reviews the phase 2 plan.

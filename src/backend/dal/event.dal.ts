@@ -10,18 +10,47 @@ import {
   BadRequestError,
   ConflictError,
   DiscriminatorInUseError,
+  LimitEventPropertiesError,
+  LimitEventTypesError,
   MaxDiscriminatorsError,
   NotFoundError,
   RoleRequiresEnumError,
   ValidationError,
 } from '../errors';
 import { getPropertyById, type PropertyRow } from './property.dal';
-import { validateDerivedMetricsJson, validateExpirationJson, validateStringArray } from './validators';
+import { validateAsciiName, validateDerivedMetricsJson, validateExpirationJson, validateStringArray } from './validators';
 import { EVENT_PROPERTY_ROLES, EVENT_STATUSES, ENTITY_STATUSES, EVENT_CLASSES, PRIORITIES } from '../../domain/enums';
+import { BLOOMREACH_LIMITS } from '../../domain/bloomreach';
 import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
 import { markRequirementsGapForDetach, markRequirementsGapForEventRemoval, markRequirementsGapForVariantRemoval } from './requirement.dal';
 
 const MAX_DISCRIMINATORS_PER_EVENT = 2;
+
+/** D-38: the project already has `BLOOMREACH_LIMITS.MAX_EVENT_TYPES_PER_PROJECT` live event rows. */
+function assertEventTypeLimitNotReached(projectId: string): void {
+  const { n } = getDb()
+    .prepare('SELECT COUNT(*) as n FROM events WHERE project_id = ? AND deleted_at IS NULL')
+    .get(projectId) as { n: number };
+  if (n >= BLOOMREACH_LIMITS.MAX_EVENT_TYPES_PER_PROJECT) {
+    throw new LimitEventTypesError(
+      `This project already has ${BLOOMREACH_LIMITS.MAX_EVENT_TYPES_PER_PROJECT} event types, Bloomreach's limit.`,
+      'name'
+    );
+  }
+}
+
+/** D-38: the event already has `BLOOMREACH_LIMITS.MAX_PROPERTIES_PER_EVENT` attached properties. */
+function assertEventPropertyLimitNotReached(eventId: string): void {
+  const { n } = getDb()
+    .prepare('SELECT COUNT(*) as n FROM event_properties WHERE event_id = ?')
+    .get(eventId) as { n: number };
+  if (n >= BLOOMREACH_LIMITS.MAX_PROPERTIES_PER_EVENT) {
+    throw new LimitEventPropertiesError(
+      `This event already has ${BLOOMREACH_LIMITS.MAX_PROPERTIES_PER_EVENT} properties, Bloomreach's limit.`,
+      'property_id'
+    );
+  }
+}
 
 /**
  * Cross-field validation for Event create/update (T-1-04 fix round ERROR 1; `class` replaces
@@ -321,7 +350,9 @@ export function listEventSourceIds(projectId: string, eventId: string): string[]
 export function createEvent(projectId: string, input: EventInput): EventRow {
   const name = input.name.trim();
   if (!name) throw new ValidationError('Event name is required.', 'name');
+  validateAsciiName(name, 'name');
   validateEventFields(input);
+  assertEventTypeLimitNotReached(projectId);
 
   const db = getDb();
   const existing = db
@@ -391,6 +422,7 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
   if (input.name !== undefined) {
     const name = input.name.trim();
     if (!name) throw new ValidationError('Event name is required.', 'name');
+    validateAsciiName(name, 'name');
     const clash = db
       .prepare('SELECT id FROM events WHERE project_id = ? AND name = ? AND id != ? AND deleted_at IS NULL')
       .get(projectId, name, eventId);
@@ -664,6 +696,7 @@ export function attachPropertyToEvent(
   const role = input.role || DEFAULT_ROLE;
   assertRoleAllowedForProperty(role, property);
   if (role === 'discriminator') assertDiscriminatorLimit(eventId, null);
+  assertEventPropertyLimitNotReached(eventId);
 
   const now = nowIso();
   const maxOrder = (
@@ -804,6 +837,12 @@ export function replaceEventProperties(
     dedupedByPropertyId.set(link.property_id, link);
   }
   const uniqueLinks = Array.from(dedupedByPropertyId.values());
+  if (uniqueLinks.length > BLOOMREACH_LIMITS.MAX_PROPERTIES_PER_EVENT) {
+    throw new LimitEventPropertiesError(
+      `This event already has ${BLOOMREACH_LIMITS.MAX_PROPERTIES_PER_EVENT} properties, Bloomreach's limit.`,
+      'property_id'
+    );
+  }
 
   let discriminatorCount = 0;
   const nextDiscriminatorIds = new Set<string>();

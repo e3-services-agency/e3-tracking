@@ -5,14 +5,15 @@
  * source they name clears the reference instead of failing or losing the rule.
  */
 import { getDb } from '../db';
-import { newId, nowIso, mapWriteError } from '../db/util';
+import { newId, nowIso, mapWriteError, parseJsonColumn, toJsonColumn } from '../db/util';
 import { BadRequestError, NotFoundError, ValidationError } from '../errors';
-import { IDENTITY_TYPES, PRIORITIES, ENTITY_STATUSES } from '../../domain/enums';
+import { IDENTITY_TYPES, IDENTITY_TRANSFORMATIONS, IDENTITY_SDK_CALLS, PRIORITIES, ENTITY_STATUSES } from '../../domain/enums';
+import { validateAsciiName } from './validators';
 
 export interface IdentityRuleRow {
   id: string;
   project_id: string;
-  bloomreach_field: string;
+  identifier_name: string;
   identity_type: string;
   name: string;
   description: string | null;
@@ -26,12 +27,19 @@ export interface IdentityRuleRow {
   priority: string | null;
   status: string | null;
   sort_order: number;
+  /** D-38: `IDENTITY_TRANSFORMATIONS` subset, e.g. `['trim', 'lowercase']`; `[]` when stored NULL. */
+  transformations_json: string[];
+  /** D-38: `IDENTITY_SDK_CALLS`, nullable for a policy-only rule that generates no codegen call. */
+  sdk_call: string | null;
   created_at: string;
   updated_at: string;
 }
 
+/** Raw DB row shape before `transformations_json` is parsed (T text column -> string array). */
+type IdentityRuleDbRow = Omit<IdentityRuleRow, 'transformations_json'> & { transformations_json: string | null };
+
 export interface IdentityRuleInput {
-  bloomreach_field: string;
+  identifier_name: string;
   identity_type: string;
   name: string;
   description?: string | null;
@@ -45,22 +53,29 @@ export interface IdentityRuleInput {
   priority?: string | null;
   status?: string | null;
   sort_order?: number;
+  transformations_json?: string[] | null;
+  sdk_call?: string | null;
+}
+
+function mapIdentityRuleRow(row: IdentityRuleDbRow): IdentityRuleRow {
+  return {
+    ...row,
+    transformations_json: parseJsonColumn<string[]>(row.transformations_json, []),
+  };
 }
 
 export function listIdentityRules(projectId: string): IdentityRuleRow[] {
-  return getDb()
-    .prepare(
-      'SELECT * FROM identity_rules WHERE project_id = ? ORDER BY sort_order, created_at'
-    )
-    .all(projectId) as IdentityRuleRow[];
+  const rows = getDb()
+    .prepare('SELECT * FROM identity_rules WHERE project_id = ? ORDER BY sort_order, created_at')
+    .all(projectId) as IdentityRuleDbRow[];
+  return rows.map(mapIdentityRuleRow);
 }
 
 export function getIdentityRuleById(projectId: string, id: string): IdentityRuleRow | null {
-  return (
-    (getDb()
-      .prepare('SELECT * FROM identity_rules WHERE id = ? AND project_id = ?')
-      .get(id, projectId) as IdentityRuleRow | undefined) ?? null
-  );
+  const row = getDb()
+    .prepare('SELECT * FROM identity_rules WHERE id = ? AND project_id = ?')
+    .get(id, projectId) as IdentityRuleDbRow | undefined;
+  return row ? mapIdentityRuleRow(row) : null;
 }
 
 export function getIdentityRuleOrThrow(projectId: string, id: string): IdentityRuleRow {
@@ -93,6 +108,29 @@ function validateStatus(status: string | null | undefined): void {
   }
 }
 
+/** D-38: `[]`/null are both valid ("no transformation"); anything else must be a subset of `IDENTITY_TRANSFORMATIONS`. */
+function validateTransformations(transformations: string[] | null | undefined): void {
+  if (transformations === null || transformations === undefined) return;
+  if (!Array.isArray(transformations)) {
+    throw new ValidationError('transformations must be an array.', 'transformations_json');
+  }
+  for (const t of transformations) {
+    if (!IDENTITY_TRANSFORMATIONS.includes(t as (typeof IDENTITY_TRANSFORMATIONS)[number])) {
+      throw new ValidationError(
+        `transformations must be a subset of ${IDENTITY_TRANSFORMATIONS.join(', ')}.`,
+        'transformations_json'
+      );
+    }
+  }
+}
+
+function validateSdkCall(sdkCall: string | null | undefined): void {
+  if (sdkCall === null || sdkCall === undefined) return;
+  if (!IDENTITY_SDK_CALLS.includes(sdkCall as (typeof IDENTITY_SDK_CALLS)[number])) {
+    throw new ValidationError(`sdk_call must be one of ${IDENTITY_SDK_CALLS.join(', ')} or null.`, 'sdk_call');
+  }
+}
+
 /** Cross-project reference guards: `trigger_event_id` and `source_id` must belong to this project. */
 function assertEventInProject(projectId: string, eventId: string | null | undefined): void {
   if (!eventId) return;
@@ -111,13 +149,16 @@ function assertSourceInProject(projectId: string, sourceId: string | null | unde
 export function createIdentityRule(projectId: string, input: IdentityRuleInput): IdentityRuleRow {
   const name = input.name.trim();
   if (!name) throw new ValidationError('Identity rule name is required.', 'name');
-  const bloomreachField = input.bloomreach_field?.trim() ?? '';
-  if (!bloomreachField) {
-    throw new ValidationError('Bloomreach field is required.', 'bloomreach_field');
+  const identifierName = input.identifier_name?.trim() ?? '';
+  if (!identifierName) {
+    throw new ValidationError('Identifier name is required.', 'identifier_name');
   }
+  validateAsciiName(identifierName, 'identifier_name');
   validateIdentityType(input.identity_type);
   validatePriority(input.priority);
   validateStatus(input.status);
+  validateTransformations(input.transformations_json);
+  validateSdkCall(input.sdk_call);
   assertEventInProject(projectId, input.trigger_event_id);
   assertSourceInProject(projectId, input.source_id);
 
@@ -133,16 +174,16 @@ export function createIdentityRule(projectId: string, input: IdentityRuleInput):
   try {
     db.prepare(
       `INSERT INTO identity_rules (
-        id, project_id, bloomreach_field, identity_type, name, description, trigger_event_id,
+        id, project_id, identifier_name, identity_type, name, description, trigger_event_id,
         trigger_text, value_rule, example, owner, source_id, tracker, priority, status,
-        sort_order, created_at, updated_at
-      ) VALUES (@id, @project_id, @bloomreach_field, @identity_type, @name, @description,
+        sort_order, transformations_json, sdk_call, created_at, updated_at
+      ) VALUES (@id, @project_id, @identifier_name, @identity_type, @name, @description,
         @trigger_event_id, @trigger_text, @value_rule, @example, @owner, @source_id, @tracker,
-        @priority, @status, @sort_order, @created_at, @updated_at)`
+        @priority, @status, @sort_order, @transformations_json, @sdk_call, @created_at, @updated_at)`
     ).run({
       id,
       project_id: projectId,
-      bloomreach_field: bloomreachField,
+      identifier_name: identifierName,
       identity_type: input.identity_type,
       name,
       description: input.description?.trim() || null,
@@ -153,6 +194,8 @@ export function createIdentityRule(projectId: string, input: IdentityRuleInput):
       owner: input.owner?.trim() || null,
       source_id: input.source_id ?? null,
       tracker: input.tracker?.trim() || null,
+      transformations_json: toJsonColumn(input.transformations_json ?? []),
+      sdk_call: input.sdk_call ?? null,
       priority: input.priority ?? null,
       status: input.status ?? null,
       sort_order: input.sort_order ?? maxOrder + 1,
@@ -174,8 +217,12 @@ export function updateIdentityRule(
   if (updates.name !== undefined && !updates.name.trim()) {
     throw new ValidationError('Identity rule name is required.', 'name');
   }
-  if (updates.bloomreach_field !== undefined && !updates.bloomreach_field.trim()) {
-    throw new ValidationError('Bloomreach field is required.', 'bloomreach_field');
+  if (updates.identifier_name !== undefined) {
+    const identifierName = updates.identifier_name.trim();
+    if (!identifierName) {
+      throw new ValidationError('Identifier name is required.', 'identifier_name');
+    }
+    validateAsciiName(identifierName, 'identifier_name');
   }
   if (updates.identity_type !== undefined) validateIdentityType(updates.identity_type);
   // Defensive (T-1-06 integration fix): deleteEvent now nulls out trigger_event_id for rules that
@@ -188,9 +235,11 @@ export function updateIdentityRule(
   if (updates.source_id !== undefined) assertSourceInProject(projectId, updates.source_id);
   if (updates.priority !== undefined) validatePriority(updates.priority);
   if (updates.status !== undefined) validateStatus(updates.status);
+  if (updates.transformations_json !== undefined) validateTransformations(updates.transformations_json);
+  if (updates.sdk_call !== undefined) validateSdkCall(updates.sdk_call);
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
-  if (updates.bloomreach_field !== undefined) patch.bloomreach_field = updates.bloomreach_field.trim();
+  if (updates.identifier_name !== undefined) patch.identifier_name = updates.identifier_name.trim();
   if (updates.identity_type !== undefined) patch.identity_type = updates.identity_type;
   if (updates.name !== undefined) patch.name = updates.name.trim();
   if (updates.description !== undefined) patch.description = updates.description?.trim() || null;
@@ -204,6 +253,10 @@ export function updateIdentityRule(
   if (updates.priority !== undefined) patch.priority = updates.priority;
   if (updates.status !== undefined) patch.status = updates.status;
   if (updates.sort_order !== undefined) patch.sort_order = updates.sort_order;
+  if (updates.transformations_json !== undefined) {
+    patch.transformations_json = toJsonColumn(updates.transformations_json ?? []);
+  }
+  if (updates.sdk_call !== undefined) patch.sdk_call = updates.sdk_call;
 
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)

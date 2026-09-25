@@ -50,7 +50,7 @@ describe('source.dal', () => {
     expect(SourceDAL.getSourceUsage(projectId)[0].identity_rule_count).toBe(0);
 
     IdentityRuleDAL.createIdentityRule(projectId, {
-      bloomreach_field: 'registered',
+      identifier_name: 'registered',
       identity_type: 'hard',
       name: 'Registration email',
       source_id: source.id,

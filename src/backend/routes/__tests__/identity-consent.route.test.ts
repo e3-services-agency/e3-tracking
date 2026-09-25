@@ -47,7 +47,7 @@ function jsonRequest(method: string, path: string, body?: unknown) {
 describe('POST/GET /api/projects/:projectId/identity-rules', () => {
   it('creates rules and lists them in sort_order (creation order by default)', async () => {
     const createA = await jsonRequest('POST', `/api/projects/${projectId}/identity-rules`, {
-      bloomreach_field: 'registered_email',
+      identifier_name: 'registered_email',
       identity_type: 'hard',
       name: 'Registration email',
     });
@@ -55,7 +55,7 @@ describe('POST/GET /api/projects/:projectId/identity-rules', () => {
     const a = await createA.json();
 
     const createB = await jsonRequest('POST', `/api/projects/${projectId}/identity-rules`, {
-      bloomreach_field: 'anon_cookie',
+      identifier_name: 'anon_cookie',
       identity_type: 'soft',
       name: 'Anonymous cookie',
     });
@@ -70,7 +70,7 @@ describe('POST/GET /api/projects/:projectId/identity-rules', () => {
 
   it('returns 400 on a bad identity_type', async () => {
     const res = await jsonRequest('POST', `/api/projects/${projectId}/identity-rules`, {
-      bloomreach_field: 'weak_field',
+      identifier_name: 'weak_field',
       identity_type: 'not_a_real_type',
       name: 'Bad rule',
     });

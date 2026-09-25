@@ -3,13 +3,15 @@
  */
 import { Router, type Request, type Response } from 'express';
 import * as IdentityRuleDAL from '../dal/identity-rule.dal';
+import { buildIdentityCodegen } from '../services/codegen.service';
+import { listProperties } from '../dal/property.dal';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
 
 function inputFromBody(body: Record<string, unknown>): Partial<IdentityRuleDAL.IdentityRuleInput> {
   const input: Partial<IdentityRuleDAL.IdentityRuleInput> = {};
-  if (typeof body.bloomreach_field === 'string') input.bloomreach_field = body.bloomreach_field;
+  if (typeof body.identifier_name === 'string') input.identifier_name = body.identifier_name;
   if (typeof body.identity_type === 'string') input.identity_type = body.identity_type;
   if (typeof body.name === 'string') input.name = body.name;
   if ('description' in body) input.description = body.description as string | null;
@@ -23,6 +25,12 @@ function inputFromBody(body: Record<string, unknown>): Partial<IdentityRuleDAL.I
   if ('priority' in body) input.priority = body.priority as string | null;
   if ('status' in body) input.status = body.status as string | null;
   if (typeof body.sort_order === 'number') input.sort_order = body.sort_order;
+  if ('transformations_json' in body) {
+    input.transformations_json = Array.isArray(body.transformations_json)
+      ? (body.transformations_json.filter((v) => typeof v === 'string') as string[])
+      : null;
+  }
+  if ('sdk_call' in body) input.sdk_call = body.sdk_call as string | null;
   return input;
 }
 
@@ -37,17 +45,17 @@ router.get('/', (req: Request, res: Response) => {
 router.post('/', (req: Request, res: Response) => {
   const body = req.body as Record<string, unknown>;
   const name = typeof body.name === 'string' ? body.name.trim() : '';
-  const bloomreachField = typeof body.bloomreach_field === 'string' ? body.bloomreach_field.trim() : '';
+  const identifierName = typeof body.identifier_name === 'string' ? body.identifier_name.trim() : '';
   const identityType = typeof body.identity_type === 'string' ? body.identity_type : '';
   if (!name) {
     res.status(400).json({ error: 'name is required.', code: 'NAME_REQUIRED', field: 'name' });
     return;
   }
-  if (!bloomreachField) {
+  if (!identifierName) {
     res.status(400).json({
-      error: 'bloomreach_field is required.',
-      code: 'BLOOMREACH_FIELD_REQUIRED',
-      field: 'bloomreach_field',
+      error: 'identifier_name is required.',
+      code: 'IDENTIFIER_NAME_REQUIRED',
+      field: 'identifier_name',
     });
     return;
   }
@@ -55,10 +63,26 @@ router.post('/', (req: Request, res: Response) => {
     const rule = IdentityRuleDAL.createIdentityRule(req.projectId!, {
       ...inputFromBody(body),
       name,
-      bloomreach_field: bloomreachField,
+      identifier_name: identifierName,
       identity_type: identityType,
     });
     res.status(201).json(rule);
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+/**
+ * `GET .../codegen`: identify/update/anonymize snippets built from this project's identity rules
+ * and mapped customer properties (D-38, `buildIdentityCodegen`). Also exposed project-wide at
+ * `GET /export/codegen/identity` (`routes/export.ts`) for the documentation export. Registered
+ * before `GET /:id` so the literal path `/codegen` is not swallowed by the `:id` param route.
+ */
+router.get('/codegen', (req: Request, res: Response) => {
+  try {
+    const rules = IdentityRuleDAL.listIdentityRules(req.projectId!);
+    const customerProperties = listProperties(req.projectId!, { scope: 'customer' });
+    res.status(200).json(buildIdentityCodegen(rules, customerProperties));
   } catch (err) {
     handleRouteError(err, res);
   }

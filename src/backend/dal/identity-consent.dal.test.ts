@@ -30,12 +30,12 @@ afterEach(() => {
 describe('identity-rule.dal', () => {
   it('creates, lists in sort_order, updates and deletes a rule', () => {
     const a = IdentityRuleDAL.createIdentityRule(projectId, {
-      bloomreach_field: 'registered',
+      identifier_name: 'registered',
       identity_type: 'hard',
       name: 'Registration email',
     });
     const b = IdentityRuleDAL.createIdentityRule(projectId, {
-      bloomreach_field: 'cookie',
+      identifier_name: 'cookie',
       identity_type: 'soft',
       name: 'Anonymous cookie',
     });
@@ -51,19 +51,19 @@ describe('identity-rule.dal', () => {
   it('rejects an unknown identity_type with a ValidationError', () => {
     expect(() =>
       IdentityRuleDAL.createIdentityRule(projectId, {
-        bloomreach_field: 'registered',
+        identifier_name: 'registered',
         identity_type: 'weak',
         name: 'Bad rule',
       })
     ).toThrow(ValidationError);
   });
 
-  it('rejects a blank name or bloomreach_field', () => {
+  it('rejects a blank name or identifier_name', () => {
     expect(() =>
-      IdentityRuleDAL.createIdentityRule(projectId, { bloomreach_field: 'registered', identity_type: 'hard', name: '  ' })
+      IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'registered', identity_type: 'hard', name: '  ' })
     ).toThrow(ValidationError);
     expect(() =>
-      IdentityRuleDAL.createIdentityRule(projectId, { bloomreach_field: '  ', identity_type: 'hard', name: 'Rule' })
+      IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: '  ', identity_type: 'hard', name: 'Rule' })
     ).toThrow(ValidationError);
   });
 
@@ -75,7 +75,7 @@ describe('identity-rule.dal', () => {
 
     expect(() =>
       IdentityRuleDAL.createIdentityRule(projectId, {
-        bloomreach_field: 'registered',
+        identifier_name: 'registered',
         identity_type: 'hard',
         name: 'Rule',
         trigger_event_id: otherEvent.id,
@@ -83,7 +83,7 @@ describe('identity-rule.dal', () => {
     ).toThrow(BadRequestError);
     expect(() =>
       IdentityRuleDAL.createIdentityRule(projectId, {
-        bloomreach_field: 'registered',
+        identifier_name: 'registered',
         identity_type: 'hard',
         name: 'Rule',
         source_id: otherSource.id,
@@ -92,9 +92,9 @@ describe('identity-rule.dal', () => {
   });
 
   it('reorders rules; sort_order becomes the index in the given order', () => {
-    const a = IdentityRuleDAL.createIdentityRule(projectId, { bloomreach_field: 'a', identity_type: 'hard', name: 'A' });
-    const b = IdentityRuleDAL.createIdentityRule(projectId, { bloomreach_field: 'b', identity_type: 'hard', name: 'B' });
-    const c = IdentityRuleDAL.createIdentityRule(projectId, { bloomreach_field: 'c', identity_type: 'hard', name: 'C' });
+    const a = IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'a', identity_type: 'hard', name: 'A' });
+    const b = IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'b', identity_type: 'hard', name: 'B' });
+    const c = IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'c', identity_type: 'hard', name: 'C' });
     expect(IdentityRuleDAL.listIdentityRules(projectId).map((r) => r.id)).toEqual([a.id, b.id, c.id]);
 
     IdentityRuleDAL.reorderIdentityRules(projectId, [c.id, a.id, b.id]);
@@ -102,8 +102,8 @@ describe('identity-rule.dal', () => {
   });
 
   it('rejects a reorder whose ids do not match the project’s full rule set', () => {
-    const a = IdentityRuleDAL.createIdentityRule(projectId, { bloomreach_field: 'a', identity_type: 'hard', name: 'A' });
-    IdentityRuleDAL.createIdentityRule(projectId, { bloomreach_field: 'b', identity_type: 'hard', name: 'B' });
+    const a = IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'a', identity_type: 'hard', name: 'A' });
+    IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'b', identity_type: 'hard', name: 'B' });
     expect(() => IdentityRuleDAL.reorderIdentityRules(projectId, [a.id])).toThrow(BadRequestError);
   });
 
@@ -111,7 +111,7 @@ describe('identity-rule.dal', () => {
     const event = EventDAL.createEvent(projectId, { name: 'account_created' });
     const source = SourceDAL.createSource(projectId, { name: 'Website' });
     const rule = IdentityRuleDAL.createIdentityRule(projectId, {
-      bloomreach_field: 'registered',
+      identifier_name: 'registered',
       identity_type: 'hard',
       name: 'Registration email',
       trigger_event_id: event.id,
@@ -133,7 +133,7 @@ describe('identity-rule.dal', () => {
   it('nulls trigger_event_id when the event is soft-deleted (T-1-06 integration fix, reviewer WARNING)', () => {
     const event = EventDAL.createEvent(projectId, { name: 'account_created' });
     const rule = IdentityRuleDAL.createIdentityRule(projectId, {
-      bloomreach_field: 'registered',
+      identifier_name: 'registered',
       identity_type: 'hard',
       name: 'Registration email',
       trigger_event_id: event.id,
@@ -155,7 +155,7 @@ describe('identity-rule.dal', () => {
     const db = getDb();
     const event = EventDAL.createEvent(projectId, { name: 'account_created' });
     const rule = IdentityRuleDAL.createIdentityRule(projectId, {
-      bloomreach_field: 'registered',
+      identifier_name: 'registered',
       identity_type: 'hard',
       name: 'Registration email',
       trigger_event_id: event.id,
@@ -184,7 +184,7 @@ describe('identity-rule.dal', () => {
   it('validates priority and status against enums.ts (LOW 3)', () => {
     expect(() =>
       IdentityRuleDAL.createIdentityRule(projectId, {
-        bloomreach_field: 'registered',
+        identifier_name: 'registered',
         identity_type: 'hard',
         name: 'Rule',
         priority: 'urgent',
@@ -192,14 +192,14 @@ describe('identity-rule.dal', () => {
     ).toThrow(ValidationError);
     expect(() =>
       IdentityRuleDAL.createIdentityRule(projectId, {
-        bloomreach_field: 'registered',
+        identifier_name: 'registered',
         identity_type: 'hard',
         name: 'Rule',
         status: 'done',
       })
     ).toThrow(ValidationError);
     const rule = IdentityRuleDAL.createIdentityRule(projectId, {
-      bloomreach_field: 'registered',
+      identifier_name: 'registered',
       identity_type: 'hard',
       name: 'Rule',
       priority: 'high',

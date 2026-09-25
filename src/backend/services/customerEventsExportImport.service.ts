@@ -13,7 +13,7 @@ import { listVariants } from '../dal/variant.dal';
 import * as QaRunDAL from '../dal/qa-run.dal';
 import * as ObservationDAL from '../dal/observation.dal';
 import { runComparison, type ComparisonSummary } from './comparison.service';
-import { resolveEventAndVariant } from './eventResolution';
+import { createEventResolver } from './eventResolution';
 import {
   parseCustomerEventsExport,
   type CustomerEventsExportEvent,
@@ -75,9 +75,13 @@ function buildItemsAndSummary(
   const items: DiffItem[] = [];
   const byType = new Map<string, CustomerEventsTypeSummary>();
   let duplicateCount = 0;
+  // T-2-04 (D-21 "Batched resolution"): one resolver built once for every event in the file, instead
+  // of a fresh `listEvents`/`getEventWithProperties`/`listVariants` scan per event (same fix as
+  // `comparison.service.ts`'s `buildEngineObservations`).
+  const resolve = createEventResolver(projectId);
 
   model.events.forEach((evt, index) => {
-    const { event_id, variant_id } = resolveEventAndVariant(projectId, evt.type, evt.properties);
+    const { event_id, variant_id } = resolve(evt.type, evt.properties);
     const resolved = event_id !== null;
     const knownSystem = !resolved && KNOWN_SYSTEM_EVENT_TYPES.includes(evt.type);
     const hash = ObservationDAL.computeRawHash(evt.type, evt.timestamp, evt.properties);
@@ -166,12 +170,13 @@ export function applyCustomerEventsExport(
       source_meta_json: { url: model.url, events_listed: model.events_listed, note: model.note },
     });
 
+    const resolve = createEventResolver(projectId);
     model.events.forEach((evt, index) => {
       if (!selected.has(itemId(index, evt))) {
         skipped += 1;
         return;
       }
-      const { event_id, variant_id } = resolveEventAndVariant(projectId, evt.type, evt.properties);
+      const { event_id, variant_id } = resolve(evt.type, evt.properties);
       const row = ObservationDAL.createObservation(projectId, run.id, {
         source: 'export',
         event_type: evt.type,

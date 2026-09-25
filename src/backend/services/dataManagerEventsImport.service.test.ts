@@ -380,6 +380,30 @@ describe('D-41 fix round: MEDIUM 4, properties/links only for selected events', 
     expect(EventDAL.listEvents(projectId).find((e) => e.name === 'shipment')).toBeUndefined();
     expect(PropertyDAL.listProperties(projectId, { scope: 'event' }).find((p) => p.name === 'purchase_id')).toBeDefined();
   });
+
+  it('selecting a property item whose only owning event is deselected produces one warning (T-2-04, T-2-03 review carry-over)', () => {
+    // Same fixture shape as the first test in this block (`share_source` only on `registered_as_referee`),
+    // but this time the property's own `create` item stays selected while its `anyOf` event does not —
+    // the property step is skipped by the `anyOf` gate, not `dependsOn`, and must still warn.
+    const preview = previewDataManagerEvents(projectId, eventsFixture);
+    const registeredAsRefereeItem = preview.items.find((i) => i.entity_type === 'event' && i.entity_key === 'registered_as_referee')!;
+    const shareSourcePropertyItem = preview.items.find((i) => i.entity_type === 'property' && i.entity_key === 'share_source')!;
+    expect(shareSourcePropertyItem.default_selected).toBe(true);
+
+    const linkIdsForEvent = preview.items
+      .filter((i) => i.entity_type === 'event_property' && i.entity_key.startsWith('registered_as_referee.'))
+      .map((i) => i.id);
+    const selected = preview.items
+      .filter((i) => i.default_selected && i.id !== registeredAsRefereeItem.id && !linkIdsForEvent.includes(i.id))
+      .map((i) => i.id);
+
+    const result = applyDataManagerEvents(projectId, eventsFixture, preview.payload_hash, selected);
+
+    expect(result.skipped).toContain(shareSourcePropertyItem.id);
+    expect(
+      result.warnings.some((w) => w.includes(`Skipped "${shareSourcePropertyItem.id}"`) && w.includes('none of its events'))
+    ).toBe(true);
+  });
 });
 
 describe('D-41 fix round: LOW 5, type comparison uses the reverse-mapped Data Manager type', () => {
@@ -507,5 +531,37 @@ describe('D-41 fix round: ERROR 2, export precedence follows Property edits sinc
       }
     }
     expect(linkCount).toBeGreaterThan(1); // "price" appears on more than one live event in the fixture
+  });
+
+  it('editing only the Property description (type/PII untouched) still pushes the edit on export (T-2-04, D-41 amendment)', () => {
+    setUpPhase1Definition();
+    const preview = previewDataManagerEvents(projectId, eventsFixture);
+    const selected = preview.items.filter((i) => i.default_selected).map((i) => i.id);
+    applyDataManagerEvents(projectId, eventsFixture, preview.payload_hash, selected);
+
+    const price = PropertyDAL.listProperties(projectId, { scope: 'event' }).find((p) => p.name === 'price')!;
+    // Only description changes; data_type/data_formats/pii stay exactly as the import wrote them, so
+    // `propertyUnchangedSinceImport` (type/PII) stays `true` while the description edit must still
+    // reach export via its own `description_at_import` reference.
+    PropertyDAL.updateProperty(projectId, price.id, { description: 'DESCRIPTION ONLY EDIT' });
+
+    const exported = exportDataManagerEvents(projectId);
+    const liveEventNames = new Set(EventDAL.listEvents(projectId).map((e) => e.name));
+    const allEvents = [
+      ...(exported.default_group as { events: Record<string, unknown>[] }).events,
+      ...(exported.groups as { events: Record<string, unknown>[] }[]).flatMap((g) => g.events),
+    ] as { type: string; properties: { default_group: { properties: Record<string, unknown>[] }; groups: { properties: Record<string, unknown>[] }[] } }[];
+    let linkCount = 0;
+    for (const ev of allEvents) {
+      if (!liveEventNames.has(ev.type)) continue;
+      const props = ev.properties;
+      const all = [...props.default_group.properties, ...props.groups.flatMap((g) => g.properties)];
+      for (const p of all) {
+        if (p.property !== 'price') continue;
+        linkCount++;
+        expect(p.description, `price link on event "${ev.type}"`).toBe('DESCRIPTION ONLY EDIT');
+      }
+    }
+    expect(linkCount).toBeGreaterThan(1);
   });
 });

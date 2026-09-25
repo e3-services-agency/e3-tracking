@@ -104,6 +104,7 @@ export const COMPARISON_IDS = [
   'definition_vs_mapping',
   'mapping_vs_observations',
   'definition_vs_observations',
+  'data_manager',
 ] as const;
 export type ComparisonId = (typeof COMPARISON_IDS)[number];
 

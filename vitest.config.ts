@@ -9,5 +9,8 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // T-2-03 review carry-over: the full suite (esp. the Data Manager events fixture tests, ~60
+    // events/500+ property occurrences) exceeds vitest's 5s default under parallel CI/local load.
+    testTimeout: 15000,
   },
 });

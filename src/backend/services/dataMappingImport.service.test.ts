@@ -179,6 +179,41 @@ describe('exportDataMapping round trip', () => {
   });
 });
 
+describe('previewDataMapping findings (T-2-05, comparison 1 against the pasted file, not persisted)', () => {
+  it('lists a rename_mismatch when the pasted mapping renames the newsletter consent, without persisting anything', () => {
+    const first = previewDataMapping(projectId, fixture);
+    applyDataMapping(projectId, fixture, first.payload_hash, first.items.map((i) => i.id));
+
+    const mutated = JSON.parse(JSON.stringify(fixture));
+    mutated.consents.newsletter = 'newsletter_consent'; // stored category is named "brand_consent"
+    const preview = previewDataMapping(projectId, mutated);
+
+    const consentFinding = preview.findings.find((f) => f.kind === 'rename_mismatch' && f.fingerprint.includes('consent:newsletter'));
+    expect(consentFinding).toBeDefined();
+    expect(consentFinding?.severity).toBe('warning');
+    expect(consentFinding?.message).toContain('newsletter_consent');
+
+    // Preview never writes anything (D-22): the stored category is untouched.
+    const stored = ConsentCategoryDAL.listConsentCategories(projectId).find((c) => c.standard_key === 'newsletter');
+    expect(stored?.name).toBe('brand_consent');
+  });
+
+  it('an as-pasted-fixture preview lists only the fixture\'s own genuine field renames (purchase_item.total_price -> price, total_quantity -> quantity), nothing else', () => {
+    const first = previewDataMapping(projectId, fixture);
+    applyDataMapping(projectId, fixture, first.payload_hash, first.items.map((i) => i.id));
+    const second = previewDataMapping(projectId, fixture);
+    // The plan's rule ("standard field name differs from the property's payload_key ?? name") is
+    // exactly what the fixture itself does here: Bloomreach's `total_price`/`total_quantity` fields
+    // map to client properties genuinely named `price`/`quantity` (`data-mapping.json`'s
+    // `purchase_item` block) — a real, by-design rename, correctly reported every time, not a bug
+    // introduced by re-pasting the same file.
+    expect(second.findings.map((f) => f.kind)).toEqual(['rename_mismatch', 'rename_mismatch']);
+    expect(second.findings.every((f) => f.fingerprint.startsWith('definition_vs_mapping|rename_mismatch|') && f.fingerprint.includes('purchase_item:total_'))).toBe(
+      true
+    );
+  });
+});
+
 // fix round (2026-09-24 22:36 reviewer FAIL) regression tests.
 describe('fix round: ERROR 1 - unknown standard event/consent keys applied end to end', () => {
   it('applies an unknown standard event key (with fields) and adds a project_addition before the mapping', () => {

@@ -75,6 +75,9 @@ describe('POST /comparison/run', () => {
     expect(body.by_comparison).toBeDefined();
     expect(body.by_comparison.definition_vs_observations).toBeDefined();
     expect(body.by_comparison.data_manager).toBeDefined();
-    expect(body.produced).toBe(body.by_comparison.definition_vs_observations.produced + body.by_comparison.data_manager.produced);
+    // T-2-05: definition_vs_mapping and mapping_vs_observations also run in the same recompute now.
+    expect(body.produced).toBe(
+      Object.values(body.by_comparison as Record<string, { produced: number }>).reduce((sum, c) => sum + c.produced, 0)
+    );
   });
 });

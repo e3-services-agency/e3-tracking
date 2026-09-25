@@ -27,6 +27,10 @@ import type { DiffItem, DiffItemChange } from '../../domain/diff/types';
 import { isKnownStandardEvent, isKnownConsentKey, STANDARD_CUSTOMER_PROPERTIES, type StandardEventSeed } from '../../domain/bloomreach';
 import { generateVariantName, type VariantCondition } from '../../domain/variants';
 import { BadRequestError, ConflictError, PayloadChangedError } from '../errors';
+import { runDefinitionVsMapping } from '../../domain/comparison/definitionVsMapping';
+import { mappingSnapshotFromParsedModel } from '../../domain/comparison/snapshot';
+import type { EngineFinding } from '../../domain/comparison/definitionVsObservations';
+import { buildDefinitionSnapshot, buildDefinitionVsMappingInput } from './comparison.service';
 import {
   findEventByName,
   findPropertyByName,
@@ -73,6 +77,13 @@ export interface DataMappingPreviewResult {
   items: DiffItem[];
   warnings: string[];
   payload_hash: string;
+  /**
+   * T-2-05 (plan "MappingSnapshot ... from a parsed file in `previewDataMapping`"): comparison 1
+   * (`definition_vs_mapping`) run against the *current stored definition* and the *pasted* mapping —
+   * never persisted (D-22: a pasted mapping can be compared without being applied). Lets the preview
+   * screen show e.g. a renamed consent category before the user commits to applying anything.
+   */
+  findings: EngineFinding[];
 }
 
 export interface DataMappingApplySummary {
@@ -732,7 +743,22 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
 export function previewDataMapping(projectId: string, rawJson: unknown): DataMappingPreviewResult {
   const model = parseDataMapping(rawJson);
   const { items, warnings } = buildPlan(projectId, model);
-  return { items, warnings, payload_hash: payloadHash(rawJson) };
+
+  // T-2-05: comparison 1 against the *current stored* definition and the *pasted* mapping, never
+  // persisted (D-22). Uses the same `DefinitionSnapshot`/`DefinitionVsMappingInput` builders
+  // `comparison.service.ts`'s `runComparison` uses, so a preview finding and a post-apply finding
+  // are computed identically.
+  const definition = buildDefinitionSnapshot(projectId);
+  const definitionVsMappingInput = buildDefinitionVsMappingInput(projectId, definition);
+  const mappingSnapshot = mappingSnapshotFromParsedModel({
+    standardEvents: model.standardEvents,
+    customerProperties: model.customerProperties,
+    consents: model.consents,
+    catalogs: { main: model.catalogs.main, variant: model.catalogs.variant },
+  });
+  const findings = runDefinitionVsMapping(definitionVsMappingInput, mappingSnapshot);
+
+  return { items, warnings, payload_hash: payloadHash(rawJson), findings };
 }
 
 export function applyDataMapping(

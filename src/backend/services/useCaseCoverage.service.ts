@@ -6,6 +6,13 @@
  *
  * For each requirement, "satisfied" means at least one observation in a non-archived run
  * (D-21 comparison scope) demonstrates it:
+ * "Resolved" here means resolved *live*, the same way `comparison.service.ts` does (WARNING 2 fix
+ * round): each observation's `event_type`/raw properties are matched against the event by name and
+ * the variant by evaluating its discriminator conditions (`eventResolution.ts`'s
+ * `resolveEventAndVariant`), not the observation's stored `event_id`/`variant_id` columns, which
+ * are only refreshed by a comparison recompute. This way an observation captured before a variant
+ * existed (or before an event was linked) still counts as soon as the definitions catch up, with no
+ * need to run a comparison first.
  *  - `event`/`event_property`: an observation resolved to the requirement's `event_id` (any
  *    variant, or none), and for `event_property` the property's payload key is present in that
  *    observation's raw properties.
@@ -19,8 +26,10 @@
  */
 import * as RequirementDAL from '../dal/requirement.dal';
 import * as ObservationDAL from '../dal/observation.dal';
-import { getEventWithProperties } from '../dal/event.dal';
+import { getEventWithProperties, type EventPropertyWithDetails } from '../dal/event.dal';
 import { listVariantsByProject } from '../dal/variant.dal';
+import { resolveEventAndVariant } from './eventResolution';
+import type { ObservationRow } from '../dal/observation.dal';
 
 export interface UseCaseCoverageRow {
   requirement_id: string;
@@ -37,56 +46,79 @@ export interface UseCaseCoverage {
   total_count: number;
 }
 
-/** `payload_key` (or the property's own name, falling back to the id) of a property linked to an event, or `null` when it is not linked. */
-function resolvePayloadKey(projectId: string, eventId: string, propertyId: string): string | null {
-  const { properties } = getEventWithProperties(projectId, eventId);
-  const link = properties.find((p) => p.property_id === propertyId);
-  if (!link) return null;
-  return link.payload_key ?? link.property.name;
+interface ResolvedObservation {
+  observation: ObservationRow;
+  event_id: string | null;
+  variant_id: string | null;
+}
+
+/**
+ * Per-event property-link cache (LOW 7 fix round: `resolvePayloadKey` used to call
+ * `getEventWithProperties` once per `*_property` requirement; one requirement matrix has at most a
+ * handful of distinct events, so this caches by event id instead).
+ */
+function buildPayloadKeyResolver(projectId: string): (eventId: string, propertyId: string) => string | null {
+  const cache = new Map<string, EventPropertyWithDetails[]>();
+  return (eventId, propertyId) => {
+    let links = cache.get(eventId);
+    if (!links) {
+      links = getEventWithProperties(projectId, eventId).properties;
+      cache.set(eventId, links);
+    }
+    const link = links.find((p) => p.property_id === propertyId);
+    if (!link) return null;
+    return link.payload_key ?? link.property.name;
+  };
+}
+
+function unsatisfiedRow(req: RequirementDAL.RequirementRow): UseCaseCoverageRow {
+  return { requirement_id: req.id, target_kind: req.target_kind, level: req.level, status: req.status, satisfied: false, observation_count: 0 };
 }
 
 export function computeUseCaseCoverage(projectId: string, useCaseId: string): UseCaseCoverage {
   const requirements = RequirementDAL.listRequirements(projectId, useCaseId);
   const observations = ObservationDAL.listObservationsInScope(projectId);
   const variantEventId = new Map(listVariantsByProject(projectId).map((v) => [v.id, v.event_id]));
+  const resolvePayloadKey = buildPayloadKeyResolver(projectId);
+
+  // WARNING 2 fix round: resolve every observation *live* against current definitions (same
+  // resolution `comparison.service.ts` uses), not the observation's stored `event_id`/`variant_id`
+  // columns, which are only refreshed by a comparison recompute.
+  const resolved: ResolvedObservation[] = observations.map((o) => {
+    const resolution = resolveEventAndVariant(projectId, o.event_type, o.properties_json);
+    return { observation: o, event_id: resolution.event_id, variant_id: resolution.variant_id };
+  });
 
   const rows: UseCaseCoverageRow[] = requirements.map((req) => {
-    let matching = observations;
-    let payloadKey: string | null = null;
-
     if (req.target_kind === 'customer_property') {
-      return {
-        requirement_id: req.id,
-        target_kind: req.target_kind,
-        level: req.level,
-        status: req.status,
-        satisfied: false,
-        observation_count: 0,
-      };
+      return unsatisfiedRow(req);
     }
 
+    if (req.status === 'gap') {
+      return unsatisfiedRow(req);
+    }
+
+    let matching: ResolvedObservation[];
+    let payloadKey: string | null = null;
+
     if (req.target_kind === 'event' || req.target_kind === 'event_property') {
-      if (!req.event_id) {
-        return { requirement_id: req.id, target_kind: req.target_kind, level: req.level, status: req.status, satisfied: false, observation_count: 0 };
-      }
-      matching = observations.filter((o) => o.event_id === req.event_id);
+      if (!req.event_id) return unsatisfiedRow(req);
+      matching = resolved.filter((r) => r.event_id === req.event_id);
       if (req.target_kind === 'event_property' && req.property_id) {
-        payloadKey = resolvePayloadKey(projectId, req.event_id, req.property_id);
+        payloadKey = resolvePayloadKey(req.event_id, req.property_id);
       }
     } else {
       // variant | variant_property
-      if (!req.variant_id) {
-        return { requirement_id: req.id, target_kind: req.target_kind, level: req.level, status: req.status, satisfied: false, observation_count: 0 };
-      }
-      matching = observations.filter((o) => o.variant_id === req.variant_id);
+      if (!req.variant_id) return unsatisfiedRow(req);
+      matching = resolved.filter((r) => r.variant_id === req.variant_id);
       if (req.target_kind === 'variant_property' && req.property_id) {
         const eventId = variantEventId.get(req.variant_id);
-        payloadKey = eventId ? resolvePayloadKey(projectId, eventId, req.property_id) : null;
+        payloadKey = eventId ? resolvePayloadKey(eventId, req.property_id) : null;
       }
     }
 
     if (payloadKey) {
-      matching = matching.filter((o) => Object.prototype.hasOwnProperty.call(o.properties_json, payloadKey as string));
+      matching = matching.filter((r) => Object.prototype.hasOwnProperty.call(r.observation.properties_json, payloadKey as string));
     }
 
     return {

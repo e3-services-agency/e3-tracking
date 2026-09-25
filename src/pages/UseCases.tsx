@@ -716,15 +716,31 @@ function UseCaseDetail({
           </div>
         </div>
 
-        {coverage && (
-          <div className="bg-white rounded-lg border shadow-sm p-6">
-            <h2 className="font-semibold text-gray-900 mb-2">Coverage</h2>
-            <p className="text-sm text-gray-500">
-              {coverage.satisfied_count} of {coverage.total_count} requirement{coverage.total_count === 1 ? '' : 's'} observed
-              in a non-archived QA run.
-            </p>
-          </div>
-        )}
+        {coverage && (() => {
+          // LOW 5 fix round: `customer_property` rows can never be satisfied from event-payload
+          // observations (useCaseCoverage.service.ts's module doc) -- excluded from both the count
+          // and the denominator so "N of M" reflects what could actually be observed, with a note
+          // for the excluded rows instead of silently lowering the achievable maximum.
+          const observableRows = coverage.rows.filter((r) => r.target_kind !== 'customer_property');
+          const observableSatisfied = observableRows.filter((r) => r.satisfied).length;
+          const customerPropertyCount = coverage.rows.length - observableRows.length;
+          return (
+            <div className="bg-white rounded-lg border shadow-sm p-6">
+              <h2 className="font-semibold text-gray-900 mb-2">Coverage</h2>
+              <p className="text-sm text-gray-500">
+                {observableSatisfied} of {observableRows.length} requirement{observableRows.length === 1 ? '' : 's'} observed
+                in a non-archived QA run.
+                {customerPropertyCount > 0 && (
+                  <>
+                    {' '}
+                    ({customerPropertyCount} customer property requirement{customerPropertyCount === 1 ? '' : 's'} excluded --
+                    not observable from event data.)
+                  </>
+                )}
+              </p>
+            </div>
+          );
+        })()}
 
         <div className="bg-white rounded-lg border shadow-sm">
           <div className="px-6 py-4 border-b flex items-center justify-between">

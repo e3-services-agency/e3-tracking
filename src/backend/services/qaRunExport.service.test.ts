@@ -56,7 +56,9 @@ describe('exportQaRunAsCustomerEventsExport', () => {
     // this app's project key instead.
     expect(exported.project).toBe(projectKey);
     expect(exported.url).toBe(eventsFixture.url);
-    expect(exported.events_listed).toBe(eventsFixture.events_listed);
+    // LOW 4 fix round: `events_listed` always equals the exported `events` count, not the original
+    // paste's count (they happen to agree here because every fixture item was selected).
+    expect(exported.events_listed).toBe(exported.events.length);
     expect(exported.note).toBe(eventsFixture.note);
 
     const expectedEvents = [...eventsFixture.events].sort((a, b) => b.timestamp - a.timestamp);
@@ -78,5 +80,9 @@ describe('exportQaRunAsCustomerEventsExport', () => {
     );
     const exported = exportQaRunAsCustomerEventsExport(projectId, result.run.id);
     expect(exported.events).toHaveLength(1);
+    // LOW 4 fix round: a run holding a subset of the original paste (19 events listed, 1 applied)
+    // must export `events_listed: 1`, matching `events.length`, not the original paste's 19.
+    expect(eventsFixture.events_listed).not.toBe(1);
+    expect(exported.events_listed).toBe(1);
   });
 });

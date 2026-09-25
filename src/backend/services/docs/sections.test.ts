@@ -3,6 +3,7 @@ import {
   escapeHtml,
   renderConsentCategoriesSection,
   renderIdentityRulesSection,
+  renderNarrativeHtml,
   renderRequirementsMatrixSection,
   renderStandardEventMappingsSection,
   renderUseCasesSection,
@@ -137,6 +138,42 @@ describe('renderStandardEventMappingsSection', () => {
     expect(html).toContain('cart_update[action=add]');
     expect(html).toContain('product_id → product_id');
     expect(html).not.toContain('total_price →');
+  });
+});
+
+describe('renderNarrativeHtml', () => {
+  it('renders headings, numbered lists, bullet lists and paragraphs as real block elements (WARNING 3 fix round)', () => {
+    const markdown = [
+      'Add to cart is a general use case.',
+      '',
+      '## Flow',
+      '',
+      '1. The site sends `cart_update` with required `product_id`.',
+      '2. The site sends `checkout`.',
+      '',
+      '## Gaps',
+      '',
+      '- `checkout.total_price`: not yet mapped.',
+    ].join('\n');
+    const html = renderNarrativeHtml(markdown);
+    expect(html).toContain('<p>Add to cart is a general use case.</p>');
+    expect(html).toContain('<h5>Flow</h5>');
+    expect(html).toContain('<ol><li>The site sends <code>cart_update</code> with required <code>product_id</code>.</li><li>The site sends <code>checkout</code>.</li></ol>');
+    expect(html).toContain('<h5>Gaps</h5>');
+    expect(html).toContain('<ul><li><code>checkout.total_price</code>: not yet mapped.</li></ul>');
+  });
+
+  it('escapes hostile content, including inside inline code spans', () => {
+    const html = renderNarrativeHtml('## <script>alert(1)</script>\n\n- `<img onerror=alert(1)>`');
+    expect(html).not.toContain('<script>');
+    expect(html).not.toContain('<img onerror');
+    expect(html).toContain('&lt;script&gt;');
+    expect(html).toContain('<code>&lt;img onerror=alert(1)&gt;</code>');
+  });
+
+  it('falls back to a single paragraph for narrative text with no markdown syntax', () => {
+    const html = renderNarrativeHtml('Fires when the customer completes checkout.');
+    expect(html).toBe('<p>Fires when the customer completes checkout.</p>');
   });
 });
 

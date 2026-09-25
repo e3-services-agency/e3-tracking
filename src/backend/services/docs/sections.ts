@@ -10,6 +10,86 @@ import { escapeHtml } from '../htmlEscape';
 
 export { escapeHtml };
 
+/**
+ * Small safe renderer for the exact markdown subset `useCaseNarrative.ts` (D-32) emits: `## `
+ * headings, `1. ` numbered lists, `- ` bullet lists, blank-line-separated paragraphs, and
+ * `` `code` `` inline spans (WARNING 3 fix round: the narrative used to be dropped into one
+ * `<p>` verbatim, so headings/lists/backticks collapsed into a run-on paragraph). Every line is
+ * run through `escapeHtml` before any markdown syntax is interpreted, so the output is exactly as
+ * safe against injection as the plain-paragraph version it replaces (backticks are not touched by
+ * `escapeHtml`, so wrapping `` `x` `` in `<code>` after escaping cannot reintroduce a raw tag).
+ * Anything outside this subset (arbitrary HTML, other markdown syntax) is rendered as escaped
+ * plain text, not interpreted -- this is not a general markdown parser.
+ */
+function renderNarrativeInline(text: string): string {
+  return escapeHtml(text).replace(/`([^`]+)`/g, '<code>$1</code>');
+}
+
+type NarrativeBlock =
+  | { kind: 'heading'; text: string }
+  | { kind: 'ol'; items: string[] }
+  | { kind: 'ul'; items: string[] }
+  | { kind: 'p'; text: string };
+
+function parseNarrativeBlocks(markdown: string): NarrativeBlock[] {
+  const lines = markdown.split('\n');
+  const blocks: NarrativeBlock[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (line.trim() === '') {
+      i++;
+      continue;
+    }
+    const heading = /^##\s+(.*)$/.exec(line);
+    if (heading) {
+      blocks.push({ kind: 'heading', text: heading[1] });
+      i++;
+      continue;
+    }
+    const orderedMatch = /^\d+\.\s+(.*)$/;
+    if (orderedMatch.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && orderedMatch.test(lines[i])) {
+        items.push(orderedMatch.exec(lines[i])![1]);
+        i++;
+      }
+      blocks.push({ kind: 'ol', items });
+      continue;
+    }
+    const bulletMatch = /^-\s+(.*)$/;
+    if (bulletMatch.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && bulletMatch.test(lines[i])) {
+        items.push(bulletMatch.exec(lines[i])![1]);
+        i++;
+      }
+      blocks.push({ kind: 'ul', items });
+      continue;
+    }
+    // Plain paragraph: consecutive non-blank lines that are not headings/list items, joined with a space.
+    const paraLines: string[] = [];
+    while (i < lines.length && lines[i].trim() !== '' && !/^##\s+/.test(lines[i]) && !orderedMatch.test(lines[i]) && !bulletMatch.test(lines[i])) {
+      paraLines.push(lines[i]);
+      i++;
+    }
+    blocks.push({ kind: 'p', text: paraLines.join(' ') });
+  }
+  return blocks;
+}
+
+/** `narrative markdown (D-32 subset) -> HTML fragment`, headings/lists/inline code/paragraphs, fully escaped. */
+export function renderNarrativeHtml(markdown: string): string {
+  return parseNarrativeBlocks(markdown)
+    .map((block) => {
+      if (block.kind === 'heading') return `<h5>${renderNarrativeInline(block.text)}</h5>`;
+      if (block.kind === 'ol') return `<ol>${block.items.map((item) => `<li>${renderNarrativeInline(item)}</li>`).join('')}</ol>`;
+      if (block.kind === 'ul') return `<ul>${block.items.map((item) => `<li>${renderNarrativeInline(item)}</li>`).join('')}</ul>`;
+      return `<p>${renderNarrativeInline(block.text)}</p>`;
+    })
+    .join('\n');
+}
+
 /** Minimal shape the identity rules section needs; DAL row plus resolved display names. */
 export interface IdentityRuleForDocs {
   bloomreach_field: string;
@@ -266,7 +346,7 @@ export function renderUseCasesSection(useCases: UseCaseForDocs[]): string {
           ${useCase.owner ? `<dt>Owner</dt><dd>${escapeHtml(useCase.owner)}</dd>` : ''}
         </dl>
         ${useCase.description ? `<p class="description">${escapeHtml(useCase.description)}</p>` : ''}
-        ${useCase.narrative ? `<p class="narrative">${escapeHtml(useCase.narrative)}</p>` : ''}
+        ${useCase.narrative ? `<div class="narrative">${renderNarrativeHtml(useCase.narrative)}</div>` : ''}
         <h4>Requirements</h4>
         ${requirementsTable}
       </div>`;

@@ -8,6 +8,12 @@
  * `note` in `source_meta_json`), `url`/`events_listed`/`note` from `source_meta_json` (set on
  * import; `null`/absent for an `agent_session` run). Events are sorted by timestamp desc, same as
  * `listObservationsByRun`, with raw properties untouched.
+ *
+ * `events_listed` (LOW 4 fix round) is always overwritten with `events.length`, the count actually
+ * exported here, not the original paste's count from `source_meta_json`: a run applied with only a
+ * subset of its source paste selected must not claim a `events_listed` the export does not contain
+ * (`events_listed` originates from Bloomreach's own "N events retrieved" header, so it is meant to
+ * describe *this* file, and this file only ever holds the run's own observations).
  */
 import * as QaRunDAL from '../dal/qa-run.dal';
 import * as ObservationDAL from '../dal/observation.dal';
@@ -42,7 +48,7 @@ export function exportQaRunAsCustomerEventsExport(projectId: string, runId: stri
     events,
   };
   if (sourceMeta?.url !== undefined) result.url = sourceMeta.url;
-  if (sourceMeta?.events_listed !== undefined) result.events_listed = sourceMeta.events_listed;
+  if (sourceMeta?.events_listed !== undefined) result.events_listed = events.length;
   if (sourceMeta?.note !== undefined) result.note = sourceMeta.note;
   return result;
 }

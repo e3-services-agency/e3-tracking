@@ -123,4 +123,83 @@ describe('computeUseCaseCoverage', () => {
     expect(coverage.rows[0].status).toBe('gap');
     expect(coverage.rows[0].satisfied).toBe(false);
   });
+
+  it('ERROR 1 fix: a gap requirement whose property_id was nulled by detaching the property from its event is always unsatisfied, even though event_id survives', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'checkout' });
+    const totalPrice = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'total_price', data_type: 'number' });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: totalPrice.id, role: 'normal' });
+    const useCase = UseCaseDAL.createUseCase(projectId, { name: 'Checkout' });
+    RequirementDAL.replaceRequirements(projectId, useCase.id, [
+      { target_kind: 'event_property', event_id: event.id, property_id: totalPrice.id, level: 'R' },
+    ]);
+
+    const run = QaRunDAL.createQaRun(projectId, { kind: 'agent_session' });
+    ObservationDAL.createObservation(projectId, run.id, {
+      source: 'agent',
+      event_type: 'checkout',
+      event_id: event.id,
+      variant_id: null,
+      timestamp: 1,
+      properties: {},
+    });
+
+    EventDAL.detachPropertyFromEvent(projectId, event.id, totalPrice.id);
+
+    const coverage = computeUseCaseCoverage(projectId, useCase.id);
+    expect(coverage.rows).toHaveLength(1);
+    expect(coverage.rows[0].status).toBe('gap');
+    expect(coverage.rows[0].target_kind).toBe('event_property');
+    expect(coverage.rows[0].satisfied).toBe(false);
+    expect(coverage.rows[0].observation_count).toBe(0);
+  });
+
+  it('ERROR 1 fix: a gap requirement left by deleting the property outright is always unsatisfied', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'checkout' });
+    const customerProperty = PropertyDAL.createProperty(projectId, { scope: 'customer', name: 'email', data_type: 'string' });
+    const useCase = UseCaseDAL.createUseCase(projectId, { name: 'Checkout' });
+    RequirementDAL.replaceRequirements(projectId, useCase.id, [
+      { target_kind: 'customer_property', property_id: customerProperty.id, level: 'O' },
+    ]);
+    PropertyDAL.deleteProperty(projectId, customerProperty.id);
+
+    const coverage = computeUseCaseCoverage(projectId, useCase.id);
+    expect(coverage.rows).toHaveLength(1);
+    expect(coverage.rows[0].status).toBe('gap');
+    expect(coverage.rows[0].satisfied).toBe(false);
+    // event exists only so the DB has other rows to distinguish this project's state; unused otherwise.
+    expect(event.id).toBeDefined();
+  });
+
+  it('WARNING 2 fix: resolves an observation live against current definitions (event by name, variant via evaluateVariant), not its stored event_id/variant_id, without running a comparison', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'cart_update' });
+    const action = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'action',
+      data_type: 'string',
+      allowed_values_json: [{ value: 'add' }, { value: 'remove' }],
+    });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: action.id, role: 'discriminator' });
+    const variant = VariantDAL.createVariant(projectId, event.id, {
+      conditions: [{ property_id: action.id, operator: 'equals', values: ['add'] }],
+    });
+    const useCase = UseCaseDAL.createUseCase(projectId, { name: 'Add to cart' });
+    RequirementDAL.replaceRequirements(projectId, useCase.id, [{ target_kind: 'variant', variant_id: variant.id, level: 'R' }]);
+
+    // Imported before the variant existed (or never recomputed): stored event_id/variant_id are
+    // both null, but the raw payload matches the variant's condition.
+    const run = QaRunDAL.createQaRun(projectId, { kind: 'export_paste' });
+    ObservationDAL.createObservation(projectId, run.id, {
+      source: 'customer_events_export',
+      event_type: 'cart_update',
+      event_id: null,
+      variant_id: null,
+      timestamp: 1,
+      properties: { action: 'add' },
+    });
+
+    const coverage = computeUseCaseCoverage(projectId, useCase.id);
+    expect(coverage.rows).toHaveLength(1);
+    expect(coverage.rows[0].satisfied).toBe(true);
+    expect(coverage.rows[0].observation_count).toBe(1);
+  });
 });

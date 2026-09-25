@@ -20,6 +20,7 @@ import * as VariantDAL from '../dal/variant.dal';
 import * as StandardEventMappingDAL from '../dal/standard-event-mapping.dal';
 import * as ConsentCategoryDAL from '../dal/consent-category.dal';
 import * as ProjectDAL from '../dal/project.dal';
+import * as RuleDAL from '../dal/rule.dal';
 import { parseDataMapping, type DataMappingModel, type DataMappingStandardEvent } from '../../domain/import/dataMapping';
 import { payloadHash } from '../../domain/diff/hash';
 import { diffValue } from '../../domain/diff/primitives';
@@ -184,6 +185,13 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
 
   // ---- Phase 8: catalogs / _id / custom_events round trip + empty-catalog-block warning ----
   planCatalogMeta();
+
+  // ---- Phase 9: propose the purchase_items_total rounding_drift rule template (D-31, T-2-07):
+  // when both "purchase" and "purchase_item" standard events are mapped (so both events' relevant
+  // properties can resolve), propose creating the rule, selected by default. `run()` re-checks
+  // applicability and an already-existing rule (by `template_key`) so a re-import is idempotent,
+  // the same pattern as every other step in this plan. ----
+  planPurchaseItemsTotalRule();
 
   return { items, warnings, steps };
 
@@ -726,6 +734,78 @@ function buildPlan(projectId: string, model: DataMappingModel): PlanResult {
     if (model.catalogs.main === null && model.catalogs.variant === null) {
       warnings.push('catalogs.main and catalogs.variant are both empty ("empty catalog block").');
     }
+  }
+
+  /**
+   * T-2-07/D-31: `computeRoundingDrift` (the old hard-coded comparison-3 check) is gone; a mapping
+   * that maps both "purchase" and "purchase_item" now proposes instantiating the
+   * `purchase_items_total` rule template instead, so the resulting rounding_drift finding comes
+   * from a real, editable/disableable `Rule` row rather than an unconditional engine check. Only
+   * proposed when the mapping names both standard events (this is a *mapping-level* signal, not a
+   * check of the current DB state — the events/properties this needs may not exist yet and get
+   * created earlier in this same plan); the actual applicability/idempotence check (does the rule
+   * already exist, do the resolved properties actually satisfy the template) happens in `run()`,
+   * once every earlier phase has actually written.
+   */
+  function planPurchaseItemsTotalRule(): void {
+    const id = 'rule:purchase_items_total';
+    if (plannedIds.has(id)) return;
+    const purchaseSe = mappedEvents.find((se) => se.key === 'purchase');
+    const itemSe = mappedEvents.find((se) => se.key === 'purchase_item');
+    if (!purchaseSe || !itemSe) return;
+    const purchaseEventName = purchaseSe.eventType as string;
+    const itemEventName = itemSe.eventType as string;
+
+    // Idempotence at *preview* time (fix round pattern shared with every other planXxx here, e.g.
+    // planEvent's `findEventByName` check): if the purchase event already exists and already has a
+    // rule from this template, this whole item must not be proposed again — otherwise every
+    // re-preview after a full apply would keep showing a "create" item that `run()` alone would
+    // silently no-op, breaking "apply idempotence" (an already-applied import proposes nothing).
+    const existingPurchaseEvent = findEventByName(projectId, purchaseEventName);
+    if (existingPurchaseEvent) {
+      const existingRules = RuleDAL.listRulesByEvent(projectId, existingPurchaseEvent.id);
+      if (existingRules.some((r) => r.template_key === 'purchase_items_total')) return;
+    }
+
+    const dependsOn = [
+      depIf(`event:${purchaseEventName}`),
+      depIf(`event:${itemEventName}`),
+      depIf(`standard_event_mapping:${purchaseSe.key}`),
+      depIf(`standard_event_mapping:${itemSe.key}`),
+    ].filter((d): d is string => d !== null);
+
+    addItem(
+      {
+        id,
+        op: 'create',
+        entity_type: 'rule',
+        entity_key: 'purchase_items_total',
+        changes: [],
+        default_selected: true,
+        note: `Apply the "Purchase total matches its items" rule template (rounding_drift, D-31) to "${purchaseEventName}", joined against "${itemEventName}" on purchase_id.`,
+      },
+      () => {
+        const purchaseEvent = findEventByName(projectId, purchaseEventName);
+        const itemEvent = findEventByName(projectId, itemEventName);
+        if (!purchaseEvent || !itemEvent) return false;
+
+        // Idempotent re-run (fix round pattern shared with every other step here): a rule this
+        // template already created (tracked by `template_key`) is left alone, never duplicated.
+        const existingRules = RuleDAL.listRulesByEvent(projectId, purchaseEvent.id);
+        if (existingRules.some((r) => r.template_key === 'purchase_items_total')) return;
+
+        const templates = RuleDAL.listRuleTemplates(projectId, purchaseEvent.id);
+        const applicable = templates.find((t) => t.key === 'purchase_items_total')?.applicable ?? false;
+        if (!applicable) {
+          warnings.push(
+            `Could not create the "Purchase total matches its items" rule: "${purchaseEventName}"/"${itemEventName}" total_price/purchase_id properties are not fully resolved yet; re-run preview once they are.`
+          );
+          return false;
+        }
+        RuleDAL.createRulesFromTemplate(projectId, purchaseEvent.id, 'purchase_items_total');
+      },
+      dependsOn
+    );
   }
 }
 

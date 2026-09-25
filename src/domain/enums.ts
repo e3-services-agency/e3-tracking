@@ -74,6 +74,17 @@ export type VariantOperator = (typeof VARIANT_OPERATORS)[number];
 export const IDENTITY_TYPES = ['hard', 'soft'] as const;
 export type IdentityType = (typeof IDENTITY_TYPES)[number];
 
+// ----- IdentityRule transformations and SDK call (D-38, T-2-12) -----
+// Import/identify transformations the identity reference names: trim then lowercase, in that
+// canonical order regardless of storage order (`identity_rules.transformations_json`).
+export const IDENTITY_TRANSFORMATIONS = ['trim', 'lowercase'] as const;
+export type IdentityTransformation = (typeof IDENTITY_TRANSFORMATIONS)[number];
+
+// Which Web SDK call the rule's codegen belongs to (`identity_rules.sdk_call`, nullable for
+// policy-only rules that document a hard/soft identifier without generating a call).
+export const IDENTITY_SDK_CALLS = ['identify', 'update', 'anonymize'] as const;
+export type IdentitySdkCall = (typeof IDENTITY_SDK_CALLS)[number];
+
 // ----- Catalog mapping role (T-1-06 delta; reviewer finding on T-1-01) -----
 // Which Bloomreach data-mapping catalog slot the catalog fills; unique per project (0001_core.sql
 // `uq_catalogs_project_mapping_role`, partial on `mapping_role IS NOT NULL AND deleted_at IS NULL`).

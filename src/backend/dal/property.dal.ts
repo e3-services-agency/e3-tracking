@@ -54,6 +54,14 @@ export interface PropertyRow {
   mapped_catalog_id: string | null;
   mapped_catalog_field_id: string | null;
   mapping_type: string | null;
+  /**
+   * Bloomreach Data Manager flags the app has no concept of (T-2-02, D-28, D-35): customer-scope
+   * `{source, used, deleting, locked_for_contact_migration, dm_index, raw: {description,
+   * example_values, type?}}`; event-scope properties keep only `raw` here (per-event flags live on
+   * `event_properties.bloomreach_meta_json` instead). `null` for a property never touched by a
+   * Data Manager import.
+   */
+  bloomreach_meta_json: unknown;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -68,6 +76,7 @@ type PropertyDbRow = Omit<
   | 'value_schema_json'
   | 'object_child_property_refs_json'
   | 'item_schema_json'
+  | 'bloomreach_meta_json'
   | 'pii'
   | 'bundle_ids'
 >;
@@ -83,6 +92,7 @@ function mapPropertyRow(row: PropertyDbRow): PropertyRow {
     value_schema_json: parseJsonColumn(raw.value_schema_json, null),
     object_child_property_refs_json: parseJsonColumn(raw.object_child_property_refs_json, null),
     item_schema_json: parseJsonColumn(raw.item_schema_json, null),
+    bloomreach_meta_json: parseJsonColumn(raw.bloomreach_meta_json, null),
   };
 }
 
@@ -108,6 +118,7 @@ export interface PropertyInput {
   mapped_catalog_field_id?: string | null;
   mapping_type?: string | null;
   bundle_ids?: string[] | null;
+  bloomreach_meta_json?: unknown;
 }
 
 export function listProperties(projectId: string, filter?: { scope?: string }): PropertyRow[] {
@@ -518,12 +529,14 @@ export function createProperty(projectId: string, input: PropertyInput): Propert
         id, project_id, scope, name, description, category, notes, data_type, data_formats_json,
         pii, property_type, allowed_values_json, example_values_json, value_schema_json,
         object_child_property_refs_json, item_schema_json, bloomreach_customer_property, priority, status,
-        mapped_catalog_id, mapped_catalog_field_id, mapping_type, created_at, updated_at, deleted_at
+        mapped_catalog_id, mapped_catalog_field_id, mapping_type, bloomreach_meta_json,
+        created_at, updated_at, deleted_at
       ) VALUES (
         @id, @project_id, @scope, @name, @description, @category, @notes, @data_type, @data_formats_json,
         @pii, @property_type, @allowed_values_json, @example_values_json, @value_schema_json,
         @object_child_property_refs_json, @item_schema_json, @bloomreach_customer_property, @priority, @status,
-        @mapped_catalog_id, @mapped_catalog_field_id, @mapping_type, @created_at, @updated_at, NULL
+        @mapped_catalog_id, @mapped_catalog_field_id, @mapping_type, @bloomreach_meta_json,
+        @created_at, @updated_at, NULL
       )`
     ).run({
       id,
@@ -548,6 +561,7 @@ export function createProperty(projectId: string, input: PropertyInput): Propert
       mapped_catalog_id: input.mapped_catalog_id ?? null,
       mapped_catalog_field_id: input.mapped_catalog_field_id ?? null,
       mapping_type: input.mapping_type ?? null,
+      bloomreach_meta_json: toJsonColumn(input.bloomreach_meta_json ?? null),
       created_at: now,
       updated_at: now,
     });
@@ -651,6 +665,9 @@ export function updateProperty(
     patch.mapped_catalog_field_id = updates.mapped_catalog_field_id;
   }
   if (updates.mapping_type !== undefined) patch.mapping_type = updates.mapping_type;
+  if (updates.bloomreach_meta_json !== undefined) {
+    patch.bloomreach_meta_json = toJsonColumn(updates.bloomreach_meta_json);
+  }
 
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)

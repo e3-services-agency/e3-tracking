@@ -50,4 +50,10 @@ export interface DiffItem {
   changes: DiffItemChange[];
   default_selected: boolean;
   note?: string;
+  /**
+   * Set when this item is always applied regardless of the caller's `selected_item_ids` (D-35's
+   * Data Manager snapshot steps, T-2-02 fix round WARNING 4): the UI must render its checkbox
+   * checked and disabled rather than implying the user's toggle has any effect.
+   */
+  locked?: boolean;
 }

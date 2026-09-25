@@ -248,6 +248,7 @@ const ALL_MIGRATION_FILES = [
   '0007_use_case_code_soft_delete.sql',
   '0008_findings_on_delete.sql',
   '0009_event_class.sql',
+  '0010_data_manager_meta.sql',
   '0011_rules.sql',
   '0012_use_case_narrative.sql',
   '0013_identity_alignment.sql',

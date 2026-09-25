@@ -35,6 +35,15 @@ export interface ProjectRow {
    * custom_events}` as parsed from the last imported `data-mapping.json`.
    */
   bloomreach_mapping_meta_json: unknown;
+  /**
+   * Data Manager per-format defaults (T-2-02, D-28, D-35): `{customers: {are_all_used,
+   * default_private, group_order[]}, events: {default_forbidden, default_private, group_order[]}}`.
+   */
+  data_manager_meta_json: unknown;
+  /** Last applied `data-manager-customers.json` payload verbatim plus `applied_at` (D-35 comparison-4 snapshot). */
+  data_manager_customers_json: unknown;
+  /** Last applied `data-manager-events.json` payload verbatim plus `applied_at` (D-35 comparison-4 snapshot). */
+  data_manager_events_json: unknown;
   share_token: string | null;
   share_access: string | null;
   /** D-30 money tolerance (T-2-06): percent with an absolute floor, applied to every
@@ -56,6 +65,9 @@ type ProjectDbRow = Omit<
   | 'standard_event_additions_json'
   | 'consent_key_additions_json'
   | 'bloomreach_mapping_meta_json'
+  | 'data_manager_meta_json'
+  | 'data_manager_customers_json'
+  | 'data_manager_events_json'
 >;
 
 function mapProjectRow(row: ProjectDbRow): ProjectRow {
@@ -75,6 +87,18 @@ function mapProjectRow(row: ProjectDbRow): ProjectRow {
     ),
     bloomreach_mapping_meta_json: parseJsonColumn(
       (row as unknown as Record<string, unknown>).bloomreach_mapping_meta_json,
+      null
+    ),
+    data_manager_meta_json: parseJsonColumn(
+      (row as unknown as Record<string, unknown>).data_manager_meta_json,
+      null
+    ),
+    data_manager_customers_json: parseJsonColumn(
+      (row as unknown as Record<string, unknown>).data_manager_customers_json,
+      null
+    ),
+    data_manager_events_json: parseJsonColumn(
+      (row as unknown as Record<string, unknown>).data_manager_events_json,
       null
     ),
   };
@@ -206,6 +230,12 @@ export interface UpdateProjectInput {
   /** D-30 money tolerance (T-2-06): percent (0-100) with a non-negative absolute floor. */
   money_tolerance_percent?: number;
   money_tolerance_floor?: number;
+  /** Data Manager per-format defaults, written by the Data Manager import planners (T-2-02). */
+  data_manager_meta_json?: unknown;
+  /** Last applied `data-manager-customers.json` verbatim plus `applied_at` (T-2-02, D-35). */
+  data_manager_customers_json?: unknown;
+  /** Last applied `data-manager-events.json` verbatim plus `applied_at` (T-2-02/T-2-03, D-35). */
+  data_manager_events_json?: unknown;
 }
 
 /** Range validation for the D-30 money tolerance fields (T-2-06 plan: "range validation"). */
@@ -385,6 +415,15 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
   }
   if (updates.money_tolerance_percent !== undefined) patch.money_tolerance_percent = updates.money_tolerance_percent;
   if (updates.money_tolerance_floor !== undefined) patch.money_tolerance_floor = updates.money_tolerance_floor;
+  if (updates.data_manager_meta_json !== undefined) {
+    patch.data_manager_meta_json = toJsonColumn(updates.data_manager_meta_json);
+  }
+  if (updates.data_manager_customers_json !== undefined) {
+    patch.data_manager_customers_json = toJsonColumn(updates.data_manager_customers_json);
+  }
+  if (updates.data_manager_events_json !== undefined) {
+    patch.data_manager_events_json = toJsonColumn(updates.data_manager_events_json);
+  }
 
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)

@@ -17,7 +17,7 @@ import {
 } from '../errors';
 import { getPropertyById, type PropertyRow } from './property.dal';
 import { validateDerivedMetricsJson, validateExpirationJson, validateStringArray } from './validators';
-import { EVENT_PROPERTY_ROLES, EVENT_STATUSES, ENTITY_STATUSES, EVENT_CLASSES, PRIORITIES } from '../../domain/enums';
+import { EVENT_PROPERTY_ROLES, EVENT_STATUSES, ENTITY_STATUSES, EVENT_CLASSES, PRIORITIES, type EventClass } from '../../domain/enums';
 import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
 import { markRequirementsGapForDetach, markRequirementsGapForEventRemoval, markRequirementsGapForVariantRemoval } from './requirement.dal';
 
@@ -165,7 +165,9 @@ export interface EventRow {
   grain: string | null;
   identity_note: string | null;
   triggers_json: unknown;
-  class: string;
+  class: EventClass;
+  /** Data Manager group name (T-2-02/T-2-03, D-28); `null` = default group, symmetrical with `Property.category`. */
+  category: string | null;
   owner_business: string | null;
   owner_technical: string | null;
   priority: string | null;
@@ -176,6 +178,8 @@ export interface EventRow {
   derived_metrics_json: unknown;
   tags_json: unknown;
   codegen_event_name_overrides_json: unknown;
+  /** Data Manager event-level flags the app has no concept of (T-2-02/T-2-03, D-28, D-35). */
+  bloomreach_meta_json: unknown;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -183,7 +187,12 @@ export interface EventRow {
 
 type EventDbRow = Omit<
   EventRow,
-  'triggers_json' | 'expiration_json' | 'derived_metrics_json' | 'tags_json' | 'codegen_event_name_overrides_json'
+  | 'triggers_json'
+  | 'expiration_json'
+  | 'derived_metrics_json'
+  | 'tags_json'
+  | 'codegen_event_name_overrides_json'
+  | 'bloomreach_meta_json'
 >;
 
 function mapEventRow(row: EventDbRow): EventRow {
@@ -195,6 +204,7 @@ function mapEventRow(row: EventDbRow): EventRow {
     derived_metrics_json: parseJsonColumn(raw.derived_metrics_json, []),
     tags_json: parseJsonColumn(raw.tags_json, []),
     codegen_event_name_overrides_json: parseJsonColumn(raw.codegen_event_name_overrides_json, null),
+    bloomreach_meta_json: parseJsonColumn(raw.bloomreach_meta_json, null),
   };
 }
 
@@ -209,6 +219,7 @@ export interface EventInput {
   identity_note?: string | null;
   triggers_json?: unknown;
   class?: string;
+  category?: string | null;
   owner_business?: string | null;
   owner_technical?: string | null;
   priority?: string | null;
@@ -219,6 +230,7 @@ export interface EventInput {
   derived_metrics_json?: unknown;
   tags_json?: unknown;
   source_ids?: string[] | null;
+  bloomreach_meta_json?: unknown;
 }
 
 const DEFAULT_EVENT_CLASS = 'custom';
@@ -335,14 +347,15 @@ export function createEvent(projectId: string, input: EventInput): EventRow {
     db.prepare(
       `INSERT INTO events (
         id, project_id, name, business_name, description, purpose, page, trigger_text, grain,
-        identity_note, triggers_json, class, owner_business, owner_technical, priority,
+        identity_note, triggers_json, class, category, owner_business, owner_technical, priority,
         status, expiration_json, not_suitable_for, agent_instructions, derived_metrics_json,
-        tags_json, codegen_event_name_overrides_json, created_at, updated_at, deleted_at
+        tags_json, codegen_event_name_overrides_json, bloomreach_meta_json, created_at, updated_at,
+        deleted_at
       ) VALUES (
         @id, @project_id, @name, @business_name, @description, @purpose, @page, @trigger_text, @grain,
-        @identity_note, @triggers_json, @class, @owner_business, @owner_technical, @priority,
+        @identity_note, @triggers_json, @class, @category, @owner_business, @owner_technical, @priority,
         @status, @expiration_json, @not_suitable_for, @agent_instructions, @derived_metrics_json,
-        @tags_json, NULL, @created_at, @updated_at, NULL
+        @tags_json, NULL, @bloomreach_meta_json, @created_at, @updated_at, NULL
       )`
     ).run({
       id,
@@ -357,6 +370,7 @@ export function createEvent(projectId: string, input: EventInput): EventRow {
       identity_note: input.identity_note?.trim() || null,
       triggers_json: toJsonColumn(input.triggers_json ?? []),
       class: input.class || DEFAULT_EVENT_CLASS,
+      category: input.category?.trim() || null,
       owner_business: input.owner_business?.trim() || null,
       owner_technical: input.owner_technical?.trim() || null,
       priority: input.priority ?? null,
@@ -366,6 +380,7 @@ export function createEvent(projectId: string, input: EventInput): EventRow {
       agent_instructions: input.agent_instructions?.trim() || null,
       derived_metrics_json: toJsonColumn(input.derived_metrics_json ?? []),
       tags_json: toJsonColumn(input.tags_json ?? []),
+      bloomreach_meta_json: toJsonColumn(input.bloomreach_meta_json ?? null),
       created_at: now,
       updated_at: now,
     });
@@ -409,6 +424,7 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
   if (input.identity_note !== undefined) patch.identity_note = input.identity_note?.trim() || null;
   if (input.triggers_json !== undefined) patch.triggers_json = toJsonColumn(input.triggers_json ?? []);
   if (input.class !== undefined) patch.class = input.class;
+  if (input.category !== undefined) patch.category = input.category?.trim() || null;
   if (input.owner_business !== undefined) patch.owner_business = input.owner_business?.trim() || null;
   if (input.owner_technical !== undefined) patch.owner_technical = input.owner_technical?.trim() || null;
   if (input.priority !== undefined) patch.priority = input.priority;
@@ -422,6 +438,9 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
     patch.derived_metrics_json = toJsonColumn(input.derived_metrics_json);
   }
   if (input.tags_json !== undefined) patch.tags_json = toJsonColumn(input.tags_json);
+  if (input.bloomreach_meta_json !== undefined) {
+    patch.bloomreach_meta_json = toJsonColumn(input.bloomreach_meta_json);
+  }
 
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
@@ -584,6 +603,8 @@ export interface EventPropertyRow {
   description_override: string | null;
   example_values_override_json: unknown;
   sort_order: number;
+  /** Per (event, property) Data Manager flags (T-2-02/T-2-03, D-28, D-35): `{dm_type, private, source, used, deleting, group, dm_index, raw}`. */
+  bloomreach_meta_json: unknown;
   created_at: string;
   updated_at: string;
 }
@@ -603,9 +624,10 @@ export interface EventPropertyInput {
   description_override?: string | null;
   example_values_override_json?: unknown;
   sort_order?: number;
+  bloomreach_meta_json?: unknown;
 }
 
-type EventPropertyDbRow = Omit<EventPropertyRow, 'required' | 'example_values_override_json'>;
+type EventPropertyDbRow = Omit<EventPropertyRow, 'required' | 'example_values_override_json' | 'bloomreach_meta_json'>;
 
 function mapEventPropertyRow(row: EventPropertyDbRow): EventPropertyRow {
   const raw = row as unknown as Record<string, unknown>;
@@ -613,6 +635,7 @@ function mapEventPropertyRow(row: EventPropertyDbRow): EventPropertyRow {
     ...row,
     required: fromSqliteBool(raw.required),
     example_values_override_json: parseJsonColumn(raw.example_values_override_json, null),
+    bloomreach_meta_json: parseJsonColumn(raw.bloomreach_meta_json, null),
   };
 }
 
@@ -676,8 +699,9 @@ export function attachPropertyToEvent(
     db.prepare(
       `INSERT INTO event_properties (
         event_id, property_id, required, role, priority, status, source_id, payload_key,
-        description_override, example_values_override_json, sort_order, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        description_override, example_values_override_json, sort_order, bloomreach_meta_json,
+        created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       eventId,
       input.property_id,
@@ -690,6 +714,7 @@ export function attachPropertyToEvent(
       input.description_override?.trim() || null,
       toJsonColumn(input.example_values_override_json ?? null),
       input.sort_order ?? maxOrder + 1,
+      toJsonColumn(input.bloomreach_meta_json ?? null),
       now,
       now
     );
@@ -747,6 +772,9 @@ export function updateEventProperty(
     patch.example_values_override_json = toJsonColumn(updates.example_values_override_json);
   }
   if (updates.sort_order !== undefined) patch.sort_order = updates.sort_order;
+  if (updates.bloomreach_meta_json !== undefined) {
+    patch.bloomreach_meta_json = toJsonColumn(updates.bloomreach_meta_json);
+  }
 
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
@@ -857,6 +885,18 @@ export function replaceEventProperties(
   const nextPropertyIds = new Set(uniqueLinks.map((l) => l.property_id));
   const droppedPropertyIds = currentPropertyIds.filter((id) => !nextPropertyIds.has(id));
 
+  // T-2-02: this whole-list replace deletes and re-inserts every link, so a Data Manager events
+  // import's per-link `bloomreach_meta_json` (T-2-03) would otherwise be silently wiped the next
+  // time the Edit Event panel saves the property list. Carry the existing meta forward for any link
+  // whose caller did not explicitly pass `bloomreach_meta_json`.
+  const existingMetaByPropertyId = new Map(
+    (
+      db.prepare('SELECT property_id, bloomreach_meta_json FROM event_properties WHERE event_id = ?').all(
+        eventId
+      ) as { property_id: string; bloomreach_meta_json: string | null }[]
+    ).map((r) => [r.property_id, r.bloomreach_meta_json])
+  );
+
   const now = nowIso();
   try {
     const replace = db.transaction(() => {
@@ -868,8 +908,9 @@ export function replaceEventProperties(
       const insert = db.prepare(
         `INSERT INTO event_properties (
           event_id, property_id, required, role, priority, status, source_id, payload_key,
-          description_override, example_values_override_json, sort_order, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          description_override, example_values_override_json, sort_order, bloomreach_meta_json,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       );
       uniqueLinks.forEach((link, index) => {
         insert.run(
@@ -884,6 +925,9 @@ export function replaceEventProperties(
           link.description_override?.trim() || null,
           toJsonColumn(link.example_values_override_json ?? null),
           link.sort_order ?? index,
+          link.bloomreach_meta_json !== undefined
+            ? toJsonColumn(link.bloomreach_meta_json)
+            : (existingMetaByPropertyId.get(link.property_id) ?? null),
           now,
           now
         );

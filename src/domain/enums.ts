@@ -132,6 +132,8 @@ export const PROPERTY_DATA_TYPES = ['string', 'number', 'boolean', 'timestamp', 
 export type PropertyDataType = (typeof PROPERTY_DATA_TYPES)[number];
 
 // `money` is new (T-1-04 delta): a monetary amount, drives the rounding-drift QA rule (D-21, D-25 Q12).
+// `long_text` is new (T-2-02, D-37): marks a Bloomreach `long text` string property so
+// `src/domain/bloomreach/dataManagerTypes.ts` can reverse the mapping on export.
 export const PROPERTY_DATA_FORMATS = [
   'uuid',
   'iso8601_datetime',
@@ -144,6 +146,7 @@ export const PROPERTY_DATA_FORMATS = [
   'country_code',
   'language_code',
   'money',
+  'long_text',
 ] as const;
 export type PropertyDataFormat = (typeof PROPERTY_DATA_FORMATS)[number];
 

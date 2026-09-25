@@ -158,6 +158,18 @@ Context: Bloomreach projects contain three classes of events. Custom events are 
 Decision: Event gains a class `custom | sdk | platform` (replacing the binary custom|system type). The comparison engine validates custom events only; sdk and platform events never produce findings, and the phase 1 suppression of unexpected_event for known system types stays as is. Data Manager import proposes sdk and platform events deselected by default. Expiration settings continue to cover sdk events. The system events reference in samples/ is background for agents, not a build item. Templates and priority defaults lean transactional first.
 Consequences: Phase 2 seed item 7 is reduced to the class field, the default deselection on import, and keeping the known system type list current; no seed attribute lists or system event validation. campaign.status stays documented but is not modelled.
 
+## D-30 Declarative validation rules on events and variants
+Date: 2026-09-25  Status: accepted
+Context: Phase 1 validates per property (required, type, format, enum, unexpected, cross-event shape) and has one hard-coded arithmetic rule (purchase vs purchase_item). It does not look inside list properties, has no intra-event arithmetic, no membership checks, no plausibility bounds, and no variant-scoped constraints. User examples: cart_update must carry the full product_list with the added or removed item present in it and totals matching; refund purchases must carry negative amounts or lifetime value is corrupted.
+Decision:
+- List properties may declare an item schema (field name, type, format, required) validated per item.
+- Rules attach to an event or to a variant. Rule types: arithmetic (`sum`, `count`, `min`, `max` over a list field or property, compared with `==`, `<`, `<=`, `>`, `>=` to a property or constant, with tolerance), membership (`property in list[].field`), bound (property `<`, `<=`, `>`, `>=` constant; non-empty; not in the future), and cross-event (join on a property such as purchase_id, aggregate on the child event, compare to the parent property). The existing purchase vs purchase_item rule becomes the first cross-event rule instance.
+- Conditional requirements use the variant mechanism only: a required property or a rule belongs to a variant such as purchase[purchase_status=refunded]; discriminators are added where needed (e.g. has_voucher). No separate condition language.
+- Money tolerance is per project: percentage (default 1 percent) with an absolute floor (default 0.01 in the purchase currency); applies to every money arithmetic rule.
+- Format `e164_phone` added: starts with `+` or `00`, then digits only, 8 to 15 digits total.
+- Rules render on the event card as guardrails and are returned by the MCP expected-payload tool.
+Consequences: New finding kinds `rule_violation` (error), `item_schema_violation` (error), `bound_violation` (error). Phase 2 seed gains the rules layer ahead of the MCP server. Seed rules shipped for cart_update (item in product_list, total_price and total_quantity sums) and purchase refunds (negative amounts) as templates the user can apply.
+
 ## D-25 Supervisor rulings on the plan's routine open questions
 Date: 2026-09-24  Status: accepted (user may override)
 Context: PLAN-2026-09-24 listed 13 open questions. Nine have a conventional default consistent with CONTEXT.md and the legacy workbook; the supervisor settled them so implementation is not blocked. Questions 3, 6, 11, 13 go to the user.

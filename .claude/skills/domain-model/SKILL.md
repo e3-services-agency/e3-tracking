@@ -54,5 +54,11 @@ Read: `list_events`, `get_event_card`, `list_use_cases`, `get_use_case`, `get_ex
 ## Certified status
 Event status becomes `certified` only when all three comparisons have zero findings of severity error for that event.
 
+## Validation rules (D-30, phase 2)
+- **ItemSchema** on a list Property: fields with type, format, required.
+- **Rule** attached to an Event or a Variant: kind arithmetic | membership | bound | cross_event, expression parts (aggregate, source, comparator, target, tolerance mode), message. Conditional requirements are expressed only through variants.
+- Project `money_tolerance_percent` (default 1) and `money_tolerance_floor` (default 0.01).
+- Format `e164_phone`: `+` or `00`, then 8 to 15 digits.
+
 ## Finding kinds
-`missing_required`, `type_mismatch`, `format_violation`, `enum_violation`, `unknown_variant`, `shape_inconsistent`, `rename_mismatch`, `unmapped_standard_event`, `unmapped_property`, `expiration_mismatch`, `rounding_drift`, `unexpected_property`.
+`missing_required`, `type_mismatch`, `format_violation`, `enum_violation`, `unknown_variant`, `shape_inconsistent`, `rename_mismatch`, `unmapped_standard_event`, `unmapped_property`, `expiration_mismatch`, `rounding_drift`, `unexpected_property`; added by D-21: `missing_event`, `unexpected_event`, `unmapped_catalog`; added by D-30: `rule_violation`, `item_schema_violation`, `bound_violation`.

@@ -953,3 +953,6 @@ User shared Bloomreach system events documentation. Condensed to samples/bloomre
 
 ### 2026-09-25 09:21 | user -> ALL | DECISION | phase 2
 D-29 recorded: custom events are the focus (transactional first, then behavioural); sdk and platform events are informational, never validated, deselected by default on Data Manager import. Phase 2 seed item 7 reduced accordingly.
+
+### 2026-09-25 09:36 | user -> ALL | DECISION | phase 2
+D-30 recorded: declarative validation rules layer (item schemas on lists, event and variant scoped arithmetic, membership, bound and cross-event rules, percentage money tolerance with floor, e164_phone format, new finding kinds, seed templates for cart_update and refunds). Conditional requirements only through variants. Added to the phase 2 seed as item 3b ahead of the MCP server.

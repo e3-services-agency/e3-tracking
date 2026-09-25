@@ -85,27 +85,21 @@ const EXISTING_CUSTOM_EVENTS = ['view_item', 'cart_update', 'checkout', 'purchas
 const EXISTING_SDK_PLATFORM_EVENTS = ['session_start', 'session_end', 'page_visit', 'consent', 'notification_state'];
 
 describe('previewDataManagerEvents on the phase 1 definition', () => {
-  it('proposes exactly 61 event items: 11 update (6 custom selected, 5 sdk/platform deselected), 50 create', () => {
+  it('proposes exactly 50 event items, all create (D-41 MEDIUM 3: the 11 pre-existing events already match the file and propose no empty-change update item)', () => {
     setUpPhase1Definition();
     const preview = previewDataManagerEvents(projectId, eventsFixture);
     const eventItems = preview.items.filter((i) => i.entity_type === 'event');
-    expect(eventItems).toHaveLength(61);
+    expect(eventItems).toHaveLength(50);
 
     const updateItems = eventItems.filter((i) => i.op === 'update');
     const createItems = eventItems.filter((i) => i.op === 'create');
-    expect(updateItems).toHaveLength(11);
+    expect(updateItems).toHaveLength(0);
     expect(createItems).toHaveLength(50);
 
-    for (const name of EXISTING_CUSTOM_EVENTS) {
-      const item = updateItems.find((i) => i.entity_key === name);
-      expect(item, `expected an update item for "${name}"`).toBeDefined();
-      expect(item?.class).toBe('custom');
-      expect(item?.default_selected).toBe(true);
-    }
-    for (const name of EXISTING_SDK_PLATFORM_EVENTS) {
-      const item = updateItems.find((i) => i.entity_key === name);
-      expect(item, `expected an update item for "${name}"`).toBeDefined();
-      expect(item?.default_selected).toBe(false);
+    // The 11 already-applied events (6 custom, 5 sdk/platform) propose no item at all — their
+    // category/description already match what the file says — rather than a selected no-op update.
+    for (const name of [...EXISTING_CUSTOM_EVENTS, ...EXISTING_SDK_PLATFORM_EVENTS]) {
+      expect(eventItems.find((i) => i.entity_key === name), `expected no item for already-matching "${name}"`).toBeUndefined();
     }
 
     // 50 create items: deselected exactly when the type is sdk/platform (D-29), derived from
@@ -206,8 +200,11 @@ describe('applyDataManagerEvents on the default selection', () => {
   it('merging into an existing custom event proposes a link and a meta refresh, never a duplicate event', () => {
     setUpPhase1Definition();
     const preview = previewDataManagerEvents(projectId, eventsFixture);
+    // D-41 MEDIUM 3: `purchase` already matches the file (category/description), so it proposes no
+    // event item at all — merging still happens via the link item below, driven off the already-
+    // existing `Event` row rather than a selected `update` item for it.
     const purchaseItem = preview.items.find((i) => i.entity_type === 'event' && i.entity_key === 'purchase');
-    expect(purchaseItem?.op).toBe('update');
+    expect(purchaseItem).toBeUndefined();
 
     const before = EventDAL.listEvents(projectId).filter((e) => e.name === 'purchase');
     expect(before).toHaveLength(1);
@@ -287,5 +284,228 @@ describe('exportDataManagerEvents round trip', () => {
     ].map((e) => e.type);
     expect(allTypes).not.toContain('view_category'); // deleted: dropped, not passed through
     expect(allTypes).toContain('first_session'); // never selected/created: passed through verbatim
+  });
+});
+
+describe('D-41 fix round: cross-event type conflicts never produce update items', () => {
+  it('ERROR 1: apply then two re-preview rounds propose zero property type updates, and the property never flips', () => {
+    setUpPhase1Definition();
+    const preview = previewDataManagerEvents(projectId, eventsFixture);
+    const selected = preview.items.filter((i) => i.default_selected).map((i) => i.id);
+    applyDataManagerEvents(projectId, eventsFixture, preview.payload_hash, selected);
+
+    // Round 1.
+    const round1 = previewDataManagerEvents(projectId, eventsFixture);
+    const typeUpdates1 = round1.items.filter((i) => i.entity_type === 'property' && i.op === 'update');
+    expect(typeUpdates1).toEqual([]);
+
+    // Round 2: unchanged from round 1 (never proposes the reverse either).
+    const round2 = previewDataManagerEvents(projectId, eventsFixture);
+    const typeUpdates2 = round2.items.filter((i) => i.entity_type === 'property' && i.op === 'update');
+    expect(typeUpdates2).toEqual([]);
+
+    // The three data-mapping-defined properties the pre-fix planner used to flip (`product_id`,
+    // `product_ids`, `purchase_id`, all `string` per `data-mapping.json`) stay exactly as defined —
+    // this planner never touches an existing property's type at all (D-41).
+    const byName = (name: string) => PropertyDAL.listProperties(projectId, { scope: 'event' }).find((p) => p.name === name)!;
+    expect(byName('product_id')).toMatchObject({ data_type: 'string' });
+    expect(byName('product_ids')).toMatchObject({ data_type: 'string' });
+    expect(byName('purchase_id')).toMatchObject({ data_type: 'string' });
+  });
+
+  it('ERROR 1: cross-event conflicting occurrences warn instead of proposing an update, regardless of source', () => {
+    setUpPhase1Definition();
+    const preview = previewDataManagerEvents(projectId, eventsFixture);
+    expect(preview.items.some((i) => i.entity_type === 'property' && i.op === 'update')).toBe(false);
+    // `store_id`/`product_id`/`order_date` (source "user" conflicts the pre-fix planner used to
+    // propose as selected updates) now only warn.
+    for (const [property, event] of [
+      ['store_id', 'double_opt_in'],
+      ['product_id', 'back_in_stock_list'],
+      ['order_date', 'sample'],
+    ]) {
+      expect(
+        preview.warnings.some((w) => w.includes(`"${property}"`) && w.includes(`"${event}"`) && w.includes('comparison 4 evidence')),
+        `expected a warning for ${event}.${property}`
+      ).toBe(true);
+    }
+  });
+
+  it('LOW 6: the phase 1 preview warns about more than the seven originally-documented type conflicts (source "user" cross-event conflicts now warn too, not just source "data")', () => {
+    setUpPhase1Definition();
+    const preview = previewDataManagerEvents(projectId, eventsFixture);
+    const typeWarnings = preview.warnings.filter((w) => w.includes('Data Manager type differs'));
+    expect(typeWarnings.length).toBeGreaterThan(7);
+  });
+});
+
+describe('D-41 fix round: MEDIUM 4, properties/links only for selected events', () => {
+  it('deselecting the only event that uses a property leaves that property (and its link) uncreated', () => {
+    // Empty project (no phase 1 fixtures): `share_source` is used only by `registered_as_referee`
+    // (MentionMe, custom) in the fixture.
+    const preview = previewDataManagerEvents(projectId, eventsFixture);
+    const registeredAsRefereeItem = preview.items.find((i) => i.entity_type === 'event' && i.entity_key === 'registered_as_referee')!;
+    expect(registeredAsRefereeItem.op).toBe('create');
+
+    const selected = preview.items
+      .filter((i) => i.default_selected && i.id !== registeredAsRefereeItem.id)
+      .map((i) => i.id);
+    // Also drop this event's own property-link items so nothing but the event item's deselection is
+    // being tested (mirrors what the UI would send once the user unchecks one event row).
+    const linkIdsForEvent = preview.items
+      .filter((i) => i.entity_type === 'event_property' && i.entity_key.startsWith('registered_as_referee.'))
+      .map((i) => i.id);
+    const finalSelected = selected.filter((id) => !linkIdsForEvent.includes(id));
+
+    applyDataManagerEvents(projectId, eventsFixture, preview.payload_hash, finalSelected);
+
+    expect(EventDAL.listEvents(projectId).find((e) => e.name === 'registered_as_referee')).toBeUndefined();
+    expect(PropertyDAL.listProperties(projectId, { scope: 'event' }).find((p) => p.name === 'share_source')).toBeUndefined();
+  });
+
+  it('a property shared with another selected event is still created even when one of its events is deselected', () => {
+    // `purchase_id` (source "user" via `shipment`) is also used by `purchase`/`purchase_item`
+    // (both selected by default) — deselecting `shipment` alone must not block its creation.
+    const preview = previewDataManagerEvents(projectId, eventsFixture);
+    const shipmentItem = preview.items.find((i) => i.entity_type === 'event' && i.entity_key === 'shipment')!;
+    const shipmentLinkIds = preview.items
+      .filter((i) => i.entity_type === 'event_property' && i.entity_key.startsWith('shipment.'))
+      .map((i) => i.id);
+    const selected = preview.items
+      .filter((i) => i.default_selected && i.id !== shipmentItem.id && !shipmentLinkIds.includes(i.id))
+      .map((i) => i.id);
+
+    applyDataManagerEvents(projectId, eventsFixture, preview.payload_hash, selected);
+
+    expect(EventDAL.listEvents(projectId).find((e) => e.name === 'shipment')).toBeUndefined();
+    expect(PropertyDAL.listProperties(projectId, { scope: 'event' }).find((p) => p.name === 'purchase_id')).toBeDefined();
+  });
+});
+
+describe('D-41 fix round: LOW 5, type comparison uses the reverse-mapped Data Manager type', () => {
+  function minimalPayload(propA: { event: string; type: string; source?: string }, propB: { event: string; type: string; source?: string }) {
+    return {
+      default_forbidden: false,
+      default_private: false,
+      default_group: {
+        events: [
+          {
+            type: propA.event,
+            source: 'user',
+            properties: {
+              default_group: {
+                properties: [
+                  { property: 'ts', type: propA.type, source: propA.source ?? 'user', private: false },
+                ],
+              },
+            },
+          },
+          {
+            type: propB.event,
+            source: 'user',
+            properties: {
+              default_group: {
+                properties: [
+                  { property: 'ts', type: propB.type, source: propB.source ?? 'user', private: false },
+                ],
+              },
+            },
+          },
+        ],
+      },
+      groups: [],
+    };
+  }
+
+  it('"date" on the creation event vs "datetime" on another event warns (both map to app "timestamp")', () => {
+    const payload = minimalPayload({ event: 'ev_date', type: 'date' }, { event: 'ev_datetime', type: 'datetime' });
+    const preview = previewDataManagerEvents(projectId, payload);
+    expect(
+      preview.warnings.some((w) => w.includes('"ts"') && w.includes('"ev_datetime"') && w.includes('comparison 4 evidence'))
+    ).toBe(true);
+  });
+
+  it('"long text" on the creation event vs "string" on another event warns (both map to app "string")', () => {
+    const payload = minimalPayload({ event: 'ev_long', type: 'long text' }, { event: 'ev_plain', type: 'string' });
+    const preview = previewDataManagerEvents(projectId, payload);
+    expect(
+      preview.warnings.some((w) => w.includes('"ts"') && w.includes('"ev_plain"') && w.includes('comparison 4 evidence'))
+    ).toBe(true);
+  });
+
+  it('an existing property with an app data_type that has no Bloomreach equivalent warns once instead of silently comparing nothing', () => {
+    const created = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'weird', data_type: 'object', property_type: 'custom' });
+    expect(created.data_type).toBe('object');
+    const payload = {
+      default_forbidden: false,
+      default_private: false,
+      default_group: {
+        events: [
+          {
+            type: 'ev_weird',
+            source: 'user',
+            properties: { default_group: { properties: [{ property: 'weird', type: 'string', source: 'user', private: false }] } },
+          },
+        ],
+      },
+      groups: [],
+    };
+    const preview = previewDataManagerEvents(projectId, payload);
+    expect(preview.warnings.some((w) => w.includes('"weird"') && w.includes('no Bloomreach Data Manager equivalent'))).toBe(true);
+  });
+});
+
+describe('D-41 fix round: ERROR 2, export precedence follows Property edits since import', () => {
+  it('an untouched round trip stays byte-equal (verbatim Data Manager values still used)', () => {
+    setUpPhase1Definition();
+    const preview = previewDataManagerEvents(projectId, eventsFixture);
+    const selected = preview.items.filter((i) => i.default_selected).map((i) => i.id);
+    applyDataManagerEvents(projectId, eventsFixture, preview.payload_hash, selected);
+
+    const before = exportDataManagerEvents(projectId);
+    const after = exportDataManagerEvents(projectId);
+    expect(canonicalize(before)).toEqual(canonicalize(after));
+  });
+
+  it('editing the Property in the app pushes the new type/PII/description to every link of it on export', () => {
+    setUpPhase1Definition();
+    const preview = previewDataManagerEvents(projectId, eventsFixture);
+    const selected = preview.items.filter((i) => i.default_selected).map((i) => i.id);
+    applyDataManagerEvents(projectId, eventsFixture, preview.payload_hash, selected);
+
+    const price = PropertyDAL.listProperties(projectId, { scope: 'event' }).find((p) => p.name === 'price')!;
+    PropertyDAL.updateProperty(projectId, price.id, {
+      data_type: 'number',
+      data_formats_json: ['money'],
+      pii: true,
+      description: 'EDITED IN APP',
+    });
+
+    const exported = exportDataManagerEvents(projectId);
+    // Only events that actually became a live `Event` row (created/linked by this import) reflect
+    // the app `Property`; a deselected sdk/platform event (e.g. "banner", also a `price` occurrence
+    // in the fixture) is pure snapshot passthrough of the original file by design (D-35) and must
+    // not be expected to pick up an app-side edit at all.
+    const liveEventNames = new Set(EventDAL.listEvents(projectId).map((e) => e.name));
+    const allEvents = [
+      ...(exported.default_group as { events: Record<string, unknown>[] }).events,
+      ...(exported.groups as { events: Record<string, unknown>[] }[]).flatMap((g) => g.events),
+    ] as { type: string; properties: { default_group: { properties: Record<string, unknown>[] }; groups: { properties: Record<string, unknown>[] }[] } }[];
+    let linkCount = 0;
+    for (const ev of allEvents) {
+      if (!liveEventNames.has(ev.type)) continue;
+      const props = ev.properties;
+      const all = [...props.default_group.properties, ...props.groups.flatMap((g) => g.properties)];
+      for (const p of all) {
+        if (p.property !== 'price') continue;
+        linkCount++;
+        expect(p, `price link on event "${ev.type}"`).toMatchObject({
+          type: 'number',
+          private: true,
+          description: 'EDITED IN APP',
+        });
+      }
+    }
+    expect(linkCount).toBeGreaterThan(1); // "price" appears on more than one live event in the fixture
   });
 });

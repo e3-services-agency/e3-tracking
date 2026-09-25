@@ -256,6 +256,27 @@ interface EventPropertyLinkMeta {
   group?: string | null;
   dm_index?: number;
   raw?: { description?: string | null; example_values?: string | null };
+  /** D-41 ERROR 2 fix: the app `Property.data_type`/`data_formats_json`/`pii` this link's owning
+   *  Property held right when this link meta was last written by the import (see
+   *  `dataManagerEventsImport.service.ts`'s `buildLinkMeta`) — the reference `buildPropertyRow`
+   *  compares the *current* Property against below. */
+  app_type_at_import?: { data_type?: string; data_formats?: string[] };
+  app_pii_at_import?: boolean;
+}
+
+/**
+ * D-41 export precedence: true while the Property this link is attached to still has the exact
+ * `data_type`/`data_formats_json`/`pii` the import last wrote (recorded in the link's own meta at
+ * that time) — i.e. nobody has edited this Property's type or PII in the app since. A link with no
+ * `app_type_at_import` recorded at all (pre-fix-round data, or a link created by hand with no import
+ * meta) is treated as "unchanged" so its existing verbatim-first behaviour is preserved.
+ */
+function propertyUnchangedSinceImport(lm: EventPropertyLinkMeta | null, property: PropertyDAL.PropertyRow): boolean {
+  if (!lm || !lm.app_type_at_import) return true;
+  const formats = Array.isArray(property.data_formats_json) ? (property.data_formats_json as string[]) : [];
+  const refFormats = lm.app_type_at_import.data_formats ?? [];
+  const sameFormats = formats.length === refFormats.length && formats.every((f) => refFormats.includes(f));
+  return lm.app_type_at_import.data_type === property.data_type && sameFormats && (lm.app_pii_at_import ?? property.pii) === property.pii;
 }
 
 /** App-born defaults for an event never touched by a Data Manager import (D-40 Q2). */
@@ -341,18 +362,28 @@ export function exportDataManagerEvents(projectId: string, options: { passthroug
     // events, not on others) across different events. The shared `Property.data_type`/`pii` can only
     // hold one value, so reconstructing from it would flatten every event's row to whichever
     // occurrence last won that shared value (see `dataManagerEventsImport.service.ts`'s type-conflict
-    // rule and D-35's own documented "private is per (event, property)" lossy note). The link's own
-    // stored per-occurrence `dm_type`/`private` (captured verbatim at import time) reproduces the
-    // original divergence exactly; the reverse-mapped current `Property` type/`pii` is only a
-    // fallback for a link with no Data Manager meta at all (created by hand in the app).
-    const type = lm?.dm_type ?? toDataManagerType(p.data_type, formats).type;
+    // rule and D-35's own documented "private is per (event, property)" lossy note).
+    //
+    // D-41 ERROR 2 fix: the link's own stored per-occurrence `dm_type`/`private`/`raw` text (captured
+    // verbatim at import time) only reproduces the original divergence exactly *while the shared
+    // Property still equals what that import wrote* (`propertyUnchangedSinceImport`, comparing the
+    // Property's current `data_type`/`data_formats_json`/`pii` against the reference the import
+    // stored in this same link meta). Once the user edits the Property (e.g. via `updateProperty`) —
+    // this link, like every other link of that Property — falls through to the reverse-mapped
+    // current definition and PII instead, so the edit reaches the export.
+    const unchanged = propertyUnchangedSinceImport(lm, p);
+    const type = unchanged && lm?.dm_type ? lm.dm_type : toDataManagerType(p.data_type, formats).type;
     const overrideDescription = link.description_override;
     const overrideExample = firstExampleValue(link.example_values_override_json);
     return {
       deleting: lm?.deleting ?? false,
-      description: resolveLinkText(overrideDescription, lm?.raw?.description, p.description),
-      example_values: resolveLinkText(overrideExample, lm?.raw?.example_values, firstExampleValue(p.example_values_json)),
-      private: lm?.private ?? p.pii,
+      description: resolveLinkText(overrideDescription, unchanged ? lm?.raw?.description : undefined, p.description),
+      example_values: resolveLinkText(
+        overrideExample,
+        unchanged ? lm?.raw?.example_values : undefined,
+        firstExampleValue(p.example_values_json)
+      ),
+      private: unchanged && lm?.private !== undefined ? lm.private : p.pii,
       property: p.name,
       source: lm?.source ?? 'user',
       type,

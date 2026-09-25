@@ -26,17 +26,19 @@
  * properties/links whose *first* (property) or *owning* (link) event is sdk/platform, come in
  * deselected.
  *
- * Type conflicts (D-35, D-37): a property name may be created once, from its first `source: user`
- * occurrence in the file (else its first occurrence, whichever comes first). Every *other*
- * occurrence whose Data Manager type maps to a different app `data_type` than that reference is
- * compared exactly like `dataManagerCustomersImport.service.ts` compares an existing property:
- * `source: user` proposes a selected type-update item (one per property name, first such occurrence
- * wins); `source: data` produces one warning per (event, property) occurrence (comparison 4
- * evidence, never proposed) — this also covers a property that already existed before this import
- * (its "reference" is simply the already-stored `Property` row instead of a freshly chosen
- * occurrence), which is how the fixture's seven documented type warnings on already-mapped
- * properties (`purchase_item.price`/`quantity`, `cart_update.total_price`/`total_quantity`,
- * `checkout.total_price`, `view_item.price`/`stock_level`) arise without a second rule.
+ * Type conflicts (D-35, D-37, D-41 fix round): a property name may be created once, from its first
+ * `source: user` occurrence in the file (else its first occurrence, whichever comes first). Unlike
+ * `dataManagerCustomersImport.service.ts` (a flat, one-row-per-name format where a type difference
+ * on the single existing row is a genuine update), this format has the *same* property name recur
+ * across many events with genuinely different Data Manager types (e.g. `total_price` is `number` on
+ * `purchase` and `string` on `cart_update`) — D-41 ruled that these cross-event conflicts never
+ * produce an update item, regardless of `source`: every occurrence other than the one that created
+ * the Property (or, for an already-existing Property, every occurrence at all) whose *reverse-mapped
+ * Data Manager type* (LOW 5: compared like the customers planner, not raw `data_type`, so "long
+ * text"/"url" vs "string" and "date" vs "datetime" compare correctly) differs from the reference is
+ * one warning per (event, property) occurrence (comparison 4 evidence) — never proposed, and never
+ * applied. This is what makes re-preview after apply idempotent (D-41): the Property's type is fixed
+ * at creation and this planner never writes to it again.
  */
 import { getDb } from '../db';
 import * as EventDAL from '../dal/event.dal';
@@ -48,7 +50,7 @@ import {
   type DataManagerEventProperty,
   type DataManagerEventsModel,
 } from '../../domain/import/dataManagerEvents';
-import { toAppType } from '../../domain/bloomreach/dataManagerTypes';
+import { toAppType, toDataManagerType } from '../../domain/bloomreach/dataManagerTypes';
 import { classifyEventType } from '../../domain/bloomreach';
 import { payloadHash } from '../../domain/diff/hash';
 import type { DiffItem, DiffItemChange } from '../../domain/diff/types';
@@ -63,7 +65,14 @@ interface PlanStep {
    *  could not actually write" (reclassified applied -> skipped); `void` means it ran (a no-op
    *  idempotent re-run counts as applied). */
   run: () => void | boolean;
+  /** AND semantics: every id here must itself be runnable (as in `dataMappingImport.service.ts`). */
   dependsOn?: string[];
+  /** OR semantics (D-41 MEDIUM 4 fix): when non-empty, at least one id here must be runnable, on top
+   *  of `dependsOn`. Used only by a shared property's create step, whose own `dependsOn` is empty (a
+   *  property does not belong to one event) but which must not be created when every event that
+   *  actually carries it (in this file) was deselected — "properties ... are created only for
+   *  selected events" (D-41). */
+  anyOf?: string[];
 }
 
 interface PlanResult {
@@ -132,9 +141,35 @@ interface EventPropertyLinkMeta {
   group: string | null;
   dm_index: number;
   raw: { description: string | null; example_values: string | null };
+  /** D-41 ERROR 2 fix: the app `Property.data_type`/`data_formats_json`/`pii` this link's owning
+   *  Property actually held at the moment this link meta was written (create or snapshot refresh) —
+   *  the "what the import wrote" reference the exporter compares the *current* Property against to
+   *  decide whether this link's verbatim Data Manager values are still valid or stale. */
+  app_type_at_import: { data_type: string; data_formats: string[] };
+  app_pii_at_import: boolean;
 }
 
-function buildLinkMeta(prop: DataManagerEventProperty): EventPropertyLinkMeta {
+/**
+ * `property` is the Property row this link is attached to. `priorMeta` is this same link's own
+ * `bloomreach_meta_json` from *before* this write, when there is one (a snapshot refresh of an
+ * already-existing link) — when it already carries `app_type_at_import`/`app_pii_at_import`, that
+ * reference is kept as-is ("store those if not already", D-41): once written, at the link's own
+ * creation, it must stay frozen at what the import wrote then, never silently reset to "whatever
+ * the Property is right now" on a later re-import (which would always equal itself and defeat the
+ * whole export-precedence check). A brand-new link (`priorMeta` `null`/`undefined`, or missing the
+ * fields — pre-fix-round data) captures the Property's current state as that reference for the
+ * first time.
+ */
+function buildLinkMeta(
+  prop: DataManagerEventProperty,
+  property: PropertyDAL.PropertyRow,
+  priorMeta?: EventPropertyLinkMeta | null
+): EventPropertyLinkMeta {
+  const appTypeAtImport = priorMeta?.app_type_at_import ?? {
+    data_type: property.data_type,
+    data_formats: Array.isArray(property.data_formats_json) ? (property.data_formats_json as string[]) : [],
+  };
+  const appPiiAtImport = priorMeta?.app_pii_at_import ?? property.pii;
   return {
     dm_type: prop.type,
     private: prop.private,
@@ -144,6 +179,8 @@ function buildLinkMeta(prop: DataManagerEventProperty): EventPropertyLinkMeta {
     group: prop.group,
     dm_index: prop.dm_index,
     raw: { description: prop.description, example_values: prop.example_values },
+    app_type_at_import: appTypeAtImport,
+    app_pii_at_import: appPiiAtImport,
   };
 }
 
@@ -153,11 +190,11 @@ function buildPlan(projectId: string, model: DataManagerEventsModel, rawJson: un
   const steps: PlanStep[] = [];
   const plannedIds = new Set<string>();
 
-  function addItem(item: DiffItem, run: () => void | boolean, dependsOn?: string[]): void {
+  function addItem(item: DiffItem, run: () => void | boolean, dependsOn?: string[], anyOf?: string[]): void {
     if (plannedIds.has(item.id)) return;
     plannedIds.add(item.id);
     items.push(item);
-    steps.push({ id: item.id, run, dependsOn: dependsOn?.length ? dependsOn : undefined });
+    steps.push({ id: item.id, run, dependsOn: dependsOn?.length ? dependsOn : undefined, anyOf: anyOf?.length ? anyOf : undefined });
   }
   function depIf(id: string): string | null {
     return plannedIds.has(id) ? id : null;
@@ -175,10 +212,26 @@ function buildPlan(projectId: string, model: DataManagerEventsModel, rawJson: un
   // them), and `preview` never calls any `run()` at all, so these maps are never mutated there. ----
   const propertyByName = new Map(PropertyDAL.listProperties(projectId, { scope: 'event' }).map((p) => [p.name, p]));
   const eventByName = new Map<string, EventDAL.EventRow>(EventDAL.listEvents(projectId).map((e) => [e.name, e]));
+  // MEDIUM 4 fix (D-41): names of events that already existed *before* this plan/apply — snapshotted
+  // here, before any `run()` mutates `eventByName`. An already-existing event needs no `event:<type>`
+  // item selected to "count" for a shared property's `anyOf` gate below (it is not being created by
+  // this import at all; it is simply there), unlike a brand-new event which only exists once its own
+  // `create` item actually runs.
+  const originalEventNames = new Set(eventByName.keys());
   const linkedPropertyIdsByEventId = new Map<string, Set<string>>();
+  // ERROR 2 groundwork (D-41 export precedence): the *original* `bloomreach_meta_json` of every
+  // already-existing link, keyed `${eventId}:${propertyId}` — read once, before any `run()` write,
+  // so the snapshot refresh below can tell whether `app_type_at_import`/`app_pii_at_import` were
+  // already recorded on a prior apply ("store those if not already", D-41) and, if so, leave them
+  // alone rather than overwriting the reference with whatever the Property happens to be *now*
+  // (which would always equal itself and silently defeat the whole precedence check).
+  const originalLinkMetaByKey = new Map<string, EventPropertyLinkMeta | null>();
   for (const e of eventByName.values()) {
     const { properties } = EventDAL.getEventWithProperties(projectId, e.id);
     linkedPropertyIdsByEventId.set(e.id, new Set(properties.map((p) => p.property_id)));
+    for (const link of properties) {
+      originalLinkMetaByKey.set(`${e.id}:${link.property_id}`, (link.bloomreach_meta_json ?? null) as EventPropertyLinkMeta | null);
+    }
   }
 
   // ---- Group every property occurrence in the file by property name (across all events). ----
@@ -215,6 +268,12 @@ function buildPlan(projectId: string, model: DataManagerEventsModel, rawJson: un
     // unreachable, since a link's `dependsOn` never becomes runnable while its property step was
     // never selected.
     const anyCustomUsesIt = occs.some((o) => classifyEventType(o.event.type) === 'custom');
+    // MEDIUM 4 fix (D-41): this property is only actually created when at least one of the events
+    // that carry it in the file is itself selected/created — `anyOf` (OR), not `dependsOn` (AND),
+    // since a property with no owning single event must not require *every* using event to run.
+    // Without this, deselecting the only custom event that uses a name (e.g. `registered_as_referee`
+    // deselected on an empty project) still created that event's properties, one of them linked
+    // nowhere.
     addItem(
       {
         id,
@@ -239,61 +298,49 @@ function buildPlan(projectId: string, model: DataManagerEventsModel, rawJson: un
           bloomreach_meta_json: { raw: { description: firstOcc.prop.description, example_values: firstOcc.prop.example_values } },
         });
         propertyByName.set(name, created);
-      }
+      },
+      undefined,
+      // `anyOf`: an occurrence on an already-existing event always satisfies the gate (that event is
+      // there regardless of any item selection this run) so no gate is needed at all; only when
+      // *every* occurrence is on a brand-new event does at least one of their `event:<type>` create
+      // steps need to actually run.
+      occs.some((o) => originalEventNames.has(o.event.type)) ? undefined : occs.map((o) => `event:${o.event.type}`)
     );
   }
 
-  // ---- Per-occurrence type comparisons (existing properties, and every non-creation occurrence of a new one). ----
+  // ---- Per-occurrence type comparisons: warning only, never an update (D-41 ERROR 1 fix). A
+  // property's type is fixed once, at creation (or was already fixed before this import); every
+  // other occurrence in the file whose reverse-mapped Data Manager type differs from that reference
+  // — including a `source: user` occurrence, and regardless of whether the property is new or
+  // already existed — is one warning per (event, property) occurrence, never a proposed change. This
+  // is what makes re-preview after apply idempotent: nothing here ever calls `PropertyDAL.updateProperty`.
   for (const [name, occs] of occByName) {
     const creation = creationOccByName.get(name)!;
     const existingProp = propertyByName.get(name) ?? null;
+    // LOW 5 fix: compare by the *reverse-mapped Data Manager type string* (like
+    // `dataManagerCustomersImport.service.ts`'s `currentDmType`), not the raw app `data_type` alone —
+    // "long text"/"url" vs "string" and "date" vs "datetime" share an app `data_type` but are
+    // genuinely different Bloomreach types and must compare as different.
     const referenceAppType = existingProp
       ? { data_type: existingProp.data_type, data_formats: (Array.isArray(existingProp.data_formats_json) ? (existingProp.data_formats_json as string[]) : []) }
       : toAppType(creation.prop.type);
-    let typeUpdateProposed = false;
+    const referenceDm = toDataManagerType(referenceAppType.data_type, referenceAppType.data_formats);
+    if (existingProp && referenceDm.warning) {
+      // LOW 5 fix: an existing property whose own app `data_type` has no Bloomreach counterpart
+      // (e.g. hand-created as `object`) previously warned about nothing when compared against;
+      // surface it once per property name instead of silently skipping every occurrence.
+      warnings.push(`Property "${name}": existing app data type "${referenceAppType.data_type}" has no Bloomreach Data Manager equivalent; type comparison skipped (comparison 4 evidence).`);
+    }
     for (const occ of occs) {
       if (!existingProp && occ === creation) continue; // this occurrence *is* the reference; nothing to compare
       const appType = toAppType(occ.prop.type);
-      if (appType.warning) continue; // unrecognized type already warned once at creation time
-      if (appType.data_type === referenceAppType.data_type) continue; // matches; nothing to flag
-      if (occ.prop.source === 'user') {
-        if (typeUpdateProposed) continue; // one update item per property name is enough
-        typeUpdateProposed = true;
-        const id = `property:event:${name}:type`;
-        addItem(
-          {
-            id,
-            op: 'update',
-            entity_type: 'property',
-            entity_key: name,
-            changes: [
-              {
-                field: 'data_type',
-                before: referenceAppType.data_formats.length
-                  ? `${referenceAppType.data_type}/${referenceAppType.data_formats.join(',')}`
-                  : referenceAppType.data_type,
-                after: appType.data_formats.length ? `${appType.data_type}/${appType.data_formats.join(',')}` : appType.data_type,
-              },
-            ],
-            default_selected: true,
-            note: `Update event property "${name}" type to match Data Manager (source "user" on event "${occ.event.type}").`,
-          },
-          () => {
-            const row = propertyByName.get(name);
-            if (!row) return false;
-            const updated = PropertyDAL.updateProperty(projectId, row.id, {
-              data_type: appType.data_type,
-              data_formats_json: appType.data_formats,
-            });
-            propertyByName.set(name, updated);
-          },
-          existingProp ? undefined : [depIf(`property:event:${name}`)].filter((d): d is string => d !== null)
-        );
-      } else {
-        warnings.push(
-          `Property "${name}" on event "${occ.event.type}": Data Manager type differs (source "${occ.prop.source}"); not proposed (comparison 4 evidence).`
-        );
-      }
+      if (appType.warning) continue; // unrecognized incoming type already warned once at creation time
+      if (referenceDm.warning) continue; // reference itself uncomparable; already warned above
+      const occDm = toDataManagerType(appType.data_type, appType.data_formats);
+      if (occDm.type === referenceDm.type) continue; // matches; nothing to flag
+      warnings.push(
+        `Property "${name}" on event "${occ.event.type}": Data Manager type differs (source "${occ.prop.source}"); not proposed (comparison 4 evidence, D-41).`
+      );
     }
   }
 
@@ -342,29 +389,34 @@ function buildPlan(projectId: string, model: DataManagerEventsModel, rawJson: un
       if (existingEvent.description === null && desiredDescription !== null) {
         changes.push({ field: 'description', before: null, after: desiredDescription });
       }
-      addItem(
-        {
-          id,
-          op: 'update',
-          entity_type: 'event',
-          entity_key: event.type,
-          changes,
-          default_selected: defaultSelected,
-          note: `Update event "${event.type}" (app class "${existingEvent.class}"; Data Manager class "${eventClass}", never changed by import).`,
-          class: eventClass,
-        },
-        () => {
-          const row = eventByName.get(event.type);
-          if (!row) return false;
-          const patch: Partial<EventDAL.EventInput> = {};
-          if (changes.some((c) => c.field === 'category')) patch.category = event.group;
-          if (changes.some((c) => c.field === 'description')) patch.description = desiredDescription;
-          if (Object.keys(patch).length > 0) {
-            const updated = EventDAL.updateEvent(projectId, row.id, patch);
-            eventByName.set(event.type, updated);
+      // MEDIUM 3 fix (D-41, guard shared with the customers planner's `if (existing && changes.length
+      // === 0) continue`): an already-up-to-date event proposes no update item at all, instead of a
+      // selected no-op that never lets "Apply (N selected)" reach zero on re-preview.
+      if (changes.length > 0) {
+        addItem(
+          {
+            id,
+            op: 'update',
+            entity_type: 'event',
+            entity_key: event.type,
+            changes,
+            default_selected: defaultSelected,
+            note: `Update event "${event.type}" (app class "${existingEvent.class}"; Data Manager class "${eventClass}", never changed by import).`,
+            class: eventClass,
+          },
+          () => {
+            const row = eventByName.get(event.type);
+            if (!row) return false;
+            const patch: Partial<EventDAL.EventInput> = {};
+            if (changes.some((c) => c.field === 'category')) patch.category = event.group;
+            if (changes.some((c) => c.field === 'description')) patch.description = desiredDescription;
+            if (Object.keys(patch).length > 0) {
+              const updated = EventDAL.updateEvent(projectId, row.id, patch);
+              eventByName.set(event.type, updated);
+            }
           }
-        }
-      );
+        );
+      }
     }
 
     for (const prop of event.properties) {
@@ -378,7 +430,6 @@ function buildPlan(projectId: string, model: DataManagerEventsModel, rawJson: un
       ) {
         continue; // already linked; refreshed unconditionally by the snapshot step below
       }
-      const linkMeta = buildLinkMeta(prop);
       const dependsOn = [depIf(`event:${event.type}`), depIf(`property:event:${prop.property}`)].filter(
         (d): d is string => d !== null
       );
@@ -398,6 +449,12 @@ function buildPlan(projectId: string, model: DataManagerEventsModel, rawJson: un
           if (!ev || !p) return false;
           const linked = linkedPropertyIdsByEventId.get(ev.id) ?? new Set<string>();
           if (linked.has(p.id)) return; // idempotent re-run
+          // Built here, not at plan-build time (ERROR 2 groundwork): `p` (the Property row) must be
+          // the row as it stands right when this link is written, since `buildLinkMeta` reads the
+          // app type/PII off it for `app_type_at_import`/`app_pii_at_import` — a brand-new property's
+          // row does not exist yet when this closure is *created* (its own `create` step runs earlier
+          // in the same `apply`, but only `propertyByName` at *run* time reflects it).
+          const linkMeta = buildLinkMeta(prop, p);
           EventDAL.attachPropertyToEvent(projectId, ev.id, {
             property_id: p.id,
             role: 'normal',
@@ -458,7 +515,10 @@ function buildPlan(projectId: string, model: DataManagerEventsModel, rawJson: un
           const propRow = propertyByName.get(prop.property);
           if (!propRow) continue;
           if (!linkedPropertyIds.has(propRow.id)) continue; // its link step was not selected/applied
-          EventDAL.updateEventProperty(projectId, evRow.id, propRow.id, { bloomreach_meta_json: buildLinkMeta(prop) });
+          const priorMeta = originalLinkMetaByKey.get(`${evRow.id}:${propRow.id}`) ?? null;
+          EventDAL.updateEventProperty(projectId, evRow.id, propRow.id, {
+            bloomreach_meta_json: buildLinkMeta(prop, propRow, priorMeta),
+          });
         }
       }
     },
@@ -514,6 +574,15 @@ export function applyDataManagerEvents(
           ok = false;
           break;
         }
+      }
+      // MEDIUM 4 fix (D-41): `anyOf` is OR, on top of the AND `dependsOn` above — a non-empty
+      // `anyOf` needs at least one of its own ids runnable. An `anyOf` id absent from `stepById`
+      // (e.g. an already-existing, unchanged event that proposed no item at all) never satisfies it
+      // here — `buildPlan` only omits `anyOf` altogether when *any* occurrence is on such an event,
+      // so reaching this branch means every `anyOf` id really does need its own step to run.
+      if (ok && step.anyOf && step.anyOf.length > 0) {
+        const anySatisfied = step.anyOf.some((dep) => stepById.has(dep) && canRun(dep));
+        if (!anySatisfied) ok = false;
       }
       runnable.set(id, ok);
       return ok;

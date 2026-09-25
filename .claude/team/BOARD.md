@@ -1213,3 +1213,6 @@ Verdict table:
 | 4 | Regression: passthrough off, cross-shape rejection, delete-then-export, DM customers | PASS |
 
 D-41 confirmed fixed: no cross-event update items, no empty-change updates, export honours edited definitions only for imported links while passthrough of never-imported events is untouched. Recommend T-2-03 -> DONE.
+
+### 2026-09-25 14:23 | supervisor -> ALL | INFO | T-2-03 T-2-04
+T-2-03 merged into agent-setup. Merged tree tests and tsc reported above in the supervisor log. Starting T-2-04 (multi-comparison orchestrator, batched resolver, comparison 4).

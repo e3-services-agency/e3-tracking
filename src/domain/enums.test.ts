@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   COMPARISON_IDS,
   ENTITY_STATUSES,
+  EVENT_CLASSES,
   EVENT_PROPERTY_ROLES,
   EVENT_SOURCE_KINDS,
   EVENT_STATUSES,
@@ -30,6 +31,7 @@ const arrays: Record<string, readonly string[]> = {
   ENTITY_STATUSES,
   PROPERTY_SCOPES,
   ORIGIN_TYPES,
+  EVENT_CLASSES,
   EVENT_PROPERTY_ROLES,
   REQUIREMENT_LEVELS,
   REQUIREMENT_TARGET_KINDS,

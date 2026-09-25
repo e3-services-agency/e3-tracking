@@ -146,31 +146,71 @@ export const STANDARD_CONSENT_KEYS: ReadonlyArray<string> = [
 ];
 
 /**
- * Known Bloomreach system event types (D-25 Q5): observed event types the app never flags
- * as `unexpected_event` because they are generic Bloomreach infrastructure events present in
- * every project, not client-specific custom events. List from D-25's ruling, checked against
- * the fixtures: `expiration-settings.json` uses `session_start, session_end, page_visit,
- * web_exit, consent, notification_state`; `customer-events-export.json` additionally observes
- * `managed_endpoint, survey, campaign, support_ticket`. Two further types observed in that
- * fixture, `paper_catalogue` and `loyalty_update`, are deliberately NOT included here: they are
- * this client's custom/loyalty integration events, not generic Bloomreach system events, and
- * the qa-roundtrip fixture expects them to still raise `unexpected_event` (T-1-09).
+ * Bloomreach SDK-generated event types (D-29, D-36): produced by the tracking SDK itself, not by
+ * the Bloomreach platform. `src/domain/enums.ts`'s `EVENT_CLASSES` `sdk` value. Source:
+ * `.claude/team/samples/bloomreach-system-events-reference.md`.
  */
-export const KNOWN_SYSTEM_EVENT_TYPES: ReadonlyArray<string> = [
+export const SDK_EVENT_TYPES: ReadonlyArray<string> = [
+  'session_start',
+  'session_end',
+  'first_session',
+  'page_visit',
+  'web_exit',
+];
+
+/**
+ * Bloomreach platform-generated event types (D-29, D-36): produced by Bloomreach itself (email,
+ * campaigns, surveys, consent, ...), not by the client's SDK integration. `EVENT_CLASSES`
+ * `platform` value. Source: `bloomreach-system-events-reference.md`.
+ */
+export const PLATFORM_EVENT_TYPES: ReadonlyArray<string> = [
   'campaign',
   'consent',
   'survey',
   'support_ticket',
   'managed_endpoint',
-  'session_start',
-  'session_end',
-  'page_visit',
-  'web_exit',
   'notification_state',
-  'first_session',
   'banner',
   'experiment',
+  'merge',
+  'ab test',
+  'anonymization',
+  'retargeting',
+  'recommendation',
+  'double_opt_in',
+  'data_capture',
 ];
+
+/**
+ * Known Bloomreach system event types (D-25 Q5, D-36): observed event types the app never flags
+ * as `unexpected_event` because they are generic Bloomreach infrastructure events present in
+ * every project, not client-specific custom events. The union of `SDK_EVENT_TYPES` and
+ * `PLATFORM_EVENT_TYPES` (the phase 1 suppression keeps working unchanged, D-36). Two further
+ * types observed in the fixture, `paper_catalogue` and `loyalty_update` — and the other names the
+ * reference marks as shareable with client custom events (`store_visit, inbound_call,
+ * outbound_call, return, monitoring`) — are deliberately NOT included: they default to `class:
+ * custom` (D-29 open question 7, D-40 Q7) and the qa-roundtrip fixture expects `paper_catalogue`/
+ * `loyalty_update` to still raise `unexpected_event` (T-1-09).
+ */
+export const KNOWN_SYSTEM_EVENT_TYPES: ReadonlyArray<string> = [...SDK_EVENT_TYPES, ...PLATFORM_EVENT_TYPES];
+
+/**
+ * Attributes present on every Bloomreach SDK event regardless of the client's own tracking code
+ * (D-29, D-36, D-38): os, browser, device, location. Never flagged `unexpected_property` or
+ * `unmapped_property` on any event, custom or otherwise, because the SDK adds them automatically.
+ */
+export const SDK_DEFAULT_PROPERTIES: ReadonlyArray<string> = ['os', 'browser', 'device', 'location'];
+
+/**
+ * `Event.class` for a raw Bloomreach event type name (D-36): `sdk` when in `SDK_EVENT_TYPES`,
+ * `platform` when in `PLATFORM_EVENT_TYPES`, `custom` otherwise (including the shareable names
+ * the reference lists — D-40 Q7, selectable in the Data Manager import preview).
+ */
+export function classifyEventType(type: string): 'custom' | 'sdk' | 'platform' {
+  if (SDK_EVENT_TYPES.includes(type)) return 'sdk';
+  if (PLATFORM_EVENT_TYPES.includes(type)) return 'platform';
+  return 'custom';
+}
 
 /**
  * Merge a project's additional keys (from `standard_event_additions_json` or

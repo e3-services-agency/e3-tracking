@@ -4,9 +4,14 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import {
   CATALOG_MAIN_COLUMNS,
+  KNOWN_SYSTEM_EVENT_TYPES,
+  PLATFORM_EVENT_TYPES,
+  SDK_DEFAULT_PROPERTIES,
+  SDK_EVENT_TYPES,
   STANDARD_CONSENT_KEYS,
   STANDARD_CUSTOMER_PROPERTIES,
   STANDARD_EVENTS,
+  classifyEventType,
   mergeConsentKeys,
   mergeStandardEvents,
 } from './bloomreach';
@@ -89,5 +94,34 @@ describe('project addition merge helpers (D-26)', () => {
       STANDARD_EVENTS.map((e) => e.key)
     );
     expect(mergeConsentKeys(undefined)).toEqual(STANDARD_CONSENT_KEYS);
+  });
+});
+
+describe('event class lists (T-2-01, D-29, D-36)', () => {
+  it('SDK and platform event type lists are disjoint', () => {
+    const overlap = SDK_EVENT_TYPES.filter((t) => PLATFORM_EVENT_TYPES.includes(t));
+    expect(overlap).toEqual([]);
+  });
+
+  it('KNOWN_SYSTEM_EVENT_TYPES is exactly the union of SDK and platform types', () => {
+    expect(new Set(KNOWN_SYSTEM_EVENT_TYPES)).toEqual(new Set([...SDK_EVENT_TYPES, ...PLATFORM_EVENT_TYPES]));
+  });
+
+  it('paper_catalogue and loyalty_update are in neither list (T-1-09 unexpected_event fixture)', () => {
+    expect(SDK_EVENT_TYPES).not.toContain('paper_catalogue');
+    expect(PLATFORM_EVENT_TYPES).not.toContain('paper_catalogue');
+    expect(SDK_EVENT_TYPES).not.toContain('loyalty_update');
+    expect(PLATFORM_EVENT_TYPES).not.toContain('loyalty_update');
+  });
+
+  it('classifyEventType maps sdk, platform and unknown/custom names correctly', () => {
+    expect(classifyEventType('session_start')).toBe('sdk');
+    expect(classifyEventType('campaign')).toBe('platform');
+    expect(classifyEventType('purchase')).toBe('custom');
+    expect(classifyEventType('paper_catalogue')).toBe('custom');
+  });
+
+  it('SDK_DEFAULT_PROPERTIES carries os, browser, device, location', () => {
+    expect([...SDK_DEFAULT_PROPERTIES].sort()).toEqual(['browser', 'device', 'location', 'os']);
   });
 });

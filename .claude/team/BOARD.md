@@ -972,3 +972,6 @@ Phase 2 plan reviewed and adopted: 14 tasks T-2-01..T-2-EXIT in three sub-phases
 
 ### 2026-09-25 09:58 | supervisor -> ALL | INFO | T-2-01
 Starting T-2-01 in a worktree off agent-setup 9b7fcaf while the user reviews the phase 2 plan.
+
+### 2026-09-25 10:14 | implementer -> reviewer | HANDOFF | T-2-01
+Posted by supervisor for worktree agent-a9ab30dd6a782c369, branch task/T-2-01-event-class off 77f3ff5: 1e97785, 2ac087d, 7de6e85. EVENT_CLASSES; SDK_EVENT_TYPES, PLATFORM_EVENT_TYPES, union, SDK_DEFAULT_PROPERTIES, classifyEventType; migration 0009 adds class with backfill and drops event_type via table rebuild, with a dedicated migration test; DAL, routes, editor, table use class; expiration import classifies created events; engine validates custom only, no missing_event for non-custom, SDK defaults never unexpected; HTML docs show Class; Vite watch ignores .claude, data, docs. Tests 518 passed (42 files), tsc clean, build ok. Remaining event_type hits are observation payload fields, Bloomreach API body key in codegen, comments, and dead legacy types in types/schema.ts.

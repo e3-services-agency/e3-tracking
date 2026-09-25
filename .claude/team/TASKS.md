@@ -20,6 +20,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-1-09 | 1 | QaRun, Observation, Finding; customer events export import; definition-vs-observations comparison | implementer | T-1-08 | DONE | plan + delta |
 | T-1-10 | 1 | CLAUDE.md code-derived sections, .env.example, docs/QA-LOCAL.md | docs-writer | T-1-03 | DONE | plan + delta |
 | T-1-EXIT | 1 | Phase 1 exit: full qa-roundtrip on merged agent-setup, docs refresh, post-merge fixes, report to user | supervisor | T-1-09 | DONE | see below |
+| T-2-00 | 2 | Phase 2 plan: target model deltas, task list from the seed, decision records | architect | T-1-EXIT | IN_PROGRESS | see below |
 
 Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktrees after T-1-02 merges. Everything else is sequential per the dependency column.
 
@@ -79,6 +80,9 @@ Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktree
 
 ### T-1-EXIT
 - qa-tester runs qa-roundtrip scenarios 1 to 7 on agent-setup from the main tree (scenario 6 CSV deferred to phase 3; scenario 7 as resolve and reopen of a type mismatch until certification display lands in phase 2). First run 2026-09-25 01:27: all round trips PASS, FAIL on two post-merge display bugs (Standard events mapped columns show dashes; QA runs page shows empty state) plus an unreproduced cold-boot burst of 500s. Fix branch `task/T-1-EXIT-fixes` off agent-setup, then re-sweep, then report.
+
+### T-2-00
+- `reports/PLAN-PHASE2-<date>.md` following the refactor-plan template scoped to phase 2; covers seed items 1 to 7 and 3b, D-28 to D-30, the carry-over notes; each task sized for one implementer invocation with acceptance criteria; decision records for non-obvious choices; open questions for the user.
 
 ### Phase 2 seed (for the architect, in priority order)
 1. Data Manager customers and events import with diff, byte-equivalent export, `bloomreach_meta_json` per entity, comparison 4 definition vs Data Manager (D-28). Fixtures in samples/.

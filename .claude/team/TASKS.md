@@ -24,10 +24,10 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-2-01 | 2 | Event class custom/sdk/platform, class lists and SDK default properties, engine skips non-custom, Vite watch ignore | implementer | T-2-00 | DONE | see below |
 | T-2-02 | 2 | Data Manager meta columns, type mapping module, customers parser, import with diff and byte-equivalent export | implementer | T-2-01 | DONE | see below |
 | T-2-03 | 2 | Data Manager events parser, import with diff (collisions, class deselection, source rule), export with passthrough, Import page | implementer | T-2-02 | DONE | see below |
-| T-2-04 | 2 | Multi-comparison orchestrator, batched resolver, comparison 4 definition vs Data Manager | implementer | T-2-03 | QA | see below |
-| T-2-05 | 2 | Comparisons 1 and 2 engines, mapping snapshot, preview findings for pasted mapping | implementer | T-2-04 | TODO | see below |
+| T-2-04 | 2 | Multi-comparison orchestrator, batched resolver, comparison 4 definition vs Data Manager | implementer | T-2-03 | DONE | see below |
+| T-2-05 | 2 | Comparisons 1 and 2 engines, mapping snapshot, preview findings for pasted mapping | implementer | T-2-04 | IN_PROGRESS | see below |
 | T-2-06 | 2 | Rules domain: table, item schema, tolerance settings, operator registry, evaluator, templates, DAL and API | implementer | T-2-01 | DONE | see below |
-| T-2-07 | 2 | Rules integration: engine wiring, rounding_drift via template, data-mapping import proposes the template, rules and item schema UI | implementer | T-2-04, T-2-06 | TODO | see below |
+| T-2-07 | 2 | Rules integration: engine wiring, rounding_drift via template, data-mapping import proposes the template, rules and item schema UI | implementer | T-2-04, T-2-06 | IN_PROGRESS | see below |
 | T-2-08 | 2 | document.service EventCard, certification, coverage grid, tracking-document.json, docs/TRACKING-DOCUMENT.md | implementer | T-2-05, T-2-07 | TODO | see below |
 | T-2-09 | 2 | Event card page, certified column, findings and QA runs page additions | implementer | T-2-08 | TODO | see below |
 | T-2-10 | 2 | MCP server: dependencies, stdio process, tools, .mcp.json, docs/MCP.md smoke test | implementer | T-2-08 | TODO | see below |
@@ -133,3 +133,4 @@ Detailed acceptance criteria per task live in `reports/PLAN-PHASE2-2026-09-25.md
 - From T-2-02 review: unknown Data Manager type on an existing non-string property exports the app type, drifting from meta; surface in T-2-04 comparison 4.
 - From T-2-11 review: comparison.service and customerEventsExportImport still use the uncached resolver; switch to createEventResolver in T-2-04/T-2-08.
 - From T-2-03 review (D-41 amendment): description and example values edited in the app after import should also be pushed on export; give them their own reference in link meta (T-2-04 or T-2-13). Skipped property items gated by anyOf should produce one warning. Raise vitest testTimeout to 15s or mark the two slow Data Manager tests (T-2-04).
+- T-2-05 delta from T-2-04 review: comparison 4 must exclude SDK_DEFAULT_PROPERTIES from unexpected_property and unmapped_property (engine-wide rule); comparison 4 unexpected_property severity is info per D-37 (flip the two literals); unknown Data Manager types report as a warning kind, not an unconditional type_mismatch error; one recompute loads events once via the shared snapshot.ts; tighten the two weak test assertions. Also: qa-roundtrip skill note that the customer events passthrough export carries the app project key in `project`.

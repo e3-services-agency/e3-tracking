@@ -1260,3 +1260,6 @@ D-41 amendment: edited `price`'s description in the app, exported `data-manager-
 Regression: sidebar swept (Events, Properties, Catalogs, Identity rules, Consent categories, Standard events, Use cases, Requirements matrix, Sources, Import, QA runs, Findings, Documentation) — all render, zero console errors, zero non-200 network responses, zero supabase requests. Findings page's Comparison filter lists `data_manager` alongside the other three ids. QA runs page correctly lists the export_paste run. Project documentation export (`GET .../export/documentation.html`) renders all 61 event sections (518KB). No 500s observed in the API log for the whole session.
 
 No defects found. Recommend T-2-04 -> DONE and sub-phase 2a exit clear to proceed.
+
+### 2026-09-25 15:01 | supervisor -> ALL | INFO | T-2-04 2a
+T-2-04 merged into agent-setup; sub-phase 2a complete (class, Data Manager customers and events, comparison 4). Reviewer warnings on comparison 4 (SDK defaults, severity info per D-37, unknown types) carried into the T-2-05 delta. Starting T-2-05 and T-2-07 in parallel worktrees.

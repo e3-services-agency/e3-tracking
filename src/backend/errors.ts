@@ -226,6 +226,30 @@ export class LimitEventPropertiesError extends BadRequestError {
   }
 }
 
+/**
+ * `Property.item_schema_json` was set on a property whose `data_type` is not `array` (D-30
+ * ItemSchema is only meaningful for list properties; T-2-06). 400.
+ */
+export class ItemSchemaRequiresArrayError extends BadRequestError {
+  readonly code = 'ITEM_SCHEMA_REQUIRES_ARRAY';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'ItemSchemaRequiresArrayError';
+  }
+}
+
+/**
+ * `Rule.expression_json` fails `src/domain/rules/validate.ts` (unknown operator, or a ref to a
+ * property not linked to the event/child event, D-30, D-31; T-2-06). 400.
+ */
+export class RuleExpressionInvalidError extends BadRequestError {
+  readonly code = 'RULE_EXPRESSION_INVALID';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'RuleExpressionInvalidError';
+  }
+}
+
 /** Use when a resource is not found or does not belong to the workspace (404). */
 export class NotFoundError extends Error {
   readonly code = 'NOT_FOUND';

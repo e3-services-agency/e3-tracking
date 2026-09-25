@@ -91,6 +91,8 @@ router.patch('/:id', (req: Request, res: Response) => {
         body.consent_key_additions_json === undefined ? undefined : body.consent_key_additions_json,
       standard_event_additions_json:
         body.standard_event_additions_json === undefined ? undefined : body.standard_event_additions_json,
+      money_tolerance_percent: typeof body.money_tolerance_percent === 'number' ? body.money_tolerance_percent : undefined,
+      money_tolerance_floor: typeof body.money_tolerance_floor === 'number' ? body.money_tolerance_floor : undefined,
     });
     res.status(200).json(project);
   } catch (err) {

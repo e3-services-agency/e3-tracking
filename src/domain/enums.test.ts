@@ -72,7 +72,7 @@ describe('D-25 required values', () => {
     expect(EVENT_STATUSES).toEqual(['planned', 'in_review', 'implemented', 'ignored']);
   });
 
-  it('finding kinds include the twelve skill kinds plus the three D-21 additions', () => {
+  it('finding kinds include the twelve skill kinds, the three D-21 additions, and the three D-30 rule additions', () => {
     const skillKinds = [
       'missing_required',
       'type_mismatch',
@@ -88,10 +88,12 @@ describe('D-25 required values', () => {
       'unexpected_property',
     ];
     const additions = ['missing_event', 'unexpected_event', 'unmapped_catalog'];
-    for (const kind of [...skillKinds, ...additions]) {
+    // D-30 (T-2-06): the rules layer's three finding kinds.
+    const ruleAdditions = ['rule_violation', 'item_schema_violation', 'bound_violation'];
+    for (const kind of [...skillKinds, ...additions, ...ruleAdditions]) {
       expect(FINDING_KINDS).toContain(kind);
     }
-    expect(FINDING_KINDS).toHaveLength(skillKinds.length + additions.length);
+    expect(FINDING_KINDS).toHaveLength(skillKinds.length + additions.length + ruleAdditions.length);
   });
 
   it('severities are error, warning, info', () => {

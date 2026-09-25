@@ -7,6 +7,7 @@ import { Router, type Request, type Response } from 'express';
 import * as EventDAL from '../dal/event.dal';
 import * as VariantDAL from '../dal/variant.dal';
 import * as UseCaseDAL from '../dal/use-case.dal';
+import * as RuleDAL from '../dal/rule.dal';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -230,6 +231,60 @@ router.delete('/:id/variants/:variantId', (req: Request, res: Response) => {
   try {
     VariantDAL.deleteVariant(req.projectId!, req.params.id, req.params.variantId);
     res.status(204).end();
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+// ----- Rule (D-30, D-31, T-2-06): /api/projects/:projectId/events/:id/rules -----
+// `PATCH/DELETE /rules/:id` and `GET /rule-templates` live at the project level (`routes/rules.ts`,
+// `routes/rule-templates.ts`), not nested here, per the plan's API shape table.
+
+function ruleInputFromBody(body: Record<string, unknown>): RuleDAL.RuleInput {
+  return {
+    variant_id: 'variant_id' in body ? (body.variant_id as string | null) : undefined,
+    kind: String(body.kind ?? ''),
+    name: String(body.name ?? ''),
+    message: 'message' in body ? (body.message as string | null) : undefined,
+    expression_json: body.expression_json,
+    tolerance_mode: typeof body.tolerance_mode === 'string' ? body.tolerance_mode : undefined,
+    tolerance_value: 'tolerance_value' in body ? (body.tolerance_value as number | null) : undefined,
+    report_kind: typeof body.report_kind === 'string' ? body.report_kind : undefined,
+    severity: typeof body.severity === 'string' ? body.severity : undefined,
+    template_key: 'template_key' in body ? (body.template_key as string | null) : undefined,
+    enabled: typeof body.enabled === 'boolean' ? body.enabled : undefined,
+  };
+}
+
+router.get('/:id/rules', (req: Request, res: Response) => {
+  try {
+    res.status(200).json(RuleDAL.listRulesByEvent(req.projectId!, req.params.id));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.post('/:id/rules', (req: Request, res: Response) => {
+  try {
+    const rule = RuleDAL.createRule(req.projectId!, req.params.id, ruleInputFromBody(req.body as Record<string, unknown>));
+    res.status(201).json(rule);
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.get('/:id/rule-templates', (req: Request, res: Response) => {
+  try {
+    res.status(200).json(RuleDAL.listRuleTemplates(req.projectId!, req.params.id));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.post('/:id/rules/from-template/:key', (req: Request, res: Response) => {
+  try {
+    const rules = RuleDAL.createRulesFromTemplate(req.projectId!, req.params.id, req.params.key);
+    res.status(201).json(rules);
   } catch (err) {
     handleRouteError(err, res);
   }

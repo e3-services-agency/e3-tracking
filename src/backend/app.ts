@@ -32,6 +32,8 @@ import qaRunsRouter from './routes/qa-runs';
 import observationsRouter from './routes/observations';
 import comparisonRouter from './routes/comparison';
 import findingsRouter from './routes/findings';
+import rulesRouter from './routes/rules';
+import ruleTemplatesRouter from './routes/rule-templates';
 import { optionalAuth } from './middleware/auth';
 import { requireProject } from './middleware/project';
 import { getDb } from './db';
@@ -86,6 +88,9 @@ export function createApp(): express.Express {
   app.use('/api/projects/:projectId/observations', requireProject, observationsRouter);
   app.use('/api/projects/:projectId/comparison', requireProject, comparisonRouter);
   app.use('/api/projects/:projectId/findings', requireProject, findingsRouter);
+  // D-30, D-31, T-2-06: rule CRUD (create/list-by-event nested under eventsRouter above).
+  app.use('/api/projects/:projectId/rules', requireProject, rulesRouter);
+  app.use('/api/projects/:projectId/rule-templates', requireProject, ruleTemplatesRouter);
 
   // Public share-link mechanism (D-18): stub until phase 4 (see routes/shared.ts).
   app.use('/api/shared', sharedRouter);

@@ -35,6 +35,7 @@ function inputFromBody(body: Record<string, unknown>): Partial<PropertyDAL.Prope
   if ('object_child_property_refs_json' in body) {
     input.object_child_property_refs_json = body.object_child_property_refs_json;
   }
+  if ('item_schema_json' in body) input.item_schema_json = body.item_schema_json;
   if ('bloomreach_customer_property' in body) {
     input.bloomreach_customer_property = body.bloomreach_customer_property as string | null;
   }

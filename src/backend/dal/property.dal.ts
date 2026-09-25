@@ -6,7 +6,7 @@
  */
 import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn, toSqliteBool, fromSqliteBool, mapWriteError } from '../db/util';
-import { BadRequestError, ConflictError, EnumInUseError, NotFoundError, ValidationError } from '../errors';
+import { BadRequestError, ConflictError, EnumInUseError, ItemSchemaRequiresArrayError, NotFoundError, ValidationError } from '../errors';
 import { validateAsciiName } from './validators';
 import * as BundleDAL from './bundle.dal';
 import {
@@ -19,6 +19,7 @@ import {
 } from '../../domain/enums';
 import { STANDARD_CUSTOMER_PROPERTIES, isKnownStandardEvent, type StandardEventSeed } from '../../domain/bloomreach';
 import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
+import { isValidItemSchemaShape } from '../../domain/rules/itemSchema';
 import { markRequirementsGapForPropertyRemoval } from './requirement.dal';
 
 export interface AllowedValue {
@@ -44,6 +45,9 @@ export interface PropertyRow {
   example_values_json: unknown;
   value_schema_json: unknown;
   object_child_property_refs_json: unknown;
+  /** D-30 ItemSchema (T-2-06): `[{field, data_type, data_formats[], required}]`, only meaningful
+   * when `data_type = 'array'`; validated per item by the rules evaluator. */
+  item_schema_json: unknown;
   bloomreach_customer_property: string | null;
   priority: string | null;
   status: string | null;
@@ -63,6 +67,7 @@ type PropertyDbRow = Omit<
   | 'example_values_json'
   | 'value_schema_json'
   | 'object_child_property_refs_json'
+  | 'item_schema_json'
   | 'pii'
   | 'bundle_ids'
 >;
@@ -77,6 +82,7 @@ function mapPropertyRow(row: PropertyDbRow): PropertyRow {
     example_values_json: parseJsonColumn(raw.example_values_json, []),
     value_schema_json: parseJsonColumn(raw.value_schema_json, null),
     object_child_property_refs_json: parseJsonColumn(raw.object_child_property_refs_json, null),
+    item_schema_json: parseJsonColumn(raw.item_schema_json, null),
   };
 }
 
@@ -94,6 +100,7 @@ export interface PropertyInput {
   example_values_json?: unknown;
   value_schema_json?: unknown;
   object_child_property_refs_json?: unknown;
+  item_schema_json?: unknown;
   bloomreach_customer_property?: string | null;
   priority?: string | null;
   status?: string | null;
@@ -236,6 +243,38 @@ function validateAllowedValues(projectId: string, allowedValues: unknown): void 
         `Unknown standard event "${row.standard_event}" on allowed value "${row.value}".`,
         'allowed_values_json'
       );
+    }
+  }
+}
+
+/**
+ * `Property.item_schema_json` (D-30 ItemSchema, T-2-06): shape-validated by
+ * `domain/rules/itemSchema.ts`'s `isValidItemSchemaShape`; only meaningful on `data_type: 'array'`
+ * (400 `ITEM_SCHEMA_REQUIRES_ARRAY` otherwise — `resolvedDataType` is the value the write will end
+ * up with, current or incoming).
+ */
+function validateItemSchema(itemSchema: unknown, resolvedDataType: string): void {
+  if (itemSchema === undefined || itemSchema === null) return;
+  if (!isValidItemSchemaShape(itemSchema)) {
+    throw new BadRequestError(
+      'item_schema_json must be an array of {field, data_type, data_formats?, required?}.',
+      'item_schema_json'
+    );
+  }
+  if (resolvedDataType !== 'array') {
+    throw new ItemSchemaRequiresArrayError(
+      'item_schema_json is only valid when data_type is "array".',
+      'item_schema_json'
+    );
+  }
+  for (const field of itemSchema) {
+    if (!(PROPERTY_DATA_TYPES as readonly string[]).includes(field.data_type)) {
+      throw new BadRequestError(`item_schema_json field "${field.field}" has an unknown data_type.`, 'item_schema_json');
+    }
+    if (field.data_formats !== undefined) {
+      if (!Array.isArray(field.data_formats) || field.data_formats.some((f: unknown) => !(PROPERTY_DATA_FORMATS as readonly string[]).includes(String(f)))) {
+        throw new BadRequestError(`item_schema_json field "${field.field}" has an unknown data format.`, 'item_schema_json');
+      }
     }
   }
 }
@@ -459,6 +498,7 @@ export function createProperty(projectId: string, input: PropertyInput): Propert
 
   validatePropertyFields(projectId, input, input.scope);
   validateCatalogRefs(projectId, input.mapped_catalog_id, input.mapped_catalog_field_id);
+  validateItemSchema(input.item_schema_json, input.data_type || DEFAULT_DATA_TYPE);
 
   const db = getDb();
   const existing = db
@@ -477,12 +517,12 @@ export function createProperty(projectId: string, input: PropertyInput): Propert
       `INSERT INTO properties (
         id, project_id, scope, name, description, category, notes, data_type, data_formats_json,
         pii, property_type, allowed_values_json, example_values_json, value_schema_json,
-        object_child_property_refs_json, bloomreach_customer_property, priority, status,
+        object_child_property_refs_json, item_schema_json, bloomreach_customer_property, priority, status,
         mapped_catalog_id, mapped_catalog_field_id, mapping_type, created_at, updated_at, deleted_at
       ) VALUES (
         @id, @project_id, @scope, @name, @description, @category, @notes, @data_type, @data_formats_json,
         @pii, @property_type, @allowed_values_json, @example_values_json, @value_schema_json,
-        @object_child_property_refs_json, @bloomreach_customer_property, @priority, @status,
+        @object_child_property_refs_json, @item_schema_json, @bloomreach_customer_property, @priority, @status,
         @mapped_catalog_id, @mapped_catalog_field_id, @mapping_type, @created_at, @updated_at, NULL
       )`
     ).run({
@@ -501,6 +541,7 @@ export function createProperty(projectId: string, input: PropertyInput): Propert
       example_values_json: toJsonColumn(input.example_values_json ?? []),
       value_schema_json: toJsonColumn(input.value_schema_json ?? null),
       object_child_property_refs_json: toJsonColumn(input.object_child_property_refs_json ?? null),
+      item_schema_json: toJsonColumn(input.item_schema_json ?? null),
       bloomreach_customer_property: input.bloomreach_customer_property?.trim() || null,
       priority: input.priority ?? null,
       status: input.status ?? null,
@@ -561,6 +602,10 @@ export function updateProperty(
     assertAllowedValuesNotRemovedWhileInUse(projectId, id, current.allowed_values_json, updates.allowed_values_json);
   }
 
+  if (updates.item_schema_json !== undefined) {
+    validateItemSchema(updates.item_schema_json, updates.data_type ?? current.data_type);
+  }
+
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (updates.scope !== undefined) patch.scope = updates.scope;
   if (updates.name !== undefined) patch.name = updates.name.trim();
@@ -580,6 +625,14 @@ export function updateProperty(
   if (updates.value_schema_json !== undefined) patch.value_schema_json = toJsonColumn(updates.value_schema_json);
   if (updates.object_child_property_refs_json !== undefined) {
     patch.object_child_property_refs_json = toJsonColumn(updates.object_child_property_refs_json);
+  }
+  if (updates.item_schema_json !== undefined) {
+    patch.item_schema_json = toJsonColumn(updates.item_schema_json);
+  } else if (updates.data_type !== undefined && updates.data_type !== 'array' && current.item_schema_json !== null) {
+    // T-2-06 fix round LOW: PATCH data_type away from "array" without an explicit item_schema_json
+    // left the old item schema in place (validateItemSchema only re-checks a schema the caller
+    // actually sent); clear it so a non-array property can't carry a stale item schema.
+    patch.item_schema_json = null;
   }
   if (updates.bloomreach_customer_property !== undefined) {
     patch.bloomreach_customer_property = updates.bloomreach_customer_property?.trim() || null;

@@ -308,3 +308,92 @@ describe('exportDataManagerCustomers round trip', () => {
     expect(rowAfter?.type).toBe('number'); // reverse-mapped current type wins, not the stale raw fallback
   });
 });
+
+describe('reviewer fix round 2: ERROR A (old DM-determining formats leaked back into "kept")', () => {
+  it('long text -> string applies once and never recurs', () => {
+    PropertyDAL.createProperty(projectId, { scope: 'customer', name: 'a', data_type: 'string', data_formats_json: ['long_text'] });
+    const payload = { default_group: { properties: [{ property: 'a', type: 'string', source: 'user' }] } };
+
+    const preview = previewDataManagerCustomers(projectId, payload);
+    const item = preview.items.find((i) => i.entity_key === 'a');
+    expect(item?.changes).toContainEqual({ field: 'data_type', before: 'string/long_text', after: 'string' });
+
+    applyDataManagerCustomers(projectId, payload, preview.payload_hash, [item!.id, 'project:data_manager_customers_snapshot']);
+    const row = PropertyDAL.listProperties(projectId, { scope: 'customer' }).find((p) => p.name === 'a');
+    expect(row?.data_type).toBe('string');
+    expect(row?.data_formats_json).toEqual([]);
+
+    const second = previewDataManagerCustomers(projectId, payload);
+    expect(second.items.filter((i) => i.entity_type === 'property')).toEqual([]);
+  });
+
+  it('url -> string applies once and never recurs', () => {
+    PropertyDAL.createProperty(projectId, { scope: 'customer', name: 'b', data_type: 'string', data_formats_json: ['uri'] });
+    const payload = { default_group: { properties: [{ property: 'b', type: 'string', source: 'user' }] } };
+
+    const preview = previewDataManagerCustomers(projectId, payload);
+    const item = preview.items.find((i) => i.entity_key === 'b');
+    expect(item?.changes).toContainEqual({ field: 'data_type', before: 'string/uri', after: 'string' });
+
+    applyDataManagerCustomers(projectId, payload, preview.payload_hash, [item!.id, 'project:data_manager_customers_snapshot']);
+    const row = PropertyDAL.listProperties(projectId, { scope: 'customer' }).find((p) => p.name === 'b');
+    expect(row?.data_type).toBe('string');
+    expect(row?.data_formats_json).toEqual([]);
+
+    const second = previewDataManagerCustomers(projectId, payload);
+    expect(second.items.filter((i) => i.entity_type === 'property')).toEqual([]);
+  });
+
+  it('date -> datetime applies once and never recurs', () => {
+    PropertyDAL.createProperty(projectId, { scope: 'customer', name: 'c', data_type: 'timestamp', data_formats_json: ['iso8601_date'] });
+    const payload = { default_group: { properties: [{ property: 'c', type: 'datetime', source: 'user' }] } };
+
+    const preview = previewDataManagerCustomers(projectId, payload);
+    const item = preview.items.find((i) => i.entity_key === 'c');
+    expect(item?.changes).toContainEqual({ field: 'data_type', before: 'timestamp/iso8601_date', after: 'timestamp' });
+
+    applyDataManagerCustomers(projectId, payload, preview.payload_hash, [item!.id, 'project:data_manager_customers_snapshot']);
+    const row = PropertyDAL.listProperties(projectId, { scope: 'customer' }).find((p) => p.name === 'c');
+    expect(row?.data_type).toBe('timestamp');
+    expect(row?.data_formats_json).toEqual([]);
+
+    const second = previewDataManagerCustomers(projectId, payload);
+    expect(second.items.filter((i) => i.entity_type === 'property')).toEqual([]);
+  });
+});
+
+describe('reviewer fix round 2: ERROR B (unknown incoming type compared against reconstructed app type)', () => {
+  it('an unknown type (geo_point) never proposes "data_type: string -> string", and the export -> import round trip stays diff-free', () => {
+    const payload = { default_group: { properties: [{ property: 'geo', type: 'geo_point', source: 'user' }] } };
+    const preview = previewDataManagerCustomers(projectId, payload);
+    applyDataManagerCustomers(
+      projectId,
+      payload,
+      preview.payload_hash,
+      preview.items.filter((i) => i.default_selected).map((i) => i.id)
+    );
+
+    const second = previewDataManagerCustomers(projectId, payload);
+    expect(second.items.find((i) => i.entity_key === 'geo')).toBeUndefined();
+
+    const exported = exportDataManagerCustomers(projectId);
+    const third = previewDataManagerCustomers(projectId, exported);
+    expect(third.items.filter((i) => i.entity_type === 'property')).toEqual([]);
+  });
+});
+
+describe('reviewer fix round 2: general guard (never emit an update item whose before equals after)', () => {
+  it('a no-op re-preview (identical payload, all fields matching) proposes no property items', () => {
+    PropertyDAL.createProperty(projectId, {
+      scope: 'customer',
+      name: 'd',
+      data_type: 'string',
+      category: null,
+      pii: false,
+      description: null,
+    });
+    const payload = { default_group: { properties: [{ property: 'd', type: 'string', source: 'user' }] } };
+    const preview = previewDataManagerCustomers(projectId, payload);
+    expect(preview.items.find((i) => i.entity_key === 'd')).toBeUndefined();
+  });
+});

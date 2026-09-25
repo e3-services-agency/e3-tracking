@@ -61,11 +61,6 @@ export function toAppType(dmType: string): ToAppTypeResult {
 }
 
 /**
- * App `data_type` + `data_formats` -> Bloomreach Data Manager `type` (D-37 reverse rule). Bloomreach
- * has no `object` type: exported as `string` with a warning. An app `data_type` outside
- * `PROPERTY_DATA_TYPES` (should not happen; defensive) also falls back to `string` with a warning.
- */
-/**
  * App data formats that plausibly still apply after a property's app `data_type` genuinely changes
  * (T-2-02 fix round, D-37 reverse rule). Most `PROPERTY_DATA_FORMATS` (`email`, `money`,
  * `country_code`, ...) are pure app enrichment with no Bloomreach Data Manager counterpart — they
@@ -87,6 +82,11 @@ export function formatsCompatibleWithType(dataType: PropertyDataType): readonly 
   return FORMATS_COMPATIBLE_WITH_TYPE[dataType] ?? [];
 }
 
+/**
+ * App `data_type` + `data_formats` -> Bloomreach Data Manager `type` (D-37 reverse rule). Bloomreach
+ * has no `object` type: exported as `string` with a warning. An app `data_type` outside
+ * `PROPERTY_DATA_TYPES` (should not happen; defensive) also falls back to `string` with a warning.
+ */
 export function toDataManagerType(dataType: string, dataFormats: readonly string[] | null | undefined): ToDataManagerTypeResult {
   const formats = dataFormats ?? [];
   switch (dataType) {

@@ -14,6 +14,14 @@
  * not to propagate a field change into the definition. It runs last (after the property steps, so
  * newly-created properties already exist) but is not itself deselectable — `apply` always executes
  * it regardless of `selected_item_ids`.
+ *
+ * INFO D (reviewer, T-2-02 fix round 2): when the parsed payload has zero properties (genuinely
+ * empty, e.g. `{}`/`{"groups":[]}`, or the wrong shape, e.g. a `data-manager-events.json` export)
+ * the snapshot step is skipped entirely — no item, no step, only a hard warning — so
+ * `Project.data_manager_customers_json` is left `null` rather than overwritten with garbage (see
+ * the guard below). T-2-04 (comparison 4, definition vs Data Manager) must not assume every project
+ * that has gone through a customers import has a stored snapshot; treat `data_manager_customers_json
+ * === null` as "no customers evidence yet", the same as a project that was never imported.
  */
 import { getDb } from '../db';
 import * as PropertyDAL from '../dal/property.dal';
@@ -151,6 +159,13 @@ function buildPlan(projectId: string, model: DataManagerCustomersModel, rawJson:
     }
 
     const changes: DiffItemChange[] = [];
+    // General guard (reviewer fix round 2): never emit a change whose `before` equals `after` — a
+    // safety net on top of the specific ERROR A/B fixes below, for every field, so a comparison bug
+    // anywhere in this loop degrades to "no item" instead of an infinite, always-selected no-op.
+    const pushChange = (change: DiffItemChange): void => {
+      if (change.before === change.after) return;
+      changes.push(change);
+    };
     const currentFormats = Array.isArray(existing.data_formats_json)
       ? (existing.data_formats_json as string[])
       : [];
@@ -161,7 +176,15 @@ function buildPlan(projectId: string, model: DataManagerCustomersModel, rawJson:
     // change, and must never be wiped by an import that leaves the Data Manager type unchanged
     // (e.g. `string`/`[email]` stays `string`/`[email]`, `number`/`[money]` stays `number`/`[money]`).
     const currentDmType = toDataManagerType(existing.data_type, currentFormats).type;
-    const typeDiffers = currentDmType !== prop.type;
+    // Reviewer ERROR B fix: an unrecognized incoming type (`appType.warning` set) always maps to
+    // plain `string` with no formats (`toAppType`'s default branch), so it can never be compared
+    // meaningfully against `currentDmType` — doing so misreads the "unknown type stayed unknown"
+    // case as a spurious "string -> string" update, proposed forever. Treat it as not comparable
+    // here: propose no data_type change; `bloomreach_meta_json.raw.type` (the actual evidence for
+    // an unknown type, D-37) still gets refreshed unconditionally by the always-applied snapshot
+    // step below, so export keeps writing the current unknown type back and the round trip stays
+    // diff-free (matches the pre-fix-round behaviour: "no item" for unknown types).
+    const typeDiffers = !appType.warning && currentDmType !== prop.type;
     let nextFormats: readonly string[] = currentFormats;
     if (typeDiffers) {
       if (prop.source === 'user') {
@@ -169,11 +192,23 @@ function buildPlan(projectId: string, model: DataManagerCustomersModel, rawJson:
         // the new app data_type (e.g. `money` survives string->number is false, but a genuine
         // number->number with `money` already present would never reach this branch); on top of
         // whatever the new Bloomreach type itself implies (e.g. `long_text` for "long text").
-        const kept = currentFormats.filter((f) =>
-          formatsCompatibleWithType(appType.data_type).includes(f as PropertyDataFormat)
+        // Reviewer ERROR A fix: first strip the formats that *decided the old Data Manager type*
+        // (`toAppType(currentDmType).data_formats`, e.g. `long_text` for "string"/"long text",
+        // `iso8601_date` for "timestamp"/"date") from `currentFormats` before filtering for
+        // compatibility with the *new* app data_type. Without this, `formatsCompatibleWithType` is
+        // keyed by app `data_type` (not by specific Bloomreach type), so it still lists the old
+        // type's own determining format as "compatible" with the new type whenever both share the
+        // same app data_type (e.g. "long text" -> "string" are both app `string`), the format
+        // survives the filter unchanged, `nextFormats === currentFormats`, the proposed change
+        // reads "string/long_text -> string/long_text", and it is proposed again forever.
+        const oldImpliedFormats = new Set(toAppType(currentDmType).data_formats);
+        const kept = currentFormats.filter(
+          (f) =>
+            !oldImpliedFormats.has(f as PropertyDataFormat) &&
+            formatsCompatibleWithType(appType.data_type).includes(f as PropertyDataFormat)
         );
         nextFormats = Array.from(new Set([...appType.data_formats, ...kept]));
-        changes.push({
+        pushChange({
           field: 'data_type',
           before: currentFormats.length ? `${existing.data_type}/${currentFormats.join(',')}` : existing.data_type,
           after: nextFormats.length ? `${appType.data_type}/${nextFormats.join(',')}` : appType.data_type,
@@ -185,17 +220,17 @@ function buildPlan(projectId: string, model: DataManagerCustomersModel, rawJson:
       }
     }
     if ((existing.category ?? null) !== category) {
-      changes.push({ field: 'category', before: existing.category, after: category });
+      pushChange({ field: 'category', before: existing.category, after: category });
     }
     if (existing.pii !== pii) {
-      changes.push({ field: 'pii', before: existing.pii, after: pii });
+      pushChange({ field: 'pii', before: existing.pii, after: pii });
     }
     if ((existing.description ?? null) !== description) {
-      changes.push({ field: 'description', before: existing.description, after: description });
+      pushChange({ field: 'description', before: existing.description, after: description });
     }
     const proposeStdKey = knownStd && !existing.bloomreach_customer_property;
     if (proposeStdKey) {
-      changes.push({ field: 'bloomreach_customer_property', before: null, after: prop.property });
+      pushChange({ field: 'bloomreach_customer_property', before: null, after: prop.property });
     }
 
     if (changes.length === 0) continue;

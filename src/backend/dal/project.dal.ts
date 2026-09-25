@@ -37,6 +37,10 @@ export interface ProjectRow {
   bloomreach_mapping_meta_json: unknown;
   share_token: string | null;
   share_access: string | null;
+  /** D-30 money tolerance (T-2-06): percent with an absolute floor, applied to every
+   * `tolerance_mode = 'money'` rule (`src/domain/rules/evaluate.ts`'s `resolveTolerance`). */
+  money_tolerance_percent: number;
+  money_tolerance_floor: number;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -199,6 +203,23 @@ export interface UpdateProjectInput {
   standard_event_additions_json?: unknown;
   /** `{_id, catalogs, custom_events}` verbatim from the last imported data-mapping.json (T-1-08). */
   bloomreach_mapping_meta_json?: unknown;
+  /** D-30 money tolerance (T-2-06): percent (0-100) with a non-negative absolute floor. */
+  money_tolerance_percent?: number;
+  money_tolerance_floor?: number;
+}
+
+/** Range validation for the D-30 money tolerance fields (T-2-06 plan: "range validation"). */
+function validateMoneyTolerance(percent: number | undefined, floor: number | undefined): void {
+  if (percent !== undefined) {
+    if (typeof percent !== 'number' || !Number.isFinite(percent) || percent < 0 || percent > 100) {
+      throw new ValidationError('money_tolerance_percent must be a number between 0 and 100.', 'money_tolerance_percent');
+    }
+  }
+  if (floor !== undefined) {
+    if (typeof floor !== 'number' || !Number.isFinite(floor) || floor < 0) {
+      throw new ValidationError('money_tolerance_floor must be a non-negative number.', 'money_tolerance_floor');
+    }
+  }
 }
 
 /**
@@ -323,6 +344,7 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
     getClientOrThrow(updates.client_id);
   }
   validateExpirationJson(updates.default_expiration_json, 'default_expiration_json');
+  validateMoneyTolerance(updates.money_tolerance_percent, updates.money_tolerance_floor);
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (updates.name !== undefined) patch.name = updates.name.trim();
@@ -361,6 +383,8 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
   if (updates.bloomreach_mapping_meta_json !== undefined) {
     patch.bloomreach_mapping_meta_json = toJsonColumn(updates.bloomreach_mapping_meta_json);
   }
+  if (updates.money_tolerance_percent !== undefined) patch.money_tolerance_percent = updates.money_tolerance_percent;
+  if (updates.money_tolerance_floor !== undefined) patch.money_tolerance_floor = updates.money_tolerance_floor;
 
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)

@@ -22,6 +22,7 @@ import {
 } from '@/src/domain/enums';
 import { STANDARD_CUSTOMER_PROPERTIES, type StandardEventSeed } from '@/src/domain/bloomreach';
 import { AllowedValuesEditor, type AllowedValueRow } from '@/src/features/properties/components/AllowedValuesEditor';
+import { ItemSchemaEditor, type ItemSchemaFieldRow } from '@/src/features/properties/components/ItemSchemaEditor';
 import { mergeFrozenOrder } from '@/src/domain/propertyOrder';
 
 interface PropertyRow {
@@ -34,6 +35,7 @@ interface PropertyRow {
   notes: string | null;
   data_type: string;
   data_formats_json: string[];
+  item_schema_json?: ItemSchemaFieldRow[] | null;
   pii: boolean;
   property_type: string;
   allowed_values_json: AllowedValueRow[];
@@ -220,6 +222,7 @@ function PropertyEditor({
   const [notes, setNotes] = useState(property?.notes ?? '');
   const [dataType, setDataType] = useState(property?.data_type ?? 'string');
   const [dataFormats, setDataFormats] = useState<string[]>(property?.data_formats_json ?? []);
+  const [itemSchema, setItemSchema] = useState<ItemSchemaFieldRow[]>(property?.item_schema_json ?? []);
   const [pii, setPii] = useState(property?.pii ?? false);
   const [propertyType, setPropertyType] = useState(property?.property_type ?? 'custom');
   const [allowedValues, setAllowedValues] = useState<AllowedValueRow[]>(property?.allowed_values_json ?? []);
@@ -254,6 +257,10 @@ function PropertyEditor({
         notes: notes.trim() || null,
         data_type: dataType,
         data_formats_json: dataFormats,
+        item_schema_json:
+          dataType === 'array'
+            ? itemSchema.filter((f) => f.field.trim()).map((f) => ({ field: f.field.trim(), data_type: f.data_type, data_formats: f.data_formats ?? [], required: f.required ?? false }))
+            : null,
         pii,
         property_type: propertyType,
         allowed_values_json: allowedValues
@@ -348,6 +355,8 @@ function PropertyEditor({
         onChange={setAllowedValues}
         standardEventAdditions={standardEventAdditions}
       />
+
+      {dataType === 'array' && <ItemSchemaEditor fields={itemSchema} onChange={setItemSchema} />}
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">

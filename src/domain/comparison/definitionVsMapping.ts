@@ -13,12 +13,27 @@
  *   proposed the value) whose standard event key has no mapping at all, or is mapped with
  *   `eventType: null`.
  * - `unmapped_property` (warning): a mapped standard event's *required* custom-event property is
- *   not represented by any field in that standard event's field map.
- * - `rename_mismatch` (warning), two sources: (a) a mapped field's property is not actually linked
+ *   not represented by any field in that standard event's field map, nor by a discriminator the
+ *   mapping's `filter` already represents (fix round WARNING 5) — a required discriminator with a
+ *   variant filter condition on it (e.g. `cart_update.action` on the `add_to_cart` mapping's
+ *   `action=add` filter) is represented by the filter, not the field map, so it is never flagged. A
+ *   property matching `SDK_DEFAULT_PROPERTIES` (`os`/`browser`/`device`/`location`) is never flagged
+ *   either (fix round LOW 6, the same engine-wide rule comparison 3 applies).
+ * - `rename_mismatch` (warning), three sources: (a) a mapped field's property is not actually linked
  *   to the mapped event, or its `payload_key ?? name` differs from the field name; (b) a mapping
- *   consent name differs from the definition-side consent category tagged with that standard key.
+ *   consent name differs from the definition-side consent category tagged with that standard key;
+ *   (c) fix round WARNING 3: a definition-side consent category exists with no `standard_key` tag
+ *   while at least one standard consent key has no mapping (`mapping.consents[key] === null`) — an
+ *   untagged category left sitting next to an unfilled standard slot is exactly the ambiguous state
+ *   this row exists to flag, independent of whether the two happen to share a name.
  * - `unmapped_catalog` (warning): a Catalog exists in the definition (`hasCatalog`) while the
  *   mapping's `catalogs.main`/`catalogs.variant` are both empty.
+ *
+ * Fix round WARNING 4 (`snapshot.ts`): a `StandardEventMapping` whose `variant_id` no longer
+ * resolves to an existing `Variant` (the variant was deleted after the mapping was made) is
+ * projected as fully unmapped (`eventType: null`, not a faked empty `filter`) so this module's
+ * `unmapped_standard_event` check — and comparison 2's per-event checks — see it as "not really
+ * mapped" rather than as a valid event-level (no-variant) mapping.
  *
  * Not implemented (documented gap, T-2-05 scope note): the plan's "preview only: pasted expiration
  * or mapping differs from the stored definition" `expiration_mismatch` row — no test requires it and
@@ -29,6 +44,7 @@ import type { ComparisonId } from '../enums';
 import type { DefEvent } from './definitionVsObservations';
 import type { EngineFinding } from './definitionVsObservations';
 import type { DefConsentCategory, MappingSnapshot } from './snapshot';
+import { SDK_DEFAULT_PROPERTIES } from '../bloomreach';
 
 export interface DefinitionVsMappingInput {
   events: DefEvent[];
@@ -85,11 +101,17 @@ export function runDefinitionVsMapping(definition: DefinitionVsMappingInput, map
     if (!event) continue;
 
     const mappedPropertyNames = new Set(Object.values(se.fieldMap).filter((v): v is string => v !== null));
+    // WARNING 5 fix: a required discriminator represented by the mapping's own `filter` (a variant
+    // condition, e.g. `action=add`) is represented, even though the field map never mentions it.
+    const filterPropertyNames = new Set(se.filter.map((c) => c.property));
 
-    // unmapped_property: a required property on the mapped event absent from every field of this mapping.
+    // unmapped_property: a required property on the mapped event absent from every field of this
+    // mapping and from its filter; SDK default properties are never flagged (LOW 6 fix).
     for (const prop of event.properties) {
       if (!prop.required) continue;
       if (mappedPropertyNames.has(prop.name)) continue;
+      if (filterPropertyNames.has(prop.name)) continue;
+      if (SDK_DEFAULT_PROPERTIES.includes(payloadKeyFor(prop))) continue;
       findings.push({
         comparison: COMPARISON,
         kind: 'unmapped_property',
@@ -161,6 +183,28 @@ export function runDefinitionVsMapping(definition: DefinitionVsMappingInput, map
       message: `Consent key "${stdKey}" mapping names "${mappedName}", but the definition's consent category tagged "${stdKey}" is named "${category.name}".`,
       fingerprint: fp('rename_mismatch', null, null, `consent:${stdKey}`),
     });
+  }
+
+  // ---- rename_mismatch (consent, WARNING 3 fix): a definition consent category with no
+  // `standard_key` tag while at least one standard consent key's mapping is unfilled (null) ----
+  const hasUnfilledStandardKey = Object.values(mapping.consents).some((v) => v === null || v === undefined);
+  if (hasUnfilledStandardKey) {
+    for (const category of definition.consentCategories) {
+      if (category.standard_key !== null) continue;
+      findings.push({
+        comparison: COMPARISON,
+        kind: 'rename_mismatch',
+        severity: 'warning',
+        event_id: null,
+        variant_id: null,
+        property_id: null,
+        observation_id: null,
+        expected_json: { category_name: category.name },
+        actual_json: { standard_key: null },
+        message: `Consent category "${category.name}" has no standard_key tag, while at least one standard consent key has no mapping.`,
+        fingerprint: fp('rename_mismatch', null, null, `consent_untagged:${category.name}`),
+      });
+    }
   }
 
   // ---- unmapped_catalog: a Catalog exists but the mapping's catalog block is empty ----

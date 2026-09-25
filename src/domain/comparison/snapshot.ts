@@ -111,6 +111,13 @@ export function buildMappingSnapshotFromDefinition(
     if (!mapping) return { key: seed.key, eventType: null, filter: [], fieldMap: Object.fromEntries(seed.fields.map((f) => [f, null])) };
     const event = eventById.get(mapping.event_id);
     const variant = mapping.variant_id ? variantById.get(mapping.variant_id) ?? null : null;
+    // WARNING 4 fix: a `variant_id` that no longer resolves to a `Variant` (deleted after the
+    // mapping was made) must not be projected as an event-level (no-filter) mapping — that would
+    // silently fake a passing `unmapped_standard_event` check. Treat it as fully unmapped instead.
+    const variantMissing = mapping.variant_id !== null && variant === null;
+    if (variantMissing) {
+      return { key: seed.key, eventType: null, filter: [], fieldMap: Object.fromEntries(seed.fields.map((f) => [f, null])) };
+    }
     const filter = variant
       ? variant.conditions.map((c) => ({
           property: propertyNameByEventAndId.get(`${mapping.event_id}:${c.property_id}`) ?? c.property_id,

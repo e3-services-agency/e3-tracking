@@ -197,7 +197,10 @@ describe('batched resolver (T-2-04, D-21 "Batched resolution")', () => {
     listEventsSpy.mockRestore();
   });
 
-  it('a full runComparison over all four engines issues exactly one listEvents call for the engines\' shared snapshot (T-2-05, snapshot.ts)', () => {
+  // LOW 9 fix: two listEvents calls total (the comparison-3 snapshot plus the batched resolver),
+  // not one — every other engine's snapshot is a pure projection of the one already-loaded
+  // DefinitionSnapshot (see the in-body comment), so this is the floor, not a stray duplicate.
+  it('a full runComparison over all four engines issues exactly two listEvents calls: the shared snapshot and the resolver (T-2-05, snapshot.ts)', () => {
     const mappingPreview = previewDataMapping(projectId, dataMappingFixture);
     applyDataMapping(projectId, dataMappingFixture, mappingPreview.payload_hash, mappingPreview.items.map((i) => i.id));
     const eventsPreview = previewCustomerEventsExport(projectId, eventsFixture);

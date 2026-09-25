@@ -19,14 +19,28 @@
  *   only `add_to_cart`'s `action = add` filter is mapped).
  * - `rename_mismatch` (warning): a `consent` observation's `category` equals a standard consent key
  *   the mapping renames (`category: newsletter` observed, `mapping.consents.newsletter = "brand_consent"`).
- * - `missing_required` (error): a mapped standard field whose property is absent from every
- *   observation of the mapped event.
- * - `missing_event` (warning): a mapped standard event (class `custom`) with zero observations of
- *   its raw type in scope.
+ * - `missing_required` (error): a mapped standard field whose *linked property is `required: true`*
+ *   is absent from every observation *of that mapped standard event's own variant scope* — when the
+ *   standard event's `filter` is non-empty (mapped to a specific variant, e.g. `purchase` +
+ *   `purchase_status=success`), only observations matching that filter are considered (fix round
+ *   ERROR 1: previously every mapped field was checked regardless of the link's `required` flag and
+ *   regardless of which variant the standard event actually mapped to, so an observation of a
+ *   *different*, unmapped variant of the same raw event type — e.g. `purchase_status=refunded` — could
+ *   spuriously satisfy or fail a check that only applies to the mapped `success` variant).
+ *
+ * `missing_event` was removed from this engine in the fix round (ERROR 2): it duplicated comparison
+ * 3's `missing_event` (`definitionVsObservations.ts`) with a different fingerprint, no expiration
+ * suppression, and a severity that ignored D-21's run-kind rule (`agent_session` -> error). Comparison
+ * 3 owns `missing_event` for every mapped-or-not custom event; comparison 2 does not repeat it.
  *
  * Not implemented (documented gap, T-2-05 scope note, matching `definitionVsMapping.ts`'s own
  * documented gap): the plan table's `unmapped_standard_event` row ("the filter never matches in
  * scope") — no test requires it; left for a later task alongside comparison 1's `expiration_mismatch`.
+ *
+ * Deferred rows carried forward for T-2-13 (fix round LOW 8, TASKS.md follow-up):
+ * 1. Comparison 1's preview-only `expiration_mismatch` (pasted expiration/mapping vs stored definition).
+ * 2. Comparison 2's `unmapped_standard_event` ("observed event type is the type of a mapped standard
+ *    event but the filter never matches in scope").
  */
 import type { ComparisonId } from '../enums';
 import type { DefEvent, EngineFinding, EngineObservation } from './definitionVsObservations';
@@ -40,6 +54,24 @@ function fp(kind: EngineFinding['kind'], eventId: string | null, propertyId: str
 
 function payloadKeyFor(prop: { payload_key: string | null; name: string }): string {
   return prop.payload_key ?? prop.name;
+}
+
+/** True when `obs` matches every condition of a mapped standard event's `filter` (variant scope, ERROR 1 fix); an empty filter (event-level mapping, no variant) always matches. */
+function matchesFilter(
+  filter: { property: string; operator: 'equals' | 'in'; values: string[] }[],
+  event: DefEvent,
+  obs: EngineObservation
+): boolean {
+  if (filter.length === 0) return true;
+  return filter.every((cond) => {
+    const prop = event.properties.find((p) => p.name === cond.property);
+    const key = prop ? payloadKeyFor(prop) : cond.property;
+    const raw = obs.properties[key];
+    if (raw === undefined || raw === null) return false;
+    const value = String(raw);
+    if (cond.operator === 'equals') return cond.values.length > 0 && value === cond.values[0];
+    return cond.values.includes(value);
+  });
 }
 
 export function runMappingVsObservations(
@@ -91,13 +123,6 @@ export function runMappingVsObservations(
     const list = obsByEventName.get(obs.event_type) ?? [];
     list.push(obs);
     obsByEventName.set(obs.event_type, list);
-  }
-  // Every raw observation (resolved or not) grouped by type, for missing_event's "zero observations of this raw type in scope".
-  const anyObsByEventType = new Map<string, EngineObservation[]>();
-  for (const obs of observations) {
-    const list = anyObsByEventType.get(obs.event_type) ?? [];
-    list.push(obs);
-    anyObsByEventType.set(obs.event_type, list);
   }
 
   // unknown_variant needs the union of filter conditions across every mapped standard event sharing
@@ -156,39 +181,29 @@ export function runMappingVsObservations(
     });
   }
 
-  // missing_required / missing_event, per mapped standard event
+  // missing_required, per mapped standard event, scoped to its own variant filter (ERROR 1 fix)
   const missingRequiredSeen = new Map<string, EngineObservation>();
   for (const se of mapping.standardEvents) {
     if (!se.eventType) continue;
     const event = eventByName.get(se.eventType);
     if (!event || event.class !== 'custom') continue;
 
-    const scoped = obsByEventName.get(se.eventType) ?? [];
+    // ERROR 1 fix: only observations matching this standard event's own `filter` (its mapped
+    // variant, e.g. `purchase_status=success`) count — an observation of a *different*, unmapped
+    // variant of the same raw event type must not be checked against this mapping.
+    const scoped = (obsByEventName.get(se.eventType) ?? []).filter((obs) => matchesFilter(se.filter, event, obs));
     for (const [field, propName] of Object.entries(se.fieldMap)) {
       if (!propName || scoped.length === 0) continue;
       const prop = event.properties.find((p) => p.name === propName);
-      const key = prop ? payloadKeyFor(prop) : propName;
+      // ERROR 1 fix: only the linked property's own `required` flag drives this check; a mapped
+      // field whose property is optional never produces `missing_required` here (comparison 3
+      // already covers "this field is required on the event itself" independent of the mapping).
+      if (!prop?.required) continue;
+      const key = payloadKeyFor(prop);
       const presentSomewhere = scoped.some((obs) => obs.properties[key] !== undefined && obs.properties[key] !== null);
       if (presentSomewhere) continue;
       const mkey = `${se.key}|${field}`;
       if (!missingRequiredSeen.has(mkey)) missingRequiredSeen.set(mkey, scoped[0]);
-    }
-
-    // missing_event: mapped standard event, zero observations of its raw type anywhere in scope.
-    if (!(anyObsByEventType.get(se.eventType)?.length)) {
-      findings.push({
-        comparison: COMPARISON,
-        kind: 'missing_event',
-        severity: 'warning',
-        event_id: event.id,
-        variant_id: null,
-        property_id: null,
-        observation_id: null,
-        expected_json: { standard_event: se.key, event: se.eventType },
-        actual_json: null,
-        message: `Mapped standard event "${se.key}" (event "${se.eventType}") has zero observations in scope.`,
-        fingerprint: fp('missing_event', event.id, null, se.key),
-      });
     }
   }
   for (const [key, obs] of missingRequiredSeen) {

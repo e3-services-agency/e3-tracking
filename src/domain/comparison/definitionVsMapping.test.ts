@@ -9,8 +9,9 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { runDefinitionVsMapping, type DefinitionVsMappingInput } from './definitionVsMapping';
 import { parseDataMapping, type DataMappingModel } from '../import/dataMapping';
+import { buildMappingSnapshotFromDefinition } from './snapshot';
 import type { MappingSnapshot } from './snapshot';
-import type { DefEvent } from './definitionVsObservations';
+import type { DefEvent, DefinitionSnapshot } from './definitionVsObservations';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixtureJson = JSON.parse(readFileSync(path.resolve(__dirname, '../../../.claude/team/samples/data-mapping.json'), 'utf-8'));
@@ -180,5 +181,90 @@ describe('runDefinitionVsMapping', () => {
     const rename = findings.filter((f) => f.kind === 'rename_mismatch' && f.fingerprint.includes('purchase:total_price'));
     expect(rename).toHaveLength(1);
     expect(rename[0].message).toContain('ghost_property');
+  });
+
+  // WARNING 3 fix: a consent category with no standard_key tag while a standard key is unfilled.
+  it('reports rename_mismatch for a consent category with no standard_key while a standard key is unfilled', () => {
+    const model = parseDataMapping(fixtureJson); // fixture leaves sms/marketing/etc. unmapped (null)
+    const mapping = toMappingSnapshot(model);
+    const definition = { ...buildDefinition(), consentCategories: [{ name: 'sms_consent', standard_key: null }] };
+    const findings = runDefinitionVsMapping(definition, mapping);
+    const untagged = findings.filter((f) => f.kind === 'rename_mismatch' && f.fingerprint.includes('consent_untagged:sms_consent'));
+    expect(untagged).toHaveLength(1);
+    expect(untagged[0].severity).toBe('warning');
+  });
+
+  it('does not report the untagged-category rename_mismatch when every consent category is tagged', () => {
+    const model = parseDataMapping(fixtureJson);
+    const mapping = toMappingSnapshot(model);
+    const findings = runDefinitionVsMapping(buildDefinition(), mapping); // buildDefinition's one category is tagged "newsletter"
+    expect(findings.some((f) => f.fingerprint.includes('consent_untagged:'))).toBe(false);
+  });
+
+  // WARNING 4 fix: a mapping whose variant_id no longer resolves to an existing Variant is
+  // projected (via snapshot.ts) as fully unmapped, so it still reports unmapped_standard_event.
+  it('reports unmapped_standard_event when a mapping points at a variant that no longer exists', () => {
+    const definitionSnapshot: DefinitionSnapshot = {
+      project_default_expiration: null,
+      events: [
+        {
+          id: 'event_cart_update',
+          name: 'cart_update',
+          status: 'implemented',
+          class: 'custom',
+          expiration: null,
+          properties: [
+            {
+              property_id: 'prop_action',
+              name: 'action',
+              payload_key: null,
+              role: 'discriminator',
+              required: true,
+              data_type: 'string',
+              data_formats: [],
+              allowed_values: ['add'],
+              allowed_value_hints: [{ value: 'add', standard_event: 'add_to_cart' }],
+            },
+          ],
+        },
+      ],
+      variants: [], // the variant the mapping below points at ("v_gone") does not exist
+      standard_event_mappings: [{ standard_event: 'add_to_cart', event_id: 'event_cart_update', variant_id: 'v_gone', field_map: {} }],
+    };
+    const mappingSnapshot = buildMappingSnapshotFromDefinition(
+      definitionSnapshot,
+      [{ key: 'add_to_cart', fields: ['product_id'] }],
+      [],
+      [],
+      {},
+      { main: null, variant: null }
+    );
+    expect(mappingSnapshot.standardEvents[0].eventType).toBeNull();
+    expect(mappingSnapshot.standardEvents[0].filter).toEqual([]);
+    const findings = runDefinitionVsMapping({ events: definitionSnapshot.events, hasCatalog: false, consentCategories: [] }, mappingSnapshot);
+    const unmapped = findings.filter((f) => f.kind === 'unmapped_standard_event');
+    expect(unmapped.map((f) => (f.expected_json as { standard_event: string }).standard_event)).toContain('add_to_cart');
+  });
+
+  // WARNING 5 fix / LOW 6 fix: unmapped_property excludes properties represented by the mapping's
+  // filter (discriminators in variant conditions) and SDK default properties.
+  it('does not report unmapped_property for a required discriminator represented by the mapping filter', () => {
+    const model = parseDataMapping(fixtureJson); // add_to_cart's filter is action=add; field map has no "action" field
+    const mapping = toMappingSnapshot(model);
+    const findings = runDefinitionVsMapping(buildDefinition(), mapping);
+    expect(findings.some((f) => f.kind === 'unmapped_property' && f.property_id === 'prop_action')).toBe(false);
+  });
+
+  it('does not report unmapped_property for a required SDK default property (os/browser/device/location)', () => {
+    const definition = buildDefinition();
+    definition.events = definition.events.map((e) =>
+      e.name === 'purchase'
+        ? { ...e, properties: [...e.properties, { property_id: 'prop_os', name: 'os', payload_key: null, role: 'normal' as const, required: true, data_type: 'string', data_formats: [], allowed_values: null }] }
+        : e
+    );
+    const model = parseDataMapping(fixtureJson);
+    const mapping = toMappingSnapshot(model);
+    const findings = runDefinitionVsMapping(definition, mapping);
+    expect(findings.some((f) => f.kind === 'unmapped_property' && f.property_id === 'prop_os')).toBe(false);
   });
 });

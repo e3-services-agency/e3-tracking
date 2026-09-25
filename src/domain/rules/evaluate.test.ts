@@ -170,6 +170,26 @@ describe('evaluateRule: arithmetic with count (non-numeric list items)', () => {
     expect(outcome.actual).toBe(2);
     expect(outcome.passed).toBe(true);
   });
+
+  // T-2-07 (fix round from T-2-06 review): an aggregate over a list property the observation never
+  // sent at all must be skipped, not evaluated as "0 items" (which would report a false violation
+  // against a non-zero total_quantity). Same "nothing to check" treatment as cross_event's
+  // no-joined-children skip.
+  it('is skipped (not a 0-vs-target violation) when the list property is entirely absent from the observation', () => {
+    const observation = obs('o1', 'e1', { total_quantity: 2 });
+    const outcome = evaluateRule(rule, observation, [], snap);
+    expect(outcome.skipped).toBe(true);
+    expect(outcome.passed).toBe(true);
+    expect(outcome.reason).toBeTruthy();
+  });
+
+  it('still evaluates (not skipped) when the list property is present but not an array — a shape problem, not this rule\'s job', () => {
+    const observation = obs('o1', 'e1', { total_quantity: 2, product_list: 'not-an-array' });
+    const outcome = evaluateRule(rule, observation, [], snap);
+    expect(outcome.skipped).toBeFalsy();
+    expect(outcome.actual).toBe(0);
+    expect(outcome.passed).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------

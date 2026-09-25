@@ -98,11 +98,23 @@ function resolveObservationOperand(
   }
 }
 
-function resolveAggregateOverList(operand: AggregateOperand, observation: RuleObservation, snapshot: RuleSnapshot): number {
+/**
+ * T-2-07 (fix round from T-2-06 review): when the aggregate's list property is entirely absent
+ * from the observation (`raw === undefined`, the payload key was never sent), returns `null` so
+ * the caller treats this the same as a missing operand (`NO_MATCH_OUTCOME`, skipped) — the same
+ * "nothing to check" outcome `cross_event` already returns for a purchase with zero joined
+ * `purchase_item` siblings. Before this fix, an absent list silently aggregated as `[]` (`sum`/
+ * `count`/`min`/`max` of nothing = `0`), which a `sum(...) eq total_price` rule then reported as a
+ * false `0 != target` violation instead of "cannot evaluate, the list was never sent". A list
+ * property that *is* present but not an array (or `null`) still aggregates over `[]` as before —
+ * that is a shape problem `type_mismatch` already reports elsewhere, not this rule's job to skip.
+ */
+function resolveAggregateOverList(operand: AggregateOperand, observation: RuleObservation, snapshot: RuleSnapshot): number | null {
   const listPropertyId = findListPropertyId(operand.of);
   if (!listPropertyId) return AGGREGATES[operand.fn]([]);
   const ref = snapshot.propertiesById[listPropertyId];
   const raw = ref ? observation.properties[ref.payload_key] : undefined;
+  if (raw === undefined) return null;
   const items = Array.isArray(raw) ? (raw as Record<string, unknown>[]) : [];
   // Raw, uncoerced per-item values: AGGREGATES[fn] owns its own numeric coercion (operators.ts),
   // so `count` can count non-numeric items too (an id list, not just amounts).

@@ -50,6 +50,7 @@ import * as PropertyDAL from '../dal/property.dal';
 import * as ObservationDAL from '../dal/observation.dal';
 import * as QaRunDAL from '../dal/qa-run.dal';
 import * as FindingDAL from '../dal/finding.dal';
+import * as RuleDAL from '../dal/rule.dal';
 import { createEventResolver } from './eventResolution';
 import {
   runDefinitionVsObservations,
@@ -67,6 +68,8 @@ import {
   type DataManagerDefinitionSnapshot,
   type DataManagerEvidence,
 } from '../../domain/comparison/definitionVsDataManager';
+import { runRules, runItemSchemaChecks, type ItemSchemaCheck, type RulesEngineRule } from '../../domain/rules/runRules';
+import type { ItemSchemaField, RulePropertyRef, RuleSnapshot } from '../../domain/rules/types';
 import { parseDataManagerEvents, type DataManagerEventsModel } from '../../domain/import/dataManagerEvents';
 import { parseDataManagerCustomers, type DataManagerCustomersModel } from '../../domain/import/dataManagerCustomers';
 import type { AllowedValue } from '../dal/property.dal';
@@ -237,6 +240,83 @@ export function buildDataManagerEvidence(projectId: string): DataManagerEvidence
   return { events, customers };
 }
 
+/**
+ * `RuleSnapshot.propertiesById` for the whole project (T-2-07): every event's linked properties,
+ * not just one event's — a `cross_event` rule's `child` side needs to resolve a *different*
+ * event's properties than the rule's own `event_id`, so the snapshot the evaluator gets must cover
+ * every event up front rather than being rebuilt per rule.
+ */
+export function buildRuleSnapshot(projectId: string): RuleSnapshot {
+  const project = ProjectDAL.getProjectOrThrow(projectId);
+  const propertiesById: Record<string, RulePropertyRef> = {};
+  for (const event of EventDAL.listEvents(projectId)) {
+    const { properties } = EventDAL.getEventWithProperties(projectId, event.id);
+    for (const link of properties) {
+      propertiesById[link.property_id] = {
+        property_id: link.property_id,
+        payload_key: link.payload_key ?? link.property.name,
+        data_type: link.property.data_type,
+        item_schema: (link.property.item_schema_json as ItemSchemaField[] | null) ?? null,
+      };
+    }
+  }
+  return {
+    propertiesById,
+    money_tolerance_percent: project.money_tolerance_percent,
+    money_tolerance_floor: project.money_tolerance_floor,
+  };
+}
+
+/** Every *enabled* rule on a *custom*-class event (D-29: only custom events are validated), mapped
+ * to `runRules`'s input shape (T-2-07). A disabled rule is simply omitted here — see
+ * `runRules.ts`'s module comment for why that alone is enough to resolve its findings. */
+export function buildRulesEngineRules(projectId: string, customEventIds: Iterable<string>): RulesEngineRule[] {
+  const rules: RulesEngineRule[] = [];
+  for (const eventId of customEventIds) {
+    for (const row of RuleDAL.listRulesByEvent(projectId, eventId)) {
+      if (!row.enabled) continue;
+      rules.push({
+        id: row.id,
+        version: row.version,
+        event_id: row.event_id,
+        variant_id: row.variant_id,
+        name: row.name,
+        message: row.message,
+        severity: row.severity,
+        report_kind: row.report_kind as RulesEngineRule['report_kind'],
+        definition: {
+          kind: row.kind,
+          expression: row.expression_json,
+          tolerance_mode: row.tolerance_mode,
+          tolerance_value: row.tolerance_value,
+        },
+      });
+    }
+  }
+  return rules;
+}
+
+/** Every array-typed linked property with a non-empty `item_schema_json` on a *custom*-class event
+ * (T-2-07, D-30 ItemSchema). */
+export function buildItemSchemaChecks(projectId: string, customEventIds: Iterable<string>): ItemSchemaCheck[] {
+  const checks: ItemSchemaCheck[] = [];
+  for (const eventId of customEventIds) {
+    const { properties } = EventDAL.getEventWithProperties(projectId, eventId);
+    for (const link of properties) {
+      const itemSchema = (link.property.item_schema_json as ItemSchemaField[] | null) ?? null;
+      if (link.property.data_type !== 'array' || !itemSchema || itemSchema.length === 0) continue;
+      checks.push({
+        event_id: eventId,
+        property_id: link.property_id,
+        property_name: link.property.name,
+        payload_key: link.payload_key ?? link.property.name,
+        item_schema: itemSchema,
+      });
+    }
+  }
+  return checks;
+}
+
 export interface ComparisonSummary {
   open: Record<string, number>;
   produced: number;
@@ -296,10 +376,23 @@ export function runComparison(projectId: string): ComparisonSummary {
   const dataManagerDefinition = buildDataManagerDefinitionSnapshot(projectId);
   const dataManagerEvidence = buildDataManagerEvidence(projectId);
 
+  // T-2-07: the rules evaluator and item schema checks run as part of `definition_vs_observations`
+  // (plan "Rules evaluator" / "T-2-07"), not a separate comparison — their findings are merged
+  // into the same engine's output array before upsert, so they share its stale-fingerprint
+  // resolution scope.
+  const customEventIds = definition.events.filter((e) => e.class === 'custom').map((e) => e.id);
+  const ruleSnapshot = buildRuleSnapshot(projectId);
+  const rulesEngineRules = buildRulesEngineRules(projectId, customEventIds);
+  const itemSchemaChecks = buildItemSchemaChecks(projectId, customEventIds);
+
   const runs: EngineRun[] = [
     {
       comparison: 'definition_vs_observations',
-      findings: runDefinitionVsObservations(definition, observations),
+      findings: [
+        ...runDefinitionVsObservations(definition, observations),
+        ...runRules(rulesEngineRules, observations, ruleSnapshot),
+        ...runItemSchemaChecks(itemSchemaChecks, observations),
+      ],
       qaRunIdByObservationId,
     },
     {

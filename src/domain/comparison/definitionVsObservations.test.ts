@@ -227,13 +227,10 @@ describe('runDefinitionVsObservations (T-1-09 fixture reproduction)', () => {
     expect((finding?.actual_json as { types: string[] }).types.sort()).toEqual(['array', 'string']);
   });
 
-  it('flags rounding_drift 28 (purchase.total_price) vs 28.4 (sum of purchase_item price*quantity)', () => {
-    const finding = findings.find((f) => f.kind === 'rounding_drift');
-    expect(finding).toBeDefined();
-    expect(finding?.severity).toBe('warning');
-    expect(finding?.expected_json).toEqual({ items_total: 28.4 });
-    expect(finding?.actual_json).toEqual({ purchase_total: 28 });
-  });
+  // rounding_drift is no longer computed inside runDefinitionVsObservations (T-2-07/D-31): it is
+  // now the `purchase_items_total` rule template, evaluated by `src/domain/rules/runRules.ts` and
+  // merged into the same `definition_vs_observations` comparison by `comparison.service.ts`. See
+  // `src/domain/rules/runRules.test.ts` ("reproduces 28 vs 28.4") for the equivalent coverage.
 
   it('flags unexpected_event only for paper_catalogue and loyalty_update (known Bloomreach system types are suppressed)', () => {
     const unexpectedTypes = findings.filter((f) => f.kind === 'unexpected_event').map((f) => (f.actual_json as { event_type: string }).event_type).sort();

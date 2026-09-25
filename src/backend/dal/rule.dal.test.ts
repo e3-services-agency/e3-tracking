@@ -259,6 +259,43 @@ describe('rule.dal: tolerance_value must not be negative (fix round LOW)', () =>
   });
 });
 
+describe('rule.dal: message must be a string, tolerance_value a finite number (T-2-07 fix round from T-2-06 review)', () => {
+  it('400s (not a 500) when message is not a string', () => {
+    expect(() =>
+      RuleDAL.createRule(projectId, cartUpdateEventId, membershipInput({ message: 5 as unknown as string }))
+    ).toThrow(BadRequestError);
+  });
+
+  it('accepts an absent message (falls back to the generated default)', () => {
+    const rule = RuleDAL.createRule(projectId, cartUpdateEventId, membershipInput());
+    expect(rule.message).toContain('item_in_list');
+  });
+
+  it('400s when tolerance_value is not a finite number (string, NaN, Infinity)', () => {
+    expect(() =>
+      RuleDAL.createRule(
+        projectId,
+        cartUpdateEventId,
+        membershipInput({ tolerance_mode: 'absolute', tolerance_value: 'five' as unknown as number })
+      )
+    ).toThrow(BadRequestError);
+    expect(() =>
+      RuleDAL.createRule(
+        projectId,
+        cartUpdateEventId,
+        membershipInput({ tolerance_mode: 'absolute', tolerance_value: Number.NaN })
+      )
+    ).toThrow(BadRequestError);
+    expect(() =>
+      RuleDAL.createRule(
+        projectId,
+        cartUpdateEventId,
+        membershipInput({ tolerance_mode: 'absolute', tolerance_value: Number.POSITIVE_INFINITY })
+      )
+    ).toThrow(BadRequestError);
+  });
+});
+
 describe('rule.dal: listRulesByEvent/listRulesByProject report status "broken" for a detached property (fix round LOW)', () => {
   it('status is "ok" while the referenced properties stay linked, "broken" once one is detached', () => {
     const rule = RuleDAL.createRule(projectId, cartUpdateEventId, membershipInput());

@@ -239,6 +239,13 @@ function validateRuleFields(projectId: string, eventId: string, input: RuleInput
   if ((toleranceMode === 'absolute' || toleranceMode === 'percent') && input.tolerance_value == null) {
     throw new BadRequestError(`tolerance_value is required when tolerance_mode is "${toleranceMode}".`, 'tolerance_value');
   }
+  // T-2-07 (fix round from T-2-06 review): a non-number `tolerance_value` (e.g. a string or NaN
+  // from a malformed request body) used to pass the `< 0` check untouched (`NaN < 0` is `false`)
+  // and get stored as-is, breaking `resolveTolerance`'s arithmetic silently at eval time. Reject it
+  // at write time instead, same 400 shape as the existing negative-value check.
+  if (input.tolerance_value != null && (typeof input.tolerance_value !== 'number' || !Number.isFinite(input.tolerance_value))) {
+    throw new BadRequestError('tolerance_value must be a finite number.', 'tolerance_value');
+  }
   if (input.tolerance_value != null && input.tolerance_value < 0) {
     throw new BadRequestError('tolerance_value must not be negative.', 'tolerance_value');
   }
@@ -277,6 +284,14 @@ function validateRuleFields(projectId: string, eventId: string, input: RuleInput
     throw err;
   }
 
+  // T-2-07 (fix round from T-2-06 review): `message` came straight from the request body typed as
+  // `string | null | undefined` without a runtime check; a non-string value (e.g. a number sent by
+  // a misbehaving/malformed client) reached `.trim()` below and threw an uncaught `TypeError` ->
+  // 500 instead of a clean 400. `message` is optional (falls back to a generated default), but
+  // when it *is* provided it must actually be a string.
+  if (input.message !== undefined && input.message !== null && typeof input.message !== 'string') {
+    throw new BadRequestError('message must be a string.', 'message');
+  }
   const message = input.message?.trim() || `Guardrail "${name}" violated.`;
 
   return {

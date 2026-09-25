@@ -12,7 +12,7 @@ export { escapeHtml };
 
 /** Minimal shape the identity rules section needs; DAL row plus resolved display names. */
 export interface IdentityRuleForDocs {
-  bloomreach_field: string;
+  identifier_name: string;
   identity_type: string;
   name: string;
   description?: string | null;
@@ -27,6 +27,17 @@ export interface IdentityRuleForDocs {
   tracker?: string | null;
   priority?: string | null;
   status?: string | null;
+  /** D-38: `IDENTITY_TRANSFORMATIONS` subset. */
+  transformations?: string[] | null;
+  /** D-38: `IDENTITY_SDK_CALLS`, nullable for a policy-only rule. */
+  sdk_call?: string | null;
+}
+
+/** Minimal shape the identity codegen block needs (D-38, `buildIdentityCodegen`'s output). */
+export interface IdentityCodegenForDocs {
+  identify: string;
+  update: string;
+  anonymize: string;
 }
 
 /** Minimal shape the consent categories section needs; matches `ConsentCategoryRow`. */
@@ -101,8 +112,10 @@ export function renderIdentityRulesSection(rules: IdentityRuleForDocs[]): string
     .map(
       (rule) => `<tr>
         ${cell(rule.name)}
-        ${cell(rule.bloomreach_field)}
+        ${cell(rule.identifier_name)}
         ${cell(rule.identity_type)}
+        ${cell(rule.sdk_call)}
+        ${cell(Array.isArray(rule.transformations) && rule.transformations.length > 0 ? rule.transformations.join(', ') : null)}
         ${cell(rule.trigger_event_name)}
         ${cell(rule.trigger_text)}
         ${cell(rule.value_rule)}
@@ -120,7 +133,8 @@ export function renderIdentityRulesSection(rules: IdentityRuleForDocs[]): string
     <table>
       <thead>
         <tr>
-          <th>Name</th><th>Bloomreach field</th><th>Identity type</th><th>Trigger event</th>
+          <th>Name</th><th>Identifier name</th><th>Identity type</th><th>SDK call</th>
+          <th>Transformations</th><th>Trigger event</th>
           <th>Trigger</th><th>Value rule</th><th>Example</th><th>Owner</th><th>Source</th>
           <th>Tracker</th><th>Priority</th><th>Status</th>
         </tr>
@@ -129,6 +143,31 @@ export function renderIdentityRulesSection(rules: IdentityRuleForDocs[]): string
         ${rows}
       </tbody>
     </table>
+  </section>`;
+}
+
+/**
+ * Renders the "Identity codegen" documentation section (D-38): the three Web SDK snippets
+ * `buildIdentityCodegen` produces from the project's identity rules and mapped customer
+ * properties, so the migration engineer can copy them straight from the exported HTML.
+ */
+export function renderIdentityCodegenSection(snippets: IdentityCodegenForDocs): string {
+  return `<section id="identity-codegen">
+    <h2>Identity codegen</h2>
+    <div class="codegen">
+      <div>
+        <h3>identify</h3>
+        <pre>${escapeHtml(snippets.identify)}</pre>
+      </div>
+      <div>
+        <h3>update</h3>
+        <pre>${escapeHtml(snippets.update)}</pre>
+      </div>
+      <div>
+        <h3>anonymize</h3>
+        <pre>${escapeHtml(snippets.anonymize)}</pre>
+      </div>
+    </div>
   </section>`;
 }
 

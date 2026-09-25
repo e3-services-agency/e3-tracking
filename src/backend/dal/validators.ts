@@ -4,7 +4,7 @@
  * Project.default_expiration_json) and `derived_metrics_json` (Event) so the shape rule lives in
  * one place instead of being duplicated per DAL.
  */
-import { BadRequestError } from '../errors';
+import { BadRequestError, NameNotAsciiError } from '../errors';
 import { EXPIRATION_UNITS } from '../../domain/enums';
 
 /**
@@ -71,5 +71,18 @@ export function validateStringArray(value: unknown, field: string): void {
   if (value === undefined || value === null) return;
   if (!Array.isArray(value) || value.some((v) => typeof v !== 'string')) {
     throw new BadRequestError(`${field} must be an array of strings.`, field);
+  }
+}
+
+/**
+ * Event and property names must be ASCII (D-38, the identity reference's Web SDK limits): a
+ * non-ASCII character (e.g. a diacritic) breaks event/property names at the SDK. Restricted to the
+ * printable ASCII range (`\x20`-`\x7E`, space through `~`) rather than the full 0-127 range, so
+ * control characters (e.g. a stray tab or a `\x01`) are also rejected, not just non-ASCII bytes.
+ * 400 `NAME_NOT_ASCII` names the offending field so the UI can point at it directly.
+ */
+export function validateAsciiName(name: string, field: string): void {
+  if (!/^[\x20-\x7E]*$/.test(name)) {
+    throw new NameNotAsciiError(`${field} must contain ASCII characters only.`, field);
   }
 }

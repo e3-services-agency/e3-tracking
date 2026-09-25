@@ -18,6 +18,7 @@ import { listVariantsByProject, type VariantRow } from '../dal/variant.dal';
 import { listStandardEventMappings } from '../dal/standard-event-mapping.dal';
 import {
   buildCodegenSnippets,
+  buildIdentityCodegen,
   jsonSampleValueForProperty,
   type AttachedPropertyForCodegen,
   type CodegenSnippets,
@@ -25,6 +26,7 @@ import {
 import { getFileStore } from '../files/FileStore';
 import type { CodegenEventNameOverrides } from '../../types/schema';
 import { listIdentityRules } from '../dal/identity-rule.dal';
+import { listProperties } from '../dal/property.dal';
 import { listConsentCategories } from '../dal/consent-category.dal';
 import { listSources } from '../dal/source.dal';
 import { listUseCases } from '../dal/use-case.dal';
@@ -32,6 +34,7 @@ import { listRequirements } from '../dal/requirement.dal';
 import { computeRequirementsMatrix, buildTargetLabelResolver } from './requirements-matrix.service';
 import {
   renderIdentityRulesSection,
+  renderIdentityCodegenSection,
   renderConsentCategoriesSection,
   renderVariantsSubsection,
   renderStandardEventMappingsSection,
@@ -295,11 +298,18 @@ function buildIdentityAndConsentSectionsHtml(projectId: string): string {
 
   const rulesForDocs = rules.map((rule) => ({
     ...rule,
+    transformations: rule.transformations_json,
     trigger_event_name: rule.trigger_event_id ? eventNameById.get(rule.trigger_event_id) ?? null : null,
     source_name: rule.source_id ? sourceNameById.get(rule.source_id) ?? null : null,
   }));
+  const customerProperties = listProperties(projectId, { scope: 'customer' });
+  const identityCodegen = buildIdentityCodegen(rules, customerProperties);
 
-  return `${renderIdentityRulesSection(rulesForDocs)}\n${renderConsentCategoriesSection(categories)}`;
+  return [
+    renderIdentityRulesSection(rulesForDocs),
+    renderIdentityCodegenSection(identityCodegen),
+    renderConsentCategoriesSection(categories),
+  ].join('\n');
 }
 
 /**

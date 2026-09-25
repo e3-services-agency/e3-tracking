@@ -5,6 +5,9 @@
 import { Router, type Request, type Response } from 'express';
 import { generateProjectDocumentationHtml } from '../services/export.service';
 import { exportDataMapping, exportExpirationSettings } from '../services/bloomreachExport.service';
+import { buildIdentityCodegen } from '../services/codegen.service';
+import { listIdentityRules } from '../dal/identity-rule.dal';
+import { listProperties } from '../dal/property.dal';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -32,6 +35,20 @@ router.get('/data-mapping.json', (req: Request, res: Response) => {
 router.get('/expiration-settings.json', (req: Request, res: Response) => {
   try {
     res.status(200).json(exportExpirationSettings(req.projectId!));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+// Identity codegen (D-38): identify/update/anonymize snippets built from this project's identity
+// rules and mapped customer properties; the same payload as
+// `GET /identity-rules/codegen` (`routes/identity-rules.ts`), exposed here too so the
+// documentation export and any project-wide export tooling do not need the identity-rules router.
+router.get('/codegen/identity', (req: Request, res: Response) => {
+  try {
+    const rules = listIdentityRules(req.projectId!);
+    const customerProperties = listProperties(req.projectId!, { scope: 'customer' });
+    res.status(200).json(buildIdentityCodegen(rules, customerProperties));
   } catch (err) {
     handleRouteError(err, res);
   }

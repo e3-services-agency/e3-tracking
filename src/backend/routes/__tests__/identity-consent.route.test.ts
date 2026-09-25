@@ -47,7 +47,7 @@ function jsonRequest(method: string, path: string, body?: unknown) {
 describe('POST/GET /api/projects/:projectId/identity-rules', () => {
   it('creates rules and lists them in sort_order (creation order by default)', async () => {
     const createA = await jsonRequest('POST', `/api/projects/${projectId}/identity-rules`, {
-      bloomreach_field: 'registered_email',
+      identifier_name: 'registered_email',
       identity_type: 'hard',
       name: 'Registration email',
     });
@@ -55,7 +55,7 @@ describe('POST/GET /api/projects/:projectId/identity-rules', () => {
     const a = await createA.json();
 
     const createB = await jsonRequest('POST', `/api/projects/${projectId}/identity-rules`, {
-      bloomreach_field: 'anon_cookie',
+      identifier_name: 'anon_cookie',
       identity_type: 'soft',
       name: 'Anonymous cookie',
     });
@@ -70,13 +70,43 @@ describe('POST/GET /api/projects/:projectId/identity-rules', () => {
 
   it('returns 400 on a bad identity_type', async () => {
     const res = await jsonRequest('POST', `/api/projects/${projectId}/identity-rules`, {
-      bloomreach_field: 'weak_field',
+      identifier_name: 'weak_field',
       identity_type: 'not_a_real_type',
       name: 'Bad rule',
     });
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.field).toBe('identity_type');
+  });
+});
+
+describe('GET /api/projects/:projectId/identity-rules/codegen (T-2-12 fix round LOW 4)', () => {
+  it('returns identify/update/anonymize snippets built from this project\'s rules', async () => {
+    // Own project: `projectId` above already carries a "registered_email" hard rule from an earlier
+    // test in this file, which would push the identify snippet into its multi-id object form.
+    const client = ClientDAL.createClient({ key: 'codegen-acme', name: 'Codegen Acme' });
+    const codegenProjectId = ProjectDAL.createProject({
+      client_id: client.id,
+      key: 'codegen-acme-eu',
+      name: 'Codegen Acme EU',
+    }).id;
+
+    const createHard = await jsonRequest('POST', `/api/projects/${codegenProjectId}/identity-rules`, {
+      identifier_name: 'registered',
+      identity_type: 'hard',
+      name: 'Registration',
+      sdk_call: 'identify',
+      transformations_json: ['trim', 'lowercase'],
+    });
+    expect(createHard.status).toBe(201);
+
+    const res = await jsonRequest('GET', `/api/projects/${codegenProjectId}/identity-rules/codegen`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveProperty('identify');
+    expect(body).toHaveProperty('update');
+    expect(body).toHaveProperty('anonymize');
+    expect(body.identify).toContain('exponea.identify(String(registered).trim().toLowerCase());');
   });
 });
 

@@ -11,11 +11,11 @@ import { Sheet } from '@/src/components/ui/Sheet';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
-import { PRIORITIES, ENTITY_STATUSES, IDENTITY_TYPES } from '@/src/domain/enums';
+import { PRIORITIES, ENTITY_STATUSES, IDENTITY_TYPES, IDENTITY_TRANSFORMATIONS, IDENTITY_SDK_CALLS } from '@/src/domain/enums';
 
 interface IdentityRuleRow {
   id: string;
-  bloomreach_field: string;
+  identifier_name: string;
   identity_type: string;
   name: string;
   description: string | null;
@@ -29,6 +29,14 @@ interface IdentityRuleRow {
   priority: string | null;
   status: string | null;
   sort_order: number;
+  transformations_json: string[];
+  sdk_call: string | null;
+}
+
+interface IdentityCodegenSnippets {
+  identify: string;
+  update: string;
+  anonymize: string;
 }
 
 interface EventOption {
@@ -50,6 +58,7 @@ export function IdentityRules() {
   const [rules, setRules] = useState<IdentityRuleRow[]>([]);
   const [events, setEvents] = useState<EventOption[]>([]);
   const [sources, setSources] = useState<SourceOption[]>([]);
+  const [codegen, setCodegen] = useState<IdentityCodegenSnippets | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -57,10 +66,11 @@ export function IdentityRules() {
 
   const load = useCallback(async () => {
     if (!hasValidProjectContext || !activeProjectId) return;
-    const [rulesRes, eventsRes, sourcesRes] = await Promise.all([
+    const [rulesRes, eventsRes, sourcesRes, codegenRes] = await Promise.all([
       fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/identity-rules`),
       fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/events`),
       fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/sources`),
+      fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/identity-rules/codegen`),
     ]);
     const rulesData = await parseJson(rulesRes);
     if (rulesRes.ok) setRules(Array.isArray(rulesData) ? rulesData : []);
@@ -68,6 +78,8 @@ export function IdentityRules() {
     if (eventsRes.ok) setEvents(Array.isArray(eventsData) ? eventsData : []);
     const sourcesData = await parseJson(sourcesRes);
     if (sourcesRes.ok) setSources(Array.isArray(sourcesData) ? sourcesData : []);
+    const codegenData = await parseJson(codegenRes);
+    if (codegenRes.ok) setCodegen(codegenData);
   }, [hasValidProjectContext, activeProjectId]);
 
   useEffect(() => {
@@ -121,8 +133,9 @@ export function IdentityRules() {
               <tr>
                 <th className="px-6 py-3 font-medium text-gray-500 w-20">Order</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Name</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Bloomreach field</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Identifier name</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Type</th>
+                <th className="px-6 py-3 font-medium text-gray-500">SDK call</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Trigger event</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Status</th>
               </tr>
@@ -141,18 +154,37 @@ export function IdentityRules() {
                     </div>
                   </td>
                   <td className="px-6 py-4 font-medium text-gray-900 cursor-pointer" onClick={() => { setSelectedId(rule.id); setIsCreating(false); setIsSheetOpen(true); }}>{rule.name}</td>
-                  <td className="px-6 py-4 text-gray-500">{rule.bloomreach_field}</td>
+                  <td className="px-6 py-4 text-gray-500">{rule.identifier_name}</td>
                   <td className="px-6 py-4 text-gray-500">{rule.identity_type}</td>
+                  <td className="px-6 py-4 text-gray-500">{rule.sdk_call ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{eventName(rule.trigger_event_id)}</td>
                   <td className="px-6 py-4 text-gray-500">{rule.status ?? '—'}</td>
                 </tr>
               ))}
               {rules.length === 0 && (
-                <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">No identity rules found.</td></tr>
+                <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-500">No identity rules found.</td></tr>
               )}
             </tbody>
           </table>
         </div>
+
+        {codegen && (
+          <div className="mt-8 bg-white rounded-lg border shadow-sm p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-gray-900">Identity codegen</h2>
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-1">identify</h3>
+              <pre className="bg-gray-900 text-gray-100 text-xs rounded-md p-3 overflow-x-auto whitespace-pre-wrap">{codegen.identify}</pre>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-1">update</h3>
+              <pre className="bg-gray-900 text-gray-100 text-xs rounded-md p-3 overflow-x-auto whitespace-pre-wrap">{codegen.update}</pre>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-1">anonymize</h3>
+              <pre className="bg-gray-900 text-gray-100 text-xs rounded-md p-3 overflow-x-auto whitespace-pre-wrap">{codegen.anonymize}</pre>
+            </div>
+          </div>
+        )}
       </div>
 
       <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title={isCreating ? 'Create Identity Rule' : 'Edit Identity Rule'}>
@@ -189,8 +221,10 @@ function IdentityRuleEditor({
   const [loading, setLoading] = useState(!isCreating);
   const [rule, setRule] = useState<IdentityRuleRow | null>(null);
   const [name, setName] = useState('');
-  const [bloomreachField, setBloomreachField] = useState('');
+  const [identifierName, setIdentifierName] = useState('');
   const [identityType, setIdentityType] = useState<string>(IDENTITY_TYPES[0]);
+  const [transformations, setTransformations] = useState<string[]>([]);
+  const [sdkCall, setSdkCall] = useState<string>('');
   const [description, setDescription] = useState('');
   const [triggerEventId, setTriggerEventId] = useState('');
   const [triggerText, setTriggerText] = useState('');
@@ -216,8 +250,10 @@ function IdentityRuleEditor({
       if (res.ok) {
         setRule(data);
         setName(data.name ?? '');
-        setBloomreachField(data.bloomreach_field ?? '');
+        setIdentifierName(data.identifier_name ?? '');
         setIdentityType(data.identity_type ?? IDENTITY_TYPES[0]);
+        setTransformations(Array.isArray(data.transformations_json) ? data.transformations_json : []);
+        setSdkCall(data.sdk_call ?? '');
         setDescription(data.description ?? '');
         setTriggerEventId(data.trigger_event_id ?? '');
         setTriggerText(data.trigger_text ?? '');
@@ -236,7 +272,11 @@ function IdentityRuleEditor({
   }, [projectId, ruleId]);
 
   const trimmedName = name.trim();
-  const trimmedField = bloomreachField.trim();
+  const trimmedField = identifierName.trim();
+
+  const toggleTransformation = (t: string) => {
+    setTransformations((prev) => (prev.includes(t) ? prev.filter((v) => v !== t) : [...prev, t]));
+  };
 
   const handleSave = async () => {
     if (!trimmedName || !trimmedField || !projectId) return;
@@ -245,8 +285,10 @@ function IdentityRuleEditor({
     try {
       const body = {
         name: trimmedName,
-        bloomreach_field: trimmedField,
+        identifier_name: trimmedField,
         identity_type: identityType,
+        transformations_json: transformations,
+        sdk_call: sdkCall || null,
         description: description.trim() || null,
         trigger_event_id: triggerEventId || null,
         trigger_text: triggerText.trim() || null,
@@ -302,17 +344,38 @@ function IdentityRuleEditor({
           {!trimmedName && <p className="text-xs text-red-600">Name is required.</p>}
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Bloomreach field</label>
-          <Input value={bloomreachField} onChange={(e) => setBloomreachField(e.target.value)} placeholder="e.g. registered, cookie, email_id" />
-          {!trimmedField && <p className="text-xs text-red-600">Bloomreach field is required.</p>}
+          <label className="text-sm font-medium text-gray-700">Identifier name</label>
+          <Input value={identifierName} onChange={(e) => setIdentifierName(e.target.value)} placeholder="e.g. registered, cookie, email_id" />
+          {!trimmedField && <p className="text-xs text-red-600">Identifier name is required.</p>}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Identity type</label>
+          <select value={identityType} onChange={(e) => setIdentityType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+            {IDENTITY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">SDK call</label>
+          <select value={sdkCall} onChange={(e) => setSdkCall(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+            <option value="">—</option>
+            {IDENTITY_SDK_CALLS.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
         </div>
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Identity type</label>
-        <select value={identityType} onChange={(e) => setIdentityType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-          {IDENTITY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
+        <label className="text-sm font-medium text-gray-700">Transformations</label>
+        <div className="flex gap-4">
+          {IDENTITY_TRANSFORMATIONS.map((t) => (
+            <label key={t} className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" checked={transformations.includes(t)} onChange={() => toggleTransformation(t)} />
+              {t}
+            </label>
+          ))}
+        </div>
       </div>
 
       <div className="space-y-2">

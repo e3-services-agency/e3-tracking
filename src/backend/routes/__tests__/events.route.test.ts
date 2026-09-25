@@ -86,6 +86,32 @@ describe('POST /api/projects/:projectId/events/:id/properties (role validation, 
   });
 });
 
+describe('NAME_NOT_ASCII at the HTTP level (T-2-12 fix round LOW 4)', () => {
+  it('POST /api/projects/:projectId/events with a diacritic returns 400 NAME_NOT_ASCII, field "name"', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'inscription_é' }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('NAME_NOT_ASCII');
+    expect(body.field).toBe('name');
+  });
+
+  it('POST /api/projects/:projectId/properties with a diacritic returns 400 NAME_NOT_ASCII, field "name"', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/properties`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scope: 'event', name: 'préférence', data_type: 'string' }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('NAME_NOT_ASCII');
+    expect(body.field).toBe('name');
+  });
+});
+
 describe('PATCH /api/projects/:projectId/properties/:id (ENUM_IN_USE, T-1-04 fix round ERROR 3)', () => {
   it('returns 400 ENUM_IN_USE with field "allowed_values_json" when a discriminator loses an in-use value', async () => {
     const event = EventDAL.createEvent(projectId, { name: 'route_checkout' });

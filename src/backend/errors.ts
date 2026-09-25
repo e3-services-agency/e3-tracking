@@ -199,6 +199,33 @@ export class PayloadChangedError extends ConflictError {
   }
 }
 
+/** An event or property name contains a non-ASCII character (D-38, the identity reference's Web SDK limits). 400. */
+export class NameNotAsciiError extends BadRequestError {
+  readonly code = 'NAME_NOT_ASCII';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'NameNotAsciiError';
+  }
+}
+
+/** A project would exceed Bloomreach's 255-event-type limit (D-38). 400. */
+export class LimitEventTypesError extends BadRequestError {
+  readonly code = 'LIMIT_EVENT_TYPES';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'LimitEventTypesError';
+  }
+}
+
+/** An event would exceed Bloomreach's 255-properties-per-event limit (D-38). 400. */
+export class LimitEventPropertiesError extends BadRequestError {
+  readonly code = 'LIMIT_EVENT_PROPERTIES';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'LimitEventPropertiesError';
+  }
+}
+
 /** Use when a resource is not found or does not belong to the workspace (404). */
 export class NotFoundError extends Error {
   readonly code = 'NOT_FOUND';

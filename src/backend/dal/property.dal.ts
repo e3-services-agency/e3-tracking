@@ -7,6 +7,7 @@
 import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn, toSqliteBool, fromSqliteBool, mapWriteError } from '../db/util';
 import { BadRequestError, ConflictError, EnumInUseError, NotFoundError, ValidationError } from '../errors';
+import { validateAsciiName } from './validators';
 import * as BundleDAL from './bundle.dal';
 import {
   PROPERTY_SCOPES,
@@ -454,6 +455,7 @@ function regenerateVariantNamesForPropertyRename(projectId: string, propertyId: 
 export function createProperty(projectId: string, input: PropertyInput): PropertyRow {
   const name = input.name.trim();
   if (!name) throw new ValidationError('Property name is required.', 'name');
+  validateAsciiName(name, 'name');
 
   validatePropertyFields(projectId, input, input.scope);
   validateCatalogRefs(projectId, input.mapped_catalog_id, input.mapped_catalog_field_id);
@@ -536,6 +538,7 @@ export function updateProperty(
     const name = (updates.name ?? current.name).trim();
     const scope = updates.scope ?? current.scope;
     if (!name) throw new ValidationError('Property name is required.', 'name');
+    validateAsciiName(name, 'name');
     const clash = db
       .prepare(
         'SELECT id FROM properties WHERE project_id = ? AND scope = ? AND name = ? AND id != ? AND deleted_at IS NULL'

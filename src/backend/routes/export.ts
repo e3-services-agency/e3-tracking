@@ -14,6 +14,9 @@ import { buildIdentityCodegen } from '../services/codegen.service';
 import { listIdentityRules } from '../dal/identity-rule.dal';
 import { listProperties } from '../dal/property.dal';
 import { exportQaRunAsCustomerEventsExport } from '../services/qaRunExport.service';
+import { buildTrackingDocument } from '../services/document.service';
+import { TRACKING_DOCUMENT_VERSION } from '../../domain/document/trackingDocument';
+import { BadRequestError } from '../errors';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -88,6 +91,25 @@ router.get('/data-manager-events.json', (req: Request, res: Response) => {
   try {
     const passthrough = req.query.passthrough !== 'false';
     res.status(200).json(exportDataManagerEvents(req.projectId!, { passthrough }));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+// Tracking document (D-34, T-2-08): machine-readable, per-project export of definitions, rules,
+// use cases, identity codegen and a findings summary. `?version=` requests an older document
+// version (D-34's "kept servable for one phase behind current"); only version 1 exists so far, so
+// any other value is a 400.
+router.get('/tracking-document.json', (req: Request, res: Response) => {
+  try {
+    const requestedVersion = req.query.version !== undefined ? Number(req.query.version) : TRACKING_DOCUMENT_VERSION;
+    if (!Number.isInteger(requestedVersion) || requestedVersion !== TRACKING_DOCUMENT_VERSION) {
+      throw new BadRequestError(
+        `Unsupported tracking document version "${String(req.query.version)}"; only version ${TRACKING_DOCUMENT_VERSION} is available.`,
+        'version'
+      );
+    }
+    res.status(200).json(buildTrackingDocument(req.projectId!));
   } catch (err) {
     handleRouteError(err, res);
   }

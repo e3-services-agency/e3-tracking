@@ -133,6 +133,64 @@ describe('certification flip when total_price is marked required', () => {
   });
 });
 
+describe('D-42 (T-2-09 fix round): manual resolve is an acknowledgement, not a fix', () => {
+  it('stays not-certified with acknowledged_errors while the finding is resolved by hand and the fingerprint still reproduces, then re-certifies once the fingerprint stops reproducing', () => {
+    const { eventId, totalPricePropertyId } = setUpCartUpdate();
+    addObservation('cart_update', { action: 'add', location: 'web' });
+    runComparison(projectId);
+    expect(buildEventCard(projectId, eventId).certification.certified).toBe(true);
+
+    EventDAL.updateEventProperty(projectId, eventId, totalPricePropertyId, { required: true });
+    runComparison(projectId);
+    const blocked = buildEventCard(projectId, eventId).certification;
+    expect(blocked.certified).toBe(false);
+    expect(blocked.reasons).toEqual(['open_errors: 1']);
+
+    const [finding] = FindingDAL.listFindings(projectId, { event_id: eventId, status: 'open' });
+    expect(finding).toBeDefined();
+    FindingDAL.setFindingStatus(projectId, finding.id, 'resolved');
+
+    // Recompute while the problem still reproduces: certification does NOT flip to true, and the
+    // reason changes from open_errors to acknowledged_errors (D-42 -- acknowledgement, not a fix).
+    runComparison(projectId);
+    const acknowledged = buildEventCard(projectId, eventId).certification;
+    expect(acknowledged.certified).toBe(false);
+    expect(acknowledged.reasons).toEqual(['acknowledged_errors: 1']);
+
+    const acknowledgedFinding = FindingDAL.getFindingOrThrow(projectId, finding.id);
+    expect(acknowledgedFinding.status).toBe('resolved');
+    expect(acknowledgedFinding.resolved_by).toBe('user');
+
+    // Fix the underlying problem: the next recompute no longer reproduces the fingerprint, which
+    // clears the acknowledgement marker automatically (resolveStaleFindings, D-42) and the event is
+    // certified again.
+    EventDAL.updateEventProperty(projectId, eventId, totalPricePropertyId, { required: false });
+    runComparison(projectId);
+    const restored = buildEventCard(projectId, eventId).certification;
+    expect(restored.certified).toBe(true);
+    expect(restored.reasons).toEqual([]);
+
+    const clearedFinding = FindingDAL.getFindingOrThrow(projectId, finding.id);
+    expect(clearedFinding.status).toBe('resolved');
+    expect(clearedFinding.resolved_by).toBeNull();
+  });
+
+  it('an explicit reopen (PATCH status=open) also un-acknowledges immediately, without waiting for the fingerprint to stop reproducing', () => {
+    const { eventId, totalPricePropertyId } = setUpCartUpdate();
+    addObservation('cart_update', { action: 'add', location: 'web' });
+    EventDAL.updateEventProperty(projectId, eventId, totalPricePropertyId, { required: true });
+    runComparison(projectId);
+
+    const [finding] = FindingDAL.listFindings(projectId, { event_id: eventId, status: 'open' });
+    FindingDAL.setFindingStatus(projectId, finding.id, 'resolved');
+    runComparison(projectId);
+    expect(buildEventCard(projectId, eventId).certification.reasons).toEqual(['acknowledged_errors: 1']);
+
+    FindingDAL.setFindingStatus(projectId, finding.id, 'open');
+    expect(buildEventCard(projectId, eventId).certification.reasons).toEqual(['open_errors: 1']);
+  });
+});
+
 describe('computeEventCoverageGrid', () => {
   it('reports the observed action=add/location=web cell and the unobserved combinations', () => {
     const { eventId } = setUpCartUpdate();

@@ -103,4 +103,43 @@ describe('GET /api/projects/:projectId/events certified column', () => {
     expect(restoredCartUpdate.certified).toBe('yes');
     expect(restoredCartUpdate.certified_reasons).toEqual([]);
   });
+
+  // D-42 (T-2-09 fix round): manually resolving the finding (Findings page's Resolve toggle) is an
+  // acknowledgement, never a fix -- certified must stay `no` while the fingerprint reproduces, with
+  // `acknowledged_errors: n` replacing `open_errors: n`; fixing the underlying problem (not just
+  // resolving the finding) is what restores `yes`.
+  it('acknowledging the finding by hand keeps certified no (acknowledged_errors: 1, not open_errors), and only fixing the property restores yes', async () => {
+    EventDAL.updateEventProperty(projectId, cartUpdateEventId, totalPricePropertyId, { required: true });
+    runComparison(projectId);
+
+    const findingsRes = await fetch(
+      `${baseUrl}/api/projects/${projectId}/findings?event_id=${cartUpdateEventId}&status=open`
+    );
+    const openFindings = await findingsRes.json();
+    expect(openFindings.length).toBe(1);
+    const findingId = openFindings[0].id;
+
+    const patchRes = await fetch(`${baseUrl}/api/projects/${projectId}/findings/${findingId}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ status: 'resolved' }),
+    });
+    expect(patchRes.status).toBe(200);
+
+    // Recompute while the property is still (wrongly) required: the finding still reproduces, so
+    // it stays resolved/acknowledged rather than reopening, but certification still reads it.
+    runComparison(projectId);
+    const acknowledged = await fetchEvents();
+    const acknowledgedCartUpdate = acknowledged.find((e) => e.id === cartUpdateEventId);
+    expect(acknowledgedCartUpdate.certified).toBe('no');
+    expect(acknowledgedCartUpdate.certified_reasons).toEqual(['acknowledged_errors: 1']);
+
+    EventDAL.updateEventProperty(projectId, cartUpdateEventId, totalPricePropertyId, { required: false });
+    runComparison(projectId);
+
+    const restored = await fetchEvents();
+    const restoredCartUpdate = restored.find((e) => e.id === cartUpdateEventId);
+    expect(restoredCartUpdate.certified).toBe('yes');
+    expect(restoredCartUpdate.certified_reasons).toEqual([]);
+  });
 });

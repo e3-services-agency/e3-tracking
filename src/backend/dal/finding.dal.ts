@@ -10,6 +10,13 @@
  * resolve or reopen a finding by hand. D-21 still holds "no mute status" -- this is not a third
  * status, just `status='resolved'` stamped with `resolved_by='user'` so `upsertFinding` knows not
  * to silently reopen it while the underlying problem still reproduces (see its comment).
+ *
+ * D-42 (T-2-09 fix round): a manual resolve is an acknowledgement, never a certification fix --
+ * `document.service.ts`'s `computeCertification` still counts a `resolved_by='user'` error finding
+ * against the event (`acknowledged_errors: n`, `listAcknowledgedFindings`). The acknowledgement is
+ * bounded by reproduction: `resolveStaleFindings` clears `resolved_by` (but leaves `status`
+ * `'resolved'`) the first time a recompute no longer produces the fingerprint, so a later
+ * recurrence reopens the finding normally through `upsertFinding` instead of staying muted forever.
  */
 import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn } from '../db/util';
@@ -148,6 +155,25 @@ export function countOpenFindingsForEvent(projectId: string, eventId: string): n
 }
 
 /**
+ * Every finding a person acknowledged by hand (`status = 'resolved' AND resolved_by = 'user'`) for
+ * the whole project (D-42, T-2-09 fix round): these still count against certification
+ * (`document.service.ts`'s `computeCertificationsForProject`/`buildEventCard` report them
+ * separately as `acknowledged_errors: n`) and against the tracking document's `quality.acknowledged`
+ * block, even though they are excluded from `listFindings({status: 'open'})` and from
+ * `EventCard.findings[]`. One project-wide query, grouped by the caller (same one-pass shape as
+ * `listFindings({status: 'open'})` in `buildEventCardContext`).
+ */
+export function listAcknowledgedFindings(projectId: string): FindingRow[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT * FROM findings WHERE project_id = ? AND status = 'resolved' AND resolved_by = 'user'
+       ORDER BY CASE severity WHEN 'error' THEN 0 WHEN 'warning' THEN 1 WHEN 'info' THEN 2 ELSE 3 END, last_seen_at DESC`
+    )
+    .all(projectId) as FindingDbRow[];
+  return rows.map(mapRow);
+}
+
+/**
  * Creates or reopens/refreshes the finding identified by `input.fingerprint` (unique per project,
  * `0001_core.sql`): a fresh fingerprint inserts a new row (`status: 'open'`, `first_seen_at =
  * last_seen_at = now`); an existing one is refreshed in place — `last_seen_at = now`, `status`
@@ -233,19 +259,37 @@ export function upsertFinding(projectId: string, input: FindingInput): FindingRo
  * produced"; `last_seen_at` is left as-is, a historical record of when it was last actually seen).
  * Scoping by `comparison` (not the whole project) lets `definitionVsObservations`'s run resolve its
  * own stale findings without touching comparison 1/2 findings (phase 2).
+ *
+ * D-42 (T-2-09 fix round): also clears the acknowledgement marker on a manually-resolved row
+ * (`status = 'resolved' AND resolved_by = 'user'`) once its fingerprint stops reproducing --
+ * `resolved_by` -> `NULL`, `resolved_at` refreshed to this recompute's time, `status` unchanged
+ * (already `'resolved'`). Clearing the marker (instead of leaving it) is what lets a later
+ * recurrence of the same fingerprint reopen the finding normally through `upsertFinding` (which
+ * only special-cases `resolved_by = 'user'` rows) rather than the acknowledgement persisting across
+ * an intervening fix, per D-42 "a later recurrence reopens the finding normally".
  */
 export function resolveStaleFindings(projectId: string, comparison: string, producedFingerprints: string[]): void {
   const db = getDb();
   const now = nowIso();
+  const produced = new Set(producedFingerprints);
+
   const openRows = db
     .prepare("SELECT id, fingerprint FROM findings WHERE project_id = ? AND comparison = ? AND status = 'open'")
     .all(projectId, comparison) as { id: string; fingerprint: string }[];
-  const produced = new Set(producedFingerprints);
-  const stale = openRows.filter((r) => !produced.has(r.fingerprint));
-  if (stale.length === 0) return;
-  const update = db.prepare("UPDATE findings SET status = 'resolved', resolved_at = ? WHERE id = ?");
+  const staleOpen = openRows.filter((r) => !produced.has(r.fingerprint));
+
+  const acknowledgedRows = db
+    .prepare("SELECT id, fingerprint FROM findings WHERE project_id = ? AND comparison = ? AND status = 'resolved' AND resolved_by = 'user'")
+    .all(projectId, comparison) as { id: string; fingerprint: string }[];
+  const staleAcknowledged = acknowledgedRows.filter((r) => !produced.has(r.fingerprint));
+
+  if (staleOpen.length === 0 && staleAcknowledged.length === 0) return;
+
+  const resolveOpen = db.prepare("UPDATE findings SET status = 'resolved', resolved_at = ? WHERE id = ?");
+  const clearAcknowledgement = db.prepare("UPDATE findings SET resolved_by = NULL, resolved_at = ? WHERE id = ?");
   const run = db.transaction(() => {
-    for (const row of stale) update.run(now, row.id);
+    for (const row of staleOpen) resolveOpen.run(now, row.id);
+    for (const row of staleAcknowledged) clearAcknowledgement.run(now, row.id);
   });
   run();
 }

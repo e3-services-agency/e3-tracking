@@ -7,6 +7,7 @@ describe('computeCertification', () => {
       applicable: false,
       status: 'implemented',
       openErrorFindingCount: 0,
+      acknowledgedErrorFindingCount: 0,
       hasObservation: true,
     });
     expect(result).toEqual({ applicable: false, certified: false, reasons: ['not_applicable'] });
@@ -17,6 +18,7 @@ describe('computeCertification', () => {
       applicable: true,
       status: 'implemented',
       openErrorFindingCount: 0,
+      acknowledgedErrorFindingCount: 0,
       hasObservation: true,
     });
     expect(result).toEqual({ applicable: true, certified: true, reasons: [] });
@@ -27,6 +29,7 @@ describe('computeCertification', () => {
       applicable: true,
       status: 'ignored',
       openErrorFindingCount: 0,
+      acknowledgedErrorFindingCount: 0,
       hasObservation: true,
     });
     expect(result.certified).toBe(false);
@@ -38,6 +41,7 @@ describe('computeCertification', () => {
       applicable: true,
       status: 'implemented',
       openErrorFindingCount: 3,
+      acknowledgedErrorFindingCount: 0,
       hasObservation: true,
     });
     expect(result.certified).toBe(false);
@@ -49,6 +53,7 @@ describe('computeCertification', () => {
       applicable: true,
       status: 'implemented',
       openErrorFindingCount: 0,
+      acknowledgedErrorFindingCount: 0,
       hasObservation: false,
     });
     expect(result.certified).toBe(false);
@@ -60,9 +65,37 @@ describe('computeCertification', () => {
       applicable: true,
       status: 'ignored',
       openErrorFindingCount: 2,
+      acknowledgedErrorFindingCount: 0,
       hasObservation: false,
     });
     expect(result.certified).toBe(false);
     expect(result.reasons).toEqual(['status_ignored', 'open_errors: 2', 'no_observations']);
+  });
+
+  // D-42 (T-2-09 fix round): an acknowledged (manually resolved but still-reproducing) error
+  // finding blocks certification just like an open one, with its own reason text, and never on
+  // its own certifies the event.
+  it('blocks on acknowledged error findings, with the count in the reason text', () => {
+    const result = computeCertification({
+      applicable: true,
+      status: 'implemented',
+      openErrorFindingCount: 0,
+      acknowledgedErrorFindingCount: 1,
+      hasObservation: true,
+    });
+    expect(result.certified).toBe(false);
+    expect(result.reasons).toEqual(['acknowledged_errors: 1']);
+  });
+
+  it('lists open_errors and acknowledged_errors together, in that order', () => {
+    const result = computeCertification({
+      applicable: true,
+      status: 'implemented',
+      openErrorFindingCount: 2,
+      acknowledgedErrorFindingCount: 1,
+      hasObservation: true,
+    });
+    expect(result.certified).toBe(false);
+    expect(result.reasons).toEqual(['open_errors: 2', 'acknowledged_errors: 1']);
   });
 });

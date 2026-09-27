@@ -81,7 +81,7 @@ field list is present:
 | `derived_metrics`, `not_suitable_for`, `agent_instructions` | Straight from the `Event` row. |
 | `use_cases[]` | `{code, name, level}` for every use case with a requirement touching this event (directly or via a variant); `level` is `R` if any matching requirement is required, else `O`. |
 | `freshness` | `{last_observation_at, observation_count}`, live-resolved against current definitions (not the observation's stored `event_id`/`variant_id`, which only refresh on a comparison recompute). |
-| `quality` | `{open: {error, warning, info}, by_comparison}` — open `Finding` counts for this event, across every comparison. |
+| `quality` | `{open: {error, warning, info}, acknowledged: {error, warning, info}, by_comparison}` — open `Finding` counts for this event, across every comparison; `acknowledged` (D-42, T-2-09 fix round) is the same breakdown for findings a person resolved by hand whose fingerprint still reproduced as of the last recompute (excluded from `open`/`findings[]`, but still counted by `certification`). |
 | `findings[]` | Every currently-open `Finding` for this event, across every comparison and severity, **uncapped** (D-40 Q9, fix round): `id`, `comparison`, `kind`, `severity`, `property_id`/`property` (resolved name), `variant_id`/`variant`, `rule` (the originating rule's name, for a `rule_violation`/`bound_violation` finding; `null` otherwise), `message`, `expected`, `actual`, `qa_run_id`, `first_seen`, `last_seen`. |
 | `codegen` | `{gtm, web_sdk, tracking_api}` snippets (same generator as the docs export). |
 | `sdk_default_properties` | The fixed `SDK_DEFAULT_PROPERTIES` list (`os`, `browser`, `device`, `location`) — attributes the Bloomreach SDK attaches automatically, never flagged as unexpected. |
@@ -129,12 +129,13 @@ message, then `JSON.stringify(expected)`, then `JSON.stringify(actual)`, then `i
 order fully deterministic (not just stable) for any input, including two rows identical except for
 `expected`/`actual`.
 
-### Certification (D-05)
+### Certification (D-05, D-42)
 
 ```ts
 certification(event) = {
   applicable: event.class === 'custom',
-  certified: applicable && status !== 'ignored' && openErrorFindingCount === 0 && hasObservation,
+  certified: applicable && status !== 'ignored' && openErrorFindingCount === 0
+             && acknowledgedErrorFindingCount === 0 && hasObservation,
   reasons: string[],
 }
 ```
@@ -142,9 +143,23 @@ certification(event) = {
 `reasons` is empty exactly when `certified` is `true`. Possible values, in this order when more
 than one applies: `not_applicable` (sdk/platform event — exclusive, no other reason is added),
 `status_ignored`, `` `open_errors: n` `` (n = open, error-severity findings for the event across
-every comparison), `no_observations` (no observation in a non-archived QA run currently resolves to
-this event). Certification is **never stored**; it is recomputed on every request from live findings
-and live-resolved observations.
+every comparison), `` `acknowledged_errors: n` `` (D-42, T-2-09 fix round — n = error-severity
+findings a person resolved by hand via the Findings page's Resolve toggle / `PATCH .../findings/:id`
+whose fingerprint still reproduced as of the last comparison recompute), `no_observations` (no
+observation in a non-archived QA run currently resolves to this event). Certification is **never
+stored**; it is recomputed on every request from live findings and live-resolved observations.
+
+**Manual resolve is an acknowledgement, not a fix (D-42).** Resolving a finding by hand takes it out
+of the open list and out of `EventCard.findings[]` (so it stops being *actionable* clutter), but it
+still blocks certification via `acknowledged_errors: n` for as long as the underlying problem
+reproduces — a person cannot flip an event to certified by dismissing a finding without fixing
+anything. `EventCard.quality.acknowledged` reports the severity counts behind that reason. Once a
+comparison recompute stops reproducing the acknowledged finding's fingerprint (the definition or
+observations were actually fixed), the acknowledgement marker clears automatically and the finding
+is fully resolved with nothing left blocking certification; an explicit reopen
+(`PATCH .../findings/:id {status: 'open'}`) clears the marker immediately instead of waiting for the
+next recompute. A later recurrence of the same fingerprint (acknowledged and then cleared, or
+reopened) reopens the finding as an ordinary open finding, exactly as if it had never been resolved.
 
 ## Example (trimmed, from the fixture project)
 
@@ -183,7 +198,7 @@ and live-resolved observations.
       ],
       "coverage": { "rows": [], "columns": [], "observed_count": 0, "unobserved_count": 0 },
       "rules": [],
-      "quality": { "open": { "error": 0, "warning": 0, "info": 0 }, "by_comparison": {} },
+      "quality": { "open": { "error": 0, "warning": 0, "info": 0 }, "acknowledged": { "error": 0, "warning": 0, "info": 0 }, "by_comparison": {} },
       "findings": [],
       "codegen": { "gtm": "…", "web_sdk": "…", "tracking_api": "…" },
       "sdk_default_properties": ["os", "browser", "device", "location"]

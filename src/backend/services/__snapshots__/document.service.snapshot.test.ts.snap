@@ -195,6 +195,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -454,6 +459,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "data_manager": {
             "error": 2,
@@ -2063,6 +2073,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -2464,6 +2479,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "data_manager": {
             "error": 3,
@@ -2766,6 +2786,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "data_manager": {
             "error": 2,
@@ -3526,6 +3551,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "data_manager": {
             "error": 1,
@@ -3784,6 +3814,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "data_manager": {
             "error": 2,
@@ -3982,6 +4017,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -4192,6 +4232,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -4487,6 +4532,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -4690,6 +4740,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 1,
@@ -4883,6 +4938,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -5110,6 +5170,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -5320,6 +5385,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -5513,6 +5583,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -5650,6 +5725,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {},
         "open": {
           "error": 0,
@@ -6277,6 +6357,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "data_manager": {
             "error": 2,
@@ -7063,6 +7148,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "data_manager": {
             "error": 4,
@@ -7616,6 +7706,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "data_manager": {
             "error": 2,
@@ -8144,6 +8239,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -8660,6 +8760,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -9176,6 +9281,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -9318,6 +9428,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -9732,6 +9847,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -10129,6 +10249,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -10390,6 +10515,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -10630,6 +10760,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "data_manager": {
             "error": 1,
@@ -10888,6 +11023,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "data_manager": {
             "error": 2,
@@ -11233,6 +11373,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "data_manager": {
             "error": 1,
@@ -11414,6 +11559,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -11532,6 +11682,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       "properties": [],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -11793,6 +11948,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -12020,6 +12180,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -12162,6 +12327,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -12338,6 +12508,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -12599,6 +12774,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -12911,6 +13091,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -13121,6 +13306,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -13382,6 +13572,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -13553,6 +13748,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {},
         "open": {
           "error": 0,
@@ -13884,6 +14084,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "data_manager": {
             "error": 2,
@@ -14099,6 +14304,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       ],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {
           "definition_vs_observations": {
             "error": 0,
@@ -14197,6 +14407,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       "properties": [],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {},
         "open": {
           "error": 0,
@@ -14289,6 +14504,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       "properties": [],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {},
         "open": {
           "error": 0,
@@ -14381,6 +14601,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       "properties": [],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {},
         "open": {
           "error": 0,
@@ -14473,6 +14698,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       "properties": [],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {},
         "open": {
           "error": 0,
@@ -14565,6 +14795,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       "properties": [],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {},
         "open": {
           "error": 0,
@@ -14657,6 +14892,11 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
       "properties": [],
       "purpose": null,
       "quality": {
+        "acknowledged": {
+          "error": 0,
+          "info": 0,
+          "warning": 0,
+        },
         "by_comparison": {},
         "open": {
           "error": 0,

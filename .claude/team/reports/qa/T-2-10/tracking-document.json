@@ -1,0 +1,2538 @@
+{
+  "format": "e3-tracking-document",
+  "version": 1,
+  "generated_at": "2026-09-27T19:16:06.043Z",
+  "project": {
+    "key": "qa-t210-project",
+    "name": "QA T-2-10 Project",
+    "client": "QA T-2-10",
+    "bloomreach_project_url": null,
+    "money_tolerance": {
+      "percent": 1,
+      "floor": 0.01
+    }
+  },
+  "events": [
+    {
+      "id": "d68ca4ce-1047-469c-b0df-af0ecab4f7e1",
+      "name": "cart_update",
+      "business_name": null,
+      "class": "custom",
+      "description": null,
+      "purpose": null,
+      "page": null,
+      "trigger": null,
+      "grain": null,
+      "identity_note": null,
+      "owners": {
+        "business": null,
+        "technical": null
+      },
+      "priority": null,
+      "status": "planned",
+      "certification": {
+        "applicable": true,
+        "certified": false,
+        "reasons": [
+          "open_errors: 2"
+        ]
+      },
+      "expiration": {
+        "effective": {
+          "enabled": false,
+          "count": null,
+          "units": null
+        },
+        "source": "project"
+      },
+      "properties": [
+        {
+          "property_id": "5ff3bff4-b01d-4be7-b5bc-8ffe2e717275",
+          "name": "action",
+          "payload_key": "action",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "discriminator",
+          "allowed_values": [
+            {
+              "value": "add",
+              "label": null,
+              "standard_event": "add_to_cart"
+            }
+          ],
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "95ba7273-0e12-47be-b884-ae65c911df9e",
+          "name": "product_id",
+          "payload_key": "product_id",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "2be80ece-363e-41f3-85c1-440869346a29",
+          "name": "total_price",
+          "payload_key": "total_price",
+          "data_type": "number",
+          "data_formats": [
+            "money"
+          ],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": 123,
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "3a883a73-ac4f-402e-bfc6-88001bd2a6b3",
+          "name": "total_quantity",
+          "payload_key": "total_quantity",
+          "data_type": "number",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": 123,
+          "description": null,
+          "pii": false
+        }
+      ],
+      "variants": [
+        {
+          "id": "627b28e4-65c1-4129-b445-dae4a19d1bae",
+          "name": "cart_update[action=add]",
+          "conditions": [
+            {
+              "property_id": "5ff3bff4-b01d-4be7-b5bc-8ffe2e717275",
+              "property_name": "action",
+              "operator": "equals",
+              "values": [
+                "add"
+              ]
+            }
+          ],
+          "standard_event": "add_to_cart",
+          "expected_payload": {
+            "action": "add",
+            "product_id": "string",
+            "total_price": 123,
+            "total_quantity": 123
+          },
+          "required_keys": [],
+          "expiration": null
+        }
+      ],
+      "standard_event_mappings": [
+        {
+          "standard_event": "add_to_cart",
+          "variant_id": "627b28e4-65c1-4129-b445-dae4a19d1bae",
+          "variant_name": "cart_update[action=add]",
+          "field_map": {
+            "category_level_1": null,
+            "category_level_2": null,
+            "category_level_3": null,
+            "price": null,
+            "product_id": "product_id",
+            "product_ids": null,
+            "product_list": null,
+            "total_price": "total_price",
+            "total_quantity": "total_quantity",
+            "variant_id": null
+          }
+        }
+      ],
+      "contexts": [],
+      "coverage": {
+        "rows": [
+          {
+            "variant_id": "627b28e4-65c1-4129-b445-dae4a19d1bae",
+            "name": "cart_update[action=add]"
+          }
+        ],
+        "columns": [],
+        "observed_count": 0,
+        "unobserved_count": 0
+      },
+      "rules": [],
+      "derived_metrics": [],
+      "not_suitable_for": null,
+      "use_cases": [],
+      "freshness": {
+        "last_observation_at": 1723580094,
+        "observation_count": 1
+      },
+      "quality": {
+        "open": {
+          "error": 2,
+          "warning": 0,
+          "info": 5
+        },
+        "by_comparison": {
+          "definition_vs_observations": {
+            "error": 2,
+            "warning": 0,
+            "info": 5
+          }
+        }
+      },
+      "findings": [
+        {
+          "id": "296229f4-2efb-4c7a-969d-3ca4cff097ae",
+          "comparison": "definition_vs_observations",
+          "kind": "type_mismatch",
+          "severity": "error",
+          "property_id": "2be80ece-363e-41f3-85c1-440869346a29",
+          "property": "total_price",
+          "variant_id": "627b28e4-65c1-4129-b445-dae4a19d1bae",
+          "variant": "cart_update[action=add]",
+          "rule": null,
+          "message": "Property \"total_price\" on event \"cart_update\" is string, expected number.",
+          "expected": {
+            "data_type": "number"
+          },
+          "actual": {
+            "value": "28",
+            "js_type": "string"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:14:24.272Z",
+          "last_seen": "2026-09-27T19:16:05.916Z"
+        },
+        {
+          "id": "2fd851e4-a965-4d47-8dac-99db82733711",
+          "comparison": "definition_vs_observations",
+          "kind": "type_mismatch",
+          "severity": "error",
+          "property_id": "3a883a73-ac4f-402e-bfc6-88001bd2a6b3",
+          "property": "total_quantity",
+          "variant_id": "627b28e4-65c1-4129-b445-dae4a19d1bae",
+          "variant": "cart_update[action=add]",
+          "rule": null,
+          "message": "Property \"total_quantity\" on event \"cart_update\" is string, expected number.",
+          "expected": {
+            "data_type": "number"
+          },
+          "actual": {
+            "value": "1",
+            "js_type": "string"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:14:24.273Z",
+          "last_seen": "2026-09-27T19:16:05.916Z"
+        },
+        {
+          "id": "39033ac9-2ff5-4bd7-8ef7-2cedc7e20932",
+          "comparison": "definition_vs_observations",
+          "kind": "unexpected_property",
+          "severity": "info",
+          "property_id": null,
+          "property": null,
+          "variant_id": "627b28e4-65c1-4129-b445-dae4a19d1bae",
+          "variant": "cart_update[action=add]",
+          "rule": null,
+          "message": "Observed payload key \"brand\" on event \"cart_update\" is not linked to the event.",
+          "expected": null,
+          "actual": {
+            "payload_key": "brand"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.841Z",
+          "last_seen": "2026-09-27T19:16:05.921Z"
+        },
+        {
+          "id": "e0a32e75-6e46-4224-8b89-b44f7ac998b1",
+          "comparison": "definition_vs_observations",
+          "kind": "unexpected_property",
+          "severity": "info",
+          "property_id": null,
+          "property": null,
+          "variant_id": "627b28e4-65c1-4129-b445-dae4a19d1bae",
+          "variant": "cart_update[action=add]",
+          "rule": null,
+          "message": "Observed payload key \"product_ids\" on event \"cart_update\" is not linked to the event.",
+          "expected": null,
+          "actual": {
+            "payload_key": "product_ids"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.842Z",
+          "last_seen": "2026-09-27T19:16:05.921Z"
+        },
+        {
+          "id": "12322610-a989-494c-a8b1-92f9338131a7",
+          "comparison": "definition_vs_observations",
+          "kind": "unexpected_property",
+          "severity": "info",
+          "property_id": null,
+          "property": null,
+          "variant_id": "627b28e4-65c1-4129-b445-dae4a19d1bae",
+          "variant": "cart_update[action=add]",
+          "rule": null,
+          "message": "Observed payload key \"product_list\" on event \"cart_update\" is not linked to the event.",
+          "expected": null,
+          "actual": {
+            "payload_key": "product_list"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.842Z",
+          "last_seen": "2026-09-27T19:16:05.922Z"
+        },
+        {
+          "id": "8cbac48f-17e1-434c-8906-5bf9ac2eea18",
+          "comparison": "definition_vs_observations",
+          "kind": "unexpected_property",
+          "severity": "info",
+          "property_id": null,
+          "property": null,
+          "variant_id": "627b28e4-65c1-4129-b445-dae4a19d1bae",
+          "variant": "cart_update[action=add]",
+          "rule": null,
+          "message": "Observed payload key \"size\" on event \"cart_update\" is not linked to the event.",
+          "expected": null,
+          "actual": {
+            "payload_key": "size"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.843Z",
+          "last_seen": "2026-09-27T19:16:05.923Z"
+        },
+        {
+          "id": "894ebba9-f317-4325-a2c3-c1c5377ac739",
+          "comparison": "definition_vs_observations",
+          "kind": "unexpected_property",
+          "severity": "info",
+          "property_id": null,
+          "property": null,
+          "variant_id": "627b28e4-65c1-4129-b445-dae4a19d1bae",
+          "variant": "cart_update[action=add]",
+          "rule": null,
+          "message": "Observed payload key \"title\" on event \"cart_update\" is not linked to the event.",
+          "expected": null,
+          "actual": {
+            "payload_key": "title"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.843Z",
+          "last_seen": "2026-09-27T19:16:05.923Z"
+        }
+      ],
+      "agent_instructions": null,
+      "codegen": {
+        "gtm": "window.dataLayer = window.dataLayer || [];\nwindow.dataLayer.push({\n  event: 'cart_update',\n  // Optional:\n  action: 'string',\n  product_id: 'string',\n  total_price: 123,\n  total_quantity: 123,\n});",
+        "web_sdk": "exponea.track('cart_update', {\n  // Optional:\n  action: 'string',\n  product_id: 'string',\n  total_price: 123,\n  total_quantity: 123,\n});",
+        "tracking_api": "// Optional properties: action, product_id, total_price, total_quantity\n\n{\n  \"customer_ids\": {\n    \"registered\": \"<customer_id>\"\n  },\n  \"event_type\": \"cart_update\",\n  \"properties\": {\n    \"action\": \"string\",\n    \"product_id\": \"string\",\n    \"total_price\": 123,\n    \"total_quantity\": 123\n  }\n}\n\n// cURL example:\ncurl -X POST \"https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events\" \\\n  -H \"Authorization: Basic YOUR_BASE64_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"customer_ids\":{\"registered\":\"<customer_id>\"},\"event_type\":\"cart_update\",\"properties\":{\"action\":\"string\",\"product_id\":\"string\",\"total_price\":123,\"total_quantity\":123}}'"
+      },
+      "sdk_default_properties": [
+        "os",
+        "browser",
+        "device",
+        "location"
+      ]
+    },
+    {
+      "id": "933876d2-53fd-4f6d-845b-8f4d8c21003d",
+      "name": "checkout",
+      "business_name": null,
+      "class": "custom",
+      "description": null,
+      "purpose": null,
+      "page": null,
+      "trigger": null,
+      "grain": null,
+      "identity_note": null,
+      "owners": {
+        "business": null,
+        "technical": null
+      },
+      "priority": null,
+      "status": "planned",
+      "certification": {
+        "applicable": true,
+        "certified": true,
+        "reasons": []
+      },
+      "expiration": {
+        "effective": {
+          "enabled": false,
+          "count": null,
+          "units": null
+        },
+        "source": "project"
+      },
+      "properties": [],
+      "variants": [],
+      "standard_event_mappings": [
+        {
+          "standard_event": "checkout",
+          "variant_id": null,
+          "variant_name": null,
+          "field_map": {}
+        }
+      ],
+      "contexts": [],
+      "coverage": {
+        "rows": [
+          {
+            "variant_id": null,
+            "name": "(no variant)"
+          }
+        ],
+        "columns": [],
+        "observed_count": 0,
+        "unobserved_count": 0
+      },
+      "rules": [],
+      "derived_metrics": [],
+      "not_suitable_for": null,
+      "use_cases": [],
+      "freshness": {
+        "last_observation_at": 1723582348,
+        "observation_count": 1
+      },
+      "quality": {
+        "open": {
+          "error": 0,
+          "warning": 0,
+          "info": 3
+        },
+        "by_comparison": {
+          "definition_vs_observations": {
+            "error": 0,
+            "warning": 0,
+            "info": 3
+          }
+        }
+      },
+      "findings": [
+        {
+          "id": "edd5ff97-423f-4aca-ab33-a8b3edba5570",
+          "comparison": "definition_vs_observations",
+          "kind": "unexpected_property",
+          "severity": "info",
+          "property_id": null,
+          "property": null,
+          "variant_id": null,
+          "variant": null,
+          "rule": null,
+          "message": "Observed payload key \"product_ids\" on event \"checkout\" is not linked to the event.",
+          "expected": null,
+          "actual": {
+            "payload_key": "product_ids"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.840Z",
+          "last_seen": "2026-09-27T19:16:05.919Z"
+        },
+        {
+          "id": "701d5dac-ec7a-4278-84fe-a25f7142ed5b",
+          "comparison": "definition_vs_observations",
+          "kind": "unexpected_property",
+          "severity": "info",
+          "property_id": null,
+          "property": null,
+          "variant_id": null,
+          "variant": null,
+          "rule": null,
+          "message": "Observed payload key \"product_list\" on event \"checkout\" is not linked to the event.",
+          "expected": null,
+          "actual": {
+            "payload_key": "product_list"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.840Z",
+          "last_seen": "2026-09-27T19:16:05.920Z"
+        },
+        {
+          "id": "3057c667-d357-49e8-8e73-5c1035048594",
+          "comparison": "definition_vs_observations",
+          "kind": "unexpected_property",
+          "severity": "info",
+          "property_id": null,
+          "property": null,
+          "variant_id": null,
+          "variant": null,
+          "rule": null,
+          "message": "Observed payload key \"total_price\" on event \"checkout\" is not linked to the event.",
+          "expected": null,
+          "actual": {
+            "payload_key": "total_price"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.841Z",
+          "last_seen": "2026-09-27T19:16:05.920Z"
+        }
+      ],
+      "agent_instructions": null,
+      "codegen": {
+        "gtm": "window.dataLayer = window.dataLayer || [];\nwindow.dataLayer.push({\n  event: 'checkout',\n});",
+        "web_sdk": "exponea.track('checkout', {\n});",
+        "tracking_api": "{\n  \"customer_ids\": {\n    \"registered\": \"<customer_id>\"\n  },\n  \"event_type\": \"checkout\"\n}\n\n// cURL example:\ncurl -X POST \"https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events\" \\\n  -H \"Authorization: Basic YOUR_BASE64_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"customer_ids\":{\"registered\":\"<customer_id>\"},\"event_type\":\"checkout\"}'"
+      },
+      "sdk_default_properties": [
+        "os",
+        "browser",
+        "device",
+        "location"
+      ]
+    },
+    {
+      "id": "debdc9b5-bc20-4624-b029-454a87dd0188",
+      "name": "purchase",
+      "business_name": null,
+      "class": "custom",
+      "description": null,
+      "purpose": null,
+      "page": null,
+      "trigger": null,
+      "grain": null,
+      "identity_note": null,
+      "owners": {
+        "business": null,
+        "technical": null
+      },
+      "priority": null,
+      "status": "planned",
+      "certification": {
+        "applicable": true,
+        "certified": false,
+        "reasons": [
+          "open_errors: 3"
+        ]
+      },
+      "expiration": {
+        "effective": {
+          "enabled": false,
+          "count": null,
+          "units": null
+        },
+        "source": "project"
+      },
+      "properties": [
+        {
+          "property_id": "584f70f8-bf22-490c-ae41-ae5d56d33b6f",
+          "name": "purchase_status",
+          "payload_key": "purchase_status",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "discriminator",
+          "allowed_values": [
+            {
+              "value": "success",
+              "label": null,
+              "standard_event": "purchase"
+            }
+          ],
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "06cc36ce-5c86-4449-8bd1-bc294cc78e5c",
+          "name": "product_ids",
+          "payload_key": "product_ids",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "de83fbb4-0ec2-4204-acd6-74a9ef53e72b",
+          "name": "product_list",
+          "payload_key": "product_list",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "f328c5b4-80ba-4bc8-9324-13207b4adeb2",
+          "name": "purchase_id",
+          "payload_key": "purchase_id",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "2be80ece-363e-41f3-85c1-440869346a29",
+          "name": "total_price",
+          "payload_key": "total_price",
+          "data_type": "number",
+          "data_formats": [
+            "money"
+          ],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": 123,
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "515b017a-9603-43f7-9b1f-55e0cc69a6f6",
+          "name": "voucher_code",
+          "payload_key": "voucher_code",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        }
+      ],
+      "variants": [
+        {
+          "id": "f586552c-5676-4a03-ae16-302f0900d68b",
+          "name": "purchase[purchase_status=success]",
+          "conditions": [
+            {
+              "property_id": "584f70f8-bf22-490c-ae41-ae5d56d33b6f",
+              "property_name": "purchase_status",
+              "operator": "equals",
+              "values": [
+                "success"
+              ]
+            }
+          ],
+          "standard_event": "purchase",
+          "expected_payload": {
+            "purchase_status": "success",
+            "product_ids": "string",
+            "product_list": "string",
+            "purchase_id": "string",
+            "total_price": 123,
+            "voucher_code": "string"
+          },
+          "required_keys": [],
+          "expiration": null
+        }
+      ],
+      "standard_event_mappings": [
+        {
+          "standard_event": "purchase",
+          "variant_id": "f586552c-5676-4a03-ae16-302f0900d68b",
+          "variant_name": "purchase[purchase_status=success]",
+          "field_map": {
+            "currency": null,
+            "product_ids": "product_ids",
+            "product_list": "product_list",
+            "purchase_id": "purchase_id",
+            "purchase_status": "purchase_status",
+            "total_price": "total_price",
+            "total_quantity": null,
+            "voucher_code": "voucher_code"
+          }
+        }
+      ],
+      "contexts": [],
+      "coverage": {
+        "rows": [
+          {
+            "variant_id": "f586552c-5676-4a03-ae16-302f0900d68b",
+            "name": "purchase[purchase_status=success]"
+          }
+        ],
+        "columns": [],
+        "observed_count": 0,
+        "unobserved_count": 0
+      },
+      "rules": [
+        {
+          "id": "66115753-0ed3-4f8c-92a5-f4b1f052f8d5",
+          "name": "purchase_items_total",
+          "kind": "cross_event",
+          "message": "\"total_price\" must match the sum of purchase_item's price * quantity for the same purchase.",
+          "expression_text": "sum((price * quantity)) (joined on purchase_id = purchase_item.purchase_id) eq total_price",
+          "tolerance": {
+            "mode": "money",
+            "value": null
+          },
+          "enabled": true,
+          "variant_id": null,
+          "variant_name": null
+        }
+      ],
+      "derived_metrics": [],
+      "not_suitable_for": null,
+      "use_cases": [],
+      "freshness": {
+        "last_observation_at": 1723585826,
+        "observation_count": 1
+      },
+      "quality": {
+        "open": {
+          "error": 3,
+          "warning": 1,
+          "info": 3
+        },
+        "by_comparison": {
+          "definition_vs_observations": {
+            "error": 3,
+            "warning": 1,
+            "info": 3
+          }
+        }
+      },
+      "findings": [
+        {
+          "id": "5e19d5ca-2ac4-4f33-965e-1470591002d2",
+          "comparison": "definition_vs_observations",
+          "kind": "type_mismatch",
+          "severity": "error",
+          "property_id": "06cc36ce-5c86-4449-8bd1-bc294cc78e5c",
+          "property": "product_ids",
+          "variant_id": "f586552c-5676-4a03-ae16-302f0900d68b",
+          "variant": "purchase[purchase_status=success]",
+          "rule": null,
+          "message": "Property \"product_ids\" on event \"purchase\" is array, expected string.",
+          "expected": {
+            "data_type": "string"
+          },
+          "actual": {
+            "value": [
+              "102589"
+            ],
+            "js_type": "array"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.834Z",
+          "last_seen": "2026-09-27T19:16:05.915Z"
+        },
+        {
+          "id": "d2bb5a91-e240-499b-b2bb-358710fe614e",
+          "comparison": "definition_vs_observations",
+          "kind": "type_mismatch",
+          "severity": "error",
+          "property_id": "de83fbb4-0ec2-4204-acd6-74a9ef53e72b",
+          "property": "product_list",
+          "variant_id": "f586552c-5676-4a03-ae16-302f0900d68b",
+          "variant": "purchase[purchase_status=success]",
+          "rule": null,
+          "message": "Property \"product_list\" on event \"purchase\" is array, expected string.",
+          "expected": {
+            "data_type": "string"
+          },
+          "actual": {
+            "value": [
+              {
+                "product_id": "102589",
+                "quantity": 1
+              }
+            ],
+            "js_type": "array"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.835Z",
+          "last_seen": "2026-09-27T19:16:05.915Z"
+        },
+        {
+          "id": "b4f330b0-c8c5-470a-9285-916d866c4145",
+          "comparison": "definition_vs_observations",
+          "kind": "type_mismatch",
+          "severity": "error",
+          "property_id": "2be80ece-363e-41f3-85c1-440869346a29",
+          "property": "total_price",
+          "variant_id": "f586552c-5676-4a03-ae16-302f0900d68b",
+          "variant": "purchase[purchase_status=success]",
+          "rule": null,
+          "message": "Property \"total_price\" on event \"purchase\" is string, expected number.",
+          "expected": {
+            "data_type": "number"
+          },
+          "actual": {
+            "value": "28",
+            "js_type": "string"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:14:24.271Z",
+          "last_seen": "2026-09-27T19:16:05.916Z"
+        },
+        {
+          "id": "a028470b-4c35-4e22-9010-dc52b9ceb198",
+          "comparison": "definition_vs_observations",
+          "kind": "rounding_drift",
+          "severity": "warning",
+          "property_id": "2be80ece-363e-41f3-85c1-440869346a29",
+          "property": "total_price",
+          "variant_id": "f586552c-5676-4a03-ae16-302f0900d68b",
+          "variant": "purchase[purchase_status=success]",
+          "rule": "purchase_items_total",
+          "message": "\"total_price\" must match the sum of purchase_item's price * quantity for the same purchase.",
+          "expected": {
+            "rule_id": "66115753-0ed3-4f8c-92a5-f4b1f052f8d5",
+            "rule_name": "purchase_items_total",
+            "version": 1,
+            "expression": {
+              "kind": "cross_event",
+              "child_event_id": "e85a8f5e-738d-4ef2-872e-94236446bc97",
+              "join": {
+                "parent_property_id": "f328c5b4-80ba-4bc8-9324-13207b4adeb2",
+                "child_property_id": "f328c5b4-80ba-4bc8-9324-13207b4adeb2"
+              },
+              "child": {
+                "ref": "aggregate",
+                "fn": "sum",
+                "of": {
+                  "ref": "product",
+                  "left": {
+                    "ref": "property",
+                    "property_id": "b382f3c0-8d56-440c-b017-3d1a2c4013f4"
+                  },
+                  "right": {
+                    "ref": "property",
+                    "property_id": "06f8a8b4-7774-4c5b-8265-6158a44f27b3"
+                  }
+                }
+              },
+              "comparator": "eq",
+              "target": {
+                "ref": "property",
+                "property_id": "2be80ece-363e-41f3-85c1-440869346a29"
+              }
+            },
+            "tolerance": {
+              "mode": "money",
+              "value": null
+            },
+            "expected": 28
+          },
+          "actual": {
+            "values": 28.4
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:16:05.925Z",
+          "last_seen": "2026-09-27T19:16:05.925Z"
+        },
+        {
+          "id": "6ede8e8f-e720-4228-9856-a37c77c561aa",
+          "comparison": "definition_vs_observations",
+          "kind": "unexpected_property",
+          "severity": "info",
+          "property_id": null,
+          "property": null,
+          "variant_id": "f586552c-5676-4a03-ae16-302f0900d68b",
+          "variant": "purchase[purchase_status=success]",
+          "rule": null,
+          "message": "Observed payload key \"currency\" on event \"purchase\" is not linked to the event.",
+          "expected": null,
+          "actual": {
+            "payload_key": "currency"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.838Z",
+          "last_seen": "2026-09-27T19:16:05.918Z"
+        },
+        {
+          "id": "24414dac-9949-4e37-b983-d99edb2ff697",
+          "comparison": "definition_vs_observations",
+          "kind": "unexpected_property",
+          "severity": "info",
+          "property_id": null,
+          "property": null,
+          "variant_id": "f586552c-5676-4a03-ae16-302f0900d68b",
+          "variant": "purchase[purchase_status=success]",
+          "rule": null,
+          "message": "Observed payload key \"payment_method\" on event \"purchase\" is not linked to the event.",
+          "expected": null,
+          "actual": {
+            "payload_key": "payment_method"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.839Z",
+          "last_seen": "2026-09-27T19:16:05.919Z"
+        },
+        {
+          "id": "9d9a1818-2d18-4bd1-b853-9fb1ff5c7092",
+          "comparison": "definition_vs_observations",
+          "kind": "unexpected_property",
+          "severity": "info",
+          "property_id": null,
+          "property": null,
+          "variant_id": "f586552c-5676-4a03-ae16-302f0900d68b",
+          "variant": "purchase[purchase_status=success]",
+          "rule": null,
+          "message": "Observed payload key \"purchase_source_type\" on event \"purchase\" is not linked to the event.",
+          "expected": null,
+          "actual": {
+            "payload_key": "purchase_source_type"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.839Z",
+          "last_seen": "2026-09-27T19:16:05.919Z"
+        }
+      ],
+      "agent_instructions": null,
+      "codegen": {
+        "gtm": "window.dataLayer = window.dataLayer || [];\nwindow.dataLayer.push({\n  event: 'purchase',\n  // Optional:\n  product_ids: 'string',\n  product_list: 'string',\n  purchase_id: 'string',\n  purchase_status: 'string',\n  total_price: 123,\n  voucher_code: 'string',\n});",
+        "web_sdk": "exponea.track('purchase', {\n  // Optional:\n  product_ids: 'string',\n  product_list: 'string',\n  purchase_id: 'string',\n  purchase_status: 'string',\n  total_price: 123,\n  voucher_code: 'string',\n});",
+        "tracking_api": "// Optional properties: product_ids, product_list, purchase_id, purchase_status, total_price, voucher_code\n\n{\n  \"customer_ids\": {\n    \"registered\": \"<customer_id>\"\n  },\n  \"event_type\": \"purchase\",\n  \"properties\": {\n    \"product_ids\": \"string\",\n    \"product_list\": \"string\",\n    \"purchase_id\": \"string\",\n    \"purchase_status\": \"string\",\n    \"total_price\": 123,\n    \"voucher_code\": \"string\"\n  }\n}\n\n// cURL example:\ncurl -X POST \"https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events\" \\\n  -H \"Authorization: Basic YOUR_BASE64_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"customer_ids\":{\"registered\":\"<customer_id>\"},\"event_type\":\"purchase\",\"properties\":{\"product_ids\":\"string\",\"product_list\":\"string\",\"purchase_id\":\"string\",\"purchase_status\":\"string\",\"total_price\":123,\"voucher_code\":\"string\"}}'"
+      },
+      "sdk_default_properties": [
+        "os",
+        "browser",
+        "device",
+        "location"
+      ]
+    },
+    {
+      "id": "e85a8f5e-738d-4ef2-872e-94236446bc97",
+      "name": "purchase_item",
+      "business_name": null,
+      "class": "custom",
+      "description": null,
+      "purpose": null,
+      "page": null,
+      "trigger": null,
+      "grain": null,
+      "identity_note": null,
+      "owners": {
+        "business": null,
+        "technical": null
+      },
+      "priority": null,
+      "status": "planned",
+      "certification": {
+        "applicable": true,
+        "certified": false,
+        "reasons": [
+          "open_errors: 3"
+        ]
+      },
+      "expiration": {
+        "effective": {
+          "enabled": false,
+          "count": null,
+          "units": null
+        },
+        "source": "project"
+      },
+      "properties": [
+        {
+          "property_id": "1fa12324-1c62-40cc-bf71-a7e85f23b807",
+          "name": "category_level_1",
+          "payload_key": "category_level_1",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "e9420e1f-b1a7-4bf7-beeb-bbaa6f71a023",
+          "name": "category_level_2",
+          "payload_key": "category_level_2",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "726fe13f-e396-4617-af31-0fb439437f6b",
+          "name": "category_level_3",
+          "payload_key": "category_level_3",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "95ba7273-0e12-47be-b884-ae65c911df9e",
+          "name": "product_id",
+          "payload_key": "product_id",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "f328c5b4-80ba-4bc8-9324-13207b4adeb2",
+          "name": "purchase_id",
+          "payload_key": "purchase_id",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "bc46c85b-10dd-493f-b236-3aa1b2f9f9ef",
+          "name": "size",
+          "payload_key": "size",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "b382f3c0-8d56-440c-b017-3d1a2c4013f4",
+          "name": "price",
+          "payload_key": "price",
+          "data_type": "number",
+          "data_formats": [
+            "money"
+          ],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": 123,
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "06f8a8b4-7774-4c5b-8265-6158a44f27b3",
+          "name": "quantity",
+          "payload_key": "quantity",
+          "data_type": "number",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": 123,
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "3c4ee845-ed8a-4366-9ffd-eefa24da0c0f",
+          "name": "is_new",
+          "payload_key": "is_new",
+          "data_type": "boolean",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": true,
+          "description": null,
+          "pii": false
+        }
+      ],
+      "variants": [],
+      "standard_event_mappings": [
+        {
+          "standard_event": "purchase_item",
+          "variant_id": null,
+          "variant_name": null,
+          "field_map": {
+            "category_level_1": "category_level_1",
+            "category_level_2": "category_level_2",
+            "category_level_3": "category_level_3",
+            "price": null,
+            "product_id": "product_id",
+            "purchase_id": "purchase_id",
+            "size": "size",
+            "title": null,
+            "total_price": "price",
+            "total_quantity": "quantity",
+            "variant_id": null
+          }
+        }
+      ],
+      "contexts": [],
+      "coverage": {
+        "rows": [
+          {
+            "variant_id": null,
+            "name": "(no variant)"
+          }
+        ],
+        "columns": [],
+        "observed_count": 0,
+        "unobserved_count": 0
+      },
+      "rules": [],
+      "derived_metrics": [],
+      "not_suitable_for": null,
+      "use_cases": [],
+      "freshness": {
+        "last_observation_at": 1723588311,
+        "observation_count": 1
+      },
+      "quality": {
+        "open": {
+          "error": 3,
+          "warning": 2,
+          "info": 4
+        },
+        "by_comparison": {
+          "definition_vs_observations": {
+            "error": 3,
+            "warning": 0,
+            "info": 4
+          },
+          "definition_vs_mapping": {
+            "error": 0,
+            "warning": 2,
+            "info": 0
+          }
+        }
+      },
+      "findings": [
+        {
+          "id": "2b57150b-1581-4cdc-9338-f74a71891435",
+          "comparison": "definition_vs_observations",
+          "kind": "type_mismatch",
+          "severity": "error",
+          "property_id": "3c4ee845-ed8a-4366-9ffd-eefa24da0c0f",
+          "property": "is_new",
+          "variant_id": null,
+          "variant": null,
+          "rule": null,
+          "message": "Property \"is_new\" on event \"purchase_item\" is string, expected boolean.",
+          "expected": {
+            "data_type": "boolean"
+          },
+          "actual": {
+            "value": "TRUE",
+            "js_type": "string"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:14:24.270Z",
+          "last_seen": "2026-09-27T19:16:05.915Z"
+        },
+        {
+          "id": "0427bec6-3792-473a-b3e6-1ec46611ebb9",
+          "comparison": "definition_vs_observations",
+          "kind": "type_mismatch",
+          "severity": "error",
+          "property_id": "b382f3c0-8d56-440c-b017-3d1a2c4013f4",
+          "property": "price",
+          "variant_id": null,
+          "variant": null,
+          "rule": null,
+          "message": "Property \"price\" on event \"purchase_item\" is string, expected number.",
+          "expected": {
+            "data_type": "number"
+          },
+          "actual": {
+            "value": "28.4",
+            "js_type": "string"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:14:24.269Z",
+          "last_seen": "2026-09-27T19:16:05.914Z"
+        },
+        {
+          "id": "67a0f18d-9c93-4005-9d06-e770a0521b6e",
+          "comparison": "definition_vs_observations",
+          "kind": "type_mismatch",
+          "severity": "error",
+          "property_id": "06f8a8b4-7774-4c5b-8265-6158a44f27b3",
+          "property": "quantity",
+          "variant_id": null,
+          "variant": null,
+          "rule": null,
+          "message": "Property \"quantity\" on event \"purchase_item\" is string, expected number.",
+          "expected": {
+            "data_type": "number"
+          },
+          "actual": {
+            "value": "1",
+            "js_type": "string"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:14:24.269Z",
+          "last_seen": "2026-09-27T19:16:05.914Z"
+        },
+        {
+          "id": "329697ba-195a-4071-9e80-f397bc8592a2",
+          "comparison": "definition_vs_mapping",
+          "kind": "rename_mismatch",
+          "severity": "warning",
+          "property_id": "b382f3c0-8d56-440c-b017-3d1a2c4013f4",
+          "property": "price",
+          "variant_id": null,
+          "variant": null,
+          "rule": null,
+          "message": "\"purchase_item.total_price\" maps to property \"price\" whose payload key (\"price\") differs from the standard field name (\"total_price\").",
+          "expected": {
+            "field": "total_price",
+            "payload_key": "price"
+          },
+          "actual": {
+            "field": "total_price"
+          },
+          "qa_run_id": null,
+          "first_seen": "2026-09-27T19:10:58.848Z",
+          "last_seen": "2026-09-27T19:16:05.928Z"
+        },
+        {
+          "id": "edb4348b-5b17-4b2e-865b-1b7230f2e5df",
+          "comparison": "definition_vs_mapping",
+          "kind": "rename_mismatch",
+          "severity": "warning",
+          "property_id": "06f8a8b4-7774-4c5b-8265-6158a44f27b3",
+          "property": "quantity",
+          "variant_id": null,
+          "variant": null,
+          "rule": null,
+          "message": "\"purchase_item.total_quantity\" maps to property \"quantity\" whose payload key (\"quantity\") differs from the standard field name (\"total_quantity\").",
+          "expected": {
+            "field": "total_quantity",
+            "payload_key": "quantity"
+          },
+          "actual": {
+            "field": "total_quantity"
+          },
+          "qa_run_id": null,
+          "first_seen": "2026-09-27T19:10:58.848Z",
+          "last_seen": "2026-09-27T19:16:05.929Z"
+        },
+        {
+          "id": "7d7b4330-d9af-47c0-a223-f90ab7bf375f",
+          "comparison": "definition_vs_observations",
+          "kind": "unexpected_property",
+          "severity": "info",
+          "property_id": null,
+          "property": null,
+          "variant_id": null,
+          "variant": null,
+          "rule": null,
+          "message": "Observed payload key \"brand\" on event \"purchase_item\" is not linked to the event.",
+          "expected": null,
+          "actual": {
+            "payload_key": "brand"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.835Z",
+          "last_seen": "2026-09-27T19:16:05.917Z"
+        },
+        {
+          "id": "99c8f13b-8abe-404e-b2d0-343bcf9dc55c",
+          "comparison": "definition_vs_observations",
+          "kind": "unexpected_property",
+          "severity": "info",
+          "property_id": null,
+          "property": null,
+          "variant_id": null,
+          "variant": null,
+          "rule": null,
+          "message": "Observed payload key \"purchase_source_type\" on event \"purchase_item\" is not linked to the event.",
+          "expected": null,
+          "actual": {
+            "payload_key": "purchase_source_type"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.836Z",
+          "last_seen": "2026-09-27T19:16:05.917Z"
+        },
+        {
+          "id": "77dab528-930e-4c47-902f-034d63ffe4e1",
+          "comparison": "definition_vs_observations",
+          "kind": "unexpected_property",
+          "severity": "info",
+          "property_id": null,
+          "property": null,
+          "variant_id": null,
+          "variant": null,
+          "rule": null,
+          "message": "Observed payload key \"purchase_status\" on event \"purchase_item\" is not linked to the event.",
+          "expected": null,
+          "actual": {
+            "payload_key": "purchase_status"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.837Z",
+          "last_seen": "2026-09-27T19:16:05.917Z"
+        },
+        {
+          "id": "37081afd-4573-4f22-9016-64d449780ea1",
+          "comparison": "definition_vs_observations",
+          "kind": "unexpected_property",
+          "severity": "info",
+          "property_id": null,
+          "property": null,
+          "variant_id": null,
+          "variant": null,
+          "rule": null,
+          "message": "Observed payload key \"title\" on event \"purchase_item\" is not linked to the event.",
+          "expected": null,
+          "actual": {
+            "payload_key": "title"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.838Z",
+          "last_seen": "2026-09-27T19:16:05.918Z"
+        }
+      ],
+      "agent_instructions": null,
+      "codegen": {
+        "gtm": "window.dataLayer = window.dataLayer || [];\nwindow.dataLayer.push({\n  event: 'purchase_item',\n  // Optional:\n  category_level_1: 'string',\n  category_level_2: 'string',\n  category_level_3: 'string',\n  is_new: true,\n  price: 123,\n  product_id: 'string',\n  purchase_id: 'string',\n  quantity: 123,\n  size: 'string',\n});",
+        "web_sdk": "exponea.track('purchase_item', {\n  // Optional:\n  category_level_1: 'string',\n  category_level_2: 'string',\n  category_level_3: 'string',\n  is_new: true,\n  price: 123,\n  product_id: 'string',\n  purchase_id: 'string',\n  quantity: 123,\n  size: 'string',\n});",
+        "tracking_api": "// Optional properties: category_level_1, category_level_2, category_level_3, is_new, price, product_id, purchase_id, quantity, size\n\n{\n  \"customer_ids\": {\n    \"registered\": \"<customer_id>\"\n  },\n  \"event_type\": \"purchase_item\",\n  \"properties\": {\n    \"category_level_1\": \"string\",\n    \"category_level_2\": \"string\",\n    \"category_level_3\": \"string\",\n    \"is_new\": true,\n    \"price\": 123,\n    \"product_id\": \"string\",\n    \"purchase_id\": \"string\",\n    \"quantity\": 123,\n    \"size\": \"string\"\n  }\n}\n\n// cURL example:\ncurl -X POST \"https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events\" \\\n  -H \"Authorization: Basic YOUR_BASE64_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"customer_ids\":{\"registered\":\"<customer_id>\"},\"event_type\":\"purchase_item\",\"properties\":{\"category_level_1\":\"string\",\"category_level_2\":\"string\",\"category_level_3\":\"string\",\"is_new\":true,\"price\":123,\"product_id\":\"string\",\"purchase_id\":\"string\",\"quantity\":123,\"size\":\"string\"}}'"
+      },
+      "sdk_default_properties": [
+        "os",
+        "browser",
+        "device",
+        "location"
+      ]
+    },
+    {
+      "id": "80131a3a-c1de-45e8-a1a9-b25bb9f38f8f",
+      "name": "view_category",
+      "business_name": null,
+      "class": "custom",
+      "description": null,
+      "purpose": null,
+      "page": null,
+      "trigger": null,
+      "grain": null,
+      "identity_note": null,
+      "owners": {
+        "business": null,
+        "technical": null
+      },
+      "priority": null,
+      "status": "planned",
+      "certification": {
+        "applicable": true,
+        "certified": true,
+        "reasons": []
+      },
+      "expiration": {
+        "effective": {
+          "enabled": false,
+          "count": null,
+          "units": null
+        },
+        "source": "project"
+      },
+      "properties": [],
+      "variants": [],
+      "standard_event_mappings": [
+        {
+          "standard_event": "view_category",
+          "variant_id": null,
+          "variant_name": null,
+          "field_map": {}
+        }
+      ],
+      "contexts": [],
+      "coverage": {
+        "rows": [
+          {
+            "variant_id": null,
+            "name": "(no variant)"
+          }
+        ],
+        "columns": [],
+        "observed_count": 0,
+        "unobserved_count": 0
+      },
+      "rules": [],
+      "derived_metrics": [],
+      "not_suitable_for": null,
+      "use_cases": [],
+      "freshness": {
+        "last_observation_at": 1723574645,
+        "observation_count": 2
+      },
+      "quality": {
+        "open": {
+          "error": 0,
+          "warning": 0,
+          "info": 3
+        },
+        "by_comparison": {
+          "definition_vs_observations": {
+            "error": 0,
+            "warning": 0,
+            "info": 3
+          }
+        }
+      },
+      "findings": [
+        {
+          "id": "1e90f1ea-6d41-4efb-97e8-0db9c0336181",
+          "comparison": "definition_vs_observations",
+          "kind": "unexpected_property",
+          "severity": "info",
+          "property_id": null,
+          "property": null,
+          "variant_id": null,
+          "variant": null,
+          "rule": null,
+          "message": "Observed payload key \"category_level_1\" on event \"view_category\" is not linked to the event.",
+          "expected": null,
+          "actual": {
+            "payload_key": "category_level_1"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.844Z",
+          "last_seen": "2026-09-27T19:16:05.924Z"
+        },
+        {
+          "id": "7a0ef8d9-be1a-419f-9cc7-c14718b90b30",
+          "comparison": "definition_vs_observations",
+          "kind": "unexpected_property",
+          "severity": "info",
+          "property_id": null,
+          "property": null,
+          "variant_id": null,
+          "variant": null,
+          "rule": null,
+          "message": "Observed payload key \"category_level_2\" on event \"view_category\" is not linked to the event.",
+          "expected": null,
+          "actual": {
+            "payload_key": "category_level_2"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.844Z",
+          "last_seen": "2026-09-27T19:16:05.924Z"
+        },
+        {
+          "id": "d0f17066-55db-46fa-a2b1-147923b01efa",
+          "comparison": "definition_vs_observations",
+          "kind": "unexpected_property",
+          "severity": "info",
+          "property_id": null,
+          "property": null,
+          "variant_id": null,
+          "variant": null,
+          "rule": null,
+          "message": "Observed payload key \"category_name\" on event \"view_category\" is not linked to the event.",
+          "expected": null,
+          "actual": {
+            "payload_key": "category_name"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:10:58.844Z",
+          "last_seen": "2026-09-27T19:16:05.925Z"
+        }
+      ],
+      "agent_instructions": null,
+      "codegen": {
+        "gtm": "window.dataLayer = window.dataLayer || [];\nwindow.dataLayer.push({\n  event: 'view_category',\n});",
+        "web_sdk": "exponea.track('view_category', {\n});",
+        "tracking_api": "{\n  \"customer_ids\": {\n    \"registered\": \"<customer_id>\"\n  },\n  \"event_type\": \"view_category\"\n}\n\n// cURL example:\ncurl -X POST \"https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events\" \\\n  -H \"Authorization: Basic YOUR_BASE64_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"customer_ids\":{\"registered\":\"<customer_id>\"},\"event_type\":\"view_category\"}'"
+      },
+      "sdk_default_properties": [
+        "os",
+        "browser",
+        "device",
+        "location"
+      ]
+    },
+    {
+      "id": "df3cdeee-8a23-4999-9086-6c99ae03655d",
+      "name": "view_item",
+      "business_name": null,
+      "class": "custom",
+      "description": null,
+      "purpose": null,
+      "page": null,
+      "trigger": null,
+      "grain": null,
+      "identity_note": null,
+      "owners": {
+        "business": null,
+        "technical": null
+      },
+      "priority": null,
+      "status": "planned",
+      "certification": {
+        "applicable": true,
+        "certified": false,
+        "reasons": [
+          "open_errors: 2"
+        ]
+      },
+      "expiration": {
+        "effective": {
+          "enabled": false,
+          "count": null,
+          "units": null
+        },
+        "source": "project"
+      },
+      "properties": [
+        {
+          "property_id": "8f57bb56-d683-425f-94fa-c8352dc0407b",
+          "name": "brand",
+          "payload_key": "brand",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "1fa12324-1c62-40cc-bf71-a7e85f23b807",
+          "name": "category_level_1",
+          "payload_key": "category_level_1",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "e9420e1f-b1a7-4bf7-beeb-bbaa6f71a023",
+          "name": "category_level_2",
+          "payload_key": "category_level_2",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "726fe13f-e396-4617-af31-0fb439437f6b",
+          "name": "category_level_3",
+          "payload_key": "category_level_3",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "b382f3c0-8d56-440c-b017-3d1a2c4013f4",
+          "name": "price",
+          "payload_key": "price",
+          "data_type": "number",
+          "data_formats": [
+            "money"
+          ],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": 123,
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "95ba7273-0e12-47be-b884-ae65c911df9e",
+          "name": "product_id",
+          "payload_key": "product_id",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "924ac042-9cd6-4ab1-b75c-22a88f9f1518",
+          "name": "stock_level",
+          "payload_key": "stock_level",
+          "data_type": "number",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": 123,
+          "description": null,
+          "pii": false
+        },
+        {
+          "property_id": "ae67a77b-5c1c-4e69-a8f5-c9c38c235949",
+          "name": "title",
+          "payload_key": "title",
+          "data_type": "string",
+          "data_formats": [],
+          "required": false,
+          "role": "normal",
+          "allowed_values": null,
+          "item_schema": null,
+          "example": "string",
+          "description": null,
+          "pii": false
+        }
+      ],
+      "variants": [],
+      "standard_event_mappings": [
+        {
+          "standard_event": "view_item",
+          "variant_id": null,
+          "variant_name": null,
+          "field_map": {
+            "brand": "brand",
+            "category_level_1": "category_level_1",
+            "category_level_2": "category_level_2",
+            "category_level_3": "category_level_3",
+            "price": "price",
+            "product_id": "product_id",
+            "stock_level": "stock_level",
+            "title": "title",
+            "variant_id": null
+          }
+        }
+      ],
+      "contexts": [],
+      "coverage": {
+        "rows": [
+          {
+            "variant_id": null,
+            "name": "(no variant)"
+          }
+        ],
+        "columns": [],
+        "observed_count": 0,
+        "unobserved_count": 0
+      },
+      "rules": [],
+      "derived_metrics": [],
+      "not_suitable_for": null,
+      "use_cases": [],
+      "freshness": {
+        "last_observation_at": 1790536565,
+        "observation_count": 5
+      },
+      "quality": {
+        "open": {
+          "error": 2,
+          "warning": 0,
+          "info": 0
+        },
+        "by_comparison": {
+          "definition_vs_observations": {
+            "error": 2,
+            "warning": 0,
+            "info": 0
+          }
+        }
+      },
+      "findings": [
+        {
+          "id": "df43e806-3424-48e3-90eb-37fad5d1e7df",
+          "comparison": "definition_vs_observations",
+          "kind": "type_mismatch",
+          "severity": "error",
+          "property_id": "b382f3c0-8d56-440c-b017-3d1a2c4013f4",
+          "property": "price",
+          "variant_id": null,
+          "variant": null,
+          "rule": null,
+          "message": "Property \"price\" on event \"view_item\" is string, expected number.",
+          "expected": {
+            "data_type": "number"
+          },
+          "actual": {
+            "value": "9.99",
+            "js_type": "string"
+          },
+          "qa_run_id": "8da8e15b-a473-4caf-a3a9-2cb7ae4fbb59",
+          "first_seen": "2026-09-27T19:14:24.267Z",
+          "last_seen": "2026-09-27T19:16:05.913Z"
+        },
+        {
+          "id": "79b607fc-4083-4b79-9d38-aa48ee69ad7b",
+          "comparison": "definition_vs_observations",
+          "kind": "type_mismatch",
+          "severity": "error",
+          "property_id": "924ac042-9cd6-4ab1-b75c-22a88f9f1518",
+          "property": "stock_level",
+          "variant_id": null,
+          "variant": null,
+          "rule": null,
+          "message": "Property \"stock_level\" on event \"view_item\" is string, expected number.",
+          "expected": {
+            "data_type": "number"
+          },
+          "actual": {
+            "value": "13",
+            "js_type": "string"
+          },
+          "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+          "first_seen": "2026-09-27T19:14:24.268Z",
+          "last_seen": "2026-09-27T19:16:05.914Z"
+        }
+      ],
+      "agent_instructions": null,
+      "codegen": {
+        "gtm": "window.dataLayer = window.dataLayer || [];\nwindow.dataLayer.push({\n  event: 'view_item',\n  // Optional:\n  brand: 'string',\n  category_level_1: 'string',\n  category_level_2: 'string',\n  category_level_3: 'string',\n  price: 123,\n  product_id: 'string',\n  stock_level: 123,\n  title: 'string',\n});",
+        "web_sdk": "exponea.track('view_item', {\n  // Optional:\n  brand: 'string',\n  category_level_1: 'string',\n  category_level_2: 'string',\n  category_level_3: 'string',\n  price: 123,\n  product_id: 'string',\n  stock_level: 123,\n  title: 'string',\n});",
+        "tracking_api": "// Optional properties: brand, category_level_1, category_level_2, category_level_3, price, product_id, stock_level, title\n\n{\n  \"customer_ids\": {\n    \"registered\": \"<customer_id>\"\n  },\n  \"event_type\": \"view_item\",\n  \"properties\": {\n    \"brand\": \"string\",\n    \"category_level_1\": \"string\",\n    \"category_level_2\": \"string\",\n    \"category_level_3\": \"string\",\n    \"price\": 123,\n    \"product_id\": \"string\",\n    \"stock_level\": 123,\n    \"title\": \"string\"\n  }\n}\n\n// cURL example:\ncurl -X POST \"https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events\" \\\n  -H \"Authorization: Basic YOUR_BASE64_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"customer_ids\":{\"registered\":\"<customer_id>\"},\"event_type\":\"view_item\",\"properties\":{\"brand\":\"string\",\"category_level_1\":\"string\",\"category_level_2\":\"string\",\"category_level_3\":\"string\",\"price\":123,\"product_id\":\"string\",\"stock_level\":123,\"title\":\"string\"}}'"
+      },
+      "sdk_default_properties": [
+        "os",
+        "browser",
+        "device",
+        "location"
+      ]
+    },
+    {
+      "id": "18f3e432-d875-4c75-abb1-f1bf98e0eb03",
+      "name": "consent",
+      "business_name": null,
+      "class": "platform",
+      "description": null,
+      "purpose": null,
+      "page": null,
+      "trigger": null,
+      "grain": null,
+      "identity_note": null,
+      "owners": {
+        "business": null,
+        "technical": null
+      },
+      "priority": null,
+      "status": "planned",
+      "certification": {
+        "applicable": false,
+        "certified": false,
+        "reasons": [
+          "not_applicable"
+        ]
+      },
+      "expiration": {
+        "effective": {
+          "enabled": false,
+          "count": null,
+          "units": null
+        },
+        "source": "event"
+      },
+      "properties": [],
+      "variants": [],
+      "standard_event_mappings": [],
+      "contexts": [],
+      "coverage": {
+        "rows": [
+          {
+            "variant_id": null,
+            "name": "(no variant)"
+          }
+        ],
+        "columns": [],
+        "observed_count": 0,
+        "unobserved_count": 0
+      },
+      "rules": [],
+      "derived_metrics": [],
+      "not_suitable_for": null,
+      "use_cases": [],
+      "freshness": {
+        "last_observation_at": 1723569074,
+        "observation_count": 2
+      },
+      "quality": {
+        "open": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_comparison": {}
+      },
+      "findings": [],
+      "agent_instructions": null,
+      "codegen": {
+        "gtm": "window.dataLayer = window.dataLayer || [];\nwindow.dataLayer.push({\n  event: 'consent',\n});",
+        "web_sdk": "exponea.track('consent', {\n});",
+        "tracking_api": "{\n  \"customer_ids\": {\n    \"registered\": \"<customer_id>\"\n  },\n  \"event_type\": \"consent\"\n}\n\n// cURL example:\ncurl -X POST \"https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events\" \\\n  -H \"Authorization: Basic YOUR_BASE64_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"customer_ids\":{\"registered\":\"<customer_id>\"},\"event_type\":\"consent\"}'"
+      },
+      "sdk_default_properties": [
+        "os",
+        "browser",
+        "device",
+        "location"
+      ]
+    },
+    {
+      "id": "ee80bd0a-fd39-4e17-b2cd-e1ea643c9558",
+      "name": "notification_state",
+      "business_name": null,
+      "class": "platform",
+      "description": null,
+      "purpose": null,
+      "page": null,
+      "trigger": null,
+      "grain": null,
+      "identity_note": null,
+      "owners": {
+        "business": null,
+        "technical": null
+      },
+      "priority": null,
+      "status": "planned",
+      "certification": {
+        "applicable": false,
+        "certified": false,
+        "reasons": [
+          "not_applicable"
+        ]
+      },
+      "expiration": {
+        "effective": {
+          "enabled": true,
+          "count": 100,
+          "units": "days"
+        },
+        "source": "event"
+      },
+      "properties": [],
+      "variants": [],
+      "standard_event_mappings": [],
+      "contexts": [],
+      "coverage": {
+        "rows": [
+          {
+            "variant_id": null,
+            "name": "(no variant)"
+          }
+        ],
+        "columns": [],
+        "observed_count": 0,
+        "unobserved_count": 0
+      },
+      "rules": [],
+      "derived_metrics": [],
+      "not_suitable_for": null,
+      "use_cases": [],
+      "freshness": {
+        "last_observation_at": null,
+        "observation_count": 0
+      },
+      "quality": {
+        "open": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_comparison": {}
+      },
+      "findings": [],
+      "agent_instructions": null,
+      "codegen": {
+        "gtm": "window.dataLayer = window.dataLayer || [];\nwindow.dataLayer.push({\n  event: 'notification_state',\n});",
+        "web_sdk": "exponea.track('notification_state', {\n});",
+        "tracking_api": "{\n  \"customer_ids\": {\n    \"registered\": \"<customer_id>\"\n  },\n  \"event_type\": \"notification_state\"\n}\n\n// cURL example:\ncurl -X POST \"https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events\" \\\n  -H \"Authorization: Basic YOUR_BASE64_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"customer_ids\":{\"registered\":\"<customer_id>\"},\"event_type\":\"notification_state\"}'"
+      },
+      "sdk_default_properties": [
+        "os",
+        "browser",
+        "device",
+        "location"
+      ]
+    },
+    {
+      "id": "238b8a48-a0f3-46f8-9fc5-a328e785d96e",
+      "name": "page_visit",
+      "business_name": null,
+      "class": "sdk",
+      "description": null,
+      "purpose": null,
+      "page": null,
+      "trigger": null,
+      "grain": null,
+      "identity_note": null,
+      "owners": {
+        "business": null,
+        "technical": null
+      },
+      "priority": null,
+      "status": "planned",
+      "certification": {
+        "applicable": false,
+        "certified": false,
+        "reasons": [
+          "not_applicable"
+        ]
+      },
+      "expiration": {
+        "effective": {
+          "enabled": true,
+          "count": 30,
+          "units": "days"
+        },
+        "source": "event"
+      },
+      "properties": [],
+      "variants": [],
+      "standard_event_mappings": [],
+      "contexts": [],
+      "coverage": {
+        "rows": [
+          {
+            "variant_id": null,
+            "name": "(no variant)"
+          }
+        ],
+        "columns": [],
+        "observed_count": 0,
+        "unobserved_count": 0
+      },
+      "rules": [],
+      "derived_metrics": [],
+      "not_suitable_for": null,
+      "use_cases": [],
+      "freshness": {
+        "last_observation_at": null,
+        "observation_count": 0
+      },
+      "quality": {
+        "open": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_comparison": {}
+      },
+      "findings": [],
+      "agent_instructions": null,
+      "codegen": {
+        "gtm": "window.dataLayer = window.dataLayer || [];\nwindow.dataLayer.push({\n  event: 'page_visit',\n});",
+        "web_sdk": "exponea.track('page_visit', {\n});",
+        "tracking_api": "{\n  \"customer_ids\": {\n    \"registered\": \"<customer_id>\"\n  },\n  \"event_type\": \"page_visit\"\n}\n\n// cURL example:\ncurl -X POST \"https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events\" \\\n  -H \"Authorization: Basic YOUR_BASE64_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"customer_ids\":{\"registered\":\"<customer_id>\"},\"event_type\":\"page_visit\"}'"
+      },
+      "sdk_default_properties": [
+        "os",
+        "browser",
+        "device",
+        "location"
+      ]
+    },
+    {
+      "id": "fae34811-b960-4fc7-bb8a-b05dd899d935",
+      "name": "session_end",
+      "business_name": null,
+      "class": "sdk",
+      "description": null,
+      "purpose": null,
+      "page": null,
+      "trigger": null,
+      "grain": null,
+      "identity_note": null,
+      "owners": {
+        "business": null,
+        "technical": null
+      },
+      "priority": null,
+      "status": "planned",
+      "certification": {
+        "applicable": false,
+        "certified": false,
+        "reasons": [
+          "not_applicable"
+        ]
+      },
+      "expiration": {
+        "effective": {
+          "enabled": true,
+          "count": 3,
+          "units": "months"
+        },
+        "source": "event"
+      },
+      "properties": [],
+      "variants": [],
+      "standard_event_mappings": [],
+      "contexts": [],
+      "coverage": {
+        "rows": [
+          {
+            "variant_id": null,
+            "name": "(no variant)"
+          }
+        ],
+        "columns": [],
+        "observed_count": 0,
+        "unobserved_count": 0
+      },
+      "rules": [],
+      "derived_metrics": [],
+      "not_suitable_for": null,
+      "use_cases": [],
+      "freshness": {
+        "last_observation_at": null,
+        "observation_count": 0
+      },
+      "quality": {
+        "open": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_comparison": {}
+      },
+      "findings": [],
+      "agent_instructions": null,
+      "codegen": {
+        "gtm": "window.dataLayer = window.dataLayer || [];\nwindow.dataLayer.push({\n  event: 'session_end',\n});",
+        "web_sdk": "exponea.track('session_end', {\n});",
+        "tracking_api": "{\n  \"customer_ids\": {\n    \"registered\": \"<customer_id>\"\n  },\n  \"event_type\": \"session_end\"\n}\n\n// cURL example:\ncurl -X POST \"https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events\" \\\n  -H \"Authorization: Basic YOUR_BASE64_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"customer_ids\":{\"registered\":\"<customer_id>\"},\"event_type\":\"session_end\"}'"
+      },
+      "sdk_default_properties": [
+        "os",
+        "browser",
+        "device",
+        "location"
+      ]
+    },
+    {
+      "id": "8321cb7d-722a-4a6a-b689-d5d9e99a3586",
+      "name": "session_start",
+      "business_name": null,
+      "class": "sdk",
+      "description": null,
+      "purpose": null,
+      "page": null,
+      "trigger": null,
+      "grain": null,
+      "identity_note": null,
+      "owners": {
+        "business": null,
+        "technical": null
+      },
+      "priority": null,
+      "status": "planned",
+      "certification": {
+        "applicable": false,
+        "certified": false,
+        "reasons": [
+          "not_applicable"
+        ]
+      },
+      "expiration": {
+        "effective": {
+          "enabled": true,
+          "count": 3,
+          "units": "months"
+        },
+        "source": "event"
+      },
+      "properties": [],
+      "variants": [],
+      "standard_event_mappings": [],
+      "contexts": [],
+      "coverage": {
+        "rows": [
+          {
+            "variant_id": null,
+            "name": "(no variant)"
+          }
+        ],
+        "columns": [],
+        "observed_count": 0,
+        "unobserved_count": 0
+      },
+      "rules": [],
+      "derived_metrics": [],
+      "not_suitable_for": null,
+      "use_cases": [],
+      "freshness": {
+        "last_observation_at": null,
+        "observation_count": 0
+      },
+      "quality": {
+        "open": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_comparison": {}
+      },
+      "findings": [],
+      "agent_instructions": null,
+      "codegen": {
+        "gtm": "window.dataLayer = window.dataLayer || [];\nwindow.dataLayer.push({\n  event: 'session_start',\n});",
+        "web_sdk": "exponea.track('session_start', {\n});",
+        "tracking_api": "{\n  \"customer_ids\": {\n    \"registered\": \"<customer_id>\"\n  },\n  \"event_type\": \"session_start\"\n}\n\n// cURL example:\ncurl -X POST \"https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events\" \\\n  -H \"Authorization: Basic YOUR_BASE64_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"customer_ids\":{\"registered\":\"<customer_id>\"},\"event_type\":\"session_start\"}'"
+      },
+      "sdk_default_properties": [
+        "os",
+        "browser",
+        "device",
+        "location"
+      ]
+    },
+    {
+      "id": "cfdced45-b16b-46e2-b5d7-557f85fcb138",
+      "name": "web_exit",
+      "business_name": null,
+      "class": "sdk",
+      "description": null,
+      "purpose": null,
+      "page": null,
+      "trigger": null,
+      "grain": null,
+      "identity_note": null,
+      "owners": {
+        "business": null,
+        "technical": null
+      },
+      "priority": null,
+      "status": "planned",
+      "certification": {
+        "applicable": false,
+        "certified": false,
+        "reasons": [
+          "not_applicable"
+        ]
+      },
+      "expiration": {
+        "effective": {
+          "enabled": true,
+          "count": 30,
+          "units": "days"
+        },
+        "source": "event"
+      },
+      "properties": [],
+      "variants": [],
+      "standard_event_mappings": [],
+      "contexts": [],
+      "coverage": {
+        "rows": [
+          {
+            "variant_id": null,
+            "name": "(no variant)"
+          }
+        ],
+        "columns": [],
+        "observed_count": 0,
+        "unobserved_count": 0
+      },
+      "rules": [],
+      "derived_metrics": [],
+      "not_suitable_for": null,
+      "use_cases": [],
+      "freshness": {
+        "last_observation_at": null,
+        "observation_count": 0
+      },
+      "quality": {
+        "open": {
+          "error": 0,
+          "warning": 0,
+          "info": 0
+        },
+        "by_comparison": {}
+      },
+      "findings": [],
+      "agent_instructions": null,
+      "codegen": {
+        "gtm": "window.dataLayer = window.dataLayer || [];\nwindow.dataLayer.push({\n  event: 'web_exit',\n});",
+        "web_sdk": "exponea.track('web_exit', {\n});",
+        "tracking_api": "{\n  \"customer_ids\": {\n    \"registered\": \"<customer_id>\"\n  },\n  \"event_type\": \"web_exit\"\n}\n\n// cURL example:\ncurl -X POST \"https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events\" \\\n  -H \"Authorization: Basic YOUR_BASE64_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"customer_ids\":{\"registered\":\"<customer_id>\"},\"event_type\":\"web_exit\"}'"
+      },
+      "sdk_default_properties": [
+        "os",
+        "browser",
+        "device",
+        "location"
+      ]
+    }
+  ],
+  "properties": [
+    {
+      "property_id": "2faf9070-f095-4991-8e5c-6d0730534039",
+      "name": "address",
+      "data_type": "string",
+      "data_formats": [],
+      "bloomreach_customer_property": "address",
+      "pii": false,
+      "description": null
+    },
+    {
+      "property_id": "e6da661c-e642-43ab-989f-1ba3c70c9a22",
+      "name": "email",
+      "data_type": "string",
+      "data_formats": [],
+      "bloomreach_customer_property": "email",
+      "pii": false,
+      "description": null
+    },
+    {
+      "property_id": "13c3198a-1fce-4cde-9a86-678fd1632813",
+      "name": "first_name",
+      "data_type": "string",
+      "data_formats": [],
+      "bloomreach_customer_property": "first_name",
+      "pii": false,
+      "description": null
+    },
+    {
+      "property_id": "50ed753b-13b9-42c5-b814-56019a11d483",
+      "name": "gender",
+      "data_type": "string",
+      "data_formats": [],
+      "bloomreach_customer_property": "gender",
+      "pii": false,
+      "description": null
+    },
+    {
+      "property_id": "942c9be1-3c32-4e33-a6ed-782593a68b6f",
+      "name": "last_name",
+      "data_type": "string",
+      "data_formats": [],
+      "bloomreach_customer_property": "last_name",
+      "pii": false,
+      "description": null
+    },
+    {
+      "property_id": "37bc738b-8560-4151-93e4-86bd4cfb37a9",
+      "name": "phone",
+      "data_type": "string",
+      "data_formats": [],
+      "bloomreach_customer_property": "phone",
+      "pii": false,
+      "description": null
+    }
+  ],
+  "identity_rules": [],
+  "consent_categories": [
+    {
+      "name": "brand_consent",
+      "standard_key": "newsletter",
+      "status": null
+    }
+  ],
+  "catalogs": [],
+  "use_cases": [],
+  "standard_event_mappings": [
+    {
+      "standard_event": "add_to_cart",
+      "event_name": "cart_update",
+      "variant_name": "cart_update[action=add]",
+      "field_map": {
+        "category_level_1": null,
+        "category_level_2": null,
+        "category_level_3": null,
+        "price": null,
+        "product_id": "product_id",
+        "product_ids": null,
+        "product_list": null,
+        "total_price": "total_price",
+        "total_quantity": "total_quantity",
+        "variant_id": null
+      }
+    },
+    {
+      "standard_event": "checkout",
+      "event_name": "checkout",
+      "variant_name": null,
+      "field_map": {}
+    },
+    {
+      "standard_event": "purchase",
+      "event_name": "purchase",
+      "variant_name": "purchase[purchase_status=success]",
+      "field_map": {
+        "currency": null,
+        "product_ids": "product_ids",
+        "product_list": "product_list",
+        "purchase_id": "purchase_id",
+        "purchase_status": "purchase_status",
+        "total_price": "total_price",
+        "total_quantity": null,
+        "voucher_code": "voucher_code"
+      }
+    },
+    {
+      "standard_event": "purchase_item",
+      "event_name": "purchase_item",
+      "variant_name": null,
+      "field_map": {
+        "category_level_1": "category_level_1",
+        "category_level_2": "category_level_2",
+        "category_level_3": "category_level_3",
+        "price": null,
+        "product_id": "product_id",
+        "purchase_id": "purchase_id",
+        "size": "size",
+        "title": null,
+        "total_price": "price",
+        "total_quantity": "quantity",
+        "variant_id": null
+      }
+    },
+    {
+      "standard_event": "view_category",
+      "event_name": "view_category",
+      "variant_name": null,
+      "field_map": {}
+    },
+    {
+      "standard_event": "view_item",
+      "event_name": "view_item",
+      "variant_name": null,
+      "field_map": {
+        "brand": "brand",
+        "category_level_1": "category_level_1",
+        "category_level_2": "category_level_2",
+        "category_level_3": "category_level_3",
+        "price": "price",
+        "product_id": "product_id",
+        "stock_level": "stock_level",
+        "title": "title",
+        "variant_id": null
+      }
+    }
+  ],
+  "findings_summary": {
+    "open": {
+      "error": 11,
+      "warning": 4,
+      "info": 20
+    },
+    "by_comparison": {
+      "definition_vs_observations": {
+        "error": 11,
+        "warning": 1,
+        "info": 20
+      },
+      "definition_vs_mapping": {
+        "error": 0,
+        "warning": 2,
+        "info": 0
+      },
+      "mapping_vs_observations": {
+        "error": 0,
+        "warning": 1,
+        "info": 0
+      }
+    }
+  },
+  "unattached_findings": [
+    {
+      "id": "a1a312cb-26c0-491e-aaa3-a82ee7662c7e",
+      "comparison": "definition_vs_observations",
+      "kind": "shape_inconsistent",
+      "severity": "error",
+      "property_id": "06cc36ce-5c86-4449-8bd1-bc294cc78e5c",
+      "property": "06cc36ce-5c86-4449-8bd1-bc294cc78e5c",
+      "variant_id": null,
+      "variant": null,
+      "rule": null,
+      "message": "Property \"product_ids\" is observed with inconsistent JSON types across events: array, string.",
+      "expected": null,
+      "actual": {
+        "types": [
+          "array",
+          "string"
+        ]
+      },
+      "qa_run_id": null,
+      "first_seen": "2026-09-27T19:10:58.845Z",
+      "last_seen": "2026-09-27T19:16:05.925Z"
+    },
+    {
+      "id": "442bfeb2-75f3-4a58-8c52-9bdb924013ce",
+      "comparison": "mapping_vs_observations",
+      "kind": "rename_mismatch",
+      "severity": "warning",
+      "property_id": null,
+      "property": null,
+      "variant_id": null,
+      "variant": null,
+      "rule": null,
+      "message": "Observed consent category \"newsletter\" matches standard key \"newsletter\", which the mapping renames to \"brand_consent\".",
+      "expected": {
+        "standard_key": "newsletter",
+        "mapped_name": "brand_consent"
+      },
+      "actual": {
+        "category": "newsletter"
+      },
+      "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+      "first_seen": "2026-09-27T19:10:58.849Z",
+      "last_seen": "2026-09-27T19:16:05.929Z"
+    },
+    {
+      "id": "6c877f43-5ebc-4e12-983d-bc881937cb82",
+      "comparison": "definition_vs_observations",
+      "kind": "unexpected_event",
+      "severity": "info",
+      "property_id": null,
+      "property": null,
+      "variant_id": null,
+      "variant": null,
+      "rule": null,
+      "message": "Observed event type \"loyalty_update\" has no matching Event definition.",
+      "expected": null,
+      "actual": {
+        "event_type": "loyalty_update"
+      },
+      "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+      "first_seen": "2026-09-27T19:10:58.834Z",
+      "last_seen": "2026-09-27T19:16:05.913Z"
+    },
+    {
+      "id": "22e74ce5-9ec2-4c28-9bfb-cedb21874d34",
+      "comparison": "definition_vs_observations",
+      "kind": "unexpected_event",
+      "severity": "info",
+      "property_id": null,
+      "property": null,
+      "variant_id": null,
+      "variant": null,
+      "rule": null,
+      "message": "Observed event type \"paper_catalogue\" has no matching Event definition.",
+      "expected": null,
+      "actual": {
+        "event_type": "paper_catalogue"
+      },
+      "qa_run_id": "18869106-219f-4170-a041-5c1b31fced40",
+      "first_seen": "2026-09-27T19:10:58.833Z",
+      "last_seen": "2026-09-27T19:16:05.910Z"
+    }
+  ],
+  "limits": {
+    "event_types": {
+      "count": 12,
+      "limit": 255
+    },
+    "max_properties_per_event": [
+      {
+        "event_id": "d68ca4ce-1047-469c-b0df-af0ecab4f7e1",
+        "event_name": "cart_update",
+        "count": 4,
+        "limit": 255
+      },
+      {
+        "event_id": "933876d2-53fd-4f6d-845b-8f4d8c21003d",
+        "event_name": "checkout",
+        "count": 0,
+        "limit": 255
+      },
+      {
+        "event_id": "18f3e432-d875-4c75-abb1-f1bf98e0eb03",
+        "event_name": "consent",
+        "count": 0,
+        "limit": 255
+      },
+      {
+        "event_id": "ee80bd0a-fd39-4e17-b2cd-e1ea643c9558",
+        "event_name": "notification_state",
+        "count": 0,
+        "limit": 255
+      },
+      {
+        "event_id": "238b8a48-a0f3-46f8-9fc5-a328e785d96e",
+        "event_name": "page_visit",
+        "count": 0,
+        "limit": 255
+      },
+      {
+        "event_id": "debdc9b5-bc20-4624-b029-454a87dd0188",
+        "event_name": "purchase",
+        "count": 6,
+        "limit": 255
+      },
+      {
+        "event_id": "e85a8f5e-738d-4ef2-872e-94236446bc97",
+        "event_name": "purchase_item",
+        "count": 9,
+        "limit": 255
+      },
+      {
+        "event_id": "fae34811-b960-4fc7-bb8a-b05dd899d935",
+        "event_name": "session_end",
+        "count": 0,
+        "limit": 255
+      },
+      {
+        "event_id": "8321cb7d-722a-4a6a-b689-d5d9e99a3586",
+        "event_name": "session_start",
+        "count": 0,
+        "limit": 255
+      },
+      {
+        "event_id": "80131a3a-c1de-45e8-a1a9-b25bb9f38f8f",
+        "event_name": "view_category",
+        "count": 0,
+        "limit": 255
+      },
+      {
+        "event_id": "df3cdeee-8a23-4999-9086-6c99ae03655d",
+        "event_name": "view_item",
+        "count": 8,
+        "limit": 255
+      },
+      {
+        "event_id": "cfdced45-b16b-46e2-b5d7-557f85fcb138",
+        "event_name": "web_exit",
+        "count": 0,
+        "limit": 255
+      }
+    ]
+  }
+}

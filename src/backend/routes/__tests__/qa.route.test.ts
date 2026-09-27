@@ -173,3 +173,87 @@ describe('customer-events-export import + comparison + findings (T-1-09)', () =>
     expect(body.every((f: { kind: string }) => f.kind !== 'shape_inconsistent' && f.kind !== 'missing_event')).toBe(true);
   });
 });
+
+// D-52, T-3-07: PATCH/DELETE /observations/:id, DELETE /qa-runs/:id, each followed by runComparison.
+describe('PATCH/DELETE /observations/:id and DELETE /qa-runs/:id (D-52, T-3-07)', () => {
+  it('PATCH /observations/:id edits properties and recomputes raw_hash', async () => {
+    const listRes = await fetch(`${baseUrl}/api/projects/${projectId}/observations?qa_run_id=${runId}`);
+    const list = await listRes.json();
+    const cartUpdate = list.find((o: { event_type: string }) => o.event_type === 'cart_update');
+    expect(cartUpdate).toBeTruthy();
+    const originalHash = cartUpdate.raw_hash;
+
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/observations/${cartUpdate.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ properties: { ...cartUpdate.properties_json, total_price: 28 } }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.properties_json.total_price).toBe(28);
+    expect(body.raw_hash).not.toBe(originalHash);
+  });
+
+  it('PATCH /observations/:id returns 409 DUPLICATE_OBSERVATION when the edit collides with another observation of the same run', async () => {
+    const listRes = await fetch(`${baseUrl}/api/projects/${projectId}/observations?qa_run_id=${runId}`);
+    const list = await listRes.json();
+    const viewCategories = list.filter((o: { event_type: string }) => o.event_type === 'view_category');
+    expect(viewCategories.length).toBe(2); // fixture has two distinct view_category rows
+
+    const [a, b] = viewCategories;
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/observations/${a.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ properties: b.properties_json, timestamp: b.timestamp }),
+    });
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.code).toBe('DUPLICATE_OBSERVATION');
+  });
+
+  it('DELETE /observations/:id removes the observation and recomputes findings', async () => {
+    const listRes = await fetch(`${baseUrl}/api/projects/${projectId}/observations?qa_run_id=${runId}`);
+    const list = await listRes.json();
+    const supportTicket = list.find((o: { event_type: string }) => o.event_type === 'support_ticket');
+    expect(supportTicket).toBeTruthy();
+
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/observations/${supportTicket.id}`, { method: 'DELETE' });
+    expect(res.status).toBe(204);
+
+    const afterRes = await fetch(`${baseUrl}/api/projects/${projectId}/observations?qa_run_id=${runId}`);
+    const after = await afterRes.json();
+    expect(after.some((o: { id: string }) => o.id === supportTicket.id)).toBe(false);
+  });
+
+  it('DELETE /observations/:id returns 404 for an unknown id', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/observations/does-not-exist`, { method: 'DELETE' });
+    expect(res.status).toBe(404);
+  });
+
+  it('DELETE /qa-runs/:id removes the run and cascades its observations, then recomputes findings', async () => {
+    const beforeFindingsRes = await fetch(`${baseUrl}/api/projects/${projectId}/findings?qa_run_id=${runId}`);
+    const beforeFindings = await beforeFindingsRes.json();
+    expect(beforeFindings.length).toBeGreaterThan(0);
+
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/qa-runs/${runId}`, { method: 'DELETE' });
+    expect(res.status).toBe(204);
+
+    const runRes = await fetch(`${baseUrl}/api/projects/${projectId}/qa-runs/${runId}`);
+    expect(runRes.status).toBe(404);
+
+    const obsRes = await fetch(`${baseUrl}/api/projects/${projectId}/observations?qa_run_id=${runId}`);
+    const obs = await obsRes.json();
+    expect(obs).toHaveLength(0);
+
+    // Findings that were anchored to this run's observations resolve (their fingerprints no
+    // longer reproduce since the observations are gone); no lingering row still points at the run.
+    const afterFindingsRes = await fetch(`${baseUrl}/api/projects/${projectId}/findings?qa_run_id=${runId}`);
+    const afterFindings = await afterFindingsRes.json();
+    expect(afterFindings).toHaveLength(0);
+  });
+
+  it('DELETE /qa-runs/:id returns 404 for an unknown id', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/qa-runs/does-not-exist`, { method: 'DELETE' });
+    expect(res.status).toBe(404);
+  });
+});

@@ -140,3 +140,24 @@ export function finishQaRun(projectId: string, id: string, notes?: string | null
 export function listNonArchivedQaRuns(projectId: string): QaRunRow[] {
   return listQaRuns(projectId, { archived: false });
 }
+
+/**
+ * `DELETE /qa-runs/:id` (D-52, T-3-07): hard delete. `observations.qa_run_id` is already
+ * `ON DELETE CASCADE` (`0001_core.sql`), so the run's own observations go with it via the FK; the
+ * explicit `DELETE FROM observations` below is redundant with that cascade but kept so the delete
+ * is correct even if `foreign_keys` were ever off for this connection (`db/index.ts`'s migration
+ * window). `findings.qa_run_id`/`observation_id` are already `SET NULL` on delete
+ * (`0008_findings_on_delete.sql`), so a finding a deleted observation used to point at loses only
+ * its "which run produced this" pointer, not the row itself — the caller (route) always follows
+ * with `runComparison`, which reopens/resolves findings against what is left.
+ */
+export function deleteQaRun(projectId: string, id: string): void {
+  getQaRunOrThrow(projectId, id);
+  const db = getDb();
+  const run = db.transaction(() => {
+    db.prepare('DELETE FROM observations WHERE project_id = ? AND qa_run_id = ?').run(projectId, id);
+    const result = db.prepare('DELETE FROM qa_runs WHERE id = ? AND project_id = ?').run(id, projectId);
+    if (result.changes === 0) throw new NotFoundError('QA run not found.', 'qa_run');
+  });
+  run();
+}

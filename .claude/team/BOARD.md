@@ -1566,3 +1566,6 @@ Tested task/T-2-09-event-card-page at dfac84b in the worktree (npm install alrea
 Note (environment, not a product defect): partway through this session the Browser pane's viewport shrank to ~400x360px and stayed there across `preview_start` retries; several modal controls (event editor's "Required" checkbox, QA run's Archive button) rendered partially off-canvas and couldn't be clicked at that width. Where this happened I exercised the same route the UI button calls directly (documented above) rather than guessing; every such action was re-verified to produce the same state the UI subsequently displayed (e.g. Archived: Yes, Finished timestamp, certified/reasons matching GET .../certification). This did not affect any PASS/FAIL determination.
 
 Card JSONs, tracking-document.json, exported mapping/expiration and documentation.html saved under .claude/team/reports/qa/T-2-09/. Both dev servers stopped; confirmed ports 3001 and 3010 free.
+
+### 2026-09-27 21:56 | supervisor | STATUS | T-2-09 DONE, T-2-13 started
+qa-tester PASS (21:54) on dfac84b. Merged as 33d1ca6 into agent-setup with T-2-10 already in: 952 tests (83 files), tsc clean. Phase 2 code complete; T-2-13 docs refresh starts, then T-2-EXIT.

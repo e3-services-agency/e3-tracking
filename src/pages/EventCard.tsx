@@ -81,6 +81,13 @@ interface EventCardData {
   codegen: { gtm: string; web_sdk: string; tracking_api: string };
 }
 
+interface CoverageGridData {
+  rows: { variant_id: string | null; name: string }[];
+  columns: { property_id: string; name: string; payload_key: string; values: string[] }[];
+  cells: { row: string; property_id: string; value: string; count: number; last_seen: number | null }[];
+  unobserved: { row: string; property_id: string; value: string }[];
+}
+
 async function parseJson(res: Response): Promise<any> {
   return res.json().catch(() => ({}));
 }
@@ -113,6 +120,7 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
   const setEventCardEventId = useStore((s) => s.setEventCardEventId);
   const [card, setCard] = useState<EventCardData | null>(null);
+  const [grid, setGrid] = useState<CoverageGridData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -132,6 +140,9 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
         return;
       }
       setCard(data);
+      const gridRes = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/events/${eventId}/coverage`);
+      const gridData = await parseJson(gridRes);
+      if (gridRes.ok) setGrid(gridData);
     } catch {
       setError('Failed to load this event card.');
       setCard(null);
@@ -277,10 +288,21 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
               <p className="text-sm text-gray-700 mb-2">
                 {card.coverage.observed_count} observed cell(s), {card.coverage.unobserved_count} unobserved.
               </p>
-              {card.coverage.columns.length > 0 && (
+              {grid && grid.columns.length > 0 && (
                 <Table
-                  head={['Row', ...card.coverage.columns.map((c) => c.name)]}
-                  rows={card.coverage.rows.map((row) => [row.name, ...card.coverage.columns.map(() => '—')])}
+                  head={['Variant', ...grid.columns.flatMap((c) => c.values.map((v) => `${c.name}=${v}`))]}
+                  rows={grid.rows.map((row) => {
+                    const rowKey = row.variant_id ?? 'base';
+                    return [
+                      row.name,
+                      ...grid.columns.flatMap((c) =>
+                        c.values.map((v) => {
+                          const cell = grid.cells.find((x) => x.row === rowKey && x.property_id === c.property_id && x.value === v);
+                          return cell ? `${cell.count}` : '0';
+                        })
+                      ),
+                    ];
+                  })}
                 />
               )}
             </Section>

@@ -29,7 +29,6 @@ cc3b503b-2ef5-4304-8888-d9f3729c98af,outbound_call,,custom,,planned,false,,,,,,,
 377e8673-4f70-4acc-ac13-512d871cd1da,page_visit,,sdk,,planned,false,,,,,,,,,,"{""enabled"":true,""count"":30,""units"":""days""}",,,[],[],7,0,2026-09-27T21:36:00.556Z,2026-09-27T21:36:55.284Z
 8f0f691d-79b0-47fd-aa4b-11b9092e874d,paper_catalogue,,custom,,planned,true,,,,,,,,,,null,,,[],[],2,0,2026-09-27T21:36:54.834Z,2026-09-27T21:36:55.261Z
 5d3ca21e-ef32-45e9-8ccb-dbb36ed42ea5,parcel_insert,,custom,,planned,false,,,,,,,,,,null,,,[],[],27,0,2026-09-27T21:36:55.047Z,2026-09-27T21:36:55.348Z
-93cc98c8-f6e1-48a1-b400-67d68a43d814,purchase,,custom,,planned,false,,,,,,,,,,null,,,[],[],30,1,2026-09-27T21:36:00.400Z,2026-09-27T21:36:55.162Z
 e647835d-316f-4659-9d35-5c4576fb9038,purchase_item,,custom,,planned,false,,,,,,,,,,null,,,[],[],14,0,2026-09-27T21:36:00.400Z,2026-09-27T21:36:55.169Z
 4440a8aa-d854-49de-9605-632fdf7e8669,qbr_metrics,,custom,,planned,false,,,,,,,,,,null,,,[],[],22,0,2026-09-27T21:36:54.989Z,2026-09-27T21:36:55.337Z
 6b37f944-4f64-4605-bb26-6f5a261f89cf,received_referee_reward,,custom,MentionMe,planned,false,,,,,,,,,,null,,,[],[],23,0,2026-09-27T21:36:55.106Z,2026-09-27T21:36:55.377Z

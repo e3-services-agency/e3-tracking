@@ -1,2 +1,0 @@
-﻿id,event_id,event_name,variant_name,kind,name,message,expression_text,tolerance_mode,tolerance_value,report_kind,severity,enabled,version
-25f28eae-2138-4857-ba5c-62756c9cf8cd,93cc98c8-f6e1-48a1-b400-67d68a43d814,purchase,,cross_event,purchase_items_total,"""total_price"" must match the sum of purchase_item's price * quantity for the same purchase.",sum((price * quantity)) (joined on purchase_id = purchase_item.purchase_id) eq total_price,money,,rounding_drift,warning,true,1

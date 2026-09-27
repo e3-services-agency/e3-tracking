@@ -1,3 +1,2 @@
 ﻿id,event_id,event_name,name,description,conditions_json,conditions_text,expiration_json,standard_event
 bcdb41d6-3451-466a-b005-1a8650b253e8,8bb3fbee-5595-483a-a0f6-deb98883c0ba,cart_update,cart_update[action=add],,"[{""property_id"":""07a2462f-17e4-4fa9-908e-c5e2e4a3a994"",""operator"":""equals"",""values"":[""add""]}]",action=add,null,add_to_cart
-9f6f4326-6ad5-4a71-a1b2-25429c31a6d2,93cc98c8-f6e1-48a1-b400-67d68a43d814,purchase,purchase[purchase_status=success],,"[{""property_id"":""171024fb-e0d7-46c8-9935-daf43718683e"",""operator"":""equals"",""values"":[""success""]}]",purchase_status=success,null,purchase

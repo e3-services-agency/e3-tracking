@@ -308,6 +308,46 @@ describe('update_observation', () => {
   it('rejects a missing observation_id', async () => {
     await expect(updateObservation({ project_key: projectKey, observation_id: '' })).rejects.toThrow();
   });
+
+  // Fix round WARNING 2: the DAL itself validates, so even a direct handler call (bypassing the
+  // registerTools zod schema) gets a clean VALIDATION_ERROR rather than a raw SQLite/TypeError.
+  it('rejects a non-object properties value with VALIDATION_ERROR', async () => {
+    setUpCartUpdate();
+    const { observation } = await submitObservation({
+      project_key: projectKey,
+      event_type: 'cart_update',
+      properties: { action: 'add', product_id: 'sku-1' },
+    });
+
+    await expect(
+      updateObservation({
+        project_key: projectKey,
+        observation_id: observation!.id,
+        properties: ['not', 'an', 'object'] as unknown as Record<string, unknown>,
+      })
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  // Fix round LOW 3: the returned observation must reflect the post-recompute resolution, not the
+  // resolution the row had at PATCH time.
+  it('returns the re-resolved observation, not the stale pre-recompute one', async () => {
+    const { variantAddId } = setUpCartUpdate();
+    const { observation } = await submitObservation({
+      project_key: projectKey,
+      event_type: 'cart_update',
+      properties: { action: 'add', product_id: 'sku-1' },
+    });
+    expect(observation!.variant_id).toBe(variantAddId);
+
+    const result = await updateObservation({
+      project_key: projectKey,
+      observation_id: observation!.id,
+      properties: { action: 'remove', product_id: 'sku-1' },
+    });
+
+    // No variant is mapped to action=remove in this fixture -- the post-recompute variant_id is null.
+    expect(result.observation.variant_id).toBeNull();
+  });
 });
 
 describe('delete_observation', () => {

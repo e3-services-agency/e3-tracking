@@ -172,6 +172,10 @@ export function QaRuns() {
             onChanged={async () => {
               await load();
             }}
+            onDeleted={() => {
+              setIsSheetOpen(false);
+              setSelectedId(null);
+            }}
           />
         )}
       </Sheet>
@@ -183,10 +187,12 @@ function QaRunDetail({
   projectId,
   runId,
   onChanged,
+  onDeleted,
 }: {
   projectId: string;
   runId: string;
   onChanged: () => Promise<void>;
+  onDeleted: () => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [run, setRun] = useState<QaRunRow | null>(null);
@@ -302,6 +308,9 @@ function QaRunDetail({
     try {
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/qa-runs/${runId}`, { method: 'DELETE' });
       if (res.ok || res.status === 204) {
+        // LOW 4 (fix round): close the sheet -- the deleted run's Archive/Finish/Edit/Delete
+        // controls would otherwise stay visible and 404 on the next click.
+        onDeleted();
         await onChanged();
       } else {
         const data = await parseJson(res);
@@ -327,13 +336,21 @@ function QaRunDetail({
   };
 
   const saveEditObservation = async (obsId: string) => {
-    let properties: Record<string, unknown>;
+    let parsed: unknown;
     try {
-      properties = JSON.parse(editText);
+      parsed = JSON.parse(editText);
     } catch {
       setObsError('Properties must be valid JSON.');
       return;
     }
+    // Fix round WARNING 2: only submit when the parsed JSON is a plain object -- a bare number,
+    // string, array or null parses fine but is not a valid `properties` value (the API itself now
+    // rejects it with 400, but catching it here avoids the round trip and gives a clearer message).
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      setObsError('Properties must be a JSON object, e.g. {"total_price": 28}.');
+      return;
+    }
+    const properties = parsed as Record<string, unknown>;
     setBusy(true);
     setObsError(null);
     try {

@@ -30,8 +30,13 @@ router.patch('/:id', (req: Request, res: Response) => {
     if ('page_url' in body) updates.page_url = body.page_url as string | null;
     if ('context_values_json' in body) updates.context_values_json = body.context_values_json;
     if ('timestamp' in body) updates.timestamp = body.timestamp as number;
-    const observation = ObservationDAL.updateObservation(req.projectId!, req.params.id, updates);
+    ObservationDAL.updateObservation(req.projectId!, req.params.id, updates);
     runComparison(req.projectId!);
+    // LOW 3 (fix round): re-read after recompute -- `updateObservation`'s own return value still
+    // carries the *pre-recompute* event_id/variant_id (comparison.service.ts's runComparison is
+    // what re-resolves an observation against the current definitions), so returning it directly
+    // would hand the caller a stale resolution the DB itself no longer has.
+    const observation = ObservationDAL.getObservationOrThrow(req.projectId!, req.params.id);
     res.status(200).json(observation);
   } catch (err) {
     handleRouteError(err, res);

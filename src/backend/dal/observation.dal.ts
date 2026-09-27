@@ -8,7 +8,7 @@
 import { createHash } from 'node:crypto';
 import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn, mapWriteError } from '../db/util';
-import { DuplicateObservationError, NotFoundError } from '../errors';
+import { DuplicateObservationError, NotFoundError, ValidationError } from '../errors';
 import { getQaRunOrThrow } from './qa-run.dal';
 
 export interface ObservationRow {
@@ -203,6 +203,49 @@ export interface ObservationUpdateInput {
   timestamp?: number;
 }
 
+/** `typeof v === 'object'`, not `null`, and not an array -- the shape `properties`/`context_values_json` must have. */
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+/**
+ * Validates the subset of `ObservationUpdateInput` actually present on `updates` (fix round
+ * WARNING 2: the route/MCP layer only cast the body, `updateObservation` itself never checked
+ * anything, so a malformed PATCH could store a stringified `properties`/`context_values_json`
+ * that later breaks the comparison engine's `Object.keys` walk, a non-finite `timestamp` that
+ * breaks `ORDER BY timestamp`/the expiration-window suppression/`new Date(ts*1000)` on the page, a
+ * non-string `page_url` that throws inside `.trim()` -- 500s where a 400 belongs -- or a `NULL`
+ * `timestamp` that hits the column's `NOT NULL` constraint as a raw, uncaught `SqliteError`).
+ */
+function validateObservationUpdate(updates: ObservationUpdateInput): void {
+  if ('properties' in updates && updates.properties !== undefined && !isPlainObject(updates.properties)) {
+    throw new ValidationError('properties must be an object.', 'properties');
+  }
+  if (
+    'timestamp' in updates &&
+    updates.timestamp !== undefined &&
+    (typeof updates.timestamp !== 'number' || !Number.isFinite(updates.timestamp))
+  ) {
+    throw new ValidationError('timestamp must be a finite number.', 'timestamp');
+  }
+  if (
+    'page_url' in updates &&
+    updates.page_url !== undefined &&
+    updates.page_url !== null &&
+    typeof updates.page_url !== 'string'
+  ) {
+    throw new ValidationError('page_url must be a string or null.', 'page_url');
+  }
+  if (
+    'context_values_json' in updates &&
+    updates.context_values_json !== undefined &&
+    updates.context_values_json !== null &&
+    !isPlainObject(updates.context_values_json)
+  ) {
+    throw new ValidationError('context_values_json must be an object or null.', 'context_values_json');
+  }
+}
+
 /**
  * `PATCH /observations/:id` (D-52, T-3-07): edits an observation's evidence in place —
  * `properties`/`page_url`/`context_values_json`/`timestamp`, any subset. `raw_hash` is always
@@ -210,9 +253,12 @@ export interface ObservationUpdateInput {
  * editable here; re-resolving to a different event/variant happens automatically on the next
  * `runComparison`, per `updateObservationResolution`'s module comment); when the recomputed hash
  * collides with another observation already in this run, the edit is refused with 409
- * `DUPLICATE_OBSERVATION` rather than silently merging two rows' evidence.
+ * `DUPLICATE_OBSERVATION` rather than silently merging two rows' evidence. Every field is
+ * validated (`validateObservationUpdate`, fix round WARNING 2) before anything is read from the
+ * current row, so an invalid PATCH always 400s rather than reaching the SQL layer.
  */
 export function updateObservation(projectId: string, id: string, updates: ObservationUpdateInput): ObservationRow {
+  validateObservationUpdate(updates);
   const current = getObservationOrThrow(projectId, id);
   const timestamp = updates.timestamp ?? current.timestamp;
   const properties = updates.properties ?? current.properties_json;

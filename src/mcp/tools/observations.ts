@@ -176,13 +176,16 @@ export interface UpdateObservationResult {
 export async function updateObservation(input: UpdateObservationInput): Promise<UpdateObservationResult> {
   if (!input.observation_id?.trim()) throw new McpToolError('VALIDATION_ERROR', 'observation_id is required.');
   const project = resolveProject(input.project_key);
-  const observation = ObservationDAL.updateObservation(project.id, input.observation_id, {
+  ObservationDAL.updateObservation(project.id, input.observation_id, {
     properties: input.properties,
     page_url: input.page_url,
     context_values_json: input.context_values,
     timestamp: input.timestamp,
   });
   const comparison = runComparison(project.id);
+  // LOW 3 (fix round): re-read after runComparison re-resolves event_id/variant_id, same reason as
+  // the PATCH route -- the pre-recompute return value would otherwise be stale.
+  const observation = ObservationDAL.getObservationOrThrow(project.id, input.observation_id);
   return { observation, comparison };
 }
 

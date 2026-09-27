@@ -1,9 +1,11 @@
 /**
- * Event card page (T-2-09, D-07 simplified UI, plan "Event card and tracking document"): renders
- * every `EventCard` section (`GET /events/:id/card`, `document.service.ts`'s `buildEventCard`) in
- * the same order as the tracking document -- header/certification, description, expiration,
- * properties, variants, item schemas, rules, coverage, open findings, use cases, codegen. Plain
- * tables, no design work.
+ * Event card page (T-2-09, T-2-09 fix round, D-07 simplified UI, plan "Event card and tracking
+ * document"): renders every `EventCard` section, in the exact order of `docs/TRACKING-DOCUMENT.md`'s
+ * field table -- header/certification/expiration/freshness (grouped in one Overview block, itself
+ * first in that table), properties, item schemas, variants, standard event mappings, contexts,
+ * coverage, rules, derived metrics / not suitable for, open findings (with the `quality.acknowledged`
+ * and `quality.by_comparison` breakdowns), use cases, codegen, sdk default properties. Plain tables,
+ * no design work.
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
@@ -50,6 +52,12 @@ interface EventCardData {
     required_keys: string[];
     expiration: { effective: { enabled: boolean; count: number | null; units: string | null } | null; source: string | null } | null;
   }[];
+  standard_event_mappings: {
+    standard_event: string;
+    variant_id: string | null;
+    variant_name: string | null;
+    field_map: Record<string, string | null>;
+  }[];
   contexts: { property: string; payload_key: string; values: string[] }[];
   coverage: { rows: { variant_id: string | null; name: string }[]; columns: { name: string; values: string[] }[]; observed_count: number; unobserved_count: number };
   rules: {
@@ -62,9 +70,17 @@ interface EventCardData {
     enabled: boolean;
     variant_name: string | null;
   }[];
+  derived_metrics: unknown;
+  not_suitable_for: string | null;
   use_cases: { code: string | null; name: string; level: string }[];
   freshness: { last_observation_at: number | null; observation_count: number };
-  quality: { open: { error: number; warning: number; info: number }; by_comparison: Record<string, { error: number; warning: number; info: number }> };
+  quality: {
+    open: { error: number; warning: number; info: number };
+    /** D-42 (T-2-09 fix round): error-severity findings a person resolved by hand whose
+     * fingerprint still reproduced as of the last recompute -- still block certification. */
+    acknowledged: { error: number; warning: number; info: number };
+    by_comparison: Record<string, { error: number; warning: number; info: number }>;
+  };
   findings: {
     id: string;
     comparison: string;
@@ -79,6 +95,7 @@ interface EventCardData {
   }[];
   agent_instructions: string | null;
   codegen: { gtm: string; web_sdk: string; tracking_api: string };
+  sdk_default_properties: string[];
 }
 
 interface CoverageGridData {
@@ -260,29 +277,27 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
               ))}
             </Section>
 
+            <Section title={`Standard event mappings (${card.standard_event_mappings.length})`}>
+              {card.standard_event_mappings.length === 0 && <p className="text-sm text-gray-500">Not mapped to a standard event.</p>}
+              {card.standard_event_mappings.length > 0 && (
+                <Table
+                  head={['Standard event', 'Variant', 'Field map']}
+                  rows={card.standard_event_mappings.map((m) => [
+                    m.standard_event,
+                    m.variant_name ?? 'all',
+                    Object.entries(m.field_map)
+                      .map(([field, propertyName]) => `${field} -> ${propertyName ?? '—'}`)
+                      .join(', ') || '—',
+                  ])}
+                />
+              )}
+            </Section>
+
             {card.contexts.length > 0 && (
               <Section title="Contexts">
                 <Table head={['Property', 'Payload key', 'Values']} rows={card.contexts.map((c) => [c.property, c.payload_key, c.values.join(', ')])} />
               </Section>
             )}
-
-            <Section title={`Rules (${card.rules.length})`}>
-              {card.rules.length === 0 && <p className="text-sm text-gray-500">No rules.</p>}
-              {card.rules.length > 0 && (
-                <Table
-                  head={['Name', 'Kind', 'Scope', 'Message', 'Expression', 'Tolerance', 'Enabled']}
-                  rows={card.rules.map((r) => [
-                    r.name,
-                    r.kind,
-                    r.variant_name ?? 'all',
-                    r.message,
-                    r.expression_text,
-                    r.tolerance.mode === 'none' ? 'none' : `${r.tolerance.mode}${r.tolerance.value != null ? `: ${r.tolerance.value}` : ''}`,
-                    r.enabled ? 'yes' : 'no',
-                  ])}
-                />
-              )}
-            </Section>
 
             <Section title="Coverage">
               <p className="text-sm text-gray-700 mb-2">
@@ -307,23 +322,67 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
               )}
             </Section>
 
-            <Section title={`Open findings (${card.findings.length}) — error ${card.quality.open.error}, warning ${card.quality.open.warning}, info ${card.quality.open.info}`}>
-              {card.findings.length === 0 && <p className="text-sm text-gray-500">No open findings.</p>}
-              {card.findings.length > 0 && (
+            <Section title={`Rules (${card.rules.length})`}>
+              {card.rules.length === 0 && <p className="text-sm text-gray-500">No rules.</p>}
+              {card.rules.length > 0 && (
                 <Table
-                  head={['Severity', 'Kind', 'Comparison', 'Rule', 'Property', 'Variant', 'Message', 'Expected', 'Actual']}
-                  rows={card.findings.map((f) => [
-                    f.severity,
-                    f.kind,
-                    f.comparison,
-                    f.rule ?? '—',
-                    f.property ?? '—',
-                    f.variant ?? '—',
-                    f.message ?? '—',
-                    JSON.stringify(f.expected ?? null),
-                    JSON.stringify(f.actual ?? null),
+                  head={['Name', 'Kind', 'Scope', 'Message', 'Expression', 'Tolerance', 'Enabled']}
+                  rows={card.rules.map((r) => [
+                    r.name,
+                    r.kind,
+                    r.variant_name ?? 'all',
+                    r.message,
+                    r.expression_text,
+                    r.tolerance.mode === 'none' ? 'none' : `${r.tolerance.mode}${r.tolerance.value != null ? `: ${r.tolerance.value}` : ''}`,
+                    r.enabled ? 'yes' : 'no',
                   ])}
                 />
+              )}
+            </Section>
+
+            <Section title="Derived metrics / not suitable for">
+              <Field label="Derived metrics" value={card.derived_metrics ? JSON.stringify(card.derived_metrics) : '—'} />
+              <div className="mt-2">
+                <Field label="Not suitable for" value={card.not_suitable_for ?? '—'} />
+              </div>
+            </Section>
+
+            <Section
+              title={`Open findings (${card.findings.length}) — error ${card.quality.open.error}, warning ${card.quality.open.warning}, info ${card.quality.open.info}${
+                card.quality.acknowledged.error + card.quality.acknowledged.warning + card.quality.acknowledged.info > 0
+                  ? `; acknowledged: error ${card.quality.acknowledged.error}, warning ${card.quality.acknowledged.warning}, info ${card.quality.acknowledged.info}`
+                  : ''
+              }`}
+            >
+              {Object.keys(card.quality.by_comparison).length > 0 && (
+                <Table
+                  head={['Comparison', 'Error', 'Warning', 'Info']}
+                  rows={Object.entries(card.quality.by_comparison).map(([comparison, counts]) => [
+                    comparison,
+                    counts.error,
+                    counts.warning,
+                    counts.info,
+                  ])}
+                />
+              )}
+              {card.findings.length === 0 && <p className="text-sm text-gray-500 mt-3">No open findings.</p>}
+              {card.findings.length > 0 && (
+                <div className="mt-3">
+                  <Table
+                    head={['Severity', 'Kind', 'Comparison', 'Rule', 'Property', 'Variant', 'Message', 'Expected', 'Actual']}
+                    rows={card.findings.map((f) => [
+                      f.severity,
+                      f.kind,
+                      f.comparison,
+                      f.rule ?? '—',
+                      f.property ?? '—',
+                      f.variant ?? '—',
+                      f.message ?? '—',
+                      JSON.stringify(f.expected ?? null),
+                      JSON.stringify(f.actual ?? null),
+                    ])}
+                  />
+                </div>
               )}
             </Section>
 
@@ -338,6 +397,10 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
               <CodeBlock label="GTM / dataLayer" code={card.codegen.gtm} />
               <CodeBlock label="Bloomreach Web SDK" code={card.codegen.web_sdk} />
               <CodeBlock label="Bloomreach Tracking API" code={card.codegen.tracking_api} />
+            </Section>
+
+            <Section title="SDK default properties">
+              <p className="text-sm text-gray-700">{card.sdk_default_properties.join(', ') || '—'}</p>
             </Section>
           </>
         )}

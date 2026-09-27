@@ -28,7 +28,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-2-05 | 2 | Comparisons 1 and 2 engines, mapping snapshot, preview findings for pasted mapping | implementer | T-2-04 | DONE | see below |
 | T-2-06 | 2 | Rules domain: table, item schema, tolerance settings, operator registry, evaluator, templates, DAL and API | implementer | T-2-01 | DONE | see below |
 | T-2-07 | 2 | Rules integration: engine wiring, rounding_drift via template, data-mapping import proposes the template, rules and item schema UI | implementer | T-2-04, T-2-06 | DONE | see below |
-| T-2-08 | 2 | document.service EventCard, certification, coverage grid, tracking-document.json, docs/TRACKING-DOCUMENT.md | implementer | T-2-05, T-2-07 | IN_PROGRESS | see below |
+| T-2-08 | 2 | document.service EventCard, certification, coverage grid, tracking-document.json, docs/TRACKING-DOCUMENT.md | implementer | T-2-05, T-2-07 | REVIEW | see below |
 | T-2-09 | 2 | Event card page, certified column, findings and QA runs page additions | implementer | T-2-08 | TODO | see below |
 | T-2-10 | 2 | MCP server: dependencies, stdio process, tools, .mcp.json, docs/MCP.md smoke test | implementer | T-2-08 | TODO | see below |
 | T-2-11 | 2 | Use case narrative generation, QA run export, use case coverage | implementer | T-2-01 | DONE | see below |

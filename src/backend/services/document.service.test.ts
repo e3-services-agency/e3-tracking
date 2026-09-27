@@ -13,6 +13,7 @@ import * as VariantDAL from '../dal/variant.dal';
 import * as QaRunDAL from '../dal/qa-run.dal';
 import * as ObservationDAL from '../dal/observation.dal';
 import * as RuleDAL from '../dal/rule.dal';
+import * as FindingDAL from '../dal/finding.dal';
 import { runComparison } from './comparison.service';
 import { buildEventCard, computeEventCertification, computeEventCoverageGrid, buildTrackingDocument } from './document.service';
 
@@ -286,5 +287,97 @@ describe('EventCard.variants required_keys (WARNING 6 fix round)', () => {
     // `action` is required (the discriminator); `total_price` and `location` are optional (T-1-04 D-16).
     expect(card.variants[0].required_keys).toEqual(['action']);
     expect(Object.keys(card.variants[0].expected_payload)).toEqual(expect.arrayContaining(['action']));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T-2-08 fix round 2 (2026-09-27 15:19 qa-tester FAIL, supervisor DECISION)
+// ---------------------------------------------------------------------------
+
+describe('TrackingDocument.unattached_findings (fix round 2)', () => {
+  it('carries every open finding whose event_id is null, and the invariant sum(events[].findings) + unattached_findings.length === findings_summary.open holds, with no finding counted twice', () => {
+    const { eventId, totalPricePropertyId } = setUpCartUpdate();
+    addObservation('cart_update', { action: 'add', location: 'web' });
+    EventDAL.updateEventProperty(projectId, eventId, totalPricePropertyId, { required: true });
+    runComparison(projectId);
+
+    // An event-scoped finding (baseline: total_price is now required and missing on the observation).
+    expect(buildEventCard(projectId, eventId).findings).toHaveLength(1);
+
+    // A cross-event finding: shape_inconsistent has no single owning event.
+    FindingDAL.upsertFinding(projectId, {
+      comparison: 'definition_vs_observations',
+      kind: 'shape_inconsistent',
+      severity: 'warning',
+      event_id: null,
+      message: 'Property "product_ids" is observed with inconsistent JSON types across events: array, string.',
+      fingerprint: 'cross-event-shape-inconsistent',
+    });
+
+    // A consent/project-level finding: a mapping rename mismatch with no owning event.
+    FindingDAL.upsertFinding(projectId, {
+      comparison: 'mapping_vs_observations',
+      kind: 'rename_mismatch',
+      severity: 'error',
+      event_id: null,
+      message: 'newsletter renamed to brand_consent.',
+      fingerprint: 'consent-rename-mismatch',
+    });
+
+    const doc = buildTrackingDocument(projectId);
+
+    expect(doc.unattached_findings).toHaveLength(2);
+    expect(doc.unattached_findings.map((f) => f.kind).sort()).toEqual(['rename_mismatch', 'shape_inconsistent']);
+    for (const f of doc.unattached_findings) {
+      expect(f.property_id).toBeNull();
+      expect(f.property).toBeNull();
+    }
+
+    const sumOfEventFindings = doc.events.reduce((total, event) => total + event.findings.length, 0);
+    const openTotal = doc.findings_summary.open.error + doc.findings_summary.open.warning + doc.findings_summary.open.info;
+    expect(sumOfEventFindings + doc.unattached_findings.length).toBe(openTotal);
+
+    // No finding id appears twice (in an event card and also in unattached_findings, or in two cards).
+    const allIds = [...doc.events.flatMap((e) => e.findings.map((f) => f.id)), ...doc.unattached_findings.map((f) => f.id)];
+    expect(new Set(allIds).size).toBe(allIds.length);
+  });
+});
+
+describe('sortEventCardFindings tie-break (WARNING 1 fix round)', () => {
+  it('orders two findings identical except expected/actual deterministically, by JSON.stringify(expected) then actual then id', () => {
+    const { eventId } = setUpCartUpdate();
+
+    const findingA = FindingDAL.upsertFinding(projectId, {
+      comparison: 'definition_vs_observations',
+      kind: 'rule_violation',
+      severity: 'error',
+      event_id: eventId,
+      expected_json: { value: 10 },
+      actual_json: { value: 3 },
+      message: 'Items total mismatch.',
+      fingerprint: 'items-total-parent-a',
+    });
+    const findingB = FindingDAL.upsertFinding(projectId, {
+      comparison: 'definition_vs_observations',
+      kind: 'rule_violation',
+      severity: 'error',
+      event_id: eventId,
+      expected_json: { value: 20 },
+      actual_json: { value: 4 },
+      message: 'Items total mismatch.',
+      fingerprint: 'items-total-parent-b',
+    });
+
+    const card = buildEventCard(projectId, eventId);
+    expect(card.findings).toHaveLength(2);
+    const [first, second] = card.findings;
+    // Deterministic content-based order: JSON.stringify({value:10}) < JSON.stringify({value:20}).
+    const expectedFirstId = JSON.stringify(findingA.expected_json) < JSON.stringify(findingB.expected_json) ? findingA.id : findingB.id;
+    expect(first.id).toBe(expectedFirstId);
+    expect(second.id).not.toBe(first.id);
+
+    // Re-running the build gives the exact same order (stable, not just "some" deterministic order).
+    const cardAgain = buildEventCard(projectId, eventId);
+    expect(cardAgain.findings.map((f) => f.id)).toEqual(card.findings.map((f) => f.id));
   });
 });

@@ -302,6 +302,16 @@ export interface TrackingDocument {
   use_cases: TrackingDocumentUseCase[];
   standard_event_mappings: TrackingDocumentStandardEventMapping[];
   findings_summary: { open: FindingSeverityCounts; by_comparison: Record<string, FindingSeverityCounts> };
+  /** Every currently-open finding whose `event_id` is `null` or does not resolve to an event in
+   * `events[]` above (fix round 2, D-40 Q9 follow-up): a cross-event finding (e.g.
+   * `shape_inconsistent`, computed across every event observing a property) or a project/consent-
+   * level finding (e.g. a `mapping_vs_observations` rename with no single owning event) has nowhere
+   * else to live in this document -- without this array it was silently absent from `events[]`
+   * while still counted in `findings_summary`, so `sum(events[].findings.length)` could not be
+   * reconciled against `findings_summary.open`. Same row shape and same sort as
+   * `EventCard.findings`. Invariant: `sum(events[].findings.length) + unattached_findings.length ===
+   * findings_summary.open`, and no finding id appears in both places. */
+  unattached_findings: EventCardFinding[];
   limits: TrackingDocumentLimits;
 }
 

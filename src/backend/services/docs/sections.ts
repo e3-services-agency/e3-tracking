@@ -495,15 +495,19 @@ export interface FindingForDocs {
   comparison: string;
   property: string | null;
   variant: string | null;
+  /** The originating rule's name (fix round 2), `null` for a finding that did not come from a rule. */
+  rule: string | null;
   message: string | null;
 }
 
 /**
- * Renders a compact table of one event's currently-open findings (D-40 Q9 fix round, ERROR 1): the
- * same list `EventCard.findings[]`/the tracking document carry, so the HTML export never claims an
- * event is not-certified without showing why.
+ * Renders a compact table of currently-open findings (D-40 Q9 fix round, ERROR 1): the same list
+ * `EventCard.findings[]`/the tracking document carry, so the HTML export never claims an event is
+ * not-certified without showing why. `heading`/`emptyClass` let the same renderer serve both the
+ * per-event "Open findings" table and the document-level "Open findings without an event" table
+ * (fix round 2, `unattached_findings`).
  */
-export function renderFindingsTable(findings: FindingForDocs[]): string {
+export function renderFindingsTable(findings: FindingForDocs[], heading = 'Open findings'): string {
   if (findings.length === 0) return '';
   const rows = findings
     .map(
@@ -513,15 +517,16 @@ export function renderFindingsTable(findings: FindingForDocs[]): string {
         ${cell(f.comparison)}
         ${cell(f.property)}
         ${cell(f.variant)}
+        ${cell(f.rule)}
         ${cell(f.message)}
       </tr>`
     )
     .join('\n');
   return `<div class="findings">
-    <h3>Open findings</h3>
+    <h3>${escapeHtml(heading)}</h3>
     <table>
       <thead>
-        <tr><th>Severity</th><th>Kind</th><th>Comparison</th><th>Property</th><th>Variant</th><th>Message</th></tr>
+        <tr><th>Severity</th><th>Kind</th><th>Comparison</th><th>Property</th><th>Variant</th><th>Rule</th><th>Message</th></tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>

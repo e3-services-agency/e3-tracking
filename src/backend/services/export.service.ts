@@ -51,7 +51,7 @@ import {
   type UseCaseForDocs,
 } from './docs/sections';
 import { escapeHtml } from './htmlEscape';
-import { buildEventCard, buildEventCardContext, type EventCardBuildContext } from './document.service';
+import { buildEventCard, buildEventCardContext, buildUnattachedFindings, type EventCardBuildContext } from './document.service';
 
 export { escapeHtml };
 
@@ -357,6 +357,11 @@ export async function generateProjectDocumentationHtml(projectId: string): Promi
     })
   );
 
+  // Fix round 2: findings with no owning event (or an event not in this document) still count
+  // toward `findings_summary`/the Findings page, so they must show up somewhere in the HTML export
+  // too -- one table after the per-event sections, sharing `cardCtx` (no second findings query).
+  const unattachedFindingsHtml = renderFindingsTable(buildUnattachedFindings(cardCtx), 'Open findings without an event');
+
   const identityAndConsentHtml = buildIdentityAndConsentSectionsHtml(projectId);
   const useCasesHtml = buildUseCasesSectionHtml(projectId);
   const requirementsMatrixHtml = renderRequirementsMatrixSection(computeRequirementsMatrix(projectId));
@@ -400,6 +405,7 @@ export async function generateProjectDocumentationHtml(projectId: string): Promi
   <p class="subtitle">${escapeHtml(project.client?.name ?? '')} · Generated ${escapeHtml(generatedAt)}</p>
   <nav class="toc">${toc || '<p>No events defined yet.</p>'}</nav>
   ${sections.join('\n')}
+  ${unattachedFindingsHtml}
   ${identityAndConsentHtml}
   ${standardEventMappingsHtml}
   ${useCasesHtml}

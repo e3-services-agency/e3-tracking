@@ -55,6 +55,7 @@ There is only one version today (`1`); `?version=1` and the unqualified request 
   use_cases: [...],          // ordered requirements resolved to display names, plus narrative
   standard_event_mappings: [...],
   findings_summary: { open: {error, warning, info}, by_comparison: {...} },
+  unattached_findings: EventCardFinding[],  // open findings with no owning event card, fix round 2
   limits: { event_types: {count, limit}, max_properties_per_event: [...] },
 }
 ```
@@ -93,6 +94,40 @@ column — `EventCard.coverage.columns[]`, `EventCard.contexts[].payload_key`, `
 coverage`'s `columns[]`, and `src/domain/coverage.ts`'s `computeEventCoverage` — is keyed the same
 way, so a context property with a custom `payload_key` reports the same observed/unobserved counts
 everywhere.
+
+### `unattached_findings` (fix round 2)
+
+A finding's `event_id` is `null` for a comparison result that has no single owning event — a
+cross-event finding (e.g. `shape_inconsistent`, computed across every event that observes a given
+property) or a project/consent-level finding (e.g. a `mapping_vs_observations` consent category
+rename with no event at all). Those findings still count toward `findings_summary`, so without
+somewhere to put them they were silently invisible in the document body while `EventCard.findings[]`
+made every other open finding visible (the 2026-09-27 QA FAIL that prompted this fix round). `event_
+id` can also point at an event no longer in `events[]` (e.g. deleted since the finding was raised);
+those are treated the same way.
+
+`unattached_findings` is a top-level array, same row shape and same sort (`sortEventCardFindings`)
+as `EventCard.findings`, built once from the same `EventCardBuildContext` the event cards use (no
+second findings query, `document.service.ts#buildUnattachedFindings`).
+
+**Invariant**: `sum(events[].findings.length) + unattached_findings.length === findings_summary.
+open` (the sum of every severity in `open`), and no finding `id` appears twice (neither across two
+event cards, nor between an event card and `unattached_findings`) — every currently-open finding is
+counted, and shown, in exactly one place. Guarded by a test in `document.service.test.ts` (`describe
+'TrackingDocument.unattached_findings (fix round 2)'`).
+
+The HTML documentation export (`export.service.ts`) renders the same list as an "Open findings
+without an event" table after the per-event sections, using `docs/sections.ts#renderFindingsTable`
+with a custom heading (omitted entirely when the array is empty, like the per-event table).
+
+### `sortEventCardFindings` ordering (WARNING 1 fix round)
+
+Two findings can share severity, comparison, kind, property, variant and message and still differ
+only in `expected`/`actual` — e.g. a `cross_event` rule ("items total") violated by two different
+parent rows. The comparator's tie-break, in order: severity, comparison, kind, property, variant,
+message, then `JSON.stringify(expected)`, then `JSON.stringify(actual)`, then `id`. This makes the
+order fully deterministic (not just stable) for any input, including two rows identical except for
+`expected`/`actual`.
 
 ### Certification (D-05)
 
@@ -158,6 +193,7 @@ and live-resolved observations.
     "open": { "error": 0, "warning": 0, "info": 0 },
     "by_comparison": {}
   },
+  "unattached_findings": [],
   "limits": {
     "event_types": { "count": 1, "limit": 255 },
     "max_properties_per_event": [{ "event_id": "…", "event_name": "cart_update", "count": 1, "limit": 255 }]

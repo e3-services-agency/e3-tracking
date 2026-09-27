@@ -91,7 +91,7 @@ describe('renderFindingsTable (D-40 Q9 fix round)', () => {
     expect(renderFindingsTable([])).toBe('');
   });
 
-  it('renders one row per open finding with severity, kind, comparison, property/variant and message', () => {
+  it('renders one row per open finding with severity, kind, comparison, property/variant, rule and message', () => {
     const html = renderFindingsTable([
       {
         severity: 'error',
@@ -99,6 +99,7 @@ describe('renderFindingsTable (D-40 Q9 fix round)', () => {
         comparison: 'definition_vs_observations',
         property: 'total_price',
         variant: 'purchase[purchase_status=refunded]',
+        rule: 'refund negative',
         message: 'Expected number, got string.',
       },
     ]);
@@ -107,7 +108,29 @@ describe('renderFindingsTable (D-40 Q9 fix round)', () => {
     expect(html).toContain('definition_vs_observations');
     expect(html).toContain('total_price');
     expect(html).toContain('purchase[purchase_status=refunded]');
+    expect(html).toContain('refund negative');
     expect(html).toContain('Expected number, got string.');
+    expect(html).toContain('<th>Rule</th>');
+    expect(html).toContain('<h3>Open findings</h3>');
+  });
+
+  it('renders a custom heading (fix round 2: the document-level "Open findings without an event" table)', () => {
+    const html = renderFindingsTable(
+      [
+        {
+          severity: 'warning',
+          kind: 'shape_inconsistent',
+          comparison: 'definition_vs_observations',
+          property: null,
+          variant: null,
+          rule: null,
+          message: 'Property "product_ids" is observed with inconsistent JSON types across events: array, string.',
+        },
+      ],
+      'Open findings without an event'
+    );
+    expect(html).toContain('<h3>Open findings without an event</h3>');
+    expect(html).not.toContain('<h3>Open findings</h3>');
   });
 });
 

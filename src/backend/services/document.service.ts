@@ -303,7 +303,17 @@ function sortEventCardFindings(findings: EventCardFinding[]): EventCardFinding[]
     const msgA = a.message ?? '';
     const msgB = b.message ?? '';
     if (msgA !== msgB) return msgA < msgB ? -1 : 1;
-    return 0;
+    // Fix round 2: two findings can share severity/comparison/kind/property/variant/message and
+    // still differ only in `expected`/`actual` (e.g. a `cross_event` rule violated by two different
+    // parent rows), which the reviewer's fix-round PASS flagged as a non-total ordering (WARNING 1).
+    // Falls back to a content-based tie-break, then `id`, so the order is fully deterministic.
+    const expA = JSON.stringify(a.expected);
+    const expB = JSON.stringify(b.expected);
+    if (expA !== expB) return expA < expB ? -1 : 1;
+    const actA = JSON.stringify(a.actual);
+    const actB = JSON.stringify(b.actual);
+    if (actA !== actB) return actA < actB ? -1 : 1;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   });
 }
 
@@ -562,6 +572,21 @@ export function computeEventCoverageGrid(projectId: string, eventId: string) {
 // TrackingDocument (D-34)
 // ---------------------------------------------------------------------------
 
+/**
+ * Every currently-open finding of `ctx` whose `event_id` is `null`, or names an event not present
+ * in `ctx.events` (fix round 2: `TrackingDocument.unattached_findings`, and the HTML export's "Open
+ * findings without an event" table -- one call, shared by both, no second findings query). Same row
+ * shape and sort as `EventCard.findings`.
+ */
+export function buildUnattachedFindings(ctx: EventCardBuildContext): EventCardFinding[] {
+  const eventIds = new Set(ctx.events.map((e) => e.id));
+  return sortEventCardFindings(
+    ctx.openFindings
+      .filter((f) => !f.event_id || !eventIds.has(f.event_id))
+      .map((f) => toEventCardFinding(f, ctx.nameOf, ctx.variantNameById))
+  );
+}
+
 /** `GET /export/tracking-document.json` per the schema, `version: 1` (D-34). Custom events first,
  * then sdk/platform (plan: "events: EventCard[] (custom first, then sdk/platform with a reduced
  * card)"). Builds one `EventCardBuildContext` (WARNING 5 fix round) and reuses it for every card
@@ -623,6 +648,7 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
   }));
 
   const findingsSummary = tallyFindings(ctx.openFindings);
+  const unattachedFindings = buildUnattachedFindings(ctx);
 
   const eventTypeLimit = LimitsService.getEventTypeLimitSummary(projectId);
   const propertyLimits = LimitsService.getEventPropertyLimitSummaries(projectId);
@@ -646,6 +672,7 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
     use_cases: useCases,
     standard_event_mappings: standardEventMappings,
     findings_summary: findingsSummary,
+    unattached_findings: unattachedFindings,
     limits: {
       event_types: { count: eventTypeLimit.count, limit: eventTypeLimit.limit },
       max_properties_per_event: propertyLimits.map((p) => ({ event_id: p.event_id, event_name: p.event_name, count: p.count, limit: p.limit })),

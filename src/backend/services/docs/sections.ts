@@ -420,6 +420,136 @@ export function renderUseCasesSection(useCases: UseCaseForDocs[]): string {
   </section>`;
 }
 
+/** Minimal shape the certification badge needs (`EventCard.certification`, T-2-08, D-05). */
+export interface CertificationForDocs {
+  applicable: boolean;
+  certified: boolean;
+  reasons: string[];
+}
+
+/**
+ * Renders the certification badge for one event's section (T-2-08 acceptance: "the Documentation
+ * HTML export renders ... certification ... from the same `EventCard`"), same three states the
+ * event card page shows: not applicable (sdk/platform), certified, or blocked with its reasons.
+ */
+export function renderCertificationBadge(certification: CertificationForDocs): string {
+  if (!certification.applicable) {
+    return '<p class="certification not-applicable"><strong>Certification:</strong> n/a (not a custom event)</p>';
+  }
+  if (certification.certified) {
+    return '<p class="certification certified"><strong>Certification:</strong> certified</p>';
+  }
+  return `<p class="certification not-certified"><strong>Certification:</strong> not certified (${escapeHtml(certification.reasons.join(', '))})</p>`;
+}
+
+/** Minimal shape the rules table needs (`EventCard.rules[]`, T-2-08, D-30/D-31). */
+export interface RuleForDocs {
+  name: string;
+  kind: string;
+  message: string;
+  expression_text: string;
+  tolerance: { mode: string; value: number | null };
+  enabled: boolean;
+  /** `null` for an unconditional (event-wide) rule; a variant name scopes it to that variant's
+   * observations only (ERROR 3 fix round -- dropping this made a variant-scoped guardrail read as
+   * if it applied to every observation of the event). */
+  variant_name: string | null;
+}
+
+/**
+ * Renders the guardrail rules table for one event's section (T-2-08 acceptance: "... rules ... from
+ * the same `EventCard`"): name, kind, the resolved expression text, message, tolerance and scope
+ * (ERROR 3 fix round: the variant a variant-scoped rule is limited to, or "all" for the event-wide
+ * default).
+ */
+export function renderRulesTable(rules: RuleForDocs[]): string {
+  if (rules.length === 0) return '';
+  const rows = rules
+    .map(
+      (rule) => `<tr>
+        ${cell(rule.name)}
+        ${cell(rule.kind)}
+        ${cell(rule.expression_text)}
+        ${cell(rule.message)}
+        ${cell(rule.tolerance.mode === 'none' ? null : `${rule.tolerance.mode}${rule.tolerance.value != null ? ` (${rule.tolerance.value})` : ''}`)}
+        ${cell(rule.variant_name ?? 'all')}
+        ${cell(rule.enabled ? 'enabled' : 'disabled')}
+      </tr>`
+    )
+    .join('\n');
+  return `<div class="rules">
+    <h3>Guardrail rules</h3>
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Kind</th><th>Expression</th><th>Message</th><th>Tolerance</th><th>Scope</th><th>Status</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+/** Minimal shape the findings table needs (`EventCard.findings[]`, D-40 Q9 fix round). */
+export interface FindingForDocs {
+  severity: string;
+  kind: string;
+  comparison: string;
+  property: string | null;
+  variant: string | null;
+  /** The originating rule's name (fix round 2), `null` for a finding that did not come from a rule. */
+  rule: string | null;
+  message: string | null;
+}
+
+/**
+ * Renders a compact table of currently-open findings (D-40 Q9 fix round, ERROR 1): the same list
+ * `EventCard.findings[]`/the tracking document carry, so the HTML export never claims an event is
+ * not-certified without showing why. `heading`/`emptyClass` let the same renderer serve both the
+ * per-event "Open findings" table and the document-level "Open findings without an event" table
+ * (fix round 2, `unattached_findings`).
+ */
+export function renderFindingsTable(findings: FindingForDocs[], heading = 'Open findings'): string {
+  if (findings.length === 0) return '';
+  const rows = findings
+    .map(
+      (f) => `<tr>
+        ${cell(f.severity)}
+        ${cell(f.kind)}
+        ${cell(f.comparison)}
+        ${cell(f.property)}
+        ${cell(f.variant)}
+        ${cell(f.rule)}
+        ${cell(f.message)}
+      </tr>`
+    )
+    .join('\n');
+  return `<div class="findings">
+    <h3>${escapeHtml(heading)}</h3>
+    <table>
+      <thead>
+        <tr><th>Severity</th><th>Kind</th><th>Comparison</th><th>Property</th><th>Variant</th><th>Rule</th><th>Message</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+/** Minimal shape the coverage summary needs (`EventCard.coverage`, T-2-08, D-21 coverage grid). */
+export interface CoverageSummaryForDocs {
+  observed_count: number;
+  unobserved_count: number;
+}
+
+/**
+ * Renders the one-line coverage summary for one event's section (T-2-08 acceptance: "... coverage
+ * summary ... from the same `EventCard`"): how many variant x context cells have been observed vs.
+ * not, out of the full grid.
+ */
+export function renderCoverageSummary(coverage: CoverageSummaryForDocs): string {
+  const total = coverage.observed_count + coverage.unobserved_count;
+  if (total === 0) return '';
+  return `<p class="coverage-summary"><strong>Coverage:</strong> ${coverage.observed_count} of ${total} variant/context combinations observed.</p>`;
+}
+
 /**
  * Renders the computed requirements matrix (CONTEXT.md 3.2: "computed, not authored"): rows =
  * distinct requirement targets, columns = use cases, cell = level.

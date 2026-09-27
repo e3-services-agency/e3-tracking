@@ -16,6 +16,8 @@ import type {
 import type { PropertyDataFormat, IdentityTransformation } from '../../domain/enums';
 import { IDENTITY_TRANSFORMATIONS } from '../../domain/enums';
 import { BLOOMREACH_SPECIAL_CUSTOMER_ATTRIBUTES } from '../../domain/bloomreach';
+import type { EventPropertyWithDetails } from '../dal/event.dal';
+import type { VariantRow } from '../dal/variant.dal';
 
 export interface AttachedPropertyForCodegen {
   property_name: string;
@@ -309,6 +311,52 @@ function formatJsObjectBodyFromSchema(
     }
   }
   return lines;
+}
+
+/**
+ * Property -> codegen-shape mapping (T-1-04, moved here from `export.service.ts` in T-2-08 to
+ * break an import cycle with `document.service.ts`, which needs this same mapping for the event
+ * card's `properties[].example` and `codegen` fields). Used by the docs export and the event card
+ * for sample payloads and code snippets alike.
+ */
+export function toAttachedPropertyForCodegen(link: EventPropertyWithDetails): AttachedPropertyForCodegen {
+  return {
+    property_name: link.payload_key?.trim() || link.property.name,
+    // D-16 dropped presence; codegen reads `EventProperty.required` directly (T-1-03/T-1-04
+    // integration WARNING 4: this must stay `required`, never `presence`, or every property
+    // silently renders as optional in the generated snippets/docs).
+    required: link.required,
+    property_data_type: link.property.data_type,
+    property_data_formats: (link.property.data_formats_json as string[] | null) ?? null,
+    property_example_values_json:
+      (link.property.example_values_json as AttachedPropertyForCodegen['property_example_values_json']) ?? null,
+    property_value_schema_json:
+      (link.property.value_schema_json as AttachedPropertyForCodegen['property_value_schema_json']) ?? null,
+  };
+}
+
+/**
+ * Builds the attached-property list for a variant's codegen snippet, overriding each
+ * discriminator property's example value with its condition's literal value (T-1-05 acceptance:
+ * "codegen snippets for a variant include the discriminator values as literals"; moved here in
+ * T-2-08 alongside `toAttachedPropertyForCodegen`, for the same reason). Used by the docs export's
+ * per-variant codegen and the event card's `variants[].expected_payload` (T-2-08).
+ */
+export function attachedPropertiesForVariant(
+  properties: EventPropertyWithDetails[],
+  variant: VariantRow
+): AttachedPropertyForCodegen[] {
+  const conditionByProperty = new Map(
+    (variant.conditions_json as VariantRow['conditions_json']).map((c) => [c.property_id, c])
+  );
+  return properties.map((link) => {
+    const attached = toAttachedPropertyForCodegen(link);
+    const condition = conditionByProperty.get(link.property_id);
+    if (condition && condition.values.length > 0) {
+      attached.property_example_values_json = [{ value: condition.values[0] }];
+    }
+    return attached;
+  });
 }
 
 /**

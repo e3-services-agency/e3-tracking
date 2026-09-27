@@ -8,6 +8,7 @@ import * as EventDAL from '../dal/event.dal';
 import * as VariantDAL from '../dal/variant.dal';
 import * as UseCaseDAL from '../dal/use-case.dal';
 import * as RuleDAL from '../dal/rule.dal';
+import { buildEventCard, computeEventCertification, computeEventCoverageGrid } from '../services/document.service';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -164,6 +165,33 @@ router.get('/:id/use-cases', (req: Request, res: Response) => {
   try {
     EventDAL.getEventOrThrow(req.projectId!, req.params.id);
     res.status(200).json(UseCaseDAL.listUseCasesReferencingEvent(req.projectId!, req.params.id));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+// ----- Event card / certification / coverage (D-05, D-21, T-2-08) -----
+
+router.get('/:id/card', (req: Request, res: Response) => {
+  try {
+    res.status(200).json(buildEventCard(req.projectId!, req.params.id));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.get('/:id/certification', (req: Request, res: Response) => {
+  try {
+    res.status(200).json(computeEventCertification(req.projectId!, req.params.id));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.get('/:id/coverage', (req: Request, res: Response) => {
+  try {
+    EventDAL.getEventOrThrow(req.projectId!, req.params.id);
+    res.status(200).json(computeEventCoverageGrid(req.projectId!, req.params.id));
   } catch (err) {
     handleRouteError(err, res);
   }

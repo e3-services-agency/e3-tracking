@@ -1540,3 +1540,6 @@ Verdict: PASS. No defects found in T-2-10.
 
 ### 2026-09-27 21:19 | supervisor -> implementer | DECISION | T-2-09 pre-QA fixes
 Reviewer PASS (21:17) accepted. Before QA fold in: LOW 1 render properties[].example and findings[].qa_run_id, first_seen, last_seen on the card; LOW 2 move Use cases before Open findings to match the document order; LOW 3 setFindingStatus resolved on an already resolved row is a no-op (200, unchanged) so recompute-resolved findings never gain the user marker; NIT 4 docblock. Stays at QA after the fix commit; QA runs after the T-2-10 smoke test releases the ports.
+
+### 2026-09-27 21:20 | supervisor | STATUS | T-2-10 DONE
+qa-tester PASS (21:18): 13 tools over stdio via the exact .mcp.json command, batch 19 inserted then 19 duplicates, comparison and findings visible in the app after restart. Merged into agent-setup; tests and tsc re-run on the merged tree.

@@ -14,11 +14,13 @@ QA round without going through the web UI.
 - Database: the same `getDb()` singleton and migrations as the Express API (`src/backend/db/index.ts`),
   opened via `E3_DB_PATH` — point it at the same file as the running app (`./data/e3-tracking.sqlite`)
   to see the same projects, or at a scratch/`:memory:` path to experiment without touching your data.
-- Tools: twelve, implemented as plain async handlers in `src/mcp/tools/*.ts` and registered in
+- Tools: thirteen, implemented as plain async handlers in `src/mcp/tools/*.ts` and registered in
   `src/mcp/registerTools.ts` (so a later HTTP transport can mount the same handlers without touching
   their logic): `list_projects`, `list_events`, `get_event_card`, `get_expected_payload`,
   `list_use_cases`, `get_use_case`, `list_findings`, `get_coverage_grid`, `get_tracking_document`,
-  `submit_observation`, `submit_observations_batch`, `run_comparison`.
+  `submit_observation`, `submit_observations_batch`, `finish_qa_run`, `run_comparison` — the plan
+  table's twelve (`PLAN-PHASE2-2026-09-25.md` lines ~205-225) plus `get_tracking_document`, which the
+  plan table did not originally list.
 
 ## How Claude Code picks up `.mcp.json`
 
@@ -75,7 +77,10 @@ on an empty project too, just with fewer/no findings at the end.
 2. **`submit_observations_batch`** with `.claude/team/samples/customer-events-export.json` as the
    `export` argument — expect `{"qa_run_id": "...", "inserted": 19, "duplicates": 0}` on a project that
    has never seen this fixture before. Calling it again with the same file expects
-   `{"inserted": 0, "duplicates": 19}` (every row is now a duplicate of the first run).
+   `{"inserted": 0, "duplicates": 19}` (every row is now a duplicate of the first run). Passing an
+   existing run's id as `qa_run_id` inserts into that run instead of creating a new `export_paste`
+   one — call `finish_qa_run` with the same id afterwards to see `finished_at` set and the run show
+   as finished on the QA runs page.
 3. **`run_comparison`** — expect a `ComparisonSummary`: `{"open": {"error": n, "warning": n, "info": n},
    "produced": n, "resolved": n, "by_comparison": {...}}`. On the fixture project (data mapping +
    expiration settings + the type-fixing edits from `docs/QA-LOCAL.md` applied first, then this
@@ -96,7 +101,7 @@ beyond the stderr line `[mcp] INFO e3-tracking MCP server ready on stdio`. To co
 without an MCP client, spawn it as a child process and speak minimal JSON-RPC over its stdin/stdout
 (this is exactly what `src/mcp/server.ts`'s own manual verification used, T-2-10): send an
 `initialize` request, then a `tools/list` request, and check the response's `result.tools.length` is
-`12` and every name in the "Tools" list above appears. `src/mcp/tools/tools.test.ts` and
+`13` and every name in the "Tools" list above appears. `src/mcp/tools/tools.test.ts` and
 `src/mcp/noStdout.test.ts` cover the handlers and the stdout guard at the unit level; the child-process
 check is a one-off manual script, not part of `npm test` (spawning `tsx` as a subprocess is slow and
 platform-sensitive to run on every CI pass).

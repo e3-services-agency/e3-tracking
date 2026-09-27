@@ -1,9 +1,10 @@
 /**
- * MCP tool handler tests (T-2-10 acceptance): call the handlers directly against `:memory:`, the
- * same pattern `document.service.test.ts`/`rule.dal.test.ts` use. Covers `list_events`'s default
- * class filter, `get_expected_payload` for `cart_update[action=add]`, `submit_observation`'s
- * `agent_session` run, `submit_observations_batch` against the customer-events-export fixture,
- * `run_comparison`'s summary shape, and `get_coverage_grid`.
+ * MCP tool handler tests (T-2-10 acceptance, plus the addendum): call the handlers directly against
+ * `:memory:`, the same pattern `document.service.test.ts`/`rule.dal.test.ts` use. Covers
+ * `list_events`'s default class filter, `get_expected_payload` for `cart_update[action=add]`,
+ * `submit_observation`'s `agent_session` run, `submit_observations_batch` against the
+ * customer-events-export fixture (both the default new-run path and reusing an existing
+ * `qa_run_id`), `finish_qa_run`, `run_comparison`'s summary shape, and `get_coverage_grid`.
  */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -22,6 +23,7 @@ import { listEvents, getExpectedPayload } from './events';
 import { submitObservation, submitObservationsBatch } from './observations';
 import { runComparison } from './comparison';
 import { getCoverageGrid } from './coverage';
+import { finishQaRun } from './qaRuns';
 import { resetSessionCache } from '../session';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -166,6 +168,40 @@ describe('submit_observations_batch', () => {
     const second = await submitObservationsBatch({ project_key: projectKey, export: raw });
     expect(second.inserted).toBe(0);
     expect(second.duplicates).toBe(19);
+  });
+
+  it('inserts into an existing qa_run_id instead of creating a new run, and dedupes within it on re-submit', async () => {
+    const raw = JSON.parse(readFileSync(FIXTURE_PATH, 'utf-8'));
+    const existingRun = QaRunDAL.createQaRun(projectId, { kind: 'agent_session', actor: 'Codex' });
+
+    const first = await submitObservationsBatch({ project_key: projectKey, qa_run_id: existingRun.id, export: raw });
+    expect(first.qa_run_id).toBe(existingRun.id);
+    expect(first.inserted).toBe(19);
+    expect(first.duplicates).toBe(0);
+    expect(QaRunDAL.listQaRuns(projectId)).toHaveLength(1);
+
+    const second = await submitObservationsBatch({ project_key: projectKey, qa_run_id: existingRun.id, export: raw });
+    expect(second.qa_run_id).toBe(existingRun.id);
+    expect(second.inserted).toBe(0);
+    expect(second.duplicates).toBe(19);
+    expect(QaRunDAL.listQaRuns(projectId)).toHaveLength(1);
+  });
+
+  it('rejects a qa_run_id that does not exist', async () => {
+    const raw = JSON.parse(readFileSync(FIXTURE_PATH, 'utf-8'));
+    await expect(submitObservationsBatch({ project_key: projectKey, qa_run_id: 'nope', export: raw })).rejects.toThrow();
+  });
+});
+
+describe('finish_qa_run', () => {
+  it('sets finished_at and returns the updated run', async () => {
+    const run = QaRunDAL.createQaRun(projectId, { kind: 'agent_session', actor: 'Codex' });
+    expect(run.finished_at).toBeNull();
+
+    const finished = await finishQaRun({ project_key: projectKey, qa_run_id: run.id, notes: 'done' });
+
+    expect(finished.finished_at).not.toBeNull();
+    expect(finished.notes).toBe('done');
   });
 });
 

@@ -25,6 +25,7 @@ import { getCoverageGrid } from './tools/coverage';
 import { getTrackingDocument } from './tools/trackingDocument';
 import { submitObservation, submitObservationsBatch } from './tools/observations';
 import { runComparison } from './tools/comparison';
+import { finishQaRun } from './tools/qaRuns';
 
 type ToolHandler<I> = (input: I) => Promise<unknown>;
 
@@ -148,6 +149,14 @@ export function registerTools(server: McpServer): void {
     'Imports a Bloomreach customer-events-export.json payload as observations (same parser and import path as the app’s paste). Returns inserted and duplicate counts.',
     { ...projectKeyShape, qa_run_id: z.string().optional(), agent_name: z.string().optional(), export: z.record(z.string(), z.unknown()) },
     submitObservationsBatch
+  );
+
+  register(
+    server,
+    'finish_qa_run',
+    'Marks a QA run finished (sets finished_at); returns the updated run.',
+    { ...projectKeyShape, qa_run_id: z.string(), notes: z.string().optional() },
+    finishQaRun
   );
 
   register(

@@ -83,6 +83,8 @@ export async function submitObservation(input: SubmitObservationInput): Promise<
 
 export interface SubmitObservationsBatchInput {
   project_key?: string;
+  /** An existing `QaRun` id to insert into, instead of starting a new `export_paste` run (T-2-10
+   * addendum). Must already exist (`getQaRunOrThrow`); the fallback when absent is unchanged. */
   qa_run_id?: string;
   agent_name?: string;
   export: unknown;
@@ -95,29 +97,36 @@ export interface SubmitObservationsBatchResult {
 }
 
 /**
- * `applyCustomerEventsExport` (the same service the Import page's paste uses) always creates its own
- * `QaRun` (`kind: 'export_paste'`) and needs a `payload_hash`/`selected_item_ids` pair from a prior
- * preview; an MCP batch call has neither a UI diff step nor a caller-supplied `qa_run_id` to reuse
- * (deviation from the plan table's `qa_run_id?` input, documented in the T-2-10 handoff). `raw_hash`
- * dedupe is scoped to one `QaRun` (`observation.dal.ts`'s header comment), so a *new* run's insert
- * would not itself skip a row that is only a duplicate of an *earlier* run -- this selects only the
- * preview's `default_selected` items (the same "already present elsewhere in this project" signal
- * the Import page's diff shows and pre-selects against) so a re-submitted export reports the repeat
- * rows as `duplicates`, not silently re-inserted.
+ * Reuses `customerEventsExportImport.service.ts`'s preview/apply pair -- the same parser and apply
+ * path the Import page's paste uses -- so an agent-submitted batch is diffed, deduped and
+ * comparison-recomputed identically to a human paste (D-04's diff-and-confirm is the preview step;
+ * an agent skips confirmation by construction of calling `submit_observations_batch` at all, the
+ * same way the plan's table has no separate "preview" tool for it).
+ *
+ * `qa_run_id` (T-2-10 addendum, plan table): when given, `apply` inserts into that existing run
+ * instead of creating a new `export_paste` one; the preview/apply hash contract is unchanged. When
+ * absent, a new `export_paste` run is created, same as before. `raw_hash` dedupe is scoped to one
+ * `QaRun` (`observation.dal.ts`'s header comment), so within the *same* target run a re-submitted
+ * export dedupes correctly; this selects only the preview's `default_selected` items (the same
+ * "already present elsewhere in this project" signal the Import page's diff shows and pre-selects
+ * against) so a repeat submission reports the repeat rows as `duplicates`, not silently re-inserted,
+ * whether or not `qa_run_id` is reused.
  */
 export async function submitObservationsBatch(input: SubmitObservationsBatchInput): Promise<SubmitObservationsBatchResult> {
   const project = resolveProject(input.project_key);
+  if (input.qa_run_id) QaRunDAL.getQaRunOrThrow(project.id, input.qa_run_id);
   const preview = previewCustomerEventsExport(project.id, input.export);
   const selectedItemIds = preview.items.filter((item) => item.default_selected).map((item) => item.id);
   if (selectedItemIds.length === 0) {
-    return { qa_run_id: '', inserted: 0, duplicates: preview.duplicate_count };
+    return { qa_run_id: input.qa_run_id ?? '', inserted: 0, duplicates: preview.duplicate_count };
   }
   const result = applyCustomerEventsExport(
     project.id,
     input.export,
     preview.payload_hash,
     selectedItemIds,
-    input.agent_name?.trim() || 'MCP agent'
+    input.agent_name?.trim() || 'MCP agent',
+    input.qa_run_id
   );
   return { qa_run_id: result.run.id, inserted: result.inserted, duplicates: preview.duplicate_count };
 }

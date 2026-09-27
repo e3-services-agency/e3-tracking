@@ -273,3 +273,9 @@ Date: 2026-09-25  Status: accepted
 Context: Four phase 2 tasks can run in parallel after T-2-01 and each adds a migration. The runner applies every file not recorded in `schema_migrations`, in filename order, so a lower number merged later still applies.
 Decision: 0009 T-2-01 (event class), 0010 T-2-02 (Data Manager meta), 0011 T-2-06 (rules, item schema, tolerance), 0012 T-2-11 (narrative edited at), 0013 T-2-12 (identity). A task needing an unplanned migration asks the supervisor for the next number on the board before creating the file. Migrations must not depend on a higher-numbered file.
 Consequences: No renumbering at merge time; each migration is self-contained.
+
+## D-42 Manual finding resolution is an acknowledgement that never flips certification
+Date: 2026-09-27  Status: accepted
+Context: T-2-09 adds a Resolve/Reopen toggle on the Findings page (plan acceptance). The first implementation made a hand-resolved finding a permanent per-fingerprint mute that also removed it from the certification count, contradicting D-05 (certified is derived) and D-21 (no mute status).
+Decision: A finding resolved by a person keeps status resolved with resolved_by = user while its fingerprint keeps reproducing, so it stays out of the open list and out of the tracking document findings[]. It still counts against certification: certification reasons list acknowledged_errors: n separately from open_errors: n, and certified stays no while any error finding of the event reproduces, acknowledged or not. When a recompute stops reproducing the fingerprint, resolved_by is cleared and resolved_at set by the recompute, so a later recurrence reopens the finding normally. Explicit reopen clears the marker immediately.
+Consequences: The toggle is triage, not certification. The tracking document quality block reports acknowledged counts. D-21 wording no mute status stands: acknowledgement is bounded by reproduction.

@@ -38,7 +38,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-3-00 | 3 | Phase 3 and 4 plan: model deltas, contracts, task lists, decision records | architect | T-2-EXIT | DONE | see below |
 | T-3-01 | 3 | ChangeLog table, actor context, DAL write helper; wired into event, event property, property and variant mutations; history API | implementer | T-3-00 | REVIEW | see below |
 | T-3-02 | 3 | ChangeLog on every other entity, import batch tagging, MCP actor, History panels and History page | implementer | T-3-01 | TODO | see below |
-| T-3-03 | 3 | CSV export per entity: csv.ts headers, service, routes, Settings export block | implementer | T-3-00 | REVIEW | see below |
+| T-3-03 | 3 | CSV export per entity: csv.ts headers, service, routes, Settings export block | implementer | T-3-00 | QA | see below |
 | T-3-04 | 3 | Full JSON backup export with embedded files | implementer | T-3-01 | TODO | see below |
 | T-3-05 | 3 | Restore backup as new project: preview/apply, id remap, files, template re-link, UI | implementer | T-3-04 | TODO | see below |
 | T-3-06 | 3 | Use case library: format with tags (D-57), parser, import preview/apply, export, instantiate with code, templates page with facet filters and prerequisites card, sample library | implementer | T-3-00 | REVIEW | see below |
@@ -158,3 +158,4 @@ Detailed acceptance criteria per task live in `reports/PLAN-PHASE2-2026-09-25.md
 - Phase 3 and 4 acceptance sections live in .claude/team/reports/PLAN-PHASE3-4-2026-09-27.md; decisions D-44..D-57.
 - From T-2-EXIT QA: the two Data Manager import textareas need a file-upload input (164 KB single-line JSON is impractical to paste); phase 3 UI touch or T-3-09 note. docs/QA-LOCAL.md certification section must say cart_update starts at no (open_errors: 2) after the retype recipe; use checkout or a fresh project for the yes -> no -> yes probe (T-3-09).
 - Use Case Center documentation in samples/br-docs covers the center chapters, requirements, FAQ and compound value use cases; not yet covered: email, web personalisation, omnichannel, analytics, paid media and mobile messaging use case chapters. A later library extension reads them when the user adds them.
+- From T-3-03 review: deleteEvent does not delete the event rules (GET /rules returns orphans with a raw event id); clean rules in deleteEvent (T-3-07 follow-up or phase 3 sweep).

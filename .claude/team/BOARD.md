@@ -1578,3 +1578,6 @@ Posted by supervisor. CLAUDE.md (structure, routes, services, migrations 0009-00
 
 ### 2026-09-27 22:06 | supervisor | STATUS | T-2-13 DONE, T-2-EXIT started
 Phase 2 exit QA runs qa-roundtrip 1 to 8 plus the MCP smoke test on merged agent-setup.
+
+### 2026-09-27 22:07 | supervisor | STATUS | Phase 3 and 4 plan reviewed by the user
+User accepted the phase 3 plan (with D-55 folded into T-3-06), phase 4 as proposed, and the D-54 deferral of cross-project copy with provenance (backup/restore covers cloning). Share-link password: not a requirement; see the D-48 note below. Proposed decisions D-44..D-54 are recorded at phase 3 start.

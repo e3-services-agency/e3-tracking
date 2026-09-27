@@ -34,7 +34,9 @@ import comparisonRouter from './routes/comparison';
 import findingsRouter from './routes/findings';
 import rulesRouter from './routes/rules';
 import ruleTemplatesRouter from './routes/rule-templates';
+import historyRouter from './routes/history';
 import { optionalAuth } from './middleware/auth';
+import { actorContext } from './middleware/actor';
 import { requireProject } from './middleware/project';
 import { getDb } from './db';
 import { BadRequestError, ConfigError } from './errors';
@@ -62,6 +64,10 @@ export function createApp(): express.Express {
     })
   );
   app.use(optionalAuth);
+  // D-44, T-3-01: every request runs inside an actor context (AsyncLocalStorage) so
+  // change-log.dal.ts's recordChange sees {actor: req.userName, source: 'ui'} without any route
+  // threading a value through; must run after optionalAuth so req.userName is already set.
+  app.use(actorContext);
   // T-2-03: default 100kb is too small for a pasted `data-manager-events.json` (the fixture alone is
   // ~360kb; a real Bloomreach project with 61+ event definitions and hundreds of properties is
   // comparable or larger) — every Bloomreach JSON paste box (D-04) shares this one body parser.
@@ -80,6 +86,8 @@ export function createApp(): express.Express {
   app.use('/api/projects/:projectId/bundles', requireProject, bundlesRouter);
   app.use('/api/projects/:projectId/files', requireProject, filesRouter);
   app.use('/api/projects/:projectId/export', requireProject, exportRouter);
+  // D-44, T-3-01: change_log read API (write side lives in the DAL, wired into mutation transactions).
+  app.use('/api/projects/:projectId/history', requireProject, historyRouter);
   app.use('/api/projects/:projectId/identity-rules', requireProject, identityRulesRouter);
   app.use('/api/projects/:projectId/consent-categories', requireProject, consentCategoriesRouter);
   app.use('/api/projects/:projectId/standard-event-mappings', requireProject, standardEventMappingsRouter);

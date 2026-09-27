@@ -9,12 +9,14 @@ import * as ProjectDAL from './project.dal';
 import * as PropertyDAL from './property.dal';
 import * as EventDAL from './event.dal';
 import * as VariantDAL from './variant.dal';
+import * as StandardEventMappingDAL from './standard-event-mapping.dal';
 import {
   BadRequestError,
   ConditionDuplicatePropertyError,
   ConditionNotDiscriminatorError,
   ConditionValueNotAllowedError,
   ConflictError,
+  MappingInUseError,
   MaxDiscriminatorsError,
   ValidationError,
 } from '../errors';
@@ -248,6 +250,50 @@ describe('variant.dal: condition validation', () => {
       conditions: [{ property_id: actionPropertyId, operator: 'equals', values: ['add'] }],
     });
     VariantDAL.deleteVariant(projectId, eventId, variant.id);
+    expect(VariantDAL.listVariants(projectId, eventId)).toHaveLength(0);
+  });
+
+  // D-52 / T-2-05 follow-up (T-3-07): deleting a variant a standard event mapping still targets.
+  it('refuses to delete a variant a standard event mapping still targets (409 MAPPING_IN_USE)', () => {
+    const variant = VariantDAL.createVariant(projectId, eventId, {
+      conditions: [{ property_id: actionPropertyId, operator: 'equals', values: ['add'] }],
+    });
+    StandardEventMappingDAL.upsertStandardEventMapping(projectId, 'add_to_cart', {
+      event_id: eventId,
+      variant_id: variant.id,
+    });
+    expect(() => VariantDAL.deleteVariant(projectId, eventId, variant.id)).toThrow(MappingInUseError);
+    try {
+      VariantDAL.deleteVariant(projectId, eventId, variant.id);
+    } catch (err) {
+      expect((err as MappingInUseError).message).toContain('add_to_cart');
+    }
+    // the mapping and the variant are both untouched after the refusal
+    expect(VariantDAL.listVariants(projectId, eventId)).toHaveLength(1);
+    expect(StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'add_to_cart')?.variant_id).toBe(variant.id);
+  });
+
+  it('force-deletes a variant a standard event mapping targets, clearing the mapping\'s variant_id instead of the mapping itself', () => {
+    const variant = VariantDAL.createVariant(projectId, eventId, {
+      conditions: [{ property_id: actionPropertyId, operator: 'equals', values: ['add'] }],
+    });
+    StandardEventMappingDAL.upsertStandardEventMapping(projectId, 'add_to_cart', {
+      event_id: eventId,
+      variant_id: variant.id,
+    });
+    VariantDAL.deleteVariant(projectId, eventId, variant.id, { force: true });
+    expect(VariantDAL.listVariants(projectId, eventId)).toHaveLength(0);
+    const mapping = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'add_to_cart');
+    expect(mapping).not.toBeNull();
+    expect(mapping?.variant_id).toBeNull();
+    expect(mapping?.event_id).toBe(eventId);
+  });
+
+  it('deletes a variant with no mapping normally, force or not', () => {
+    const variant = VariantDAL.createVariant(projectId, eventId, {
+      conditions: [{ property_id: channelPropertyId, operator: 'equals', values: ['web'] }],
+    });
+    VariantDAL.deleteVariant(projectId, eventId, variant.id, { force: false });
     expect(VariantDAL.listVariants(projectId, eventId)).toHaveLength(0);
   });
 });

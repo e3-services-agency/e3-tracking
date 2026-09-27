@@ -13,6 +13,7 @@ import * as ObservationDAL from '../../backend/dal/observation.dal';
 import type { ObservationRow } from '../../backend/dal/observation.dal';
 import { createEventResolver } from '../../backend/services/eventResolution';
 import { previewCustomerEventsExport, applyCustomerEventsExport } from '../../backend/services/customerEventsExportImport.service';
+import { parseCustomerEventsExport } from '../../domain/import/customerEventsExport';
 import { resolveProject } from '../resolve';
 import { getSessionRunId, setSessionRunId } from '../session';
 import { McpToolError } from '../errors';
@@ -91,7 +92,10 @@ export interface SubmitObservationsBatchInput {
 }
 
 export interface SubmitObservationsBatchResult {
-  qa_run_id: string;
+  /** `null` only when every row was already a duplicate, no `qa_run_id` was given, and the owning
+   * run could not be determined (T-2-10 pre-QA fix, reviewer WARNING 2: never the empty string --
+   * an agent cannot `finish_qa_run`/filter findings on `''`). */
+  qa_run_id: string | null;
   inserted: number;
   duplicates: number;
 }
@@ -118,7 +122,8 @@ export async function submitObservationsBatch(input: SubmitObservationsBatchInpu
   const preview = previewCustomerEventsExport(project.id, input.export);
   const selectedItemIds = preview.items.filter((item) => item.default_selected).map((item) => item.id);
   if (selectedItemIds.length === 0) {
-    return { qa_run_id: input.qa_run_id ?? '', inserted: 0, duplicates: preview.duplicate_count };
+    const qaRunId = input.qa_run_id ?? findDuplicateOwnerRunId(project.id, input.export);
+    return { qa_run_id: qaRunId, inserted: 0, duplicates: preview.duplicate_count };
   }
   const result = applyCustomerEventsExport(
     project.id,
@@ -129,4 +134,20 @@ export async function submitObservationsBatch(input: SubmitObservationsBatchInpu
     input.qa_run_id
   );
   return { qa_run_id: result.run.id, inserted: result.inserted, duplicates: preview.duplicate_count };
+}
+
+/**
+ * When every previewed row is already a duplicate and no `qa_run_id` was given, names the run that
+ * holds them (T-2-10 pre-QA fix, reviewer WARNING 2) by re-hashing the first parsed event the same
+ * way `observation.dal.ts#computeRawHash` does and looking up its owning observation. `null` when
+ * the export is empty or, for a payload the parser could not resolve any event from at all, when
+ * that lookup itself misses (should not happen for a payload `previewCustomerEventsExport` already
+ * classified as "every item is a duplicate").
+ */
+function findDuplicateOwnerRunId(projectId: string, rawJson: unknown): string | null {
+  const model = parseCustomerEventsExport(rawJson);
+  const first = model.events[0];
+  if (!first) return null;
+  const rawHash = ObservationDAL.computeRawHash(first.type, first.timestamp, first.properties);
+  return ObservationDAL.findObservationByRawHash(projectId, rawHash)?.qa_run_id ?? null;
 }

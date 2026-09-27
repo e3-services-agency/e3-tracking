@@ -1,9 +1,11 @@
 /**
  * T-2-10 acceptance: "a test asserts nothing in `src/mcp` or `src/backend/db` writes to
- * `process.stdout`." Two checks: a static grep for `console.log`/`process.stdout.write` in either
- * tree (the intended guard, since stdio reserves stdout for the JSON-RPC wire protocol, D-19), plus
- * a runtime spy on `process.stdout.write` exercised while running a representative MCP tool call
- * (including a `getDb()`/migration run against a fresh `:memory:` database) end to end.
+ * `process.stdout`." Two checks: a static grep for `console.log`/`info`/`warn`/`debug`/`dir`/`table`
+ * and `process.stdout.write` in either tree (the intended guard, since stdio reserves stdout for the
+ * JSON-RPC wire protocol, D-19 -- T-2-10 pre-QA fix, reviewer LOW 5: `console.debug`/`dir`/`table`
+ * also write to stdout and were missing from the first cut's regex), plus a runtime spy on
+ * `process.stdout.write` exercised while running a representative MCP tool call (including a
+ * `getDb()`/migration run against a fresh `:memory:` database) end to end.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
@@ -31,7 +33,7 @@ function collectSourceFiles(dir: string): string[] {
 }
 
 describe('no stdout writes', () => {
-  it('src/mcp and src/backend/db never call console.log/console.info/console.warn or process.stdout.write outside comments', () => {
+  it('src/mcp and src/backend/db never call console.log/info/warn/debug/dir/table or process.stdout.write outside comments', () => {
     const trees = [path.resolve(__dirname, '.'), path.resolve(__dirname, '../backend/db')];
     const offenders: string[] = [];
     for (const tree of trees) {
@@ -39,7 +41,7 @@ describe('no stdout writes', () => {
         const lines = readFileSync(file, 'utf-8').split('\n');
         lines.forEach((line, idx) => {
           const codeOnly = line.split('//')[0];
-          if (/console\.(log|info|warn)\s*\(/.test(codeOnly) || /process\.stdout\.write\s*\(/.test(codeOnly)) {
+          if (/console\.(log|info|warn|debug|dir|table)\s*\(/.test(codeOnly) || /process\.stdout\.write\s*\(/.test(codeOnly)) {
             offenders.push(`${file}:${idx + 1}: ${line.trim()}`);
           }
         });

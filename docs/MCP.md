@@ -24,14 +24,16 @@ QA round without going through the web UI.
 
 ## How Claude Code picks up `.mcp.json`
 
-The repo root `.mcp.json` registers the server:
+The repo root `.mcp.json` registers the server. Native Windows (no shell) cannot `spawn('npx', ...)`
+directly — `npx` there is `npx.cmd`, not an executable Node can exec without a shell wrapper, so
+`.mcp.json` uses the `cmd /c` form:
 
 ```json
 {
   "mcpServers": {
     "e3-tracking": {
-      "command": "npx",
-      "args": ["tsx", "src/mcp/server.ts"],
+      "command": "cmd",
+      "args": ["/c", "npx", "tsx", "src/mcp/server.ts"],
       "env": {
         "E3_DB_PATH": "./data/e3-tracking.sqlite",
         "E3_PROJECT_KEY": ""
@@ -41,11 +43,26 @@ The repo root `.mcp.json` registers the server:
 }
 ```
 
+On macOS/Linux (or inside WSL/Git Bash, which already provide a shell), the plain POSIX form works
+too and is what you'd use if you ever need to invoke the server directly from a shell script instead
+of through `.mcp.json`:
+
+```json
+{
+  "command": "npx",
+  "args": ["tsx", "src/mcp/server.ts"]
+}
+```
+
+`args`/`env` are otherwise identical between the two forms. Both were verified by spawning the exact
+command as a Node child process and completing `initialize` + `tools/list` over its stdio.
+
 Claude Code reads `.mcp.json` from the current working directory (and its ancestors) automatically
-when it starts a session in this repository — no separate install step. Set `E3_PROJECT_KEY` to a
-project's `key` (see `list_projects`) if you want every tool call to default to that project without
-passing `project_key` each time; leave it empty to require `project_key` on every call. A tool call
-with no `project_key` and no `E3_PROJECT_KEY` fails with `PROJECT_NOT_FOUND`.
+when it starts a session in this repository — no separate install step (Claude Code does prompt once
+to approve a new project-scoped `.mcp.json` server the first time it sees one). Set `E3_PROJECT_KEY`
+to a project's `key` (see `list_projects`) if you want every tool call to default to that project
+without passing `project_key` each time; leave it empty to require `project_key` on every call. A tool
+call with no `project_key` and no `E3_PROJECT_KEY` fails with `PROJECT_NOT_FOUND`.
 
 Every tool call is visible as a normal tool-use turn in the Claude Code conversation; the server's own
 log lines (`src/mcp/log.ts`) show up as the MCP server's stderr output, not as chat content.
@@ -76,23 +93,30 @@ on an empty project too, just with fewer/no findings at the end.
    the next calls' `project_key` (or set `E3_PROJECT_KEY` in `.mcp.json` once and omit it everywhere).
 2. **`submit_observations_batch`** with `.claude/team/samples/customer-events-export.json` as the
    `export` argument — expect `{"qa_run_id": "...", "inserted": 19, "duplicates": 0}` on a project that
-   has never seen this fixture before. Calling it again with the same file expects
-   `{"inserted": 0, "duplicates": 19}` (every row is now a duplicate of the first run). Passing an
-   existing run's id as `qa_run_id` inserts into that run instead of creating a new `export_paste`
-   one — call `finish_qa_run` with the same id afterwards to see `finished_at` set and the run show
-   as finished on the QA runs page.
+   has never seen this fixture before. Calling it again with the same file and no `qa_run_id` expects
+   `{"qa_run_id": "<the first call's run id>", "inserted": 0, "duplicates": 19}` (every row is now a
+   duplicate of the first run; `qa_run_id` is `null`, never `""`, only in the unlikely case the owning
+   run cannot be determined). Passing an existing run's id as `qa_run_id` inserts into that run instead
+   of creating a new `export_paste` one — call `finish_qa_run` with the same id afterwards to see
+   `finished_at` set and the run show as finished on the QA runs page (`finish_qa_run` only sets
+   `finished_at`/`notes`; it does not itself recompute findings — call `run_comparison` too if you
+   want fresh ones).
 3. **`run_comparison`** — expect a `ComparisonSummary`: `{"open": {"error": n, "warning": n, "info": n},
-   "produced": n, "resolved": n, "by_comparison": {...}}`. On the fixture project (data mapping +
-   expiration settings + the type-fixing edits from `docs/QA-LOCAL.md` applied first, then this
-   fixture), `open.error` includes the scenario 4 findings below.
+   "produced": n, "resolved": n, "by_comparison": {...}}` (`scope` is accepted but ignored, same as
+   `POST /comparison/run` — every comparison always recomputes over the whole project). On the fixture
+   project (data mapping + expiration settings + the type-fixing edits from `docs/QA-LOCAL.md` applied
+   first, then this fixture), `open.error` includes the scenario 4 findings below.
 4. **`list_findings`** — expect (among others, default `status: 'open'`) the scenario 4 findings:
    `type_mismatch` on `total_price`/`price`/`is_new`, and `rounding_drift` on `purchase_item.price` x
    `quantity` vs `purchase.total_price` (see `docs/QA-LOCAL.md` for the full list on the fixture
    project).
 5. **`get_expected_payload`** for `{"event": "cart_update", "variant": "cart_update[action=add]"}` —
    expect `discriminators.action` to include `add`/`remove` (whatever the property's allowed values
-   are), `rules` to list the event's rules (e.g. the seeded `purchase_items_total`-style guardrails),
-   and `item_schemas` to carry the array property's field list when one is attached.
+   are) and `item_schemas` to carry the array property's field list when one is attached. `rules` is
+   empty on the fixture project as shipped: the one seeded rule (`purchase_items_total`, D-30/D-31) is
+   on `purchase`, not `cart_update` — call `get_expected_payload` for `{"event": "purchase"}` instead to
+   see it, or attach a rule to `cart_update` by hand first (`src/mcp/tools/tools.test.ts` exercises the
+   `rules`/`item_schemas` shape with a test-created event and rule).
 
 ## Verifying the process starts and answers `tools/list`
 
@@ -101,9 +125,12 @@ beyond the stderr line `[mcp] INFO e3-tracking MCP server ready on stdio`. To co
 without an MCP client, spawn it as a child process and speak minimal JSON-RPC over its stdin/stdout
 (this is exactly what `src/mcp/server.ts`'s own manual verification used, T-2-10): send an
 `initialize` request, then a `tools/list` request, and check the response's `result.tools.length` is
-`13` and every name in the "Tools" list above appears. `src/mcp/tools/tools.test.ts` and
+`13` and every name in the "Tools" list above appears. Verify with the *exact* `.mcp.json` command on
+your platform — on native Windows that means spawning `command: "cmd", args: ["/c", "npx", "tsx",
+"src/mcp/server.ts"]`, not a bare `npx` (`spawn('npx', ...)` without a shell fails with `ENOENT` there,
+since `npx` resolves to `npx.cmd`, not a directly-executable file). `src/mcp/tools/tools.test.ts` and
 `src/mcp/noStdout.test.ts` cover the handlers and the stdout guard at the unit level; the child-process
-check is a one-off manual script, not part of `npm test` (spawning `tsx` as a subprocess is slow and
+check is a one-off manual script, not part of `npm test` (spawning a subprocess is slow and
 platform-sensitive to run on every CI pass).
 
 ## Adding a tool

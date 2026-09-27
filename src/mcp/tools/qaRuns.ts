@@ -3,6 +3,10 @@
  * authoritative -- this was missing from the first cut). `project_key?, qa_run_id` -> sets
  * `finished_at` via the same `qa-run.dal.ts#finishQaRun` the `POST /qa-runs/:id/finish` route uses,
  * and returns the updated run.
+ *
+ * Deviation from the plan table's one-line description ("run; triggers run_comparison", reviewer
+ * LOW 3): this does *not* run comparison, same as `POST /qa-runs/:id/finish` -- call `run_comparison`
+ * separately for fresh findings after finishing a run.
  */
 import * as QaRunDAL from '../../backend/dal/qa-run.dal';
 import type { QaRunRow } from '../../backend/dal/qa-run.dal';

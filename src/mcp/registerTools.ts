@@ -154,7 +154,7 @@ export function registerTools(server: McpServer): void {
   register(
     server,
     'finish_qa_run',
-    'Marks a QA run finished (sets finished_at); returns the updated run.',
+    'Marks a QA run finished (sets finished_at); returns the updated run. Does not run comparison -- call run_comparison separately if you want fresh findings.',
     { ...projectKeyShape, qa_run_id: z.string(), notes: z.string().optional() },
     finishQaRun
   );
@@ -162,7 +162,7 @@ export function registerTools(server: McpServer): void {
   register(
     server,
     'run_comparison',
-    'Recomputes every comparison engine over the whole project and returns the findings summary.',
+    'Recomputes every comparison engine over the whole project (scope is accepted but ignored -- it never narrows the recompute, same as POST /comparison/run) and returns the findings summary.',
     { ...projectKeyShape, scope: z.object({ event: z.string().optional(), qa_run_id: z.string().optional() }).optional() },
     runComparison
   );

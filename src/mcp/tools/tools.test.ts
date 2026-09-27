@@ -158,16 +158,31 @@ describe('submit_observation', () => {
 });
 
 describe('submit_observations_batch', () => {
-  it('inserts every event from the fixture, and reports duplicates on re-submit', async () => {
+  it('inserts every event from the fixture, and reports duplicates on re-submit, naming the run that holds them', async () => {
     const raw = JSON.parse(readFileSync(FIXTURE_PATH, 'utf-8'));
 
     const first = await submitObservationsBatch({ project_key: projectKey, export: raw });
     expect(first.inserted).toBe(19);
     expect(first.duplicates).toBe(0);
+    expect(typeof first.qa_run_id).toBe('string');
 
+    // Reviewer WARNING 2 (T-2-10 pre-QA fix): when every row is already a duplicate and no
+    // qa_run_id was given, qa_run_id must be the run holding the duplicates, never ''.
     const second = await submitObservationsBatch({ project_key: projectKey, export: raw });
     expect(second.inserted).toBe(0);
     expect(second.duplicates).toBe(19);
+    expect(second.qa_run_id).toBe(first.qa_run_id);
+    expect(second.qa_run_id).not.toBe('');
+  });
+
+  it('returns qa_run_id: null (never "") for an all-duplicate resubmit whose owning run cannot be determined', async () => {
+    // An empty `events` array previews as "every item is a duplicate" (zero items, zero selected)
+    // without ever having inserted anything to look a run up from.
+    const empty = { customer_id: 'c1', project: 'e3', url: null, events_listed: 0, note: null, events: [] };
+
+    const result = await submitObservationsBatch({ project_key: projectKey, export: empty });
+
+    expect(result).toEqual({ qa_run_id: null, inserted: 0, duplicates: 0 });
   });
 
   it('inserts into an existing qa_run_id instead of creating a new run, and dedupes within it on re-submit', async () => {

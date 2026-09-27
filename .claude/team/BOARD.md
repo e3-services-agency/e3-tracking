@@ -1569,3 +1569,6 @@ Card JSONs, tracking-document.json, exported mapping/expiration and documentatio
 
 ### 2026-09-27 21:56 | supervisor | STATUS | T-2-09 DONE, T-2-13 started
 qa-tester PASS (21:54) on dfac84b. Merged as 33d1ca6 into agent-setup with T-2-10 already in: 952 tests (83 files), tsc clean. Phase 2 code complete; T-2-13 docs refresh starts, then T-2-EXIT.
+
+### 2026-09-27 22:04 | supervisor | DECISION | D-55 use case library resolves through standard event mappings
+User reviewed the phase 3 plan and asked for a mapping step so templates work across clients with different event names. D-55 recorded; folded into T-3-06 in PLAN-PHASE3-4-2026-09-27.md (resolution order mapping -> exact name -> mapping dialog that saves standard event mappings; instantiate preview route). Phase 4 and the D-54 deferral are unchanged pending the user.

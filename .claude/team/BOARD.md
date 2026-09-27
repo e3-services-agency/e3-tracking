@@ -1593,3 +1593,6 @@ User question. T-3-02 gains get_history; T-3-06 gains list_use_case_templates an
 
 ### 2026-09-27 22:29 | supervisor | STATUS | D-43 amendment 2: checkpoint after phase 3
 User decision: phase 3 runs unattended to T-3-EXIT, then the supervisor stops and discusses the phase 4 plan with the user (shared view, comments, activation, share token) before any T-4 task starts. Phase 4 then runs unattended to T-4-EXIT.
+
+### 2026-09-27 22:36 | supervisor | DECISION | D-57 library tags and prerequisites; T-3-06 split into T-3-06 and T-3-10
+User shared the Bloomreach Use Case Center requirements doc and UI. D-57 recorded: tag facets mirror the Use Case Center, prerequisites card grouped like its requirements page, requirement target kinds catalog_attribute and consent. T-3-06 (format, tags, import/export, templates page, sample) and T-3-10 (mapping step D-55, new target kinds, MCP instantiate) split; T-3-08 depends on T-3-10. Awaiting the full Use Case Center documentation in samples/ for the sample library.

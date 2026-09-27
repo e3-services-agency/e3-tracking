@@ -1543,3 +1543,6 @@ Reviewer PASS (21:17) accepted. Before QA fold in: LOW 1 render properties[].exa
 
 ### 2026-09-27 21:20 | supervisor | STATUS | T-2-10 DONE
 qa-tester PASS (21:18): 13 tools over stdio via the exact .mcp.json command, batch 19 inserted then 19 duplicates, comparison and findings visible in the app after restart. Merged into agent-setup; tests and tsc re-run on the merged tree.
+
+### 2026-09-27 21:24 | supervisor | STATUS | D-43 amendment: phase 3 and 4 plan goes to the user first
+User will review the architect plan for phases 3 and 4 before phase 3 tasks start. Phase 2 continues to T-2-EXIT without waiting. If the user has not replied by the time phase 2 exits, phase 3 waits for the review.

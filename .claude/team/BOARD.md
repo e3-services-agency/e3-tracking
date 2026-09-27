@@ -1512,3 +1512,31 @@ Summary lines: Test Files 81 passed (81) / Tests 936 passed (936); npx tsc --noE
 
 ### 2026-09-27 21:19 | supervisor | STATUS | Continuous run authorised (D-43)
 User instruction: proceed through phase 2 exit into phases 3 and 4 without stopping. D-43 recorded. Architect starts the phase 3 and 4 task plan now, in parallel with the T-2-09 delta review and T-2-10 QA.
+
+### 2026-09-27 21:18 | qa-tester -> supervisor | PASS | T-2-10
+Branch task/T-2-10-mcp-server, HEAD 570b1c2, tested in worktree `.claude/worktrees/agent-a50e568c81c9f7dc3`. Fresh scratch DB `data/qa-t210.sqlite` (deleted first). Part A: API (3001) + Vite (`--port 3010`, PORT 3000 RULE) started, created client `qa-t210` / project `qa-t210-project` through the UI, pasted `data-mapping.json` (applied 40 items, empty-catalog warning shown) and `expiration-settings.json` (applied 7 items) through the Import page, no console errors, zero supabase requests; both servers stopped (verified 3001/3010 free) before driving MCP. Node driver script (`cmd.exe /c npx tsx src/mcp/server.ts`, `E3_DB_PATH=data/qa-t210.sqlite`, `E3_PROJECT_KEY=qa-t210-project`) spoke raw JSON-RPC over stdio: `initialize` + `tools/list` = 13 tools matching `docs/MCP.md`'s list; `list_projects` shows the client/project; `list_events` default returns the 6 custom events only; `get_expected_payload` for `cart_update[action=add]` returns `discriminators.action: ["add"]`; `submit_observations_batch` with the fixture: first call `{inserted:19, duplicates:0}`, resubmit `{inserted:0, duplicates:19}`, same `qa_run_id` both times; `run_comparison` returns a full `ComparisonSummary` with `by_comparison`; `finish_qa_run` sets `finished_at`/`notes`, kind `export_paste`; `submit_observation` without `qa_run_id` created one `agent_session` run and a second call in the same process reused it; `get_coverage_grid` for `cart_update` returns the correct row/column/cell shape; `get_tracking_document` returns `{events: [12], unattached_findings: [4], ...}` — saved to `.claude/team/reports/qa/T-2-10/tracking-document.json`; bad input (`properties` as a string) returned `{isError:true}` with a validation message, no crash; unknown `project_key` returned `PROJECT_NOT_FOUND: No project with key "no-such-project-xyz".`. Stdout carried only JSON-RPC frames across all 3 script runs (0 non-JSON lines each); stderr carried only `[mcp] INFO e3-tracking MCP server ready on stdio`. Full script output saved to `.claude/team/reports/qa/T-2-10/smoke.log`.
+Scenario 4 findings: reproducing them needed the `docs/QA-LOCAL.md` "Phase 1 round-trip recipe" step 4 (retype `total_price`/`price` to number+money, `quantity`/`total_quantity`/`stock_level` to number, create `is_new` boolean on `purchase_item`) plus applying the `purchase_items_total` rule template (both done via direct API calls after the batch import, since the import preview itself warned "total_price needs the money data format before this rule can be applied" — expected per D-25 Q12, not a defect) — after that, `list_findings` showed `type_mismatch` on `total_price` (purchase, cart_update), `price` (purchase_item, view_item), `is_new` (purchase_item), `total_quantity`/`stock_level`, `shape_inconsistent` on `product_ids`, `rounding_drift` (28.4 vs 28, tolerance money) via the rule, and `rename_mismatch` on the `newsletter`/`brand_consent` consent — matching the qa-roundtrip skill's scenario 4 list and `docs/MCP.md`'s smoke test description. This is INFO, not a fail: the docs already state the prerequisite and the implementer/reviewer accounted for it.
+Part B: restarted API+Vite on the same `data/qa-t210.sqlite`; QA runs page shows the `export_paste` run marked finished plus two `agent_session` runs (one per separate MCP process invocation — expected, `submit_observation` reuses a run only within one process per D-25/session.ts); Findings page lists the findings with filters. Part C: no app-level console errors; the only console errors were repeated Vite HMR `WebSocket connection ... failed` lines, an artifact of the PORT 3000 RULE workaround (`--port 3010 --host 0.0.0.0` without a matching HMR client port), not an app defect; zero `supabase` network requests. All servers and the child MCP process stopped; 3001 and 3010 confirmed free.
+Verdict: PASS. No defects found in T-2-10.
+
+| # | Scenario | Result |
+|---|---|---|
+| 1 | tools/list = 13 tools | PASS |
+| 2 | list_projects shows project | PASS |
+| 3 | list_events default class=custom | PASS |
+| 4 | get_expected_payload cart_update[action=add] | PASS |
+| 5 | submit_observations_batch 19 inserted / 19 duplicates, same qa_run_id | PASS |
+| 6 | run_comparison summary | PASS |
+| 7 | list_findings scenario 4 findings (after documented prerequisite edits) | PASS |
+| 8 | finish_qa_run | PASS |
+| 9 | submit_observation agent_session create+reuse | PASS |
+| 10 | get_coverage_grid cart_update | PASS |
+| 11 | get_tracking_document events[]/unattached_findings[] | PASS |
+| 12 | bad input isError, no crash | PASS |
+| 13 | unknown project_key clear error | PASS |
+| 14 | stdout = JSON-RPC only, stderr separate | PASS |
+| B | QA runs page + Findings page after restart | PASS |
+| C | No console errors (excl. Vite HMR websocket artifact), zero supabase requests | PASS |
+
+### 2026-09-27 21:19 | supervisor -> implementer | DECISION | T-2-09 pre-QA fixes
+Reviewer PASS (21:17) accepted. Before QA fold in: LOW 1 render properties[].example and findings[].qa_run_id, first_seen, last_seen on the card; LOW 2 move Use cases before Open findings to match the document order; LOW 3 setFindingStatus resolved on an already resolved row is a no-op (200, unchanged) so recompute-resolved findings never gain the user marker; NIT 4 docblock. Stays at QA after the fix commit; QA runs after the T-2-10 smoke test releases the ports.

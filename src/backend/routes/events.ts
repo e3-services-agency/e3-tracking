@@ -14,6 +14,7 @@ import {
   computeEventCertification,
   computeEventCoverageGrid,
 } from '../services/document.service';
+import type { EventCard } from '../../domain/document/trackingDocument';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -22,7 +23,7 @@ const router = Router({ mergeParams: true });
  * (yes / no / n.a. with reasons)"): `applicable: false` (sdk/platform, D-29) reads as `n/a`, else
  * `yes`/`no` from `EventCard.certification.certified`. Computed in one project-wide pass
  * (`computeCertificationsForProject`), not per row. */
-function certifiedLabel(certification: ReturnType<typeof computeCertificationsForProject> extends Map<string, infer V> ? V : never): 'yes' | 'no' | 'n/a' {
+function certifiedLabel(certification: EventCard['certification']): 'yes' | 'no' | 'n/a' {
   if (!certification.applicable) return 'n/a';
   return certification.certified ? 'yes' : 'no';
 }

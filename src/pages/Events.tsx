@@ -5,7 +5,7 @@
  * editors. Trigger images upload through the local FileStore (D-14) and render from
  * `GET /api/projects/:id/files/*`.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, Loader2, Upload, FileDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -100,6 +100,14 @@ export function Events() {
       setRequestedTab('eventCard');
     },
     [setEventCardEventId, setRequestedTab]
+  );
+
+  // LOW 5 fix round: the empty state must react to the `class` filter, not the unfiltered list --
+  // a project whose custom filter (default) matches nothing used to render a headerless empty
+  // table with no "No events found" row.
+  const filteredEvents = useMemo(
+    () => events.filter((ev) => classFilter === 'all' || ev.class === classFilter),
+    [events, classFilter]
   );
 
   const handleDownloadDocumentation = useCallback(async () => {
@@ -220,8 +228,7 @@ export function Events() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {events
-                .filter((ev) => classFilter === 'all' || ev.class === classFilter)
+              {filteredEvents
                 .map((ev) => (
                   <tr key={ev.id} onClick={() => { setSelectedId(ev.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
                     <td className="px-6 py-4 font-medium text-gray-900">{ev.name}</td>
@@ -243,8 +250,12 @@ export function Events() {
                     </td>
                   </tr>
                 ))}
-              {events.length === 0 && (
-                <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-500">No events found.</td></tr>
+              {filteredEvents.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                    {events.length === 0 ? 'No events found.' : 'No events match this class filter.'}
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>

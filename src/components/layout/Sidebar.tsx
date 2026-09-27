@@ -43,6 +43,7 @@ export function Sidebar({
     { id: 'consentCategories', label: 'Consent categories', icon: ShieldCheck },
     { id: 'standardEvents', label: 'Standard events', icon: GitBranch },
     { id: 'useCases', label: 'Use cases', icon: ListChecks },
+    { id: 'useCaseTemplates', label: 'Use case templates', icon: BookOpen },
     { id: 'requirementsMatrix', label: 'Requirements matrix', icon: Grid3x3 },
     { id: 'sources', label: 'Sources', icon: LayoutDashboard },
     { id: 'import', label: 'Import', icon: UploadCloud },

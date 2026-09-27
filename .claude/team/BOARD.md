@@ -1587,3 +1587,6 @@ User agreed: optional passphrase per share link is a phase 5 item next to token 
 
 ### 2026-09-27 22:21 | supervisor | DECISION | D-56 use case activation and asset links, T-4-06 added
 User brainstorm: use cases are realised in Bloomreach initiatives built late in the project; asset links must be optional and emerge over time; activation status gives the delivery overview without project management fields. D-56 recorded; T-4-06 added to the phase 4 plan with migration 0018; the initiative export import is conditional on a sample in samples/. Phase 3 backup and CSV must include use_cases.activation and assets_json (T-3-03, T-3-04, T-3-05 implementers: reserve the columns, they exist from 0018 onward, so export them when present).
+
+### 2026-09-27 22:25 | supervisor | STATUS | MCP coverage for phase 3 added to the plan
+User question. T-3-02 gains get_history; T-3-06 gains list_use_case_templates and instantiate_use_case_template (dry_run preview, mappings); T-3-07 gains update_observation, delete_observation, delete_qa_run. Backup, restore and CSV stay out of MCP. Implementers of these tasks touch src/mcp/registerTools.ts: merge order T-3-02 -> T-3-07 -> T-3-06 or resolve the additive registration conflicts keep-both.

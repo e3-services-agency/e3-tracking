@@ -33,8 +33,8 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-2-10 | 2 | MCP server: dependencies, stdio process, tools, .mcp.json, docs/MCP.md smoke test | implementer | T-2-08 | DONE | see below |
 | T-2-11 | 2 | Use case narrative generation, QA run export, use case coverage | implementer | T-2-01 | DONE | see below |
 | T-2-12 | 2 | Identity alignment: identifier_name, transformations, sdk_call, identity codegen, ASCII validation | implementer | T-2-01 | DONE | see below |
-| T-2-13 | 2 | Docs refresh: CLAUDE.md, docs/DOMAIN.md, docs/QA-LOCAL.md, qa-roundtrip scenario 8 correction proposal | docs-writer | T-2-09, T-2-10, T-2-11, T-2-12 | IN_PROGRESS | see below |
-| T-2-EXIT | 2 | Phase 2 exit: qa-roundtrip 1 to 8 plus MCP smoke on merged agent-setup, report to user | supervisor | T-2-13 | TODO | see below |
+| T-2-13 | 2 | Docs refresh: CLAUDE.md, docs/DOMAIN.md, docs/QA-LOCAL.md, qa-roundtrip scenario 8 correction proposal | docs-writer | T-2-09, T-2-10, T-2-11, T-2-12 | DONE | see below |
+| T-2-EXIT | 2 | Phase 2 exit: qa-roundtrip 1 to 8 plus MCP smoke on merged agent-setup, report to user | supervisor | T-2-13 | IN_PROGRESS | see below |
 
 Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktrees after T-1-02 merges. Everything else is sequential per the dependency column.
 

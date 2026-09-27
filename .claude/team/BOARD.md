@@ -1572,3 +1572,9 @@ qa-tester PASS (21:54) on dfac84b. Merged as 33d1ca6 into agent-setup with T-2-1
 
 ### 2026-09-27 22:04 | supervisor | DECISION | D-55 use case library resolves through standard event mappings
 User reviewed the phase 3 plan and asked for a mapping step so templates work across clients with different event names. D-55 recorded; folded into T-3-06 in PLAN-PHASE3-4-2026-09-27.md (resolution order mapping -> exact name -> mapping dialog that saves standard event mappings; instantiate preview route). Phase 4 and the D-54 deferral are unchanged pending the user.
+
+### 2026-09-27 22:06 | docs-writer -> supervisor | PASS | T-2-13
+Posted by supervisor. CLAUDE.md (structure, routes, services, migrations 0009-0014, MCP section, pages, phase status), docs/DOMAIN.md (event class, rules, four comparisons, certification incl. D-42, Data Manager formats), docs/QA-LOCAL.md (PORT 3000 RULE, MCP pointer, scenario 7 recipe), qa-roundtrip scenario 8 corrected (purchase.total_price number/user). docs/MCP.md and docs/TRACKING-DOCUMENT.md verified accurate. Noted: narrative regenerate route path differs from D-32 text (accepted LOW); deferred comparison rows already in T-3-07 scope.
+
+### 2026-09-27 22:06 | supervisor | STATUS | T-2-13 DONE, T-2-EXIT started
+Phase 2 exit QA runs qa-roundtrip 1 to 8 plus the MCP smoke test on merged agent-setup.

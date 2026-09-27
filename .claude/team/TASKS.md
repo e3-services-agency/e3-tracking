@@ -41,7 +41,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-3-03 | 3 | CSV export per entity: csv.ts headers, service, routes, Settings export block | implementer | T-3-00 | REVIEW | see below |
 | T-3-04 | 3 | Full JSON backup export with embedded files | implementer | T-3-01 | TODO | see below |
 | T-3-05 | 3 | Restore backup as new project: preview/apply, id remap, files, template re-link, UI | implementer | T-3-04 | TODO | see below |
-| T-3-06 | 3 | Use case library: format with tags (D-57), parser, import preview/apply, export, instantiate with code, templates page with facet filters and prerequisites card, sample library | implementer | T-3-00 | IN_PROGRESS | see below |
+| T-3-06 | 3 | Use case library: format with tags (D-57), parser, import preview/apply, export, instantiate with code, templates page with facet filters and prerequisites card, sample library | implementer | T-3-00 | REVIEW | see below |
 | T-3-10 | 3 | Library resolution: mapping step (D-55), catalog_attribute and consent requirement targets (D-57), matrix and coverage updates, project industry field, MCP list/instantiate tools | implementer | T-3-06 | TODO | see below |
 | T-3-07 | 3 | QA evidence maintenance and carried fixes: observation edit/delete, run delete, variant delete guard, identity codegen dedupe, open review items | implementer | T-3-00 | REVIEW | see below |
 | T-3-08 | 3 | Dead-code sweep per the verified list, schema.ts reduction, legacy docs removal | implementer | T-3-02, T-3-03, T-3-05, T-3-07, T-3-10 | TODO | see below |

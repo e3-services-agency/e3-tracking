@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "e3-tracking": {
+      "command": "cmd",
+      "args": ["/c", "npx", "tsx", "src/mcp/server.ts"],
+      "env": {
+        "E3_DB_PATH": "./data/e3-tracking.sqlite",
+        "E3_PROJECT_KEY": ""
+      }
+    }
+  }
+}

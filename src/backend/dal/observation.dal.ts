@@ -67,6 +67,14 @@ export function computeRawHash(eventType: string, timestamp: number, properties:
   return createHash('sha1').update(payload).digest('hex');
 }
 
+/** The most recently captured observation of this project carrying `rawHash`, or `null` (T-2-10 pre-QA fix: lets `submit_observations_batch` name the run an all-duplicate resubmit's rows already live in, instead of an empty `qa_run_id`). */
+export function findObservationByRawHash(projectId: string, rawHash: string): ObservationRow | null {
+  const row = getDb()
+    .prepare('SELECT * FROM observations WHERE project_id = ? AND raw_hash = ? ORDER BY captured_at DESC LIMIT 1')
+    .get(projectId, rawHash) as ObservationDbRow | undefined;
+  return row ? mapRow(row) : null;
+}
+
 export function listObservationsByRun(projectId: string, qaRunId: string): ObservationRow[] {
   getQaRunOrThrow(projectId, qaRunId);
   return (

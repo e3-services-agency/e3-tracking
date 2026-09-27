@@ -146,7 +146,8 @@ export function applyCustomerEventsExport(
   rawJson: unknown,
   expectedHash: string,
   selectedItemIds: string[],
-  actor: string | null
+  actor: string | null,
+  targetRunId?: string
 ): CustomerEventsApplyResult {
   if (payloadHash(rawJson) !== expectedHash) {
     throw new PayloadChangedError('The payload changed since preview; re-run preview before applying.');
@@ -156,6 +157,10 @@ export function applyCustomerEventsExport(
   if (selected.size === 0) {
     throw new NoObservationsSelectedError('Select at least one observation to apply.', 'selected_item_ids');
   }
+  // MCP `submit_observations_batch` (T-2-10 addendum): an existing run to insert into, instead of
+  // always starting a new `export_paste` run. Validated up front (`getQaRunOrThrow`) so a bad id
+  // fails before the transaction, same as every other write in this codebase.
+  if (targetRunId) QaRunDAL.getQaRunOrThrow(projectId, targetRunId);
 
   const db = getDb();
   let run!: QaRunDAL.QaRunRow;
@@ -163,12 +168,14 @@ export function applyCustomerEventsExport(
   let skipped = 0;
 
   const write = db.transaction(() => {
-    run = QaRunDAL.createQaRun(projectId, {
-      kind: 'export_paste',
-      actor,
-      customer_id: model.customer_id,
-      source_meta_json: { url: model.url, events_listed: model.events_listed, note: model.note },
-    });
+    run = targetRunId
+      ? QaRunDAL.getQaRunOrThrow(projectId, targetRunId)
+      : QaRunDAL.createQaRun(projectId, {
+          kind: 'export_paste',
+          actor,
+          customer_id: model.customer_id,
+          source_meta_json: { url: model.url, events_listed: model.events_listed, note: model.note },
+        });
 
     const resolve = createEventResolver(projectId);
     model.events.forEach((evt, index) => {

@@ -1581,3 +1581,6 @@ Phase 2 exit QA runs qa-roundtrip 1 to 8 plus the MCP smoke test on merged agent
 
 ### 2026-09-27 22:07 | supervisor | STATUS | Phase 3 and 4 plan reviewed by the user
 User accepted the phase 3 plan (with D-55 folded into T-3-06), phase 4 as proposed, and the D-54 deferral of cross-project copy with provenance (backup/restore covers cloning). Share-link password: not a requirement; see the D-48 note below. Proposed decisions D-44..D-54 are recorded at phase 3 start.
+
+### 2026-09-27 22:10 | supervisor | STATUS | Share-link passphrase deferred to phase 5
+User agreed: optional passphrase per share link is a phase 5 item next to token hashing and rate limiting. Noted on D-48 in the phase 3 and 4 plan; recorded in DECISIONS.md when D-48 is formally added at phase 4 start.

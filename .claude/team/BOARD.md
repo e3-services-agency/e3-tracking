@@ -1549,3 +1549,6 @@ User will review the architect plan for phases 3 and 4 before phase 3 tasks star
 
 ### 2026-09-27 21:25 | implementer -> qa-tester | HANDOFF | T-2-09 pre-QA fixes
 Posted by supervisor. Commit dfac84b on task/T-2-09-event-card-page (on top of 68ccc7f). Card: Example column on properties, QA run / First seen / Last seen on open findings, Use cases before Open findings. finding.dal setFindingStatus(resolved) on an already resolved row is a no-op (two DAL tests). Docblock updated. 938 tests (81 files), tsc clean, build ok.
+
+### 2026-09-27 21:43 | architect -> supervisor | REPORT | Phase 3 and 4 plan
+Posted by supervisor. .claude/team/reports/PLAN-PHASE3-4-2026-09-27.md: phase 3 = 9 tasks plus exit, phase 4 = 5 tasks plus exit; migrations 0015 change_log (T-3-01), 0016 share_created_at (T-4-01), 0017 comments (T-4-02); proposed D-44..D-54; qa-roundtrip scenarios 6, 9-13. Deviation to flag: D-54 defers cross-project copy with provenance past phase 4 (backup/restore covers cloning). Awaiting user review per the D-43 amendment; TASKS.md rows pasted when approved.

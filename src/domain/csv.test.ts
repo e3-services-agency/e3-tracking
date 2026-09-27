@@ -69,6 +69,13 @@ describe('CSV_ENTITIES (D-46, T-3-03)', () => {
     ]);
   });
 
+  it('observations carries timestamp_iso right after timestamp (pre-QA fix, LOW 3)', () => {
+    const headers = csvHeadersFor('observations');
+    const timestampIndex = headers.indexOf('timestamp');
+    expect(timestampIndex).toBeGreaterThanOrEqual(0);
+    expect(headers[timestampIndex + 1]).toBe('timestamp_iso');
+  });
+
   it('use_cases carries activation/assets_json ahead of D-56 (phase 4)', () => {
     expect(csvHeadersFor('use_cases')).toContain('activation');
     expect(csvHeadersFor('use_cases')).toContain('assets_json');

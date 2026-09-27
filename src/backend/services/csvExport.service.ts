@@ -2,11 +2,22 @@
  * CSV export per entity (D-46, T-3-03, capability 9, qa-roundtrip scenario 6). Every entity's rows
  * are mapped to plain objects keyed by `src/domain/csv.ts`'s declared header list, then handed to
  * `papaparse.unparse` for RFC 4180 quoting; `buildCsvFile` adds the UTF-8 BOM and forces CRLF line
- * endings (Excel-friendly, D-46). Soft-deleted rows are excluded because every DAL `list*` function
- * used here already filters `deleted_at IS NULL` (or has no soft-delete column at all); ids sit
- * next to resolved names so a spreadsheet user can join files.
+ * endings (Excel-friendly, D-46). Soft-deleted rows are excluded: most DAL `list*` functions used
+ * here already filter `deleted_at IS NULL` (or the table has no soft-delete column at all), but a
+ * child table whose own list function does *not* join its parent's `deleted_at` (`rules`, D-46
+ * pre-QA fix WARNING 2) needs an explicit filter in its row builder below -- `event.dal.ts`'s
+ * `deleteEvent` does not yet clean up a soft-deleted event's rules (pre-existing, tracked as a
+ * follow-up), so `RuleDAL.listRulesByProject` still returns them. Ids sit next to resolved names so
+ * a spreadsheet user can join files.
+ *
+ * Pre-QA fix (reviewer 23:22, supervisor decision 23:24, WARNING 1): every row builder and
+ * `listCsvEntityCounts` run a small, fixed number of SQL statements regardless of project size --
+ * one project-wide query per table (plus small in-memory maps for name resolution), never one
+ * query per row or per link. `csvExport.service.test.ts` patches `db.prepare` to assert this stays
+ * true for `events`, `event_properties` and the listing route.
  */
 import Papa from 'papaparse';
+import { getDb } from '../db';
 import { CSV_ENTITIES, type CsvEntity } from '../../domain/csv';
 import * as EventDAL from '../dal/event.dal';
 import * as PropertyDAL from '../dal/property.dal';
@@ -41,6 +52,14 @@ function boolCell(value: boolean | null | undefined): string {
 
 function textCell(value: string | number | null | undefined): string | number {
   return value === null || value === undefined ? '' : value;
+}
+
+/** ISO string from an epoch-seconds timestamp (D-46 pre-QA fix, LOW 3); empty for null/undefined/non-finite. */
+function timestampIsoCell(epochSeconds: number | null | undefined): string {
+  if (epochSeconds === null || epochSeconds === undefined) return '';
+  const ms = epochSeconds * 1000;
+  if (!Number.isFinite(ms)) return '';
+  return new Date(ms).toISOString();
 }
 
 /** `prop=value` / `prop in (a|b)` per condition, comma-joined (no event/bracket wrapper, unlike `generateVariantName`). */
@@ -118,31 +137,58 @@ function buildPropertiesRows(projectId: string): CsvRow[] {
   }));
 }
 
+interface EventPropertyJoinRow {
+  event_id: string;
+  event_name: string;
+  property_id: string;
+  role: string;
+  required: number;
+  payload_key: string | null;
+  priority: string | null;
+  status: string | null;
+  source_id: string | null;
+  description_override: string | null;
+  sort_order: number;
+}
+
+/**
+ * D-46 pre-QA fix (WARNING 1): one project-wide join instead of one `getEventWithProperties` call
+ * per event (which itself ran one `getPropertyById` per link) -- on the Data Manager fixture (62
+ * events, 1020 links) the old shape ran 2291 SQL statements; this runs 3 (this query, the property
+ * name map, the source name map), independent of row count.
+ */
 function buildEventPropertiesRows(projectId: string): CsvRow[] {
-  const events = EventDAL.listEvents(projectId);
+  const propertyNameById = new Map(PropertyDAL.listProperties(projectId).map((p) => [p.id, p.name]));
   const sourceNameById = new Map(SourceDAL.listSources(projectId).map((s) => [s.id, s.name]));
-  const rows: CsvRow[] = [];
-  for (const event of events) {
-    const { properties } = EventDAL.getEventWithProperties(projectId, event.id);
-    for (const link of properties) {
-      rows.push({
-        event_id: event.id,
-        event_name: event.name,
-        property_id: link.property_id,
-        property_name: link.property.name,
-        role: link.role,
-        required: boolCell(link.required),
-        payload_key: textCell(link.payload_key),
-        priority: textCell(link.priority),
-        status: textCell(link.status),
-        source_id: textCell(link.source_id),
-        source_name: textCell(link.source_id ? (sourceNameById.get(link.source_id) ?? link.source_id) : null),
-        description_override: textCell(link.description_override),
-        sort_order: link.sort_order,
-      });
-    }
-  }
-  return rows;
+
+  const rows = getDb()
+    .prepare(
+      `SELECT ep.event_id as event_id, e.name as event_name, ep.property_id as property_id,
+              ep.role as role, ep.required as required, ep.payload_key as payload_key,
+              ep.priority as priority, ep.status as status, ep.source_id as source_id,
+              ep.description_override as description_override, ep.sort_order as sort_order
+       FROM event_properties ep
+       JOIN events e ON e.id = ep.event_id AND e.deleted_at IS NULL
+       WHERE e.project_id = ?
+       ORDER BY e.name, ep.sort_order, ep.created_at`
+    )
+    .all(projectId) as EventPropertyJoinRow[];
+
+  return rows.map((row) => ({
+    event_id: row.event_id,
+    event_name: row.event_name,
+    property_id: row.property_id,
+    property_name: propertyNameById.get(row.property_id) ?? row.property_id,
+    role: row.role,
+    required: boolCell(row.required === 1),
+    payload_key: textCell(row.payload_key),
+    priority: textCell(row.priority),
+    status: textCell(row.status),
+    source_id: textCell(row.source_id),
+    source_name: textCell(row.source_id ? (sourceNameById.get(row.source_id) ?? row.source_id) : null),
+    description_override: textCell(row.description_override),
+    sort_order: row.sort_order,
+  }));
 }
 
 function buildVariantsRows(projectId: string): CsvRow[] {
@@ -347,22 +393,28 @@ function buildRulesRows(projectId: string): CsvRow[] {
   const propertyNameById = new Map(PropertyDAL.listProperties(projectId).map((p) => [p.id, p.name]));
   const nameOf = (_eventId: string, propertyId: string): string => propertyNameById.get(propertyId) ?? propertyId;
 
-  return RuleDAL.listRulesByProject(projectId).map((rule) => ({
-    id: rule.id,
-    event_id: rule.event_id,
-    event_name: eventNameById.get(rule.event_id) ?? rule.event_id,
-    variant_name: textCell(rule.variant_id ? (variantNameById.get(rule.variant_id) ?? rule.variant_id) : null),
-    kind: rule.kind,
-    name: rule.name,
-    message: rule.message,
-    expression_text: describeRuleExpression(rule.event_id, rule.expression_json, nameOf, eventNameById),
-    tolerance_mode: rule.tolerance_mode,
-    tolerance_value: textCell(rule.tolerance_value),
-    report_kind: rule.report_kind,
-    severity: rule.severity,
-    enabled: boolCell(rule.enabled),
-    version: rule.version,
-  }));
+  // D-46 pre-QA fix (WARNING 2): `RuleDAL.listRulesByProject` does not join `events.deleted_at`
+  // (`deleteEvent` does not yet clean up a soft-deleted event's rules, a pre-existing gap tracked
+  // as a follow-up), so a rule whose event was deleted must be filtered out here explicitly --
+  // `eventNameById` already excludes soft-deleted events (built from `EventDAL.listEvents`).
+  return RuleDAL.listRulesByProject(projectId)
+    .filter((rule) => eventNameById.has(rule.event_id))
+    .map((rule) => ({
+      id: rule.id,
+      event_id: rule.event_id,
+      event_name: eventNameById.get(rule.event_id) ?? rule.event_id,
+      variant_name: textCell(rule.variant_id ? (variantNameById.get(rule.variant_id) ?? rule.variant_id) : null),
+      kind: rule.kind,
+      name: rule.name,
+      message: rule.message,
+      expression_text: describeRuleExpression(rule.event_id, rule.expression_json, nameOf, eventNameById),
+      tolerance_mode: rule.tolerance_mode,
+      tolerance_value: textCell(rule.tolerance_value),
+      report_kind: rule.report_kind,
+      severity: rule.severity,
+      enabled: boolCell(rule.enabled),
+      version: rule.version,
+    }));
 }
 
 function buildQaRunsRows(projectId: string): CsvRow[] {
@@ -395,6 +447,7 @@ function buildObservationsRows(projectId: string): CsvRow[] {
     event_name: textCell(o.event_id ? (eventNameById.get(o.event_id) ?? o.event_id) : null),
     variant_name: textCell(o.variant_id ? (variantNameById.get(o.variant_id) ?? o.variant_id) : null),
     timestamp: o.timestamp,
+    timestamp_iso: timestampIsoCell(o.timestamp),
     page_url: textCell(o.page_url),
     properties_json: jsonCell(o.properties_json),
     context_values_json: jsonCell(o.context_values_json),
@@ -454,15 +507,73 @@ export function buildCsvRows(projectId: string, entity: CsvEntity): CsvRow[] {
   return ROW_BUILDERS[entity](projectId);
 }
 
-export function countCsvRows(projectId: string, entity: CsvEntity): number {
-  return buildCsvRows(projectId, entity).length;
+function countOf(sql: string, projectId: string): number {
+  return (getDb().prepare(sql).get(projectId) as { n: number }).n;
 }
+
+/**
+ * One `COUNT(*)` per entity (D-46 pre-QA fix, WARNING 1): `GET /export/csv` used to build every
+ * entity's full row set just to report its length (3145 statements on the Data Manager fixture);
+ * each query below mirrors the corresponding row builder's soft-delete/parent-join filter exactly,
+ * so the count always matches the file's row count. `change_log`/`comments` have no table yet
+ * (T-3-01/T-4-02), so their count is the literal `0` the builder also returns.
+ */
+const COUNT_QUERIES: Record<CsvEntity, (projectId: string) => number> = {
+  events: (projectId) => countOf('SELECT COUNT(*) as n FROM events WHERE project_id = ? AND deleted_at IS NULL', projectId),
+  properties: (projectId) => countOf('SELECT COUNT(*) as n FROM properties WHERE project_id = ? AND deleted_at IS NULL', projectId),
+  event_properties: (projectId) =>
+    countOf(
+      `SELECT COUNT(*) as n FROM event_properties ep
+       JOIN events e ON e.id = ep.event_id AND e.deleted_at IS NULL
+       WHERE e.project_id = ?`,
+      projectId
+    ),
+  variants: (projectId) => countOf('SELECT COUNT(*) as n FROM variants WHERE project_id = ?', projectId),
+  standard_event_mappings: (projectId) =>
+    countOf(
+      `SELECT COUNT(*) as n FROM standard_event_mappings m
+       JOIN events e ON e.id = m.event_id AND e.deleted_at IS NULL
+       WHERE m.project_id = ?`,
+      projectId
+    ),
+  identity_rules: (projectId) => countOf('SELECT COUNT(*) as n FROM identity_rules WHERE project_id = ?', projectId),
+  catalogs: (projectId) => countOf('SELECT COUNT(*) as n FROM catalogs WHERE project_id = ? AND deleted_at IS NULL', projectId),
+  catalog_fields: (projectId) =>
+    countOf(
+      `SELECT COUNT(*) as n FROM catalog_fields cf
+       JOIN catalogs c ON c.id = cf.catalog_id
+       WHERE c.project_id = ? AND c.deleted_at IS NULL`,
+      projectId
+    ),
+  consent_categories: (projectId) => countOf('SELECT COUNT(*) as n FROM consent_categories WHERE project_id = ?', projectId),
+  use_cases: (projectId) => countOf('SELECT COUNT(*) as n FROM use_cases WHERE project_id = ? AND deleted_at IS NULL', projectId),
+  requirements: (projectId) =>
+    countOf(
+      `SELECT COUNT(*) as n FROM requirements r
+       JOIN use_cases uc ON uc.id = r.use_case_id AND uc.deleted_at IS NULL
+       WHERE uc.project_id = ?`,
+      projectId
+    ),
+  // Mirrors buildRulesRows' explicit soft-deleted-event filter (WARNING 2) so the count matches.
+  rules: (projectId) =>
+    countOf(
+      `SELECT COUNT(*) as n FROM rules r
+       JOIN events e ON e.id = r.event_id AND e.deleted_at IS NULL
+       WHERE r.project_id = ?`,
+      projectId
+    ),
+  qa_runs: (projectId) => countOf('SELECT COUNT(*) as n FROM qa_runs WHERE project_id = ?', projectId),
+  observations: (projectId) => countOf('SELECT COUNT(*) as n FROM observations WHERE project_id = ?', projectId),
+  findings: (projectId) => countOf('SELECT COUNT(*) as n FROM findings WHERE project_id = ?', projectId),
+  change_log: () => 0,
+  comments: () => 0,
+};
 
 /** `GET /export/csv`: every declared entity with its current row count (D-46). */
 export function listCsvEntityCounts(projectId: string): { entity: CsvEntity; count: number }[] {
   return (Object.keys(CSV_ENTITIES) as CsvEntity[]).map((entity) => ({
     entity,
-    count: countCsvRows(projectId, entity),
+    count: COUNT_QUERIES[entity](projectId),
   }));
 }
 

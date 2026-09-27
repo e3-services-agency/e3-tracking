@@ -247,6 +247,10 @@ export const CSV_ENTITIES = {
       'event_name',
       'variant_name',
       'timestamp',
+      // Pre-QA fix (LOW 3, reviewer 23:22): `timestamp` stays the raw epoch-seconds value so it
+      // still joins with the Bloomreach customer-events export; `timestamp_iso` adds the
+      // human-readable form right next to it (empty when `timestamp` is null).
+      'timestamp_iso',
       'page_url',
       'properties_json',
       'context_values_json',

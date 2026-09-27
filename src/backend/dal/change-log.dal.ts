@@ -25,8 +25,20 @@ import { diffValue } from '../../domain/diff/primitives';
 import type { ChangeLogAction, ChangeLogEntityType } from '../../domain/enums';
 import { getActor } from '../context/actor';
 
-/** Fields never diffed: timestamps have their own columns already; `deleted_at` is expressed by `action` (D-44). */
-const EXCLUDED_FIELDS = new Set(['created_at', 'updated_at', 'deleted_at']);
+/**
+ * Fields never diffed: timestamps have their own columns already; `deleted_at` is expressed by
+ * `action` (D-44); `project_id`/`event_id`/`property_id` are identity/scoping columns that are
+ * always present and never meaningfully "change" from the History panel's point of view (fix
+ * round INFO 5) -- `id` itself is kept, since a create/delete diff should still show it.
+ */
+const EXCLUDED_FIELDS = new Set([
+  'created_at',
+  'updated_at',
+  'deleted_at',
+  'project_id',
+  'event_id',
+  'property_id',
+]);
 
 export interface DiffJsonEntry {
   field: string;
@@ -136,14 +148,26 @@ export interface ListChangesFilter {
   source?: string;
   batch_id?: string;
   since?: string;
+  /** Exclusive keyset cursor: the `changed_at` half. Combine with `beforeId` for a gap-free page
+   * boundary (fix round ERROR 1) -- `changed_at` alone is not unique (imports can write hundreds
+   * of rows in the same millisecond), so `changed_at < before` alone silently drops rows that
+   * share the cursor's timestamp. Given without `beforeId`, falls back to a plain `changed_at <
+   * before` filter (useful for a non-paging "everything before this instant" query). */
   before?: string;
+  /** The `id` half of the composite cursor; only takes effect together with `before`. */
+  beforeId?: string;
   limit?: number;
 }
 
-const DEFAULT_LIMIT = 100;
-const MAX_LIMIT = 1000;
+export const DEFAULT_LIMIT = 100;
+export const MAX_LIMIT = 1000;
 
-/** Newest first (`changed_at DESC`); `before` is an exclusive keyset cursor (`changed_at < before`). */
+/**
+ * Newest first (`changed_at DESC, id DESC`, matching the composite cursor's tiebreaker). `before`
+ * (+ `beforeId`) is an exclusive keyset cursor: `changed_at < before OR (changed_at = before AND
+ * id < beforeId)`, so a page boundary that falls inside a batch of same-millisecond rows still
+ * covers every row exactly once across pages (fix round ERROR 1).
+ */
 export function listChanges(projectId: string, filter: ListChangesFilter = {}): ChangeLogRow[] {
   const conditions: string[] = ['project_id = ?'];
   const params: unknown[] = [projectId];
@@ -176,7 +200,10 @@ export function listChanges(projectId: string, filter: ListChangesFilter = {}): 
     conditions.push('changed_at >= ?');
     params.push(filter.since);
   }
-  if (filter.before) {
+  if (filter.before && filter.beforeId) {
+    conditions.push('(changed_at < ? OR (changed_at = ? AND id < ?))');
+    params.push(filter.before, filter.before, filter.beforeId);
+  } else if (filter.before) {
     conditions.push('changed_at < ?');
     params.push(filter.before);
   }
@@ -190,6 +217,11 @@ export function listChanges(projectId: string, filter: ListChangesFilter = {}): 
     )
     .all(...params) as ChangeLogDbRow[];
   return rows.map(mapChangeLogRow);
+}
+
+/** The composite cursor for "the row right after `row`" in newest-first order (`GET /history`'s `next_cursor`). */
+export function buildCursor(row: Pick<ChangeLogRow, 'changed_at' | 'id'>): string {
+  return `${row.changed_at}|${row.id}`;
 }
 
 export function getChangeById(projectId: string, changeId: string): ChangeLogRow | null {

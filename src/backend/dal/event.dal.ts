@@ -437,7 +437,12 @@ export function createEvent(projectId: string, input: EventInput): EventRow {
       entityLabel: created.name,
       action: 'create',
       before: null,
-      after: created as unknown as Record<string, unknown>,
+      after: {
+        ...created,
+        // Fix round WARNING 4: source_ids lives on event_sources, not the events row itself; kept
+        // out of EventRow but included in the change_log snapshot so it diffs like any other field.
+        source_ids: listEventSourceIds(projectId, id),
+      } as unknown as Record<string, unknown>,
     });
   });
   run();
@@ -447,6 +452,9 @@ export function createEvent(projectId: string, input: EventInput): EventRow {
 
 export function updateEvent(projectId: string, eventId: string, input: Partial<EventInput>): EventRow {
   const before = getEventOrThrow(projectId, eventId);
+  // Fix round WARNING 4: read before any patch runs so a source-only update (input.source_ids set,
+  // nothing else) still produces a real before/after difference in the change_log snapshot below.
+  const beforeSourceIds = listEventSourceIds(projectId, eventId);
   const db = getDb();
 
   if (input.name !== undefined) {
@@ -526,8 +534,11 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
       entityId: eventId,
       entityLabel: after.name,
       action: 'update',
-      before: before as unknown as Record<string, unknown>,
-      after: after as unknown as Record<string, unknown>,
+      before: { ...before, source_ids: beforeSourceIds } as unknown as Record<string, unknown>,
+      after: {
+        ...after,
+        source_ids: listEventSourceIds(projectId, eventId),
+      } as unknown as Record<string, unknown>,
     });
   });
   applyUpdate();
@@ -633,6 +644,7 @@ function regenerateVariantNamesForEvent(projectId: string, eventId: string, even
  */
 export function deleteEvent(projectId: string, eventId: string): void {
   const event = getEventOrThrow(projectId, eventId);
+  const eventSourceIds = listEventSourceIds(projectId, eventId);
   const now = nowIso();
   const db = getDb();
   const run = db.transaction(() => {
@@ -648,14 +660,47 @@ export function deleteEvent(projectId: string, eventId: string): void {
     db.prepare('DELETE FROM standard_event_mappings WHERE event_id = ? AND project_id = ?').run(eventId, projectId);
 
     markRequirementsGapForEventRemoval(eventId, event.name);
+    // Fix round WARNING 3: cascaded variant deletes get their own change_log row (D-44's "no
+    // definition-mutating DAL path skips history" applies here too), even though this whole-event
+    // delete only needed name/id/conditions to build the row -- select the fields the diff snapshot
+    // actually reports rather than importing variant.dal.ts's row type (would be circular: that
+    // module already imports this one for getEventOrThrow).
     const variantRows = db
-      .prepare('SELECT id, name FROM variants WHERE event_id = ? AND project_id = ?')
-      .all(eventId, projectId) as { id: string; name: string }[];
+      .prepare(
+        'SELECT id, name, description, conditions_json, conditions_key, expiration_json FROM variants WHERE event_id = ? AND project_id = ?'
+      )
+      .all(eventId, projectId) as {
+      id: string;
+      name: string;
+      description: string | null;
+      conditions_json: string | null;
+      conditions_key: string;
+      expiration_json: string | null;
+    }[];
     for (const variant of variantRows) {
       markRequirementsGapForVariantRemoval(variant.id, variant.name);
     }
 
     db.prepare('DELETE FROM variants WHERE event_id = ? AND project_id = ?').run(eventId, projectId);
+
+    for (const variant of variantRows) {
+      ChangeLogDAL.recordChange({
+        projectId,
+        entityType: 'variant',
+        entityId: variant.id,
+        entityLabel: variant.name,
+        parentEntityId: eventId,
+        action: 'delete',
+        before: {
+          name: variant.name,
+          description: variant.description,
+          conditions_json: parseJsonColumn(variant.conditions_json, []),
+          conditions_key: variant.conditions_key,
+          expiration_json: parseJsonColumn(variant.expiration_json, null),
+        },
+        after: null,
+      });
+    }
 
     ChangeLogDAL.recordChange({
       projectId,
@@ -663,7 +708,7 @@ export function deleteEvent(projectId: string, eventId: string): void {
       entityId: eventId,
       entityLabel: event.name,
       action: 'delete',
-      before: event as unknown as Record<string, unknown>,
+      before: { ...event, source_ids: eventSourceIds } as unknown as Record<string, unknown>,
       after: null,
     });
   });
@@ -961,6 +1006,18 @@ export function replaceEventProperties(
   const event = getEventOrThrow(projectId, eventId);
   const db = getDb();
 
+  // Fix round INFO 6: this function used to call getPropertyById (each hit doing its own
+  // BundleDAL lookup) up to three times for the same property_id -- once per link in the
+  // validation loop, again for a dropped property's label, again for the change-log diff loop.
+  // One cache, populated lazily, used everywhere below.
+  const propertyCache = new Map<string, PropertyRow | null>();
+  function cachedProperty(propertyId: string): PropertyRow | null {
+    if (!propertyCache.has(propertyId)) {
+      propertyCache.set(propertyId, getPropertyById(projectId, propertyId));
+    }
+    return propertyCache.get(propertyId) ?? null;
+  }
+
   // De-duplicate by property_id, last one wins (fix round 2, finding #F): the UI's "select a
   // property to attach" dropdown already excludes properties already in `links`, so this only
   // matters for a direct API caller sending the same property_id twice; without it, the insert
@@ -980,7 +1037,7 @@ export function replaceEventProperties(
   let discriminatorCount = 0;
   const nextDiscriminatorIds = new Set<string>();
   for (const link of uniqueLinks) {
-    const property = getPropertyById(projectId, link.property_id);
+    const property = cachedProperty(link.property_id);
     if (!property) {
       throw new NotFoundError(
         `Property not found or does not belong to this project: ${link.property_id}.`,
@@ -1054,7 +1111,7 @@ export function replaceEventProperties(
     const replace = db.transaction(() => {
       db.prepare('DELETE FROM event_properties WHERE event_id = ?').run(eventId);
       for (const droppedId of droppedPropertyIds) {
-        const property = getPropertyById(projectId, droppedId);
+        const property = cachedProperty(droppedId);
         markRequirementsGapForDetach(eventId, droppedId, property?.name ?? droppedId);
       }
       const insert = db.prepare(
@@ -1093,7 +1150,7 @@ export function replaceEventProperties(
       for (const propertyId of allPropertyIds) {
         const before = beforeByPropertyId.get(propertyId) ?? null;
         const after = afterByPropertyId.get(propertyId) ?? null;
-        const property = getPropertyById(projectId, propertyId);
+        const property = cachedProperty(propertyId);
         const action = !before ? 'create' : !after ? 'delete' : 'update';
         ChangeLogDAL.recordChange({
           projectId,

@@ -10,6 +10,7 @@ import * as ProjectDAL from './project.dal';
 import * as EventDAL from './event.dal';
 import * as PropertyDAL from './property.dal';
 import * as VariantDAL from './variant.dal';
+import * as SourceDAL from './source.dal';
 import * as ChangeLogDAL from './change-log.dal';
 import { runWithActor } from '../context/actor';
 
@@ -75,6 +76,20 @@ describe('change-log.dal: recordChange / listChanges primitives', () => {
     });
   });
 
+  it('fix round INFO 5: create/delete diffs drop project_id/event_id/property_id identity columns but keep id', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'cart_update' });
+    const property = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'total_price', data_type: 'number' });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: property.id });
+
+    const eventFields = changesFor('event', event.id)[0].diff_json.map((d) => d.field);
+    expect(eventFields).toContain('id');
+    expect(eventFields).not.toContain('project_id');
+
+    const linkFields = changesFor('event_property', `${event.id}:${property.id}`)[0].diff_json.map((d) => d.field);
+    expect(linkFields).not.toContain('event_id');
+    expect(linkFields).not.toContain('property_id');
+  });
+
   it('actor/source/batch_id come from the actor context (runWithActor), not a hardcoded default', () => {
     const event = runWithActor({ actor: 'Ján Pan', source: 'ui' }, () =>
       EventDAL.createEvent(projectId, { name: 'cart_update' })
@@ -136,6 +151,50 @@ describe('change-log.dal: recordChange / listChanges primitives', () => {
     expect(rest.find((r) => r.id === first.id)).toBeUndefined();
   });
 
+  it('fix round ERROR 1: composite keyset paging (changed_at, id) visits 60 same-millisecond-batch rows exactly once with limit smaller than the batch', () => {
+    // Insert directly so several rows can share one changed_at value, the way an import batch does.
+    const db = getDb();
+    const insert = db.prepare(
+      `INSERT INTO change_log (
+        id, project_id, entity_type, entity_id, entity_label, parent_entity_id, action, actor,
+        source, batch_id, changed_at, diff_json
+      ) VALUES (?, ?, 'event', 'batch-entity', 'batch-entity', NULL, 'update', 'system', 'system', NULL, ?, '[]')`
+    );
+    const timestamps = Array.from({ length: 14 }, (_, i) => `2030-06-01T00:00:00.${String(i).padStart(3, '0')}Z`);
+    const insertedIds = new Set<string>();
+    for (let i = 0; i < 60; i++) {
+      const id = `batch-row-${i}`;
+      insert.run(id, projectId, timestamps[i % 14]);
+      insertedIds.add(id);
+    }
+
+    const seen = new Set<string>();
+    let before: string | undefined;
+    let beforeId: string | undefined;
+    let guard = 0;
+    for (;;) {
+      const page = ChangeLogDAL.listChanges(projectId, {
+        entity_id: 'batch-entity',
+        limit: 7,
+        before,
+        beforeId,
+      });
+      if (page.length === 0) break;
+      for (const row of page) {
+        expect(seen.has(row.id)).toBe(false); // no duplicates across pages
+        seen.add(row.id);
+      }
+      const last = page[page.length - 1];
+      before = last.changed_at;
+      beforeId = last.id;
+      guard += 1;
+      if (guard > 20) throw new Error('paging loop did not terminate');
+    }
+
+    expect(seen.size).toBe(60); // no gaps: every inserted row was visited
+    expect(seen).toEqual(insertedIds);
+  });
+
   it('getChangeOrThrow 404s for an id from a different project', () => {
     const event = EventDAL.createEvent(projectId, { name: 'cart_update' });
     const rows = changesFor('event', event.id);
@@ -175,6 +234,47 @@ describe('change-log.dal: one row per mutation on event.dal.ts', () => {
     const event = EventDAL.createEvent(projectId, { name: 'cart_update' });
     EventDAL.deleteEvent(projectId, event.id);
     expect(changesFor('event', event.id).filter((r) => r.action === 'delete')).toHaveLength(1);
+  });
+
+  it('fix round WARNING 3: deleteEvent logs one variant delete row per cascaded variant, parented under the event', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'cart_update' });
+    const discriminator = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'action',
+      data_type: 'string',
+      allowed_values_json: [{ value: 'add' }, { value: 'remove' }],
+    });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: discriminator.id, role: 'discriminator' });
+    const v1 = VariantDAL.createVariant(projectId, event.id, {
+      conditions: [{ property_id: discriminator.id, operator: 'equals', values: ['add'] }],
+    });
+    const v2 = VariantDAL.createVariant(projectId, event.id, {
+      conditions: [{ property_id: discriminator.id, operator: 'equals', values: ['remove'] }],
+    });
+
+    EventDAL.deleteEvent(projectId, event.id);
+
+    const v1Deletes = changesFor('variant', v1.id).filter((r) => r.action === 'delete');
+    const v2Deletes = changesFor('variant', v2.id).filter((r) => r.action === 'delete');
+    expect(v1Deletes).toHaveLength(1);
+    expect(v2Deletes).toHaveLength(1);
+    expect(v1Deletes[0].parent_entity_id).toBe(event.id);
+    expect(v1Deletes[0].diff_json.find((d) => d.field === 'name')?.before).toBe(v1.name);
+  });
+
+  it('fix round WARNING 4: a source-only updateEvent (source_ids changed, nothing else) logs an update row', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'cart_update' });
+    const source = SourceDAL.createSource(projectId, { name: 'Website' });
+
+    EventDAL.updateEvent(projectId, event.id, { source_ids: [source.id] });
+
+    const rows = changesFor('event', event.id).filter((r) => r.action === 'update');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].diff_json.find((d) => d.field === 'source_ids')).toEqual({
+      field: 'source_ids',
+      before: [],
+      after: [source.id],
+    });
   });
 
   it('attachPropertyToEvent writes 1 create row for the event_property link', () => {

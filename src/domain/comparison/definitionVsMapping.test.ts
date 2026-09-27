@@ -158,6 +158,29 @@ describe('runDefinitionVsMapping', () => {
     expect(unmapped.map((f) => (f.expected_json as { standard_event: string }).standard_event)).toContain('remove_from_cart');
   });
 
+  // T-3-07 follow-up (T-2-05 review): an empty-filter mapping of a hinted standard event onto the
+  // same event is as unmapped as no mapping at all, since it fails to distinguish the discriminator
+  // value the hint names from the event's other discriminator values.
+  it('reports unmapped_standard_event when a mapping matches its event with an empty filter, even though the standard event is technically mapped', () => {
+    const definition = buildDefinition();
+    const model = parseDataMapping(fixtureJson);
+    const mapping = toMappingSnapshot(model);
+    const emptyFilterMapping: MappingSnapshot = {
+      ...mapping,
+      standardEvents: mapping.standardEvents.map((se) =>
+        se.key === 'add_to_cart' ? { ...se, filter: [] } : se
+      ),
+    };
+    const findings = runDefinitionVsMapping(definition, emptyFilterMapping);
+    const unmapped = findings.filter((f) => f.kind === 'unmapped_standard_event');
+    expect(unmapped.map((f) => (f.expected_json as { standard_event: string }).standard_event)).toContain(
+      'add_to_cart'
+    );
+    expect(unmapped.find((f) => (f.expected_json as { standard_event: string }).standard_event === 'add_to_cart')?.message).toContain(
+      'empty filter'
+    );
+  });
+
   it('reports unmapped_property when a required property on a mapped event is absent from the field map', () => {
     const definition = buildDefinition();
     definition.events = definition.events.map((e) =>

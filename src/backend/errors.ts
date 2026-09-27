@@ -278,6 +278,18 @@ export class NarrativeEditedError extends ConflictError {
   }
 }
 
+/**
+ * `DELETE /api/use-case-templates/:id` while a non-deleted `UseCase` still references it
+ * (`template_id`, T-3-06, D-47: "template deletion is refused while instantiated"). 409.
+ */
+export class TemplateInUseError extends ConflictError {
+  readonly code = 'TEMPLATE_IN_USE';
+  constructor(message: string) {
+    super(message);
+    this.name = 'TemplateInUseError';
+  }
+}
+
 /** Use when a resource is not found or does not belong to the workspace (404). */
 export class NotFoundError extends Error {
   readonly code = 'NOT_FOUND';

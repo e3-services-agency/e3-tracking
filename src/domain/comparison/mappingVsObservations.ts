@@ -33,14 +33,16 @@
  * suppression, and a severity that ignored D-21's run-kind rule (`agent_session` -> error). Comparison
  * 3 owns `missing_event` for every mapped-or-not custom event; comparison 2 does not repeat it.
  *
- * Not implemented (documented gap, T-2-05 scope note, matching `definitionVsMapping.ts`'s own
- * documented gap): the plan table's `unmapped_standard_event` row ("the filter never matches in
- * scope") — no test requires it; left for a later task alongside comparison 1's `expiration_mismatch`.
+ * - `unmapped_standard_event` (warning, T-3-07: implements the plan table row deferred since T-2-05/
+ *   T-2-13): a mapped standard event's `filter` (a non-empty variant scope, e.g.
+ *   `purchase_status=success`) never matches any in-scope observation of its mapped event type, even
+ *   though that event type *is* observed — the mapping targets a variant that, in practice, never
+ *   occurs, so it is exercising nothing. Only fires when the event type has at least one observation
+ *   in scope (no observations at all is `missing_event` territory, owned by comparison 3); an
+ *   empty-filter (event-level) mapping always matches by construction and is excluded.
  *
- * Deferred rows carried forward for T-2-13 (fix round LOW 8, TASKS.md follow-up):
+ * Deferred rows carried forward from T-2-13 (fix round LOW 8, TASKS.md follow-up):
  * 1. Comparison 1's preview-only `expiration_mismatch` (pasted expiration/mapping vs stored definition).
- * 2. Comparison 2's `unmapped_standard_event` ("observed event type is the type of a mapped standard
- *    event but the filter never matches in scope").
  */
 import type { ComparisonId } from '../enums';
 import type { DefEvent, EngineFinding, EngineObservation } from './definitionVsObservations';
@@ -224,6 +226,30 @@ export function runMappingVsObservations(
       actual_json: null,
       message: `Mapped field "${seKey}.${field}" (property "${propName}") is absent from every observation of event "${se?.eventType}".`,
       fingerprint: fp('missing_required', event?.id ?? null, prop?.property_id ?? null, `${seKey}:${field}`),
+    });
+  }
+
+  // unmapped_standard_event (T-3-07): a mapped standard event's non-empty filter never matches any
+  // in-scope observation of its own event type, even though that event type is observed at all.
+  for (const se of mapping.standardEvents) {
+    if (!se.eventType || se.filter.length === 0) continue;
+    const event = eventByName.get(se.eventType);
+    if (!event || event.class !== 'custom') continue;
+    const inScope = obsByEventName.get(se.eventType) ?? [];
+    if (inScope.length === 0) continue; // no observations at all: comparison 3's missing_event territory
+    if (inScope.some((obs) => matchesFilter(se.filter, event, obs))) continue; // filter matches at least one
+    findings.push({
+      comparison: COMPARISON,
+      kind: 'unmapped_standard_event',
+      severity: 'warning',
+      event_id: event.id,
+      variant_id: null,
+      property_id: null,
+      observation_id: inScope[0].id,
+      expected_json: { standard_event: se.key, filter: se.filter },
+      actual_json: null,
+      message: `Standard event "${se.key}"'s filter never matches any observation of "${se.eventType}"; the mapped variant does not appear to occur.`,
+      fingerprint: fp('unmapped_standard_event', event.id, null, se.key),
     });
   }
 

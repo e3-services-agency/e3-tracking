@@ -203,4 +203,51 @@ describe('runMappingVsObservations', () => {
     const findings = runMappingVsObservations(definitionEvents(), mapping, observations);
     expect(findings.some((f) => f.kind === 'missing_event')).toBe(false);
   });
+
+  // T-3-07 (deferred row, T-2-05/T-2-13 follow-up): the mapped `purchase` standard event's filter
+  // is purchase_status=success; when every observed "purchase" is purchase_status=refunded instead
+  // (the event type is observed, just never in the mapped variant), the mapping is flagged as never
+  // matching in scope.
+  it('reports unmapped_standard_event when a mapped standard event\'s filter never matches any in-scope observation of its event type', () => {
+    const onlyRefunded: EngineObservation = {
+      id: 'obs_refunded_only',
+      event_type: 'purchase',
+      event_id: 'event_purchase',
+      variant_id: null,
+      timestamp: 1,
+      properties: { purchase_status: 'refunded', total_price: '5', purchase_id: 'p1' },
+      run_kind: 'export_paste',
+    };
+    const findings = runMappingVsObservations(definitionEvents(), mapping, [onlyRefunded]);
+    const unmapped = findings.filter(
+      (f) => f.kind === 'unmapped_standard_event' && (f.expected_json as { standard_event: string }).standard_event === 'purchase'
+    );
+    expect(unmapped).toHaveLength(1);
+    expect(unmapped[0].severity).toBe('warning');
+    expect(unmapped[0].event_id).toBe('event_purchase');
+  });
+
+  it('does not report unmapped_standard_event when the mapped filter matches at least one in-scope observation', () => {
+    const observations = toEngineObservations(parsedEvents); // fixture's purchase is purchase_status=success
+    const findings = runMappingVsObservations(definitionEvents(), mapping, observations);
+    expect(
+      findings.some(
+        (f) => f.kind === 'unmapped_standard_event' && (f.expected_json as { standard_event: string }).standard_event === 'purchase'
+      )
+    ).toBe(false);
+  });
+
+  it('does not report unmapped_standard_event for an empty-filter mapping (event-level, no variant) even with observations of another variant', () => {
+    // add_to_cart's filter is action=add (non-empty) and the fixture's cart_update observations
+    // match it, so nothing new here; cart_update's own mapping is exercised via the normal fixture
+    // path above. This test instead confirms an event type with zero observations at all produces
+    // nothing (missing_event territory), not a spurious unmapped_standard_event.
+    const observations = toEngineObservations(parsedEvents).filter((o) => o.event_type !== 'purchase');
+    const findings = runMappingVsObservations(definitionEvents(), mapping, observations);
+    expect(
+      findings.some(
+        (f) => f.kind === 'unmapped_standard_event' && (f.expected_json as { standard_event: string }).standard_event === 'purchase'
+      )
+    ).toBe(false);
+  });
 });

@@ -1752,3 +1752,6 @@ Verdict PASS. T-3-01 set to QA. Handoff for T-3-02: mapping and identity-rule ro
 
 ### 2026-09-28 01:45 | supervisor | STATUS | T-3-03 DONE
 qa-tester PASS (00:05). Merged into agent-setup; tests and tsc re-run on the merged tree. T-3-06 QA starts.
+
+### 2026-09-28 01:47 | supervisor | STATUS | T-3-01 delta review PASS
+Reviewer PASS (01:45). WARNING 1 (limit=1000 lookahead) and INFO items folded into the T-3-02 brief. T-3-01 QA is API-level and runs now on port 3002 in parallel with the T-3-06 browser QA.

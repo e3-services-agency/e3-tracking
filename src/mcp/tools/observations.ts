@@ -14,6 +14,7 @@ import type { ObservationRow } from '../../backend/dal/observation.dal';
 import { createEventResolver } from '../../backend/services/eventResolution';
 import { previewCustomerEventsExport, applyCustomerEventsExport } from '../../backend/services/customerEventsExportImport.service';
 import { parseCustomerEventsExport } from '../../domain/import/customerEventsExport';
+import { runComparison, type ComparisonSummary } from '../../backend/services/comparison.service';
 import { resolveProject } from '../resolve';
 import { getSessionRunId, setSessionRunId } from '../session';
 import { McpToolError } from '../errors';
@@ -150,4 +151,59 @@ function findDuplicateOwnerRunId(projectId: string, rawJson: unknown): string | 
   if (!first) return null;
   const rawHash = ObservationDAL.computeRawHash(first.type, first.timestamp, first.properties);
   return ObservationDAL.findObservationByRawHash(projectId, rawHash)?.qa_run_id ?? null;
+}
+
+export interface UpdateObservationInput {
+  project_key?: string;
+  observation_id: string;
+  properties?: Record<string, unknown>;
+  page_url?: string | null;
+  context_values?: unknown;
+  timestamp?: number;
+}
+
+export interface UpdateObservationResult {
+  observation: ObservationRow;
+  comparison: ComparisonSummary;
+}
+
+/**
+ * `update_observation` (D-52, T-3-07): mirrors `PATCH /observations/:id`
+ * (`observation.dal.ts#updateObservation` -- same `raw_hash` recompute, same 409
+ * `DUPLICATE_OBSERVATION` when the edit collides with another observation of the same run),
+ * followed by `runComparison` so the returned findings summary reflects the correction.
+ */
+export async function updateObservation(input: UpdateObservationInput): Promise<UpdateObservationResult> {
+  if (!input.observation_id?.trim()) throw new McpToolError('VALIDATION_ERROR', 'observation_id is required.');
+  const project = resolveProject(input.project_key);
+  const observation = ObservationDAL.updateObservation(project.id, input.observation_id, {
+    properties: input.properties,
+    page_url: input.page_url,
+    context_values_json: input.context_values,
+    timestamp: input.timestamp,
+  });
+  const comparison = runComparison(project.id);
+  return { observation, comparison };
+}
+
+export interface DeleteObservationInput {
+  project_key?: string;
+  observation_id: string;
+}
+
+export interface DeleteObservationResult {
+  deleted: true;
+  comparison: ComparisonSummary;
+}
+
+/**
+ * `delete_observation` (D-52, T-3-07): mirrors `DELETE /observations/:id`
+ * (`observation.dal.ts#deleteObservation`), followed by `runComparison`.
+ */
+export async function deleteObservation(input: DeleteObservationInput): Promise<DeleteObservationResult> {
+  if (!input.observation_id?.trim()) throw new McpToolError('VALIDATION_ERROR', 'observation_id is required.');
+  const project = resolveProject(input.project_key);
+  ObservationDAL.deleteObservation(project.id, input.observation_id);
+  const comparison = runComparison(project.id);
+  return { deleted: true, comparison };
 }

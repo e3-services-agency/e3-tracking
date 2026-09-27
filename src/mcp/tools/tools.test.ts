@@ -18,12 +18,13 @@ import * as EventDAL from '../../backend/dal/event.dal';
 import * as VariantDAL from '../../backend/dal/variant.dal';
 import * as RuleDAL from '../../backend/dal/rule.dal';
 import * as QaRunDAL from '../../backend/dal/qa-run.dal';
+import * as ObservationDAL from '../../backend/dal/observation.dal';
 
 import { listEvents, getExpectedPayload } from './events';
-import { submitObservation, submitObservationsBatch } from './observations';
+import { submitObservation, submitObservationsBatch, updateObservation, deleteObservation } from './observations';
 import { runComparison } from './comparison';
 import { getCoverageGrid } from './coverage';
-import { finishQaRun } from './qaRuns';
+import { finishQaRun, deleteQaRun } from './qaRuns';
 import { resetSessionCache } from '../session';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -249,5 +250,102 @@ describe('get_coverage_grid', () => {
 
   it('rejects a call with neither event nor use_case', async () => {
     await expect(getCoverageGrid({ project_key: projectKey })).rejects.toThrow();
+  });
+});
+
+// D-52, T-3-07: update_observation, delete_observation, delete_qa_run, each followed by
+// runComparison, mirroring the DELETE/PATCH routes' DAL functions and error codes.
+describe('update_observation', () => {
+  it('edits properties, recomputes raw_hash and returns a ComparisonSummary', async () => {
+    setUpCartUpdate();
+    const { observation, qa_run_id } = await submitObservation({
+      project_key: projectKey,
+      event_type: 'cart_update',
+      properties: { action: 'add', product_id: 'sku-1' },
+    });
+    const originalHash = observation!.raw_hash;
+
+    const result = await updateObservation({
+      project_key: projectKey,
+      observation_id: observation!.id,
+      properties: { action: 'add', product_id: 'sku-2' },
+    });
+
+    expect(result.observation.properties_json.product_id).toBe('sku-2');
+    expect(result.observation.raw_hash).not.toBe(originalHash);
+    expect(result.comparison).toEqual(
+      expect.objectContaining({ open: expect.any(Object), produced: expect.any(Number), resolved: expect.any(Number) })
+    );
+
+    const stillThere = ObservationDAL.getObservationOrThrow(projectId, observation!.id);
+    expect(stillThere.qa_run_id).toBe(qa_run_id);
+  });
+
+  it('rejects with DUPLICATE_OBSERVATION (409) when the edit collides with another observation of the same run', async () => {
+    setUpCartUpdate();
+    const first = await submitObservation({
+      project_key: projectKey,
+      event_type: 'cart_update',
+      properties: { action: 'add', product_id: 'sku-1' },
+    });
+    const second = await submitObservation({
+      project_key: projectKey,
+      event_type: 'cart_update',
+      properties: { action: 'add', product_id: 'sku-2' },
+    });
+
+    await expect(
+      updateObservation({
+        project_key: projectKey,
+        observation_id: second.observation!.id,
+        properties: { action: 'add', product_id: 'sku-1' },
+      })
+    ).rejects.toMatchObject({ code: 'DUPLICATE_OBSERVATION' });
+
+    void first;
+  });
+
+  it('rejects a missing observation_id', async () => {
+    await expect(updateObservation({ project_key: projectKey, observation_id: '' })).rejects.toThrow();
+  });
+});
+
+describe('delete_observation', () => {
+  it('removes the observation and returns a ComparisonSummary', async () => {
+    setUpCartUpdate();
+    const { observation } = await submitObservation({
+      project_key: projectKey,
+      event_type: 'cart_update',
+      properties: { action: 'add', product_id: 'sku-1' },
+    });
+
+    const result = await deleteObservation({ project_key: projectKey, observation_id: observation!.id });
+    expect(result.deleted).toBe(true);
+    expect(result.comparison).toEqual(expect.objectContaining({ produced: expect.any(Number) }));
+    expect(() => ObservationDAL.getObservationOrThrow(projectId, observation!.id)).toThrow();
+  });
+
+  it('rejects an unknown observation_id (404)', async () => {
+    await expect(deleteObservation({ project_key: projectKey, observation_id: 'nope' })).rejects.toThrow();
+  });
+});
+
+describe('delete_qa_run', () => {
+  it('cascades the run\'s observations and returns a ComparisonSummary', async () => {
+    setUpCartUpdate();
+    const { qa_run_id } = await submitObservation({
+      project_key: projectKey,
+      event_type: 'cart_update',
+      properties: { action: 'add', product_id: 'sku-1' },
+    });
+
+    const result = await deleteQaRun({ project_key: projectKey, qa_run_id });
+    expect(result.deleted).toBe(true);
+    expect(() => QaRunDAL.getQaRunOrThrow(projectId, qa_run_id)).toThrow();
+    expect(ObservationDAL.listObservations(projectId, { qa_run_id })).toEqual([]);
+  });
+
+  it('rejects an unknown qa_run_id (404)', async () => {
+    await expect(deleteQaRun({ project_key: projectKey, qa_run_id: 'nope' })).rejects.toThrow();
   });
 });

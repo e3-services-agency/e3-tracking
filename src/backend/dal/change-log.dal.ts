@@ -144,6 +144,8 @@ export interface ListChangesFilter {
   entity_type?: string;
   entity_id?: string;
   parent_entity_id?: string;
+  /** fix round (qa-tester FAIL 01:54): validated by the route against `CHANGE_LOG_ACTIONS`. */
+  action?: string;
   actor?: string;
   source?: string;
   batch_id?: string;
@@ -183,6 +185,10 @@ export function listChanges(projectId: string, filter: ListChangesFilter = {}): 
   if (filter.parent_entity_id) {
     conditions.push('parent_entity_id = ?');
     params.push(filter.parent_entity_id);
+  }
+  if (filter.action) {
+    conditions.push('action = ?');
+    params.push(filter.action);
   }
   if (filter.actor) {
     conditions.push('actor = ?');

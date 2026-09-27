@@ -106,6 +106,49 @@ describe('GET /api/projects/:projectId/history', () => {
     expect(Array.isArray(body.items)).toBe(true);
   });
 
+  it('QA fix round (qa-tester FAIL 01:54, S4): filters by action', async () => {
+    const event = EventDAL.createEvent(projectId, { name: 'action_filter_event' });
+    EventDAL.updateEvent(projectId, event.id, { description: 'updated' });
+    EventDAL.deleteEvent(projectId, event.id);
+
+    const url = (action: string) =>
+      `${baseUrl}/api/projects/${projectId}/history?entity_id=${event.id}&action=${action}`;
+
+    const creates = await (await fetch(url('create'))).json();
+    expect(creates.items).toHaveLength(1);
+    expect(creates.items[0].action).toBe('create');
+
+    const updates = await (await fetch(url('update'))).json();
+    expect(updates.items).toHaveLength(1);
+    expect(updates.items[0].action).toBe('update');
+
+    const deletes = await (await fetch(url('delete'))).json();
+    expect(deletes.items).toHaveLength(1);
+    expect(deletes.items[0].action).toBe('delete');
+
+    const all = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/history?entity_id=${event.id}`)
+    ).json();
+    expect(all.items).toHaveLength(3);
+  });
+
+  it('400s on an unrecognised action instead of silently returning every row', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/history?action=frobnicate`);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('VALIDATION_ERROR');
+    expect(body.field).toBe('action');
+  });
+
+  it('400s on an unknown query parameter, naming it, instead of returning unfiltered results (e.g. a typo)', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/history?actoin=delete`);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('VALIDATION_ERROR');
+    expect(body.field).toBe('actoin');
+    expect(body.error).toContain('actoin');
+  });
+
   it('400s on a non-integer limit (e.g. 1.5) instead of a raw 500', async () => {
     const res = await fetch(`${baseUrl}/api/projects/${projectId}/history?limit=1.5`);
     expect(res.status).toBe(400);

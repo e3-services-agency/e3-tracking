@@ -202,6 +202,30 @@ describe('change-log.dal: recordChange / listChanges primitives', () => {
     const otherProjectId = ProjectDAL.createProject({ client_id: otherClient.id, key: 'other-p', name: 'Other' }).id;
     expect(() => ChangeLogDAL.getChangeOrThrow(otherProjectId, rows[0].id)).toThrow();
   });
+
+  it('QA fix round (qa-tester FAIL 01:54): listChanges filters by action', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'cart_update' });
+    EventDAL.updateEvent(projectId, event.id, { description: 'updated' });
+    EventDAL.deleteEvent(projectId, event.id);
+
+    const all = changesFor('event', event.id);
+    expect(all.map((r) => r.action).sort()).toEqual(['create', 'delete', 'update']);
+
+    const creates = ChangeLogDAL.listChanges(projectId, { entity_id: event.id, action: 'create' });
+    expect(creates).toHaveLength(1);
+    expect(creates[0].action).toBe('create');
+
+    const deletes = ChangeLogDAL.listChanges(projectId, { entity_id: event.id, action: 'delete' });
+    expect(deletes).toHaveLength(1);
+    expect(deletes[0].action).toBe('delete');
+
+    const updates = ChangeLogDAL.listChanges(projectId, { entity_id: event.id, action: 'update' });
+    expect(updates).toHaveLength(1);
+    expect(updates[0].action).toBe('update');
+
+    // No matching restore rows for this entity.
+    expect(ChangeLogDAL.listChanges(projectId, { entity_id: event.id, action: 'restore' })).toHaveLength(0);
+  });
 });
 
 describe('change-log.dal: one row per mutation on event.dal.ts', () => {

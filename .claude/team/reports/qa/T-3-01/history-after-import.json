@@ -1,0 +1,3185 @@
+{
+  "items": [
+    {
+      "id": "15ec69ae-a941-4bc5-8268-032139f718b8",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event",
+      "entity_id": "9edaf564-dd2e-4903-ad7f-6c1b09bf46be",
+      "entity_label": "notification_state",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.857Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "9edaf564-dd2e-4903-ad7f-6c1b09bf46be"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "notification_state"
+        },
+        {
+          "field": "triggers_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "class",
+          "before": null,
+          "after": "platform"
+        },
+        {
+          "field": "status",
+          "before": null,
+          "after": "planned"
+        },
+        {
+          "field": "expiration_json",
+          "before": null,
+          "after": {
+            "enabled": true,
+            "count": 100,
+            "units": "days"
+          }
+        },
+        {
+          "field": "derived_metrics_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "tags_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "source_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "94cad4b5-f9e3-4e9a-b3ed-6e7e1da83e29",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event",
+      "entity_id": "1433c6f1-fac9-4c80-ae4b-c00560f8dae4",
+      "entity_label": "consent",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.856Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "1433c6f1-fac9-4c80-ae4b-c00560f8dae4"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "consent"
+        },
+        {
+          "field": "triggers_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "class",
+          "before": null,
+          "after": "platform"
+        },
+        {
+          "field": "status",
+          "before": null,
+          "after": "planned"
+        },
+        {
+          "field": "expiration_json",
+          "before": null,
+          "after": {
+            "enabled": false,
+            "count": null,
+            "units": null
+          }
+        },
+        {
+          "field": "derived_metrics_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "tags_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "source_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "048471ff-7b61-4574-8e30-f16ae3df1246",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event",
+      "entity_id": "75c4db99-0cb7-41cf-a15b-e5cf4ecef73b",
+      "entity_label": "web_exit",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.855Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "75c4db99-0cb7-41cf-a15b-e5cf4ecef73b"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "web_exit"
+        },
+        {
+          "field": "triggers_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "class",
+          "before": null,
+          "after": "sdk"
+        },
+        {
+          "field": "status",
+          "before": null,
+          "after": "planned"
+        },
+        {
+          "field": "expiration_json",
+          "before": null,
+          "after": {
+            "enabled": true,
+            "count": 30,
+            "units": "days"
+          }
+        },
+        {
+          "field": "derived_metrics_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "tags_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "source_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "ec292347-6a3c-4e26-9629-05039e9565be",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event",
+      "entity_id": "9798f009-0497-429e-94f1-b808606ecd03",
+      "entity_label": "session_end",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.854Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "9798f009-0497-429e-94f1-b808606ecd03"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "session_end"
+        },
+        {
+          "field": "triggers_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "class",
+          "before": null,
+          "after": "sdk"
+        },
+        {
+          "field": "status",
+          "before": null,
+          "after": "planned"
+        },
+        {
+          "field": "expiration_json",
+          "before": null,
+          "after": {
+            "enabled": true,
+            "count": 3,
+            "units": "months"
+          }
+        },
+        {
+          "field": "derived_metrics_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "tags_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "source_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "bc305d77-63c8-4b5a-aa5c-b2838003e529",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event",
+      "entity_id": "a70b0d33-157e-4455-9047-2b771a5df947",
+      "entity_label": "page_visit",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.854Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "a70b0d33-157e-4455-9047-2b771a5df947"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "page_visit"
+        },
+        {
+          "field": "triggers_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "class",
+          "before": null,
+          "after": "sdk"
+        },
+        {
+          "field": "status",
+          "before": null,
+          "after": "planned"
+        },
+        {
+          "field": "expiration_json",
+          "before": null,
+          "after": {
+            "enabled": true,
+            "count": 30,
+            "units": "days"
+          }
+        },
+        {
+          "field": "derived_metrics_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "tags_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "source_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "04f2e0f3-9f51-46d7-a791-ad86bc619279",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event",
+      "entity_id": "bc6b09b5-eda8-4ba1-a992-adac4c6a45c3",
+      "entity_label": "session_start",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.853Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "bc6b09b5-eda8-4ba1-a992-adac4c6a45c3"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "session_start"
+        },
+        {
+          "field": "triggers_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "class",
+          "before": null,
+          "after": "sdk"
+        },
+        {
+          "field": "status",
+          "before": null,
+          "after": "planned"
+        },
+        {
+          "field": "expiration_json",
+          "before": null,
+          "after": {
+            "enabled": true,
+            "count": 3,
+            "units": "months"
+          }
+        },
+        {
+          "field": "derived_metrics_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "tags_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "source_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "bd8e5ee5-c014-4d14-abfc-4d4a9b286824",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "c12540fa-a2c7-4fd7-ba6f-587c796c110e",
+      "entity_label": "phone",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.790Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "c12540fa-a2c7-4fd7-ba6f-587c796c110e"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "customer"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "phone"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bloomreach_customer_property",
+          "before": null,
+          "after": "phone"
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "c854602f-9024-4dbc-a5f5-e2ff03689b0f",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "6d391446-2bbe-43fd-92c0-ac59dd99c8c5",
+      "entity_label": "last_name",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.789Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "6d391446-2bbe-43fd-92c0-ac59dd99c8c5"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "customer"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "last_name"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bloomreach_customer_property",
+          "before": null,
+          "after": "last_name"
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "9cde4df1-6a93-4c5d-b297-c43284abc2f2",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "5f4b3444-99f8-4b15-853a-a807c24f6380",
+      "entity_label": "gender",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.789Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "5f4b3444-99f8-4b15-853a-a807c24f6380"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "customer"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "gender"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bloomreach_customer_property",
+          "before": null,
+          "after": "gender"
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "ffc153e4-a4bc-4464-b076-278e12695112",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "ad1ef55b-8b19-46e0-9f69-484fb5912628",
+      "entity_label": "email",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.788Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "ad1ef55b-8b19-46e0-9f69-484fb5912628"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "customer"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "email"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bloomreach_customer_property",
+          "before": null,
+          "after": "email"
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "63a96cd8-b2a7-4ba9-94c5-c48f944fb8a0",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "452a1cee-fdf5-42a1-9c75-51605a69aabc",
+      "entity_label": "first_name",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.788Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "452a1cee-fdf5-42a1-9c75-51605a69aabc"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "customer"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "first_name"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bloomreach_customer_property",
+          "before": null,
+          "after": "first_name"
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "e8693fcc-b097-408d-974f-dee75c9de1b8",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "6f0d6d2e-9146-407d-bdc3-0b176c3e3c90",
+      "entity_label": "address",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.787Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "6f0d6d2e-9146-407d-bdc3-0b176c3e3c90"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "customer"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "address"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bloomreach_customer_property",
+          "before": null,
+          "after": "address"
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "f876fad2-b6ad-4a15-a19f-ccf9b6b39fb4",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "47d6701a-3ae1-45a9-a41c-e5b22b189ea1:2cc78c78-a786-4b54-b2dc-6947c768f4dc",
+      "entity_label": "view_item.title",
+      "parent_entity_id": "47d6701a-3ae1-45a9-a41c-e5b22b189ea1",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.786Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 7
+        }
+      ]
+    },
+    {
+      "id": "afb618cd-aa07-43ce-838b-dcb637d9f6af",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "47d6701a-3ae1-45a9-a41c-e5b22b189ea1:841d450c-0dd7-4863-92cb-e4e27b981444",
+      "entity_label": "view_item.stock_level",
+      "parent_entity_id": "47d6701a-3ae1-45a9-a41c-e5b22b189ea1",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.784Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 6
+        }
+      ]
+    },
+    {
+      "id": "34ce8fc3-b13d-4c5d-b343-866c6d233f7d",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "47d6701a-3ae1-45a9-a41c-e5b22b189ea1:5f5fb49b-ba93-4440-baa3-cbcf9fa6b2b0",
+      "entity_label": "view_item.product_id",
+      "parent_entity_id": "47d6701a-3ae1-45a9-a41c-e5b22b189ea1",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.782Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 5
+        }
+      ]
+    },
+    {
+      "id": "cb10791e-42e7-4f50-a923-1537b852cd55",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "47d6701a-3ae1-45a9-a41c-e5b22b189ea1:e7ce726e-e4fd-4d50-a52a-110d59f5b14a",
+      "entity_label": "view_item.price",
+      "parent_entity_id": "47d6701a-3ae1-45a9-a41c-e5b22b189ea1",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.780Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 4
+        }
+      ]
+    },
+    {
+      "id": "200be569-4bdd-4c9f-bddc-8199a278599f",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "47d6701a-3ae1-45a9-a41c-e5b22b189ea1:a6fd1737-888a-4bac-b2ae-b7eecc09a6c2",
+      "entity_label": "view_item.category_level_3",
+      "parent_entity_id": "47d6701a-3ae1-45a9-a41c-e5b22b189ea1",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.778Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 3
+        }
+      ]
+    },
+    {
+      "id": "9e6f4d83-de34-4cee-a4f7-6f2c87b20f95",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "47d6701a-3ae1-45a9-a41c-e5b22b189ea1:34fabaa6-bace-42bd-b318-007a3a907454",
+      "entity_label": "view_item.category_level_2",
+      "parent_entity_id": "47d6701a-3ae1-45a9-a41c-e5b22b189ea1",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.777Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 2
+        }
+      ]
+    },
+    {
+      "id": "4148be79-d04c-4e47-98ec-8c55b81aa2ab",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "47d6701a-3ae1-45a9-a41c-e5b22b189ea1:82cd7d0b-140d-46d8-9045-652ed8da4f7c",
+      "entity_label": "view_item.category_level_1",
+      "parent_entity_id": "47d6701a-3ae1-45a9-a41c-e5b22b189ea1",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.776Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 1
+        }
+      ]
+    },
+    {
+      "id": "e33e4f92-7351-4a8a-8eb6-5728a5b2ec58",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "47d6701a-3ae1-45a9-a41c-e5b22b189ea1:1f67023c-98d4-4d42-80ea-a31e3d1d027c",
+      "entity_label": "view_item.brand",
+      "parent_entity_id": "47d6701a-3ae1-45a9-a41c-e5b22b189ea1",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.775Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 0
+        }
+      ]
+    },
+    {
+      "id": "9233dcd9-29e9-480a-99da-479938e0d753",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "9bf47b3d-adac-4940-907a-293d7fd305d4:27281600-6c7c-408d-b2a0-4616f1aa883c",
+      "entity_label": "purchase_item.quantity",
+      "parent_entity_id": "9bf47b3d-adac-4940-907a-293d7fd305d4",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.773Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 7
+        }
+      ]
+    },
+    {
+      "id": "3698ee17-f31b-47be-bf0e-42efe1427328",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "9bf47b3d-adac-4940-907a-293d7fd305d4:e7ce726e-e4fd-4d50-a52a-110d59f5b14a",
+      "entity_label": "purchase_item.price",
+      "parent_entity_id": "9bf47b3d-adac-4940-907a-293d7fd305d4",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.771Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 6
+        }
+      ]
+    },
+    {
+      "id": "0fcdac87-cde1-43be-95b8-080284aa668c",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "9bf47b3d-adac-4940-907a-293d7fd305d4:0e583567-2915-4389-b196-c40a60ac78b4",
+      "entity_label": "purchase_item.size",
+      "parent_entity_id": "9bf47b3d-adac-4940-907a-293d7fd305d4",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.769Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 5
+        }
+      ]
+    },
+    {
+      "id": "9add7500-9a4a-4b72-ab0a-36a64d1058d2",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "9bf47b3d-adac-4940-907a-293d7fd305d4:336e38f9-e731-4526-a7f6-c1cf81da6bf7",
+      "entity_label": "purchase_item.purchase_id",
+      "parent_entity_id": "9bf47b3d-adac-4940-907a-293d7fd305d4",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.768Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 4
+        }
+      ]
+    },
+    {
+      "id": "1d17a683-9cd5-4e7e-a511-52759159d185",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "9bf47b3d-adac-4940-907a-293d7fd305d4:5f5fb49b-ba93-4440-baa3-cbcf9fa6b2b0",
+      "entity_label": "purchase_item.product_id",
+      "parent_entity_id": "9bf47b3d-adac-4940-907a-293d7fd305d4",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.766Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 3
+        }
+      ]
+    },
+    {
+      "id": "8e606e75-9c58-429d-b2f6-2c635f35d6e4",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "9bf47b3d-adac-4940-907a-293d7fd305d4:a6fd1737-888a-4bac-b2ae-b7eecc09a6c2",
+      "entity_label": "purchase_item.category_level_3",
+      "parent_entity_id": "9bf47b3d-adac-4940-907a-293d7fd305d4",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.763Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 2
+        }
+      ]
+    },
+    {
+      "id": "2a92991d-7294-4da7-ba0d-1df7226d898a",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "9bf47b3d-adac-4940-907a-293d7fd305d4:34fabaa6-bace-42bd-b318-007a3a907454",
+      "entity_label": "purchase_item.category_level_2",
+      "parent_entity_id": "9bf47b3d-adac-4940-907a-293d7fd305d4",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.762Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 1
+        }
+      ]
+    },
+    {
+      "id": "0c0844a8-eeb9-4c04-8535-bf4a5ff4b19e",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "9bf47b3d-adac-4940-907a-293d7fd305d4:82cd7d0b-140d-46d8-9045-652ed8da4f7c",
+      "entity_label": "purchase_item.category_level_1",
+      "parent_entity_id": "9bf47b3d-adac-4940-907a-293d7fd305d4",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.761Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 0
+        }
+      ]
+    },
+    {
+      "id": "ee8cbd85-6a75-4a7b-9687-2dc5f6690b59",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "12496a13-2eb1-4f6f-9f2b-491e53d0709d:2c5e29df-3ad9-4891-be58-c81d5ed90180",
+      "entity_label": "purchase.voucher_code",
+      "parent_entity_id": "12496a13-2eb1-4f6f-9f2b-491e53d0709d",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.759Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 5
+        }
+      ]
+    },
+    {
+      "id": "a913762c-88b8-4443-9a5d-d056fadeac12",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "12496a13-2eb1-4f6f-9f2b-491e53d0709d:6618aef0-f2b0-435f-b7dc-43bde0e073cb",
+      "entity_label": "purchase.total_price",
+      "parent_entity_id": "12496a13-2eb1-4f6f-9f2b-491e53d0709d",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.757Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 4
+        }
+      ]
+    },
+    {
+      "id": "19679d34-fe29-459c-a264-ca93ec230b37",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "12496a13-2eb1-4f6f-9f2b-491e53d0709d:336e38f9-e731-4526-a7f6-c1cf81da6bf7",
+      "entity_label": "purchase.purchase_id",
+      "parent_entity_id": "12496a13-2eb1-4f6f-9f2b-491e53d0709d",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.755Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 3
+        }
+      ]
+    },
+    {
+      "id": "4754e57c-64d0-4ec8-b6a4-aed6f7a9c035",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "12496a13-2eb1-4f6f-9f2b-491e53d0709d:7d014f13-b8c3-4dfe-b16c-c8b820fda9b2",
+      "entity_label": "purchase.product_list",
+      "parent_entity_id": "12496a13-2eb1-4f6f-9f2b-491e53d0709d",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.754Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 2
+        }
+      ]
+    },
+    {
+      "id": "9e3fd726-ae99-4bba-93d1-3723eb021858",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "12496a13-2eb1-4f6f-9f2b-491e53d0709d:240a1210-eb0f-4228-905e-722303fbba99",
+      "entity_label": "purchase.product_ids",
+      "parent_entity_id": "12496a13-2eb1-4f6f-9f2b-491e53d0709d",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.752Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 1
+        }
+      ]
+    },
+    {
+      "id": "0cdcdf56-c9ef-4023-a5a0-9c96eed00996",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "variant",
+      "entity_id": "1d4ee5b9-10c6-48e7-9187-798fa4d357d0",
+      "entity_label": "purchase[purchase_status=success]",
+      "parent_entity_id": "12496a13-2eb1-4f6f-9f2b-491e53d0709d",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.750Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "1d4ee5b9-10c6-48e7-9187-798fa4d357d0"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "purchase[purchase_status=success]"
+        },
+        {
+          "field": "conditions_json",
+          "before": null,
+          "after": [
+            {
+              "property_id": "abb04937-6aa0-4155-885c-b8c5e0f09811",
+              "operator": "equals",
+              "values": [
+                "success"
+              ]
+            }
+          ]
+        },
+        {
+          "field": "conditions_key",
+          "before": null,
+          "after": "[{\"property_id\":\"abb04937-6aa0-4155-885c-b8c5e0f09811\",\"operator\":\"equals\",\"values\":[\"success\"]}]"
+        }
+      ]
+    },
+    {
+      "id": "642d231f-5a11-4c75-aaea-9c7aba4af001",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "12496a13-2eb1-4f6f-9f2b-491e53d0709d:abb04937-6aa0-4155-885c-b8c5e0f09811",
+      "entity_label": "purchase.purchase_status",
+      "parent_entity_id": "12496a13-2eb1-4f6f-9f2b-491e53d0709d",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.749Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "discriminator"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 0
+        }
+      ]
+    },
+    {
+      "id": "3781b46d-6b6c-4a35-a84f-912148d9662b",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "080c5d0f-2ed2-4738-a505-a9d7766c58d9:558008e2-598c-48f8-b1f4-ecff75b60956",
+      "entity_label": "cart_update.total_quantity",
+      "parent_entity_id": "080c5d0f-2ed2-4738-a505-a9d7766c58d9",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.744Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 3
+        }
+      ]
+    },
+    {
+      "id": "650a99c1-5b33-4b23-bcc1-1390c1cc2ea5",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "080c5d0f-2ed2-4738-a505-a9d7766c58d9:6618aef0-f2b0-435f-b7dc-43bde0e073cb",
+      "entity_label": "cart_update.total_price",
+      "parent_entity_id": "080c5d0f-2ed2-4738-a505-a9d7766c58d9",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.743Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 2
+        }
+      ]
+    },
+    {
+      "id": "00859c7a-f669-4969-bd90-da30ead202f9",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "080c5d0f-2ed2-4738-a505-a9d7766c58d9:5f5fb49b-ba93-4440-baa3-cbcf9fa6b2b0",
+      "entity_label": "cart_update.product_id",
+      "parent_entity_id": "080c5d0f-2ed2-4738-a505-a9d7766c58d9",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.742Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "normal"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 1
+        }
+      ]
+    },
+    {
+      "id": "7dee9c74-d030-4e8d-9ff6-1bdcaaafd390",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "variant",
+      "entity_id": "499a7fde-f60c-487c-b7f4-f02d48dfee5a",
+      "entity_label": "cart_update[action=add]",
+      "parent_entity_id": "080c5d0f-2ed2-4738-a505-a9d7766c58d9",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.740Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "499a7fde-f60c-487c-b7f4-f02d48dfee5a"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "cart_update[action=add]"
+        },
+        {
+          "field": "conditions_json",
+          "before": null,
+          "after": [
+            {
+              "property_id": "b07cc441-da81-4576-8422-37c7ececf9c4",
+              "operator": "equals",
+              "values": [
+                "add"
+              ]
+            }
+          ]
+        },
+        {
+          "field": "conditions_key",
+          "before": null,
+          "after": "[{\"property_id\":\"b07cc441-da81-4576-8422-37c7ececf9c4\",\"operator\":\"equals\",\"values\":[\"add\"]}]"
+        }
+      ]
+    },
+    {
+      "id": "a3e0cb7f-6ef2-4ea2-b444-d6a0fb0ef21d",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event_property",
+      "entity_id": "080c5d0f-2ed2-4738-a505-a9d7766c58d9:b07cc441-da81-4576-8422-37c7ececf9c4",
+      "entity_label": "cart_update.action",
+      "parent_entity_id": "080c5d0f-2ed2-4738-a505-a9d7766c58d9",
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.738Z",
+      "diff_json": [
+        {
+          "field": "required",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "role",
+          "before": null,
+          "after": "discriminator"
+        },
+        {
+          "field": "sort_order",
+          "before": null,
+          "after": 0
+        }
+      ]
+    },
+    {
+      "id": "43ec04c6-8b9f-4fa0-9992-3359bbbe300b",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "2cc78c78-a786-4b54-b2dc-6947c768f4dc",
+      "entity_label": "title",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.735Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "2cc78c78-a786-4b54-b2dc-6947c768f4dc"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "event"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "title"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "7e0dda64-1e34-4e5d-a117-f872ef17a2cb",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "841d450c-0dd7-4863-92cb-e4e27b981444",
+      "entity_label": "stock_level",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.734Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "841d450c-0dd7-4863-92cb-e4e27b981444"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "event"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "stock_level"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "982228bc-91af-49ae-8a87-9e248b33978d",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "1f67023c-98d4-4d42-80ea-a31e3d1d027c",
+      "entity_label": "brand",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.733Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "1f67023c-98d4-4d42-80ea-a31e3d1d027c"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "event"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "brand"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "b56458fd-957d-49fb-be1e-6d6b84e3399b",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "27281600-6c7c-408d-b2a0-4616f1aa883c",
+      "entity_label": "quantity",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.732Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "27281600-6c7c-408d-b2a0-4616f1aa883c"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "event"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "quantity"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "48337bf4-9b76-4a78-a743-a563c74e2053",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "e7ce726e-e4fd-4d50-a52a-110d59f5b14a",
+      "entity_label": "price",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.730Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "e7ce726e-e4fd-4d50-a52a-110d59f5b14a"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "event"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "price"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "866f30b1-77b4-4700-8e9a-e652c4708aed",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "0e583567-2915-4389-b196-c40a60ac78b4",
+      "entity_label": "size",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.729Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "0e583567-2915-4389-b196-c40a60ac78b4"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "event"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "size"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "c9679ff3-febb-4f45-a45f-f08df9182adf",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "a6fd1737-888a-4bac-b2ae-b7eecc09a6c2",
+      "entity_label": "category_level_3",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.728Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "a6fd1737-888a-4bac-b2ae-b7eecc09a6c2"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "event"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "category_level_3"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "97055106-0fa2-4f1b-9de1-768e2d63326a",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "34fabaa6-bace-42bd-b318-007a3a907454",
+      "entity_label": "category_level_2",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.728Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "34fabaa6-bace-42bd-b318-007a3a907454"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "event"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "category_level_2"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "eed6926a-a362-47b4-8ec2-cdd3d39642ca",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "82cd7d0b-140d-46d8-9045-652ed8da4f7c",
+      "entity_label": "category_level_1",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.727Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "82cd7d0b-140d-46d8-9045-652ed8da4f7c"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "event"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "category_level_1"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "b759b11e-bbd0-47be-a812-7a70bf9e470e",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "2c5e29df-3ad9-4891-be58-c81d5ed90180",
+      "entity_label": "voucher_code",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.726Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "2c5e29df-3ad9-4891-be58-c81d5ed90180"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "event"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "voucher_code"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "dfd8c260-9a8b-4bf8-8041-7e512d16a567",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "336e38f9-e731-4526-a7f6-c1cf81da6bf7",
+      "entity_label": "purchase_id",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.725Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "336e38f9-e731-4526-a7f6-c1cf81da6bf7"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "event"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "purchase_id"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "6498dc05-7dba-4eae-9ab3-15527d78fbf5",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "7d014f13-b8c3-4dfe-b16c-c8b820fda9b2",
+      "entity_label": "product_list",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.724Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "7d014f13-b8c3-4dfe-b16c-c8b820fda9b2"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "event"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "product_list"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "e6b1a1d3-e945-4f72-b9c4-a9d2482bdd66",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "240a1210-eb0f-4228-905e-722303fbba99",
+      "entity_label": "product_ids",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.723Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "240a1210-eb0f-4228-905e-722303fbba99"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "event"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "product_ids"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "23c83154-e5ee-4e4b-a600-4e0267733b16",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "558008e2-598c-48f8-b1f4-ecff75b60956",
+      "entity_label": "total_quantity",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.723Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "558008e2-598c-48f8-b1f4-ecff75b60956"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "event"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "total_quantity"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "3bac5e49-1e93-4426-8eac-54da4d3ba256",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "6618aef0-f2b0-435f-b7dc-43bde0e073cb",
+      "entity_label": "total_price",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.722Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "6618aef0-f2b0-435f-b7dc-43bde0e073cb"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "event"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "total_price"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "7da32c0d-fe8e-4362-ab4c-1ed0d3ea103e",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "5f5fb49b-ba93-4440-baa3-cbcf9fa6b2b0",
+      "entity_label": "product_id",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.721Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "5f5fb49b-ba93-4440-baa3-cbcf9fa6b2b0"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "event"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "product_id"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "f85f06f8-749a-43c7-9d6d-1bfc97909198",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "b07cc441-da81-4576-8422-37c7ececf9c4",
+      "entity_label": "action",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.720Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "b07cc441-da81-4576-8422-37c7ececf9c4"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "event"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "action"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": [
+            {
+              "value": "add",
+              "standard_event": "add_to_cart"
+            }
+          ]
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "c5c8b023-9295-4b5e-8f40-8b9718bd606f",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "property",
+      "entity_id": "abb04937-6aa0-4155-885c-b8c5e0f09811",
+      "entity_label": "purchase_status",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.720Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "abb04937-6aa0-4155-885c-b8c5e0f09811"
+        },
+        {
+          "field": "scope",
+          "before": null,
+          "after": "event"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "purchase_status"
+        },
+        {
+          "field": "data_type",
+          "before": null,
+          "after": "string"
+        },
+        {
+          "field": "data_formats_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "pii",
+          "before": null,
+          "after": false
+        },
+        {
+          "field": "property_type",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "allowed_values_json",
+          "before": null,
+          "after": [
+            {
+              "value": "success",
+              "standard_event": "purchase"
+            }
+          ]
+        },
+        {
+          "field": "example_values_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "bundle_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "b2da8420-3631-4e2b-bf3d-ec6fb4b76b06",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event",
+      "entity_id": "47d6701a-3ae1-45a9-a41c-e5b22b189ea1",
+      "entity_label": "view_item",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.717Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "47d6701a-3ae1-45a9-a41c-e5b22b189ea1"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "view_item"
+        },
+        {
+          "field": "triggers_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "class",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "status",
+          "before": null,
+          "after": "planned"
+        },
+        {
+          "field": "derived_metrics_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "tags_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "source_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "763e6f06-3198-4803-9180-5c5cacc398f1",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event",
+      "entity_id": "e1fc4206-b338-4cb5-9095-a88aa2703cf1",
+      "entity_label": "view_category",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.716Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "e1fc4206-b338-4cb5-9095-a88aa2703cf1"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "view_category"
+        },
+        {
+          "field": "triggers_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "class",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "status",
+          "before": null,
+          "after": "planned"
+        },
+        {
+          "field": "derived_metrics_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "tags_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "source_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "7057557d-f345-4b06-afeb-261f5e0356a5",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event",
+      "entity_id": "9bf47b3d-adac-4940-907a-293d7fd305d4",
+      "entity_label": "purchase_item",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.715Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "9bf47b3d-adac-4940-907a-293d7fd305d4"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "purchase_item"
+        },
+        {
+          "field": "triggers_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "class",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "status",
+          "before": null,
+          "after": "planned"
+        },
+        {
+          "field": "derived_metrics_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "tags_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "source_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "cc9de667-a6aa-4be4-a72f-ad01cf743249",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event",
+      "entity_id": "12496a13-2eb1-4f6f-9f2b-491e53d0709d",
+      "entity_label": "purchase",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.713Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "12496a13-2eb1-4f6f-9f2b-491e53d0709d"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "purchase"
+        },
+        {
+          "field": "triggers_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "class",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "status",
+          "before": null,
+          "after": "planned"
+        },
+        {
+          "field": "derived_metrics_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "tags_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "source_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "85a7d6a5-2849-48cc-b159-8e2e4df961dd",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event",
+      "entity_id": "8b381265-d320-426b-822b-e75d883eb54f",
+      "entity_label": "checkout",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.712Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "8b381265-d320-426b-822b-e75d883eb54f"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "checkout"
+        },
+        {
+          "field": "triggers_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "class",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "status",
+          "before": null,
+          "after": "planned"
+        },
+        {
+          "field": "derived_metrics_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "tags_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "source_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    },
+    {
+      "id": "2b8414f5-d4ef-4021-88aa-c163d4f8f856",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event",
+      "entity_id": "080c5d0f-2ed2-4738-a505-a9d7766c58d9",
+      "entity_label": "cart_update",
+      "parent_entity_id": null,
+      "action": "create",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.711Z",
+      "diff_json": [
+        {
+          "field": "id",
+          "before": null,
+          "after": "080c5d0f-2ed2-4738-a505-a9d7766c58d9"
+        },
+        {
+          "field": "name",
+          "before": null,
+          "after": "cart_update"
+        },
+        {
+          "field": "triggers_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "class",
+          "before": null,
+          "after": "custom"
+        },
+        {
+          "field": "status",
+          "before": null,
+          "after": "planned"
+        },
+        {
+          "field": "derived_metrics_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "tags_json",
+          "before": null,
+          "after": []
+        },
+        {
+          "field": "source_ids",
+          "before": null,
+          "after": []
+        }
+      ]
+    }
+  ],
+  "next_cursor": null
+}

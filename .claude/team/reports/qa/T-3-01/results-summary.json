@@ -1,0 +1,628 @@
+[
+  {
+    "name": "create client",
+    "ok": true,
+    "detail": {
+      "id": "f0707ff9-bf9b-4f20-be20-d6cd12301e1e",
+      "key": "qa-t301-client",
+      "name": "QA T-3-01 Client",
+      "bloomreach_account_id": null,
+      "notes": null,
+      "created_at": "2026-09-27T23:53:37.646Z",
+      "updated_at": "2026-09-27T23:53:37.646Z"
+    }
+  },
+  {
+    "name": "create project",
+    "ok": true,
+    "detail": {
+      "id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "client_id": "f0707ff9-bf9b-4f20-be20-d6cd12301e1e",
+      "name": "QA T-3-01 Project",
+      "key": "qa-t301-proj",
+      "client_name": null,
+      "description": null,
+      "client_primary_color": null,
+      "client_logo_path": null,
+      "bloomreach_api_customer_id_key": null,
+      "bloomreach_project_token": null,
+      "bloomreach_api_base_url": null,
+      "bloomreach_project_url": null,
+      "default_expiration_json": null,
+      "standard_event_additions_json": [],
+      "consent_key_additions_json": [],
+      "bloomreach_mapping_meta_json": null,
+      "share_token": null,
+      "share_access": null,
+      "created_at": "2026-09-27T23:53:37.668Z",
+      "updated_at": "2026-09-27T23:53:37.668Z",
+      "deleted_at": null,
+      "data_manager_meta_json": null,
+      "data_manager_customers_json": null,
+      "data_manager_events_json": null,
+      "money_tolerance_percent": 1,
+      "money_tolerance_floor": 0.01
+    }
+  },
+  {
+    "name": "S1 data-mapping preview",
+    "ok": true,
+    "detail": {
+      "items": 40,
+      "hash": "6a44152c0a9bf1c4bea0816a71cb286534c47946f8224a1c30872577e5a1c898"
+    }
+  },
+  {
+    "name": "S1 data-mapping apply",
+    "ok": true,
+    "detail": {
+      "applied": [
+        "event:cart_update",
+        "event:checkout",
+        "event:purchase",
+        "event:purchase_item",
+        "event:view_category",
+        "event:view_item",
+        "property:event:action",
+        "property:event:purchase_status",
+        "property:event:product_id",
+        "property:event:total_price",
+        "property:event:total_quantity",
+        "property:event:product_ids",
+        "property:event:product_list",
+        "property:event:purchase_id",
+        "property:event:voucher_code",
+        "property:event:category_level_1",
+        "property:event:category_level_2",
+        "property:event:category_level_3",
+        "property:event:size",
+        "property:event:price",
+        "property:event:quantity",
+        "property:event:brand",
+        "property:event:stock_level",
+        "property:event:title",
+        "variant:cart_update[action=add]",
+        "standard_event_mapping:add_to_cart",
+        "standard_event_mapping:checkout",
+        "variant:purchase[purchase_status=success]",
+        "standard_event_mapping:purchase",
+        "standard_event_mapping:purchase_item",
+        "standard_event_mapping:view_category",
+        "standard_event_mapping:view_item",
+        "property:customer:address",
+        "property:customer:email",
+        "property:customer:first_name",
+        "property:customer:gender",
+        "property:customer:last_name",
+        "property:customer:phone",
+        "consent:newsletter",
+        "project:bloomreach_mapping_meta"
+      ],
+      "skipped": [],
+      "warnings": [
+        "catalogs.main and catalogs.variant are both empty (\"empty catalog block\").",
+        "Could not propose the \"Purchase total matches its items\" rule: \"total_price\" needs the \"money\" data format before this rule can be applied; retype it and re-run preview (D-25 Q12)."
+      ]
+    }
+  },
+  {
+    "name": "S1 expiration preview",
+    "ok": true,
+    "detail": {
+      "items": 7
+    }
+  },
+  {
+    "name": "S1 expiration apply",
+    "ok": true,
+    "detail": {
+      "applied": [
+        "event_expiration:session_start",
+        "event_expiration:session_end",
+        "event_expiration:page_visit",
+        "event_expiration:web_exit",
+        "event_expiration:consent",
+        "event_expiration:notification_state",
+        "project:default_expiration"
+      ],
+      "skipped": [],
+      "warnings": []
+    }
+  },
+  {
+    "name": "S1 GET history after imports",
+    "ok": true,
+    "detail": {
+      "count": 64
+    }
+  },
+  {
+    "name": "S1 sources are import:<format> not ui",
+    "ok": false,
+    "detail": {
+      "sources": [
+        "ui"
+      ]
+    }
+  },
+  {
+    "name": "S1 actor is local user name",
+    "ok": true,
+    "detail": {
+      "actors": [
+        "e3-services-agency"
+      ]
+    }
+  },
+  {
+    "name": "S1 row count plausible (>0)",
+    "ok": true,
+    "detail": {
+      "count": 64
+    }
+  },
+  {
+    "name": "S2 setup: cart_update & purchase found",
+    "ok": true,
+    "detail": {
+      "cartUpdate": "080c5d0f-2ed2-4738-a505-a9d7766c58d9",
+      "purchase": "12496a13-2eb1-4f6f-9f2b-491e53d0709d"
+    }
+  },
+  {
+    "name": "S2 PATCH event description",
+    "ok": true,
+    "detail": {
+      "id": "080c5d0f-2ed2-4738-a505-a9d7766c58d9",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "name": "cart_update",
+      "business_name": null,
+      "description": "QA test description change",
+      "purpose": null,
+      "page": null,
+      "trigger_text": null,
+      "grain": null,
+      "identity_note": null,
+      "triggers_json": [],
+      "class": "custom",
+      "owner_business": null,
+      "owner_technical": null,
+      "priority": null,
+      "status": "planned",
+      "expiration_json": null,
+      "not_suitable_for": null,
+      "agent_instructions": null,
+      "derived_metrics_json": [],
+      "tags_json": [],
+      "codegen_event_name_overrides_json": null,
+      "created_at": "2026-09-27T23:53:37.710Z",
+      "updated_at": "2026-09-27T23:53:37.916Z",
+      "deleted_at": null,
+      "category": null,
+      "bloomreach_meta_json": null
+    }
+  },
+  {
+    "name": "S2 one history row for description patch",
+    "ok": true,
+    "detail": {
+      "newRows": 1
+    }
+  },
+  {
+    "name": "S2 description row has before/after",
+    "ok": true,
+    "detail": {
+      "id": "8a37f8c1-e8ee-40e1-844c-e3305e8b48b0",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event",
+      "entity_id": "080c5d0f-2ed2-4738-a505-a9d7766c58d9",
+      "entity_label": "cart_update",
+      "parent_entity_id": null,
+      "action": "update",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.917Z",
+      "diff_json": [
+        {
+          "field": "description",
+          "before": null,
+          "after": "QA test description change"
+        }
+      ]
+    }
+  },
+  {
+    "name": "S2 attach property to event",
+    "ok": false,
+    "detail": {
+      "error": "This property is already attached to the event.",
+      "code": "CONFLICT"
+    }
+  },
+  {
+    "name": "S2 one row for property attach",
+    "ok": false,
+    "detail": {
+      "newRows": 0,
+      "latest": {
+        "id": "8a37f8c1-e8ee-40e1-844c-e3305e8b48b0",
+        "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+        "entity_type": "event",
+        "entity_id": "080c5d0f-2ed2-4738-a505-a9d7766c58d9",
+        "entity_label": "cart_update",
+        "parent_entity_id": null,
+        "action": "update",
+        "actor": "e3-services-agency",
+        "source": "ui",
+        "batch_id": null,
+        "changed_at": "2026-09-27T23:53:37.917Z",
+        "diff_json": [
+          {
+            "field": "description",
+            "before": null,
+            "after": "QA test description change"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "S2 row parent_entity_id = event",
+    "ok": false,
+    "detail": {
+      "id": "8a37f8c1-e8ee-40e1-844c-e3305e8b48b0",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event",
+      "entity_id": "080c5d0f-2ed2-4738-a505-a9d7766c58d9",
+      "entity_label": "cart_update",
+      "parent_entity_id": null,
+      "action": "update",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:37.917Z",
+      "diff_json": [
+        {
+          "field": "description",
+          "before": null,
+          "after": "QA test description change"
+        }
+      ]
+    }
+  },
+  {
+    "name": "S2 rename event",
+    "ok": true,
+    "detail": {
+      "id": "080c5d0f-2ed2-4738-a505-a9d7766c58d9",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "name": "cart_update_renamed",
+      "business_name": null,
+      "description": "QA test description change",
+      "purpose": null,
+      "page": null,
+      "trigger_text": null,
+      "grain": null,
+      "identity_note": null,
+      "triggers_json": [],
+      "class": "custom",
+      "owner_business": null,
+      "owner_technical": null,
+      "priority": null,
+      "status": "planned",
+      "expiration_json": null,
+      "not_suitable_for": null,
+      "agent_instructions": null,
+      "derived_metrics_json": [],
+      "tags_json": [],
+      "codegen_event_name_overrides_json": null,
+      "created_at": "2026-09-27T23:53:37.710Z",
+      "updated_at": "2026-09-27T23:53:37.975Z",
+      "deleted_at": null,
+      "category": null,
+      "bloomreach_meta_json": null
+    }
+  },
+  {
+    "name": "S2 rename produces event row + variant rows",
+    "ok": true,
+    "detail": {
+      "newRows": 2,
+      "expected": 2,
+      "variantCount": 1
+    }
+  },
+  {
+    "name": "S2 no-op patch status",
+    "ok": true,
+    "detail": {
+      "id": "080c5d0f-2ed2-4738-a505-a9d7766c58d9",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "name": "cart_update",
+      "business_name": null,
+      "description": "QA test description change",
+      "purpose": null,
+      "page": null,
+      "trigger_text": null,
+      "grain": null,
+      "identity_note": null,
+      "triggers_json": [],
+      "class": "custom",
+      "owner_business": null,
+      "owner_technical": null,
+      "priority": null,
+      "status": "planned",
+      "expiration_json": null,
+      "not_suitable_for": null,
+      "agent_instructions": null,
+      "derived_metrics_json": [],
+      "tags_json": [],
+      "codegen_event_name_overrides_json": null,
+      "created_at": "2026-09-27T23:53:37.710Z",
+      "updated_at": "2026-09-27T23:53:38.025Z",
+      "deleted_at": null,
+      "category": null,
+      "bloomreach_meta_json": null
+    }
+  },
+  {
+    "name": "S2 no-op produces no new row",
+    "ok": true,
+    "detail": {
+      "newRows": 0
+    }
+  },
+  {
+    "name": "S2 source_ids only patch status",
+    "ok": true,
+    "detail": {
+      "id": "12496a13-2eb1-4f6f-9f2b-491e53d0709d",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "name": "purchase",
+      "business_name": null,
+      "description": null,
+      "purpose": null,
+      "page": null,
+      "trigger_text": null,
+      "grain": null,
+      "identity_note": null,
+      "triggers_json": [],
+      "class": "custom",
+      "owner_business": null,
+      "owner_technical": null,
+      "priority": null,
+      "status": "planned",
+      "expiration_json": null,
+      "not_suitable_for": null,
+      "agent_instructions": null,
+      "derived_metrics_json": [],
+      "tags_json": [],
+      "codegen_event_name_overrides_json": null,
+      "created_at": "2026-09-27T23:53:37.712Z",
+      "updated_at": "2026-09-27T23:53:38.053Z",
+      "deleted_at": null,
+      "category": null,
+      "bloomreach_meta_json": null
+    }
+  },
+  {
+    "name": "S2 source_ids-only produces exactly one row",
+    "ok": true,
+    "detail": {
+      "newRows": 1
+    }
+  },
+  {
+    "name": "S3 baseline total via limit=1000",
+    "ok": true,
+    "detail": {
+      "total": 70
+    }
+  },
+  {
+    "name": "S3 paging collects every row exactly once",
+    "ok": true,
+    "detail": {
+      "collected": 70,
+      "unique": 70,
+      "total": 70,
+      "pages": 3
+    }
+  },
+  {
+    "name": "S3 limit=1 works",
+    "ok": true,
+    "detail": {
+      "items": [
+        {
+          "id": "4f4ef4fa-25ef-47b7-9ff5-256ca9bc8536",
+          "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+          "entity_type": "event",
+          "entity_id": "12496a13-2eb1-4f6f-9f2b-491e53d0709d",
+          "entity_label": "purchase",
+          "parent_entity_id": null,
+          "action": "update",
+          "actor": "e3-services-agency",
+          "source": "ui",
+          "batch_id": null,
+          "changed_at": "2026-09-27T23:53:38.054Z",
+          "diff_json": [
+            {
+              "field": "source_ids",
+              "before": [],
+              "after": [
+                "149716ae-49d9-41df-957b-8d434a415cd3"
+              ]
+            }
+          ]
+        }
+      ],
+      "next_cursor": "2026-09-27T23:53:38.054Z|4f4ef4fa-25ef-47b7-9ff5-256ca9bc8536"
+    }
+  },
+  {
+    "name": "S3 limit=1.5 -> 400",
+    "ok": true,
+    "detail": {
+      "error": "limit must be an integer.",
+      "code": "VALIDATION_ERROR",
+      "field": "limit"
+    }
+  },
+  {
+    "name": "S3 malformed before -> 400",
+    "ok": true,
+    "detail": {
+      "error": "before must be a \"<changed_at>|<id>\" cursor, or paired with before_id.",
+      "code": "VALIDATION_ERROR",
+      "field": "before"
+    }
+  },
+  {
+    "name": "S3 GET /history/:id -> 200",
+    "ok": true,
+    "detail": {
+      "id": "4f4ef4fa-25ef-47b7-9ff5-256ca9bc8536",
+      "project_id": "937763e6-4e45-4a0f-8ed7-90ab221133c8",
+      "entity_type": "event",
+      "entity_id": "12496a13-2eb1-4f6f-9f2b-491e53d0709d",
+      "entity_label": "purchase",
+      "parent_entity_id": null,
+      "action": "update",
+      "actor": "e3-services-agency",
+      "source": "ui",
+      "batch_id": null,
+      "changed_at": "2026-09-27T23:53:38.054Z",
+      "diff_json": [
+        {
+          "field": "source_ids",
+          "before": [],
+          "after": [
+            "149716ae-49d9-41df-957b-8d434a415cd3"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "S3 GET /history/:unknown -> 404",
+    "ok": true,
+    "detail": {
+      "error": "Change log entry not found.",
+      "code": "NOT_FOUND",
+      "resource": "change_log"
+    }
+  },
+  {
+    "name": "S4 entity_type=event filter",
+    "ok": true,
+    "detail": {
+      "count": 16
+    }
+  },
+  {
+    "name": "S4 entity_id filter",
+    "ok": true,
+    "detail": {
+      "count": 4
+    }
+  },
+  {
+    "name": "S4 parent_entity_id filter",
+    "ok": true,
+    "detail": {
+      "count": 7
+    }
+  },
+  {
+    "name": "S4 delete variant status",
+    "ok": true,
+    "detail": null
+  },
+  {
+    "name": "S4 delete event status",
+    "ok": true,
+    "detail": null
+  },
+  {
+    "name": "S4 event delete logs cascaded variants (1 event + N variant rows)",
+    "ok": true,
+    "detail": {
+      "newDeleteRows": 1,
+      "expected": 1,
+      "remainingVariants": 0
+    }
+  },
+  {
+    "name": "S4 action=delete filter",
+    "ok": false,
+    "detail": {
+      "count": 72
+    }
+  },
+  {
+    "name": "S5 tracking-document.json 200",
+    "ok": true,
+    "detail": {
+      "keys": 14
+    }
+  },
+  {
+    "name": "S5 data-mapping.json export 200",
+    "ok": true,
+    "detail": null
+  },
+  {
+    "name": "S5 comparison run",
+    "ok": true,
+    "detail": {
+      "open": {
+        "error": 0,
+        "warning": 7,
+        "info": 0
+      },
+      "produced": 7,
+      "resolved": 0,
+      "by_comparison": {
+        "definition_vs_observations": {
+          "open": {
+            "error": 0,
+            "warning": 5,
+            "info": 0
+          },
+          "produced": 5,
+          "resolved": 0
+        },
+        "data_manager": {
+          "open": {
+            "error": 0,
+            "warning": 0,
+            "info": 0
+          },
+          "produced": 0,
+          "resolved": 0
+        },
+        "definition_vs_mapping": {
+          "open": {
+            "error": 0,
+            "warning": 2,
+            "info": 0
+          },
+          "produced": 2,
+          "resolved": 0
+        },
+        "mapping_vs_observations": {
+          "open": {
+            "error": 0,
+            "warning": 0,
+            "info": 0
+          },
+          "produced": 0,
+          "resolved": 0
+        }
+      }
+    }
+  }
+]

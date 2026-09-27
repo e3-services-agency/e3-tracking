@@ -286,6 +286,50 @@ Context: The user asked for the build to continue overnight through phases 3 and
 Decision: The phase 2 exit report is written to the board and to the user. The architect produces the phase 3 and 4 task plan, the user reviews that plan (amendment 2026-09-27), phase 3 then runs without further checkpoints to T-3-EXIT; a checkpoint with the user follows before phase 4 starts (amendment 2, 2026-09-27), after which phase 4 runs to T-4-EXIT without further checkpoints. Open questions are resolved by the documented default and recorded as decisions; the user is only asked when a choice would change the data model irreversibly. Phase 5 (remote deployment) still requires explicit approval (D-09).
 Consequences: Reports per phase still land on the board and in the user report; nothing waits for a reply. Rate-limit or session interruptions are resumed from the board state.
 
+## D-44 ChangeLog is written at DAL level inside the mutation transaction with the actor from an AsyncLocalStorage context.
+Date: 2026-09-27  Status: accepted (proposed by the architect in PLAN-PHASE3-4-2026-09-27.md, accepted by the user)
+Context: capability 12; PLAN-2026-09-24 asked for a DAL mutation helper; routes, imports and MCP all call the DAL. Decision: `change_log` table (0015) with entity type, id, label, parent id, action create/update/delete/restore, actor, source (`ui | mcp | import:<format> | restore | system`), batch id, field diff; `recordChange` called by every definition-mutating DAL function inside its transaction; actor/source/batch from `src/backend/context/actor.ts`, set by Express middleware, the MCP wrapper and import services. Evidence tables (qa runs, observations, findings), clients and the global template library are not logged. Consequences: no history can be missed by a new route; imports appear as one batch; the plan-2024 `import_apply` action is replaced by `source`; restore writes one row plus the carried log.
+
+## D-45 Backup is one self-contained JSON with embedded files; restore only creates a new project and remaps every id.
+Date: 2026-09-27  Status: accepted (proposed by the architect in PLAN-PHASE3-4-2026-09-27.md, accepted by the user)
+Context: capability 1; the brief asks for ids remapped and files included or referenced. Decision: format `e3-tracking-backup` v1, every table as full rows including soft-deleted ones, files base64-embedded (missing files are warnings), referenced templates embedded; restore is preview/apply (D-22), never merges, remaps every id by a deep walk over keys and values of every JSON column and rewrites finding fingerprints so D-42 acknowledgements survive, re-links templates by code, writes files under the new project, then recomputes findings. Consequences: a backup is portable between machines; restore of a large project is a single request under a 100 MB limit; cross-project copy (D-27) stays a separate feature (D-54).
+
+## D-46 CSV export contract.
+Date: 2026-09-27  Status: accepted (proposed by the architect in PLAN-PHASE3-4-2026-09-27.md, accepted by the user)
+Context: capability 9, scenario 6. Decision: headers declared once in `src/domain/csv.ts` (list in this plan), ids next to names, JSON columns as compact JSON strings, booleans `true`/`false`, UTF-8 with BOM and CRLF through papaparse, soft-deleted rows excluded, one route per entity plus a listing route; no CSV import ever (D-01). Consequences: files join on ids in a spreadsheet; the header lists are the tested contract and any change is a plan-level edit.
+
+## D-47 Use case library format and instantiation rules.
+Date: 2026-09-27  Status: accepted (proposed by the architect in PLAN-PHASE3-4-2026-09-27.md, accepted by the user)
+Context: D-06, capability 11. Decision: `e3-use-case-library` v1 with `default_requirements` in the shape the DAL already resolves; import is preview/apply merged by `code` (D-22 pattern, global scope, not logged); export emits the same shape; instantiate copies the template code as the use case code with a numeric suffix on conflict, keeps the exact-variant-condition resolution and `gap` fallback, copies notes and generates the narrative. A three-template sample lives in `samples/`. Consequences: the user's 90 templates load through the same path; template deletion is refused while instantiated.
+
+## D-48 Share token design.
+Date: 2026-09-27  Status: accepted (proposed by the architect in PLAN-PHASE3-4-2026-09-27.md, accepted by the user)
+Context: capability 13, phase 5 readiness, D-14. Decision: one token per project, 32 random bytes base64url, stored in plaintext so Settings can re-show the link, access `read | comment`, rotate on regenerate, revoke by nulling, no expiry, no login, timing-safe comparison, public routes under `/api/shared/:token/*` (document JSON, HTML, files, comments) with 404 for unknown or revoked tokens; frontend route `/tracking-plan/shared/<token>`. Hashing with one-time display and real rate limiting are phase 5 hosting concerns added at the middleware. Consequences: a leaked link is revoked by rotating; no per-entity or per-user sharing; the shared view is usable on localhost for QA. Phase 5 option (user, 2026-09-27): an optional passphrase per share link, stored hashed, checked once per browser session via cookie, added together with token hashing and rate limiting when the app is hosted; not part of phase 4.
+
+## D-49 Comment model.
+Date: 2026-09-27  Status: accepted (proposed by the architect in PLAN-PHASE3-4-2026-09-27.md, accepted by the user)
+Context: capability 13. Decision: `comments` table (0017) on `event | property | use_case | requirement` with free-text author, body, `via_share`, internal-only resolve and delete, no edit; comments are excluded from the tracking document and MCP and included in backup and CSV; `replaceRequirements` keeps requirement ids for unchanged targets so comments do not orphan. Consequences: the smallest model that lets a client annotate the document; threads, mentions and notifications are out of scope.
+
+## D-50 The shared view is a React page fed by the tracking document from the share route and reuses the event card renderer.
+Date: 2026-09-27  Status: accepted (proposed by the architect in PLAN-PHASE3-4-2026-09-27.md, accepted by the user)
+Context: D-10 asked to reuse the documentation rendering; D-34 made `EventCard` the shared unit. Decision: `EventCardView` is extracted from the internal card page as a presentational component; the shared page renders the tracking document (custom events first) with it, plus use cases, identity, consents, catalogs, mappings and download links; `EventCard` gains `triggers[]` (additive, no version bump) so screenshots render through the shared file route. Consequences: one renderer for the internal card, shared view, HTML and MCP; the HTML export keeps data-URI images.
+
+## D-51 Dead-code sweep list and legacy documents.
+Date: 2026-09-27  Status: accepted (proposed by the architect in PLAN-PHASE3-4-2026-09-27.md, accepted by the user)
+Context: D-02, D-18; the old plan's candidates are already gone. Decision: delete the five unimported files, four empty directories, ten Supabase/journey-era documents under `docs/` and `.cursor/rules/project-context.mdc`; reduce `src/types/schema.ts` to what codegen still imports; keep `store.tsx` (UI state), `ApiAuthConfig.tsx` and the served user manual (content refresh is a docs task). Consequences: `docs/` holds only DOMAIN, QA-LOCAL, TRACKING-DOCUMENT, MCP, EXPORTS, SHARING; the sweep runs alone after every other phase 3 task merges.
+
+## D-52 QA evidence is editable and deletable; variant deletion refuses while mapped.
+Date: 2026-09-27  Status: accepted (proposed by the architect in PLAN-PHASE3-4-2026-09-27.md, accepted by the user)
+Context: T-2-08 QA and T-2-05 review follow-ups. Decision: `PATCH/DELETE /observations/:id` (hash recomputed, duplicate 409), `DELETE /qa-runs/:id` (findings keep their rows with null run and observation refs, 0008), each followed by a recompute; `deleteVariant` returns 409 `MAPPING_IN_USE` unless `force=true`, which clears the mapping's variant first. Consequences: no silent conversion of a filtered mapping into an unfiltered one; evidence corrections are visible through recompute rather than history.
+
+## D-53 Migration numbers for phases 3 and 4
+Date: 2026-09-27  Status: accepted (proposed by the architect in PLAN-PHASE3-4-2026-09-27.md, accepted by the user)
+(extends D-39). Decision: 0014 T-2-09 (`findings.resolved_by`, already on its branch), 0015 T-3-01 `change_log`, 0016 T-4-01 `projects.share_created_at`, 0017 T-4-02 `comments`; no other task adds a migration without asking the supervisor for the next number.
+
+## D-54 Cross-project copy with provenance and the drift compare view are deferred past phase 4.
+Date: 2026-09-27  Status: accepted (proposed by the architect in PLAN-PHASE3-4-2026-09-27.md, accepted by the user)
+Context: D-27 placed them in phase 3; the D-43 phase 3 brief lists history, backup, CSV, library import and the sweep, and CONTEXT.md capability 1 names them. Decision: not built in phases 3 or 4; backup and restore-as-new-project covers cloning a whole brand project; the `origin_project_id`/`origin_entity_id` columns are added when the copy feature is scheduled (user to confirm priority at the phase 4 report). Consequences: capability 1 stays "partial" in the exit report; nothing in phases 3 and 4 blocks adding the columns later.
+
 ## D-55 Use case library templates target Bloomreach standard events and resolve through the project standard event mappings
 Date: 2026-09-27  Status: accepted
 Context: Library templates named client events by literal name, so a client that calls purchase transactions got a gap requirement for every template. The user asked for a mapping step like Bloomreach has. Every project already carries standard event mappings (standard event, client event, variant, field map of property renames) from the data mapping import.

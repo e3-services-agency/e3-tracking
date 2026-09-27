@@ -24,9 +24,21 @@ interface FindingRow {
   property_id: string | null;
   observation_id: string | null;
   qa_run_id: string | null;
+  expected_json?: unknown;
   message: string | null;
   status: string;
   last_seen_at: string;
+}
+
+/** T-2-09: the rule name for rule-kind findings, echoed onto `expected_json.rule_name`
+ * (`document.service.ts`'s `findingRuleName` does the same lookup for the event card). */
+function ruleNameOf(finding: FindingRow): string | null {
+  const expected = finding.expected_json;
+  if (expected && typeof expected === 'object' && 'rule_name' in (expected as Record<string, unknown>)) {
+    const name = (expected as Record<string, unknown>).rule_name;
+    return typeof name === 'string' ? name : null;
+  }
+  return null;
 }
 
 interface EventOption {
@@ -63,6 +75,17 @@ export function Findings() {
   const pendingFindingsRunId = useStore((s) => s.pendingFindingsRunId);
   const setPendingFindingsRunId = useStore((s) => s.setPendingFindingsRunId);
   const [runIdFilter, setRunIdFilter] = useState<string | null>(null);
+  const setRequestedTab = useStore((s) => s.setRequestedTab);
+  const setEventCardEventId = useStore((s) => s.setEventCardEventId);
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+
+  const openEventCard = useCallback(
+    (eventId: string) => {
+      setEventCardEventId(eventId);
+      setRequestedTab('eventCard');
+    },
+    [setEventCardEventId, setRequestedTab]
+  );
 
   useEffect(() => {
     if (pendingFindingsRunId) {
@@ -153,6 +176,32 @@ export function Findings() {
     }
   };
 
+  // T-2-09: manual resolve/reopen toggle, `PATCH .../findings/:id` (D-21 lifecycle: this is a
+  // manual override on top of recompute, not a third status -- `finding.dal.ts`'s
+  // `setFindingStatus` documents the reopen rule).
+  const toggleResolved = async (finding: FindingRow) => {
+    if (!activeProjectId) return;
+    setResolvingId(finding.id);
+    setError(null);
+    try {
+      const nextStatus = finding.status === 'resolved' ? 'open' : 'resolved';
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/findings/${finding.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (!res.ok) {
+        const data = await parseJson(res);
+        setError(typeof data?.error === 'string' ? data.error : 'Failed to update this finding.');
+        return;
+      }
+      await load();
+    } catch {
+      setError('Failed to update this finding.');
+    } finally {
+      setResolvingId(null);
+    }
+  };
+
   if (!hasValidProjectContext || !activeProjectId) {
     return <div className="p-8 text-sm text-gray-500">Select a project first.</div>;
   }
@@ -223,11 +272,13 @@ export function Findings() {
               <tr>
                 <th className="px-6 py-3 font-medium text-gray-500">Severity</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Kind</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Rule</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Comparison</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Event</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Message</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Status</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Last seen</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -239,23 +290,47 @@ export function Findings() {
                     </span>
                   </td>
                   <td className="px-6 py-4 font-mono text-xs text-gray-700">{f.kind}</td>
+                  <td className="px-6 py-4 text-gray-700 text-xs">{ruleNameOf(f) ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500 text-xs">{f.comparison}</td>
-                  <td className="px-6 py-4 text-gray-900">{f.event_id ? eventNameById.get(f.event_id) ?? f.event_id : '—'}</td>
+                  <td className="px-6 py-4 text-gray-900">
+                    {f.event_id ? (
+                      <button
+                        type="button"
+                        onClick={() => openEventCard(f.event_id as string)}
+                        className="text-[var(--brand-primary)] hover:underline"
+                      >
+                        {eventNameById.get(f.event_id) ?? f.event_id}
+                      </button>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                   <td className="px-6 py-4 text-gray-500">{f.message ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{f.status}</td>
                   <td className="px-6 py-4 text-gray-500">{new Date(f.last_seen_at).toLocaleString()}</td>
+                  <td className="px-6 py-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={resolvingId === f.id}
+                      onClick={() => void toggleResolved(f)}
+                    >
+                      {f.status === 'resolved' ? 'Reopen' : 'Resolve'}
+                    </Button>
+                  </td>
                 </tr>
               ))}
               {showEmptyState(loading, findings.length) && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
                     No findings match these filters.
                   </td>
                 </tr>
               )}
               {showLoadingPlaceholder(loading, findings.length) && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                  <td colSpan={9} className="px-6 py-8 text-center text-gray-400">
                     Loading…
                   </td>
                 </tr>

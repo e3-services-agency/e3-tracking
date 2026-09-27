@@ -351,3 +351,5 @@ Consequences: T-3-06 is split: T-3-06 format, tags, import/export, templates pag
 ## D-53 amendment (2026-09-28): migration numbers 0016 T-3-06 (use case template tags), 0017 T-3-10 (project industry, only if needed), 0018 T-4-01 (share_created_at), 0019 T-4-02 (comments), 0020 T-4-06 (use case activation). Supersedes the numbers in D-53 and D-56.
 
 ## D-47 amendment (2026-09-28): template deletion counts live (non-deleted) use case references only; in the same transaction, template_id is nulled on soft-deleted use cases before the delete. A restore already produces null template_id, so this state is legitimate. The 409 body carries the reference count. Lands in T-3-10.
+
+## D-52 amendment (2026-09-28): migration 0008 sets findings.qa_run_id ON DELETE CASCADE (observation_id SET NULL). deleteQaRun therefore nulls findings.qa_run_id explicitly inside its transaction before deleting the run; findings survive with null refs and the following recompute resolves or restamps them.

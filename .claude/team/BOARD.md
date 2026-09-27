@@ -1546,3 +1546,6 @@ qa-tester PASS (21:18): 13 tools over stdio via the exact .mcp.json command, bat
 
 ### 2026-09-27 21:24 | supervisor | STATUS | D-43 amendment: phase 3 and 4 plan goes to the user first
 User will review the architect plan for phases 3 and 4 before phase 3 tasks start. Phase 2 continues to T-2-EXIT without waiting. If the user has not replied by the time phase 2 exits, phase 3 waits for the review.
+
+### 2026-09-27 21:25 | implementer -> qa-tester | HANDOFF | T-2-09 pre-QA fixes
+Posted by supervisor. Commit dfac84b on task/T-2-09-event-card-page (on top of 68ccc7f). Card: Example column on properties, QA run / First seen / Last seen on open findings, Use cases before Open findings. finding.dal setFindingStatus(resolved) on an already resolved row is a no-op (two DAL tests). Docblock updated. 938 tests (81 files), tsc clean, build ok.

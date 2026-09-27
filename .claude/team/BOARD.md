@@ -1590,3 +1590,6 @@ User brainstorm: use cases are realised in Bloomreach initiatives built late in 
 
 ### 2026-09-27 22:25 | supervisor | STATUS | MCP coverage for phase 3 added to the plan
 User question. T-3-02 gains get_history; T-3-06 gains list_use_case_templates and instantiate_use_case_template (dry_run preview, mappings); T-3-07 gains update_observation, delete_observation, delete_qa_run. Backup, restore and CSV stay out of MCP. Implementers of these tasks touch src/mcp/registerTools.ts: merge order T-3-02 -> T-3-07 -> T-3-06 or resolve the additive registration conflicts keep-both.
+
+### 2026-09-27 22:29 | supervisor | STATUS | D-43 amendment 2: checkpoint after phase 3
+User decision: phase 3 runs unattended to T-3-EXIT, then the supervisor stops and discusses the phase 4 plan with the user (shared view, comments, activation, share token) before any T-4 task starts. Phase 4 then runs unattended to T-4-EXIT.

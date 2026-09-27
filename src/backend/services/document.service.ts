@@ -554,6 +554,34 @@ export function computeEventCertification(projectId: string, eventId: string): E
   return buildEventCard(projectId, eventId).certification;
 }
 
+/**
+ * Every event's `certification` in one project-wide pass (T-2-09, plan "Events table: certified
+ * column ... fed by ... a batched endpoint ... computed via the EventCardBuildContext so it stays
+ * one pass"): reuses the same `EventCardBuildContext` inputs `buildEventCard` uses for one event's
+ * certification (open error findings, observation presence) without building every event's full
+ * card (rules, use cases, coverage grid, codegen -- all unused by `GET /events`'s `certified`
+ * column). `GET /events` (`routes/events.ts`) merges this into the list response.
+ */
+export function computeCertificationsForProject(projectId: string, ctx?: EventCardBuildContext): Map<string, EventCard['certification']> {
+  const context = ctx ?? buildEventCardContext(projectId);
+  const result = new Map<string, EventCard['certification']>();
+  for (const event of context.events) {
+    const openFindingsForEvent = context.openFindingsByEventId.get(event.id) ?? [];
+    const openErrorFindingCount = openFindingsForEvent.filter((f) => f.severity === 'error').length;
+    const observationsForEvent = context.observationsByEventId.get(event.id) ?? [];
+    result.set(
+      event.id,
+      computeCertification({
+        applicable: event.class === 'custom',
+        status: event.status,
+        openErrorFindingCount,
+        hasObservation: observationsForEvent.length > 0,
+      })
+    );
+  }
+  return result;
+}
+
 /** `GET /events/:id/coverage`: the full per-event grid (row/column/cell detail), distinct from the card's summary counts. */
 export function computeEventCoverageGrid(projectId: string, eventId: string) {
   const { properties } = EventDAL.getEventWithProperties(projectId, eventId);

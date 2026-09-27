@@ -1584,3 +1584,6 @@ User accepted the phase 3 plan (with D-55 folded into T-3-06), phase 4 as propos
 
 ### 2026-09-27 22:10 | supervisor | STATUS | Share-link passphrase deferred to phase 5
 User agreed: optional passphrase per share link is a phase 5 item next to token hashing and rate limiting. Noted on D-48 in the phase 3 and 4 plan; recorded in DECISIONS.md when D-48 is formally added at phase 4 start.
+
+### 2026-09-27 22:21 | supervisor | DECISION | D-56 use case activation and asset links, T-4-06 added
+User brainstorm: use cases are realised in Bloomreach initiatives built late in the project; asset links must be optional and emerge over time; activation status gives the delivery overview without project management fields. D-56 recorded; T-4-06 added to the phase 4 plan with migration 0018; the initiative export import is conditional on a sample in samples/. Phase 3 backup and CSV must include use_cases.activation and assets_json (T-3-03, T-3-04, T-3-05 implementers: reserve the columns, they exist from 0018 onward, so export them when present).

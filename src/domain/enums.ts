@@ -234,3 +234,34 @@ export type RuleReportKind = (typeof RULE_REPORT_KINDS)[number];
  * (e.g. a bound rule that is advisory rather than a hard violation). */
 export const RULE_SEVERITIES = ['error', 'warning'] as const;
 export type RuleSeverity = (typeof RULE_SEVERITIES)[number];
+
+// ----- ChangeLog (D-44, T-3-01) -----
+/** `ChangeLog.entity_type`: every entity kind whose definition writes are logged (capability 12).
+ * Evidence tables (`qa_runs`, `observations`, `findings`), `clients` and the global
+ * `use_case_templates` library are not logged: they have their own lifecycle/trail already
+ * (D-42's manual-resolve trail covers findings). `event_property`'s composite key is stored as
+ * `<event_id>:<property_id>` in `ChangeLog.entity_id`. */
+export const CHANGE_LOG_ENTITY_TYPES = [
+  'project',
+  'source',
+  'property',
+  'event',
+  'event_property',
+  'variant',
+  'standard_event_mapping',
+  'identity_rule',
+  'consent_category',
+  'catalog',
+  'catalog_field',
+  'use_case',
+  'requirement',
+  'rule',
+  'property_bundle',
+] as const;
+export type ChangeLogEntityType = (typeof CHANGE_LOG_ENTITY_TYPES)[number];
+
+/** `ChangeLog.action`: `restore` is written once per restored project (T-3-05); every other DAL
+ * mutation writes `create`/`update`/`delete` regardless of provenance — an import apply is still a
+ * `create`/`update`, tagged by `source: 'import:<format>'` instead of its own action (D-44). */
+export const CHANGE_LOG_ACTIONS = ['create', 'update', 'delete', 'restore'] as const;
+export type ChangeLogAction = (typeof CHANGE_LOG_ACTIONS)[number];

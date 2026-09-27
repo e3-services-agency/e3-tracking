@@ -183,8 +183,11 @@ export function listAcknowledgedFindings(projectId: string): FindingRow[] {
  * T-2-09 exception: a finding a person resolved by hand (`resolved_by = 'user'`, set only by
  * `setFindingStatus`) is NOT reopened here even though its fingerprint reproduced — the detail
  * columns (severity/message/expected/actual/last_seen_at) still refresh so the record reflects the
- * latest evidence, but `status`/`resolved_at`/`resolved_by` are left untouched. Only an explicit
- * `PATCH {status: 'open'}` (which clears `resolved_by`) makes the finding reopenable again.
+ * latest evidence, but `status`/`resolved_at`/`resolved_by` are left untouched. Two paths make the
+ * finding reopenable again: an explicit `PATCH {status: 'open'}` (`setFindingStatus`, immediate),
+ * or `resolveStaleFindings` clearing `resolved_by` on its own the first time a recompute no longer
+ * reproduces the fingerprint (D-42) — either way, `resolved_by` is back to `NULL` before the next
+ * `upsertFinding` call sees this fingerprint again, so a later recurrence reopens normally.
  */
 export function upsertFinding(projectId: string, input: FindingInput): FindingRow {
   const db = getDb();
@@ -300,9 +303,19 @@ export function resolveStaleFindings(projectId: string, comparison: string, prod
  * clears both, an explicit reopen that lets the next `runComparison` reopen it again on its own if
  * the fingerprint still reproduces (see `upsertFinding`'s comment -- without this explicit reopen,
  * a manually-resolved finding stays resolved forever even while the underlying problem persists).
+ *
+ * T-2-09 pre-QA fix: `status: 'resolved'` on a row that is already `status === 'resolved'` (whether
+ * a person resolved it earlier, or `resolveStaleFindings` auto-resolved it because the fingerprint
+ * stopped reproducing) is a no-op -- the row is returned unchanged, with no `resolved_by='user'`
+ * stamp. Without this, re-sending a resolve for a finding the Findings page already shows as
+ * `resolved` (e.g. a stale UI, or a double-click) would silently turn an ordinary auto-resolved
+ * finding into a D-42 acknowledgement that then blocks certification even though nobody
+ * acknowledged anything. The route still answers `200` either way.
  */
 export function setFindingStatus(projectId: string, id: string, status: 'open' | 'resolved'): FindingRow {
-  getFindingOrThrow(projectId, id); // 404s before the write if the id/project pair doesn't match.
+  const existing = getFindingOrThrow(projectId, id); // 404s before any write if the id/project pair doesn't match.
+  if (status === 'resolved' && existing.status === 'resolved') return existing;
+
   const db = getDb();
   const now = nowIso();
   if (status === 'resolved') {

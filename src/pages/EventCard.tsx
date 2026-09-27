@@ -1,11 +1,12 @@
 /**
- * Event card page (T-2-09, T-2-09 fix round, D-07 simplified UI, plan "Event card and tracking
- * document"): renders every `EventCard` section, in the exact order of `docs/TRACKING-DOCUMENT.md`'s
- * field table -- header/certification/expiration/freshness (grouped in one Overview block, itself
- * first in that table), properties, item schemas, variants, standard event mappings, contexts,
- * coverage, rules, derived metrics / not suitable for, open findings (with the `quality.acknowledged`
- * and `quality.by_comparison` breakdowns), use cases, codegen, sdk default properties. Plain tables,
- * no design work.
+ * Event card page (T-2-09, T-2-09 fix round, T-2-09 pre-QA fixes, D-07 simplified UI, plan "Event
+ * card and tracking document"): renders every `EventCard` section, in the exact order of
+ * `docs/TRACKING-DOCUMENT.md`'s field table -- header/certification/expiration/freshness (grouped
+ * in one Overview block, itself first in that table), properties (incl. the generated `example`),
+ * item schemas, variants, standard event mappings, contexts, coverage, rules, derived metrics / not
+ * suitable for, use cases, open findings (with the `quality.acknowledged` and `quality.by_comparison`
+ * breakdowns, and each row's `qa_run_id`/`first_seen`/`last_seen`), codegen, sdk default properties.
+ * Plain tables, no design work.
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
@@ -92,6 +93,9 @@ interface EventCardData {
     message: string | null;
     expected: unknown;
     actual: unknown;
+    qa_run_id: string | null;
+    first_seen: string;
+    last_seen: string;
   }[];
   agent_instructions: string | null;
   codegen: { gtm: string; web_sdk: string; tracking_api: string };
@@ -228,7 +232,7 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
 
             <Section title={`Properties (${card.properties.length})`}>
               <Table
-                head={['Name', 'Payload key', 'Type', 'Formats', 'Role', 'Required', 'Allowed values', 'PII', 'Description']}
+                head={['Name', 'Payload key', 'Type', 'Formats', 'Role', 'Required', 'Allowed values', 'PII', 'Description', 'Example']}
                 rows={card.properties.map((p) => [
                   p.name,
                   p.payload_key,
@@ -239,6 +243,7 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
                   p.allowed_values ? p.allowed_values.map((v) => v.value).join(', ') : '—',
                   p.pii ? 'yes' : 'no',
                   p.description ?? '—',
+                  JSON.stringify(p.example ?? null),
                 ])}
               />
             </Section>
@@ -347,6 +352,13 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
               </div>
             </Section>
 
+            <Section title={`Use cases (${card.use_cases.length})`}>
+              {card.use_cases.length === 0 && <p className="text-sm text-gray-500">Not referenced by any use case.</p>}
+              {card.use_cases.length > 0 && (
+                <Table head={['Code', 'Name', 'Level']} rows={card.use_cases.map((u) => [u.code ?? '—', u.name, u.level])} />
+              )}
+            </Section>
+
             <Section
               title={`Open findings (${card.findings.length}) — error ${card.quality.open.error}, warning ${card.quality.open.warning}, info ${card.quality.open.info}${
                 card.quality.acknowledged.error + card.quality.acknowledged.warning + card.quality.acknowledged.info > 0
@@ -369,7 +381,7 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
               {card.findings.length > 0 && (
                 <div className="mt-3">
                   <Table
-                    head={['Severity', 'Kind', 'Comparison', 'Rule', 'Property', 'Variant', 'Message', 'Expected', 'Actual']}
+                    head={['Severity', 'Kind', 'Comparison', 'Rule', 'Property', 'Variant', 'Message', 'Expected', 'Actual', 'QA run', 'First seen', 'Last seen']}
                     rows={card.findings.map((f) => [
                       f.severity,
                       f.kind,
@@ -380,16 +392,12 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
                       f.message ?? '—',
                       JSON.stringify(f.expected ?? null),
                       JSON.stringify(f.actual ?? null),
+                      f.qa_run_id ?? '—',
+                      new Date(f.first_seen).toLocaleString(),
+                      new Date(f.last_seen).toLocaleString(),
                     ])}
                   />
                 </div>
-              )}
-            </Section>
-
-            <Section title={`Use cases (${card.use_cases.length})`}>
-              {card.use_cases.length === 0 && <p className="text-sm text-gray-500">Not referenced by any use case.</p>}
-              {card.use_cases.length > 0 && (
-                <Table head={['Code', 'Name', 'Level']} rows={card.use_cases.map((u) => [u.code ?? '—', u.name, u.level])} />
               )}
             </Section>
 

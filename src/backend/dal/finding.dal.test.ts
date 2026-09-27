@@ -122,4 +122,41 @@ describe('upsertFinding + setFindingStatus (T-2-09 manual resolve)', () => {
     expect(stillAcknowledged.status).toBe('resolved');
     expect(stillAcknowledged.resolved_by).toBe('user');
   });
+
+  // T-2-09 pre-QA fix (LOW 3): resolving an already-resolved row must never stamp resolved_by --
+  // whether that row was auto-resolved by recompute (resolved_by null) or already acknowledged by
+  // hand (resolved_by user), a redundant "resolve" call is a no-op that returns the row unchanged.
+  it('setFindingStatus(resolved) on a row already auto-resolved (resolved_by null) is a no-op, not an acknowledgement', () => {
+    const created = upsertOnce('first');
+    FindingDAL.resolveStaleFindings(projectId, 'definition_vs_observations', []); // auto-resolve, resolved_by stays null
+    const autoResolved = FindingDAL.getFindingOrThrow(projectId, created.id);
+    expect(autoResolved.status).toBe('resolved');
+    expect(autoResolved.resolved_by).toBeNull();
+    const resolvedAtBefore = autoResolved.resolved_at;
+
+    const result = FindingDAL.setFindingStatus(projectId, created.id, 'resolved');
+
+    expect(result.status).toBe('resolved');
+    expect(result.resolved_by).toBeNull(); // still no acknowledgement marker
+    expect(result.resolved_at).toBe(resolvedAtBefore); // untouched, proving the no-op did not write
+
+    // Certification-wise this row is not "acknowledged" (it never gained the marker), so a later
+    // recurrence of the fingerprint reopens it exactly like any other auto-resolved finding.
+    const reopened = upsertOnce('recurred');
+    expect(reopened.status).toBe('open');
+    expect(reopened.resolved_by).toBeNull();
+  });
+
+  it('setFindingStatus(resolved) on a row already manually resolved (resolved_by user) is a no-op, leaving resolved_at unchanged', () => {
+    const created = upsertOnce('first');
+    const firstResolve = FindingDAL.setFindingStatus(projectId, created.id, 'resolved');
+    expect(firstResolve.resolved_by).toBe('user');
+    const resolvedAtBefore = firstResolve.resolved_at;
+
+    const secondResolve = FindingDAL.setFindingStatus(projectId, created.id, 'resolved');
+
+    expect(secondResolve).toEqual(firstResolve); // the row is returned completely unchanged
+    expect(secondResolve.resolved_by).toBe('user');
+    expect(secondResolve.resolved_at).toBe(resolvedAtBefore);
+  });
 });

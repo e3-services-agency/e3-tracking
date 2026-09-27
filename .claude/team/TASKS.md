@@ -43,7 +43,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-3-05 | 3 | Restore backup as new project: preview/apply, id remap, files, template re-link, UI | implementer | T-3-04 | TODO | see below |
 | T-3-06 | 3 | Use case library: format with tags (D-57), parser, import preview/apply, export, instantiate with code, templates page with facet filters and prerequisites card, sample library | implementer | T-3-00 | REVIEW | see below |
 | T-3-10 | 3 | Library resolution: mapping step (D-55), catalog_attribute and consent requirement targets (D-57), matrix and coverage updates, project industry field, MCP list/instantiate tools | implementer | T-3-06 | TODO | see below |
-| T-3-07 | 3 | QA evidence maintenance and carried fixes: observation edit/delete, run delete, variant delete guard, identity codegen dedupe, open review items | implementer | T-3-00 | IN_PROGRESS | see below |
+| T-3-07 | 3 | QA evidence maintenance and carried fixes: observation edit/delete, run delete, variant delete guard, identity codegen dedupe, open review items | implementer | T-3-00 | REVIEW | see below |
 | T-3-08 | 3 | Dead-code sweep per the verified list, schema.ts reduction, legacy docs removal | implementer | T-3-02, T-3-03, T-3-05, T-3-07, T-3-10 | TODO | see below |
 | T-3-09 | 3 | Docs refresh: CLAUDE.md, docs/DOMAIN.md, docs/EXPORTS.md (CSV, backup, library formats), docs/QA-LOCAL.md, qa-roundtrip scenario text for 6, 9, 10, 11 | docs-writer | T-3-08 | TODO | see below |
 | T-3-EXIT | 3 | Phase 3 exit: qa-roundtrip 1 to 11 plus MCP smoke on merged agent-setup, report to user | supervisor | T-3-09 | TODO | see below |

@@ -11,6 +11,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
+import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { PRIORITIES, EVENT_STATUSES, EVENT_CLASSES } from '@/src/domain/enums';
@@ -43,6 +44,10 @@ interface EventRow {
   tags_json: string[];
   triggers_json: TriggerEntry[];
   attached_property_count?: number;
+  /** T-2-09: batched from `GET /events` (`document.service.ts`'s `computeCertificationsForProject`,
+   * one project-wide pass -- never one request per row). `'n/a'` for sdk/platform events. */
+  certified?: 'yes' | 'no' | 'n/a';
+  certified_reasons?: string[];
 }
 
 interface TriggerEntry {
@@ -83,6 +88,19 @@ export function Events() {
   const [isCreating, setIsCreating] = useState(false);
   const [isDownloadingDocs, setIsDownloadingDocs] = useState(false);
   const [isDownloadingTrackingDocument, setIsDownloadingTrackingDocument] = useState(false);
+  // T-2-09: `class` filter (custom default, sdk, platform, all); the events list stays batched
+  // (one `GET /events` call), this only filters the already-loaded rows client-side.
+  const [classFilter, setClassFilter] = useState<'custom' | 'sdk' | 'platform' | 'all'>('custom');
+  const setRequestedTab = useStore((s) => s.setRequestedTab);
+  const setEventCardEventId = useStore((s) => s.setEventCardEventId);
+
+  const openEventCard = useCallback(
+    (id: string) => {
+      setEventCardEventId(id);
+      setRequestedTab('eventCard');
+    },
+    [setEventCardEventId, setRequestedTab]
+  );
 
   const handleDownloadDocumentation = useCallback(async () => {
     if (!activeProjectId) return;
@@ -173,7 +191,21 @@ export function Events() {
         </div>
       </div>
 
-      <div className="p-8 flex-1 overflow-y-auto">
+      <div className="p-8 flex-1 overflow-y-auto space-y-4">
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-medium text-gray-500">Class</label>
+          <select
+            value={classFilter}
+            onChange={(e) => setClassFilter(e.target.value as typeof classFilter)}
+            className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm"
+          >
+            <option value="custom">custom</option>
+            {EVENT_CLASSES.filter((c) => c !== 'custom').map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+            <option value="all">all</option>
+          </select>
+        </div>
         <div className="bg-white rounded-lg border shadow-sm">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
@@ -181,22 +213,38 @@ export function Events() {
                 <th className="px-6 py-3 font-medium text-gray-500">Name</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Class</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Status</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Certified</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Expiration</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Properties</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Card</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {events.map((ev) => (
-                <tr key={ev.id} onClick={() => { setSelectedId(ev.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
-                  <td className="px-6 py-4 font-medium text-gray-900">{ev.name}</td>
-                  <td className="px-6 py-4 text-gray-500">{ev.class}</td>
-                  <td className="px-6 py-4 text-gray-500">{ev.status}</td>
-                  <td className="px-6 py-4 text-gray-500">{expirationSummary(ev.expiration_json)}</td>
-                  <td className="px-6 py-4 text-gray-500">{ev.attached_property_count ?? 0}</td>
-                </tr>
-              ))}
+              {events
+                .filter((ev) => classFilter === 'all' || ev.class === classFilter)
+                .map((ev) => (
+                  <tr key={ev.id} onClick={() => { setSelectedId(ev.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
+                    <td className="px-6 py-4 font-medium text-gray-900">{ev.name}</td>
+                    <td className="px-6 py-4 text-gray-500">{ev.class}</td>
+                    <td className="px-6 py-4 text-gray-500">{ev.status}</td>
+                    <td className="px-6 py-4 text-gray-500" title={(ev.certified_reasons ?? []).join(', ') || undefined}>
+                      {ev.certified ?? 'n/a'}
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">{expirationSummary(ev.expiration_json)}</td>
+                    <td className="px-6 py-4 text-gray-500">{ev.attached_property_count ?? 0}</td>
+                    <td className="px-6 py-4">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); openEventCard(ev.id); }}
+                        className="text-[var(--brand-primary)] hover:underline text-sm"
+                      >
+                        View card
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               {events.length === 0 && (
-                <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No events found.</td></tr>
+                <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-500">No events found.</td></tr>
               )}
             </tbody>
           </table>

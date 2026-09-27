@@ -21,6 +21,7 @@ import { STANDARD_CUSTOMER_PROPERTIES, isKnownStandardEvent, type StandardEventS
 import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
 import { isValidItemSchemaShape } from '../../domain/rules/itemSchema';
 import { markRequirementsGapForPropertyRemoval } from './requirement.dal';
+import * as ChangeLogDAL from './change-log.dal';
 
 export interface AllowedValue {
   value: string;
@@ -461,12 +462,15 @@ function regenerateVariantNamesForPropertyRename(projectId: string, propertyId: 
 
   for (const event of eventRows) {
     const variantRows = db
-      .prepare('SELECT id, conditions_json FROM variants WHERE event_id = ?')
-      .all(event.id) as { id: string; conditions_json: string | null }[];
+      .prepare('SELECT id, name, conditions_json, conditions_key FROM variants WHERE event_id = ?')
+      .all(event.id) as { id: string; name: string; conditions_json: string | null; conditions_key: string }[];
     if (variantRows.length === 0) continue;
 
     const parsed = variantRows.map((row) => ({
       id: row.id,
+      oldName: row.name,
+      oldConditionsJson: parseJsonColumn(row.conditions_json, [] as VariantCondition[]),
+      oldConditionsKey: row.conditions_key,
       conditions: parseJsonColumn(row.conditions_json, [] as VariantCondition[]),
     }));
     const propertyIds = [...new Set(parsed.flatMap((v) => v.conditions.map((c) => c.property_id)))];
@@ -485,7 +489,7 @@ function regenerateVariantNamesForPropertyRename(projectId: string, propertyId: 
     const update = db.prepare(
       'UPDATE variants SET name = ?, conditions_json = ?, conditions_key = ?, updated_at = ? WHERE id = ?'
     );
-    for (const { id, conditions } of parsed) {
+    for (const { id, oldName, oldConditionsJson, oldConditionsKey, conditions } of parsed) {
       const normalized = normalizeConditions(conditions);
       const name = generateVariantName(event.name, normalized, propertyNameById);
       const conditionsKey = buildConditionsKey(normalized);
@@ -498,6 +502,16 @@ function regenerateVariantNamesForPropertyRename(projectId: string, propertyId: 
           `Failed to regenerate variant name/key on property rename: ${(err as Error).message}`
         );
       }
+      ChangeLogDAL.recordChange({
+        projectId,
+        entityType: 'variant',
+        entityId: id,
+        entityLabel: name,
+        parentEntityId: event.id,
+        action: 'update',
+        before: { name: oldName, conditions_json: oldConditionsJson, conditions_key: oldConditionsKey },
+        after: { name, conditions_json: normalized, conditions_key: conditionsKey },
+      });
     }
   }
 }
@@ -523,59 +537,73 @@ export function createProperty(projectId: string, input: PropertyInput): Propert
 
   const id = newId();
   const now = nowIso();
-  try {
-    db.prepare(
-      `INSERT INTO properties (
-        id, project_id, scope, name, description, category, notes, data_type, data_formats_json,
-        pii, property_type, allowed_values_json, example_values_json, value_schema_json,
-        object_child_property_refs_json, item_schema_json, bloomreach_customer_property, priority, status,
-        mapped_catalog_id, mapped_catalog_field_id, mapping_type, bloomreach_meta_json,
-        created_at, updated_at, deleted_at
-      ) VALUES (
-        @id, @project_id, @scope, @name, @description, @category, @notes, @data_type, @data_formats_json,
-        @pii, @property_type, @allowed_values_json, @example_values_json, @value_schema_json,
-        @object_child_property_refs_json, @item_schema_json, @bloomreach_customer_property, @priority, @status,
-        @mapped_catalog_id, @mapped_catalog_field_id, @mapping_type, @bloomreach_meta_json,
-        @created_at, @updated_at, NULL
-      )`
-    ).run({
-      id,
-      project_id: projectId,
-      scope: input.scope,
-      name,
-      description: input.description?.trim() || null,
-      category: input.category?.trim() || null,
-      notes: input.notes?.trim() || null,
-      data_type: input.data_type || DEFAULT_DATA_TYPE,
-      data_formats_json: toJsonColumn(input.data_formats_json ?? []),
-      pii: toSqliteBool(input.pii),
-      property_type: input.property_type || DEFAULT_PROPERTY_TYPE,
-      allowed_values_json: toJsonColumn(input.allowed_values_json ?? []),
-      example_values_json: toJsonColumn(input.example_values_json ?? []),
-      value_schema_json: toJsonColumn(input.value_schema_json ?? null),
-      object_child_property_refs_json: toJsonColumn(input.object_child_property_refs_json ?? null),
-      item_schema_json: toJsonColumn(input.item_schema_json ?? null),
-      bloomreach_customer_property: input.bloomreach_customer_property?.trim() || null,
-      priority: input.priority ?? null,
-      status: input.status ?? null,
-      mapped_catalog_id: input.mapped_catalog_id ?? null,
-      mapped_catalog_field_id: input.mapped_catalog_field_id ?? null,
-      mapping_type: input.mapping_type ?? null,
-      bloomreach_meta_json: toJsonColumn(input.bloomreach_meta_json ?? null),
-      created_at: now,
-      updated_at: now,
-    });
-  } catch (err) {
-    mapWriteError(
-      err,
-      `A ${input.scope} property named "${name}" already exists in this project.`,
-      `Failed to create property: ${(err as Error).message}`
-    );
-  }
+  const run = db.transaction(() => {
+    try {
+      db.prepare(
+        `INSERT INTO properties (
+          id, project_id, scope, name, description, category, notes, data_type, data_formats_json,
+          pii, property_type, allowed_values_json, example_values_json, value_schema_json,
+          object_child_property_refs_json, item_schema_json, bloomreach_customer_property, priority, status,
+          mapped_catalog_id, mapped_catalog_field_id, mapping_type, bloomreach_meta_json,
+          created_at, updated_at, deleted_at
+        ) VALUES (
+          @id, @project_id, @scope, @name, @description, @category, @notes, @data_type, @data_formats_json,
+          @pii, @property_type, @allowed_values_json, @example_values_json, @value_schema_json,
+          @object_child_property_refs_json, @item_schema_json, @bloomreach_customer_property, @priority, @status,
+          @mapped_catalog_id, @mapped_catalog_field_id, @mapping_type, @bloomreach_meta_json,
+          @created_at, @updated_at, NULL
+        )`
+      ).run({
+        id,
+        project_id: projectId,
+        scope: input.scope,
+        name,
+        description: input.description?.trim() || null,
+        category: input.category?.trim() || null,
+        notes: input.notes?.trim() || null,
+        data_type: input.data_type || DEFAULT_DATA_TYPE,
+        data_formats_json: toJsonColumn(input.data_formats_json ?? []),
+        pii: toSqliteBool(input.pii),
+        property_type: input.property_type || DEFAULT_PROPERTY_TYPE,
+        allowed_values_json: toJsonColumn(input.allowed_values_json ?? []),
+        example_values_json: toJsonColumn(input.example_values_json ?? []),
+        value_schema_json: toJsonColumn(input.value_schema_json ?? null),
+        object_child_property_refs_json: toJsonColumn(input.object_child_property_refs_json ?? null),
+        item_schema_json: toJsonColumn(input.item_schema_json ?? null),
+        bloomreach_customer_property: input.bloomreach_customer_property?.trim() || null,
+        priority: input.priority ?? null,
+        status: input.status ?? null,
+        mapped_catalog_id: input.mapped_catalog_id ?? null,
+        mapped_catalog_field_id: input.mapped_catalog_field_id ?? null,
+        mapping_type: input.mapping_type ?? null,
+        bloomreach_meta_json: toJsonColumn(input.bloomreach_meta_json ?? null),
+        created_at: now,
+        updated_at: now,
+      });
+    } catch (err) {
+      mapWriteError(
+        err,
+        `A ${input.scope} property named "${name}" already exists in this project.`,
+        `Failed to create property: ${(err as Error).message}`
+      );
+    }
 
-  if (input.bundle_ids !== undefined && input.bundle_ids !== null) {
-    BundleDAL.replacePropertyBundlesForProperty(projectId, id, input.bundle_ids);
-  }
+    if (input.bundle_ids !== undefined && input.bundle_ids !== null) {
+      BundleDAL.replacePropertyBundlesForProperty(projectId, id, input.bundle_ids);
+    }
+
+    const created = getPropertyOrThrow(projectId, id);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'property',
+      entityId: id,
+      entityLabel: created.name,
+      action: 'create',
+      before: null,
+      after: created as unknown as Record<string, unknown>,
+    });
+  });
+  run();
 
   return getPropertyOrThrow(projectId, id);
 }
@@ -585,7 +613,7 @@ export function updateProperty(
   id: string,
   updates: Partial<PropertyInput>
 ): PropertyRow {
-  getPropertyOrThrow(projectId, id);
+  const before = getPropertyOrThrow(projectId, id);
   const db = getDb();
 
   if (updates.name !== undefined || updates.scope !== undefined) {
@@ -698,6 +726,17 @@ export function updateProperty(
     if (updates.name !== undefined) {
       regenerateVariantNamesForPropertyRename(projectId, id, updates.name.trim());
     }
+
+    const after = getPropertyOrThrow(projectId, id);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'property',
+      entityId: id,
+      entityLabel: after.name,
+      action: 'update',
+      before: before as unknown as Record<string, unknown>,
+      after: after as unknown as Record<string, unknown>,
+    });
   });
   applyUpdate();
 
@@ -743,6 +782,16 @@ export function deleteProperty(projectId: string, id: string): void {
       projectId
     );
     markRequirementsGapForPropertyRemoval(id, property.name);
+
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'property',
+      entityId: id,
+      entityLabel: property.name,
+      action: 'delete',
+      before: property as unknown as Record<string, unknown>,
+      after: null,
+    });
   });
   run();
 }

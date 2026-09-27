@@ -13,11 +13,19 @@ import {
 import { buildIdentityCodegen } from '../services/codegen.service';
 import { listIdentityRules } from '../dal/identity-rule.dal';
 import { listProperties } from '../dal/property.dal';
+import { getProjectOrThrow } from '../dal/project.dal';
 import { exportQaRunAsCustomerEventsExport } from '../services/qaRunExport.service';
 import { buildTrackingDocument } from '../services/document.service';
 import { TRACKING_DOCUMENT_VERSION } from '../../domain/document/trackingDocument';
+import { isCsvEntity } from '../../domain/csv';
+import { listCsvEntityCounts, buildCsvFile } from '../services/csvExport.service';
 import { BadRequestError } from '../errors';
 import { handleRouteError } from './routeErrors';
+
+/** `yyyymmdd`, used by the CSV export filename (D-46). */
+function todayCompact(): string {
+  return new Date().toISOString().slice(0, 10).replace(/-/g, '');
+}
 
 const router = Router({ mergeParams: true });
 
@@ -110,6 +118,34 @@ router.get('/tracking-document.json', (req: Request, res: Response) => {
       );
     }
     res.status(200).json(buildTrackingDocument(req.projectId!));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+// CSV export per entity (D-46, T-3-03, capability 9, qa-roundtrip scenario 6). Listing route first
+// so `/csv/:entity` below never shadows it.
+router.get('/csv', (req: Request, res: Response) => {
+  try {
+    res.status(200).json({ entities: listCsvEntityCounts(req.projectId!) });
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.get('/csv/:entity', (req: Request, res: Response) => {
+  try {
+    const entity = req.params.entity;
+    if (!isCsvEntity(entity)) {
+      res.status(404).json({ error: `Unknown CSV entity "${entity}".`, code: 'UNKNOWN_CSV_ENTITY' });
+      return;
+    }
+    const project = getProjectOrThrow(req.projectId!);
+    const csv = buildCsvFile(req.projectId!, entity);
+    const filename = `${project.key}-${entity}-${todayCompact()}.csv`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.status(200).send(csv);
   } catch (err) {
     handleRouteError(err, res);
   }

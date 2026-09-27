@@ -349,3 +349,5 @@ Decision: Templates carry optional tag lists channels, goals, tiers, kpis, indus
 Consequences: T-3-06 is split: T-3-06 format, tags, import/export, templates page with filters and prerequisites card, sample library; T-3-10 mapping step (D-55), the two target kinds, matrix and coverage updates, MCP instantiate tools. The sample library grows toward the e-commerce essentials tier once the Use Case Center documentation is stored in samples/.
 
 ## D-53 amendment (2026-09-28): migration numbers 0016 T-3-06 (use case template tags), 0017 T-3-10 (project industry, only if needed), 0018 T-4-01 (share_created_at), 0019 T-4-02 (comments), 0020 T-4-06 (use case activation). Supersedes the numbers in D-53 and D-56.
+
+## D-47 amendment (2026-09-28): template deletion counts live (non-deleted) use case references only; in the same transaction, template_id is nulled on soft-deleted use cases before the delete. A restore already produces null template_id, so this state is legitimate. The 409 body carries the reference count. Lands in T-3-10.

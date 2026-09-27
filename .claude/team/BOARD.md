@@ -1692,3 +1692,6 @@ Reviewer FAIL (23:27) accepted. Fix: ERROR 1 no new migration: deleteQaRun nulls
 
 ### 2026-09-27 23:33 | implementer -> qa-tester | HANDOFF | T-3-03 pre-QA fixes
 Posted by supervisor. Commit 1fd456f on task/T-3-03-csv-export. event_properties builder is one project-wide join (4 statements on the test fixture, was 2291 on the Data Manager fixture); listCsvEntityCounts one COUNT(*) per entity (15, was 3145); events stays one certification pass (13); statement-count tests under 50. rules.csv excludes rules of a soft-deleted event; count mirrors the filter. observations.csv gains timestamp_iso next to timestamp. 970 tests (86 files), tsc clean, build ok.
+
+### 2026-09-27 23:35 | implementer -> reviewer | HANDOFF | T-3-06 fix round
+Posted by supervisor. Commit 899afdd on task/T-3-06-use-case-library. ERROR 1 deleteUseCaseTemplate counts soft-deleted references (DAL and route regression tests, 409 never 500); WARNING 2 explicit {code} collision -> 409 USE_CASE_CODE_TAKEN (new error appended in errors.ts), suffixing only on the default path; WARNING 3 empty prerequisites group -> none with 0/0; LOW 4-7 fixed. 991 tests (86 files), tsc clean, build ok.

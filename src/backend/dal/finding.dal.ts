@@ -1,11 +1,15 @@
 /**
  * Finding Data Access Layer (plan "Target data model" section Finding, D-21, T-1-09). Every
- * function takes `projectId`; all queries enforce `project_id`. Findings are never created or
- * resolved by hand (D-21: "no manual mute"): `comparison.service.ts`'s `runComparison` is the only
- * writer, via `upsertFinding` (recomputes `last_seen_at`/reopens on a fingerprint match, or inserts
- * a new row) and `resolveStaleFindings` (marks `open` findings of a comparison whose fingerprint
- * was not produced this run as `resolved`, keeping `last_seen_at` as history per the plan's Finding
- * lifecycle section).
+ * function takes `projectId`; all queries enforce `project_id`. `comparison.service.ts`'s
+ * `runComparison` is the only automatic writer, via `upsertFinding` (recomputes
+ * `last_seen_at`/reopens on a fingerprint match, or inserts a new row) and `resolveStaleFindings`
+ * (marks `open` findings of a comparison whose fingerprint was not produced this run as
+ * `resolved`, keeping `last_seen_at` as history per the plan's Finding lifecycle section).
+ *
+ * T-2-09 adds one manual writer, `setFindingStatus` (`PATCH .../findings/:id`): a person can
+ * resolve or reopen a finding by hand. D-21 still holds "no mute status" -- this is not a third
+ * status, just `status='resolved'` stamped with `resolved_by='user'` so `upsertFinding` knows not
+ * to silently reopen it while the underlying problem still reproduces (see its comment).
  */
 import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn } from '../db/util';
@@ -31,6 +35,10 @@ export interface FindingRow {
   first_seen_at: string;
   last_seen_at: string;
   resolved_at: string | null;
+  /** `'user'` when a person resolved this finding by hand through `PATCH .../findings/:id`
+   * (T-2-09); `null` for every automatically-produced/-resolved finding. See `upsertFinding`'s
+   * comment for the reopen rule this drives. */
+  resolved_by: 'user' | null;
 }
 
 /** The subset of `FindingRow` the engine produces; DAL fields (`id`, timestamps, `status`) are assigned on upsert. */
@@ -145,21 +153,29 @@ export function countOpenFindingsForEvent(projectId: string, eventId: string): n
  * last_seen_at = now`); an existing one is refreshed in place — `last_seen_at = now`, `status`
  * reset to `'open'` (reopening a previously resolved finding the same problem recurred), the rest
  * of the detail columns overwritten with the latest computed values, `first_seen_at` untouched.
+ *
+ * T-2-09 exception: a finding a person resolved by hand (`resolved_by = 'user'`, set only by
+ * `setFindingStatus`) is NOT reopened here even though its fingerprint reproduced — the detail
+ * columns (severity/message/expected/actual/last_seen_at) still refresh so the record reflects the
+ * latest evidence, but `status`/`resolved_at`/`resolved_by` are left untouched. Only an explicit
+ * `PATCH {status: 'open'}` (which clears `resolved_by`) makes the finding reopenable again.
  */
 export function upsertFinding(projectId: string, input: FindingInput): FindingRow {
   const db = getDb();
   const now = nowIso();
   const existing = db
-    .prepare('SELECT id FROM findings WHERE project_id = ? AND fingerprint = ?')
-    .get(projectId, input.fingerprint) as { id: string } | undefined;
+    .prepare("SELECT id, status, resolved_by FROM findings WHERE project_id = ? AND fingerprint = ?")
+    .get(projectId, input.fingerprint) as { id: string; status: string; resolved_by: string | null } | undefined;
 
   if (existing) {
+    const isManuallyResolved = existing.status === 'resolved' && existing.resolved_by === 'user';
     db.prepare(
       `UPDATE findings SET
         comparison = @comparison, kind = @kind, severity = @severity, event_id = @event_id,
         variant_id = @variant_id, property_id = @property_id, observation_id = @observation_id,
         qa_run_id = @qa_run_id, expected_json = @expected_json, actual_json = @actual_json,
-        message = @message, status = 'open', last_seen_at = @now, resolved_at = NULL
+        message = @message, last_seen_at = @now
+        ${isManuallyResolved ? '' : ", status = 'open', resolved_at = NULL, resolved_by = NULL"}
        WHERE id = @id AND project_id = @project_id`
     ).run({
       id: existing.id,
@@ -232,4 +248,30 @@ export function resolveStaleFindings(projectId: string, comparison: string, prod
     for (const row of stale) update.run(now, row.id);
   });
   run();
+}
+
+/**
+ * `PATCH /api/projects/:projectId/findings/:id` (T-2-09): a person manually resolves or reopens
+ * one finding. `status: 'resolved'` stamps `resolved_at`/`resolved_by='user'`; `status: 'open'`
+ * clears both, an explicit reopen that lets the next `runComparison` reopen it again on its own if
+ * the fingerprint still reproduces (see `upsertFinding`'s comment -- without this explicit reopen,
+ * a manually-resolved finding stays resolved forever even while the underlying problem persists).
+ */
+export function setFindingStatus(projectId: string, id: string, status: 'open' | 'resolved'): FindingRow {
+  getFindingOrThrow(projectId, id); // 404s before the write if the id/project pair doesn't match.
+  const db = getDb();
+  const now = nowIso();
+  if (status === 'resolved') {
+    db.prepare("UPDATE findings SET status = 'resolved', resolved_at = ?, resolved_by = 'user' WHERE id = ? AND project_id = ?").run(
+      now,
+      id,
+      projectId
+    );
+  } else {
+    db.prepare("UPDATE findings SET status = 'open', resolved_at = NULL, resolved_by = NULL WHERE id = ? AND project_id = ?").run(
+      id,
+      projectId
+    );
+  }
+  return getFindingOrThrow(projectId, id);
 }

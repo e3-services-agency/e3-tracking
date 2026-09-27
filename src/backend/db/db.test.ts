@@ -252,6 +252,7 @@ const ALL_MIGRATION_FILES = [
   '0011_rules.sql',
   '0012_use_case_narrative.sql',
   '0013_identity_alignment.sql',
+  '0014_findings_manual_resolve.sql',
 ];
 
 describe('listMigrationFiles', () => {

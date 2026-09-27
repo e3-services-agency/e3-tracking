@@ -8,7 +8,7 @@
 import { createHash } from 'node:crypto';
 import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn, mapWriteError } from '../db/util';
-import { NotFoundError } from '../errors';
+import { DuplicateObservationError, NotFoundError } from '../errors';
 import { getQaRunOrThrow } from './qa-run.dal';
 
 export interface ObservationRow {
@@ -194,6 +194,64 @@ export function updateObservationResolution(
   getDb()
     .prepare('UPDATE observations SET event_id = ?, variant_id = ? WHERE id = ? AND project_id = ?')
     .run(eventId, variantId, id, projectId);
+}
+
+export interface ObservationUpdateInput {
+  properties?: Record<string, unknown>;
+  page_url?: string | null;
+  context_values_json?: unknown;
+  timestamp?: number;
+}
+
+/**
+ * `PATCH /observations/:id` (D-52, T-3-07): edits an observation's evidence in place —
+ * `properties`/`page_url`/`context_values_json`/`timestamp`, any subset. `raw_hash` is always
+ * recomputed from the resulting `event_type`+`timestamp`+`properties` (event_type itself is never
+ * editable here; re-resolving to a different event/variant happens automatically on the next
+ * `runComparison`, per `updateObservationResolution`'s module comment); when the recomputed hash
+ * collides with another observation already in this run, the edit is refused with 409
+ * `DUPLICATE_OBSERVATION` rather than silently merging two rows' evidence.
+ */
+export function updateObservation(projectId: string, id: string, updates: ObservationUpdateInput): ObservationRow {
+  const current = getObservationOrThrow(projectId, id);
+  const timestamp = updates.timestamp ?? current.timestamp;
+  const properties = updates.properties ?? current.properties_json;
+  const pageUrl = updates.page_url !== undefined ? updates.page_url?.trim() || null : current.page_url;
+  const contextValues = updates.context_values_json !== undefined ? updates.context_values_json : current.context_values_json;
+  const rawHash = computeRawHash(current.event_type, timestamp, properties);
+
+  const db = getDb();
+  const duplicate = db
+    .prepare('SELECT id FROM observations WHERE qa_run_id = ? AND raw_hash = ? AND id != ?')
+    .get(current.qa_run_id, rawHash, id);
+  if (duplicate) {
+    throw new DuplicateObservationError(
+      'Another observation in this run already has this exact raw payload (same type, timestamp and properties).'
+    );
+  }
+
+  db.prepare(
+    `UPDATE observations
+     SET timestamp = @timestamp, properties_json = @properties_json, page_url = @page_url,
+         context_values_json = @context_values_json, raw_hash = @raw_hash
+     WHERE id = @id AND project_id = @project_id`
+  ).run({
+    id,
+    project_id: projectId,
+    timestamp,
+    properties_json: toJsonColumn(properties),
+    page_url: pageUrl,
+    context_values_json: toJsonColumn(contextValues),
+    raw_hash: rawHash,
+  });
+  return getObservationOrThrow(projectId, id);
+}
+
+/** `DELETE /observations/:id` (D-52, T-3-07): hard delete; the caller (route) always follows with `runComparison`. */
+export function deleteObservation(projectId: string, id: string): void {
+  getObservationOrThrow(projectId, id);
+  const result = getDb().prepare('DELETE FROM observations WHERE id = ? AND project_id = ?').run(id, projectId);
+  if (result.changes === 0) throw new NotFoundError('Observation not found.', 'observation');
 }
 
 /** Inserts every input in one transaction; returns the created rows (duplicates within the run are silently skipped). */

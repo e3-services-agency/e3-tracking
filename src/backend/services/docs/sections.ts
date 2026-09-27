@@ -450,11 +450,17 @@ export interface RuleForDocs {
   expression_text: string;
   tolerance: { mode: string; value: number | null };
   enabled: boolean;
+  /** `null` for an unconditional (event-wide) rule; a variant name scopes it to that variant's
+   * observations only (ERROR 3 fix round -- dropping this made a variant-scoped guardrail read as
+   * if it applied to every observation of the event). */
+  variant_name: string | null;
 }
 
 /**
  * Renders the guardrail rules table for one event's section (T-2-08 acceptance: "... rules ... from
- * the same `EventCard`"): name, kind, the resolved expression text, message and tolerance.
+ * the same `EventCard`"): name, kind, the resolved expression text, message, tolerance and scope
+ * (ERROR 3 fix round: the variant a variant-scoped rule is limited to, or "all" for the event-wide
+ * default).
  */
 export function renderRulesTable(rules: RuleForDocs[]): string {
   if (rules.length === 0) return '';
@@ -466,6 +472,7 @@ export function renderRulesTable(rules: RuleForDocs[]): string {
         ${cell(rule.expression_text)}
         ${cell(rule.message)}
         ${cell(rule.tolerance.mode === 'none' ? null : `${rule.tolerance.mode}${rule.tolerance.value != null ? ` (${rule.tolerance.value})` : ''}`)}
+        ${cell(rule.variant_name ?? 'all')}
         ${cell(rule.enabled ? 'enabled' : 'disabled')}
       </tr>`
     )
@@ -474,7 +481,47 @@ export function renderRulesTable(rules: RuleForDocs[]): string {
     <h3>Guardrail rules</h3>
     <table>
       <thead>
-        <tr><th>Name</th><th>Kind</th><th>Expression</th><th>Message</th><th>Tolerance</th><th>Status</th></tr>
+        <tr><th>Name</th><th>Kind</th><th>Expression</th><th>Message</th><th>Tolerance</th><th>Scope</th><th>Status</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+/** Minimal shape the findings table needs (`EventCard.findings[]`, D-40 Q9 fix round). */
+export interface FindingForDocs {
+  severity: string;
+  kind: string;
+  comparison: string;
+  property: string | null;
+  variant: string | null;
+  message: string | null;
+}
+
+/**
+ * Renders a compact table of one event's currently-open findings (D-40 Q9 fix round, ERROR 1): the
+ * same list `EventCard.findings[]`/the tracking document carry, so the HTML export never claims an
+ * event is not-certified without showing why.
+ */
+export function renderFindingsTable(findings: FindingForDocs[]): string {
+  if (findings.length === 0) return '';
+  const rows = findings
+    .map(
+      (f) => `<tr>
+        ${cell(f.severity)}
+        ${cell(f.kind)}
+        ${cell(f.comparison)}
+        ${cell(f.property)}
+        ${cell(f.variant)}
+        ${cell(f.message)}
+      </tr>`
+    )
+    .join('\n');
+  return `<div class="findings">
+    <h3>Open findings</h3>
+    <table>
+      <thead>
+        <tr><th>Severity</th><th>Kind</th><th>Comparison</th><th>Property</th><th>Variant</th><th>Message</th></tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>

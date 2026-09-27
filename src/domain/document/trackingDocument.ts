@@ -1,8 +1,12 @@
 /**
  * The tracking document's TypeScript contract (D-34, T-2-08, plan "Event card and tracking
  * document"): a machine-readable, per-project export of definitions, rules, use cases, identity
- * codegen and a findings summary -- no raw observations (open question 9 leaves them out; an agent
- * gets the summary here and full rows from MCP `list_findings`, T-2-10).
+ * codegen and findings -- D-40 Q9 (fix round, superseding the earlier "summary only" open question
+ * 9 answer): every `EventCard` carries its own open findings uncapped (`findings[]`, every
+ * severity), plus the project-wide `findings_summary` counts; there is no separate raw-observation
+ * dump (an agent still gets full observation rows from MCP `list_findings`/`get_event_card`,
+ * T-2-10, but the findings themselves are inline here so no second round-trip is needed to see
+ * *why* an event is not certified).
  *
  * Types only, no DB or Express import (domain-model skill); `src/backend/services/document.service.ts`
  * builds the value, `GET /export/tracking-document.json` (`routes/export.ts`) serves it.
@@ -12,7 +16,7 @@
  * requests an older version; the previous version is kept servable for one phase behind current
  * (see `docs/TRACKING-DOCUMENT.md`).
  */
-import type { EventClass, FindingSeverity } from '../enums';
+import type { ComparisonId, EventClass, FindingKind, FindingSeverity } from '../enums';
 
 export const TRACKING_DOCUMENT_FORMAT = 'e3-tracking-document' as const;
 export const TRACKING_DOCUMENT_VERSION = 1;
@@ -32,6 +36,28 @@ export interface EventCardCertification {
 export interface EventCardExpiration {
   effective: { enabled: boolean; count: number | null; units: 'days' | 'weeks' | 'months' | 'years' | null } | null;
   source: 'variant' | 'event' | 'project' | null;
+}
+
+/** One open `Finding` row, per D-40 Q9 (fix round): every field an agent needs to act on the
+ * finding without a second `list_findings` round-trip. `property`/`variant`/`rule` are display
+ * names resolved from their ids (`rule` is the originating rule's name, from `Rule.name` via the
+ * finding's `expected_json.rule_name`, T-2-07; `null` for a finding that did not come from a rule). */
+export interface EventCardFinding {
+  id: string;
+  comparison: ComparisonId;
+  kind: FindingKind;
+  severity: FindingSeverity;
+  property_id: string | null;
+  property: string | null;
+  variant_id: string | null;
+  variant: string | null;
+  rule: string | null;
+  message: string | null;
+  expected: unknown;
+  actual: unknown;
+  qa_run_id: string | null;
+  first_seen: string;
+  last_seen: string;
 }
 
 export interface EventCardAllowedValue {
@@ -75,6 +101,13 @@ export interface EventCardVariant {
   conditions: EventCardVariantCondition[];
   standard_event: string | null;
   expected_payload: Record<string, unknown>;
+  /** Payload keys of `expected_payload` that are required (WARNING 6 fix round): without this an
+   * agent cannot tell required from optional keys in the sample without cross-referencing
+   * `EventCard.properties[]` by `payload_key`. */
+  required_keys: string[];
+  /** This variant's own `expiration_json` override, when set (WARNING 4 fix round); `null` means
+   * no override -- this variant follows the event/project-level `EventCard.expiration` above. */
+  expiration: EventCardExpiration | null;
 }
 
 export interface EventCardStandardEventMapping {
@@ -87,12 +120,21 @@ export interface EventCardStandardEventMapping {
 export interface EventCardContext {
   property_id: string;
   property: string;
+  /** The key `context_values_json`/the raw observation payload actually carries (ERROR 2 fix
+   * round); may differ from `property` (the display name) when the property's `payload_key` is
+   * set. Coverage columns below are keyed by this same value. */
+  payload_key: string;
   values: string[];
 }
 
 export interface EventCardCoverageColumn {
   property_id: string;
   name: string;
+  /** ERROR 2 fix round: the column is a `payload_key`, matching `GET /events/:id/coverage`'s
+   * `computeEventCoverageGrid` and `context_values_json`/observation lookups (`coverage.ts`) --
+   * previously this used the property's display name, which silently diverged from the full grid
+   * whenever a context property's `payload_key` differed from its `name`. */
+  payload_key: string;
   values: string[];
 }
 
@@ -116,6 +158,12 @@ export interface EventCardRule {
   expression_text: string;
   tolerance: { mode: string; value: number | null };
   enabled: boolean;
+  /** ERROR 3 fix round: `null` for an unconditional (event-wide) rule; non-null scopes the rule to
+   * one variant's observations only (`RuleRow.variant_id`, D-30 "matched variant"). Dropping this
+   * used to make a variant-scoped guardrail read as if it applied to every observation of the
+   * event. */
+  variant_id: string | null;
+  variant_name: string | null;
 }
 
 export interface EventCardUseCase {
@@ -167,6 +215,9 @@ export interface EventCard {
   use_cases: EventCardUseCase[];
   freshness: EventCardFreshness;
   quality: EventCardQuality;
+  /** ERROR 1 fix round (D-40 Q9): every currently-open finding for this event, across every
+   * comparison and every severity, uncapped -- not just the `quality` counts. */
+  findings: EventCardFinding[];
   agent_instructions: string | null;
   codegen: EventCardCodegen;
   sdk_default_properties: string[];

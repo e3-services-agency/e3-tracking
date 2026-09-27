@@ -45,12 +45,13 @@ import {
   renderCertificationBadge,
   renderRulesTable,
   renderCoverageSummary,
+  renderFindingsTable,
   type VariantForDocs,
   type StandardEventMappingForDocs,
   type UseCaseForDocs,
 } from './docs/sections';
 import { escapeHtml } from './htmlEscape';
-import { buildEventCard } from './document.service';
+import { buildEventCard, buildEventCardContext, type EventCardBuildContext } from './document.service';
 
 export { escapeHtml };
 
@@ -170,7 +171,8 @@ async function buildEventSectionHtml(
   event: EventWithCounts,
   properties: EventPropertyWithDetails[],
   variants: VariantRow[],
-  standardEventByVariantId: Map<string, string>
+  standardEventByVariantId: Map<string, string>,
+  cardCtx: EventCardBuildContext
 ): Promise<string> {
   const attached = properties.map(toAttachedPropertyForCodegen);
   const codegen = buildCodegenSnippets(
@@ -182,12 +184,15 @@ async function buildEventSectionHtml(
   const propertyNameById = new Map(properties.map((link) => [link.property_id, link.property.name]));
 
   // T-2-08 acceptance: "the HTML documentation export renders the card sections (certification,
-  // rules, coverage summary) from the same EventCard" -- one extra `buildEventCard` call per event
-  // (docs export is not a hot path), so this and the event card page/tracking document never drift.
-  const card = buildEventCard(projectId, event.id);
+  // rules, coverage summary, findings) from the same EventCard" -- one `buildEventCard` call per
+  // event, sharing one project-wide `cardCtx` (WARNING 5 fix round) across every event's card
+  // instead of each call re-resolving every observation, so this and the event card page/tracking
+  // document never drift and the docs export stays O(events + observations).
+  const card = buildEventCard(projectId, event.id, cardCtx);
   const certificationHtml = renderCertificationBadge(card.certification);
   const rulesHtml = renderRulesTable(card.rules);
   const coverageSummaryHtml = renderCoverageSummary(card.coverage);
+  const findingsHtml = renderFindingsTable(card.findings);
 
   const variantsHtml = renderVariantsSubsection(
     variants.map<VariantForDocs>((variant) => ({
@@ -238,6 +243,7 @@ async function buildEventSectionHtml(
     ${variantCodegenHtml}
     ${rulesHtml}
     ${coverageSummaryHtml}
+    ${findingsHtml}
   </section>`;
 }
 
@@ -339,11 +345,15 @@ export async function generateProjectDocumentationHtml(projectId: string): Promi
   );
   const variantNameById = new Map(allVariants.map((variant) => [variant.id, variant.name]));
 
+  // One shared `EventCardBuildContext` for the whole document (WARNING 5 fix round): every
+  // `buildEventCard` call inside `buildEventSectionHtml` reuses the same project-wide resolved
+  // observations/findings/mappings instead of re-gathering them per event.
+  const cardCtx = buildEventCardContext(projectId);
   const sections = await Promise.all(
     events.map(async (event) => {
       const { properties } = getEventWithProperties(projectId, event.id);
       const variants = allVariants.filter((v) => v.event_id === event.id);
-      return buildEventSectionHtml(projectId, event, properties, variants, standardEventByVariantId);
+      return buildEventSectionHtml(projectId, event, properties, variants, standardEventByVariantId, cardCtx);
     })
   );
 

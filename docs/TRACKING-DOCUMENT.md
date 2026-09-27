@@ -1,12 +1,13 @@
 # Tracking document (`GET /api/projects/:projectId/export/tracking-document.json`)
 
 Machine-readable, per-project export of the tracking plan: event definitions with their
-certification and guardrail rules, customer properties, identity rules, consent categories,
-catalogs, use cases with their ordered requirements and narrative, standard event mappings, a
-findings summary, and Bloomreach platform limits. It carries **no raw observations** — an
-automated agent gets the summary counts here and full finding rows from the MCP `list_findings`
-tool (T-2-10); this keeps the document small and stable even on a project with thousands of QA
-observations.
+certification, guardrail rules and open findings, customer properties, identity rules, consent
+categories, catalogs, use cases with their ordered requirements and narrative, standard event
+mappings, a project-wide findings summary, and Bloomreach platform limits. It carries **no raw
+observations** — an automated agent gets full observation rows from the MCP `list_findings`/
+`get_event_card` tools (T-2-10) if it needs them, but every currently-open `Finding` for an event is
+already inline on that event's card (D-40 Q9, fix round): no second round-trip is needed to see
+*why* an event is not certified.
 
 Built by `src/backend/services/document.service.ts#buildTrackingDocument`, typed by
 `src/domain/document/trackingDocument.ts` (the `TrackingDocument`/`EventCard` interfaces — the
@@ -71,17 +72,27 @@ field list is present:
 | `certification` | `{applicable, certified, reasons[]}` — see below (D-05). |
 | `expiration` | `{effective, source: 'event' \| 'project' \| null}` — the event's own expiration, else the project default, else `null`. |
 | `properties[]` | Every linked property: `payload_key`, `data_type`, `data_formats`, `required`, `role`, `allowed_values` (with `label`/`standard_event` hints), `item_schema` (D-30, array properties only), a generated `example`, `description`, `pii`. |
-| `variants[]` | `id`, `name`, `conditions` (discriminator property names resolved), `standard_event` it maps to (if any), `expected_payload` (a sample JSON payload with the variant's discriminator values as literals). |
+| `variants[]` | `id`, `name`, `conditions` (discriminator property names resolved), `standard_event` it maps to (if any), `expected_payload` (a sample JSON payload with the variant's discriminator values as literals), `required_keys` (the `expected_payload` keys that are required, fix round), `expiration` (this variant's own override, or `null` when it follows the event/project value, fix round). |
 | `standard_event_mappings[]` | This event's `StandardEventMapping` rows, `field_map` resolved to property names. |
-| `contexts[]` | `context`-role properties and their allowed values (D-03: contexts never create variants). |
-| `coverage` | Grid summary: `rows`/`columns` plus `observed_count`/`unobserved_count`. The full cell-level grid is `GET /events/:id/coverage`, not duplicated here. |
-| `rules[]` | Guardrail rules (D-30/D-31): `kind`, `message`, `expression_text` (every `property_id` resolved to its name, e.g. `sum(product_list[].price * product_list[].quantity) eq total_price`), `tolerance`, `enabled`. |
+| `contexts[]` | `context`-role properties, their `payload_key` (the key `context_values_json`/the raw observation payload actually carries — may differ from the display name `property`, fix round) and their allowed values (D-03: contexts never create variants). |
+| `coverage` | Grid summary: `rows`/`columns` (columns keyed by `payload_key`, matching `GET /events/:id/coverage` and `context_values_json`, fix round) plus `observed_count`/`unobserved_count`. The full cell-level grid is `GET /events/:id/coverage`, not duplicated here. |
+| `rules[]` | Guardrail rules (D-30/D-31): `kind`, `message`, `expression_text` (every `property_id` resolved to its name, e.g. `sum(product_list[].price * product_list[].quantity) eq total_price`), `tolerance`, `enabled`, `variant_id`/`variant_name` (`null` for an unconditional event-wide rule; non-null scopes it to one variant's observations only, fix round). |
 | `derived_metrics`, `not_suitable_for`, `agent_instructions` | Straight from the `Event` row. |
 | `use_cases[]` | `{code, name, level}` for every use case with a requirement touching this event (directly or via a variant); `level` is `R` if any matching requirement is required, else `O`. |
 | `freshness` | `{last_observation_at, observation_count}`, live-resolved against current definitions (not the observation's stored `event_id`/`variant_id`, which only refresh on a comparison recompute). |
-| `quality` | `{open: {error, warning, info}, by_comparison}` — open `Finding` rows for this event, across every comparison. |
+| `quality` | `{open: {error, warning, info}, by_comparison}` — open `Finding` counts for this event, across every comparison. |
+| `findings[]` | Every currently-open `Finding` for this event, across every comparison and severity, **uncapped** (D-40 Q9, fix round): `id`, `comparison`, `kind`, `severity`, `property_id`/`property` (resolved name), `variant_id`/`variant`, `rule` (the originating rule's name, for a `rule_violation`/`bound_violation` finding; `null` otherwise), `message`, `expected`, `actual`, `qa_run_id`, `first_seen`, `last_seen`. |
 | `codegen` | `{gtm, web_sdk, tracking_api}` snippets (same generator as the docs export). |
 | `sdk_default_properties` | The fixed `SDK_DEFAULT_PROPERTIES` list (`os`, `browser`, `device`, `location`) — attributes the Bloomreach SDK attaches automatically, never flagged as unexpected. |
+
+### Payload keys (ERROR 2 fix round)
+
+Observations and their `context_values_json` column are keyed by **payload key**, not the
+property's display name (they can differ when a property's `payload_key` is set). Every coverage
+column — `EventCard.coverage.columns[]`, `EventCard.contexts[].payload_key`, `GET /events/:id/
+coverage`'s `columns[]`, and `src/domain/coverage.ts`'s `computeEventCoverage` — is keyed the same
+way, so a context property with a custom `payload_key` reports the same observed/unobserved counts
+everywhere.
 
 ### Certification (D-05)
 
@@ -130,12 +141,15 @@ and live-resolved observations.
           "name": "cart_update[action=add]",
           "conditions": [{ "property_name": "action", "operator": "equals", "values": ["add"] }],
           "standard_event": "cart_update",
-          "expected_payload": { "action": "add", "total_price": 123 }
+          "expected_payload": { "action": "add", "total_price": 123 },
+          "required_keys": ["action"],
+          "expiration": null
         }
       ],
       "coverage": { "rows": [], "columns": [], "observed_count": 0, "unobserved_count": 0 },
       "rules": [],
       "quality": { "open": { "error": 0, "warning": 0, "info": 0 }, "by_comparison": {} },
+      "findings": [],
       "codegen": { "gtm": "…", "web_sdk": "…", "tracking_api": "…" },
       "sdk_default_properties": ["os", "browser", "device", "location"]
     }

@@ -3,9 +3,11 @@
  * and expiration-settings fixtures (T-1-08), both Data Manager files (T-2-02/T-2-03) and the
  * customer events export (T-1-09) applied, retyped exactly like `comparison.service.test.ts`'s
  * `retypeForTypeMismatches` (the "phase 1 test definition" every other T-2-0x fixture test shares),
- * then a comparison recompute so `findings_summary`/certification reflect real findings. UUIDs and
- * `generated_at` are normalized (sorted-key traversal, sequential `id-N` placeholders) before the
- * snapshot so the test is stable across runs despite random ids/timestamps.
+ * then a comparison recompute so `findings_summary`/certification/`EventCard.findings[]` reflect
+ * real findings. UUIDs, `generated_at` and every ISO-timestamp finding field (`first_seen`/
+ * `last_seen`, both `now` at insert time, fix round ERROR 1) are normalized (sorted-key traversal,
+ * sequential `id-N` placeholders, a fixed timestamp placeholder) before the snapshot so the test is
+ * stable across runs despite random ids/timestamps.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import fs from 'node:fs';
@@ -82,6 +84,9 @@ function applyAllFixtures(): void {
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// `EventCardFinding.first_seen`/`last_seen` (fix round ERROR 1) are ISO timestamps stamped at
+// insert time (`nowIso()`, `finding.dal.ts`), so they vary run to run just like `generated_at`.
+const ISO_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 
 function normalize(value: unknown, idMap: Map<string, string>, counter: { n: number }): unknown {
   if (Array.isArray(value)) return value.map((v) => normalize(v, idMap, counter));
@@ -100,6 +105,7 @@ function normalize(value: unknown, idMap: Map<string, string>, counter: { n: num
     }
     return placeholder;
   }
+  if (typeof value === 'string' && ISO_TIMESTAMP_RE.test(value)) return 'TIMESTAMP';
   return value;
 }
 

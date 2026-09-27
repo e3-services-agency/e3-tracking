@@ -27,7 +27,7 @@ import * as CatalogDAL from '../dal/catalog.dal';
 import * as LimitsService from './limits.service';
 import { createEventResolver } from './eventResolution';
 import { computeCertification } from '../../domain/certification';
-import { computeEventCoverage, type CoverageObservation } from '../../domain/coverage';
+import { computeEventCoverage, type CoverageContextProperty, type CoverageObservation } from '../../domain/coverage';
 import { buildTargetLabelResolver } from './requirements-matrix.service';
 import {
   buildCodegenSnippets,
@@ -50,6 +50,7 @@ import {
   type EventCardAllowedValue,
   type EventCardContext,
   type EventCardCoverage,
+  type EventCardFinding,
   type EventCardProperty,
   type EventCardRule,
   type EventCardStandardEventMapping,
@@ -57,6 +58,7 @@ import {
   type FindingSeverityCounts,
   type TrackingDocument,
 } from '../../domain/document/trackingDocument';
+import type { StandardEventMappingRow } from '../dal/standard-event-mapping.dal';
 
 // ---------------------------------------------------------------------------
 // Shared small helpers
@@ -179,6 +181,156 @@ function resolveObservationsInScope(projectId: string): ResolvedObservationForCa
   });
 }
 
+/**
+ * Shared, project-wide inputs for `buildEventCard`, gathered once (WARNING 5 fix round: building
+ * every event's card used to re-resolve every project observation and re-list mappings/findings
+ * per event, an O(events x observations) cost -- 2.5s for 40 events x 2,000 observations measured
+ * before this fix). `buildEventCards`/`buildTrackingDocument`/the docs export build this once per
+ * document/export and pass it to every `buildEventCard` call; the single-event routes
+ * (`GET /events/:id/card`) let `buildEventCard` build its own (still just one project-wide pass, for
+ * one event).
+ */
+export interface EventCardBuildContext {
+  project: ProjectDAL.ProjectRow;
+  events: EventRow[];
+  eventNameById: Map<string, string>;
+  /** Every variant of the project (not just one event's), keyed by id -- used to resolve
+   * `StandardEventMapping.variant_id` and `Rule.variant_id` to a display name (ERROR 3 fix round). */
+  variantNameById: Map<string, string>;
+  allMappings: StandardEventMappingRow[];
+  /** Every resolved observation of the project, grouped by its live-resolved `event_id` (WARNING 5:
+   * "resolve observations once, group by event id"), so each card does a `Map.get` instead of an
+   * O(observations) filter. */
+  observationsByEventId: Map<string, ResolvedObservationForCard[]>;
+  /** Every currently-open finding of the project (used for `TrackingDocument.findings_summary`,
+   * which is not scoped to one event). */
+  openFindings: FindingRow[];
+  /** `openFindings` grouped by `event_id` (findings with no `event_id`, e.g. `unexpected_event`,
+   * are project-level and never appear in a card). */
+  openFindingsByEventId: Map<string, FindingRow[]>;
+  nameOf: (eventId: string, propertyId: string) => string;
+}
+
+/** Exported for `export.service.ts`'s HTML documentation export, which also calls `buildEventCard`
+ * once per event (WARNING 5 fix round) and should share one context across the whole document
+ * instead of building a fresh one per event. */
+export function buildEventCardContext(projectId: string): EventCardBuildContext {
+  const project = ProjectDAL.getProjectOrThrow(projectId);
+  const events = EventDAL.listEvents(projectId);
+  const eventNameById = new Map(events.map((e) => [e.id, e.name]));
+  const variantNameById = new Map(VariantDAL.listVariantsByProject(projectId).map((v) => [v.id, v.name]));
+  const allMappings = StandardEventMappingDAL.listStandardEventMappings(projectId);
+
+  const observationsByEventId = new Map<string, ResolvedObservationForCard[]>();
+  for (const o of resolveObservationsInScope(projectId)) {
+    if (!o.event_id) continue;
+    const bucket = observationsByEventId.get(o.event_id);
+    if (bucket) bucket.push(o);
+    else observationsByEventId.set(o.event_id, [o]);
+  }
+
+  const openFindings = FindingDAL.listFindings(projectId, { status: 'open' });
+  const openFindingsByEventId = new Map<string, FindingRow[]>();
+  for (const f of openFindings) {
+    if (!f.event_id) continue;
+    const bucket = openFindingsByEventId.get(f.event_id);
+    if (bucket) bucket.push(f);
+    else openFindingsByEventId.set(f.event_id, [f]);
+  }
+
+  return {
+    project,
+    events,
+    eventNameById,
+    variantNameById,
+    allMappings,
+    observationsByEventId,
+    openFindings,
+    openFindingsByEventId,
+    nameOf: buildPropertyNameResolver(projectId),
+  };
+}
+
+/** Shared by the card's `coverage`/`contexts` summary and `computeEventCoverageGrid` (ERROR 2 fix
+ * round: the card used to key its coverage columns by the property's display name, diverging from
+ * the full grid -- which was already correctly keyed by `payload_key` -- whenever the two differed). */
+function buildContextColumns(properties: EventPropertyWithDetails[]): CoverageContextProperty[] {
+  return properties
+    .filter((link) => link.role === 'context')
+    .map((link) => ({
+      property_id: link.property_id,
+      name: link.property.name,
+      payload_key: link.payload_key?.trim() || link.property.name,
+      values: Array.isArray(link.property.allowed_values_json)
+        ? (link.property.allowed_values_json as { value: string }[]).map((v) => v.value)
+        : [],
+    }));
+}
+
+/** `expected_json.rule_name` (`runRules.ts`'s `RulesEngineRule.name` echoed into the finding) is
+ * the only place a rule-produced finding's rule name survives; `null` for every other finding kind. */
+function findingRuleName(finding: FindingRow): string | null {
+  const expected = finding.expected_json;
+  if (expected && typeof expected === 'object' && 'rule_name' in (expected as Record<string, unknown>)) {
+    const name = (expected as Record<string, unknown>).rule_name;
+    return typeof name === 'string' ? name : null;
+  }
+  return null;
+}
+
+const SEVERITY_RANK: Record<string, number> = { error: 0, warning: 1, info: 2 };
+
+/** `FindingDAL.listFindings` orders by severity then `last_seen_at DESC` with no further
+ * tiebreaker, so two findings sharing a severity and (in a test, all stamped in the same
+ * transaction) an identical `last_seen_at` come back in an arbitrary, run-to-run-unstable order --
+ * invisible while `EventCard` only exposed *counts* (`quality`), but a direct problem now that
+ * `findings[]` is itself an ordered array (D-40 Q9 fix round; caught by the snapshot test's
+ * sequential id placeholders shifting between otherwise-identical runs). Sorted here by content
+ * (severity, comparison, kind, property/variant/message) instead, which is both deterministic and a
+ * more useful default reading order for a consumer than an arbitrary DB tie order. */
+function sortEventCardFindings(findings: EventCardFinding[]): EventCardFinding[] {
+  return [...findings].sort((a, b) => {
+    const bySeverity = (SEVERITY_RANK[a.severity] ?? 3) - (SEVERITY_RANK[b.severity] ?? 3);
+    if (bySeverity !== 0) return bySeverity;
+    if (a.comparison !== b.comparison) return a.comparison < b.comparison ? -1 : 1;
+    if (a.kind !== b.kind) return a.kind < b.kind ? -1 : 1;
+    const propA = a.property ?? '';
+    const propB = b.property ?? '';
+    if (propA !== propB) return propA < propB ? -1 : 1;
+    const varA = a.variant ?? '';
+    const varB = b.variant ?? '';
+    if (varA !== varB) return varA < varB ? -1 : 1;
+    const msgA = a.message ?? '';
+    const msgB = b.message ?? '';
+    if (msgA !== msgB) return msgA < msgB ? -1 : 1;
+    return 0;
+  });
+}
+
+function toEventCardFinding(
+  finding: FindingRow,
+  nameOf: (eventId: string, propertyId: string) => string,
+  variantNameById: Map<string, string>
+): EventCardFinding {
+  return {
+    id: finding.id,
+    comparison: finding.comparison,
+    kind: finding.kind,
+    severity: finding.severity,
+    property_id: finding.property_id,
+    property: finding.property_id && finding.event_id ? nameOf(finding.event_id, finding.property_id) : finding.property_id,
+    variant_id: finding.variant_id,
+    variant: finding.variant_id ? variantNameById.get(finding.variant_id) ?? finding.variant_id : null,
+    rule: findingRuleName(finding),
+    message: finding.message,
+    expected: finding.expected_json,
+    actual: finding.actual_json,
+    qa_run_id: finding.qa_run_id,
+    first_seen: finding.first_seen_at,
+    last_seen: finding.last_seen_at,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // EventCard
 // ---------------------------------------------------------------------------
@@ -207,6 +359,14 @@ function toEventCardProperty(link: EventPropertyWithDetails): EventCardProperty 
   };
 }
 
+/** WARNING 4 fix round: this variant's own `expiration_json` override, or `null` when it has none
+ * (the variant then follows the event/project-level `EventCard.expiration`). */
+function variantExpiration(variant: VariantRow): EventCard['expiration'] | null {
+  const raw = variant.expiration_json as EventCard['expiration']['effective'] | null;
+  if (!raw) return null;
+  return { effective: raw, source: 'variant' };
+}
+
 function toEventCardVariant(
   variant: VariantRow,
   properties: EventPropertyWithDetails[],
@@ -225,6 +385,8 @@ function toEventCardVariant(
     })),
     standard_event: standardEventByVariantId.get(variant.id) ?? null,
     expected_payload: sampleFromAttached(attached),
+    required_keys: attached.filter((p) => p.required).map((p) => p.property_name),
+    expiration: variantExpiration(variant),
   };
 }
 
@@ -236,28 +398,30 @@ function computeExpiration(event: EventRow, project: ProjectDAL.ProjectRow): Eve
   return { effective: null, source: null };
 }
 
-/** Builds the full `EventCard` for one event (plan "Event card and tracking document"). */
-export function buildEventCard(projectId: string, eventId: string): EventCard {
+/** Builds the full `EventCard` for one event (plan "Event card and tracking document"). `ctx` is
+ * the shared, project-wide context (WARNING 5 fix round); omit it for a single-event call (the
+ * `GET /events/:id/card` route), which then builds its own one-off context. */
+export function buildEventCard(projectId: string, eventId: string, ctx?: EventCardBuildContext): EventCard {
+  const context = ctx ?? buildEventCardContext(projectId);
   const { event, properties } = EventDAL.getEventWithProperties(projectId, eventId);
-  const project = ProjectDAL.getProjectOrThrow(projectId);
+  const project = context.project;
   const variants = VariantDAL.listVariants(projectId, eventId);
-  const allMappings = StandardEventMappingDAL.listStandardEventMappings(projectId);
-  const mappingsForEvent = allMappings.filter((m) => m.event_id === eventId);
+  const mappingsForEvent = context.allMappings.filter((m) => m.event_id === eventId);
   const standardEventByVariantId = new Map(
-    allMappings.filter((m) => m.variant_id).map((m) => [m.variant_id as string, m.standard_event])
+    context.allMappings.filter((m) => m.variant_id).map((m) => [m.variant_id as string, m.standard_event])
   );
-  const variantNameById = new Map(variants.map((v) => [v.id, v.name]));
+  const variantNameById = context.variantNameById;
 
   const propertyNameById = new Map(properties.map((link) => [link.property_id, link.property.name]));
-  const nameOf = buildPropertyNameResolver(projectId);
-  const eventNameById = new Map(EventDAL.listEvents(projectId).map((e) => [e.id, e.name]));
+  const nameOf = context.nameOf;
+  const eventNameById = context.eventNameById;
 
-  const openFindingsForEvent = FindingDAL.listFindings(projectId, { event_id: eventId, status: 'open' });
+  const openFindingsForEvent = context.openFindingsByEventId.get(eventId) ?? [];
   const quality = tallyFindings(openFindingsForEvent);
+  const findings = sortEventCardFindings(openFindingsForEvent.map((f) => toEventCardFinding(f, nameOf, variantNameById)));
   const openErrorFindingCount = quality.open.error;
 
-  const resolvedObservations = resolveObservationsInScope(projectId);
-  const observationsForEvent = resolvedObservations.filter((o) => o.event_id === eventId);
+  const observationsForEvent = context.observationsByEventId.get(eventId) ?? [];
   const freshness = {
     last_observation_at: observationsForEvent.length > 0 ? Math.max(...observationsForEvent.map((o) => o.timestamp)) : null,
     observation_count: observationsForEvent.length,
@@ -270,16 +434,17 @@ export function buildEventCard(projectId: string, eventId: string): EventCard {
     hasObservation: observationsForEvent.length > 0,
   });
 
-  const contextProperties = properties.filter((link) => link.role === 'context');
-  const contexts: EventCardContext[] = contextProperties.map((link) => ({
-    property_id: link.property_id,
-    property: link.property.name,
-    values: Array.isArray(link.property.allowed_values_json)
-      ? (link.property.allowed_values_json as { value: string }[]).map((v) => v.value)
-      : [],
+  const contextColumns = buildContextColumns(properties);
+  const contexts: EventCardContext[] = contextColumns.map((c) => ({
+    property_id: c.property_id,
+    property: c.name,
+    payload_key: c.payload_key,
+    values: c.values,
   }));
 
-  const coverageObservations: CoverageObservation[] = resolvedObservations.map((o) => ({
+  // Already filtered to this event (`observationsByEventId`/single-event fallback above), so this
+  // is an O(this event's observations) pass, not an O(project observations) one (WARNING 5).
+  const coverageObservations: CoverageObservation[] = observationsForEvent.map((o) => ({
     event_id: o.event_id,
     variant_id: o.variant_id,
     properties: o.properties,
@@ -289,12 +454,12 @@ export function buildEventCard(projectId: string, eventId: string): EventCard {
   const grid = computeEventCoverage(
     eventId,
     variants.map((v) => ({ id: v.id, name: v.name })),
-    contexts.map((c) => ({ property_id: c.property_id, name: c.property, payload_key: propertyNameById.get(c.property_id) ?? c.property, values: c.values })),
+    contextColumns,
     coverageObservations
   );
   const coverage: EventCardCoverage = {
     rows: grid.rows,
-    columns: grid.columns.map((c) => ({ property_id: c.property_id, name: c.name, values: c.values })),
+    columns: grid.columns.map((c) => ({ property_id: c.property_id, name: c.name, payload_key: c.payload_key, values: c.values })),
     observed_count: grid.cells.length,
     unobserved_count: grid.unobserved.length,
   };
@@ -307,6 +472,8 @@ export function buildEventCard(projectId: string, eventId: string): EventCard {
     expression_text: describeRuleExpression(eventId, rule.expression_json, nameOf, eventNameById),
     tolerance: { mode: rule.tolerance_mode, value: rule.tolerance_value },
     enabled: rule.enabled,
+    variant_id: rule.variant_id,
+    variant_name: rule.variant_id ? variantNameById.get(rule.variant_id) ?? rule.variant_id : null,
   }));
 
   const standardEventMappings: EventCardStandardEventMapping[] = mappingsForEvent.map((m) => ({
@@ -365,6 +532,7 @@ export function buildEventCard(projectId: string, eventId: string): EventCard {
     use_cases,
     freshness,
     quality,
+    findings,
     agent_instructions: event.agent_instructions,
     codegen: { gtm: codegenSnippets.dataLayer, web_sdk: codegenSnippets.bloomreachSdk, tracking_api: codegenSnippets.bloomreachApi },
     sdk_default_properties: [...SDK_DEFAULT_PROPERTIES],
@@ -380,15 +548,7 @@ export function computeEventCertification(projectId: string, eventId: string): E
 export function computeEventCoverageGrid(projectId: string, eventId: string) {
   const { properties } = EventDAL.getEventWithProperties(projectId, eventId);
   const variants = VariantDAL.listVariants(projectId, eventId);
-  const contextProperties = properties.filter((link) => link.role === 'context');
-  const contextColumns = contextProperties.map((link) => ({
-    property_id: link.property_id,
-    name: link.property.name,
-    payload_key: link.payload_key?.trim() || link.property.name,
-    values: Array.isArray(link.property.allowed_values_json)
-      ? (link.property.allowed_values_json as { value: string }[]).map((v) => v.value)
-      : [],
-  }));
+  const contextColumns = buildContextColumns(properties);
   const observations: CoverageObservation[] = resolveObservationsInScope(projectId);
   return computeEventCoverage(
     eventId,
@@ -402,12 +562,16 @@ export function computeEventCoverageGrid(projectId: string, eventId: string) {
 // TrackingDocument (D-34)
 // ---------------------------------------------------------------------------
 
-/** `GET /export/tracking-document.json` per the schema, `version: 1` (D-34). Custom events first, then sdk/platform (plan: "events: EventCard[] (custom first, then sdk/platform with a reduced card)"). */
+/** `GET /export/tracking-document.json` per the schema, `version: 1` (D-34). Custom events first,
+ * then sdk/platform (plan: "events: EventCard[] (custom first, then sdk/platform with a reduced
+ * card)"). Builds one `EventCardBuildContext` (WARNING 5 fix round) and reuses it for every card
+ * plus the mapping/variant lookups below, instead of a fresh project-wide pass per event. */
 export function buildTrackingDocument(projectId: string): TrackingDocument {
   const project = ProjectDAL.getProjectWithClient(projectId);
-  const events = EventDAL.listEvents(projectId);
+  const ctx = buildEventCardContext(projectId);
+  const events = ctx.events;
   const orderedEventIds = [...events.filter((e) => e.class === 'custom'), ...events.filter((e) => e.class !== 'custom')].map((e) => e.id);
-  const eventCards = orderedEventIds.map((id) => buildEventCard(projectId, id));
+  const eventCards = orderedEventIds.map((id) => buildEventCard(projectId, id, ctx));
 
   const customerProperties = PropertyDAL.listProperties(projectId, { scope: 'customer' }).map((p) => ({
     property_id: p.id,
@@ -449,19 +613,16 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
     };
   });
 
-  const eventNameById = new Map(events.map((e) => [e.id, e.name]));
-  const variantNameById = new Map(VariantDAL.listVariantsByProject(projectId).map((v) => [v.id, v.name]));
-  const nameOf = buildPropertyNameResolver(projectId);
-  const standardEventMappings = StandardEventMappingDAL.listStandardEventMappings(projectId).map((m) => ({
+  const standardEventMappings = ctx.allMappings.map((m) => ({
     standard_event: m.standard_event,
-    event_name: eventNameById.get(m.event_id) ?? m.event_id,
-    variant_name: m.variant_id ? variantNameById.get(m.variant_id) ?? m.variant_id : null,
+    event_name: ctx.eventNameById.get(m.event_id) ?? m.event_id,
+    variant_name: m.variant_id ? ctx.variantNameById.get(m.variant_id) ?? m.variant_id : null,
     field_map: Object.fromEntries(
-      Object.entries(m.field_map_json).map(([field, propertyId]) => [field, propertyId ? nameOf(m.event_id, propertyId) : null])
+      Object.entries(m.field_map_json).map(([field, propertyId]) => [field, propertyId ? ctx.nameOf(m.event_id, propertyId) : null])
     ),
   }));
 
-  const findingsSummary = tallyFindings(FindingDAL.listFindings(projectId, { status: 'open' }));
+  const findingsSummary = tallyFindings(ctx.openFindings);
 
   const eventTypeLimit = LimitsService.getEventTypeLimitSummary(projectId);
   const propertyLimits = LimitsService.getEventPropertyLimitSummaries(projectId);

@@ -12,6 +12,7 @@ import {
   renderCertificationBadge,
   renderRulesTable,
   renderCoverageSummary,
+  renderFindingsTable,
   type ConsentCategoryForDocs,
   type IdentityRuleForDocs,
   type RequirementsMatrixForDocs,
@@ -59,12 +60,54 @@ describe('renderRulesTable (T-2-08)', () => {
         expression_text: 'sum(product_list[].price * product_list[].quantity) eq total_price',
         tolerance: { mode: 'money', value: null },
         enabled: true,
+        variant_name: null,
       },
     ]);
     expect(html).toContain('cart items total');
     expect(html).toContain('sum(product_list[].price * product_list[].quantity) eq total_price');
     expect(html).toContain('money');
     expect(html).toContain('enabled');
+    expect(html).toContain('all');
+  });
+
+  it('shows the variant scope for a variant-scoped rule (ERROR 3 fix round)', () => {
+    const html = renderRulesTable([
+      {
+        name: 'refund negative',
+        kind: 'bound',
+        message: 'Refunds must be negative.',
+        expression_text: 'total_price lt 0',
+        tolerance: { mode: 'none', value: null },
+        enabled: true,
+        variant_name: 'purchase[purchase_status=refunded]',
+      },
+    ]);
+    expect(html).toContain('purchase[purchase_status=refunded]');
+  });
+});
+
+describe('renderFindingsTable (D-40 Q9 fix round)', () => {
+  it('renders an empty string when there are no findings', () => {
+    expect(renderFindingsTable([])).toBe('');
+  });
+
+  it('renders one row per open finding with severity, kind, comparison, property/variant and message', () => {
+    const html = renderFindingsTable([
+      {
+        severity: 'error',
+        kind: 'type_mismatch',
+        comparison: 'definition_vs_observations',
+        property: 'total_price',
+        variant: 'purchase[purchase_status=refunded]',
+        message: 'Expected number, got string.',
+      },
+    ]);
+    expect(html).toContain('error');
+    expect(html).toContain('type_mismatch');
+    expect(html).toContain('definition_vs_observations');
+    expect(html).toContain('total_price');
+    expect(html).toContain('purchase[purchase_status=refunded]');
+    expect(html).toContain('Expected number, got string.');
   });
 });
 

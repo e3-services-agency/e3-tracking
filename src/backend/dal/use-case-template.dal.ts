@@ -40,7 +40,7 @@
  */
 import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn } from '../db/util';
-import { ConflictError, NotFoundError, TemplateInUseError, ValidationError } from '../errors';
+import { ConflictError, NotFoundError, TemplateInUseError, UseCaseCodeTakenError, ValidationError } from '../errors';
 import { USE_CASE_TYPES, REQUIREMENT_LEVELS, REQUIREMENT_TARGET_KINDS, type UseCaseType } from '../../domain/enums';
 import { createUseCase, type UseCaseRow } from './use-case.dal';
 import { insertResolvedRequirement, insertUnresolvedRequirement } from './requirement.dal';
@@ -182,7 +182,7 @@ export function createUseCaseTemplate(input: UseCaseTemplateInput): UseCaseTempl
 
 /** T-3-06 (D-47): used by the library import's apply step to update an existing template matched by `code`. */
 export function updateUseCaseTemplate(id: string, input: Partial<UseCaseTemplateInput>): UseCaseTemplateRow {
-  const existing = getUseCaseTemplateOrThrow(id);
+  getUseCaseTemplateOrThrow(id);
   if (input.type !== undefined && !USE_CASE_TYPES.includes(input.type as UseCaseType)) {
     throw new ValidationError(`type must be one of ${USE_CASE_TYPES.join(', ')}.`, 'type');
   }
@@ -207,23 +207,28 @@ export function updateUseCaseTemplate(id: string, input: Partial<UseCaseTemplate
   getDb()
     .prepare(`UPDATE use_case_templates SET ${setClause} WHERE id = @id`)
     .run({ ...patch, id });
-  void existing;
   return getUseCaseTemplateOrThrow(id);
 }
 
 /**
- * T-3-06 (D-47): refuses with `TemplateInUseError` (409 `TEMPLATE_IN_USE`) while any non-deleted
- * `UseCase` still references this template (`use_cases.template_id`, no `ON DELETE` clause on that
- * FK -- a raw constraint error is never allowed to reach the caller for something this checkable).
+ * T-3-06 (D-47): refuses with `TemplateInUseError` (409 `TEMPLATE_IN_USE`) while any `UseCase`
+ * still references this template (`use_cases.template_id`, no `ON DELETE` clause on that FK -- a
+ * raw constraint error is never allowed to reach the caller for something this checkable).
+ *
+ * Fix round ERROR 1 (reviewer, 2026-09-27 23:26): the guard used to filter `deleted_at IS NULL`,
+ * so soft-deleting the one referencing use case made the guard pass while the FK itself still
+ * pointed at this row (soft delete never touches `template_id`), and the `DELETE` below then hit a
+ * raw `SQLITE_CONSTRAINT_FOREIGNKEY` (500) instead of the intended 409. A soft-deleted use case
+ * still belongs to the template (its `template_id` is still set), so it still counts here,
+ * regardless of `deleted_at` -- the guard and the FK it is protecting must agree on what "still
+ * references it" means.
  */
 export function deleteUseCaseTemplate(id: string): void {
   getUseCaseTemplateOrThrow(id);
-  const inUse = getDb()
-    .prepare('SELECT 1 FROM use_cases WHERE template_id = ? AND deleted_at IS NULL LIMIT 1')
-    .get(id);
+  const inUse = getDb().prepare('SELECT 1 FROM use_cases WHERE template_id = ? LIMIT 1').get(id);
   if (inUse) {
     throw new TemplateInUseError(
-      'This template is used by one or more use cases in a project; it cannot be deleted while instantiated.'
+      'This template is used by one or more use cases (including deleted ones) in a project; it cannot be deleted while instantiated.'
     );
   }
   getDb().prepare('DELETE FROM use_case_templates WHERE id = ?').run(id);
@@ -399,9 +404,13 @@ function resolveOne(
  * resolves each `default_requirements_json` entry to a `Requirement` (see module doc). Runs in one
  * transaction so a half-created use case never survives a mid-way failure.
  *
- * `opts.code` (T-3-06, D-47): the use case's code. Defaults to the template's own `code`; if that
- * code is already taken in this project (`ConflictError` from `createUseCase`'s `UNIQUE
- * (project_id, code)`), retries `<code>-2`, `<code>-3`, ... until one is free.
+ * `opts.code` (T-3-06, D-47; fix round WARNING 2, 2026-09-27 23:26): when omitted, defaults to the
+ * template's own `code` and, if that is already taken in this project (`ConflictError` from
+ * `createUseCase`'s `UNIQUE (project_id, code)`), retries `<code>-2`, `<code>-3`, ... until one is
+ * free -- this is the only path the plan's "-2/-3 suffix on conflict" wording covers. An *explicit*
+ * `opts.code` is never suffixed: a caller who asked for a specific code and gets a different one
+ * back has not had that code honoured, so a collision on an explicit code throws
+ * `UseCaseCodeTakenError` (409 `USE_CASE_CODE_TAKEN`) instead.
  */
 export function instantiateUseCaseTemplate(
   projectId: string,
@@ -410,28 +419,46 @@ export function instantiateUseCaseTemplate(
 ): UseCaseRow {
   const template = getUseCaseTemplateOrThrow(templateId);
   const db = getDb();
-  const desiredBase = opts?.code?.trim() || template.code;
+  const explicitCode = opts?.code?.trim() || null;
+  const desiredBase = explicitCode || template.code;
 
   let useCase!: UseCaseRow;
   const run = db.transaction(() => {
-    let attempt = 1;
-    for (;;) {
-      const code = attempt === 1 ? desiredBase : `${desiredBase}-${attempt}`;
+    if (explicitCode) {
       try {
         useCase = createUseCase(projectId, {
           template_id: template.id,
-          code,
+          code: explicitCode,
           name: template.name,
           type: template.type,
           description: template.description,
         });
-        break;
       } catch (err) {
-        if (err instanceof ConflictError && attempt < 50) {
-          attempt += 1;
-          continue;
+        if (err instanceof ConflictError) {
+          throw new UseCaseCodeTakenError(`A use case with code "${explicitCode}" already exists in this project.`);
         }
         throw err;
+      }
+    } else {
+      let attempt = 1;
+      for (;;) {
+        const code = attempt === 1 ? desiredBase : `${desiredBase}-${attempt}`;
+        try {
+          useCase = createUseCase(projectId, {
+            template_id: template.id,
+            code,
+            name: template.name,
+            type: template.type,
+            description: template.description,
+          });
+          break;
+        } catch (err) {
+          if (err instanceof ConflictError && attempt < 50) {
+            attempt += 1;
+            continue;
+          }
+          throw err;
+        }
       }
     }
     template.default_requirements_json.forEach((entry, index) => {
@@ -502,7 +529,13 @@ export interface TemplateResolvePreviewGroup {
   group: 'events' | 'customer_properties' | 'catalog' | 'consents';
   total: number;
   resolved: number;
-  /** `all`: every entry in this group resolves; `none`: zero do (or the group is empty); `mixed`: some do, some don't. */
+  /**
+   * `all`: every entry in this group resolves (at least one entry). `none`: zero do, *or the
+   * group has no entries at all* (`total: 0`) -- an empty group is not "all resolved", it has
+   * nothing to resolve, so it renders neutral rather than green (fix round WARNING 3, 2026-09-27
+   * 23:26: this used to be `all` for an empty group, painting "0 / 0 resolved" green). `mixed`:
+   * some do, some don't.
+   */
   status: 'all' | 'none' | 'mixed';
 }
 
@@ -538,7 +571,7 @@ export function previewInstantiateUseCaseTemplate(projectId: string, templateId:
   const groups = (Object.keys(counts) as TemplateResolvePreviewGroup['group'][]).map((group) => {
     const { total, resolved } = counts[group];
     const status: TemplateResolvePreviewGroup['status'] =
-      total === 0 || resolved === total ? 'all' : resolved === 0 ? 'none' : 'mixed';
+      total === 0 ? 'none' : resolved === total ? 'all' : resolved === 0 ? 'none' : 'mixed';
     return { group, total, resolved, status };
   });
   return { groups, unresolved_count: unresolvedCount, total_count: template.default_requirements_json.length };

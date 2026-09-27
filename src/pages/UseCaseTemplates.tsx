@@ -178,13 +178,25 @@ export function UseCaseTemplates() {
     setActionError(null);
     setActionMessage(null);
     let created = 0;
+    // Fix round LOW 7 (2026-09-27 23:26): surface the first per-template failure's own message
+    // (e.g. 409 USE_CASE_CODE_TAKEN, TEMPLATE_IN_USE) instead of only a bare success count, so a
+    // multi-add that partially fails tells the user why, not just how many.
+    let firstError: string | null = null;
     for (const id of selectedIds) {
+      const template = templates.find((t) => t.id === id);
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/use-cases/from-template/${id}`, {
         method: 'POST',
       });
-      if (res.ok) created += 1;
+      if (res.ok) {
+        created += 1;
+      } else if (!firstError) {
+        const data = await parseJson(res);
+        const message = typeof data?.error === 'string' ? data.error : 'Failed to create use case.';
+        firstError = `"${template?.code ?? id}": ${message}`;
+      }
     }
     setActionMessage(`Created ${created} of ${selectedIds.size} use case${selectedIds.size === 1 ? '' : 's'}.`);
+    if (firstError) setActionError(firstError);
     setSelectedIds(new Set());
   };
 

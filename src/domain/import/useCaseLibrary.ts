@@ -20,7 +20,8 @@
  * outside `USE_CASE_TYPES`. Requirement-level drops (that one `default_requirements` entry skipped,
  * the rest of the template is kept): `target_kind` outside `LIBRARY_TARGET_KINDS`, or a missing
  * `event_name` on a target_kind that needs one. Tag values outside the suggested vocabularies (D-57)
- * are dropped individually with a warning; the template itself is kept. `level` defaults to `'O'`
+ * are kept, each with its own warning, never dropped (D-57: "unknown values import with a warning,
+ * never an error" -- a client's tag vocabulary is not limited to the suggested lists). `level` defaults to `'O'`
  * silently (`use-case-template.dal.ts`'s `resolveOne` already does the same for a bad/missing level
  * at instantiate time; keeping the same default here means a preview and an instantiate agree on
  * what an omitted level means).

@@ -465,6 +465,25 @@ describe('T-3-06: from-template code, unresolved_count, and the resolve preview'
     expect(typeof body.narrative).toBe('string');
   });
 
+  it('fix round WARNING 2: an explicit {code} that collides returns 409 USE_CASE_CODE_TAKEN, never suffixed', async () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-T11', name: 'Collision', type: 'marketing' });
+    const first = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/from-template/${template.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: 'DUP-CODE' }),
+    });
+    expect(first.status).toBe(201);
+
+    const second = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/from-template/${template.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: 'DUP-CODE' }),
+    });
+    expect(second.status).toBe(409);
+    const body = await second.json();
+    expect(body.code).toBe('USE_CASE_CODE_TAKEN');
+  });
+
   it('the resolve preview reports groups without creating anything', async () => {
     const template = UseCaseTemplateDAL.createUseCaseTemplate({
       code: 'UC-T10',

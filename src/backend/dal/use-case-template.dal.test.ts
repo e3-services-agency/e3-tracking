@@ -15,8 +15,9 @@ import * as EventDAL from './event.dal';
 import * as PropertyDAL from './property.dal';
 import * as VariantDAL from './variant.dal';
 import * as RequirementDAL from './requirement.dal';
+import * as UseCaseDAL from './use-case.dal';
 import * as UseCaseTemplateDAL from './use-case-template.dal';
-import { NotFoundError, TemplateInUseError } from '../errors';
+import { NotFoundError, TemplateInUseError, UseCaseCodeTakenError } from '../errors';
 import { previewDataMapping, applyDataMapping } from '../services/dataMappingImport.service';
 import { parseUseCaseLibrary } from '../../domain/import/useCaseLibrary';
 
@@ -416,6 +417,18 @@ describe('T-3-06: instantiate code suffixing, tags/flags, catalog_attribute/cons
     expect(useCase.code).toBe('MY-CODE');
   });
 
+  it('fix round WARNING 2: an explicit {code} that collides is never suffixed, it throws UseCaseCodeTakenError (409 USE_CASE_CODE_TAKEN)', () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-SFX3', name: 'Explicit collision', type: 'marketing' });
+    UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, { code: 'TAKEN-CODE' });
+    expect(() => UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, { code: 'TAKEN-CODE' })).toThrow(
+      UseCaseCodeTakenError
+    );
+    // Case-insensitive collision too (use case codes are upper-cased on store, use-case.dal.ts normalizeCode).
+    expect(() => UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, { code: 'taken-code' })).toThrow(
+      UseCaseCodeTakenError
+    );
+  });
+
   it('stores and round-trips tags_json/flags_json', () => {
     const template = UseCaseTemplateDAL.createUseCaseTemplate({
       code: 'UC-TAGS',
@@ -480,6 +493,18 @@ describe('T-3-06: instantiate code suffixing, tags/flags, catalog_attribute/cons
     const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-DEL2', name: 'Unused', type: 'marketing' });
     UseCaseTemplateDAL.deleteUseCaseTemplate(template.id);
     expect(UseCaseTemplateDAL.getUseCaseTemplateById(template.id)).toBeNull();
+  });
+
+  it('fix round ERROR 1: still refuses (409, never a raw 500) after the only referencing use case is soft-deleted', () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-DEL3', name: 'Soft-deleted use case', type: 'marketing' });
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+
+    // Reproduces the reviewer's probe exactly: instantiate, delete the use case (soft delete,
+    // `template_id` is left untouched by `deleteUseCase`), then delete the template.
+    UseCaseDAL.deleteUseCase(projectId, useCase.id);
+    expect(() => UseCaseTemplateDAL.deleteUseCaseTemplate(template.id)).toThrow(TemplateInUseError);
+    // Confirm it is still there (the guard fired before any DELETE, not a rolled-back FK failure).
+    expect(UseCaseTemplateDAL.getUseCaseTemplateById(template.id)).not.toBeNull();
   });
 });
 
@@ -546,5 +571,16 @@ describe('T-3-06: sample library instantiated on the data-mapping fixture projec
     expect(uc03Preview.unresolved_count).toBe(1);
     const uc03Events = uc03Preview.groups.find((g) => g.group === 'events')!;
     expect(uc03Events.status).toBe('mixed');
+  });
+
+  it('fix round WARNING 3: an empty group (no entries of that kind in the template) reports status none with 0/0, never all', () => {
+    // UC-01's default_requirements has no catalog_attribute/consent entries at all -- these two
+    // groups are empty (total: 0), which must render neutral, not "all resolved" (green).
+    const uc01 = UseCaseTemplateDAL.listUseCaseTemplates().find((t) => t.code === 'UC-01')!;
+    const preview = UseCaseTemplateDAL.previewInstantiateUseCaseTemplate(projectId, uc01.id);
+    const catalogGroup = preview.groups.find((g) => g.group === 'catalog')!;
+    const consentsGroup = preview.groups.find((g) => g.group === 'consents')!;
+    expect(catalogGroup).toEqual({ group: 'catalog', total: 0, resolved: 0, status: 'none' });
+    expect(consentsGroup).toEqual({ group: 'consents', total: 0, resolved: 0, status: 'none' });
   });
 });

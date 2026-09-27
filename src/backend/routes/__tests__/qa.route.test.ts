@@ -211,6 +211,58 @@ describe('PATCH/DELETE /observations/:id and DELETE /qa-runs/:id (D-52, T-3-07)'
     expect(body.code).toBe('DUPLICATE_OBSERVATION');
   });
 
+  it('PATCH /observations/:id returns 400 VALIDATION_ERROR for malformed fields instead of 500ing (fix round WARNING 2)', async () => {
+    const listRes = await fetch(`${baseUrl}/api/projects/${projectId}/observations?qa_run_id=${runId}`);
+    const list = await listRes.json();
+    const cartUpdate = list.find((o: { event_type: string }) => o.event_type === 'cart_update');
+    expect(cartUpdate).toBeTruthy();
+
+    const cases: Record<string, unknown>[] = [
+      { properties: 'str' },
+      { properties: [1, 2] },
+      { timestamp: 'abc' },
+      { timestamp: null },
+      { page_url: 123 },
+      { context_values_json: 'nope' },
+    ];
+    for (const body of cases) {
+      const res = await fetch(`${baseUrl}/api/projects/${projectId}/observations/${cartUpdate.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.code).toBe('VALIDATION_ERROR');
+    }
+
+    // The observation itself is untouched by any of the rejected attempts.
+    const afterRes = await fetch(`${baseUrl}/api/projects/${projectId}/observations?qa_run_id=${runId}`);
+    const after = await afterRes.json();
+    const stillThere = after.find((o: { id: string }) => o.id === cartUpdate.id);
+    expect(stillThere.timestamp).toBe(cartUpdate.timestamp);
+    expect(stillThere.properties_json).toEqual(cartUpdate.properties_json);
+  });
+
+  it('PATCH /observations/:id returns the re-resolved observation, not the stale pre-recompute one (fix round LOW 3)', async () => {
+    const listRes = await fetch(`${baseUrl}/api/projects/${projectId}/observations?qa_run_id=${runId}`);
+    const list = await listRes.json();
+    const cartUpdate = list.find((o: { event_type: string }) => o.event_type === 'cart_update');
+    expect(cartUpdate).toBeTruthy();
+    expect(cartUpdate.variant_id).toBeTruthy(); // fixture's cart_update is action=add, a mapped variant
+
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/observations/${cartUpdate.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ properties: { ...cartUpdate.properties_json, action: 'remove' } }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // action=remove has no mapped variant on the fixture -- the response must reflect the
+    // post-recompute resolution (variant_id null), not the pre-recompute add=action variant.
+    expect(body.variant_id).toBeNull();
+  });
+
   it('DELETE /observations/:id removes the observation and recomputes findings', async () => {
     const listRes = await fetch(`${baseUrl}/api/projects/${projectId}/observations?qa_run_id=${runId}`);
     const list = await listRes.json();
@@ -230,10 +282,11 @@ describe('PATCH/DELETE /observations/:id and DELETE /qa-runs/:id (D-52, T-3-07)'
     expect(res.status).toBe(404);
   });
 
-  it('DELETE /qa-runs/:id removes the run and cascades its observations, then recomputes findings', async () => {
+  it('DELETE /qa-runs/:id removes the run and cascades its observations, then recomputes findings (fix round ERROR 1: findings.qa_run_id is ON DELETE CASCADE, not SET NULL -- the finding rows must survive, not be deleted with the run)', async () => {
     const beforeFindingsRes = await fetch(`${baseUrl}/api/projects/${projectId}/findings?qa_run_id=${runId}`);
     const beforeFindings = await beforeFindingsRes.json();
     expect(beforeFindings.length).toBeGreaterThan(0);
+    const stampedIds: string[] = beforeFindings.map((f: { id: string }) => f.id);
 
     const res = await fetch(`${baseUrl}/api/projects/${projectId}/qa-runs/${runId}`, { method: 'DELETE' });
     expect(res.status).toBe(204);
@@ -245,11 +298,21 @@ describe('PATCH/DELETE /observations/:id and DELETE /qa-runs/:id (D-52, T-3-07)'
     const obs = await obsRes.json();
     expect(obs).toHaveLength(0);
 
-    // Findings that were anchored to this run's observations resolve (their fingerprints no
-    // longer reproduce since the observations are gone); no lingering row still points at the run.
+    // No lingering row still points at the deleted run...
     const afterFindingsRes = await fetch(`${baseUrl}/api/projects/${projectId}/findings?qa_run_id=${runId}`);
     const afterFindings = await afterFindingsRes.json();
     expect(afterFindings).toHaveLength(0);
+
+    // ...because deleteQaRun already recomputed and every finding that no longer reproduces (its
+    // only evidence was this run's observations) resolved -- it must NOT have been deleted outright
+    // by the findings.qa_run_id ON DELETE CASCADE FK (0008_findings_on_delete.sql). Every id that
+    // was stamped with this run before delete must still exist afterwards.
+    for (const id of stampedIds) {
+      const findingRes = await fetch(`${baseUrl}/api/projects/${projectId}/findings/${id}`);
+      expect(findingRes.status).toBe(200);
+      const finding = await findingRes.json();
+      expect(finding.qa_run_id).toBeNull();
+    }
   });
 
   it('DELETE /qa-runs/:id returns 404 for an unknown id', async () => {

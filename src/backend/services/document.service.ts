@@ -80,6 +80,16 @@ function tallyFindings(findings: FindingRow[]): { open: FindingSeverityCounts; b
   return { open, by_comparison };
 }
 
+/** D-42 (T-2-09 fix round): severity counts of the findings a person acknowledged by hand for one
+ * event (`FindingDAL.listAcknowledgedFindings`) -- no `by_comparison` breakdown, unlike `open`,
+ * since `EventCard.certification` only ever needs the error count and the card's quality block
+ * just needs the total per severity. */
+function tallySeverityOnly(findings: FindingRow[]): FindingSeverityCounts {
+  const counts = emptySeverityCounts();
+  for (const f of findings) counts[f.severity] += 1;
+  return counts;
+}
+
 function sampleFromAttached(attached: AttachedPropertyForCodegen[]): Record<string, unknown> {
   const sample: Record<string, unknown> = {};
   for (const p of attached) sample[p.property_name] = jsonSampleValueForProperty(p);
@@ -208,6 +218,11 @@ export interface EventCardBuildContext {
   /** `openFindings` grouped by `event_id` (findings with no `event_id`, e.g. `unexpected_event`,
    * are project-level and never appear in a card). */
   openFindingsByEventId: Map<string, FindingRow[]>;
+  /** D-42 (T-2-09 fix round): every finding a person resolved by hand
+   * (`status = 'resolved' AND resolved_by = 'user'`), grouped by `event_id`. These still count
+   * against certification (`acknowledged_errors: n`) and the card's `quality.acknowledged`, even
+   * though they are excluded from `openFindings`/`EventCard.findings[]`. */
+  acknowledgedFindingsByEventId: Map<string, FindingRow[]>;
   nameOf: (eventId: string, propertyId: string) => string;
 }
 
@@ -238,6 +253,14 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
     else openFindingsByEventId.set(f.event_id, [f]);
   }
 
+  const acknowledgedFindingsByEventId = new Map<string, FindingRow[]>();
+  for (const f of FindingDAL.listAcknowledgedFindings(projectId)) {
+    if (!f.event_id) continue;
+    const bucket = acknowledgedFindingsByEventId.get(f.event_id);
+    if (bucket) bucket.push(f);
+    else acknowledgedFindingsByEventId.set(f.event_id, [f]);
+  }
+
   return {
     project,
     events,
@@ -247,6 +270,7 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
     observationsByEventId,
     openFindings,
     openFindingsByEventId,
+    acknowledgedFindingsByEventId,
     nameOf: buildPropertyNameResolver(projectId),
   };
 }
@@ -427,9 +451,13 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
   const eventNameById = context.eventNameById;
 
   const openFindingsForEvent = context.openFindingsByEventId.get(eventId) ?? [];
-  const quality = tallyFindings(openFindingsForEvent);
+  const acknowledgedFindingsForEvent = context.acknowledgedFindingsByEventId.get(eventId) ?? [];
+  const quality = { ...tallyFindings(openFindingsForEvent), acknowledged: tallySeverityOnly(acknowledgedFindingsForEvent) };
   const findings = sortEventCardFindings(openFindingsForEvent.map((f) => toEventCardFinding(f, nameOf, variantNameById)));
   const openErrorFindingCount = quality.open.error;
+  // D-42 (T-2-09 fix round): a person resolving a finding by hand is an acknowledgement, not a
+  // fix -- it still blocks certification while the fingerprint keeps reproducing.
+  const acknowledgedErrorFindingCount = quality.acknowledged.error;
 
   const observationsForEvent = context.observationsByEventId.get(eventId) ?? [];
   const freshness = {
@@ -441,6 +469,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
     applicable: event.class === 'custom',
     status: event.status,
     openErrorFindingCount,
+    acknowledgedErrorFindingCount,
     hasObservation: observationsForEvent.length > 0,
   });
 
@@ -552,6 +581,37 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
 /** `GET /events/:id/certification`: the `certification` block alone, without building the rest of the card (T-2-08 route). */
 export function computeEventCertification(projectId: string, eventId: string): EventCard['certification'] {
   return buildEventCard(projectId, eventId).certification;
+}
+
+/**
+ * Every event's `certification` in one project-wide pass (T-2-09, plan "Events table: certified
+ * column ... fed by ... a batched endpoint ... computed via the EventCardBuildContext so it stays
+ * one pass"): reuses the same `EventCardBuildContext` inputs `buildEventCard` uses for one event's
+ * certification (open error findings, observation presence) without building every event's full
+ * card (rules, use cases, coverage grid, codegen -- all unused by `GET /events`'s `certified`
+ * column). `GET /events` (`routes/events.ts`) merges this into the list response.
+ */
+export function computeCertificationsForProject(projectId: string, ctx?: EventCardBuildContext): Map<string, EventCard['certification']> {
+  const context = ctx ?? buildEventCardContext(projectId);
+  const result = new Map<string, EventCard['certification']>();
+  for (const event of context.events) {
+    const openFindingsForEvent = context.openFindingsByEventId.get(event.id) ?? [];
+    const openErrorFindingCount = openFindingsForEvent.filter((f) => f.severity === 'error').length;
+    const acknowledgedFindingsForEvent = context.acknowledgedFindingsByEventId.get(event.id) ?? [];
+    const acknowledgedErrorFindingCount = acknowledgedFindingsForEvent.filter((f) => f.severity === 'error').length;
+    const observationsForEvent = context.observationsByEventId.get(event.id) ?? [];
+    result.set(
+      event.id,
+      computeCertification({
+        applicable: event.class === 'custom',
+        status: event.status,
+        openErrorFindingCount,
+        acknowledgedErrorFindingCount,
+        hasObservation: observationsForEvent.length > 0,
+      })
+    );
+  }
+  return result;
 }
 
 /** `GET /events/:id/coverage`: the full per-event grid (row/column/cell detail), distinct from the card's summary counts. */

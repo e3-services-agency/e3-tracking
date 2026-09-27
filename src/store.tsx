@@ -61,6 +61,15 @@ interface StoreState {
   pendingFindingsRunId: string | null;
   setPendingFindingsRunId: (id: string | null) => void;
 
+  /**
+   * T-2-09: the event id `EventCard.tsx` opens for the `'eventCard'` tab (the events table's row
+   * link sets both this and `requestedTab: 'eventCard'`; `Findings.tsx`'s per-row event card link
+   * does the same). Same cross-page navigation pattern as `requestedTab`/`pendingFindingsRunId`
+   * above, so `EventCard.tsx` never needs a real router.
+   */
+  eventCardEventId: string | null;
+  setEventCardEventId: (id: string | null) => void;
+
   activeProjectId: string;
   activeProjectKey: string | null;
   setActiveProject: (args: { id: string; key?: string | null }) => void;
@@ -79,6 +88,9 @@ export const useStore = create<StoreState>((set) => {
     setRequestedTab: (tab) => set({ requestedTab: tab }),
     pendingFindingsRunId: null,
     setPendingFindingsRunId: (id) => set({ pendingFindingsRunId: id }),
+
+    eventCardEventId: null,
+    setEventCardEventId: (id) => set({ eventCardEventId: id }),
 
     activeProjectId: storedActiveProject?.id ?? '',
     activeProjectKey: storedActiveProject?.key ?? null,

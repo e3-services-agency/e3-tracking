@@ -21,6 +21,7 @@ import { RequirementsMatrix } from '@/src/pages/RequirementsMatrix';
 import { Import } from '@/src/pages/Import';
 import { QaRuns } from '@/src/pages/QaRuns';
 import { Findings } from '@/src/pages/Findings';
+import { EventCard } from '@/src/pages/EventCard';
 
 const DEFAULT_BRAND_PRIMARY = 'var(--e3-emerald)';
 const SIDEBAR_COLLAPSED_KEY = 'e3-tracking.sidebarCollapsed';
@@ -42,9 +43,12 @@ function parseProjectFromPath(pathname: string): { projectKey: string | null; re
   return { projectKey: m[1] ?? null, restPath: m[2] ?? '/' };
 }
 
-/** Maps the path after optional `/p/:projectKey` to the main shell tab. */
-function mainRouteStateFromRestPath(restPath: string): { tab: string } {
+/** Maps the path after optional `/p/:projectKey` to the main shell tab. `eventCardId` is set only
+ * for `/events/:id/card` (T-2-09), read by `LayoutInner` to seed the store's `eventCardEventId`. */
+function mainRouteStateFromRestPath(restPath: string): { tab: string; eventCardId?: string } {
   const raw = (restPath.replace(/\/$/, '') || '/').trim() || '/';
+  const cardMatch = raw.match(/^\/events\/([^/]+)\/card$/);
+  if (cardMatch) return { tab: 'eventCard', eventCardId: cardMatch[1] };
   switch (raw) {
     case '/':
     case '/events':
@@ -119,6 +123,8 @@ function LayoutInner() {
   const setActiveProject = useStore((s) => s.setActiveProject);
   const requestedTab = useStore((s) => s.requestedTab);
   const setRequestedTab = useStore((s) => s.setRequestedTab);
+  const eventCardEventId = useStore((s) => s.eventCardEventId);
+  const setEventCardEventId = useStore((s) => s.setEventCardEventId);
   const activeTabRef = useRef(activeTab);
 
   // T-1-09: `Import.tsx`'s customer-events-export apply requests a tab switch to Findings via the
@@ -190,11 +196,12 @@ function LayoutInner() {
       }
       const route = mainRouteStateFromRestPath(restPath);
       setActiveTab(route.tab);
+      if (route.eventCardId) setEventCardEventId(route.eventCardId);
     };
     applyFromLocation();
     window.addEventListener('popstate', applyFromLocation);
     return () => window.removeEventListener('popstate', applyFromLocation);
-  }, [isLoading, projects, setActiveProject]);
+  }, [isLoading, projects, setActiveProject, setEventCardEventId]);
 
   // Keep project prefix in URL in sync (always use short project key in URL). Gated on
   // `initializedFromUrl` (fix round 2, QA #1): `activeProjectKey` is already populated
@@ -236,7 +243,8 @@ function LayoutInner() {
     if (activeTab === 'clients') pushPath('/clients', activeProjectKey);
     if (activeTab === 'settings') pushPath('/settings', activeProjectKey);
     if (activeTab === 'documentation') pushPath('/documentation', activeProjectKey);
-  }, [activeTab, activeProjectKey, initializedFromUrl]);
+    if (activeTab === 'eventCard' && eventCardEventId) pushPath(`/events/${eventCardEventId}/card`, activeProjectKey);
+  }, [activeTab, activeProjectKey, initializedFromUrl, eventCardEventId]);
 
   const showFullPageProjectGate = !isLoading && !hasValidProjectContext;
 
@@ -272,6 +280,9 @@ function LayoutInner() {
         {activeTab === 'findings' && <Findings />}
         {activeTab === 'settings' && <Settings />}
         {activeTab === 'documentation' && <Documentation />}
+        {activeTab === 'eventCard' && eventCardEventId && (
+          <EventCard eventId={eventCardEventId} onBack={() => setActiveTab('events')} />
+        )}
       </>
     );
 

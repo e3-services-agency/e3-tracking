@@ -1,6 +1,8 @@
 /**
  * Finding routes (T-1-09, plan "API shape"), mounted at `/api/projects/:projectId/findings`: list
- * with filters (`comparison`, `kind`, `severity`, `event_id`, `status`).
+ * with filters (`comparison`, `kind`, `severity`, `event_id`, `status`); `PATCH /:id` (T-2-09) lets
+ * a person manually resolve or reopen one finding (D-21's lifecycle stays "no manual mute" -- see
+ * `finding.dal.ts`'s `setFindingStatus` for the exact rule against recompute reopening it).
  */
 import { Router, type Request, type Response } from 'express';
 import * as FindingDAL from '../dal/finding.dal';
@@ -32,6 +34,19 @@ router.get('/', (req: Request, res: Response) => {
 router.get('/:id', (req: Request, res: Response) => {
   try {
     res.status(200).json(FindingDAL.getFindingOrThrow(req.projectId!, req.params.id));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.patch('/:id', (req: Request, res: Response) => {
+  const status = (req.body as Record<string, unknown>)?.status;
+  if (status !== 'resolved' && status !== 'open') {
+    res.status(400).json({ error: "status must be 'resolved' or 'open'.", code: 'STATUS_INVALID', field: 'status' });
+    return;
+  }
+  try {
+    res.status(200).json(FindingDAL.setFindingStatus(req.projectId!, req.params.id, status));
   } catch (err) {
     handleRouteError(err, res);
   }

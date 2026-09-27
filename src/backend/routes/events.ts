@@ -8,14 +8,40 @@ import * as EventDAL from '../dal/event.dal';
 import * as VariantDAL from '../dal/variant.dal';
 import * as UseCaseDAL from '../dal/use-case.dal';
 import * as RuleDAL from '../dal/rule.dal';
-import { buildEventCard, computeEventCertification, computeEventCoverageGrid } from '../services/document.service';
+import {
+  buildEventCard,
+  computeCertificationsForProject,
+  computeEventCertification,
+  computeEventCoverageGrid,
+} from '../services/document.service';
+import type { EventCard } from '../../domain/document/trackingDocument';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
 
+/** `certified` summary merged onto the row (T-2-09, plan "Events table gains a `certified` column
+ * (yes / no / n.a. with reasons)"): `applicable: false` (sdk/platform, D-29) reads as `n/a`, else
+ * `yes`/`no` from `EventCard.certification.certified`. Computed in one project-wide pass
+ * (`computeCertificationsForProject`), not per row. */
+function certifiedLabel(certification: EventCard['certification']): 'yes' | 'no' | 'n/a' {
+  if (!certification.applicable) return 'n/a';
+  return certification.certified ? 'yes' : 'no';
+}
+
 router.get('/', (req: Request, res: Response) => {
   try {
-    res.status(200).json(EventDAL.listEvents(req.projectId!));
+    const events = EventDAL.listEvents(req.projectId!);
+    const certifications = computeCertificationsForProject(req.projectId!);
+    res.status(200).json(
+      events.map((event) => {
+        const certification = certifications.get(event.id);
+        return {
+          ...event,
+          certified: certification ? certifiedLabel(certification) : 'n/a',
+          certified_reasons: certification?.reasons ?? [],
+        };
+      })
+    );
   } catch (err) {
     handleRouteError(err, res);
   }

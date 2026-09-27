@@ -179,6 +179,11 @@ export interface EventCardFreshness {
 
 export interface EventCardQuality {
   open: FindingSeverityCounts;
+  /** D-42 (T-2-09 fix round): error-severity findings a person resolved by hand
+   * (`resolved_by = 'user'`) whose fingerprint still reproduced as of the last recompute --
+   * excluded from `open`/`EventCard.findings[]`, but still block certification
+   * (`acknowledged_errors: n` in `EventCard.certification.reasons`). */
+  acknowledged: FindingSeverityCounts;
   by_comparison: Record<string, FindingSeverityCounts>;
 }
 

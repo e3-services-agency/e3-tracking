@@ -1781,3 +1781,6 @@ Artifacts: `.claude/team/reports/qa/T-3-06/exported-library.json`, `.claude/team
 
 ### 2026-09-28 01:59 | supervisor -> implementer | DECISION | T-3-06 QA fix
 qa-tester FAIL (01:57): Requirements matrix page keys rows by target_kind:label, which collides for two gap rows with the same note (surfaced by instantiating UC-03 twice). Fix: the matrix service row carries a stable unique id (gap:<requirement id> already exists server-side; expose it as row.key for every row kind) and RequirementsMatrix.tsx keys on it; test that two identical-note gap rows produce distinct keys. Then merge after a short reviewer probe; T-3-07 QA proceeds meanwhile.
+
+### 2026-09-28 02:00 | implementer -> reviewer | HANDOFF | T-3-01 QA fix
+Posted by supervisor. Commit ef8cb49 on task/T-3-01-change-log. action filter in DAL, SQL and route validated against CHANGE_LOG_ACTIONS (400 otherwise); every other plan filter was already present; unknown query parameters on GET /history return 400 naming the parameter. DAL and route tests. 1001 tests (86 files), tsc clean, build ok.

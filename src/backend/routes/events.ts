@@ -122,10 +122,7 @@ function linkInputFromBody(body: Record<string, unknown>): EventDAL.EventPropert
     status: 'status' in body ? (body.status as string | null) : undefined,
     source_id: 'source_id' in body ? (body.source_id as string | null) : undefined,
     payload_key: 'payload_key' in body ? (body.payload_key as string | null) : undefined,
-    description_override:
-      'description_override' in body ? (body.description_override as string | null) : undefined,
-    example_values_override_json:
-      'example_values_override_json' in body ? body.example_values_override_json : undefined,
+    definition_id: 'definition_id' in body ? (body.definition_id as string | null) : undefined,
     sort_order: typeof body.sort_order === 'number' ? body.sort_order : undefined,
   };
 }

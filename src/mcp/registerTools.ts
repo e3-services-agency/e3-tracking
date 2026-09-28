@@ -26,7 +26,7 @@ import { log } from './log';
 import { runWithActor } from '../backend/context/actor';
 import { listProjects } from './tools/projects';
 import { listEvents, getEventCard, getExpectedPayload } from './tools/events';
-import { listUseCases, getUseCase } from './tools/useCases';
+import { listUseCases, getUseCase, listUseCaseTemplates, instantiateUseCaseTemplate } from './tools/useCases';
 import { listFindings } from './tools/findings';
 import { getCoverageGrid } from './tools/coverage';
 import { getTrackingDocument } from './tools/trackingDocument';
@@ -211,6 +211,39 @@ export function registerTools(server: McpServer): void {
     'Deletes a QA run (cascading its observations) and runs comparison.',
     { ...projectKeyShape, qa_run_id: z.string() },
     deleteQaRun
+  );
+
+  // T-3-10 (D-55): the global use case template library and its instantiate/preview, appended as a
+  // self-contained block (concurrent tasks append their own tools here too; keep-both on merge).
+  register(
+    server,
+    'list_use_case_templates',
+    'The global use case template library (not project-scoped): code, name, type and requirement count per template.',
+    {},
+    listUseCaseTemplates
+  );
+
+  register(
+    server,
+    'instantiate_use_case_template',
+    'Instantiates (or, with dry_run, only previews resolving) a use case template into a project by its template_code. Resolution order: the project\'s own standard event mapping, then exact event name, else unresolved with candidates; mappings (index, event_id, variant_id?, property_id?) answer the unresolved rows and are saved as standard event mappings before the requirements are created.',
+    {
+      ...projectKeyShape,
+      template_code: z.string(),
+      code: z.string().optional(),
+      mappings: z
+        .array(
+          z.object({
+            index: z.number(),
+            event_id: z.string(),
+            variant_id: z.string().optional(),
+            property_id: z.string().optional(),
+          })
+        )
+        .optional(),
+      dry_run: z.boolean().optional(),
+    },
+    instantiateUseCaseTemplate
   );
 
   // T-3-02 (D-44): registered last, per convention -- a read-only tool over `change_log`, useful to

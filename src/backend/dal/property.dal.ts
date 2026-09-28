@@ -22,6 +22,7 @@ import { buildConditionsKey, generateVariantName, normalizeConditions, type Vari
 import { isValidItemSchemaShape } from '../../domain/rules/itemSchema';
 import { markRequirementsGapForPropertyRemoval } from './requirement.dal';
 import * as ChangeLogDAL from './change-log.dal';
+import { removePropertyFromFieldMaps } from './standard-event-mapping.dal';
 
 export interface AllowedValue {
   value: string;
@@ -782,6 +783,10 @@ export function deleteProperty(projectId: string, id: string): void {
       projectId
     );
     markRequirementsGapForPropertyRemoval(projectId, id, property.name);
+    // T-3-10 pre-QA fix (WARNING 1 root cause): the property is gone from every event by this
+    // point (the attached-count guard above), so clear it out of every standard event mapping's
+    // field_map_json in the project, wherever it was mapped.
+    removePropertyFromFieldMaps(projectId, id);
 
     ChangeLogDAL.recordChange({
       projectId,

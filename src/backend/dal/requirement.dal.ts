@@ -35,7 +35,9 @@ function labelForTarget(
   targetKind: string,
   propertyId: string | null,
   eventId: string | null,
-  variantId: string | null
+  variantId: string | null,
+  catalogFieldId: string | null,
+  consentCategoryId: string | null
 ): string {
   const db = getDb();
   const name = (table: string, id: string | null): string => {
@@ -54,6 +56,12 @@ function labelForTarget(
       return `${name('events', eventId)}.${name('properties', propertyId)}`;
     case 'variant_property':
       return `${name('variants', variantId)}.${name('properties', propertyId)}`;
+    // T-3-10 (D-57): the two new target kinds merged from agent-setup's T-3-02 pass -- without
+    // these cases every catalog_attribute/consent row was labelled by the literal target_kind.
+    case 'catalog_attribute':
+      return name('catalog_fields', catalogFieldId);
+    case 'consent':
+      return name('consent_categories', consentCategoryId);
     default:
       return targetKind;
   }
@@ -67,6 +75,10 @@ export interface RequirementRow {
   property_id: string | null;
   event_id: string | null;
   variant_id: string | null;
+  /** T-3-10 (D-57): `target_kind = 'catalog_attribute'`'s target -- a field of the project's main catalog. */
+  catalog_field_id: string | null;
+  /** T-3-10 (D-57): `target_kind = 'consent'`'s target. */
+  consent_category_id: string | null;
   level: string;
   status: string | null;
   note: string | null;
@@ -79,6 +91,8 @@ export interface RequirementInput {
   property_id?: string | null;
   event_id?: string | null;
   variant_id?: string | null;
+  catalog_field_id?: string | null;
+  consent_category_id?: string | null;
   level: string;
   status?: string | null;
   note?: string | null;
@@ -163,19 +177,63 @@ function assertPropertyLinkedToEvent(eventId: string, propertyId: string): void 
   }
 }
 
+/** T-3-10 (D-57): `catalog_field_id` must belong to a catalog of this project. */
+function assertCatalogFieldInProject(projectId: string, catalogFieldId: string): void {
+  const row = getDb()
+    .prepare(
+      `SELECT cf.id FROM catalog_fields cf
+       JOIN catalogs c ON c.id = cf.catalog_id
+       WHERE cf.id = ? AND c.project_id = ? AND c.deleted_at IS NULL`
+    )
+    .get(catalogFieldId, projectId);
+  if (!row) {
+    throw new RequirementTargetInvalidError('catalog_field_id does not belong to this project.', 'catalog_field_id');
+  }
+}
+
+/** T-3-10 (D-57): `consent_category_id` must belong to this project. */
+function assertConsentCategoryInProject(projectId: string, consentCategoryId: string): void {
+  const row = getDb()
+    .prepare('SELECT id FROM consent_categories WHERE id = ? AND project_id = ?')
+    .get(consentCategoryId, projectId);
+  if (!row) {
+    throw new RequirementTargetInvalidError(
+      'consent_category_id does not belong to this project.',
+      'consent_category_id'
+    );
+  }
+}
+
+type TargetIdKey = 'property_id' | 'event_id' | 'variant_id' | 'catalog_field_id' | 'consent_category_id';
+
 /**
  * Which target id columns each `target_kind` requires vs. forbids (the two `..._property` kinds
- * additionally need the linked-to-event check, handled separately below).
+ * additionally need the linked-to-event check, handled separately below). `catalog_attribute` and
+ * `consent` (T-3-10, D-57) each forbid every other kind's column, and vice versa.
  */
-export const TARGET_SHAPES: Record<
-  string,
-  { required: Array<'property_id' | 'event_id' | 'variant_id'>; forbidden: Array<'property_id' | 'event_id' | 'variant_id'> }
-> = {
-  customer_property: { required: ['property_id'], forbidden: ['event_id', 'variant_id'] },
-  event: { required: ['event_id'], forbidden: ['property_id', 'variant_id'] },
-  variant: { required: ['variant_id'], forbidden: ['property_id', 'event_id'] },
-  event_property: { required: ['event_id', 'property_id'], forbidden: ['variant_id'] },
-  variant_property: { required: ['variant_id', 'property_id'], forbidden: ['event_id'] },
+export const TARGET_SHAPES: Record<string, { required: TargetIdKey[]; forbidden: TargetIdKey[] }> = {
+  customer_property: {
+    required: ['property_id'],
+    forbidden: ['event_id', 'variant_id', 'catalog_field_id', 'consent_category_id'],
+  },
+  event: {
+    required: ['event_id'],
+    forbidden: ['property_id', 'variant_id', 'catalog_field_id', 'consent_category_id'],
+  },
+  variant: {
+    required: ['variant_id'],
+    forbidden: ['property_id', 'event_id', 'catalog_field_id', 'consent_category_id'],
+  },
+  event_property: { required: ['event_id', 'property_id'], forbidden: ['variant_id', 'catalog_field_id', 'consent_category_id'] },
+  variant_property: { required: ['variant_id', 'property_id'], forbidden: ['event_id', 'catalog_field_id', 'consent_category_id'] },
+  catalog_attribute: {
+    required: ['catalog_field_id'],
+    forbidden: ['property_id', 'event_id', 'variant_id', 'consent_category_id'],
+  },
+  consent: {
+    required: ['consent_category_id'],
+    forbidden: ['property_id', 'event_id', 'variant_id', 'catalog_field_id'],
+  },
 };
 
 /**
@@ -193,8 +251,17 @@ export const TARGET_SHAPES: Record<
  */
 function validateTarget(
   projectId: string,
-  input: Pick<RequirementInput, 'target_kind' | 'property_id' | 'event_id' | 'variant_id' | 'status'>
-): { property_id: string | null; event_id: string | null; variant_id: string | null } {
+  input: Pick<
+    RequirementInput,
+    'target_kind' | 'property_id' | 'event_id' | 'variant_id' | 'catalog_field_id' | 'consent_category_id' | 'status'
+  >
+): {
+  property_id: string | null;
+  event_id: string | null;
+  variant_id: string | null;
+  catalog_field_id: string | null;
+  consent_category_id: string | null;
+} {
   const { target_kind } = input;
   if (!(REQUIREMENT_TARGET_KINDS as readonly string[]).includes(target_kind)) {
     throw new ValidationError(
@@ -213,6 +280,8 @@ function validateTarget(
     property_id: input.property_id || null,
     event_id: input.event_id || null,
     variant_id: input.variant_id || null,
+    catalog_field_id: input.catalog_field_id || null,
+    consent_category_id: input.consent_category_id || null,
   };
   const isGap = input.status === 'gap';
 
@@ -246,6 +315,8 @@ function validateTarget(
       assertPropertyLinkedToEvent(eventIdForLink, ids.property_id);
     }
   }
+  if (ids.catalog_field_id) assertCatalogFieldInProject(projectId, ids.catalog_field_id);
+  if (ids.consent_category_id) assertConsentCategoryInProject(projectId, ids.consent_category_id);
 
   return ids;
 }
@@ -304,7 +375,7 @@ export function replaceRequirements(
     const isGapWithMissingRequiredId =
       input.status === 'gap' && shape.required.some((key) => !t[key]);
     if (isGapWithMissingRequiredId) return;
-    const key = `${input.target_kind}:${t.property_id ?? ''}:${t.event_id ?? ''}:${t.variant_id ?? ''}`;
+    const key = `${input.target_kind}:${t.property_id ?? ''}:${t.event_id ?? ''}:${t.variant_id ?? ''}:${t.catalog_field_id ?? ''}:${t.consent_category_id ?? ''}`;
     if (seenTargets.has(key)) {
       throw new RequirementDuplicateTargetError(
         'This target already appears elsewhere in the requirement list.',
@@ -321,9 +392,24 @@ export function replaceRequirements(
   // duplicate-target check above already treat as "no real target to collide on") can't be matched
   // this way -- any number of them may coexist -- so each one is logged as a plain delete (old) +
   // create (new) pair instead.
-  const targetKey = (t: { target_kind: string; property_id: string | null; event_id: string | null; variant_id: string | null }): string =>
-    `${t.target_kind}:${t.property_id ?? ''}:${t.event_id ?? ''}:${t.variant_id ?? ''}`;
-  const isAmbiguous = (t: { target_kind: string; status: string | null; property_id: string | null; event_id: string | null; variant_id: string | null }): boolean => {
+  const targetKey = (t: {
+    target_kind: string;
+    property_id: string | null;
+    event_id: string | null;
+    variant_id: string | null;
+    catalog_field_id: string | null;
+    consent_category_id: string | null;
+  }): string =>
+    `${t.target_kind}:${t.property_id ?? ''}:${t.event_id ?? ''}:${t.variant_id ?? ''}:${t.catalog_field_id ?? ''}:${t.consent_category_id ?? ''}`;
+  const isAmbiguous = (t: {
+    target_kind: string;
+    status: string | null;
+    property_id: string | null;
+    event_id: string | null;
+    variant_id: string | null;
+    catalog_field_id: string | null;
+    consent_category_id: string | null;
+  }): boolean => {
     const shape = TARGET_SHAPES[t.target_kind];
     return t.status === 'gap' && shape.required.some((key) => !t[key]);
   };
@@ -339,9 +425,9 @@ export function replaceRequirements(
     db.prepare('DELETE FROM requirements WHERE use_case_id = ?').run(useCaseId);
     const insert = db.prepare(
       `INSERT INTO requirements (
-        id, use_case_id, sort_order, target_kind, property_id, event_id, variant_id, level,
-        status, note, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        id, use_case_id, sort_order, target_kind, property_id, event_id, variant_id,
+        catalog_field_id, consent_category_id, level, status, note, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
     validated.forEach((row, index) => {
       const target_kind = inputs[index].target_kind;
@@ -355,6 +441,8 @@ export function replaceRequirements(
           row.property_id,
           row.event_id,
           row.variant_id,
+          row.catalog_field_id,
+          row.consent_category_id,
           row.level,
           row.status,
           row.note,
@@ -365,13 +453,22 @@ export function replaceRequirements(
         mapWriteError(err, 'This requirement conflicts with an existing one.', `Failed to save requirements: ${(err as Error).message}`);
       }
 
-      const label = labelForTarget(target_kind, row.property_id, row.event_id, row.variant_id);
+      const label = labelForTarget(
+        target_kind,
+        row.property_id,
+        row.event_id,
+        row.variant_id,
+        row.catalog_field_id,
+        row.consent_category_id
+      );
       const targetShape = {
         target_kind,
         status: row.status,
         property_id: row.property_id,
         event_id: row.event_id,
         variant_id: row.variant_id,
+        catalog_field_id: row.catalog_field_id,
+        consent_category_id: row.consent_category_id,
       };
       const ambiguous = isAmbiguous(targetShape);
       const matchedOld = ambiguous ? undefined : oldByKey.get(targetKey(targetShape));
@@ -413,6 +510,8 @@ export function replaceRequirements(
             property_id: row.property_id,
             event_id: row.event_id,
             variant_id: row.variant_id,
+            catalog_field_id: row.catalog_field_id,
+            consent_category_id: row.consent_category_id,
             level: row.level,
             status: row.status,
             note: row.note,
@@ -428,7 +527,14 @@ export function replaceRequirements(
         projectId,
         entityType: 'requirement',
         entityId: old.id,
-        entityLabel: labelForTarget(old.target_kind, old.property_id, old.event_id, old.variant_id),
+        entityLabel: labelForTarget(
+          old.target_kind,
+          old.property_id,
+          old.event_id,
+          old.variant_id,
+          old.catalog_field_id,
+          old.consent_category_id
+        ),
         parentEntityId: useCaseId,
         action: 'delete',
         before: {
@@ -436,6 +542,8 @@ export function replaceRequirements(
           property_id: old.property_id,
           event_id: old.event_id,
           variant_id: old.variant_id,
+          catalog_field_id: old.catalog_field_id,
+          consent_category_id: old.consent_category_id,
           level: old.level,
           status: old.status,
           note: old.note,
@@ -473,16 +581,16 @@ export function insertUnresolvedRequirement(
   const run = db.transaction(() => {
     db.prepare(
       `INSERT INTO requirements (
-        id, use_case_id, sort_order, target_kind, property_id, event_id, variant_id, level,
-        status, note, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, 'gap', ?, ?, ?)`
+        id, use_case_id, sort_order, target_kind, property_id, event_id, variant_id,
+        catalog_field_id, consent_category_id, level, status, note, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, 'gap', ?, ?, ?)`
     )
       .run(id, useCaseId, sortOrder, input.target_kind, input.level, input.note, now, now);
     ChangeLogDAL.recordChange({
       projectId,
       entityType: 'requirement',
       entityId: id,
-      entityLabel: labelForTarget(input.target_kind, null, null, null),
+      entityLabel: labelForTarget(input.target_kind, null, null, null, null, null),
       parentEntityId: useCaseId,
       action: 'create',
       before: null,
@@ -491,6 +599,8 @@ export function insertUnresolvedRequirement(
         property_id: null,
         event_id: null,
         variant_id: null,
+        catalog_field_id: null,
+        consent_category_id: null,
         level: input.level,
         status: 'gap',
         note: input.note,
@@ -521,9 +631,9 @@ export function insertResolvedRequirement(
     try {
       db.prepare(
         `INSERT INTO requirements (
-          id, use_case_id, sort_order, target_kind, property_id, event_id, variant_id, level,
-          status, note, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          id, use_case_id, sort_order, target_kind, property_id, event_id, variant_id,
+          catalog_field_id, consent_category_id, level, status, note, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
         .run(
           id,
@@ -533,6 +643,8 @@ export function insertResolvedRequirement(
           target.property_id,
           target.event_id,
           target.variant_id,
+          target.catalog_field_id,
+          target.consent_category_id,
           input.level,
           input.status ?? null,
           input.note?.trim() || null,
@@ -546,7 +658,14 @@ export function insertResolvedRequirement(
       projectId,
       entityType: 'requirement',
       entityId: id,
-      entityLabel: labelForTarget(input.target_kind, target.property_id, target.event_id, target.variant_id),
+      entityLabel: labelForTarget(
+        input.target_kind,
+        target.property_id,
+        target.event_id,
+        target.variant_id,
+        target.catalog_field_id,
+        target.consent_category_id
+      ),
       parentEntityId: useCaseId,
       action: 'create',
       before: null,
@@ -555,6 +674,8 @@ export function insertResolvedRequirement(
         property_id: target.property_id,
         event_id: target.event_id,
         variant_id: target.variant_id,
+        catalog_field_id: target.catalog_field_id,
+        consent_category_id: target.consent_category_id,
         level: input.level,
         status: input.status ?? null,
         note: input.note?.trim() || null,
@@ -596,7 +717,7 @@ export function getRequirementOrThrow(useCaseId: string, id: string): Requiremen
  */
 function markRequirementsGap(
   projectId: string,
-  nullColumns: Array<'property_id' | 'event_id' | 'variant_id'>,
+  nullColumns: TargetIdKey[],
   whereSql: string,
   whereParams: unknown[],
   targetName: string
@@ -622,6 +743,8 @@ function markRequirementsGap(
       property_id: nullColumns.includes('property_id') ? null : before.property_id,
       event_id: nullColumns.includes('event_id') ? null : before.event_id,
       variant_id: nullColumns.includes('variant_id') ? null : before.variant_id,
+      catalog_field_id: nullColumns.includes('catalog_field_id') ? null : before.catalog_field_id,
+      consent_category_id: nullColumns.includes('consent_category_id') ? null : before.consent_category_id,
       status: 'gap',
       note: before.note ? `${before.note} | ${note}` : note,
     };
@@ -629,13 +752,22 @@ function markRequirementsGap(
       projectId,
       entityType: 'requirement',
       entityId: before.id,
-      entityLabel: labelForTarget(before.target_kind, before.property_id, before.event_id, before.variant_id),
+      entityLabel: labelForTarget(
+        before.target_kind,
+        before.property_id,
+        before.event_id,
+        before.variant_id,
+        before.catalog_field_id,
+        before.consent_category_id
+      ),
       parentEntityId: before.use_case_id,
       action: 'update',
       before: {
         property_id: before.property_id,
         event_id: before.event_id,
         variant_id: before.variant_id,
+        catalog_field_id: before.catalog_field_id,
+        consent_category_id: before.consent_category_id,
         status: before.status,
         note: before.note,
       },
@@ -695,4 +827,28 @@ export function markRequirementsGapForDetach(
     [propertyId, eventId, eventId],
     propertyName
   );
+}
+
+/**
+ * T-3-10 (D-57): called by `catalog.dal.ts` `deleteCatalogField` before the field itself is
+ * deleted: nulls `catalog_field_id` on `target_kind = 'catalog_attribute'` rows referencing it.
+ */
+export function markRequirementsGapForCatalogFieldRemoval(
+  projectId: string,
+  catalogFieldId: string,
+  fieldName: string
+): void {
+  markRequirementsGap(projectId, ['catalog_field_id'], 'catalog_field_id = ?', [catalogFieldId], fieldName);
+}
+
+/**
+ * T-3-10 (D-57): called by `consent-category.dal.ts` `deleteConsentCategory` before the category
+ * itself is deleted: nulls `consent_category_id` on `target_kind = 'consent'` rows referencing it.
+ */
+export function markRequirementsGapForConsentCategoryRemoval(
+  projectId: string,
+  consentCategoryId: string,
+  categoryName: string
+): void {
+  markRequirementsGap(projectId, ['consent_category_id'], 'consent_category_id = ?', [consentCategoryId], categoryName);
 }

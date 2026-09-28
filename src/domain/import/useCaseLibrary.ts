@@ -5,21 +5,28 @@
  * malformed pieces become warnings and are dropped, never a thrown exception. No DB or Express
  * import (domain-model skill).
  *
- * Shape (D-47, D-57):
+ * Shape (D-47, D-57, D-55):
  * ```
  * { format: 'e3-use-case-library', version: 1,
  *   templates: [{ code, name, type: 'marketing'|'transactional', description?, narrative_template?,
  *     tags?: { channels?[], goals?[], tiers?[], kpis?[], industries?[] },
  *     flags?: { new?: boolean, popular?: boolean },
- *     default_requirements: [{ target_kind, event_name?, property_name?,
- *       condition?: {property_name, value}, level: 'R'|'O', note? }] }] }
+ *     default_requirements: [{ target_kind, standard_event?, event_name?, property_name?,
+ *       field_name?, condition?: {property_name, value}, level: 'R'|'O', note? }] }] }
  * ```
+ * `standard_event` (T-3-10, D-55) is the Bloomreach catalog key (e.g. `add_to_cart`); resolved
+ * first through the project's own standard event mapping, so a template targets the *concept*
+ * (add to cart) rather than a literal client event name. `event_name` is optional once
+ * `standard_event` is set, required alone for a custom event outside the catalog. `field_name`
+ * (T-3-10, D-57) is `catalog_attribute`'s target (a main-catalog field name); `consent`'s target is
+ * `property_name` (matched against a consent category's standard key, falling back to its name).
  *
  * Template-level drops (whole template skipped, one warning): missing/blank `code`, a `code`
  * already used earlier in the same file (first occurrence wins), missing/blank `name`, or a `type`
  * outside `USE_CASE_TYPES`. Requirement-level drops (that one `default_requirements` entry skipped,
- * the rest of the template is kept): `target_kind` outside `LIBRARY_TARGET_KINDS`, or a missing
- * `event_name` on a target_kind that needs one. Tag values outside the suggested vocabularies (D-57)
+ * the rest of the template is kept): `target_kind` outside `LIBRARY_TARGET_KINDS`, an event-scoped
+ * kind missing both `event_name` and `standard_event`, `catalog_attribute` missing `field_name`, or
+ * `consent` missing `property_name`. Tag values outside the suggested vocabularies (D-57)
  * are kept, each with its own warning, never dropped (D-57: "unknown values import with a warning,
  * never an error" -- a client's tag vocabulary is not limited to the suggested lists). `level` defaults to `'O'`
  * silently (`use-case-template.dal.ts`'s `resolveOne` already does the same for a bad/missing level
@@ -39,14 +46,14 @@ import {
   LIBRARY_INDUSTRIES,
   type UseCaseType,
 } from '../enums';
+import { getStandardEventFields } from '../bloomreach';
 
 /**
- * Target kinds this format's `default_requirements[].target_kind` may use. Adds `catalog_attribute`
- * and `consent` (D-57) ahead of `REQUIREMENT_TARGET_KINDS` gaining them in T-3-10: a template file
- * using either validates cleanly here and instantiates as a `gap` requirement (an unresolved,
- * clearly-noted placeholder) until T-3-10 adds real resolution for those two kinds.
+ * Target kinds this format's `default_requirements[].target_kind` may use. `REQUIREMENT_TARGET_KINDS`
+ * itself gained `catalog_attribute` and `consent` in T-3-10 (D-57), so this is now just an alias
+ * (kept so callers importing `LIBRARY_TARGET_KINDS` from here need no change).
  */
-export const LIBRARY_TARGET_KINDS = [...REQUIREMENT_TARGET_KINDS, 'catalog_attribute', 'consent'] as const;
+export const LIBRARY_TARGET_KINDS = REQUIREMENT_TARGET_KINDS;
 export type LibraryTargetKind = (typeof LIBRARY_TARGET_KINDS)[number];
 
 /** `target_kind`s whose requirement entry needs `event_name` to mean anything. */
@@ -59,8 +66,16 @@ export interface LibraryCondition {
 
 export interface LibraryRequirement {
   target_kind: string;
+  /** T-3-10 (D-55): the Bloomreach standard event catalog name (e.g. `add_to_cart`); resolved
+   * first through the project's own standard event mapping, then by exact name. Optional for a
+   * custom event outside the catalog, which then needs `event_name`. */
+  standard_event?: string;
+  /** Now optional (D-55): required only when `standard_event` is absent, for a custom event. */
   event_name?: string;
+  /** Standard (or, absent a mapping, exact) property name for `event_property`/`variant_property`. */
   property_name?: string;
+  /** T-3-10 (D-57): the main catalog field name for `target_kind: 'catalog_attribute'`. */
+  field_name?: string;
   condition?: LibraryCondition;
   level: string;
   note?: string;
@@ -181,19 +196,52 @@ function parseRequirement(
     return null;
   }
   const eventName = typeof raw.event_name === 'string' ? raw.event_name.trim() : '';
-  if (EVENT_SCOPED_TARGET_KINDS.has(targetKind) && !eventName) {
-    warnings.push(`${path} is missing event_name, required for target_kind "${targetKind}"; skipped.`);
+  const standardEvent = typeof raw.standard_event === 'string' ? raw.standard_event.trim() : '';
+  // D-55: `event_name` is now optional when `standard_event` names a Bloomreach catalog event --
+  // resolution then goes through the project's own standard event mapping or an exact-name match
+  // against `standard_event` itself. At least one of the two is still required for an event-scoped
+  // kind (nothing to resolve otherwise).
+  if (EVENT_SCOPED_TARGET_KINDS.has(targetKind) && !eventName && !standardEvent) {
+    warnings.push(`${path} is missing both event_name and standard_event, one of which is required for target_kind "${targetKind}"; skipped.`);
     return null;
   }
   const propertyName = typeof raw.property_name === 'string' ? raw.property_name.trim() : '';
+  const fieldName = typeof raw.field_name === 'string' ? raw.field_name.trim() : '';
+  if (targetKind === 'catalog_attribute' && !fieldName) {
+    warnings.push(`${path} is missing field_name, required for target_kind "catalog_attribute"; skipped.`);
+    return null;
+  }
+  if (targetKind === 'consent' && !propertyName) {
+    warnings.push(`${path} is missing property_name, required for target_kind "consent"; skipped.`);
+    return null;
+  }
   const level =
     typeof raw.level === 'string' && (REQUIREMENT_LEVELS as readonly string[]).includes(raw.level) ? raw.level : 'O';
   const note = typeof raw.note === 'string' && raw.note.trim() ? raw.note.trim() : undefined;
   const condition = parseCondition(raw.condition, `${path}.condition`, warnings);
 
+  // INFO 4 (reviewer, pre-QA fix round 2026-09-28 03:47): a `property_name` on an event_property/
+  // variant_property entry with a `standard_event` is meant to be one of that standard event's own
+  // Bloomreach fields (D-55's whole point -- it is translated through the project's field_map, not
+  // matched by literal name); a value outside that seed list can never resolve through the mapping
+  // step (`validateFieldMap` rejects it at apply time, per D-55) and is almost certainly a typo or a
+  // client-specific name that belongs in `event_name` instead. Warn, never drop -- the seed list
+  // (`src/domain/bloomreach.ts`) is extensible per project (D-26), so this parser (which has no
+  // project context) cannot always be sure the value is wrong, only that it is not a *standard* one.
+  if (standardEvent && propertyName && (targetKind === 'event_property' || targetKind === 'variant_property')) {
+    const standardFields = getStandardEventFields(standardEvent);
+    if (standardFields && !standardFields.includes(propertyName)) {
+      warnings.push(
+        `${path}.property_name "${propertyName}" is not a standard field of standard_event "${standardEvent}" (${standardFields.join(', ') || 'no fields'}); kept, but the mapping step can only resolve it via a project addition to that standard event.`
+      );
+    }
+  }
+
   const requirement: LibraryRequirement = { target_kind: targetKind, level };
+  if (standardEvent) requirement.standard_event = standardEvent;
   if (eventName) requirement.event_name = eventName;
   if (propertyName) requirement.property_name = propertyName;
+  if (fieldName) requirement.field_name = fieldName;
   if (condition) requirement.condition = condition;
   if (note) requirement.note = note;
   return requirement;

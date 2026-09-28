@@ -14,15 +14,23 @@ QA round without going through the web UI.
 - Database: the same `getDb()` singleton and migrations as the Express API (`src/backend/db/index.ts`),
   opened via `E3_DB_PATH` — point it at the same file as the running app (`./data/e3-tracking.sqlite`)
   to see the same projects, or at a scratch/`:memory:` path to experiment without touching your data.
-- Tools: seventeen, implemented as plain async handlers in `src/mcp/tools/*.ts` and registered in
+- Tools: nineteen, implemented as plain async handlers in `src/mcp/tools/*.ts` and registered in
   `src/mcp/registerTools.ts` (so a later HTTP transport can mount the same handlers without touching
   their logic): `list_projects`, `list_events`, `get_event_card`, `get_expected_payload`,
   `list_use_cases`, `get_use_case`, `list_findings`, `get_coverage_grid`, `get_tracking_document`,
   `submit_observation`, `submit_observations_batch`, `finish_qa_run`, `run_comparison`,
-  `update_observation`, `delete_observation`, `delete_qa_run`, `get_history` — the plan table's twelve
+  `update_observation`, `delete_observation`, `delete_qa_run`, `list_use_case_templates`,
+  `instantiate_use_case_template`, `get_history` — the plan table's twelve
   (`PLAN-PHASE2-2026-09-25.md` lines ~205-225) plus `get_tracking_document` (not in the plan table),
   three QA evidence tools added in T-3-07 (D-52: each mirrors the matching REST route and is followed
-  by `run_comparison`), and `get_history` (T-3-02, D-44: read-only access to a project's `change_log`).
+  by `run_comparison`), `list_use_case_templates`/`instantiate_use_case_template` (T-3-10, D-55: the
+  global use case template library and its instantiate/preview), and `get_history` (T-3-02, D-44:
+  read-only access to a project's `change_log`).
+  `instantiate_use_case_template` takes `project_key?`, `template_code`,
+  `code?`, `mappings?` (`{index, event_id, variant_id?, property_id?}[]`, the mapping-step dialog's
+  answers for unresolved standard-event targets, saved as standard event mappings before the
+  requirements are created) and `dry_run?` (when true, returns the resolve preview -- `resolved`,
+  `unresolved` with candidates, plus the templates page's `groups` -- without creating anything).
 - Actor attribution (T-3-02, D-44): every tool call runs inside `runWithActor({actor: <agent_name, if
   the tool accepts one, else "MCP agent">, source: "mcp"})`, so a future write tool's `change_log`
   rows are attributed to the calling agent automatically. Today's write tools

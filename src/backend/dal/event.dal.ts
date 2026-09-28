@@ -24,6 +24,7 @@ import { BLOOMREACH_LIMITS } from '../../domain/bloomreach';
 import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
 import { markRequirementsGapForDetach, markRequirementsGapForEventRemoval, markRequirementsGapForVariantRemoval } from './requirement.dal';
 import * as ChangeLogDAL from './change-log.dal';
+import { removePropertyFromFieldMaps } from './standard-event-mapping.dal';
 
 const MAX_DISCRIMINATORS_PER_EVENT = 2;
 
@@ -1004,6 +1005,22 @@ export function updateEventProperty(
  * detach itself, marking those rows `status = 'gap'` with `property_id` nulled and a "target
  * removed: <name>" note (see `requirement.dal.ts` `markRequirementsGapForDetach`).
  */
+/**
+ * T-3-10 QA fix (ERROR 2, qa-tester 2026-09-28 10:19; supervisor DECISION 10:22): the single place
+ * that handles a property dropping off an event's link list -- marks its requirements `gap`
+ * (`markRequirementsGapForDetach`) and clears it out of every standard event mapping's
+ * `field_map_json` for this event (`removePropertyFromFieldMaps`), so the cleanup is identical
+ * whichever of the two ways a link can be dropped: `detachPropertyFromEvent` (`DELETE
+ * /events/:id/properties/:propertyId`, one property at a time) or `replaceEventProperties` (`PUT
+ * /events/:id/properties`, the whole-list save the Events page's editor actually uses -- the path
+ * the pre-QA-fix round's WARNING-1 fix never reached, reproduced by the qa-tester as ERROR 2).
+ * Callers run this inside their own transaction, once per property id that is about to disappear.
+ */
+function handleDroppedEventProperty(projectId: string, eventId: string, propertyId: string, propertyName: string): void {
+  markRequirementsGapForDetach(projectId, eventId, propertyId, propertyName);
+  removePropertyFromFieldMaps(projectId, propertyId, eventId);
+}
+
 export function detachPropertyFromEvent(projectId: string, eventId: string, propertyId: string): void {
   const event = getEventOrThrow(projectId, eventId);
   assertPropertyNotUsedByVariant(eventId, propertyId);
@@ -1019,7 +1036,7 @@ export function detachPropertyFromEvent(projectId: string, eventId: string, prop
     if (result.changes === 0) {
       throw new NotFoundError('This property is not attached to the event.', 'event_property');
     }
-    markRequirementsGapForDetach(projectId, eventId, propertyId, property?.name ?? propertyId);
+    handleDroppedEventProperty(projectId, eventId, propertyId, property?.name ?? propertyId);
 
     if (existingLink) {
       ChangeLogDAL.recordChange({
@@ -1152,7 +1169,7 @@ export function replaceEventProperties(
       db.prepare('DELETE FROM event_properties WHERE event_id = ?').run(eventId);
       for (const droppedId of droppedPropertyIds) {
         const property = cachedProperty(droppedId);
-        markRequirementsGapForDetach(projectId, eventId, droppedId, property?.name ?? droppedId);
+        handleDroppedEventProperty(projectId, eventId, droppedId, property?.name ?? droppedId);
       }
       const insert = db.prepare(
         `INSERT INTO event_properties (

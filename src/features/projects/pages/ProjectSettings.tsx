@@ -10,7 +10,11 @@ import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
-import { EXPIRATION_UNITS } from '@/src/domain/enums';
+import { EXPIRATION_UNITS, LIBRARY_INDUSTRIES } from '@/src/domain/enums';
+
+/** T-3-10 QA fix (ERROR 1, 2026-09-28 10:22): sentinel select values distinct from any real industry string. */
+const INDUSTRY_NOT_SET = '';
+const INDUSTRY_OTHER = '__other__';
 
 const EMERALD = 'var(--brand-primary)';
 
@@ -27,6 +31,8 @@ interface ProjectDetail {
   default_expiration_json: { enabled: boolean; count: number; units: string } | null;
   money_tolerance_percent: number;
   money_tolerance_floor: number;
+  /** T-3-10 (D-57): optional free-text industry, used as the templates page's default facet filter. */
+  industry: string | null;
 }
 
 export function ProjectSettings() {
@@ -50,6 +56,12 @@ export function ProjectSettings() {
   const [expirationUnits, setExpirationUnits] = useState<string>('days');
   const [moneyTolerancePercent, setMoneyTolerancePercent] = useState(1);
   const [moneyToleranceFloor, setMoneyToleranceFloor] = useState(0.01);
+  // T-3-10 QA fix (ERROR 1): `industrySelect` is one of INDUSTRY_NOT_SET, a LIBRARY_INDUSTRIES
+  // value, or INDUSTRY_OTHER (which reveals `industryOtherText` below it). `industry` is free text
+  // on the wire (D-57), not a closed enum, so a project already carrying a value outside the
+  // suggested list must still round-trip through the "other" text box, not be silently dropped.
+  const [industrySelect, setIndustrySelect] = useState<string>(INDUSTRY_NOT_SET);
+  const [industryOtherText, setIndustryOtherText] = useState('');
 
   const fetchProject = useCallback(async () => {
     if (!activeProjectId) {
@@ -83,6 +95,17 @@ export function ProjectSettings() {
       setExpirationUnits(p.default_expiration_json?.units ?? 'days');
       setMoneyTolerancePercent(p.money_tolerance_percent ?? 1);
       setMoneyToleranceFloor(p.money_tolerance_floor ?? 0.01);
+      const industry = p.industry?.trim() || '';
+      if (!industry) {
+        setIndustrySelect(INDUSTRY_NOT_SET);
+        setIndustryOtherText('');
+      } else if ((LIBRARY_INDUSTRIES as readonly string[]).includes(industry)) {
+        setIndustrySelect(industry);
+        setIndustryOtherText('');
+      } else {
+        setIndustrySelect(INDUSTRY_OTHER);
+        setIndustryOtherText(industry);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Network error');
       setProject(null);
@@ -117,6 +140,12 @@ export function ProjectSettings() {
             : { enabled: false, count: expirationCount, units: expirationUnits },
           money_tolerance_percent: moneyTolerancePercent,
           money_tolerance_floor: moneyToleranceFloor,
+          industry:
+            industrySelect === INDUSTRY_NOT_SET
+              ? null
+              : industrySelect === INDUSTRY_OTHER
+                ? industryOtherText.trim() || null
+                : industrySelect,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -225,6 +254,30 @@ export function ProjectSettings() {
             ))}
           </select>
         </div>
+      </div>
+
+      <div className="space-y-2 border-t pt-4">
+        <label className="block text-sm font-medium text-gray-700">Industry</label>
+        <p className="text-xs text-gray-500">Used as the use case templates page's default industry filter (D-57).</p>
+        <select
+          value={industrySelect}
+          onChange={(e) => setIndustrySelect(e.target.value)}
+          className="w-full max-w-md h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+        >
+          <option value={INDUSTRY_NOT_SET}>Not set</option>
+          {LIBRARY_INDUSTRIES.map((i) => (
+            <option key={i} value={i}>{i}</option>
+          ))}
+          <option value={INDUSTRY_OTHER}>Other…</option>
+        </select>
+        {industrySelect === INDUSTRY_OTHER && (
+          <Input
+            value={industryOtherText}
+            onChange={(e) => setIndustryOtherText(e.target.value)}
+            placeholder="e.g. aerospace"
+            className="max-w-md"
+          />
+        )}
       </div>
 
       <div className="space-y-2 border-t pt-4">

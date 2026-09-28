@@ -216,6 +216,36 @@ describe('change-log.dal: requirement.dal.ts', () => {
       expect(changesFor('requirement', row.id).filter((r) => r.action === 'create')).toHaveLength(1);
     }
   });
+
+  it('T-3-10/T-3-02 merge: re-saving a catalog_attribute and a consent requirement unchanged logs one update row per row, never a delete+create pair', () => {
+    const catalog = CatalogDAL.createCatalog(projectId, { name: 'Products', mapping_role: 'main' });
+    const imageField = CatalogDAL.createCatalogField(projectId, catalog.id, { name: 'image' }).id;
+    const consent = ConsentCategoryDAL.createConsentCategory(projectId, { name: 'Newsletter', standard_key: 'newsletter' }).id;
+    const useCase = UseCaseDAL.createUseCase(projectId, { name: 'Confirmation' });
+
+    RequirementDAL.replaceRequirements(projectId, useCase.id, [
+      { target_kind: 'catalog_attribute', catalog_field_id: imageField, level: 'O' },
+      { target_kind: 'consent', consent_category_id: consent, level: 'R' },
+    ]);
+    const [catalogReq, consentReq] = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(changesFor('requirement', catalogReq.id).filter((r) => r.action === 'create')).toHaveLength(1);
+    expect(changesFor('requirement', consentReq.id).filter((r) => r.action === 'create')).toHaveLength(1);
+
+    // Same two targets, only the level changed: `targetKey` (requirement.dal.ts) must include
+    // catalog_field_id/consent_category_id for this to match as an update against the *same*
+    // physical row id, not a delete of the old row plus a create of a new one under a fresh id
+    // (which is what happens when two rows share the same target_kind but different catalog/consent
+    // ids and the key collapses them, or when the key omits the new ids entirely).
+    RequirementDAL.replaceRequirements(projectId, useCase.id, [
+      { target_kind: 'catalog_attribute', catalog_field_id: imageField, level: 'R' },
+      { target_kind: 'consent', consent_category_id: consent, level: 'O' },
+    ]);
+    const [catalogReq2, consentReq2] = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(changesFor('requirement', catalogReq2.id).filter((r) => r.action === 'update')).toHaveLength(1);
+    expect(changesFor('requirement', catalogReq2.id).filter((r) => r.action === 'delete')).toHaveLength(0);
+    expect(changesFor('requirement', consentReq2.id).filter((r) => r.action === 'update')).toHaveLength(1);
+    expect(changesFor('requirement', consentReq2.id).filter((r) => r.action === 'delete')).toHaveLength(0);
+  });
 });
 
 describe('change-log.dal: rule.dal.ts', () => {

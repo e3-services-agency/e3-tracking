@@ -279,13 +279,16 @@ export class NarrativeEditedError extends ConflictError {
 }
 
 /**
- * `DELETE /api/use-case-templates/:id` while any `UseCase` (including a soft-deleted one, whose
- * `template_id` FK is untouched by soft delete) still references it (T-3-06, D-47: "template
- * deletion is refused while instantiated"). 409.
+ * `DELETE /api/use-case-templates/:id` while any *live* (non-deleted) `UseCase` still references it
+ * (T-3-06, D-47; amended T-3-10: counts live references only -- a soft-deleted use case's
+ * `template_id` is nulled in the same transaction as the delete, so it no longer counts and never
+ * blocks a later delete of the same template). 409; the body carries `count` and `project_names`
+ * (one per referencing use case's project, may repeat) so the caller can say *why* without a
+ * second request.
  */
 export class TemplateInUseError extends ConflictError {
   readonly code = 'TEMPLATE_IN_USE';
-  constructor(message: string) {
+  constructor(message: string, public readonly count: number, public readonly project_names: string[]) {
     super(message);
     this.name = 'TemplateInUseError';
   }

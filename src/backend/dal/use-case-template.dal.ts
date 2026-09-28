@@ -37,19 +37,60 @@
  * `'ignored'`, a value outside the enum), and `note` explaining what was missing — rather than
  * dropped, so nothing from the template is silently lost; a human resolves it later in the
  * requirements editor.
+ *
+ * T-3-10 (D-55) rewrites the event-scoped resolution order: a template entry now names a
+ * `standard_event` (the Bloomreach catalog key) instead of only `event_name`. Resolution tries, in
+ * order:
+ *  (1) the project's own `StandardEventMapping` for that `standard_event` -- gives the client event
+ *      directly, and (for `variant`/`variant_property`) the mapped variant when the mapping has one;
+ *      `property_name`/`field_name` (a *standard* field name) is then translated through the
+ *      mapping's `field_map_json` to the client's actual (possibly renamed) property.
+ *  (2) failing that (no mapping row, or the mapping has no variant for a `variant`/`variant_property`
+ *      entry), exact name match: `event_name ?? standard_event` against the project's events, then
+ *      -- for a variant kind -- the legacy `condition` match (below) on that event, and -- for a
+ *      property -- an exact property name match on that event.
+ *  (3) still nothing -> unresolved, with a reason a human (or the templates page's mapping dialog,
+ *      `POST .../from-template/:id/preview`) can act on.
+ * `event_name` is optional once `standard_event` is given (a template may still supply both, or
+ * only `event_name` for a custom event outside the Bloomreach catalog, e.g. the sample library's
+ * `wishlist_add`).
+ *
+ * D-57 adds two more target kinds, resolved independently of the above: `catalog_attribute`
+ * (`field_name` against the project's main catalog's fields by name) and `consent` (`property_name`
+ * against a consent category's `standard_key`, falling back to its `name`).
  */
 import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn } from '../db/util';
 import { ConflictError, NotFoundError, TemplateInUseError, UseCaseCodeTakenError, ValidationError } from '../errors';
 import { USE_CASE_TYPES, REQUIREMENT_LEVELS, REQUIREMENT_TARGET_KINDS, type UseCaseType } from '../../domain/enums';
 import { createUseCase, type UseCaseRow } from './use-case.dal';
-import { insertResolvedRequirement, insertUnresolvedRequirement } from './requirement.dal';
+import {
+  insertResolvedRequirement,
+  insertUnresolvedRequirement,
+  type RequirementInput,
+} from './requirement.dal';
 import { buildConditionsKey, normalizeConditions, type VariantCondition } from '../../domain/variants';
+import { listEvents } from './event.dal';
+import { getEventWithProperties } from './event.dal';
+import { listVariantsByProject } from './variant.dal';
+import {
+  getStandardEventMappingByKey,
+  upsertStandardEventMapping,
+  type StandardEventMappingRow,
+} from './standard-event-mapping.dal';
+import { findMainCatalogFieldByName } from './catalog.dal';
+import { findConsentCategoryByStandardKeyOrName } from './consent-category.dal';
 
 export interface DefaultRequirementTemplate {
   target_kind: string;
+  /** T-3-10 (D-55): Bloomreach standard event catalog key (e.g. `add_to_cart`); resolved first
+   * through the project's own standard event mapping. */
+  standard_event?: string;
+  /** Optional once `standard_event` is set (D-55); required alone for a custom event. */
   event_name?: string;
   property_name?: string;
+  /** T-3-10 (D-57): main catalog field name for `target_kind: 'catalog_attribute'`. */
+  field_name?: string;
   condition?: { property_name: string; value: string };
   level: string;
   /** T-3-06 (D-47): copied verbatim onto the resolved/unresolved requirement's own `note`. */
@@ -211,27 +252,41 @@ export function updateUseCaseTemplate(id: string, input: Partial<UseCaseTemplate
 }
 
 /**
- * T-3-06 (D-47): refuses with `TemplateInUseError` (409 `TEMPLATE_IN_USE`) while any `UseCase`
- * still references this template (`use_cases.template_id`, no `ON DELETE` clause on that FK -- a
- * raw constraint error is never allowed to reach the caller for something this checkable).
+ * T-3-06 (D-47), amended T-3-10 (2026-09-28): refuses with `TemplateInUseError` (409
+ * `TEMPLATE_IN_USE`) while any *live* (non-deleted) `UseCase` still references this template.
  *
- * Fix round ERROR 1 (reviewer, 2026-09-27 23:26): the guard used to filter `deleted_at IS NULL`,
- * so soft-deleting the one referencing use case made the guard pass while the FK itself still
- * pointed at this row (soft delete never touches `template_id`), and the `DELETE` below then hit a
- * raw `SQLITE_CONSTRAINT_FOREIGNKEY` (500) instead of the intended 409. A soft-deleted use case
- * still belongs to the template (its `template_id` is still set), so it still counts here,
- * regardless of `deleted_at` -- the guard and the FK it is protecting must agree on what "still
- * references it" means.
+ * The amendment changes what "still references it" means: the original guard (fix round ERROR 1,
+ * 2026-09-27 23:26) counted soft-deleted use cases too, since soft delete never touched
+ * `template_id` and the FK would otherwise raise a raw 500 on delete. T-3-10 instead nulls
+ * `template_id` on every soft-deleted use case referencing this template, in the same transaction
+ * as the delete itself (a restore already produces a null `template_id`, so this is the same,
+ * already-legitimate state) -- so only *live* references block the delete, and the FK never fires.
+ * The 409 body carries `count` and `project_names` (via `errors.ts`'s `TemplateInUseError`) so the
+ * caller can say why without a second request.
  */
 export function deleteUseCaseTemplate(id: string): void {
   getUseCaseTemplateOrThrow(id);
-  const inUse = getDb().prepare('SELECT 1 FROM use_cases WHERE template_id = ? LIMIT 1').get(id);
-  if (inUse) {
-    throw new TemplateInUseError(
-      'This template is used by one or more use cases (including deleted ones) in a project; it cannot be deleted while instantiated.'
-    );
-  }
-  getDb().prepare('DELETE FROM use_case_templates WHERE id = ?').run(id);
+  const db = getDb();
+  const run = db.transaction(() => {
+    const liveRefs = db
+      .prepare(
+        `SELECT p.name as project_name FROM use_cases uc
+         JOIN projects p ON p.id = uc.project_id
+         WHERE uc.template_id = ? AND uc.deleted_at IS NULL`
+      )
+      .all(id) as { project_name: string }[];
+    if (liveRefs.length > 0) {
+      const names = liveRefs.map((r) => r.project_name);
+      throw new TemplateInUseError(
+        `This template is used by ${liveRefs.length} use case${liveRefs.length === 1 ? '' : 's'} (${names.join(', ')}); it cannot be deleted while instantiated.`,
+        liveRefs.length,
+        names
+      );
+    }
+    db.prepare('UPDATE use_cases SET template_id = NULL WHERE template_id = ?').run(id);
+    db.prepare('DELETE FROM use_case_templates WHERE id = ?').run(id);
+  });
+  run();
 }
 
 interface EventLookup {
@@ -260,6 +315,173 @@ function propertyLinkedToEvent(eventId: string, propertyId: string): boolean {
     .get(eventId, propertyId);
 }
 
+/**
+ * `resolveEntry`'s result: either a fully-resolved target (ready for `insertResolvedRequirement`),
+ * or a reason it could not be. A real discriminated union on `resolved` -- fix round INFO 7
+ * (reviewer, 2026-09-28 03:15): the truthiness form (`if (outcome.resolved)`) does not narrow under
+ * this project's non-`strict` `tsconfig.json` (confirmed by a standalone repro), but an explicit
+ * `=== true`/`=== false` comparison does narrow correctly even without `strict` (same repro), so
+ * every read below uses that form instead of the single-interface-plus-`!` workaround the first
+ * round used.
+ */
+type ResolvedTarget = Pick<
+  RequirementInput,
+  'property_id' | 'event_id' | 'variant_id' | 'catalog_field_id' | 'consent_category_id'
+>;
+type ResolveOutcome = { resolved: true; target: ResolvedTarget } | { resolved: false; reason: string };
+
+function resolvedOutcome(target: ResolvedTarget): ResolveOutcome {
+  return { resolved: true, target };
+}
+
+function unresolvedOutcome(reason: string): ResolveOutcome {
+  return { resolved: false, reason };
+}
+
+/**
+ * T-3-10 (D-55, D-57): resolves one `default_requirements_json` entry against `projectId`'s current
+ * definitions -- the single engine both the writer (`resolveOne`, via `insertResolvedRequirement`/
+ * `insertUnresolvedRequirement`) and the read-only preview (`previewInstantiateUseCaseTemplate`,
+ * `POST .../from-template/:id/preview`) use, so the two can never disagree about what would resolve.
+ * See the module doc for the full resolution order.
+ */
+function resolveEntry(projectId: string, entry: DefaultRequirementTemplate): ResolveOutcome {
+  if (!(REQUIREMENT_TARGET_KINDS as readonly string[]).includes(entry.target_kind)) {
+    return unresolvedOutcome(`Template used an unknown target_kind "${entry.target_kind}".`);
+  }
+
+  if (entry.target_kind === 'catalog_attribute') {
+    if (!entry.field_name) return unresolvedOutcome('Template requirement is missing field_name.');
+    const field = findMainCatalogFieldByName(projectId, entry.field_name);
+    if (!field) {
+      return unresolvedOutcome(
+        `No field named "${entry.field_name}" on this project's main catalog (or the project has no main catalog).`
+      );
+    }
+    return resolvedOutcome({ catalog_field_id: field.id });
+  }
+
+  if (entry.target_kind === 'consent') {
+    if (!entry.property_name) return unresolvedOutcome('Template requirement is missing property_name.');
+    const consent = findConsentCategoryByStandardKeyOrName(projectId, entry.property_name);
+    if (!consent) {
+      return unresolvedOutcome(`No consent category matching "${entry.property_name}" (standard key or name) in this project.`);
+    }
+    return resolvedOutcome({ consent_category_id: consent.id });
+  }
+
+  if (entry.target_kind === 'customer_property') {
+    if (!entry.property_name) return unresolvedOutcome('Template requirement is missing property_name.');
+    const property = findPropertyByName(projectId, entry.property_name, 'customer');
+    if (!property) return unresolvedOutcome(`No customer property named "${entry.property_name}" in this project.`);
+    return resolvedOutcome({ property_id: property.id });
+  }
+
+  // Event-scoped kinds: event, event_property, variant, variant_property.
+  const needsVariant = entry.target_kind === 'variant' || entry.target_kind === 'variant_property';
+  const needsProperty = entry.target_kind === 'event_property' || entry.target_kind === 'variant_property';
+  const displayName = entry.event_name ?? entry.standard_event ?? '';
+
+  let eventId: string | null = null;
+  let variantId: string | null = null;
+  let mapping: StandardEventMappingRow | null = null;
+
+  // D-55 resolution order, step 1: the project's own standard event mapping for this standard_event.
+  if (entry.standard_event) {
+    mapping = getStandardEventMappingByKey(projectId, entry.standard_event.trim());
+    if (mapping) {
+      eventId = mapping.event_id;
+      if (needsVariant && mapping.variant_id) variantId = mapping.variant_id;
+    }
+  }
+
+  // Step 2: exact name match (event_name, else standard_event) against the project's events.
+  if (!eventId) {
+    const name = entry.event_name || entry.standard_event;
+    if (!name) return unresolvedOutcome('Template requirement is missing event_name.');
+    const event = findEventByName(projectId, name);
+    if (!event) return unresolvedOutcome(`No event named "${name}" in this project.`);
+    eventId = event.id;
+  }
+
+  if (needsVariant && !variantId) {
+    // Legacy fallback: match the variant whose whole condition set equals the template's single
+    // `condition`, via the same `normalizeConditions`/`buildConditionsKey` `variant.dal.ts` uses to
+    // build `conditions_key` (fix round WARNING 3) -- not "any variant whose conditions include
+    // this one" (that over-matched a two-discriminator variant for a template naming only one).
+    if (!entry.condition) {
+      return unresolvedOutcome(
+        `No standard event mapping resolves a variant for "${displayName}", and no condition was given to match one directly.`
+      );
+    }
+    const discriminator = findPropertyByName(projectId, entry.condition.property_name, 'event');
+    if (!discriminator) {
+      return unresolvedOutcome(`No property named "${entry.condition.property_name}" to match the variant condition.`);
+    }
+    const desiredKey = buildConditionsKey(
+      normalizeConditions([{ property_id: discriminator.id, operator: 'equals', values: [entry.condition.value] }])
+    );
+    const variantRows = getDb()
+      .prepare('SELECT id, name, conditions_json, conditions_key FROM variants WHERE event_id = ?')
+      .all(eventId) as { id: string; name: string; conditions_json: string | null; conditions_key: string }[];
+    const match = variantRows.find((row) => row.conditions_key === desiredKey);
+    if (!match) {
+      const partialMatches = variantRows.filter((row) => {
+        const conditions = parseJsonColumn(row.conditions_json, [] as VariantCondition[]);
+        return conditions.some((c) => c.property_id === discriminator.id);
+      });
+      // LOW D (second fix round, T-3-06): candidate variants by name, never the raw conditions_key.
+      const suffix =
+        partialMatches.length > 0
+          ? ` Candidates on the same property: ${partialMatches.map((row) => row.name).join(', ')}.`
+          : '';
+      return unresolvedOutcome(
+        `No variant of "${displayName}" has exactly the condition ${entry.condition.property_name}=${entry.condition.value} (and no other condition).${suffix}`
+      );
+    }
+    variantId = match.id;
+  }
+
+  let propertyId: string | null = null;
+  if (needsProperty) {
+    if (!entry.property_name) return unresolvedOutcome('Template requirement is missing property_name.');
+    // D-55 field_map translation: a standard field name resolved through the mapping's own
+    // `field_map_json` takes priority (this is what lets a client rename `total_price` to `price`
+    // on `purchase_item` and still have the template's standard property name resolve correctly).
+    // Fix round ERROR 1 (reviewer, 2026-09-28 03:15): a field_map hit is only actually resolved
+    // when that property is *still* linked to the event -- detaching a property never clears the
+    // mapping's own `field_map_json` (a pre-existing gap in `detachPropertyFromEvent`/
+    // `standard-event-mapping.dal.ts`), so a stale field_map entry used to be accepted here without
+    // re-checking the link, and `insertResolvedRequirement`'s own `assertPropertyLinkedToEvent`
+    // then rejected it with a raw 400 that rolled back the *whole* instantiate transaction instead
+    // of this one row becoming a gap -- preview and the writer disagreed exactly the way this
+    // function's own doc says they never should. A stale hit now falls through to the exact-name
+    // lookup below (still on the correct event) instead of resolving.
+    const mapped = mapping?.field_map_json?.[entry.property_name];
+    if (mapped && propertyLinkedToEvent(eventId, mapped)) {
+      propertyId = mapped;
+    } else {
+      const property = findPropertyByName(projectId, entry.property_name, 'event');
+      if (property && propertyLinkedToEvent(eventId, property.id)) propertyId = property.id;
+    }
+    if (!propertyId) {
+      const staleNote =
+        mapped && !propertyLinkedToEvent(eventId, mapped)
+          ? ` The mapped property is no longer linked to event "${displayName}" (field_map is stale).`
+          : '';
+      return unresolvedOutcome(
+        `No property named "${entry.property_name}" is mapped (field_map) or linked to event "${displayName}".${staleNote}`
+      );
+    }
+  }
+
+  if (entry.target_kind === 'event') return resolvedOutcome({ event_id: eventId });
+  if (entry.target_kind === 'event_property') return resolvedOutcome({ event_id: eventId, property_id: propertyId });
+  if (entry.target_kind === 'variant') return resolvedOutcome({ variant_id: variantId });
+  // variant_property
+  return resolvedOutcome({ variant_id: variantId, property_id: propertyId });
+}
+
 function resolveOne(
   projectId: string,
   useCaseId: string,
@@ -270,132 +492,23 @@ function resolveOne(
     ? entry.level
     : 'O';
   const note = entry.note?.trim() || null;
-  const unresolved = (reason: string) =>
-    insertUnresolvedRequirement(projectId, useCaseId, sortOrder, {
+  const outcome = resolveEntry(projectId, entry);
+  if (outcome.resolved === true) {
+    insertResolvedRequirement(projectId, useCaseId, sortOrder, {
       target_kind: entry.target_kind,
       level,
-      note: note ? `${reason} ${note}` : reason,
-    });
-
-  // D-57/T-3-10: `catalog_attribute` and `consent` are valid library target kinds (the parser
-  // accepts them so a file using either validates cleanly) but this resolver does not yet know how
-  // to match them against a project's catalog fields / consent categories -- that lands in T-3-10.
-  // Until then every entry of either kind instantiates as a clearly-labelled gap instead of being
-  // silently dropped or mis-reported as an "unknown target_kind".
-  if (entry.target_kind === 'catalog_attribute' || entry.target_kind === 'consent') {
-    unresolved(
-      `Template used target_kind "${entry.target_kind}", not yet resolved by this project (library resolution for this kind lands in a later task).`
-    );
-    return;
-  }
-
-  if (!(REQUIREMENT_TARGET_KINDS as readonly string[]).includes(entry.target_kind)) {
-    unresolved(`Template used an unknown target_kind "${entry.target_kind}".`);
-    return;
-  }
-
-  if (entry.target_kind === 'customer_property') {
-    if (!entry.property_name) return unresolved('Template requirement is missing property_name.');
-    const property = findPropertyByName(projectId, entry.property_name, 'customer');
-    if (!property) return unresolved(`No customer property named "${entry.property_name}" in this project.`);
-    insertResolvedRequirement(projectId, useCaseId, sortOrder, {
-      target_kind: 'customer_property',
-      property_id: property.id,
-      level,
       note,
+      ...outcome.target,
     });
     return;
   }
-
-  if (!entry.event_name) return unresolved('Template requirement is missing event_name.');
-  const event = findEventByName(projectId, entry.event_name);
-  if (!event) return unresolved(`No event named "${entry.event_name}" in this project.`);
-
-  if (entry.target_kind === 'event') {
-    insertResolvedRequirement(projectId, useCaseId, sortOrder, {
-      target_kind: 'event',
-      event_id: event.id,
-      level,
-      note,
-    });
-    return;
-  }
-
-  if (entry.target_kind === 'event_property') {
-    if (!entry.property_name) return unresolved('Template requirement is missing property_name.');
-    const property = findPropertyByName(projectId, entry.property_name, 'event');
-    if (!property) return unresolved(`No event property named "${entry.property_name}" in this project.`);
-    if (!propertyLinkedToEvent(event.id, property.id)) {
-      return unresolved(`Property "${entry.property_name}" is not linked to event "${entry.event_name}".`);
-    }
-    insertResolvedRequirement(projectId, useCaseId, sortOrder, {
-      target_kind: 'event_property',
-      event_id: event.id,
-      property_id: property.id,
-      level,
-      note,
-    });
-    return;
-  }
-
-  // variant | variant_property
-  if (!entry.condition) return unresolved('Template requirement is missing a condition to select a variant.');
-  const discriminator = findPropertyByName(projectId, entry.condition.property_name, 'event');
-  if (!discriminator) {
-    return unresolved(`No property named "${entry.condition.property_name}" to match the variant condition.`);
-  }
-  // Fix round WARNING 3: match the variant whose whole condition set equals the template's single
-  // condition, via the same `normalizeConditions`/`buildConditionsKey` `variant.dal.ts` uses to
-  // build `conditions_key` — not "any variant whose conditions include this one" (that over-matched
-  // a two-discriminator variant for a template naming only one of them, ambiguously, whichever row
-  // happened to be inserted first).
-  const desiredKey = buildConditionsKey(
-    normalizeConditions([{ property_id: discriminator.id, operator: 'equals', values: [entry.condition.value] }])
-  );
-  const variantRows = getDb()
-    .prepare('SELECT id, name, conditions_json, conditions_key FROM variants WHERE event_id = ?')
-    .all(event.id) as { id: string; name: string; conditions_json: string | null; conditions_key: string }[];
-  const match = variantRows.find((row) => row.conditions_key === desiredKey);
-  if (!match) {
-    const partialMatches = variantRows.filter((row) => {
-      const conditions = parseJsonColumn(row.conditions_json, [] as VariantCondition[]);
-      return conditions.some((c) => c.property_id === discriminator.id);
-    });
-    // LOW D (second fix round): this used to print the raw `conditions_key` JSON, including
-    // property_id uuids — nothing a human matching a template by hand could act on. List the
-    // candidate variants by name instead, same as everywhere else in the UI.
-    const suffix =
-      partialMatches.length > 0
-        ? ` Candidates on the same property: ${partialMatches.map((row) => row.name).join(', ')}.`
-        : '';
-    return unresolved(
-      `No variant of "${entry.event_name}" has exactly the condition ${entry.condition.property_name}=${entry.condition.value} (and no other condition).${suffix}`
-    );
-  }
-
-  if (entry.target_kind === 'variant') {
-    insertResolvedRequirement(projectId, useCaseId, sortOrder, {
-      target_kind: 'variant',
-      variant_id: match.id,
-      level,
-      note,
-    });
-    return;
-  }
-
-  // variant_property
-  if (!entry.property_name) return unresolved('Template requirement is missing property_name.');
-  const property = findPropertyByName(projectId, entry.property_name, 'event');
-  if (!property) return unresolved(`No event property named "${entry.property_name}" in this project.`);
-  if (!propertyLinkedToEvent(event.id, property.id)) {
-    return unresolved(`Property "${entry.property_name}" is not linked to event "${entry.event_name}".`);
-  }
-  insertResolvedRequirement(projectId, useCaseId, sortOrder, {
-    target_kind: 'variant_property',
-    variant_id: match.id,
-    property_id: property.id,
+  const reason = outcome.reason;
+  // T-3-02 merge (agent-setup wired `recordChange` into `insertUnresolvedRequirement`, adding a
+  // leading `projectId` parameter): pass it through like every other call site in this file.
+  insertUnresolvedRequirement(projectId, useCaseId, sortOrder, {
+    target_kind: entry.target_kind,
     level,
-    note,
+    note: note ? `${reason} ${note}` : reason,
   });
 }
 
@@ -412,10 +525,73 @@ function resolveOne(
  * back has not had that code honoured, so a collision on an explicit code throws
  * `UseCaseCodeTakenError` (409 `USE_CASE_CODE_TAKEN`) instead.
  */
+/** Same normalisation `use-case.dal.ts`'s private `normalizeCode` applies before storing (trim + upper-case), so the 409 message below echoes the code that was actually taken, not whatever casing the caller sent. */
+function normalizeCodeForMessage(code: string): string {
+  return code.trim().toUpperCase();
+}
+
+/**
+ * T-3-10 (D-55): one row of the instantiate route's `mappings` body -- the mapping-step dialog's
+ * answer for one unresolved template entry (identified by its `index` in
+ * `default_requirements_json`). Applied as a `StandardEventMapping` upsert *before* the
+ * requirements are resolved, so the entry (and any other entry sharing the same `standard_event`)
+ * picks it up through the normal resolution order's step 1. Silently ignored for an index whose
+ * entry carries no `standard_event` (nothing to map) -- this mechanism only ever creates/updates
+ * standard event mappings.
+ */
+export interface TemplateMappingInput {
+  index: number;
+  event_id: string;
+  variant_id?: string | null;
+  property_id?: string | null;
+}
+
+function applyTemplateMappings(
+  projectId: string,
+  template: UseCaseTemplateRow,
+  mappings: TemplateMappingInput[]
+): void {
+  for (const m of mappings) {
+    const entry = template.default_requirements_json[m.index];
+    if (!entry || !entry.standard_event) continue;
+    const standardEvent = entry.standard_event.trim();
+    const existing = getStandardEventMappingByKey(projectId, standardEvent);
+    // Fix round LOW 5 (reviewer, 2026-09-28 03:15): only carry the existing mapping's variant and
+    // field_map forward when the dialog row picked the *same* event that mapping already targets.
+    // A different event's variant ids and field_map property ids belong to that other event, not
+    // this one -- carrying them forward either 400s out of `upsertStandardEventMapping` (a variant
+    // of the wrong event) or silently mixes two events' properties into one field_map. Picking a
+    // new event always starts a fresh mapping for it instead.
+    const carryForward = existing !== null && existing.event_id === m.event_id;
+    // Pre-QA fix (WARNING 1 defense in depth, reviewer 2026-09-28 03:45): the root cause is fixed
+    // in detachPropertyFromEvent/deleteProperty (they now clear a property out of every
+    // field_map_json entry that named it, so a fresh stale entry can no longer be created), but
+    // carrying an *already*-stale entry forward verbatim (e.g. from data written before this fix,
+    // or by any other future write path) still 400ed the whole apply out of
+    // `upsertStandardEventMapping`'s own `validateFieldMap`, for a field this apply never touches.
+    // Filter every carried-forward entry through the same `propertyLinkedToEvent` check the
+    // resolver itself uses, dropping (nulling) anything that no longer holds up.
+    const fieldMap: Record<string, string | null> = carryForward
+      ? Object.fromEntries(
+          Object.entries(existing!.field_map_json).map(([field, mappedPropertyId]) => [
+            field,
+            mappedPropertyId && propertyLinkedToEvent(m.event_id, mappedPropertyId) ? mappedPropertyId : null,
+          ])
+        )
+      : {};
+    if (entry.property_name) fieldMap[entry.property_name] = m.property_id ?? null;
+    upsertStandardEventMapping(projectId, standardEvent, {
+      event_id: m.event_id,
+      variant_id: m.variant_id ?? (carryForward ? existing!.variant_id : null),
+      field_map_json: fieldMap,
+    });
+  }
+}
+
 export function instantiateUseCaseTemplate(
   projectId: string,
   templateId: string,
-  opts?: { code?: string }
+  opts?: { code?: string; mappings?: TemplateMappingInput[] }
 ): UseCaseRow {
   const template = getUseCaseTemplateOrThrow(templateId);
   const db = getDb();
@@ -424,6 +600,10 @@ export function instantiateUseCaseTemplate(
 
   let useCase!: UseCaseRow;
   const run = db.transaction(() => {
+    // D-55: apply the mapping-step answers first, so standard event mapping resolution (step 1 of
+    // `resolveEntry`) picks them up for every entry below, not just the ones the caller named.
+    if (opts?.mappings?.length) applyTemplateMappings(projectId, template, opts.mappings);
+
     if (explicitCode) {
       try {
         useCase = createUseCase(projectId, {
@@ -435,7 +615,9 @@ export function instantiateUseCaseTemplate(
         });
       } catch (err) {
         if (err instanceof ConflictError) {
-          throw new UseCaseCodeTakenError(`A use case with code "${explicitCode}" already exists in this project.`);
+          throw new UseCaseCodeTakenError(
+            `A use case with code "${normalizeCodeForMessage(explicitCode)}" already exists in this project.`
+          );
         }
         throw err;
       }
@@ -478,53 +660,6 @@ function groupForTargetKind(kind: string): 'events' | 'customer_properties' | 'c
   return 'events';
 }
 
-/**
- * Read-only version of `resolveOne`'s matching logic (no writes): would this one
- * `default_requirements_json` entry resolve against `projectId`'s current definitions right now?
- * `catalog_attribute`/`consent` are always unresolved here (T-3-10 adds their resolution); kept as
- * a single boolean, not the detailed "candidates" notes `resolveOne` builds for a human, since this
- * feeds only the prerequisites card's all/none/mixed roll-up.
- */
-function dryResolves(projectId: string, entry: DefaultRequirementTemplate): boolean {
-  if (entry.target_kind === 'catalog_attribute' || entry.target_kind === 'consent') return false;
-  if (!(REQUIREMENT_TARGET_KINDS as readonly string[]).includes(entry.target_kind)) return false;
-
-  if (entry.target_kind === 'customer_property') {
-    return !!entry.property_name && !!findPropertyByName(projectId, entry.property_name, 'customer');
-  }
-
-  if (!entry.event_name) return false;
-  const event = findEventByName(projectId, entry.event_name);
-  if (!event) return false;
-  if (entry.target_kind === 'event') return true;
-
-  if (entry.target_kind === 'event_property') {
-    if (!entry.property_name) return false;
-    const property = findPropertyByName(projectId, entry.property_name, 'event');
-    return !!property && propertyLinkedToEvent(event.id, property.id);
-  }
-
-  // variant | variant_property
-  if (!entry.condition) return false;
-  const discriminator = findPropertyByName(projectId, entry.condition.property_name, 'event');
-  if (!discriminator) return false;
-  const desiredKey = buildConditionsKey(
-    normalizeConditions([{ property_id: discriminator.id, operator: 'equals', values: [entry.condition.value] }])
-  );
-  const matched = (
-    getDb().prepare('SELECT conditions_key FROM variants WHERE event_id = ?').all(event.id) as {
-      conditions_key: string;
-    }[]
-  ).some((row) => row.conditions_key === desiredKey);
-  if (!matched) return false;
-  if (entry.target_kind === 'variant') return true;
-
-  // variant_property
-  if (!entry.property_name) return false;
-  const property = findPropertyByName(projectId, entry.property_name, 'event');
-  return !!property && propertyLinkedToEvent(event.id, property.id);
-}
-
 export interface TemplateResolvePreviewGroup {
   group: 'events' | 'customer_properties' | 'catalog' | 'consents';
   total: number;
@@ -539,18 +674,66 @@ export interface TemplateResolvePreviewGroup {
   status: 'all' | 'none' | 'mixed';
 }
 
+/** T-3-10 (D-55): one project event with its variants and event properties, for the mapping-step dialog's pickers. */
+export interface TemplateEventCandidate {
+  id: string;
+  name: string;
+  variants: { id: string; name: string }[];
+  properties: { id: string; name: string }[];
+}
+
+export interface TemplateResolvedPreviewItem {
+  index: number;
+  target_kind: string;
+}
+
+export interface TemplateUnresolvedPreviewItem {
+  index: number;
+  target_kind: string;
+  standard_event?: string;
+  property_name?: string;
+  /** Non-empty only for the four event-scoped kinds (event/event_property/variant/variant_property); the mapping step has nothing to offer a `customer_property`/`catalog_attribute`/`consent` gap. */
+  candidates: TemplateEventCandidate[];
+}
+
 export interface TemplateResolvePreviewResult {
+  /** D-55: every entry that already resolves against `projectId`'s current definitions. */
+  resolved: TemplateResolvedPreviewItem[];
+  /** D-55: every entry that does not, with candidates for the mapping-step dialog's pickers. */
+  unresolved: TemplateUnresolvedPreviewItem[];
+  /** T-3-06 prerequisites card (kept additive alongside `resolved`/`unresolved` above). */
   groups: TemplateResolvePreviewGroup[];
   unresolved_count: number;
   total_count: number;
 }
 
+const EVENT_SCOPED_CANDIDATE_KINDS = new Set(['event', 'event_property', 'variant', 'variant_property']);
+
+/** Every project event with its variants and event properties (D-55 mapping-step candidates), built at most once per preview call. */
+function buildEventCandidates(projectId: string): TemplateEventCandidate[] {
+  const variantsByEvent = new Map<string, { id: string; name: string }[]>();
+  for (const v of listVariantsByProject(projectId)) {
+    const arr = variantsByEvent.get(v.event_id) ?? [];
+    arr.push({ id: v.id, name: v.name });
+    variantsByEvent.set(v.event_id, arr);
+  }
+  return listEvents(projectId).map((e) => ({
+    id: e.id,
+    name: e.name,
+    variants: variantsByEvent.get(e.id) ?? [],
+    properties: getEventWithProperties(projectId, e.id).properties.map((p) => ({
+      id: p.property_id,
+      name: p.property.name,
+    })),
+  }));
+}
+
 /**
- * `POST /use-cases/from-template/:id/preview` (D-55, D-57): dry-runs resolution of every
+ * `POST /use-cases/from-template/:id/preview` (D-55, D-57): dry-runs `resolveEntry` for every
  * `default_requirements_json` entry against `projectId`'s current definitions without creating
- * anything, grouped for the templates page's prerequisites card. T-3-10 extends this same route
- * with a mapping step for unresolved standard-event targets; this version uses only the resolver
- * that exists today (exact event/property/variant-condition name matching).
+ * anything. Returns both the D-55 mapping-step shape (`resolved`/`unresolved`, the latter with
+ * candidates for the dialog's pickers) and the T-3-06 prerequisites-card shape (`groups`), kept
+ * side by side so neither consumer's response shape had to change.
  */
 export function previewInstantiateUseCaseTemplate(projectId: string, templateId: string): TemplateResolvePreviewResult {
   const template = getUseCaseTemplateOrThrow(templateId);
@@ -560,19 +743,40 @@ export function previewInstantiateUseCaseTemplate(projectId: string, templateId:
     catalog: { total: 0, resolved: 0 },
     consents: { total: 0, resolved: 0 },
   };
-  let unresolvedCount = 0;
-  for (const entry of template.default_requirements_json) {
+  const resolvedItems: TemplateResolvedPreviewItem[] = [];
+  const unresolvedItems: TemplateUnresolvedPreviewItem[] = [];
+  let candidatesCache: TemplateEventCandidate[] | null = null;
+  const getCandidates = (): TemplateEventCandidate[] => (candidatesCache ??= buildEventCandidates(projectId));
+
+  template.default_requirements_json.forEach((entry, index) => {
     const group = groupForTargetKind(entry.target_kind);
-    const resolved = dryResolves(projectId, entry);
+    const outcome = resolveEntry(projectId, entry);
     counts[group].total += 1;
-    if (resolved) counts[group].resolved += 1;
-    else unresolvedCount += 1;
-  }
+    if (outcome.resolved === true) {
+      counts[group].resolved += 1;
+      resolvedItems.push({ index, target_kind: entry.target_kind });
+    } else {
+      unresolvedItems.push({
+        index,
+        target_kind: entry.target_kind,
+        standard_event: entry.standard_event,
+        property_name: entry.property_name,
+        candidates: EVENT_SCOPED_CANDIDATE_KINDS.has(entry.target_kind) ? getCandidates() : [],
+      });
+    }
+  });
+
   const groups = (Object.keys(counts) as TemplateResolvePreviewGroup['group'][]).map((group) => {
     const { total, resolved } = counts[group];
     const status: TemplateResolvePreviewGroup['status'] =
       total === 0 ? 'none' : resolved === total ? 'all' : resolved === 0 ? 'none' : 'mixed';
     return { group, total, resolved, status };
   });
-  return { groups, unresolved_count: unresolvedCount, total_count: template.default_requirements_json.length };
+  return {
+    resolved: resolvedItems,
+    unresolved: unresolvedItems,
+    groups,
+    unresolved_count: unresolvedItems.length,
+    total_count: template.default_requirements_json.length,
+  };
 }

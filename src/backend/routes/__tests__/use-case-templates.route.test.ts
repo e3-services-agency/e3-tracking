@@ -106,7 +106,7 @@ describe('DELETE /api/use-case-templates/:id', () => {
     expect(UseCaseTemplateDAL.getUseCaseTemplateById(template.id)).toBeNull();
   });
 
-  it('fix round ERROR 1: still 409s (never 500) after the only referencing use case is soft-deleted', async () => {
+  it('T-3-10 (D-47 amendment): a soft-deleted referencing use case no longer blocks delete (never 500 either way)', async () => {
     const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-DELROUTE3', name: 'Soft-deleted use case', type: 'marketing' });
     const createRes = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/from-template/${template.id}`, {
       method: 'POST',
@@ -119,8 +119,19 @@ describe('DELETE /api/use-case-templates/:id', () => {
     expect(deleteUseCaseRes.status).toBe(204);
 
     const res = await fetch(`${baseUrl}/api/use-case-templates/${template.id}`, { method: 'DELETE' });
+    expect(res.status).toBe(204);
+  });
+
+  it('T-3-10 (D-47 amendment): a live referencing use case still 409s, with count and project_names in the body', async () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-DELROUTE4', name: 'Still live', type: 'marketing' });
+    await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/from-template/${template.id}`, { method: 'POST' });
+
+    const res = await fetch(`${baseUrl}/api/use-case-templates/${template.id}`, { method: 'DELETE' });
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.code).toBe('TEMPLATE_IN_USE');
+    expect(body.count).toBe(1);
+    expect(Array.isArray(body.project_names)).toBe(true);
+    expect(body.project_names.length).toBe(1);
   });
 });

@@ -54,16 +54,33 @@ router.post('/', (req: Request, res: Response) => {
 
 /**
  * Instantiates a UseCaseTemplate into this project (D-06). Placed before `/:id` so `from-template`
- * is never read as a use case id. T-3-06 (D-47): accepts an optional `{code}` body (defaults to the
- * template's own code, suffixed `-2`/`-3`... on conflict inside the DAL), generates the narrative
- * right after creation, and returns `unresolved_count` (the number of `gap` requirements) alongside
- * the use case.
+ * is never read as a use case id. T-3-06 (D-47): accepts an optional `{code}` body -- when omitted,
+ * defaults to the template's own code, suffixed `-2`/`-3`... on conflict inside the DAL; an
+ * *explicit* `code` that collides is never suffixed, it 409s `USE_CASE_CODE_TAKEN` instead (fix
+ * round WARNING 2, corrected LOW C, 2026-09-27/28). T-3-10 (D-55) adds an optional `mappings`
+ * body array (`{index, event_id, variant_id?, property_id?}`), the mapping-step dialog's answers
+ * for unresolved standard-event targets -- applied as standard event mappings before the
+ * template's requirements are resolved. Generates the narrative right after creation and returns
+ * `unresolved_count` (the number of `gap` requirements) alongside the use case.
  */
 router.post('/from-template/:templateId', (req: Request, res: Response) => {
   try {
     const body = (req.body ?? {}) as Record<string, unknown>;
     const code = typeof body.code === 'string' && body.code.trim() ? body.code.trim() : undefined;
-    let useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(req.projectId!, req.params.templateId, { code });
+    const mappings = Array.isArray(body.mappings)
+      ? (body.mappings as Record<string, unknown>[])
+          .filter((m) => typeof m.index === 'number' && typeof m.event_id === 'string' && m.event_id.trim())
+          .map((m) => ({
+            index: m.index as number,
+            event_id: m.event_id as string,
+            variant_id: typeof m.variant_id === 'string' && m.variant_id.trim() ? (m.variant_id as string) : null,
+            property_id: typeof m.property_id === 'string' && m.property_id.trim() ? (m.property_id as string) : null,
+          }))
+      : undefined;
+    let useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(req.projectId!, req.params.templateId, {
+      code,
+      mappings,
+    });
     const requirements = RequirementDAL.listRequirements(req.projectId!, useCase.id);
     const unresolved_count = requirements.filter((r) => r.status === 'gap').length;
     try {
@@ -152,6 +169,8 @@ function requirementInputFromBody(row: Record<string, unknown>): RequirementDAL.
     property_id: 'property_id' in row ? (row.property_id as string | null) : undefined,
     event_id: 'event_id' in row ? (row.event_id as string | null) : undefined,
     variant_id: 'variant_id' in row ? (row.variant_id as string | null) : undefined,
+    catalog_field_id: 'catalog_field_id' in row ? (row.catalog_field_id as string | null) : undefined,
+    consent_category_id: 'consent_category_id' in row ? (row.consent_category_id as string | null) : undefined,
     level: String(row.level ?? ''),
     status: 'status' in row ? (row.status as string | null) : undefined,
     note: 'note' in row ? (row.note as string | null) : undefined,

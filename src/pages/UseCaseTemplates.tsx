@@ -5,7 +5,7 @@
  * Export, per-template Instantiate, multi-select "Add to project", and a template detail panel
  * with the prerequisites card (resolve status per group for the current project).
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -84,10 +84,41 @@ interface ResolvePreviewGroup {
   status: 'all' | 'none' | 'mixed';
 }
 
+interface TemplateEventCandidate {
+  id: string;
+  name: string;
+  variants: { id: string; name: string }[];
+  properties: { id: string; name: string }[];
+}
+
+interface ResolvedPreviewItem {
+  index: number;
+  target_kind: string;
+}
+
+interface UnresolvedPreviewItem {
+  index: number;
+  target_kind: string;
+  standard_event?: string;
+  property_name?: string;
+  candidates: TemplateEventCandidate[];
+}
+
 interface ResolvePreviewResult {
+  resolved: ResolvedPreviewItem[];
+  unresolved: UnresolvedPreviewItem[];
   groups: ResolvePreviewGroup[];
   unresolved_count: number;
   total_count: number;
+}
+
+/** T-3-10 (D-55): which of `event`/`variant`/`property` an unresolved row's target_kind needs a picker for. */
+function pickersFor(targetKind: string): { event: boolean; variant: boolean; property: boolean } {
+  return {
+    event: targetKind === 'event' || targetKind === 'event_property' || targetKind === 'variant' || targetKind === 'variant_property',
+    variant: targetKind === 'variant' || targetKind === 'variant_property',
+    property: targetKind === 'event_property' || targetKind === 'variant_property',
+  };
 }
 
 async function parseJson(res: Response): Promise<any> {
@@ -109,6 +140,11 @@ export function UseCaseTemplates() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [instantiateDialogTemplateId, setInstantiateDialogTemplateId] = useState<string | null>(null);
+  // Fix round LOW 3 (reviewer, 2026-09-28 03:15): the preview `openInstantiate` already fetched to
+  // decide whether to open the dialog is handed straight to it, instead of the dialog re-fetching
+  // the same preview again on mount (one request per Instantiate click, not two).
+  const [instantiateDialogPreview, setInstantiateDialogPreview] = useState<ResolvePreviewResult | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -122,7 +158,78 @@ export function UseCaseTemplates() {
     void load();
   }, [load]);
 
+  // T-3-10 (D-57), fix round WARNING 2 (reviewer, 2026-09-28 03:15): the project's own free-text
+  // `industry` is the default `industries` facet filter, but only when it matches one of the
+  // rendered `LIBRARY_INDUSTRIES` chips case-insensitively -- a value like "aerospace" or
+  // "Ecommerce" (different casing) must never silently hide every template with no visible,
+  // clickable chip to undo it. `defaultIndustryApplied` names the matched chip so the facet bar can
+  // show it as an explicit "Default: <value>" pill with its own Clear control (distinct from the
+  // ordinary chip toggle, which stays available too); `offVocabularyIndustry` carries the raw value
+  // for a plain hint when it did not match, applied once per project switch.
+  const [defaultIndustryApplied, setDefaultIndustryApplied] = useState<string | null>(null);
+  const [offVocabularyIndustry, setOffVocabularyIndustry] = useState<string | null>(null);
+  const appliedDefaultIndustryFor = useRef<string | null>(null);
+  // Fix round LOW 2/LOW 3 (reviewer, 2026-09-28 03:45): plain refs, kept in sync every render, so
+  // the project-switch effect below can read the *current* filters and the *previously* applied
+  // default value synchronously, instead of either reaching for a stale closure or calling one
+  // setState from inside another's updater function (the original LOW 2 side effect).
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const defaultIndustryAppliedRef = useRef(defaultIndustryApplied);
+  defaultIndustryAppliedRef.current = defaultIndustryApplied;
+
+  useEffect(() => {
+    if (!activeProjectId || appliedDefaultIndustryFor.current === activeProjectId) return;
+    appliedDefaultIndustryFor.current = activeProjectId;
+
+    // LOW 3: retire the *previous* project's own auto-applied default from the actual filter set,
+    // not just the pill/hint state -- otherwise it keeps silently filtering as an ordinary chip with
+    // no visible "this was a default" marker, and the new project's own default is never applied
+    // (the "never override an existing choice" guard below would see it and back off).
+    const previousDefault = defaultIndustryAppliedRef.current;
+    if (previousDefault) {
+      setFilters((prev) => {
+        const set = new Set(prev.industries ?? []);
+        set.delete(previousDefault);
+        return { ...prev, industries: set };
+      });
+    }
+    setDefaultIndustryApplied(null);
+    setOffVocabularyIndustry(null);
+
+    fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}`)
+      .then(parseJson)
+      .then((data) => {
+        const industry = typeof data?.industry === 'string' ? data.industry.trim() : '';
+        if (!industry) return;
+        const matched = LIBRARY_INDUSTRIES.find((v) => v.toLowerCase() === industry.toLowerCase());
+        if (!matched) {
+          setOffVocabularyIndustry(industry);
+          return;
+        }
+        if (filtersRef.current.industries?.size) return; // never override an existing filter choice
+        setDefaultIndustryApplied(matched);
+        setFilters((prev) => ({ ...prev, industries: new Set([matched]) }));
+      })
+      .catch(() => {});
+  }, [activeProjectId]);
+
+  const clearDefaultIndustry = () => {
+    if (!defaultIndustryApplied) return;
+    setFilters((prev) => {
+      const next = { ...prev };
+      const set = new Set(next.industries ?? []);
+      set.delete(defaultIndustryApplied);
+      next.industries = set;
+      return next;
+    });
+    setDefaultIndustryApplied(null);
+  };
+
   const toggleFacetValue = (facet: string, value: string) => {
+    // Manually toggling the auto-applied default chip (either way) retires the "Default:" pill --
+    // the ordinary chip toggle already does the un-filtering; there is no separate default to clear.
+    if (facet === 'industries' && value === defaultIndustryApplied) setDefaultIndustryApplied(null);
     setFilters((prev) => {
       const next = { ...prev };
       const set = new Set(next[facet] ?? []);
@@ -153,7 +260,8 @@ export function UseCaseTemplates() {
     });
   };
 
-  const instantiate = async (templateId: string) => {
+  /** Fast path: no mapping step needed, or the user chose to skip it entirely. */
+  const instantiate = async (templateId: string, mappings?: { index: number; event_id: string; variant_id?: string; property_id?: string }[]) => {
     if (!activeProjectId) {
       setActionError('Select a project first.');
       return;
@@ -162,6 +270,7 @@ export function UseCaseTemplates() {
     setActionMessage(null);
     const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/use-cases/from-template/${templateId}`, {
       method: 'POST',
+      body: mappings ? JSON.stringify({ mappings }) : undefined,
     });
     const data = await parseJson(res);
     if (!res.ok) {
@@ -171,6 +280,26 @@ export function UseCaseTemplates() {
     setActionMessage(
       `Created use case "${data.name}"${data.unresolved_count ? ` (${data.unresolved_count} gap requirement${data.unresolved_count === 1 ? '' : 's'})` : ''}.`
     );
+  };
+
+  /** T-3-10 (D-55): previews resolution first; opens the mapping dialog only when something is
+   * unresolved, otherwise instantiates directly (unchanged fast path for a fully-resolving template). */
+  const openInstantiate = async (templateId: string) => {
+    if (!activeProjectId) {
+      setActionError('Select a project first.');
+      return;
+    }
+    setActionError(null);
+    const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/use-cases/from-template/${templateId}/preview`, {
+      method: 'POST',
+    });
+    const data = (await parseJson(res)) as ResolvePreviewResult;
+    if (!res.ok || !Array.isArray(data.unresolved) || data.unresolved.length === 0) {
+      await instantiate(templateId);
+      return;
+    }
+    setInstantiateDialogPreview(data);
+    setInstantiateDialogTemplateId(templateId);
   };
 
   const addSelectedToProject = async () => {
@@ -233,7 +362,7 @@ export function UseCaseTemplates() {
             {FACETS.map(({ key, label, values }) => (
               <div key={key} className="space-y-1">
                 <div className="text-xs font-medium text-gray-500">{label}</div>
-                <div className="flex flex-wrap gap-1 max-w-xs">
+                <div className="flex flex-wrap gap-1 max-w-xs items-center">
                   {values.map((v) => {
                     const active = filters[key]?.has(v) ?? false;
                     return (
@@ -249,7 +378,23 @@ export function UseCaseTemplates() {
                       </button>
                     );
                   })}
+                  {/* Fix round WARNING 2 (2026-09-28): the project industry's auto-applied default
+                      chip is visibly distinct, with its own Clear control (never a hidden filter). */}
+                  {key === 'industries' && defaultIndustryApplied && (
+                    <span className="text-xs px-2 py-1 rounded-full border border-gray-300 bg-gray-50 text-gray-600 flex items-center gap-1">
+                      Default: {defaultIndustryApplied}
+                      <button type="button" onClick={clearDefaultIndustry} className="underline hover:text-gray-900">
+                        Clear
+                      </button>
+                    </span>
+                  )}
                 </div>
+                {/* An off-vocabulary project industry is a hint only, never a hidden filter. */}
+                {key === 'industries' && offVocabularyIndustry && (
+                  <div className="text-xs text-gray-400">
+                    Project industry "{offVocabularyIndustry}" is not in this list; no default filter applied.
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -295,7 +440,7 @@ export function UseCaseTemplates() {
                     </td>
                     <td className="px-4 py-2 text-gray-500">{t.default_requirements_json?.length ?? 0}</td>
                     <td className="px-4 py-2 text-right">
-                      <Button size="sm" variant="outline" onClick={() => void instantiate(t.id)} disabled={!activeProjectId}>
+                      <Button size="sm" variant="outline" onClick={() => void openInstantiate(t.id)} disabled={!activeProjectId}>
                         Instantiate
                       </Button>
                     </td>
@@ -315,6 +460,178 @@ export function UseCaseTemplates() {
         {detailTemplate && (
           <TemplateDetail template={detailTemplate} projectId={activeProjectId} onClose={() => setDetailId(null)} />
         )}
+
+        {instantiateDialogTemplateId && activeProjectId && instantiateDialogPreview && (
+          <InstantiateMappingDialog
+            preview={instantiateDialogPreview}
+            onClose={() => {
+              setInstantiateDialogTemplateId(null);
+              setInstantiateDialogPreview(null);
+            }}
+            onInstantiate={async (mappings) => {
+              await instantiate(instantiateDialogTemplateId, mappings);
+              setInstantiateDialogTemplateId(null);
+              setInstantiateDialogPreview(null);
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * T-3-10 (D-55): the mapping-step dialog. One row per unresolved `default_requirements_json` entry
+ * with an event/variant/property picker (only the ones its `target_kind` needs) plus a Skip option
+ * (the row's default -- no mapping is applied for that index, matching the plan's "Skip option");
+ * "Create use case" sends every non-skipped row as a `mappings` entry.
+ *
+ * Fix round LOW 3 (reviewer, 2026-09-28 03:15): takes the `preview` its caller already fetched
+ * (`openInstantiate` has to preview first anyway, to decide whether to open this dialog at all)
+ * instead of fetching the same preview again on mount -- one request per Instantiate click.
+ */
+function InstantiateMappingDialog({
+  preview,
+  onClose,
+  onInstantiate,
+}: {
+  preview: ResolvePreviewResult;
+  onClose: () => void;
+  onInstantiate: (mappings: { index: number; event_id: string; variant_id?: string; property_id?: string }[]) => Promise<void>;
+}) {
+  const [rowEventId, setRowEventId] = useState<Record<number, string>>({});
+  const [rowVariantId, setRowVariantId] = useState<Record<number, string>>({});
+  const [rowPropertyId, setRowPropertyId] = useState<Record<number, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+
+  const setEvent = (index: number, eventId: string) => {
+    setRowEventId((prev) => ({ ...prev, [index]: eventId }));
+    // Changing the event invalidates any previously-picked variant/property from a different event.
+    setRowVariantId((prev) => ({ ...prev, [index]: '' }));
+    setRowPropertyId((prev) => ({ ...prev, [index]: '' }));
+  };
+
+  const handleCreate = async () => {
+    setSubmitting(true);
+    try {
+      const mappings = preview.unresolved
+        .filter((item) => rowEventId[item.index])
+        .map((item) => ({
+          index: item.index,
+          event_id: rowEventId[item.index],
+          variant_id: rowVariantId[item.index] || undefined,
+          property_id: rowPropertyId[item.index] || undefined,
+        }));
+      await onInstantiate(mappings);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-8">
+      <div className="bg-white rounded-lg border shadow-lg max-w-3xl w-full max-h-[85vh] overflow-y-auto p-6 space-y-4">
+        <div className="flex items-start justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">Map unresolved requirements</h2>
+          <button type="button" onClick={onClose} className="text-sm text-gray-400 hover:text-gray-900">
+            Close
+          </button>
+        </div>
+        <p className="text-sm text-gray-500">
+          These requirements did not resolve against this project. Pick an event (and, where needed, a variant and
+          property) for each, or leave it as Skip to create it as a gap.
+        </p>
+
+        <table className="w-full text-left text-xs border rounded-md overflow-hidden">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-3 py-2 font-medium text-gray-500">Target</th>
+                <th className="px-3 py-2 font-medium text-gray-500">Event</th>
+                <th className="px-3 py-2 font-medium text-gray-500">Variant</th>
+                <th className="px-3 py-2 font-medium text-gray-500">Property</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {preview.unresolved.map((item) => {
+                const needs = pickersFor(item.target_kind);
+                const candidates = item.candidates;
+                const selectedEventId = rowEventId[item.index] ?? '';
+                const selectedEvent = candidates.find((c) => c.id === selectedEventId) ?? null;
+                return (
+                  <tr key={item.index}>
+                    <td className="px-3 py-2">
+                      {item.target_kind}
+                      {item.standard_event ? ` (${item.standard_event})` : ''}
+                      {item.property_name ? ` · ${item.property_name}` : ''}
+                    </td>
+                    <td className="px-3 py-2">
+                      {needs.event ? (
+                        <select
+                          className="border rounded px-1 py-0.5"
+                          value={selectedEventId}
+                          onChange={(e) => setEvent(item.index, e.target.value)}
+                        >
+                          <option value="">Skip</option>
+                          {candidates.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {needs.variant && selectedEvent ? (
+                        <select
+                          className="border rounded px-1 py-0.5"
+                          value={rowVariantId[item.index] ?? ''}
+                          onChange={(e) => setRowVariantId((prev) => ({ ...prev, [item.index]: e.target.value }))}
+                        >
+                          <option value="">(none)</option>
+                          {selectedEvent.variants.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {v.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {needs.property && selectedEvent ? (
+                        <select
+                          className="border rounded px-1 py-0.5"
+                          value={rowPropertyId[item.index] ?? ''}
+                          onChange={(e) => setRowPropertyId((prev) => ({ ...prev, [item.index]: e.target.value }))}
+                        >
+                          <option value="">(none)</option>
+                          {selectedEvent.properties.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button onClick={() => void handleCreate()} disabled={submitting}>
+            Create use case
+          </Button>
+        </div>
       </div>
     </div>
   );

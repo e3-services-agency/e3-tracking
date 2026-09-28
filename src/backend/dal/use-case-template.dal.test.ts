@@ -17,6 +17,9 @@ import * as VariantDAL from './variant.dal';
 import * as RequirementDAL from './requirement.dal';
 import * as UseCaseDAL from './use-case.dal';
 import * as UseCaseTemplateDAL from './use-case-template.dal';
+import * as CatalogDAL from './catalog.dal';
+import * as ConsentCategoryDAL from './consent-category.dal';
+import * as StandardEventMappingDAL from './standard-event-mapping.dal';
 import { NotFoundError, TemplateInUseError, UseCaseCodeTakenError } from '../errors';
 import { previewDataMapping, applyDataMapping } from '../services/dataMappingImport.service';
 import { parseUseCaseLibrary } from '../../domain/import/useCaseLibrary';
@@ -495,15 +498,34 @@ describe('T-3-06: instantiate code suffixing, tags/flags, catalog_attribute/cons
     expect(UseCaseTemplateDAL.getUseCaseTemplateById(template.id)).toBeNull();
   });
 
-  it('fix round ERROR 1: still refuses (409, never a raw 500) after the only referencing use case is soft-deleted', () => {
+  it('T-3-10 (D-47 amendment): a soft-deleted referencing use case no longer blocks delete, and its template_id is nulled', () => {
     const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-DEL3', name: 'Soft-deleted use case', type: 'marketing' });
     const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
 
-    // Reproduces the reviewer's probe exactly: instantiate, delete the use case (soft delete,
-    // `template_id` is left untouched by `deleteUseCase`), then delete the template.
+    // Soft-delete the only referencing use case, then delete the template: this now succeeds (the
+    // guard counts *live* references only), never a raw 500 from the FK either way.
     UseCaseDAL.deleteUseCase(projectId, useCase.id);
-    expect(() => UseCaseTemplateDAL.deleteUseCaseTemplate(template.id)).toThrow(TemplateInUseError);
-    // Confirm it is still there (the guard fired before any DELETE, not a rolled-back FK failure).
+    UseCaseTemplateDAL.deleteUseCaseTemplate(template.id);
+    expect(UseCaseTemplateDAL.getUseCaseTemplateById(template.id)).toBeNull();
+    const row = getDb().prepare('SELECT template_id FROM use_cases WHERE id = ?').get(useCase.id) as {
+      template_id: string | null;
+    };
+    expect(row.template_id).toBeNull();
+  });
+
+  it('T-3-10 (D-47 amendment): the 409 body carries the live reference count and project name; a live reference still blocks delete', () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-DEL4', name: 'Still live', type: 'marketing' });
+    UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+    let caught: unknown;
+    try {
+      UseCaseTemplateDAL.deleteUseCaseTemplate(template.id);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(TemplateInUseError);
+    const e = caught as TemplateInUseError;
+    expect(e.count).toBe(1);
+    expect(e.project_names).toEqual(['Acme EU']);
     expect(UseCaseTemplateDAL.getUseCaseTemplateById(template.id)).not.toBeNull();
   });
 });
@@ -541,11 +563,49 @@ describe('T-3-06: sample library instantiated on the data-mapping fixture projec
     expect(variant?.name).toBe('cart_update[action=add]');
   });
 
-  it('UC-02 fully resolves against the fixture mapping (purchase, purchase_item, email)', () => {
+  it('UC-02 fully resolves against the fixture mapping (purchase, purchase_item, email, catalog, consent)', () => {
+    // T-3-10: UC-02 now also carries a catalog_attribute (field_name "image") and a consent
+    // (property_name "newsletter") requirement. The fixture's data-mapping apply already created a
+    // consent category with standard_key "newsletter" (consents.newsletter -> "brand_consent"), but
+    // it has no main catalog (catalogs.main is null in the fixture) -- create one here with an
+    // "image" field so this template resolves fully end to end.
+    const catalog = CatalogDAL.createCatalog(projectId, { name: 'Products', mapping_role: 'main' });
+    CatalogDAL.createCatalogField(projectId, catalog.id, { name: 'image' });
+
     const template = UseCaseTemplateDAL.listUseCaseTemplates().find((t) => t.code === 'UC-02')!;
     const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
     const requirements = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(requirements).toHaveLength(8);
     expect(requirements.filter((r) => r.status === 'gap')).toHaveLength(0);
+
+    // field_map translation (D-55): the standard field total_price/total_quantity on purchase_item
+    // resolves to the client's actually-differently-named properties price/quantity.
+    const purchaseItemProps = requirements.filter((r) => r.target_kind === 'event_property');
+    expect(purchaseItemProps).toHaveLength(2);
+    for (const r of purchaseItemProps) {
+      const prop = getDb().prepare('SELECT name FROM properties WHERE id = ?').get(r.property_id) as { name: string };
+      expect(['price', 'quantity']).toContain(prop.name);
+    }
+
+    const catalogReq = requirements.find((r) => r.target_kind === 'catalog_attribute')!;
+    expect(catalogReq.catalog_field_id).not.toBeNull();
+    const consentReq = requirements.find((r) => r.target_kind === 'consent')!;
+    expect(consentReq.consent_category_id).not.toBeNull();
+  });
+
+  it('UC-02 leaves catalog_attribute and consent as gaps when the project has neither', () => {
+    // Same template, no catalog/consent set up: only those two entries should be gap.
+    const template = UseCaseTemplateDAL.listUseCaseTemplates().find((t) => t.code === 'UC-02')!;
+    // Remove the consent category the fixture's data-mapping apply created, so this project
+    // genuinely has no matching consent either.
+    for (const c of ConsentCategoryDAL.listConsentCategories(projectId)) {
+      ConsentCategoryDAL.deleteConsentCategory(projectId, c.id);
+    }
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+    const requirements = RequirementDAL.listRequirements(projectId, useCase.id);
+    const gaps = requirements.filter((r) => r.status === 'gap');
+    expect(gaps).toHaveLength(2);
+    expect(gaps.map((r) => r.target_kind).sort()).toEqual(['catalog_attribute', 'consent']);
   });
 
   it('UC-03 produces exactly one gap (the unresolvable wishlist_add event)', () => {
@@ -582,5 +642,277 @@ describe('T-3-06: sample library instantiated on the data-mapping fixture projec
     const consentsGroup = preview.groups.find((g) => g.group === 'consents')!;
     expect(catalogGroup).toEqual({ group: 'catalog', total: 0, resolved: 0, status: 'none' });
     expect(consentsGroup).toEqual({ group: 'consents', total: 0, resolved: 0, status: 'none' });
+  });
+});
+
+describe('T-3-10 (D-55): standard event mapping resolution order and the mapping-step dialog', () => {
+  let transactionsEventId: string;
+  let orderTotalPropertyId: string;
+
+  beforeEach(() => {
+    // A fresh project whose "purchase" event is named `transactions` (nothing like the Bloomreach
+    // standard event key), with no standard event mapping at all yet -- reproduces the qa-roundtrip
+    // scenario 11 extension verbatim ("rename the fixture purchase event to transactions").
+    transactionsEventId = EventDAL.createEvent(projectId, { name: 'transactions', class: 'custom' }).id;
+    orderTotalPropertyId = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'order_total',
+      data_type: 'number',
+    }).id;
+    EventDAL.attachPropertyToEvent(projectId, transactionsEventId, {
+      property_id: orderTotalPropertyId,
+      role: 'normal',
+    });
+  });
+
+  function makeTemplate() {
+    return UseCaseTemplateDAL.createUseCaseTemplate({
+      code: 'UC-STD',
+      name: 'Standard event mapping test',
+      type: 'transactional',
+      default_requirements_json: [
+        { target_kind: 'event_property', standard_event: 'purchase', property_name: 'total_price', level: 'R' },
+      ],
+    });
+  }
+
+  it('without a mapping: unresolved, with the "transactions" event and its property as a candidate', () => {
+    const template = makeTemplate();
+    const preview = UseCaseTemplateDAL.previewInstantiateUseCaseTemplate(projectId, template.id);
+    expect(preview.resolved).toEqual([]);
+    expect(preview.unresolved).toHaveLength(1);
+    const item = preview.unresolved[0];
+    expect(item).toMatchObject({ index: 0, target_kind: 'event_property', standard_event: 'purchase', property_name: 'total_price' });
+    const candidate = item.candidates.find((c) => c.id === transactionsEventId)!;
+    expect(candidate).toBeTruthy();
+    expect(candidate.name).toBe('transactions');
+    expect(candidate.properties.some((p) => p.id === orderTotalPropertyId && p.name === 'order_total')).toBe(true);
+
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+    const [requirement] = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(requirement.status).toBe('gap');
+    expect(StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'purchase')).toBeNull();
+  });
+
+  it('applying the mapping-step answer creates the standard event mapping (field_map translation) and resolves', () => {
+    const template = makeTemplate();
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, {
+      mappings: [{ index: 0, event_id: transactionsEventId, property_id: orderTotalPropertyId }],
+    });
+    const [requirement] = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(requirement.status).not.toBe('gap');
+    expect(requirement.event_id).toBe(transactionsEventId);
+    expect(requirement.property_id).toBe(orderTotalPropertyId);
+
+    const mapping = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'purchase')!;
+    expect(mapping.event_id).toBe(transactionsEventId);
+    expect(mapping.field_map_json.total_price).toBe(orderTotalPropertyId);
+  });
+
+  it('fix round LOW 5 (2026-09-28): picking a different event for an already-mapped standard_event starts a fresh mapping, never carrying the old event\'s variant or field_map', () => {
+    // Give `transactions` a variant, and map "purchase" -> transactions[status=success] with a
+    // field_map entry, exactly like a first mapping-step answer would.
+    const statusPropertyId = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'status',
+      data_type: 'string',
+      allowed_values_json: [{ value: 'success' }],
+    }).id;
+    EventDAL.attachPropertyToEvent(projectId, transactionsEventId, { property_id: statusPropertyId, role: 'discriminator' });
+    const transactionsVariantId = VariantDAL.createVariant(projectId, transactionsEventId, {
+      conditions: [{ property_id: statusPropertyId, operator: 'equals', values: ['success'] }],
+    }).id;
+    StandardEventMappingDAL.upsertStandardEventMapping(projectId, 'purchase', {
+      event_id: transactionsEventId,
+      variant_id: transactionsVariantId,
+      field_map_json: { total_price: orderTotalPropertyId },
+    });
+
+    // A different event, unrelated to `transactions` (no shared variant/property ids at all).
+    const invoicesEventId = EventDAL.createEvent(projectId, { name: 'invoices', class: 'custom' }).id;
+    const grandTotalPropertyId = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'grand_total',
+      data_type: 'number',
+    }).id;
+    EventDAL.attachPropertyToEvent(projectId, invoicesEventId, { property_id: grandTotalPropertyId, role: 'normal' });
+
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({
+      code: 'UC-STD-LOW5',
+      name: 'Different event picked for an already-mapped standard_event',
+      type: 'transactional',
+      default_requirements_json: [
+        { target_kind: 'event_property', standard_event: 'purchase', property_name: 'total_price', level: 'R' },
+      ],
+    });
+
+    // The mapping dialog row picks `invoices`, no variant, the invoices property.
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, {
+      mappings: [{ index: 0, event_id: invoicesEventId, property_id: grandTotalPropertyId }],
+    });
+
+    const mapping = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'purchase')!;
+    expect(mapping.event_id).toBe(invoicesEventId);
+    // Neither the stale transactions variant nor the stale field_map entry survive.
+    expect(mapping.variant_id).toBeNull();
+    expect(mapping.field_map_json).toEqual({ total_price: grandTotalPropertyId });
+
+    const [requirement] = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(requirement.status).not.toBe('gap');
+    expect(requirement.event_id).toBe(invoicesEventId);
+    expect(requirement.property_id).toBe(grandTotalPropertyId);
+  });
+
+  it('once the mapping exists, a second template with the same standard_event resolves automatically (no mappings needed)', () => {
+    const template = makeTemplate();
+    UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, {
+      mappings: [{ index: 0, event_id: transactionsEventId, property_id: orderTotalPropertyId }],
+    });
+
+    const secondTemplate = UseCaseTemplateDAL.createUseCaseTemplate({
+      code: 'UC-STD-2',
+      name: 'Same standard event, no mapping given',
+      type: 'transactional',
+      default_requirements_json: [
+        { target_kind: 'event_property', standard_event: 'purchase', property_name: 'total_price', level: 'R' },
+      ],
+    });
+    const preview = UseCaseTemplateDAL.previewInstantiateUseCaseTemplate(projectId, secondTemplate.id);
+    expect(preview.unresolved).toEqual([]);
+    expect(preview.resolved).toEqual([{ index: 0, target_kind: 'event_property' }]);
+
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, secondTemplate.id);
+    const [requirement] = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(requirement.status).not.toBe('gap');
+    expect(requirement.property_id).toBe(orderTotalPropertyId);
+  });
+
+  it('fix round ERROR 1 (2026-09-28): detaching a mapped property is unresolved (never a 400 that rolls back the whole instantiate)', () => {
+    const template = makeTemplate();
+    UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, {
+      mappings: [{ index: 0, event_id: transactionsEventId, property_id: orderTotalPropertyId }],
+    });
+
+    // Detach the mapped property from the event. Pre-QA fix (WARNING 1 root cause): the standard
+    // event mapping's field_map_json entry is cleared to `null` by the detach itself (see
+    // standard-event-mapping.dal.ts's removePropertyFromFieldMaps), not left pointing at a property
+    // that is no longer linked.
+    EventDAL.detachPropertyFromEvent(projectId, transactionsEventId, orderTotalPropertyId);
+    const mapping = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'purchase')!;
+    expect(mapping.field_map_json.total_price).toBeNull();
+
+    const secondTemplate = UseCaseTemplateDAL.createUseCaseTemplate({
+      code: 'UC-STD-3',
+      name: 'Detached mapped property',
+      type: 'transactional',
+      default_requirements_json: [
+        { target_kind: 'event_property', standard_event: 'purchase', property_name: 'total_price', level: 'R' },
+      ],
+    });
+
+    const preview = UseCaseTemplateDAL.previewInstantiateUseCaseTemplate(projectId, secondTemplate.id);
+    expect(preview.resolved).toEqual([]);
+    expect(preview.unresolved).toHaveLength(1);
+    expect(preview.unresolved[0].candidates.some((c) => c.id === transactionsEventId)).toBe(true);
+
+    // Preview and the writer agree: instantiate never throws (no rolled-back use case), the
+    // requirement is a gap instead.
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, secondTemplate.id);
+    const [requirement] = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(requirement.status).toBe('gap');
+    expect(requirement.note).toContain('No property named "total_price"');
+  });
+
+  it('pre-QA fix (WARNING 1 root cause, 2026-09-28): detachPropertyFromEvent clears only the detached property\'s own field_map entry, leaving other entries and the mapping itself intact', () => {
+    const purchaseRefPropertyId = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'purchase_ref',
+      data_type: 'string',
+    }).id;
+    EventDAL.attachPropertyToEvent(projectId, transactionsEventId, { property_id: purchaseRefPropertyId, role: 'normal' });
+    StandardEventMappingDAL.upsertStandardEventMapping(projectId, 'purchase', {
+      event_id: transactionsEventId,
+      field_map_json: { purchase_id: purchaseRefPropertyId, total_price: orderTotalPropertyId },
+    });
+
+    EventDAL.detachPropertyFromEvent(projectId, transactionsEventId, orderTotalPropertyId);
+
+    const mapping = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'purchase')!;
+    expect(mapping.event_id).toBe(transactionsEventId);
+    expect(mapping.field_map_json).toEqual({ purchase_id: purchaseRefPropertyId, total_price: null });
+  });
+
+  it('pre-QA fix (WARNING 1 root cause, 2026-09-28): deleteProperty clears the property from every standard event mapping field_map in the project', () => {
+    StandardEventMappingDAL.upsertStandardEventMapping(projectId, 'purchase', {
+      event_id: transactionsEventId,
+      field_map_json: { total_price: orderTotalPropertyId },
+    });
+    // Detach so `deleteProperty`'s attached-count guard allows the delete; the entry is left
+    // pointing at `orderTotalPropertyId` directly via raw SQL (bypassing the now-fixed detach path)
+    // to simulate data that predates this fix, so `deleteProperty`'s own (unscoped) cleanup is what
+    // is actually exercised here, not the detach cleanup already covered by the test above.
+    EventDAL.detachPropertyFromEvent(projectId, transactionsEventId, orderTotalPropertyId);
+    getDb()
+      .prepare("UPDATE standard_event_mappings SET field_map_json = ? WHERE project_id = ? AND standard_event = 'purchase'")
+      .run(JSON.stringify({ total_price: orderTotalPropertyId }), projectId);
+
+    PropertyDAL.deleteProperty(projectId, orderTotalPropertyId);
+
+    const mapping = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'purchase')!;
+    expect(mapping.field_map_json.total_price).toBeNull();
+  });
+
+  it('pre-QA fix (WARNING 1 defense in depth, 2026-09-28): applyTemplateMappings filters a still-stale carried-forward field_map entry through propertyLinkedToEvent instead of 400ing the whole instantiate', () => {
+    const purchaseRefPropertyId = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'purchase_ref',
+      data_type: 'string',
+    }).id;
+    EventDAL.attachPropertyToEvent(projectId, transactionsEventId, { property_id: purchaseRefPropertyId, role: 'normal' });
+    StandardEventMappingDAL.upsertStandardEventMapping(projectId, 'purchase', {
+      event_id: transactionsEventId,
+      field_map_json: { purchase_id: purchaseRefPropertyId },
+    });
+    // Simulate a stale field_map entry that predates the root-cause fix (written directly, bypassing
+    // detachPropertyFromEvent's own cleanup): `total_price` still names a property that is not
+    // actually linked to `transactions`. `orderTotalPropertyId` is linked by the shared `beforeEach`,
+    // so detach it first (through the raw DELETE, not `detachPropertyFromEvent`, precisely so its
+    // own cleanup does not null this entry before the raw UPDATE below re-injects it).
+    getDb().prepare('DELETE FROM event_properties WHERE event_id = ? AND property_id = ?').run(transactionsEventId, orderTotalPropertyId);
+    getDb()
+      .prepare("UPDATE standard_event_mappings SET field_map_json = ? WHERE project_id = ? AND standard_event = 'purchase'")
+      .run(JSON.stringify({ purchase_id: purchaseRefPropertyId, total_price: orderTotalPropertyId }), projectId);
+
+    const quantityPropertyId = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'qty',
+      data_type: 'number',
+    }).id;
+    EventDAL.attachPropertyToEvent(projectId, transactionsEventId, { property_id: quantityPropertyId, role: 'normal' });
+
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({
+      code: 'UC-WARN1',
+      name: 'WARNING 1 defense in depth',
+      type: 'transactional',
+      default_requirements_json: [
+        { target_kind: 'event_property', standard_event: 'purchase', property_name: 'total_quantity', level: 'R' },
+      ],
+    });
+
+    // The mapping-step dialog row picks the same event (transactions, already mapped) and the
+    // quantity property for total_quantity -- this must succeed even though the mapping's own
+    // field_map still (pre-fix data) names an unlinked property for a different field.
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, {
+      mappings: [{ index: 0, event_id: transactionsEventId, property_id: quantityPropertyId }],
+    });
+    const [requirement] = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(requirement.status).not.toBe('gap');
+    expect(requirement.property_id).toBe(quantityPropertyId);
+
+    const mapping = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'purchase')!;
+    expect(mapping.field_map_json.purchase_id).toBe(purchaseRefPropertyId); // untouched, still linked
+    expect(mapping.field_map_json.total_quantity).toBe(quantityPropertyId);
+    // The stale, unlinked entry is dropped (nulled), never carried forward verbatim.
+    expect(mapping.field_map_json.total_price).toBeNull();
   });
 });

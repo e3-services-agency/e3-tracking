@@ -96,7 +96,10 @@ export function computeUseCaseCoverage(projectId: string, useCaseId: string): Us
   });
 
   const rows: UseCaseCoverageRow[] = requirements.map((req) => {
-    if (req.target_kind === 'customer_property') {
+    // T-3-10 (D-57): `catalog_attribute`/`consent` are, like `customer_property`, never observable
+    // from an event payload (observations carry event properties, not catalog data or consent
+    // state) -- always reported unsatisfied with `observation_count: 0`.
+    if (req.target_kind === 'customer_property' || req.target_kind === 'catalog_attribute' || req.target_kind === 'consent') {
       return unsatisfiedRow(req);
     }
 

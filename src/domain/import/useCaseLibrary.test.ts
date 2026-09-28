@@ -84,7 +84,7 @@ describe('parseUseCaseLibrary', () => {
           name: 'Catalog and consent',
           type: 'marketing',
           default_requirements: [
-            { target_kind: 'catalog_attribute', property_name: 'image', level: 'R' },
+            { target_kind: 'catalog_attribute', field_name: 'image', level: 'R' },
             { target_kind: 'consent', property_name: 'newsletter', level: 'R' },
           ],
         },
@@ -92,6 +92,47 @@ describe('parseUseCaseLibrary', () => {
     });
     expect(model.warnings).toEqual([]);
     expect(model.templates[0].default_requirements).toHaveLength(2);
+  });
+
+  it('INFO 4 (pre-QA fix, 2026-09-28): warns, but keeps, an event_property/variant_property whose property_name is not a standard field of its standard_event', () => {
+    const model = parseUseCaseLibrary({
+      format: 'e3-use-case-library',
+      version: 1,
+      templates: [
+        {
+          code: 'UC-STDFIELD',
+          name: 'Non-standard field name',
+          type: 'transactional',
+          default_requirements: [
+            { target_kind: 'event_property', standard_event: 'purchase', property_name: 'nonexistent_std_field', level: 'R' },
+            { target_kind: 'event_property', standard_event: 'purchase', property_name: 'total_price', level: 'R' },
+          ],
+        },
+      ],
+    });
+    expect(model.templates[0].default_requirements).toHaveLength(2); // never dropped
+    expect(model.warnings).toHaveLength(1);
+    expect(model.warnings[0]).toContain('"nonexistent_std_field"');
+    expect(model.warnings[0]).toContain('standard_event "purchase"');
+  });
+
+  it('INFO 4: does not warn for a custom event outside the catalog (no standard_event) or an unknown standard_event key', () => {
+    const model = parseUseCaseLibrary({
+      format: 'e3-use-case-library',
+      version: 1,
+      templates: [
+        {
+          code: 'UC-NOWARN',
+          name: 'No warning cases',
+          type: 'marketing',
+          default_requirements: [
+            { target_kind: 'event_property', event_name: 'wishlist_add', property_name: 'anything', level: 'R' },
+            { target_kind: 'event_property', standard_event: 'not_a_real_standard_event', event_name: 'x', property_name: 'anything', level: 'R' },
+          ],
+        },
+      ],
+    });
+    expect(model.warnings).toEqual([]);
   });
 
   it('drops a requirement entry missing event_name for an event-scoped target_kind', () => {

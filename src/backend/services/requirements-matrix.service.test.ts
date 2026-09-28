@@ -11,6 +11,8 @@ import * as PropertyDAL from '../dal/property.dal';
 import * as UseCaseDAL from '../dal/use-case.dal';
 import * as RequirementDAL from '../dal/requirement.dal';
 import { insertUnresolvedRequirement } from '../dal/requirement.dal';
+import * as CatalogDAL from '../dal/catalog.dal';
+import * as ConsentCategoryDAL from '../dal/consent-category.dal';
 import { computeRequirementsMatrix } from './requirements-matrix.service';
 
 let projectId: string;
@@ -173,6 +175,30 @@ describe('computeRequirementsMatrix', () => {
     expect(first.rows).toHaveLength(1);
     expect(first.rows[0].key).toBe(second.rows[0].key);
     expect(first.rows[0].key).not.toMatch(/^gap:/);
-    expect(first.rows[0].key).toBe(`event::${event}:`);
+    // T-3-10: rowKey now also includes catalog_field_id/consent_category_id (both empty here),
+    // so an `event` row (property_id, variant_id, catalog_field_id, consent_category_id all empty)
+    // has three trailing empty segments after the event id.
+    expect(first.rows[0].key).toBe(`event::${event}:::`);
+  });
+
+  it('T-3-10 (D-57): catalog_attribute and consent rows label by field/category name', () => {
+    const catalog = CatalogDAL.createCatalog(projectId, { name: 'Products', mapping_role: 'main' });
+    const imageField = CatalogDAL.createCatalogField(projectId, catalog.id, { name: 'image' }).id;
+    const consent = ConsentCategoryDAL.createConsentCategory(projectId, { name: 'Newsletter', standard_key: 'newsletter' }).id;
+
+    const useCase = UseCaseDAL.createUseCase(projectId, { name: 'A' });
+    RequirementDAL.replaceRequirements(projectId, useCase.id, [
+      { target_kind: 'catalog_attribute', catalog_field_id: imageField, level: 'O' },
+      { target_kind: 'consent', consent_category_id: consent, level: 'R' },
+    ]);
+
+    const matrix = computeRequirementsMatrix(projectId);
+    expect(matrix.rows).toHaveLength(2);
+    const catalogRow = matrix.rows.find((r) => r.target_kind === 'catalog_attribute')!;
+    expect(catalogRow.label).toBe('image');
+    expect(catalogRow.cells).toEqual({ [useCase.id]: 'O' });
+    const consentRow = matrix.rows.find((r) => r.target_kind === 'consent')!;
+    expect(consentRow.label).toBe('Newsletter');
+    expect(consentRow.cells).toEqual({ [useCase.id]: 'R' });
   });
 });

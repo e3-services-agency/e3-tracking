@@ -52,6 +52,10 @@ export interface ProjectRow {
    * `tolerance_mode = 'money'` rule (`src/domain/rules/evaluate.ts`'s `resolveTolerance`). */
   money_tolerance_percent: number;
   money_tolerance_floor: number;
+  /** T-3-10 (D-57): optional free-text industry, used as the templates page's default facet
+   * filter (`LIBRARY_INDUSTRIES` is a suggested vocabulary, not enforced here -- a client's
+   * industry is not limited to the three seed values, same reasoning as D-57's tag values). */
+  industry: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -238,6 +242,8 @@ export interface UpdateProjectInput {
   data_manager_customers_json?: unknown;
   /** Last applied `data-manager-events.json` verbatim plus `applied_at` (T-2-02/T-2-03, D-35). */
   data_manager_events_json?: unknown;
+  /** T-3-10 (D-57): optional industry, used as the templates page's default facet filter. */
+  industry?: string | null;
 }
 
 /** Range validation for the D-30 money tolerance fields (T-2-06 plan: "range validation"). */
@@ -407,6 +413,12 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
   }
   validateExpirationJson(updates.default_expiration_json, 'default_expiration_json');
   validateMoneyTolerance(updates.money_tolerance_percent, updates.money_tolerance_floor);
+  // Fix round LOW 4 (reviewer, 2026-09-28 03:15): `industry` is `string | null` per its type, but
+  // nothing enforced that at the API boundary -- `PATCH {industry: 42}` reached `updates.industry
+  // ?.trim()` below and threw a raw `updates.industry?.trim is not a function` (500), not a 400.
+  if (updates.industry !== undefined && updates.industry !== null && typeof updates.industry !== 'string') {
+    throw new ValidationError('industry must be a string or null.', 'industry');
+  }
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (updates.name !== undefined) patch.name = updates.name.trim();
@@ -456,6 +468,7 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
   if (updates.data_manager_events_json !== undefined) {
     patch.data_manager_events_json = toJsonColumn(updates.data_manager_events_json);
   }
+  if (updates.industry !== undefined) patch.industry = updates.industry?.trim() || null;
 
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)

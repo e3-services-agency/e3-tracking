@@ -47,6 +47,11 @@ export interface UseCaseRow {
   /** Set when a human saves the narrative by hand (`PATCH .../:id` with `narrative`), per D-32. `POST .../narrative/regenerate` clears it back to `null` on a successful regenerate. */
   narrative_edited_at: string | null;
   sort_order: number;
+  /** D-59 amendment 1: external documentation link, copied from the template on instantiate, editable afterwards. */
+  documentation_url: string | null;
+  /** D-59 amendment 2: internal-only, never surfaced in the tracking document, HTML export or MCP output. */
+  internal_notes: string | null;
+  internal_url: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -64,6 +69,9 @@ export interface UseCaseInput {
   notes?: string | null;
   narrative?: string | null;
   sort_order?: number;
+  documentation_url?: string | null;
+  internal_notes?: string | null;
+  internal_url?: string | null;
 }
 
 export function listUseCases(projectId: string): UseCaseRow[] {
@@ -153,9 +161,11 @@ export function createUseCase(projectId: string, input: UseCaseInput): UseCaseRo
       db.prepare(
         `INSERT INTO use_cases (
           id, project_id, template_id, code, name, type, description, priority, status, owner,
-          notes, narrative, narrative_generated_at, sort_order, created_at, updated_at
+          notes, narrative, narrative_generated_at, sort_order, documentation_url, internal_notes, internal_url,
+          created_at, updated_at
         ) VALUES (@id, @project_id, @template_id, @code, @name, @type, @description, @priority,
-          @status, @owner, @notes, @narrative, @narrative_generated_at, @sort_order, @created_at, @updated_at)`
+          @status, @owner, @notes, @narrative, @narrative_generated_at, @sort_order, @documentation_url,
+          @internal_notes, @internal_url, @created_at, @updated_at)`
       ).run({
         id,
         project_id: projectId,
@@ -171,6 +181,9 @@ export function createUseCase(projectId: string, input: UseCaseInput): UseCaseRo
         narrative: input.narrative ? normalizeNarrativeLineEndings(input.narrative.trim()) || null : null,
         narrative_generated_at: null,
         sort_order: input.sort_order ?? maxOrder + 1,
+        documentation_url: input.documentation_url?.trim() || null,
+        internal_notes: input.internal_notes?.trim() || null,
+        internal_url: input.internal_url?.trim() || null,
         created_at: now,
         updated_at: now,
       });
@@ -233,6 +246,9 @@ export function updateUseCase(projectId: string, id: string, updates: Partial<Us
     patch.narrative_edited_at = nowIso();
   }
   if (updates.sort_order !== undefined) patch.sort_order = updates.sort_order;
+  if (updates.documentation_url !== undefined) patch.documentation_url = updates.documentation_url?.trim() || null;
+  if (updates.internal_notes !== undefined) patch.internal_notes = updates.internal_notes?.trim() || null;
+  if (updates.internal_url !== undefined) patch.internal_url = updates.internal_url?.trim() || null;
 
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)

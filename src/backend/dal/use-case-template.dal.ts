@@ -111,6 +111,20 @@ export interface UseCaseTemplateFlags {
   popular: boolean;
 }
 
+/** D-59: `fulfillments` -> the Bloomreach assets a use case built from this template is expected to end up with (T-4-06 activation). */
+export interface UseCaseTemplateExpectedAsset {
+  type: string;
+  headline: string;
+}
+
+/** D-59: provenance -- `pnp_usecase` (generated) or `docs` (hand-authored, T-4-07). */
+export interface UseCaseTemplateSource {
+  kind: string;
+  template_id?: string;
+  documentation_link?: string;
+  callout?: string;
+}
+
 export interface UseCaseTemplateRow {
   id: string;
   code: string;
@@ -121,11 +135,23 @@ export interface UseCaseTemplateRow {
   narrative_template: string | null;
   tags_json: UseCaseTemplateTags;
   flags_json: UseCaseTemplateFlags;
+  /** D-59: notes on requirements this format cannot express as a resolvable target. */
+  prerequisites_json: string[];
+  expected_assets_json: UseCaseTemplateExpectedAsset[];
+  source_json: UseCaseTemplateSource | null;
+  /** D-59 amendment 1: external documentation link, copied onto every use case instantiated from this template. */
+  documentation_url: string | null;
+  /** D-59 amendment 2: internal-only, never surfaced outside the app (tracking document, HTML export, MCP). */
+  internal_notes: string | null;
+  internal_url: string | null;
   created_at: string;
   updated_at: string;
 }
 
-type UseCaseTemplateDbRow = Omit<UseCaseTemplateRow, 'default_requirements_json' | 'tags_json' | 'flags_json'>;
+type UseCaseTemplateDbRow = Omit<
+  UseCaseTemplateRow,
+  'default_requirements_json' | 'tags_json' | 'flags_json' | 'prerequisites_json' | 'expected_assets_json' | 'source_json'
+>;
 
 const EMPTY_TAGS: UseCaseTemplateTags = { channels: [], goals: [], tiers: [], kpis: [], industries: [] };
 const EMPTY_FLAGS: UseCaseTemplateFlags = { new: false, popular: false };
@@ -137,6 +163,9 @@ function mapRow(row: UseCaseTemplateDbRow): UseCaseTemplateRow {
     default_requirements_json: parseJsonColumn(raw.default_requirements_json, []),
     tags_json: parseJsonColumn(raw.tags_json, EMPTY_TAGS),
     flags_json: parseJsonColumn(raw.flags_json, EMPTY_FLAGS),
+    prerequisites_json: parseJsonColumn(raw.prerequisites_json, []),
+    expected_assets_json: parseJsonColumn(raw.expected_assets_json, []),
+    source_json: raw.source_json ? parseJsonColumn(raw.source_json, null) : null,
   };
 }
 
@@ -168,6 +197,12 @@ export interface UseCaseTemplateInput {
   narrative_template?: string | null;
   tags_json?: Partial<UseCaseTemplateTags> | null;
   flags_json?: Partial<UseCaseTemplateFlags> | null;
+  prerequisites_json?: string[] | null;
+  expected_assets_json?: UseCaseTemplateExpectedAsset[] | null;
+  source_json?: UseCaseTemplateSource | null;
+  documentation_url?: string | null;
+  internal_notes?: string | null;
+  internal_url?: string | null;
 }
 
 function normalizeTags(tags: Partial<UseCaseTemplateTags> | null | undefined): UseCaseTemplateTags {
@@ -203,8 +238,12 @@ export function createUseCaseTemplate(input: UseCaseTemplateInput): UseCaseTempl
   const now = nowIso();
   db.prepare(
     `INSERT INTO use_case_templates (
-      id, code, name, type, description, default_requirements_json, narrative_template, tags_json, flags_json, created_at, updated_at
-    ) VALUES (@id, @code, @name, @type, @description, @default_requirements_json, @narrative_template, @tags_json, @flags_json, @created_at, @updated_at)`
+      id, code, name, type, description, default_requirements_json, narrative_template, tags_json, flags_json,
+      prerequisites_json, expected_assets_json, source_json, documentation_url, internal_notes, internal_url,
+      created_at, updated_at
+    ) VALUES (@id, @code, @name, @type, @description, @default_requirements_json, @narrative_template, @tags_json, @flags_json,
+      @prerequisites_json, @expected_assets_json, @source_json, @documentation_url, @internal_notes, @internal_url,
+      @created_at, @updated_at)`
   ).run({
     id,
     code,
@@ -215,6 +254,12 @@ export function createUseCaseTemplate(input: UseCaseTemplateInput): UseCaseTempl
     narrative_template: input.narrative_template?.trim() || null,
     tags_json: toJsonColumn(normalizeTags(input.tags_json)),
     flags_json: toJsonColumn(normalizeFlags(input.flags_json)),
+    prerequisites_json: toJsonColumn(input.prerequisites_json ?? []),
+    expected_assets_json: toJsonColumn(input.expected_assets_json ?? []),
+    source_json: input.source_json ? toJsonColumn(input.source_json) : null,
+    documentation_url: input.documentation_url?.trim() || null,
+    internal_notes: input.internal_notes?.trim() || null,
+    internal_url: input.internal_url?.trim() || null,
     created_at: now,
     updated_at: now,
   });
@@ -241,6 +286,12 @@ export function updateUseCaseTemplate(id: string, input: Partial<UseCaseTemplate
   if (input.narrative_template !== undefined) patch.narrative_template = input.narrative_template?.trim() || null;
   if (input.tags_json !== undefined) patch.tags_json = toJsonColumn(normalizeTags(input.tags_json));
   if (input.flags_json !== undefined) patch.flags_json = toJsonColumn(normalizeFlags(input.flags_json));
+  if (input.prerequisites_json !== undefined) patch.prerequisites_json = toJsonColumn(input.prerequisites_json ?? []);
+  if (input.expected_assets_json !== undefined) patch.expected_assets_json = toJsonColumn(input.expected_assets_json ?? []);
+  if (input.source_json !== undefined) patch.source_json = input.source_json ? toJsonColumn(input.source_json) : null;
+  if (input.documentation_url !== undefined) patch.documentation_url = input.documentation_url?.trim() || null;
+  if (input.internal_notes !== undefined) patch.internal_notes = input.internal_notes?.trim() || null;
+  if (input.internal_url !== undefined) patch.internal_url = input.internal_url?.trim() || null;
 
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
@@ -612,6 +663,9 @@ export function instantiateUseCaseTemplate(
           name: template.name,
           type: template.type,
           description: template.description,
+          documentation_url: template.documentation_url,
+          internal_notes: template.internal_notes,
+          internal_url: template.internal_url,
         });
       } catch (err) {
         if (err instanceof ConflictError) {
@@ -632,6 +686,9 @@ export function instantiateUseCaseTemplate(
             name: template.name,
             type: template.type,
             description: template.description,
+            documentation_url: template.documentation_url,
+            internal_notes: template.internal_notes,
+            internal_url: template.internal_url,
           });
           break;
         } catch (err) {

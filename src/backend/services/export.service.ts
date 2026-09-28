@@ -316,6 +316,7 @@ function buildUseCasesSectionHtml(projectId: string): string {
       owner: useCase.owner,
       description: useCase.description,
       narrative: useCase.narrative,
+      documentation_url: useCase.documentation_url,
       requirements: requirements.map((req) => ({
         target_label: labelFor(req),
         level: req.level,

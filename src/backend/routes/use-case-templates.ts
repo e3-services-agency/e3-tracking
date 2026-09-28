@@ -68,6 +68,24 @@ router.get('/:id', (req: Request, res: Response) => {
   }
 });
 
+/**
+ * D-59 amendment: editable on the template detail page without going through the library
+ * import/apply round trip -- `documentation_url`, `internal_notes` and `internal_url` only (every
+ * other field is library-import-owned, per the module doc above).
+ */
+router.patch('/:id', (req: Request, res: Response) => {
+  try {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const patch: Record<string, string | null> = {};
+    if ('documentation_url' in body) patch.documentation_url = body.documentation_url as string | null;
+    if ('internal_notes' in body) patch.internal_notes = body.internal_notes as string | null;
+    if ('internal_url' in body) patch.internal_url = body.internal_url as string | null;
+    res.status(200).json(UseCaseTemplateDAL.updateUseCaseTemplate(req.params.id, patch));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
 router.delete('/:id', (req: Request, res: Response) => {
   try {
     UseCaseTemplateDAL.deleteUseCaseTemplate(req.params.id);

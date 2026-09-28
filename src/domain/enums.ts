@@ -251,6 +251,9 @@ export const USE_CASE_LIBRARY_VERSION = 1;
 // values outside these lists are never rejected -- the parser warns and keeps parsing (D-57: "unknown
 // values import with a warning, never an error"); these arrays only drive the templates page's facet
 // filter bar and are not a closed constraint on what a template file may contain.
+// D-59: `weblayers` is the literal Use Case Center token (one word); kept alongside the
+// pre-existing `web_layers` rather than renamed, since a hand-authored template (T-4-07) may
+// already use the old spelling and both are "kept with a warning" if wrong, never rejected.
 export const LIBRARY_CHANNELS = [
   'email',
   'sms',
@@ -259,6 +262,7 @@ export const LIBRARY_CHANNELS = [
   'ad_audiences',
   'whatsapp',
   'web_layers',
+  'weblayers',
   'rcs',
   'no_channel',
 ] as const;
@@ -276,9 +280,12 @@ export const LIBRARY_GOALS = [
 ] as const;
 export type LibraryGoal = (typeof LIBRARY_GOALS)[number];
 
-export const LIBRARY_TIERS = ['essentials', 'advanced', 'omnichannel', 'sustainability', 'loyal_ai'] as const;
+// D-59: `loomi_ai` replaces `loyal_ai` (the Use Case Center's own current tier name).
+export const LIBRARY_TIERS = ['essentials', 'advanced', 'omnichannel', 'sustainability', 'loomi_ai'] as const;
 export type LibraryTier = (typeof LIBRARY_TIERS)[number];
 
+// D-59: `retention_rate` and `lead_generation` added (present in the pnp_usecase corpus, dashes
+// normalised to underscores by the converter).
 export const LIBRARY_KPIS = [
   'conversion_rate',
   'revenue',
@@ -288,8 +295,27 @@ export const LIBRARY_KPIS = [
   'purchase_frequency',
   'return_rate',
   'active_subscribers',
+  'retention_rate',
+  'lead_generation',
 ] as const;
 export type LibraryKpi = (typeof LIBRARY_KPIS)[number];
+
+/** D-59: a library template's `source.kind` -- `pnp_usecase` (generated from a Bloomreach Use Case Center export) or `docs` (hand-authored from `samples/br-docs`, T-4-07). */
+export const LIBRARY_SOURCE_KINDS = ['pnp_usecase', 'docs'] as const;
+export type LibrarySourceKind = (typeof LIBRARY_SOURCE_KINDS)[number];
+
+/** D-59: `expected_assets[].type`, the Bloomreach asset kind a template's `fulfillments` describe. Free-form beyond this suggested list is accepted (same "kept with a warning" policy as the tag vocabularies). */
+export const LIBRARY_ASSET_TYPES = [
+  'campaign_design',
+  'recommendation_engine',
+  'dashboard',
+  'email_block',
+  'scenario',
+  'segmentation',
+  'weblayer',
+  'other',
+] as const;
+export type LibraryAssetType = (typeof LIBRARY_ASSET_TYPES)[number];
 
 // `ecommerce`, `travel`, `retail` are the industries the current br-docs samples support with
 // confidence (D-57); more are added as the Use Case Center's other channel chapters are stored in

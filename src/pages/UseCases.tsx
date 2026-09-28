@@ -37,6 +37,9 @@ interface UseCaseRow {
   narrative_generated_at: string | null;
   narrative_edited_at: string | null;
   sort_order: number;
+  documentation_url: string | null;
+  internal_notes: string | null;
+  internal_url: string | null;
 }
 
 interface UseCaseCoverageRow {
@@ -671,11 +674,41 @@ function UseCaseDetail({
               onBlur={(e) => void saveFields({ owner: e.target.value.trim() || null })}
             />
           </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">Documentation link</label>
+            <Input
+              defaultValue={useCase.documentation_url ?? ''}
+              onBlur={(e) => void saveFields({ documentation_url: e.target.value.trim() || null })}
+            />
+            {useCase.documentation_url && (
+              <a href={useCase.documentation_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">
+                Open documentation
+              </a>
+            )}
+          </div>
           <div className="space-y-2 col-span-2">
             <label className="text-sm font-medium text-gray-700">Description</label>
             <Input
               defaultValue={useCase.description ?? ''}
               onBlur={(e) => void saveFields({ description: e.target.value.trim() || null })}
+            />
+          </div>
+          <div className="space-y-2 col-span-2 border-t pt-3">
+            <h3 className="text-sm font-semibold text-gray-900">Internal (never shown to the client)</h3>
+          </div>
+          <div className="space-y-2 col-span-2">
+            <label className="text-sm font-medium text-gray-700">Internal notes</label>
+            <textarea
+              className="w-full h-16 rounded-md border border-gray-300 px-3 py-2 text-sm"
+              defaultValue={useCase.internal_notes ?? ''}
+              onBlur={(e) => void saveFields({ internal_notes: e.target.value.trim() || null })}
+            />
+          </div>
+          <div className="space-y-2 col-span-2">
+            <label className="text-sm font-medium text-gray-700">Internal link</label>
+            <Input
+              defaultValue={useCase.internal_url ?? ''}
+              onBlur={(e) => void saveFields({ internal_url: e.target.value.trim() || null })}
             />
           </div>
           <div className="space-y-2 col-span-2">

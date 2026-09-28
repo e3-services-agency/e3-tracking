@@ -695,6 +695,8 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
       status: uc.status,
       narrative: uc.narrative,
       requirements: requirements.map((r) => ({ target_label: labelFor(r), level: r.level, status: r.status })),
+      // D-59 amendment 1 (additive). `internal_notes`/`internal_url` never appear here (amendment 2).
+      documentation_url: uc.documentation_url,
     };
   });
 

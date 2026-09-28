@@ -128,6 +128,47 @@ describe('requirement.dal: target validation', () => {
     expect(changed.property_id).toBe(secondCustomerPropertyId);
   });
 
+  it('T-4-02 pre-QA fix: two same-key gap rows keep their own id (not swapped) on a reversed reorder, matched by (level, note)', () => {
+    // Two event_property requirements on the same event, each targeting a different property; once
+    // both properties are detached, both rows share the same ambiguous key
+    // (`event_property:<event>::`) -- only their level and note (the "target removed: <name>" text
+    // markRequirementsGapForDetach appends) still tell them apart.
+    const propA = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'A-action', data_type: 'string' }).id;
+    const propB = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'B-price', data_type: 'string' }).id;
+    EventDAL.attachPropertyToEvent(projectId, eventId, { property_id: propA, role: 'normal' });
+    EventDAL.attachPropertyToEvent(projectId, eventId, { property_id: propB, role: 'normal' });
+
+    const [reqA, reqB] = RequirementDAL.replaceRequirements(projectId, useCaseId, [
+      { target_kind: 'event_property', event_id: eventId, property_id: propA, level: 'R' },
+      { target_kind: 'event_property', event_id: eventId, property_id: propB, level: 'O' },
+    ]);
+
+    EventDAL.detachPropertyFromEvent(projectId, eventId, propA);
+    EventDAL.detachPropertyFromEvent(projectId, eventId, propB);
+    const gapRows = RequirementDAL.listRequirements(projectId, useCaseId);
+    const gapA = gapRows.find((r) => r.id === reqA.id)!;
+    const gapB = gapRows.find((r) => r.id === reqB.id)!;
+    expect(gapA.status).toBe('gap');
+    expect(gapA.level).toBe('R');
+    expect(gapA.note).toBe('target removed: A-action');
+    expect(gapB.status).toBe('gap');
+    expect(gapB.level).toBe('O');
+    expect(gapB.note).toBe('target removed: B-price');
+
+    // Reversed order (B first, A second), same level/note as each row currently has.
+    const reordered = RequirementDAL.replaceRequirements(projectId, useCaseId, [
+      { target_kind: 'event_property', event_id: eventId, level: gapB.level, status: 'gap', note: gapB.note },
+      { target_kind: 'event_property', event_id: eventId, level: gapA.level, status: 'gap', note: gapA.note },
+    ]);
+
+    const reorderedA = reordered.find((r) => r.note === 'target removed: A-action')!;
+    const reorderedB = reordered.find((r) => r.note === 'target removed: B-price')!;
+    expect(reorderedA.id).toBe(reqA.id);
+    expect(reorderedA.level).toBe('R');
+    expect(reorderedB.id).toBe(reqB.id);
+    expect(reorderedB.level).toBe('O');
+  });
+
   it('rejects an unknown target_kind', () => {
     expect(() =>
       RequirementDAL.replaceRequirements(projectId, useCaseId, [

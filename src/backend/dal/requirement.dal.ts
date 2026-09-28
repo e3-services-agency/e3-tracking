@@ -420,11 +420,13 @@ export function replaceRequirements(
   // row missing one of its required ids (`isAmbiguous` below, same shape `validateTarget` and the
   // duplicate-target check above already treat as "no real target to collide on") cannot be matched
   // by a unique key -- any number of them may share the same (now-partial) key -- so they are
-  // matched positionally instead (`ambiguousOldByKey` below, fix round WARNING 1, reviewer FAIL
-  // 2026-09-28 18:18): first-come-first-served among the still-unclaimed old rows sharing that
-  // exact key, in `oldRows`' own order. D-49 keeps a requirement's id "for unchanged targets so
-  // comments do not orphan"; a gap row's target_kind and (partial) ids are just as unchanged by a
-  // reorder as a resolved row's, so its id -- and any comment on it -- must survive one too.
+  // matched by content instead (`ambiguousOldByKey` below, fix round WARNING 1, reviewer FAIL
+  // 2026-09-28 18:18; refined by a pre-QA fix): among the still-unclaimed old rows sharing that
+  // exact key, one with an equal (level, note) is preferred, falling back to first-come-first-served
+  // (`oldRows`' own order) only when no content match exists. D-49 keeps a requirement's id "for
+  // unchanged targets so comments do not orphan"; a gap row's target_kind and (partial) ids are just
+  // as unchanged by a reorder as a resolved row's, so its id -- and any comment on it -- must
+  // survive one too, and a reversed reorder of two such rows must not swap their ids between them.
   const targetKey = (t: {
     target_kind: string;
     property_id: string | null;
@@ -482,7 +484,15 @@ export function replaceRequirements(
     const key = targetKey(targetShape);
     if (isAmbiguous(targetShape)) {
       const queue = ambiguousOldByKey.get(key);
-      const old = queue?.shift();
+      // Pre-QA fix: prefer an unclaimed queue entry whose (level, note) equals this new row's
+      // before falling back to plain FIFO -- two same-key gap rows (e.g. two `event_property` rows
+      // on the same event that each lost a different property) usually differ in level/note even
+      // though their ids no longer distinguish them by target; matching on that content keeps each
+      // row (and any comment on it) with the id it actually belongs to on a reversed reorder,
+      // rather than swapping the two rows' ids between each other.
+      let old = queue?.find((candidate) => candidate.level === row.level && candidate.note === row.note);
+      if (!old) old = queue?.shift();
+      else queue!.splice(queue!.indexOf(old), 1);
       if (old) matchedOldIds.add(old.id);
       return old;
     }

@@ -10,6 +10,14 @@
  * jumps to the event card, `property` to the Properties page with that row's editor open, `use_case`
  * and `requirement` (via the list response's `use_case_id`, since a requirement has no page of its
  * own) to the Use cases page with that use case open.
+ *
+ * Pre-QA fix: a comment's `entity_id` can outlive its target (`comment.dal.ts`'s header comment;
+ * `entity_id` is deliberately not a foreign key) -- `comments.service.ts` then renders one of the
+ * fixed placeholder strings (`(removed event)`, `(removed property)`, `(removed use case)`) instead
+ * of a real name. There is nothing left to navigate to in that case, so such a row renders as plain
+ * text, never a button, and never touches `selectedItemIdToEdit`/`eventCardEventId` (`isRemovedPlaceholderLabel`
+ * below matches those exact strings the service always emits for a missing event/property/use case;
+ * a removed *requirement* is handled separately, by whether `use_case_id` could be recovered at all).
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { Loader2, Trash2 } from 'lucide-react';
@@ -19,6 +27,15 @@ import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { COMMENT_ENTITY_TYPES } from '@/src/domain/enums';
 import { showEmptyState, showLoadingPlaceholder } from '@/src/domain/loadingState';
+
+const REMOVED_PLACEHOLDER_LABELS = new Set(['(removed event)', '(removed property)', '(removed use case)']);
+
+/** `event`/`property`/`use_case` rows whose target no longer exists render as plain text, never a
+ *  link. `requirement` is excluded here: whether it links is decided by `use_case_id` instead (its
+ *  target is a use case, which can still be real even when the requirement itself is gone). */
+function isRemovedPlaceholderLabel(row: { entity_type: string; entity_label: string }): boolean {
+  return row.entity_type !== 'requirement' && REMOVED_PLACEHOLDER_LABELS.has(row.entity_label);
+}
 
 interface CommentRow {
   id: string;
@@ -56,6 +73,7 @@ export function Comments() {
 
   const openEntity = useCallback(
     (row: CommentRow) => {
+      if (isRemovedPlaceholderLabel(row)) return;
       switch (row.entity_type) {
         case 'event':
           setEventCardEventId(row.entity_id);
@@ -193,7 +211,7 @@ export function Comments() {
               <div className="min-w-0">
                 <div className="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
                   <span className="font-mono">{row.entity_type}</span>
-                  {row.entity_type !== 'requirement' || row.use_case_id ? (
+                  {!isRemovedPlaceholderLabel(row) && (row.entity_type !== 'requirement' || row.use_case_id) ? (
                     <button
                       type="button"
                       onClick={() => openEntity(row)}

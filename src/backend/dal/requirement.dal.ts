@@ -106,6 +106,28 @@ export function listRequirements(projectId: string, useCaseId: string): Requirem
     .all(useCaseId) as RequirementRow[];
 }
 
+/**
+ * Finds a requirement anywhere in the project without knowing its `use_case_id` up front (T-4-02,
+ * `comments.service.ts`: a comment only stores `entity_id`). Returns the owning `use_case_id`
+ * alongside the row so the caller can label an orphaned-comment's context without a second query.
+ */
+export function getRequirementInProject(
+  projectId: string,
+  id: string
+): (RequirementRow & { use_case_code: string | null; use_case_name: string }) | null {
+  const row = getDb()
+    .prepare(
+      `SELECT r.*, uc.code as use_case_code, uc.name as use_case_name
+       FROM requirements r
+       JOIN use_cases uc ON uc.id = r.use_case_id
+       WHERE r.id = ? AND uc.project_id = ?`
+    )
+    .get(id, projectId) as
+    | (RequirementRow & { use_case_code: string | null; use_case_name: string })
+    | undefined;
+  return row ?? null;
+}
+
 /** Every requirement in the project that targets this event directly, or via a variant of it (used by the requirements matrix and the docs export). */
 export function listRequirementsByEvent(projectId: string, eventId: string): RequirementRow[] {
   return getDb()
@@ -338,6 +360,13 @@ function validateStatus(status: string | null | undefined): void {
  * Replaces the use case's whole ordered requirement list in one transaction. `sort_order` becomes
  * each row's index in `inputs`, overriding any `sort_order` the caller sent (the array order is the
  * source of truth, matching the "move up/down" UI contract).
+ *
+ * T-4-02 (D-49): a requirement whose `target_kind` and target ids are unchanged from the previous
+ * save keeps its physical `id` (an `UPDATE` of `sort_order`/`level`/`status`/`note`, not a
+ * delete-then-reinsert) -- previously every row got a fresh id on every save, silently orphaning
+ * any comment attached to it (`comments.entity_id` is not a foreign key precisely so a comment can
+ * outlive a target's real removal, but it must not outlive a no-op reorder). Only a target that is
+ * genuinely new gets a new id; only a target genuinely dropped from the list is deleted.
  */
 export function replaceRequirements(
   projectId: string,
@@ -347,8 +376,8 @@ export function replaceRequirements(
   getUseCaseOrThrow(projectId, useCaseId);
   const db = getDb();
   const now = nowIso();
-  // T-3-02: the "before" snapshot for the change_log diff below, read before the delete-then-
-  // reinsert wipes it.
+  // The "before" snapshot for the change_log diff below and for the id-matching pass, read before
+  // the transaction below deletes/updates/inserts.
   const oldRows = listRequirements(projectId, useCaseId);
 
   const validated = inputs.map((input) => {
@@ -421,108 +450,38 @@ export function replaceRequirements(
   }
   const matchedOldIds = new Set<string>();
 
+  // T-4-02: decide up front, per new row, whether it matches a still-unclaimed old row by target
+  // (kept id, `UPDATE`) or is genuinely new (fresh id, `INSERT`) -- a target can appear at most
+  // once per list (the duplicate check above), so each old row is claimed by at most one new row.
+  const matches: ((typeof oldRows)[number] | undefined)[] = validated.map((row, index) => {
+    const target_kind = inputs[index].target_kind;
+    const targetShape = {
+      target_kind,
+      status: row.status,
+      property_id: row.property_id,
+      event_id: row.event_id,
+      variant_id: row.variant_id,
+      catalog_field_id: row.catalog_field_id,
+      consent_category_id: row.consent_category_id,
+    };
+    if (isAmbiguous(targetShape)) return undefined;
+    const old = oldByKey.get(targetKey(targetShape));
+    if (old && !matchedOldIds.has(old.id)) {
+      matchedOldIds.add(old.id);
+      return old;
+    }
+    return undefined;
+  });
+
   const replace = db.transaction(() => {
-    db.prepare('DELETE FROM requirements WHERE use_case_id = ?').run(useCaseId);
-    const insert = db.prepare(
-      `INSERT INTO requirements (
-        id, use_case_id, sort_order, target_kind, property_id, event_id, variant_id,
-        catalog_field_id, consent_category_id, level, status, note, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    );
-    validated.forEach((row, index) => {
-      const target_kind = inputs[index].target_kind;
-      const newId_ = newId();
-      try {
-        insert.run(
-          newId_,
-          useCaseId,
-          index,
-          target_kind,
-          row.property_id,
-          row.event_id,
-          row.variant_id,
-          row.catalog_field_id,
-          row.consent_category_id,
-          row.level,
-          row.status,
-          row.note,
-          now,
-          now
-        );
-      } catch (err) {
-        mapWriteError(err, 'This requirement conflicts with an existing one.', `Failed to save requirements: ${(err as Error).message}`);
-      }
-
-      const label = labelForTarget(
-        target_kind,
-        row.property_id,
-        row.event_id,
-        row.variant_id,
-        row.catalog_field_id,
-        row.consent_category_id
-      );
-      const targetShape = {
-        target_kind,
-        status: row.status,
-        property_id: row.property_id,
-        event_id: row.event_id,
-        variant_id: row.variant_id,
-        catalog_field_id: row.catalog_field_id,
-        consent_category_id: row.consent_category_id,
-      };
-      const ambiguous = isAmbiguous(targetShape);
-      const matchedOld = ambiguous ? undefined : oldByKey.get(targetKey(targetShape));
-      if (matchedOld) {
-        matchedOldIds.add(matchedOld.id);
-        // T-3-02: every row is deleted and reinserted with a fresh id on *every* call (ids are not
-        // preserved across a save yet -- the plan's T-4-02 note tracks that follow-up), so the
-        // `entity_id` a change_log row uses can only be as stable as the row's own last-known
-        // physical id; using the just-inserted `newId_` here (rather than `matchedOld.id`, which
-        // this same match logic already knows is about to stop existing) keeps every subsequent
-        // call's "was this old row matched" check consistent with what `oldRows` actually reads
-        // back next time.
-        ChangeLogDAL.recordChange({
-          projectId,
-          entityType: 'requirement',
-          entityId: newId_,
-          entityLabel: label,
-          parentEntityId: useCaseId,
-          action: 'update',
-          before: {
-            level: matchedOld.level,
-            status: matchedOld.status,
-            note: matchedOld.note,
-            sort_order: matchedOld.sort_order,
-          },
-          after: { level: row.level, status: row.status, note: row.note, sort_order: index },
-        });
-      } else {
-        ChangeLogDAL.recordChange({
-          projectId,
-          entityType: 'requirement',
-          entityId: newId_,
-          entityLabel: label,
-          parentEntityId: useCaseId,
-          action: 'create',
-          before: null,
-          after: {
-            target_kind,
-            property_id: row.property_id,
-            event_id: row.event_id,
-            variant_id: row.variant_id,
-            catalog_field_id: row.catalog_field_id,
-            consent_category_id: row.consent_category_id,
-            level: row.level,
-            status: row.status,
-            note: row.note,
-            sort_order: index,
-          },
-        });
-      }
-    });
-
+    // Genuinely dropped targets: delete first, so a dropped row's id can never collide with a
+    // fresh insert further down (ids are UUIDs so this can't actually happen, but deleting first
+    // also means a comment on a truly-removed requirement sees the delete's change_log row -- used
+    // to label an orphaned comment -- committed before anything else in this transaction).
+    const del = db.prepare('DELETE FROM requirements WHERE id = ?');
     for (const old of oldRows) {
       if (matchedOldIds.has(old.id)) continue;
+      del.run(old.id);
       ChangeLogDAL.recordChange({
         projectId,
         entityType: 'requirement',
@@ -552,6 +511,94 @@ export function replaceRequirements(
         after: null,
       });
     }
+
+    const update = db.prepare(
+      `UPDATE requirements SET sort_order = ?, level = ?, status = ?, note = ?, updated_at = ? WHERE id = ?`
+    );
+    const insert = db.prepare(
+      `INSERT INTO requirements (
+        id, use_case_id, sort_order, target_kind, property_id, event_id, variant_id,
+        catalog_field_id, consent_category_id, level, status, note, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    validated.forEach((row, index) => {
+      const target_kind = inputs[index].target_kind;
+      const matchedOld = matches[index];
+      const label = labelForTarget(
+        target_kind,
+        row.property_id,
+        row.event_id,
+        row.variant_id,
+        row.catalog_field_id,
+        row.consent_category_id
+      );
+
+      if (matchedOld) {
+        try {
+          update.run(index, row.level, row.status, row.note, now, matchedOld.id);
+        } catch (err) {
+          mapWriteError(err, 'This requirement conflicts with an existing one.', `Failed to save requirements: ${(err as Error).message}`);
+        }
+        ChangeLogDAL.recordChange({
+          projectId,
+          entityType: 'requirement',
+          entityId: matchedOld.id,
+          entityLabel: label,
+          parentEntityId: useCaseId,
+          action: 'update',
+          before: {
+            level: matchedOld.level,
+            status: matchedOld.status,
+            note: matchedOld.note,
+            sort_order: matchedOld.sort_order,
+          },
+          after: { level: row.level, status: row.status, note: row.note, sort_order: index },
+        });
+      } else {
+        const newId_ = newId();
+        try {
+          insert.run(
+            newId_,
+            useCaseId,
+            index,
+            target_kind,
+            row.property_id,
+            row.event_id,
+            row.variant_id,
+            row.catalog_field_id,
+            row.consent_category_id,
+            row.level,
+            row.status,
+            row.note,
+            now,
+            now
+          );
+        } catch (err) {
+          mapWriteError(err, 'This requirement conflicts with an existing one.', `Failed to save requirements: ${(err as Error).message}`);
+        }
+        ChangeLogDAL.recordChange({
+          projectId,
+          entityType: 'requirement',
+          entityId: newId_,
+          entityLabel: label,
+          parentEntityId: useCaseId,
+          action: 'create',
+          before: null,
+          after: {
+            target_kind,
+            property_id: row.property_id,
+            event_id: row.event_id,
+            variant_id: row.variant_id,
+            catalog_field_id: row.catalog_field_id,
+            consent_category_id: row.consent_category_id,
+            level: row.level,
+            status: row.status,
+            note: row.note,
+            sort_order: index,
+          },
+        });
+      }
+    });
   });
   replace();
 

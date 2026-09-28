@@ -83,6 +83,51 @@ describe('requirement.dal: target validation', () => {
     expect(reordered.map((r) => r.sort_order)).toEqual([0, 1]);
   });
 
+  it('T-4-02: a pure reorder keeps every row\'s id (so a comment on it does not orphan)', () => {
+    const first = RequirementDAL.replaceRequirements(projectId, useCaseId, [
+      { target_kind: 'event', event_id: eventId, level: 'R' },
+      { target_kind: 'customer_property', property_id: customerPropertyId, level: 'O' },
+    ]);
+    const idsByTarget = new Map(first.map((r) => [r.target_kind, r.id]));
+
+    const reordered = RequirementDAL.replaceRequirements(projectId, useCaseId, [
+      { target_kind: 'customer_property', property_id: customerPropertyId, level: 'O' },
+      { target_kind: 'event', event_id: eventId, level: 'R' },
+    ]);
+    for (const row of reordered) {
+      expect(row.id).toBe(idsByTarget.get(row.target_kind));
+    }
+  });
+
+  it('T-4-02: an unchanged target keeps its id across an edited level/status/note', () => {
+    const [first] = RequirementDAL.replaceRequirements(projectId, useCaseId, [
+      { target_kind: 'event', event_id: eventId, level: 'R', note: 'first' },
+    ]);
+    const [edited] = RequirementDAL.replaceRequirements(projectId, useCaseId, [
+      { target_kind: 'event', event_id: eventId, level: 'O', status: 'resolved', note: 'second' },
+    ]);
+    expect(edited.id).toBe(first.id);
+    expect(edited.level).toBe('O');
+    expect(edited.status).toBe('resolved');
+    expect(edited.note).toBe('second');
+  });
+
+  it('T-4-02: swapping a target for a different one yields a new id, not a reused one', () => {
+    const secondCustomerPropertyId = PropertyDAL.createProperty(projectId, {
+      scope: 'customer',
+      name: 'phone',
+      data_type: 'string',
+    }).id;
+    const [first] = RequirementDAL.replaceRequirements(projectId, useCaseId, [
+      { target_kind: 'customer_property', property_id: customerPropertyId, level: 'R' },
+    ]);
+    const [changed] = RequirementDAL.replaceRequirements(projectId, useCaseId, [
+      { target_kind: 'customer_property', property_id: secondCustomerPropertyId, level: 'R' },
+    ]);
+    expect(changed.id).not.toBe(first.id);
+    expect(changed.property_id).toBe(secondCustomerPropertyId);
+  });
+
   it('rejects an unknown target_kind', () => {
     expect(() =>
       RequirementDAL.replaceRequirements(projectId, useCaseId, [

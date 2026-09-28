@@ -318,8 +318,15 @@ export const CHANGE_LOG_ENTITY_TYPES = [
   'requirement',
   'rule',
   'property_bundle',
+  'property_definition',
 ] as const;
 export type ChangeLogEntityType = (typeof CHANGE_LOG_ENTITY_TYPES)[number];
+
+// ----- Property definitions (D-58, T-4-00) -----
+/** Name given to the one definition a property gets on creation, and the backfill name for links
+ * that carried no `description_override` (migration 0021). A property with a single definition
+ * always has one named `general`; a second named meaning is added explicitly by the user. */
+export const PROPERTY_DEFINITION_DEFAULT_NAME = 'general';
 
 /** `ChangeLog.action`: `restore` is written once per restored project (T-3-05); every other DAL
  * mutation writes `create`/`update`/`delete` regardless of provenance — an import apply is still a

@@ -253,6 +253,7 @@ const ALL_MIGRATION_FILES = [
   '0012_use_case_narrative.sql',
   '0013_identity_alignment.sql',
   '0014_findings_manual_resolve.sql',
+  '0015_change_log.sql',
   '0016_use_case_template_tags.sql',
 ];
 

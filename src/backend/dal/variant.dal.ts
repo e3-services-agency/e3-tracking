@@ -24,6 +24,7 @@ import {
 } from '../../domain/variants';
 import { getEventOrThrow } from './event.dal';
 import { markRequirementsGapForVariantRemoval } from './requirement.dal';
+import * as ChangeLogDAL from './change-log.dal';
 
 const MAX_DISCRIMINATOR_PROPERTIES = 2;
 
@@ -227,33 +228,48 @@ export function createVariant(projectId: string, eventId: string, input: Variant
   const db = getDb();
   const id = newId();
   const now = nowIso();
-  try {
-    db.prepare(
-      `INSERT INTO variants (id, project_id, event_id, name, description, conditions_json, conditions_key, expiration_json, created_at, updated_at)
-       VALUES (@id, @project_id, @event_id, @name, @description, @conditions_json, @conditions_key, @expiration_json, @created_at, @updated_at)`
-    ).run({
-      id,
-      project_id: projectId,
-      event_id: eventId,
-      name,
-      description: input.description?.trim() || null,
-      conditions_json: toJsonColumn(conditions),
-      conditions_key: conditionsKey,
-      expiration_json: toJsonColumn(input.expiration_json ?? null),
-      created_at: now,
-      updated_at: now,
+  const run = db.transaction(() => {
+    try {
+      db.prepare(
+        `INSERT INTO variants (id, project_id, event_id, name, description, conditions_json, conditions_key, expiration_json, created_at, updated_at)
+         VALUES (@id, @project_id, @event_id, @name, @description, @conditions_json, @conditions_key, @expiration_json, @created_at, @updated_at)`
+      ).run({
+        id,
+        project_id: projectId,
+        event_id: eventId,
+        name,
+        description: input.description?.trim() || null,
+        conditions_json: toJsonColumn(conditions),
+        conditions_key: conditionsKey,
+        expiration_json: toJsonColumn(input.expiration_json ?? null),
+        created_at: now,
+        updated_at: now,
+      });
+    } catch (err) {
+      mapWriteError(
+        err,
+        // A conditions_key clash means an equivalent variant already exists for this event, even if
+        // the submitted order/shape differed from the existing row's (fix round ERROR 1); the name
+        // clash (a duplicate UNIQUE(event_id, name)) is now unreachable on its own since name is
+        // derived from the same canonical conditions, but the message stays accurate either way.
+        `A variant named "${name}" already exists for this event.`,
+        `Failed to create variant: ${(err as Error).message}`
+      );
+    }
+
+    const created = getVariantOrThrow(projectId, eventId, id);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'variant',
+      entityId: id,
+      entityLabel: created.name,
+      parentEntityId: eventId,
+      action: 'create',
+      before: null,
+      after: created as unknown as Record<string, unknown>,
     });
-  } catch (err) {
-    mapWriteError(
-      err,
-      // A conditions_key clash means an equivalent variant already exists for this event, even if
-      // the submitted order/shape differed from the existing row's (fix round ERROR 1); the name
-      // clash (a duplicate UNIQUE(event_id, name)) is now unreachable on its own since name is
-      // derived from the same canonical conditions, but the message stays accurate either way.
-      `A variant named "${name}" already exists for this event.`,
-      `Failed to create variant: ${(err as Error).message}`
-    );
-  }
+  });
+  run();
   return getVariantOrThrow(projectId, eventId, id);
 }
 
@@ -264,7 +280,7 @@ export function updateVariant(
   updates: Partial<VariantInput>
 ): VariantRow {
   const event = getEventOrThrow(projectId, eventId);
-  getVariantOrThrow(projectId, eventId, id);
+  const before = getVariantOrThrow(projectId, eventId, id);
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (updates.conditions !== undefined) {
@@ -279,17 +295,33 @@ export function updateVariant(
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
     .join(', ');
-  try {
-    getDb()
-      .prepare(`UPDATE variants SET ${setClause} WHERE id = @id AND project_id = @project_id AND event_id = @event_id`)
-      .run({ ...patch, id, project_id: projectId, event_id: eventId });
-  } catch (err) {
-    mapWriteError(
-      err,
-      `A variant named "${String(patch.name ?? '')}" already exists for this event.`,
-      `Failed to update variant: ${(err as Error).message}`
-    );
-  }
+  const db = getDb();
+  const run = db.transaction(() => {
+    try {
+      db
+        .prepare(`UPDATE variants SET ${setClause} WHERE id = @id AND project_id = @project_id AND event_id = @event_id`)
+        .run({ ...patch, id, project_id: projectId, event_id: eventId });
+    } catch (err) {
+      mapWriteError(
+        err,
+        `A variant named "${String(patch.name ?? '')}" already exists for this event.`,
+        `Failed to update variant: ${(err as Error).message}`
+      );
+    }
+
+    const after = getVariantOrThrow(projectId, eventId, id);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'variant',
+      entityId: id,
+      entityLabel: after.name,
+      parentEntityId: eventId,
+      action: 'update',
+      before: before as unknown as Record<string, unknown>,
+      after: after as unknown as Record<string, unknown>,
+    });
+  });
+  run();
   return getVariantOrThrow(projectId, eventId, id);
 }
 
@@ -309,6 +341,17 @@ export function deleteVariant(projectId: string, eventId: string, id: string): v
       .prepare('DELETE FROM variants WHERE id = ? AND project_id = ? AND event_id = ?')
       .run(id, projectId, eventId);
     if (result.changes === 0) throw new NotFoundError('Variant not found.', 'variant');
+
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'variant',
+      entityId: id,
+      entityLabel: variant.name,
+      parentEntityId: eventId,
+      action: 'delete',
+      before: variant as unknown as Record<string, unknown>,
+      after: null,
+    });
   });
   run();
 }

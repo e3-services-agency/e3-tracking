@@ -23,6 +23,7 @@ import { EVENT_PROPERTY_ROLES, EVENT_STATUSES, ENTITY_STATUSES, EVENT_CLASSES, P
 import { BLOOMREACH_LIMITS } from '../../domain/bloomreach';
 import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
 import { markRequirementsGapForDetach, markRequirementsGapForEventRemoval, markRequirementsGapForVariantRemoval } from './requirement.dal';
+import * as ChangeLogDAL from './change-log.dal';
 
 const MAX_DISCRIMINATORS_PER_EVENT = 2;
 
@@ -374,64 +375,86 @@ export function createEvent(projectId: string, input: EventInput): EventRow {
 
   const id = newId();
   const now = nowIso();
-  try {
-    db.prepare(
-      `INSERT INTO events (
-        id, project_id, name, business_name, description, purpose, page, trigger_text, grain,
-        identity_note, triggers_json, class, category, owner_business, owner_technical, priority,
-        status, expiration_json, not_suitable_for, agent_instructions, derived_metrics_json,
-        tags_json, codegen_event_name_overrides_json, bloomreach_meta_json, created_at, updated_at,
-        deleted_at
-      ) VALUES (
-        @id, @project_id, @name, @business_name, @description, @purpose, @page, @trigger_text, @grain,
-        @identity_note, @triggers_json, @class, @category, @owner_business, @owner_technical, @priority,
-        @status, @expiration_json, @not_suitable_for, @agent_instructions, @derived_metrics_json,
-        @tags_json, NULL, @bloomreach_meta_json, @created_at, @updated_at, NULL
-      )`
-    ).run({
-      id,
-      project_id: projectId,
-      name,
-      business_name: input.business_name?.trim() || null,
-      description: input.description?.trim() || null,
-      purpose: input.purpose?.trim() || null,
-      page: input.page?.trim() || null,
-      trigger_text: input.trigger_text?.trim() || null,
-      grain: input.grain?.trim() || null,
-      identity_note: input.identity_note?.trim() || null,
-      triggers_json: toJsonColumn(input.triggers_json ?? []),
-      class: input.class || DEFAULT_EVENT_CLASS,
-      category: input.category?.trim() || null,
-      owner_business: input.owner_business?.trim() || null,
-      owner_technical: input.owner_technical?.trim() || null,
-      priority: input.priority ?? null,
-      status: input.status || DEFAULT_EVENT_STATUS,
-      expiration_json: toJsonColumn(input.expiration_json ?? null),
-      not_suitable_for: input.not_suitable_for?.trim() || null,
-      agent_instructions: input.agent_instructions?.trim() || null,
-      derived_metrics_json: toJsonColumn(input.derived_metrics_json ?? []),
-      tags_json: toJsonColumn(input.tags_json ?? []),
-      bloomreach_meta_json: toJsonColumn(input.bloomreach_meta_json ?? null),
-      created_at: now,
-      updated_at: now,
-    });
-  } catch (err) {
-    mapWriteError(
-      err,
-      `An event named "${name}" already exists in this project.`,
-      `Failed to create event: ${(err as Error).message}`
-    );
-  }
+  const run = db.transaction(() => {
+    try {
+      db.prepare(
+        `INSERT INTO events (
+          id, project_id, name, business_name, description, purpose, page, trigger_text, grain,
+          identity_note, triggers_json, class, category, owner_business, owner_technical, priority,
+          status, expiration_json, not_suitable_for, agent_instructions, derived_metrics_json,
+          tags_json, codegen_event_name_overrides_json, bloomreach_meta_json, created_at, updated_at,
+          deleted_at
+        ) VALUES (
+          @id, @project_id, @name, @business_name, @description, @purpose, @page, @trigger_text, @grain,
+          @identity_note, @triggers_json, @class, @category, @owner_business, @owner_technical, @priority,
+          @status, @expiration_json, @not_suitable_for, @agent_instructions, @derived_metrics_json,
+          @tags_json, NULL, @bloomreach_meta_json, @created_at, @updated_at, NULL
+        )`
+      ).run({
+        id,
+        project_id: projectId,
+        name,
+        business_name: input.business_name?.trim() || null,
+        description: input.description?.trim() || null,
+        purpose: input.purpose?.trim() || null,
+        page: input.page?.trim() || null,
+        trigger_text: input.trigger_text?.trim() || null,
+        grain: input.grain?.trim() || null,
+        identity_note: input.identity_note?.trim() || null,
+        triggers_json: toJsonColumn(input.triggers_json ?? []),
+        class: input.class || DEFAULT_EVENT_CLASS,
+        category: input.category?.trim() || null,
+        owner_business: input.owner_business?.trim() || null,
+        owner_technical: input.owner_technical?.trim() || null,
+        priority: input.priority ?? null,
+        status: input.status || DEFAULT_EVENT_STATUS,
+        expiration_json: toJsonColumn(input.expiration_json ?? null),
+        not_suitable_for: input.not_suitable_for?.trim() || null,
+        agent_instructions: input.agent_instructions?.trim() || null,
+        derived_metrics_json: toJsonColumn(input.derived_metrics_json ?? []),
+        tags_json: toJsonColumn(input.tags_json ?? []),
+        bloomreach_meta_json: toJsonColumn(input.bloomreach_meta_json ?? null),
+        created_at: now,
+        updated_at: now,
+      });
+    } catch (err) {
+      mapWriteError(
+        err,
+        `An event named "${name}" already exists in this project.`,
+        `Failed to create event: ${(err as Error).message}`
+      );
+    }
 
-  if (input.source_ids !== undefined && input.source_ids !== null) {
-    replaceEventSources(projectId, id, input.source_ids);
-  }
+    if (input.source_ids !== undefined && input.source_ids !== null) {
+      replaceEventSources(projectId, id, input.source_ids);
+    }
+
+    const created = getEventOrThrow(projectId, id);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'event',
+      entityId: id,
+      entityLabel: created.name,
+      action: 'create',
+      before: null,
+      after: {
+        ...created,
+        // Fix round WARNING 4: source_ids lives on event_sources, not the events row itself; kept
+        // out of EventRow but included in the change_log snapshot so it diffs like any other field.
+        source_ids: listEventSourceIds(projectId, id),
+      } as unknown as Record<string, unknown>,
+    });
+  });
+  run();
 
   return getEventOrThrow(projectId, id);
 }
 
 export function updateEvent(projectId: string, eventId: string, input: Partial<EventInput>): EventRow {
-  getEventOrThrow(projectId, eventId);
+  const before = getEventOrThrow(projectId, eventId);
+  // Fix round WARNING 4: read before any patch runs so a source-only update (input.source_ids set,
+  // nothing else) still produces a real before/after difference in the change_log snapshot below.
+  const beforeSourceIds = listEventSourceIds(projectId, eventId);
   const db = getDb();
 
   if (input.name !== undefined) {
@@ -501,8 +524,22 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
     }
 
     if (input.name !== undefined) {
-      regenerateVariantNamesForEvent(eventId, input.name.trim());
+      regenerateVariantNamesForEvent(projectId, eventId, input.name.trim());
     }
+
+    const after = getEventOrThrow(projectId, eventId);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'event',
+      entityId: eventId,
+      entityLabel: after.name,
+      action: 'update',
+      before: { ...before, source_ids: beforeSourceIds } as unknown as Record<string, unknown>,
+      after: {
+        ...after,
+        source_ids: listEventSourceIds(projectId, eventId),
+      } as unknown as Record<string, unknown>,
+    });
   });
   applyUpdate();
 
@@ -528,15 +565,18 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
  * `mapWriteError` (INFO 5): a `conditions_key`/`name` UNIQUE hit here would otherwise surface as a
  * raw 500 instead of a 409.
  */
-function regenerateVariantNamesForEvent(eventId: string, eventName: string): void {
+function regenerateVariantNamesForEvent(projectId: string, eventId: string, eventName: string): void {
   const db = getDb();
   const variantRows = db
-    .prepare('SELECT id, conditions_json FROM variants WHERE event_id = ?')
-    .all(eventId) as { id: string; conditions_json: string | null }[];
+    .prepare('SELECT id, name, conditions_json, conditions_key FROM variants WHERE event_id = ?')
+    .all(eventId) as { id: string; name: string; conditions_json: string | null; conditions_key: string }[];
   if (variantRows.length === 0) return;
 
   const parsed = variantRows.map((row) => ({
     id: row.id,
+    oldName: row.name,
+    oldConditionsJson: parseJsonColumn(row.conditions_json, [] as VariantCondition[]),
+    oldConditionsKey: row.conditions_key,
     conditions: parseJsonColumn(row.conditions_json, [] as VariantCondition[]),
   }));
   const propertyIds = [...new Set(parsed.flatMap((v) => v.conditions.map((c) => c.property_id)))];
@@ -557,7 +597,7 @@ function regenerateVariantNamesForEvent(eventId: string, eventName: string): voi
   const update = db.prepare(
     'UPDATE variants SET name = ?, conditions_json = ?, conditions_key = ?, updated_at = ? WHERE id = ?'
   );
-  for (const { id, conditions } of parsed) {
+  for (const { id, oldName, oldConditionsJson, oldConditionsKey, conditions } of parsed) {
     const normalized = normalizeConditions(conditions);
     const name = generateVariantName(eventName, normalized, propertyNameById);
     const conditionsKey = buildConditionsKey(normalized);
@@ -570,6 +610,16 @@ function regenerateVariantNamesForEvent(eventId: string, eventName: string): voi
         `Failed to regenerate variant name/key on event rename: ${(err as Error).message}`
       );
     }
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'variant',
+      entityId: id,
+      entityLabel: name,
+      parentEntityId: eventId,
+      action: 'update',
+      before: { name: oldName, conditions_json: oldConditionsJson, conditions_key: oldConditionsKey },
+      after: { name, conditions_json: normalized, conditions_key: conditionsKey },
+    });
   }
 }
 
@@ -594,6 +644,7 @@ function regenerateVariantNamesForEvent(eventId: string, eventName: string): voi
  */
 export function deleteEvent(projectId: string, eventId: string): void {
   const event = getEventOrThrow(projectId, eventId);
+  const eventSourceIds = listEventSourceIds(projectId, eventId);
   const now = nowIso();
   const db = getDb();
   const run = db.transaction(() => {
@@ -609,14 +660,57 @@ export function deleteEvent(projectId: string, eventId: string): void {
     db.prepare('DELETE FROM standard_event_mappings WHERE event_id = ? AND project_id = ?').run(eventId, projectId);
 
     markRequirementsGapForEventRemoval(eventId, event.name);
+    // Fix round WARNING 3: cascaded variant deletes get their own change_log row (D-44's "no
+    // definition-mutating DAL path skips history" applies here too), even though this whole-event
+    // delete only needed name/id/conditions to build the row -- select the fields the diff snapshot
+    // actually reports rather than importing variant.dal.ts's row type (would be circular: that
+    // module already imports this one for getEventOrThrow).
     const variantRows = db
-      .prepare('SELECT id, name FROM variants WHERE event_id = ? AND project_id = ?')
-      .all(eventId, projectId) as { id: string; name: string }[];
+      .prepare(
+        'SELECT id, name, description, conditions_json, conditions_key, expiration_json FROM variants WHERE event_id = ? AND project_id = ?'
+      )
+      .all(eventId, projectId) as {
+      id: string;
+      name: string;
+      description: string | null;
+      conditions_json: string | null;
+      conditions_key: string;
+      expiration_json: string | null;
+    }[];
     for (const variant of variantRows) {
       markRequirementsGapForVariantRemoval(variant.id, variant.name);
     }
 
     db.prepare('DELETE FROM variants WHERE event_id = ? AND project_id = ?').run(eventId, projectId);
+
+    for (const variant of variantRows) {
+      ChangeLogDAL.recordChange({
+        projectId,
+        entityType: 'variant',
+        entityId: variant.id,
+        entityLabel: variant.name,
+        parentEntityId: eventId,
+        action: 'delete',
+        before: {
+          name: variant.name,
+          description: variant.description,
+          conditions_json: parseJsonColumn(variant.conditions_json, []),
+          conditions_key: variant.conditions_key,
+          expiration_json: parseJsonColumn(variant.expiration_json, null),
+        },
+        after: null,
+      });
+    }
+
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'event',
+      entityId: eventId,
+      entityLabel: event.name,
+      action: 'delete',
+      before: { ...event, source_ids: eventSourceIds } as unknown as Record<string, unknown>,
+      after: null,
+    });
   });
   run();
 }
@@ -699,7 +793,7 @@ export function attachPropertyToEvent(
   eventId: string,
   input: EventPropertyInput
 ): EventPropertyRow {
-  getEventOrThrow(projectId, eventId);
+  const event = getEventOrThrow(projectId, eventId);
   const property = getPropertyById(projectId, input.property_id);
   if (!property) throw new NotFoundError('Property not found or does not belong to this project.', 'property');
   assertSourceInProject(projectId, input.source_id);
@@ -728,36 +822,54 @@ export function attachPropertyToEvent(
     ) as { m: number }
   ).m;
 
-  try {
-    db.prepare(
-      `INSERT INTO event_properties (
-        event_id, property_id, required, role, priority, status, source_id, payload_key,
-        description_override, example_values_override_json, sort_order, bloomreach_meta_json,
-        created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      eventId,
-      input.property_id,
-      input.required ? 1 : 0,
-      input.role || DEFAULT_ROLE,
-      input.priority ?? null,
-      input.status ?? null,
-      input.source_id ?? null,
-      input.payload_key?.trim() || null,
-      input.description_override?.trim() || null,
-      toJsonColumn(input.example_values_override_json ?? null),
-      input.sort_order ?? maxOrder + 1,
-      toJsonColumn(input.bloomreach_meta_json ?? null),
-      now,
-      now
-    );
-  } catch (err) {
-    mapWriteError(
-      err,
-      'This property is already attached to the event.',
-      `Failed to attach property to event: ${(err as Error).message}`
-    );
-  }
+  const run = db.transaction(() => {
+    try {
+      db.prepare(
+        `INSERT INTO event_properties (
+          event_id, property_id, required, role, priority, status, source_id, payload_key,
+          description_override, example_values_override_json, sort_order, bloomreach_meta_json,
+          created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        eventId,
+        input.property_id,
+        input.required ? 1 : 0,
+        input.role || DEFAULT_ROLE,
+        input.priority ?? null,
+        input.status ?? null,
+        input.source_id ?? null,
+        input.payload_key?.trim() || null,
+        input.description_override?.trim() || null,
+        toJsonColumn(input.example_values_override_json ?? null),
+        input.sort_order ?? maxOrder + 1,
+        toJsonColumn(input.bloomreach_meta_json ?? null),
+        now,
+        now
+      );
+    } catch (err) {
+      mapWriteError(
+        err,
+        'This property is already attached to the event.',
+        `Failed to attach property to event: ${(err as Error).message}`
+      );
+    }
+
+    const created = db
+      .prepare('SELECT * FROM event_properties WHERE event_id = ? AND property_id = ?')
+      .get(eventId, input.property_id) as EventPropertyDbRow;
+
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'event_property',
+      entityId: `${eventId}:${input.property_id}`,
+      entityLabel: `${event.name}.${property.name}`,
+      parentEntityId: eventId,
+      action: 'create',
+      before: null,
+      after: mapEventPropertyRow(created) as unknown as Record<string, unknown>,
+    });
+  });
+  run();
 
   const row = db
     .prepare('SELECT * FROM event_properties WHERE event_id = ? AND property_id = ?')
@@ -771,12 +883,13 @@ export function updateEventProperty(
   propertyId: string,
   updates: Partial<EventPropertyInput>
 ): EventPropertyRow {
-  getEventOrThrow(projectId, eventId);
+  const event = getEventOrThrow(projectId, eventId);
   const db = getDb();
   const existing = db
     .prepare('SELECT * FROM event_properties WHERE event_id = ? AND property_id = ?')
-    .get(eventId, propertyId);
+    .get(eventId, propertyId) as EventPropertyDbRow | undefined;
   if (!existing) throw new NotFoundError('This property is not attached to the event.', 'event_property');
+  const before = mapEventPropertyRow(existing);
   if (updates.source_id !== undefined) assertSourceInProject(projectId, updates.source_id);
   validateEventPropertyLinkFields(updates);
 
@@ -812,9 +925,30 @@ export function updateEventProperty(
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
     .join(', ');
-  db.prepare(
-    `UPDATE event_properties SET ${setClause} WHERE event_id = @event_id AND property_id = @property_id`
-  ).run({ ...patch, event_id: eventId, property_id: propertyId });
+
+  const property = getPropertyById(projectId, propertyId);
+  const run = db.transaction(() => {
+    db.prepare(
+      `UPDATE event_properties SET ${setClause} WHERE event_id = @event_id AND property_id = @property_id`
+    ).run({ ...patch, event_id: eventId, property_id: propertyId });
+
+    const after = mapEventPropertyRow(
+      db
+        .prepare('SELECT * FROM event_properties WHERE event_id = ? AND property_id = ?')
+        .get(eventId, propertyId) as EventPropertyDbRow
+    );
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'event_property',
+      entityId: `${eventId}:${propertyId}`,
+      entityLabel: `${event.name}.${property?.name ?? propertyId}`,
+      parentEntityId: eventId,
+      action: 'update',
+      before: before as unknown as Record<string, unknown>,
+      after: after as unknown as Record<string, unknown>,
+    });
+  });
+  run();
 
   const row = db
     .prepare('SELECT * FROM event_properties WHERE event_id = ? AND property_id = ?')
@@ -831,10 +965,13 @@ export function updateEventProperty(
  * removed: <name>" note (see `requirement.dal.ts` `markRequirementsGapForDetach`).
  */
 export function detachPropertyFromEvent(projectId: string, eventId: string, propertyId: string): void {
-  getEventOrThrow(projectId, eventId);
+  const event = getEventOrThrow(projectId, eventId);
   assertPropertyNotUsedByVariant(eventId, propertyId);
   const db = getDb();
   const property = getPropertyById(projectId, propertyId);
+  const existingLink = db
+    .prepare('SELECT * FROM event_properties WHERE event_id = ? AND property_id = ?')
+    .get(eventId, propertyId) as EventPropertyDbRow | undefined;
   const run = db.transaction(() => {
     const result = db
       .prepare('DELETE FROM event_properties WHERE event_id = ? AND property_id = ?')
@@ -843,6 +980,19 @@ export function detachPropertyFromEvent(projectId: string, eventId: string, prop
       throw new NotFoundError('This property is not attached to the event.', 'event_property');
     }
     markRequirementsGapForDetach(eventId, propertyId, property?.name ?? propertyId);
+
+    if (existingLink) {
+      ChangeLogDAL.recordChange({
+        projectId,
+        entityType: 'event_property',
+        entityId: `${eventId}:${propertyId}`,
+        entityLabel: `${event.name}.${property?.name ?? propertyId}`,
+        parentEntityId: eventId,
+        action: 'delete',
+        before: mapEventPropertyRow(existingLink) as unknown as Record<string, unknown>,
+        after: null,
+      });
+    }
   });
   run();
 }
@@ -853,8 +1003,20 @@ export function replaceEventProperties(
   eventId: string,
   links: EventPropertyInput[]
 ): EventPropertyWithDetails[] {
-  getEventOrThrow(projectId, eventId);
+  const event = getEventOrThrow(projectId, eventId);
   const db = getDb();
+
+  // Fix round INFO 6: this function used to call getPropertyById (each hit doing its own
+  // BundleDAL lookup) up to three times for the same property_id -- once per link in the
+  // validation loop, again for a dropped property's label, again for the change-log diff loop.
+  // One cache, populated lazily, used everywhere below.
+  const propertyCache = new Map<string, PropertyRow | null>();
+  function cachedProperty(propertyId: string): PropertyRow | null {
+    if (!propertyCache.has(propertyId)) {
+      propertyCache.set(propertyId, getPropertyById(projectId, propertyId));
+    }
+    return propertyCache.get(propertyId) ?? null;
+  }
 
   // De-duplicate by property_id, last one wins (fix round 2, finding #F): the UI's "select a
   // property to attach" dropdown already excludes properties already in `links`, so this only
@@ -875,7 +1037,7 @@ export function replaceEventProperties(
   let discriminatorCount = 0;
   const nextDiscriminatorIds = new Set<string>();
   for (const link of uniqueLinks) {
-    const property = getPropertyById(projectId, link.property_id);
+    const property = cachedProperty(link.property_id);
     if (!property) {
       throw new NotFoundError(
         `Property not found or does not belong to this project: ${link.property_id}.`,
@@ -936,12 +1098,20 @@ export function replaceEventProperties(
     ).map((r) => [r.property_id, r.bloomreach_meta_json])
   );
 
+  // Full "before" snapshot of every link, for the per-link change_log diff below (D-44: one row
+  // per changed link, keyed by property_id, since this whole-list replace deletes and re-inserts
+  // every row and would otherwise look like every link was dropped and recreated).
+  const beforeLinksRaw = db
+    .prepare('SELECT * FROM event_properties WHERE event_id = ?')
+    .all(eventId) as EventPropertyDbRow[];
+  const beforeByPropertyId = new Map(beforeLinksRaw.map((r) => [r.property_id, mapEventPropertyRow(r)]));
+
   const now = nowIso();
   try {
     const replace = db.transaction(() => {
       db.prepare('DELETE FROM event_properties WHERE event_id = ?').run(eventId);
       for (const droppedId of droppedPropertyIds) {
-        const property = getPropertyById(projectId, droppedId);
+        const property = cachedProperty(droppedId);
         markRequirementsGapForDetach(eventId, droppedId, property?.name ?? droppedId);
       }
       const insert = db.prepare(
@@ -971,6 +1141,28 @@ export function replaceEventProperties(
           now
         );
       });
+
+      const afterLinksRaw = db
+        .prepare('SELECT * FROM event_properties WHERE event_id = ?')
+        .all(eventId) as EventPropertyDbRow[];
+      const afterByPropertyId = new Map(afterLinksRaw.map((r) => [r.property_id, mapEventPropertyRow(r)]));
+      const allPropertyIds = new Set([...beforeByPropertyId.keys(), ...afterByPropertyId.keys()]);
+      for (const propertyId of allPropertyIds) {
+        const before = beforeByPropertyId.get(propertyId) ?? null;
+        const after = afterByPropertyId.get(propertyId) ?? null;
+        const property = cachedProperty(propertyId);
+        const action = !before ? 'create' : !after ? 'delete' : 'update';
+        ChangeLogDAL.recordChange({
+          projectId,
+          entityType: 'event_property',
+          entityId: `${eventId}:${propertyId}`,
+          entityLabel: `${event.name}.${property?.name ?? propertyId}`,
+          parentEntityId: eventId,
+          action,
+          before: before as unknown as Record<string, unknown> | null,
+          after: after as unknown as Record<string, unknown> | null,
+        });
+      }
     });
     replace();
   } catch (err) {

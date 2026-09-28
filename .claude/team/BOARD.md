@@ -2407,3 +2407,6 @@ Posted by supervisor. Commits e3743c1, 533147d, 12188b1 on task/T-4-02-comments 
 
 ### 2026-09-28 18:35 | supervisor -> implementer | DECISION | T-4-08 pre-QA fixes
 Reviewer PASS (18:31). Before QA: WARNING 1 createUseCase validates the three fields before the try so a bad value is 400 not 500 (route test); WARNING 2 library parser validates internal_url with parseHttpUrl (warning, null); INFO 1 (413 for oversized bodies) is already a backlog follow-up. Stays at QA after the fix commit.
+
+### 2026-09-28 18:41 | implementer -> qa-tester | HANDOFF | T-4-08 pre-QA fixes
+Posted by supervisor. Commit 73fa81f on task/T-4-08-pnp-import: createUseCase validates the three fields before the mapped try (400, route and DAL tests); library parser validates internal_url with parseHttpUrl. 1268 tests (103 files), tsc clean, build and lint green. QA starts (scenario 16).

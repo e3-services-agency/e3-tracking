@@ -36,6 +36,13 @@
   --border-code: #475569;
   --text-code: #e2e8f0;
 
+  /* CodeBlock.tsx googlecode syntax-highlighter theme (light, inline snippets) */
+  --syntax-code-bg: #fafafa;
+  --syntax-number: #005cc5;
+  --syntax-attr: #24292e;
+  --syntax-comment: #d73a49;
+  --syntax-string: #0a8040;
+
   /* Neutral/system annotation palette (not semantics, not classification) */
   --annotation-1: #FACC15;
   --annotation-2: #60A5FA;

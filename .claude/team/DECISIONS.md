@@ -361,3 +361,5 @@ Decision: Property keeps the shared identity (name, payload key, data type, PII,
 Consequences: Task T-4-00 at the start of phase 4, before the shared view. Backup, restore and CSV include property_definitions (additive). Requirements target properties, not definitions, unchanged.
 
 ## D-53 amendment 2 (2026-09-28): 0021 T-4-00 property definitions.
+
+## D-51 amendment (2026-09-28): the sweep also removes the Supabase-era `supabase/` directory (26 legacy migration files) and `metadata.json`; the four empty directories are removed from the main tree by the supervisor after merge.

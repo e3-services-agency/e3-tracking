@@ -11,7 +11,7 @@ Fixtures: `.claude/team/samples/customer-events-export.json`, `data-mapping.json
 1. **App boots**: start via the `run` skill or `.claude/launch.json`; no console errors on load.
 2. **Mapping import**: paste `data-mapping.json`. Expect a diff listing events, variants (`cart_update[action=add]` mapped to add_to_cart, `purchase[purchase_status=success]`), renames (purchase_item total_price to price), consents (newsletter to brand_consent), and the empty catalog block flagged. Apply. Verify entities exist.
 3. **Expiration import**: paste `expiration-settings.json`. Expect per-event expiration set (session_start 3 months, page_visit 30 days, consent disabled) and the `other` default recorded.
-4. **Events export import**: paste `customer-events-export.json`. Expect observations created and, after data mapping + expiration settings + the round-trip recipe's type edits are applied first, 77 open findings (40 error, 37 warning) on a full comparison run, including at least:
+4. **Events export import**: paste `customer-events-export.json`. Expect observations created and, on a full comparison run: 35 open findings (11 error / 4 warning / 20 info) after data mapping + expiration settings + the round-trip recipe's type edits + this export alone, or 77 open findings (40 error / 37 warning) once both Data Manager files (scenario 8) are also applied; including at least:
    - `type_mismatch`: purchase.total_price "28" string vs Number
    - `shape_inconsistent`: product_ids array on purchase, string on checkout and cart_update
    - `type_mismatch`: purchase_item.is_new "TRUE" string vs Boolean

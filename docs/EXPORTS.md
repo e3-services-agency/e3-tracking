@@ -90,12 +90,16 @@ faithful snapshot, never filtered. A referenced file missing from disk is listed
 
 ### Restore
 
-`POST /api/projects/restore-backup/preview` (`{backup}`) validates `format`/`version`, returns
-`{counts, project: {name, key}, warnings[], payload_hash}` — unknown top-level keys and unknown
-per-row columns are dropped with a warning, never an error. `POST
-/api/projects/restore-backup/apply` (`{backup, payload_hash, project: {name, key, client_id}}`,
-D-22 hash pattern, 409 `PAYLOAD_CHANGED` on a mismatch, 409 `PROJECT_KEY_TAKEN`) always creates a
-**new** project — restore never merges into an existing one — in one transaction:
+`POST /api/projects/restore-backup/preview` takes the **raw backup object itself** as the whole
+request body (not wrapped in a `{backup}` envelope — the exact JSON downloaded from
+`export/backup.json`), validates `format`/`version`, and returns `{counts, project: {name, key},
+warnings[], payload_hash}` — unknown top-level keys and unknown per-row columns are dropped with a
+warning, never an error. `POST /api/projects/restore-backup/apply` takes
+`{backup, payload_hash, project: {name, key, client_id}}` — here the backup **is** wrapped, under
+the `backup` key, alongside the `payload_hash` from the preview response and the target project's
+`name`/`key`/`client_id` (D-22 hash pattern, 409 `PAYLOAD_CHANGED` on a mismatch, 409
+`PROJECT_KEY_TAKEN`) — and always creates a **new** project — restore never merges into an existing
+one — in one transaction:
 
 1. A fresh UUID is generated for every row's own `id` (and for the new project itself), building an
    `idMap` from old id to new id.

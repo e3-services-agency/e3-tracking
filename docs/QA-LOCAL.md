@@ -88,7 +88,7 @@ On the fixture project (data mapping applied, so `add_to_cart`/`purchase`/`purch
 3. Instantiate `UC-02`: resolves fully against the fixture's `purchase`/`purchase_item` mappings, including the `catalog_attribute` requirement (`image`, resolved against the project's main catalog fields by name — `gap` if the fixture's main catalog has no `image` field) and the `consent` requirement (`newsletter`, resolved against consent categories by name).
 4. Instantiate `UC-03`: the `wishlist_add` event requirement has `status: gap` with its note (no matching event in the fixture, and it is not a Bloomreach standard event).
 5. Re-paste the same file: preview shows every item `unchanged`.
-6. Mapping-step extension: rename the fixture's `purchase` event to `transactions` (so the standard event mapping for `purchase` no longer applies), then instantiate `UC-02` again under a new code — the preview now returns `purchase`'s targets as unresolved with candidates; pick `transactions` (and its variant/properties) in the dialog; apply. The requirement resolves, a new `StandardEventMapping` for `purchase` -> `transactions` appears on the Standard events page, and the exported `data-mapping.json` carries it.
+6. Mapping-step extension: rename the fixture's `purchase` event to `transactions` — a rename alone does **not** unresolve the mapping, since a `StandardEventMapping` resolves by event id, not by name. On the Standard events page, delete the `purchase` standard event mapping (the one that now points at the renamed `transactions` event) so `purchase` genuinely has no mapping. Then instantiate `UC-02` again under a new code — the preview now returns `purchase`'s targets as unresolved with candidates; pick `transactions` (and its variant/properties) in the dialog; apply. The requirement resolves, a new `StandardEventMapping` for `purchase` -> `transactions` appears on the Standard events page, and the exported `data-mapping.json` carries it.
 
 ## History checks (`qa-roundtrip` scenario 9)
 
@@ -105,4 +105,9 @@ Phase 2's Data Manager round trip is `qa-roundtrip` scenario 8; the expected com
 
 ## Open findings baseline on the fixture project (`qa-roundtrip` scenario 4)
 
-On the merged `agent-setup` tree, applying `data-mapping.json`, `expiration-settings.json`, the round-trip recipe's step 4 type edits, and `customer-events-export.json` in order, then running comparison, currently produces **77 open findings (40 error, 37 warning)**, not 75 — the scenario 4 text in the `qa-roundtrip` skill undercounted; use 77 (40/37) as the baseline when checking that number has not drifted.
+Two different chains produce two different, both-correct baselines on the merged `agent-setup` tree — pick the one that matches what you have actually applied to the project:
+
+- **Phase 1 chain only** — `data-mapping.json`, `expiration-settings.json`, the round-trip recipe's step 4 type edits, `customer-events-export.json`, no Data Manager files: **35 open findings (11 error / 4 warning / 20 info)**. The certification section above ("Certification and manual resolve") and the scenario 8 note above assume **this** chain (Data Manager import happens separately, as scenario 8 itself, and is not part of their setup).
+- **Full chain, both Data Manager files also applied** (`data-manager-customers.json` and `data-manager-events.json`, scenario 8, comparison 4 joining comparisons 1–3): **77 open findings (40 error / 37 warning)**.
+
+The `qa-roundtrip` skill's scenario 4 text must state both chains with their counts (35/11/4/20 without Data Manager, 77/40/37 with it), not a single number.

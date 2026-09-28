@@ -11,6 +11,13 @@ import { ValidationError } from '../errors';
 
 const HTTP_URL_RE = /^https?:\/\//i;
 
+/** Read-time check (no throw), exported for T-4-03's `toEventCardTriggers`: a stored
+ * `triggers_json[].source` value written before this file's write-time validation existed (or
+ * restored from an older backup) must not render as an `href` if it isn't http(s). */
+export function isHttpUrl(value: string): boolean {
+  return HTTP_URL_RE.test(value);
+}
+
 /** Returns the trimmed value or `null`; throws `ValidationError` (400) on a non-string or a non-http(s) URL. */
 export function normalizeHttpUrl(value: unknown, field: string): string | null {
   if (value === null || value === undefined) return null;
@@ -19,7 +26,7 @@ export function normalizeHttpUrl(value: unknown, field: string): string | null {
   }
   const trimmed = value.trim();
   if (!trimmed) return null;
-  if (!HTTP_URL_RE.test(trimmed)) {
+  if (!isHttpUrl(trimmed)) {
     throw new ValidationError(`${field} must be an http:// or https:// URL.`, field);
   }
   return trimmed;

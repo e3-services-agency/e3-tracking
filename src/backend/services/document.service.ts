@@ -24,6 +24,7 @@ import * as PropertyDAL from '../dal/property.dal';
 import * as IdentityRuleDAL from '../dal/identity-rule.dal';
 import * as ConsentCategoryDAL from '../dal/consent-category.dal';
 import * as CatalogDAL from '../dal/catalog.dal';
+import { isHttpUrl } from '../dal/urlValidation';
 import * as LimitsService from './limits.service';
 import { createEventResolver } from './eventResolution';
 import { computeCertification } from '../../domain/certification';
@@ -108,12 +109,19 @@ function toEventCardTriggers(raw: unknown): EventCardTrigger[] {
   return (raw as RawTriggerEntry[])
     .slice()
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-    .map((t) => ({
-      title: t.title?.trim() || null,
-      description: t.description?.trim() || null,
-      image_path: t.image_path?.trim() || null,
-      page_url: t.source?.trim() || null,
-    }));
+    .map((t) => {
+      // T-4-03 pre-QA fix: `event.dal.ts` validates a new/updated `source` as http(s) at write
+      // time, but a value written before that validation existed (or restored from an older
+      // backup) can still be a non-http(s) string on read -- null it out here rather than render
+      // it as an `href` in `EventCardView`/`SharedProject`.
+      const source = t.source?.trim() || null;
+      return {
+        title: t.title?.trim() || null,
+        description: t.description?.trim() || null,
+        image_path: t.image_path?.trim() || null,
+        page_url: source && isHttpUrl(source) ? source : null,
+      };
+    });
 }
 
 function sampleFromAttached(attached: AttachedPropertyForCodegen[]): Record<string, unknown> {

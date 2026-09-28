@@ -485,3 +485,34 @@ describe('fix round WARNING 3: definitions loaded once per build, no per-link lo
     }
   });
 });
+
+describe('fix round 2 ERROR 1: EventCardProperty.data_formats reads the link\'s own definition', () => {
+  it('a definition-specific formats list on one event overrides the property\'s wider list; another event without one falls back to the property', () => {
+    const eventCartUpdate = EventDAL.createEvent(projectId, { name: 'cart_update', class: 'custom' });
+    const eventConsent = EventDAL.createEvent(projectId, { name: 'consent', class: 'custom' });
+    const contact = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'contact',
+      data_type: 'string',
+      data_formats_json: ['email', 'uri'],
+    });
+    const consentDefinition = PropertyDefinitionDAL.createDefinition(projectId, contact.id, {
+      name: 'consent_contact',
+      formats_json: ['uri'],
+    });
+    EventDAL.attachPropertyToEvent(projectId, eventCartUpdate.id, { property_id: contact.id });
+    EventDAL.attachPropertyToEvent(projectId, eventConsent.id, {
+      property_id: contact.id,
+      definition_id: consentDefinition.id,
+    });
+
+    const cardCartUpdate = buildEventCard(projectId, eventCartUpdate.id);
+    const cardConsent = buildEventCard(projectId, eventConsent.id);
+    expect(cardCartUpdate.properties.find((p) => p.property_id === contact.id)?.data_formats).toEqual(['email', 'uri']);
+    expect(cardConsent.properties.find((p) => p.property_id === contact.id)?.data_formats).toEqual(['uri']);
+
+    const doc = buildTrackingDocument(projectId);
+    const docConsentCard = doc.events.find((e) => e.name === 'consent');
+    expect(docConsentCard?.properties.find((p) => p.property_id === contact.id)?.data_formats).toEqual(['uri']);
+  });
+});

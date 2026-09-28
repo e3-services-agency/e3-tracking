@@ -391,12 +391,27 @@ function toEventCardProperty(link: EventPropertyWithDetailsExtended): EventCardP
     allowedValuesRaw.length > 0
       ? allowedValuesRaw.map((v) => ({ value: v.value, label: v.label ?? null, standard_event: v.standard_event ?? null }))
       : null;
+  // Fix round 2 ERROR 1: same fallback chain as comparison.service.ts's buildDefinitionSnapshot
+  // and codegen.service.ts's toAttachedPropertyForCodegen -- the definition's own formats_json
+  // when non-empty, else the shared Property's. Without this the event card, the tracking
+  // document and MCP get_expected_payload kept showing the property's formats even when the link
+  // uses a definition with its own, narrower list (e.g. `contact` allows `email`+`uri` on the
+  // property but only `uri` on the `consent` definition).
+  const definitionFormats = Array.isArray(link.definition?.formats_json)
+    ? (link.definition!.formats_json as string[])
+    : null;
+  const dataFormats =
+    definitionFormats && definitionFormats.length > 0
+      ? definitionFormats
+      : Array.isArray(link.property.data_formats_json)
+        ? (link.property.data_formats_json as string[])
+        : [];
   return {
     property_id: link.property_id,
     name: link.property.name,
     payload_key: link.payload_key?.trim() || link.property.name,
     data_type: link.property.data_type,
-    data_formats: Array.isArray(link.property.data_formats_json) ? (link.property.data_formats_json as string[]) : [],
+    data_formats: dataFormats,
     required: link.required,
     role: (link.role as EventCardProperty['role']) ?? 'normal',
     allowed_values: allowedValues,

@@ -67,6 +67,10 @@ export interface ProjectRow {
    * filter (`LIBRARY_INDUSTRIES` is a suggested vocabulary, not enforced here -- a client's
    * industry is not limited to the three seed values, same reasoning as D-57's tag values). */
   industry: string | null;
+  /** T-4-09 (D-60): free-form per-project flags, `{is_sandbox?: boolean}` today. */
+  settings_json: unknown;
+  /** Derived from `settings_json.is_sandbox` (T-4-09, D-60); not a real column. */
+  is_sandbox: boolean;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -85,11 +89,28 @@ type ProjectDbRow = Omit<
   | 'data_manager_meta_json'
   | 'data_manager_customers_json'
   | 'data_manager_events_json'
+  | 'settings_json'
+  | 'is_sandbox'
 >;
 
+function parseSettingsJson(raw: unknown): Record<string, unknown> {
+  if (!raw) return {};
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  } catch {
+    return {};
+  }
+}
+
 function mapProjectRow(row: ProjectDbRow): ProjectRow {
+  const settings = parseSettingsJson((row as unknown as Record<string, unknown>).settings_json);
   return {
     ...row,
+    settings_json: settings,
+    is_sandbox: settings.is_sandbox === true,
     default_expiration_json: parseJsonColumn(
       (row as unknown as Record<string, unknown>).default_expiration_json,
       null
@@ -512,20 +533,30 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
 // ----- Share links (D-48, T-4-01) -----
 
 /**
- * D-60: a bundled sandbox project carries `is_sandbox: true` in `settings_json`. That column does
- * not exist yet (added by T-4-09); read defensively through the raw row so this check is a no-op
- * today and starts working the moment T-4-09's migration lands, with no change needed here --
- * `SELECT *` simply won't have the key until then, and a missing key reads as "not a sandbox".
+ * D-60: a bundled sandbox project carries `is_sandbox: true` in `settings_json` (added by the
+ * 0023 migration, T-4-09). `mapProjectRow` already parses this into `row.is_sandbox`.
  */
 function isSandboxProject(row: ProjectRow): boolean {
-  const raw = (row as unknown as Record<string, unknown>).settings_json;
-  if (!raw) return false;
-  try {
-    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    return !!(parsed && typeof parsed === 'object' && (parsed as Record<string, unknown>).is_sandbox === true);
-  } catch {
-    return false;
-  }
+  return row.is_sandbox === true;
+}
+
+/**
+ * Sets (or clears) `settings_json.is_sandbox` on a project, merging with any other keys already in
+ * `settings_json` (T-4-09, D-60). Used by `sandbox.service.ts` right after `applyRestore` creates the
+ * new project, since restore itself never sets sandbox-specific flags. Not logged as its own
+ * change_log row beyond what the caller already records (this is an internal setup step, not a
+ * user-facing edit).
+ */
+export function setProjectSandboxFlag(id: string, isSandbox: boolean): ProjectRow {
+  const before = getProjectOrThrow(id);
+  const settings = { ...(before.settings_json as Record<string, unknown>), is_sandbox: isSandbox };
+  const db = getDb();
+  db.prepare('UPDATE projects SET settings_json = ?, updated_at = ? WHERE id = ?').run(
+    toJsonColumn(settings),
+    nowIso(),
+    id
+  );
+  return getProjectOrThrow(id);
 }
 
 function assertShareAccess(access: unknown): asserts access is ShareAccess {

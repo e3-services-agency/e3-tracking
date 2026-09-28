@@ -6,9 +6,26 @@
  */
 import { Router, type Request, type Response } from 'express';
 import * as ProjectDAL from '../dal/project.dal';
+import { createSandboxProject } from '../services/sandbox.service';
+import { getGettingStarted } from '../services/gettingStarted.service';
 import { handleRouteError } from './routeErrors';
 
 const router = Router();
+
+// Mounted before `/:id` (Express matches routes in order): `sandbox` would otherwise be read as a
+// project id.
+router.post('/sandbox', async (req: Request, res: Response) => {
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  try {
+    const result = await createSandboxProject({
+      client_id: typeof body.client_id === 'string' ? body.client_id : null,
+      name: typeof body.name === 'string' ? body.name : null,
+    });
+    res.status(201).json(result);
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
 
 router.get('/', (_req: Request, res: Response) => {
   try {
@@ -64,6 +81,14 @@ router.post('/', (req: Request, res: Response) => {
 router.get('/:id', (req: Request, res: Response) => {
   try {
     res.status(200).json(ProjectDAL.getProjectWithClient(req.params.id));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.get('/:id/getting-started', (req: Request, res: Response) => {
+  try {
+    res.status(200).json(getGettingStarted(req.params.id));
   } catch (err) {
     handleRouteError(err, res);
   }

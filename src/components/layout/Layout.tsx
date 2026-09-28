@@ -24,6 +24,7 @@ import { Import } from '@/src/pages/Import';
 import { QaRuns } from '@/src/pages/QaRuns';
 import { Findings } from '@/src/pages/Findings';
 import { History } from '@/src/pages/History';
+import { Comments } from '@/src/pages/Comments';
 import { EventCard } from '@/src/pages/EventCard';
 
 const DEFAULT_BRAND_PRIMARY = 'var(--e3-emerald)';
@@ -78,6 +79,8 @@ function mainRouteStateFromRestPath(restPath: string): { tab: string; eventCardI
       return { tab: 'findings' };
     case '/history':
       return { tab: 'history' };
+    case '/comments':
+      return { tab: 'comments' };
     case '/clients':
       return { tab: 'clients' };
     case '/settings':
@@ -232,6 +235,7 @@ function LayoutInner() {
     if (activeTab === 'qaRuns') pushPath('/qa-runs', activeProjectKey);
     if (activeTab === 'findings') pushPath('/findings', activeProjectKey);
     if (activeTab === 'history') pushPath('/history', activeProjectKey);
+    if (activeTab === 'comments') pushPath('/comments', activeProjectKey);
     if (activeTab === 'clients') pushPath('/clients', activeProjectKey);
     if (activeTab === 'settings') pushPath('/settings', activeProjectKey);
     if (activeTab === 'documentation') pushPath('/documentation', activeProjectKey);
@@ -272,6 +276,7 @@ function LayoutInner() {
         {activeTab === 'qaRuns' && <QaRuns />}
         {activeTab === 'findings' && <Findings />}
         {activeTab === 'history' && <History />}
+        {activeTab === 'comments' && <Comments />}
         {activeTab === 'settings' && <Settings />}
         {activeTab === 'documentation' && <Documentation />}
         {activeTab === 'eventCard' && eventCardEventId && (

@@ -169,26 +169,47 @@ export function UseCaseTemplates() {
   const [defaultIndustryApplied, setDefaultIndustryApplied] = useState<string | null>(null);
   const [offVocabularyIndustry, setOffVocabularyIndustry] = useState<string | null>(null);
   const appliedDefaultIndustryFor = useRef<string | null>(null);
+  // Fix round LOW 2/LOW 3 (reviewer, 2026-09-28 03:45): plain refs, kept in sync every render, so
+  // the project-switch effect below can read the *current* filters and the *previously* applied
+  // default value synchronously, instead of either reaching for a stale closure or calling one
+  // setState from inside another's updater function (the original LOW 2 side effect).
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const defaultIndustryAppliedRef = useRef(defaultIndustryApplied);
+  defaultIndustryAppliedRef.current = defaultIndustryApplied;
+
   useEffect(() => {
     if (!activeProjectId || appliedDefaultIndustryFor.current === activeProjectId) return;
     appliedDefaultIndustryFor.current = activeProjectId;
+
+    // LOW 3: retire the *previous* project's own auto-applied default from the actual filter set,
+    // not just the pill/hint state -- otherwise it keeps silently filtering as an ordinary chip with
+    // no visible "this was a default" marker, and the new project's own default is never applied
+    // (the "never override an existing choice" guard below would see it and back off).
+    const previousDefault = defaultIndustryAppliedRef.current;
+    if (previousDefault) {
+      setFilters((prev) => {
+        const set = new Set(prev.industries ?? []);
+        set.delete(previousDefault);
+        return { ...prev, industries: set };
+      });
+    }
+    setDefaultIndustryApplied(null);
+    setOffVocabularyIndustry(null);
+
     fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}`)
       .then(parseJson)
       .then((data) => {
         const industry = typeof data?.industry === 'string' ? data.industry.trim() : '';
-        setDefaultIndustryApplied(null);
-        setOffVocabularyIndustry(null);
         if (!industry) return;
         const matched = LIBRARY_INDUSTRIES.find((v) => v.toLowerCase() === industry.toLowerCase());
         if (!matched) {
           setOffVocabularyIndustry(industry);
           return;
         }
-        setFilters((prev) => {
-          if (prev.industries?.size) return prev; // never override an existing filter choice
-          setDefaultIndustryApplied(matched);
-          return { ...prev, industries: new Set([matched]) };
-        });
+        if (filtersRef.current.industries?.size) return; // never override an existing filter choice
+        setDefaultIndustryApplied(matched);
+        setFilters((prev) => ({ ...prev, industries: new Set([matched]) }));
       })
       .catch(() => {});
   }, [activeProjectId]);

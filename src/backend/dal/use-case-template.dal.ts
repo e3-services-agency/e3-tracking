@@ -561,7 +561,22 @@ function applyTemplateMappings(
     // of the wrong event) or silently mixes two events' properties into one field_map. Picking a
     // new event always starts a fresh mapping for it instead.
     const carryForward = existing !== null && existing.event_id === m.event_id;
-    const fieldMap: Record<string, string | null> = carryForward ? { ...existing!.field_map_json } : {};
+    // Pre-QA fix (WARNING 1 defense in depth, reviewer 2026-09-28 03:45): the root cause is fixed
+    // in detachPropertyFromEvent/deleteProperty (they now clear a property out of every
+    // field_map_json entry that named it, so a fresh stale entry can no longer be created), but
+    // carrying an *already*-stale entry forward verbatim (e.g. from data written before this fix,
+    // or by any other future write path) still 400ed the whole apply out of
+    // `upsertStandardEventMapping`'s own `validateFieldMap`, for a field this apply never touches.
+    // Filter every carried-forward entry through the same `propertyLinkedToEvent` check the
+    // resolver itself uses, dropping (nulling) anything that no longer holds up.
+    const fieldMap: Record<string, string | null> = carryForward
+      ? Object.fromEntries(
+          Object.entries(existing!.field_map_json).map(([field, mappedPropertyId]) => [
+            field,
+            mappedPropertyId && propertyLinkedToEvent(m.event_id, mappedPropertyId) ? mappedPropertyId : null,
+          ])
+        )
+      : {};
     if (entry.property_name) fieldMap[entry.property_name] = m.property_id ?? null;
     upsertStandardEventMapping(projectId, standardEvent, {
       event_id: m.event_id,

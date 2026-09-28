@@ -220,3 +220,43 @@ export function deleteStandardEventMapping(projectId: string, standardEvent: str
     .run(projectId, standardEvent);
   if (result.changes === 0) throw new NotFoundError('Standard event mapping not found.', 'standard_event_mapping');
 }
+
+/**
+ * T-3-10 pre-QA fix (WARNING 1 root cause, reviewer 2026-09-28 03:45): `field_map_json` names a
+ * property by id, but nothing ever cleared that entry when the property was detached from the
+ * event (or deleted outright) -- the mapping kept pointing at a property no longer linked to its
+ * event, and any later write that touched the mapping (including the D-55 mapping-step dialog's
+ * own carry-forward of an *unrelated* field) tripped `validateFieldMap`'s "not linked to this
+ * event" 400 on the stale entry, unrelated to whatever the caller was actually trying to change.
+ *
+ * Called by `event.dal.ts#detachPropertyFromEvent` (scoped to `eventId`, the one link that just
+ * broke) and `property.dal.ts#deleteProperty` (unscoped -- the property is gone from every event by
+ * definition, wherever it was mapped) inside their own transactions, so the cleanup is atomic with
+ * the detach/delete itself. Sets the field to `null` (never drops the key) so `field_map_json`
+ * still remembers the field exists on that standard event, exactly the shape `validateFieldMap`
+ * already treats as "known but unmapped".
+ */
+export function removePropertyFromFieldMaps(projectId: string, propertyId: string, eventId?: string): void {
+  const db = getDb();
+  const rows = (
+    eventId
+      ? db
+          .prepare('SELECT id, field_map_json FROM standard_event_mappings WHERE project_id = ? AND event_id = ?')
+          .all(projectId, eventId)
+      : db.prepare('SELECT id, field_map_json FROM standard_event_mappings WHERE project_id = ?').all(projectId)
+  ) as { id: string; field_map_json: string | null }[];
+
+  const now = nowIso();
+  const update = db.prepare('UPDATE standard_event_mappings SET field_map_json = ?, updated_at = ? WHERE id = ?');
+  for (const row of rows) {
+    const fieldMap = parseJsonColumn(row.field_map_json, {} as Record<string, string | null>);
+    let changed = false;
+    for (const [field, mappedPropertyId] of Object.entries(fieldMap)) {
+      if (mappedPropertyId === propertyId) {
+        fieldMap[field] = null;
+        changed = true;
+      }
+    }
+    if (changed) update.run(toJsonColumn(fieldMap), now, row.id);
+  }
+}

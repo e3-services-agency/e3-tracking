@@ -46,6 +46,7 @@ import {
   LIBRARY_INDUSTRIES,
   type UseCaseType,
 } from '../enums';
+import { getStandardEventFields } from '../bloomreach';
 
 /**
  * Target kinds this format's `default_requirements[].target_kind` may use. `REQUIREMENT_TARGET_KINDS`
@@ -218,6 +219,23 @@ function parseRequirement(
     typeof raw.level === 'string' && (REQUIREMENT_LEVELS as readonly string[]).includes(raw.level) ? raw.level : 'O';
   const note = typeof raw.note === 'string' && raw.note.trim() ? raw.note.trim() : undefined;
   const condition = parseCondition(raw.condition, `${path}.condition`, warnings);
+
+  // INFO 4 (reviewer, pre-QA fix round 2026-09-28 03:47): a `property_name` on an event_property/
+  // variant_property entry with a `standard_event` is meant to be one of that standard event's own
+  // Bloomreach fields (D-55's whole point -- it is translated through the project's field_map, not
+  // matched by literal name); a value outside that seed list can never resolve through the mapping
+  // step (`validateFieldMap` rejects it at apply time, per D-55) and is almost certainly a typo or a
+  // client-specific name that belongs in `event_name` instead. Warn, never drop -- the seed list
+  // (`src/domain/bloomreach.ts`) is extensible per project (D-26), so this parser (which has no
+  // project context) cannot always be sure the value is wrong, only that it is not a *standard* one.
+  if (standardEvent && propertyName && (targetKind === 'event_property' || targetKind === 'variant_property')) {
+    const standardFields = getStandardEventFields(standardEvent);
+    if (standardFields && !standardFields.includes(propertyName)) {
+      warnings.push(
+        `${path}.property_name "${propertyName}" is not a standard field of standard_event "${standardEvent}" (${standardFields.join(', ') || 'no fields'}); kept, but the mapping step can only resolve it via a project addition to that standard event.`
+      );
+    }
+  }
 
   const requirement: LibraryRequirement = { target_kind: targetKind, level };
   if (standardEvent) requirement.standard_event = standardEvent;

@@ -24,6 +24,7 @@ import { BLOOMREACH_LIMITS } from '../../domain/bloomreach';
 import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
 import { markRequirementsGapForDetach, markRequirementsGapForEventRemoval, markRequirementsGapForVariantRemoval } from './requirement.dal';
 import * as ChangeLogDAL from './change-log.dal';
+import { removePropertyFromFieldMaps } from './standard-event-mapping.dal';
 
 const MAX_DISCRIMINATORS_PER_EVENT = 2;
 
@@ -980,6 +981,10 @@ export function detachPropertyFromEvent(projectId: string, eventId: string, prop
       throw new NotFoundError('This property is not attached to the event.', 'event_property');
     }
     markRequirementsGapForDetach(eventId, propertyId, property?.name ?? propertyId);
+    // T-3-10 pre-QA fix (WARNING 1 root cause): clear this property out of every standard event
+    // mapping's field_map_json for this event, so a stale entry never survives the detach it was
+    // detached by (see standard-event-mapping.dal.ts's removePropertyFromFieldMaps doc).
+    removePropertyFromFieldMaps(projectId, propertyId, eventId);
 
     if (existingLink) {
       ChangeLogDAL.recordChange({

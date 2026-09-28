@@ -89,13 +89,15 @@ field list is present:
 ### Property definitions (D-58, T-4-00)
 
 `properties[]` (top-level, customer-scope) carries a `definitions[]` array: every named meaning
-that property holds (`{id, name, description, allowed_values, format, example_values}`), sourced
+that property holds (`{id, name, description, allowed_values, formats: string[], example_values}`
+-- `formats` is the definition's whole format list, not a single value, so a property with several
+formats ticked at once, e.g. `email` and `uri`, checks every one of them per event), sourced
 from `property_definitions`. A property with one definition (the common case, named `general`) has
 a one-element array; a property whose event links diverge (different events, different named
 definitions) lists every one of them here, independent of which event card is looking at it.
 Event-scope properties do not get their own top-level list in this document — their definitions
 show up per event, inline on `EventCard.properties[]` (`definition_id`/`definition_name`, plus the
-allowed values/format/example/description already resolved from that link's own definition).
+allowed values/formats/example/description already resolved from that link's own definition).
 
 ### Payload keys (ERROR 2 fix round)
 

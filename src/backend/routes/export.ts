@@ -19,6 +19,7 @@ import { buildTrackingDocument } from '../services/document.service';
 import { TRACKING_DOCUMENT_VERSION } from '../../domain/document/trackingDocument';
 import { isCsvEntity } from '../../domain/csv';
 import { listCsvEntityCounts, buildCsvFile } from '../services/csvExport.service';
+import { buildBackup } from '../services/backup.service';
 import { BadRequestError } from '../errors';
 import { handleRouteError } from './routeErrors';
 
@@ -146,6 +147,21 @@ router.get('/csv/:entity', (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.status(200).send(csv);
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+// Full JSON backup export (D-45, T-3-04, capability 1): one self-contained file, embedded files as
+// base64, per the contract in `backup.service.ts`. Restore (T-3-05) is a separate task.
+router.get('/backup.json', async (req: Request, res: Response) => {
+  try {
+    const project = getProjectOrThrow(req.projectId!);
+    const backup = await buildBackup(req.projectId!);
+    const filename = `${project.key}-backup-${todayCompact()}.json`;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.status(200).json(backup);
   } catch (err) {
     handleRouteError(err, res);
   }

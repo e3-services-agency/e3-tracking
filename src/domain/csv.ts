@@ -13,9 +13,8 @@
  * service emits empty values for both until then.
  *
  * `change_log`/`comments` are declared here too (T-3-01/T-4-02 add their tables): the CSV route
- * list is complete from this task on. `change_log`'s table exists from T-3-01 onward, so its export
- * carries real rows (QA fix, 2026-09-28, `csvExport.service.ts#buildChangeLogRows`); `comments`
- * still emits headers-only until T-4-02's table exists.
+ * list is complete from this task on. Both tables exist from their own task onward, so both exports
+ * carry real rows (`csvExport.service.ts#buildChangeLogRows`/`buildCommentsRows`).
  */
 
 export interface CsvEntityDefinition {
@@ -300,8 +299,7 @@ export const CSV_ENTITIES = {
   change_log: {
     headers: ['id', 'changed_at', 'actor', 'source', 'batch_id', 'entity_type', 'entity_id', 'entity_label', 'action', 'diff_json'],
   },
-  // T-4-02 (0017_comments.sql) adds the table this reads from; until then the export is
-  // headers-only (see `csvExport.service.ts`).
+  // T-4-02 (0019_comments.sql) adds the table this reads from (`csvExport.service.ts#buildCommentRows`).
   comments: {
     headers: ['id', 'entity_type', 'entity_id', 'entity_label', 'author_name', 'via_share', 'body', 'created_at', 'resolved_at', 'resolved_by'],
   },

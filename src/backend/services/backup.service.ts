@@ -11,9 +11,9 @@
  * maps to a stable header contract), every row builder below reads the table's *live* columns
  * through `PRAGMA table_info` and returns them all. This means `use_cases` rows already carry
  * `activation`/`assets_json` the moment T-4-06's migration lands, with no change to this file --
- * exactly the property D-56 asks a backup to have for phase-4-only columns. The two tables that
- * don't exist until a later phase (`comments`, T-4-02) are gated on the table's presence in
- * `sqlite_master` (not a try/catch): the array comes back empty until the table exists.
+ * exactly the property D-56 asks a backup to have for phase-4-only columns. Any table a future
+ * phase adds (`comments`, T-4-02, landed) is gated on the table's presence in `sqlite_master` (not
+ * a try/catch): the array comes back empty until the table exists, real rows once it does.
  *
  * Pre-QA fix round (reviewer PASS 2026-09-28 02:36, supervisor decision 02:37):
  * - `project.share_token`/`project.share_access` are exported as `null` (the keys stay present):
@@ -307,9 +307,9 @@ export async function buildBackup(projectId: string): Promise<BackupPayload> {
     observations: directRows('observations', projectId, warnings, 'timestamp, id'),
     findings: directRows('findings', projectId, warnings, 'first_seen_at'),
     change_log: directRows('change_log', projectId, warnings, 'changed_at'),
-    // T-4-02 adds the `comments` table; until then this is always `[]` (checked through
-    // `sqlite_master`, per the plan, not a try/catch around a SELECT on a table that may not exist).
-    comments: directRows('comments', projectId, warnings),
+    // T-4-02 (D-49), fix round LOW 2: ordered like every other array (created_at, id tiebreak) so
+    // two backups of the same project never differ in comment order.
+    comments: directRows('comments', projectId, warnings, 'created_at, id'),
     files,
     files_missing,
     warnings,

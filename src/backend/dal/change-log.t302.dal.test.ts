@@ -181,13 +181,14 @@ describe('change-log.dal: requirement.dal.ts', () => {
     expect(createRows).toHaveLength(1);
     expect(createRows[0].parent_entity_id).toBe(useCase.id);
 
-    // Same target, level changed R -> O: matched by target and logged as one update. Ids are not
-    // preserved across a save yet (deferred to T-4-02), so the row's physical id (and the
-    // change_log entity_id used for it) rotates on every call; re-read it after this save.
+    // Same target, level changed R -> O: matched by target and logged as one update against the
+    // *same* physical row id (T-4-02: `replaceRequirements` now keeps a requirement's id when its
+    // target_kind and target ids are unchanged, so a comment on it never orphans on a plain edit).
     RequirementDAL.replaceRequirements(projectId, useCase.id, [
       { target_kind: 'event', event_id: event.id, level: 'O' },
     ]);
     const [secondReq] = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(secondReq.id).toBe(firstReq.id);
     expect(changesFor('requirement', secondReq.id).filter((r) => r.action === 'update')).toHaveLength(1);
 
     // Dropping it entirely writes a delete row against that same (current) physical id.

@@ -18,6 +18,7 @@ import * as PropertyDAL from '../dal/property.dal';
 import * as QaRunDAL from '../dal/qa-run.dal';
 import * as ObservationDAL from '../dal/observation.dal';
 import * as UseCaseTemplateDAL from '../dal/use-case-template.dal';
+import * as CommentDAL from '../dal/comment.dal';
 import { getFileStore } from '../files/FileStore';
 import { previewDataMapping, applyDataMapping } from './dataMappingImport.service';
 import { previewExpirationSettings, applyExpirationSettings } from './expirationSettingsImport.service';
@@ -186,6 +187,15 @@ describe('buildBackup on the Data Manager fixture project', () => {
       .prepare('UPDATE projects SET share_token = ?, share_access = ? WHERE id = ?')
       .run('SHARE-TOKEN-SECRET', 'read', projectId);
 
+    // T-4-02 (D-49): a comment on a live event must round-trip through the backup too.
+    const purchaseEvent = EventDAL.listEvents(projectId).find((e) => e.name === 'purchase')!;
+    CommentDAL.createComment(projectId, {
+      entity_type: 'event',
+      entity_id: purchaseEvent.id,
+      author_name: 'Jan',
+      body: 'Confirm this before go-live.',
+    });
+
     const backup = await buildBackup(projectId);
 
     expect(backup.format).toBe(BACKUP_FORMAT);
@@ -237,8 +247,11 @@ describe('buildBackup on the Data Manager fixture project', () => {
     // change_log has rows (T-3-01 wires event/property/variant mutations already).
     expect(backup.change_log.length).toBeGreaterThan(0);
 
-    // comments table does not exist yet (T-4-02): always [].
-    expect(backup.comments).toEqual([]);
+    // T-4-02 (D-49): the comment planted above round-trips into the backup.
+    expect(backup.comments.length).toBe(1);
+    expect(backup.comments[0].entity_type).toBe('event');
+    expect(backup.comments[0].entity_id).toBe(purchaseEvent.id);
+    expect(backup.comments[0].body).toBe('Confirm this before go-live.');
 
     // Referenced use_case_templates included in full; an unreferenced template is excluded.
     expect(backup.use_case_templates.some((t) => t.code === 'UC-BACKUP-01')).toBe(true);

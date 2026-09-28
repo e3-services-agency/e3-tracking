@@ -10,6 +10,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
+import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import {
@@ -115,6 +116,12 @@ export function UseCases() {
   const [fromTemplateError, setFromTemplateError] = useState<string | null>(null);
   const [instantiating, setInstantiating] = useState(false);
 
+  // T-4-02 fix round (ERROR 1): the Comments page (and any other cross-page link) sets
+  // `selectedItemIdToEdit` + `requestedTab: 'useCases'` (Layout.tsx) to deep-link straight to a
+  // use case; consumed once below, then cleared so a later render does not re-trigger it.
+  const selectedItemIdToEdit = useStore((s) => s.selectedItemIdToEdit);
+  const setSelectedItemIdToEdit = useStore((s) => s.setSelectedItemIdToEdit);
+
   const load = useCallback(async () => {
     if (!hasValidProjectContext || !activeProjectId) return;
     const [ucRes, templatesRes] = await Promise.all([
@@ -130,6 +137,13 @@ export function UseCases() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (selectedItemIdToEdit && useCases.some((uc) => uc.id === selectedItemIdToEdit)) {
+      setSelectedId(selectedItemIdToEdit);
+      setSelectedItemIdToEdit(null);
+    }
+  }, [selectedItemIdToEdit, useCases, setSelectedItemIdToEdit]);
 
   const [templateId, setTemplateId] = useState('');
 

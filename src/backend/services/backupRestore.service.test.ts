@@ -20,6 +20,7 @@ import * as VariantDAL from '../dal/variant.dal';
 import * as QaRunDAL from '../dal/qa-run.dal';
 import * as ObservationDAL from '../dal/observation.dal';
 import { setFindingStatus, listFindings } from '../dal/finding.dal';
+import * as CommentDAL from '../dal/comment.dal';
 import { getFileStore } from '../files/FileStore';
 import { previewDataMapping, applyDataMapping } from './dataMappingImport.service';
 import { previewExpirationSettings, applyExpirationSettings } from './expirationSettingsImport.service';
@@ -459,28 +460,34 @@ describe('applyRestore', () => {
     expect(Object.keys(meta).some((k) => k.includes(prop!.id))).toBe(false);
   });
 
-  it('returns warnings on apply, and a comments row restores with a warning instead of crashing when the table does not exist yet', async () => {
+  it('a comments row restores with entity_id remapped to the restored event (T-4-02, D-49)', async () => {
     await applyAllFixtures();
+    const purchaseEvent = EventDAL.listEvents(projectId).find((e) => e.name === 'purchase')!;
+    CommentDAL.createComment(projectId, {
+      entity_type: 'event',
+      entity_id: purchaseEvent.id,
+      author_name: 'Jan',
+      body: 'Confirm this before go-live.',
+    });
     const backup = await buildBackup(projectId);
-    // `comments` (T-4-02) does not exist on this schema; a hand-crafted backup carrying rows for
-    // it anyway must warn and skip them, not throw `INSERT INTO comments () VALUES ()`.
-    (backup as unknown as Record<string, unknown>).comments = [
-      { id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', entity_type: 'event', entity_id: 'x', body: 'hello' },
-    ];
+    expect(backup.comments.length).toBe(1);
 
     const preview = previewRestore(backup);
-    const client = ClientDAL.createClient({ key: 'commentsguard', name: 'Comments Guard Co' });
+    const client = ClientDAL.createClient({ key: 'commentsrestore', name: 'Comments Restore Co' });
     const result = await applyRestore(backup, preview.payload_hash, {
-      name: 'Comments guard test',
-      key: 'comments-guard-test',
+      name: 'Comments restore test',
+      key: 'comments-restore-test',
       client_id: client.id,
     });
 
-    expect(Array.isArray(result.warnings)).toBe(true);
-    expect(result.warnings.some((w) => w.includes('comments') && w.includes('does not exist'))).toBe(true);
-    expect(result.counts.comments).toBe(0);
-    // Everything else still restored normally.
-    expect(EventDAL.listEvents(result.project.id).length).toBeGreaterThan(0);
+    expect(result.counts.comments).toBe(1);
+    const restoredPurchase = EventDAL.listEvents(result.project.id).find((e) => e.name === 'purchase')!;
+    const restoredComments = CommentDAL.listComments(result.project.id);
+    expect(restoredComments).toHaveLength(1);
+    expect(restoredComments[0].entity_id).toBe(restoredPurchase.id);
+    expect(restoredComments[0].body).toBe('Confirm this before go-live.');
+    // The old event id survives nowhere in the restored comment.
+    expect(restoredComments[0].entity_id).not.toBe(purchaseEvent.id);
   });
 
   // Fix round (qa-tester FAIL 2026-09-28 17:03): before 0021 was fixed to generate dashed UUIDs,

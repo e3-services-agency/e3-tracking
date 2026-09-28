@@ -18,6 +18,7 @@ import {
   ClipboardCheck,
   AlertTriangle,
   History,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 
@@ -51,6 +52,7 @@ export function Sidebar({
     { id: 'qaRuns', label: 'QA runs', icon: ClipboardCheck },
     { id: 'findings', label: 'Findings', icon: AlertTriangle },
     { id: 'history', label: 'History', icon: History },
+    { id: 'comments', label: 'Comments', icon: MessageSquare },
   ];
 
   const bottomNavItems = [

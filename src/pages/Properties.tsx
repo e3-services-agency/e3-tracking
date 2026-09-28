@@ -19,6 +19,7 @@ import {
   ORIGIN_TYPES,
   PROPERTY_DATA_TYPES,
   PROPERTY_DATA_FORMATS,
+  PROPERTY_DEFINITION_DEFAULT_NAME,
 } from '@/src/domain/enums';
 import { STANDARD_CUSTOMER_PROPERTIES, type StandardEventSeed } from '@/src/domain/bloomreach';
 import { AllowedValuesEditor, type AllowedValueRow } from '@/src/features/properties/components/AllowedValuesEditor';
@@ -599,7 +600,17 @@ function DefinitionEditor({
     <div className="rounded-md border bg-gray-50 p-3 space-y-3">
       <div className="space-y-1">
         <label className="text-xs font-medium text-gray-700">Name</label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. consent_action" />
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. consent_action"
+          disabled={definition?.name === PROPERTY_DEFINITION_DEFAULT_NAME}
+        />
+        {definition?.name === PROPERTY_DEFINITION_DEFAULT_NAME && (
+          <p className="text-xs text-gray-500">
+            The &quot;{PROPERTY_DEFINITION_DEFAULT_NAME}&quot; definition stays in sync with the property&apos;s own fields and cannot be renamed.
+          </p>
+        )}
       </div>
       <div className="space-y-1">
         <label className="text-xs font-medium text-gray-700">Description</label>

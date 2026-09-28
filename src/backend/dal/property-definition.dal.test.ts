@@ -12,6 +12,7 @@ import * as ProjectDAL from './project.dal';
 import * as PropertyDAL from './property.dal';
 import * as EventDAL from './event.dal';
 import * as PropertyDefinitionDAL from './property-definition.dal';
+import * as ChangeLogDAL from './change-log.dal';
 import { BadRequestError, ConflictError, NotFoundError } from '../errors';
 
 let projectId: string;
@@ -82,6 +83,20 @@ describe('property-definition.dal: seeding and the WARNING 2 two-way mirror', ()
     expect(property.example_values_json).toEqual([{ value: 'y' }]);
   });
 
+  it('fix round 2 INFO 2: general -> property sync writes its own property-level change_log row', () => {
+    const prop = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'action', data_type: 'string' });
+    const [general] = PropertyDefinitionDAL.listDefinitions(projectId, prop.id);
+
+    PropertyDefinitionDAL.updateDefinition(projectId, prop.id, general.id, { description: 'Edited from definitions' });
+
+    const propertyChanges = ChangeLogDAL.listChanges(projectId, { entity_type: 'property', entity_id: prop.id });
+    const syncedRow = propertyChanges.find((c) =>
+      c.diff_json.some((d) => d.field === 'description' && d.after === 'Edited from definitions')
+    );
+    expect(syncedRow).toBeTruthy();
+    expect(syncedRow?.action).toBe('update');
+  });
+
   it('editing a definition that is not "general" never touches the property columns', () => {
     const prop = PropertyDAL.createProperty(projectId, {
       scope: 'event',
@@ -114,6 +129,30 @@ describe('property-definition.dal: seeding and the WARNING 2 two-way mirror', ()
     expect(general.formats_json).toEqual(['email']);
     expect(general.description).toBe(property.description);
     expect(general.formats_json).toEqual(property.data_formats_json);
+  });
+
+  it('fix round 2 WARNING 1: renaming the "general" definition is refused (400), keeping the mirror unambiguous', () => {
+    const prop = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'action',
+      data_type: 'string',
+      description: 'Original',
+    });
+    const [general] = PropertyDefinitionDAL.listDefinitions(projectId, prop.id);
+
+    expect(() =>
+      PropertyDefinitionDAL.updateDefinition(projectId, prop.id, general.id, { name: 'default' })
+    ).toThrow(BadRequestError);
+
+    // Renaming to the exact same name (a no-op) is still allowed, and every other field on
+    // "general" keeps updating/mirroring normally.
+    const updated = PropertyDefinitionDAL.updateDefinition(projectId, prop.id, general.id, {
+      name: 'general',
+      description: 'Edited',
+    });
+    expect(updated.name).toBe('general');
+    const property = PropertyDAL.getPropertyOrThrow(projectId, prop.id);
+    expect(property.description).toBe('Edited');
   });
 });
 

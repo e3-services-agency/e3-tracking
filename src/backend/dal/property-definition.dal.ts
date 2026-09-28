@@ -322,7 +322,40 @@ function syncPropertyFromGeneralDefinition(
   }
   if (set.length === 0) return;
   set.push('updated_at = @updated_at');
+  // Fix round 2 INFO 2: the property row changed (from editing `general`, not the property editor
+  // itself), so it gets its own `change_log` row like any other property update -- the definition's
+  // own `update` row (recorded by the caller, `updateDefinition`) carries `parent_entity_id` =
+  // property but that is not a substitute for the property entity's own history trail.
+  const before = db.prepare('SELECT * FROM properties WHERE id = @id AND project_id = @project_id').get(params) as
+    | Record<string, unknown>
+    | undefined;
   db.prepare(`UPDATE properties SET ${set.join(', ')} WHERE id = @id AND project_id = @project_id`).run(params);
+  const after = db.prepare('SELECT * FROM properties WHERE id = @id AND project_id = @project_id').get(params) as
+    | Record<string, unknown>
+    | undefined;
+  if (before && after) {
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'property',
+      entityId: propertyId,
+      entityLabel: String(after.name ?? propertyId),
+      action: 'update',
+      before: parsePropertyJsonColumns(before),
+      after: parsePropertyJsonColumns(after),
+    });
+  }
+}
+
+/** Parses the property columns this module's own mirror ever writes, for a readable `change_log`
+ * diff (matching `property.dal.ts`'s own convention of passing parsed values, not raw JSON text,
+ * to `recordChange`). Other property columns pass through untouched. */
+function parsePropertyJsonColumns(row: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...row,
+    allowed_values_json: parseJsonColumn(row.allowed_values_json, []),
+    data_formats_json: parseJsonColumn(row.data_formats_json, []),
+    example_values_json: parseJsonColumn(row.example_values_json, []),
+  };
 }
 
 export function createDefinition(
@@ -416,6 +449,18 @@ export function updateDefinition(
   if (updates.name !== undefined) {
     name = updates.name.trim();
     if (!name) throw new ValidationError('Definition name is required.', 'name');
+    // Fix round 2 WARNING 1: the two-way mirror (below) keys on the literal name `general` -- a
+    // property always has exactly one definition named that, and it is always the mirror target.
+    // Renaming it away would silently break the mirror (the DAL would no longer find anything to
+    // sync, and a later update-property call would create a *second* `general` definition instead
+    // of catching up the renamed one). Refused rather than re-keyed on an id, since nothing else in
+    // the schema currently marks "this is the default definition" independent of its name.
+    if (before.name === PROPERTY_DEFINITION_DEFAULT_NAME && name !== PROPERTY_DEFINITION_DEFAULT_NAME) {
+      throw new BadRequestError(
+        `The "${PROPERTY_DEFINITION_DEFAULT_NAME}" definition cannot be renamed; it stays in sync with the property's own fields.`,
+        'name'
+      );
+    }
     const clash = db
       .prepare(
         'SELECT id FROM property_definitions WHERE project_id = ? AND property_id = ? AND name = ? AND id != ? AND deleted_at IS NULL'

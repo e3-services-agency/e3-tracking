@@ -1,0 +1,1 @@
+{"applied":["event_expiration:session_start","event_expiration:session_end","event_expiration:page_visit","event_expiration:web_exit","event_expiration:consent","event_expiration:notification_state","project:default_expiration"],"skipped":[],"warnings":[],"batch_id":"d5531307-7b37-42d6-b2b6-9bde625fd741"}

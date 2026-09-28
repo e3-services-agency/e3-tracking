@@ -234,3 +234,60 @@ export type RuleReportKind = (typeof RULE_REPORT_KINDS)[number];
  * (e.g. a bound rule that is advisory rather than a hard violation). */
 export const RULE_SEVERITIES = ['error', 'warning'] as const;
 export type RuleSeverity = (typeof RULE_SEVERITIES)[number];
+
+// ----- Use case library format (D-47, D-57, T-3-06) -----
+// `src/domain/import/useCaseLibrary.ts` parses this envelope; `src/backend/services/
+// useCaseLibraryImport.service.ts` previews/applies it (D-22 pattern, global scope, never logged).
+export const USE_CASE_LIBRARY_FORMAT = 'e3-use-case-library';
+export const USE_CASE_LIBRARY_VERSION = 1;
+
+// ----- Use case library tags (D-57) -----
+// Suggested vocabularies mirroring the Bloomreach Use Case Center's five facets. A template's tag
+// values outside these lists are never rejected -- the parser warns and keeps parsing (D-57: "unknown
+// values import with a warning, never an error"); these arrays only drive the templates page's facet
+// filter bar and are not a closed constraint on what a template file may contain.
+export const LIBRARY_CHANNELS = [
+  'email',
+  'sms',
+  'browser_push',
+  'mobile_push',
+  'ad_audiences',
+  'whatsapp',
+  'web_layers',
+  'rcs',
+  'no_channel',
+] as const;
+export type LibraryChannel = (typeof LIBRARY_CHANNELS)[number];
+
+export const LIBRARY_GOALS = [
+  'drive_traffic',
+  'grow_database',
+  'acquire_customers',
+  'increase_retention',
+  'reactivate_customers',
+  'reengage_subscribers',
+  'reduce_returns',
+  'analyze_data',
+] as const;
+export type LibraryGoal = (typeof LIBRARY_GOALS)[number];
+
+export const LIBRARY_TIERS = ['essentials', 'advanced', 'omnichannel', 'sustainability', 'loyal_ai'] as const;
+export type LibraryTier = (typeof LIBRARY_TIERS)[number];
+
+export const LIBRARY_KPIS = [
+  'conversion_rate',
+  'revenue',
+  'revenue_per_visitor',
+  'average_order_value',
+  'cltv',
+  'purchase_frequency',
+  'return_rate',
+  'active_subscribers',
+] as const;
+export type LibraryKpi = (typeof LIBRARY_KPIS)[number];
+
+// `ecommerce`, `travel`, `retail` are the industries the current br-docs samples support with
+// confidence (D-57); more are added as the Use Case Center's other channel chapters are stored in
+// samples/ (TASKS.md phase 3 note).
+export const LIBRARY_INDUSTRIES = ['ecommerce', 'travel', 'retail'] as const;
+export type LibraryIndustry = (typeof LIBRARY_INDUSTRIES)[number];

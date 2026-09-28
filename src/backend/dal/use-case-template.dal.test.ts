@@ -6,6 +6,8 @@
  * `ignored`).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import { closeDb, getDb } from '../db';
 import * as ClientDAL from './client.dal';
 import * as ProjectDAL from './project.dal';
@@ -13,8 +15,16 @@ import * as EventDAL from './event.dal';
 import * as PropertyDAL from './property.dal';
 import * as VariantDAL from './variant.dal';
 import * as RequirementDAL from './requirement.dal';
+import * as UseCaseDAL from './use-case.dal';
 import * as UseCaseTemplateDAL from './use-case-template.dal';
-import { NotFoundError } from '../errors';
+import { NotFoundError, TemplateInUseError, UseCaseCodeTakenError } from '../errors';
+import { previewDataMapping, applyDataMapping } from '../services/dataMappingImport.service';
+import { parseUseCaseLibrary } from '../../domain/import/useCaseLibrary';
+
+const dataMappingFixturePath = path.resolve(__dirname, '../../../.claude/team/samples/data-mapping.json');
+const dataMappingFixture = JSON.parse(fs.readFileSync(dataMappingFixturePath, 'utf-8'));
+const libraryFixturePath = path.resolve(__dirname, '../../../.claude/team/samples/use-case-library-sample.json');
+const libraryFixture = JSON.parse(fs.readFileSync(libraryFixturePath, 'utf-8'));
 
 let projectId: string;
 let eventId: string;
@@ -387,5 +397,190 @@ describe('use-case-template.dal: variant resolution requires an exact condition 
     expect(requirement.note).not.toMatch(
       /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
     );
+  });
+});
+
+describe('T-3-06: instantiate code suffixing, tags/flags, catalog_attribute/consent gap, delete guard', () => {
+  it('defaults the use case code to the template code, and suffixes -2/-3 on conflict', () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-SFX', name: 'Suffix test', type: 'marketing' });
+    const first = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+    expect(first.code).toBe('UC-SFX');
+    const second = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+    expect(second.code).toBe('UC-SFX-2');
+    const third = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+    expect(third.code).toBe('UC-SFX-3');
+  });
+
+  it('accepts an explicit {code} option', () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-SFX2', name: 'Explicit code', type: 'marketing' });
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, { code: 'MY-CODE' });
+    expect(useCase.code).toBe('MY-CODE');
+  });
+
+  it('fix round WARNING 2: an explicit {code} that collides is never suffixed, it throws UseCaseCodeTakenError (409 USE_CASE_CODE_TAKEN)', () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-SFX3', name: 'Explicit collision', type: 'marketing' });
+    UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, { code: 'TAKEN-CODE' });
+    expect(() => UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, { code: 'TAKEN-CODE' })).toThrow(
+      UseCaseCodeTakenError
+    );
+    // Case-insensitive collision too (use case codes are upper-cased on store, use-case.dal.ts normalizeCode).
+    expect(() => UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, { code: 'taken-code' })).toThrow(
+      UseCaseCodeTakenError
+    );
+  });
+
+  it('stores and round-trips tags_json/flags_json', () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({
+      code: 'UC-TAGS',
+      name: 'Tagged',
+      type: 'marketing',
+      tags_json: { channels: ['email'], goals: ['drive_traffic'] },
+      flags_json: { popular: true },
+    });
+    expect(template.tags_json).toEqual({ channels: ['email'], goals: ['drive_traffic'], tiers: [], kpis: [], industries: [] });
+    expect(template.flags_json).toEqual({ new: false, popular: true });
+    const reloaded = UseCaseTemplateDAL.getUseCaseTemplateOrThrow(template.id);
+    expect(reloaded.tags_json.channels).toEqual(['email']);
+  });
+
+  it('updateUseCaseTemplate patches individual fields', () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-UPD', name: 'Original', type: 'marketing' });
+    const updated = UseCaseTemplateDAL.updateUseCaseTemplate(template.id, { name: 'Updated name' });
+    expect(updated.name).toBe('Updated name');
+    expect(updated.type).toBe('marketing');
+  });
+
+  it('a catalog_attribute or consent requirement instantiates as a gap, not an "unknown target_kind"', () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({
+      code: 'UC-CAT',
+      name: 'Catalog and consent',
+      type: 'marketing',
+      default_requirements_json: [
+        { target_kind: 'catalog_attribute', property_name: 'image', level: 'R' },
+        { target_kind: 'consent', property_name: 'newsletter', level: 'R' },
+      ],
+    });
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+    const requirements = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(requirements).toHaveLength(2);
+    for (const r of requirements) {
+      expect(r.status).toBe('gap');
+      expect(r.note).not.toContain('unknown target_kind');
+    }
+  });
+
+  it('copies a requirement entry note onto the resolved requirement', () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({
+      code: 'UC-NOTE',
+      name: 'Note copy',
+      type: 'marketing',
+      default_requirements_json: [
+        { target_kind: 'event', event_name: 'cart_update', level: 'R', note: 'Trigger event.' },
+      ],
+    });
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+    const [requirement] = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(requirement.note).toBe('Trigger event.');
+  });
+
+  it('refuses to delete a template still instantiated by a non-deleted use case (409 TEMPLATE_IN_USE)', () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-DEL', name: 'In use', type: 'marketing' });
+    UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+    expect(() => UseCaseTemplateDAL.deleteUseCaseTemplate(template.id)).toThrow(TemplateInUseError);
+  });
+
+  it('deletes a template with no use cases referencing it', () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-DEL2', name: 'Unused', type: 'marketing' });
+    UseCaseTemplateDAL.deleteUseCaseTemplate(template.id);
+    expect(UseCaseTemplateDAL.getUseCaseTemplateById(template.id)).toBeNull();
+  });
+
+  it('fix round ERROR 1: still refuses (409, never a raw 500) after the only referencing use case is soft-deleted', () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-DEL3', name: 'Soft-deleted use case', type: 'marketing' });
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+
+    // Reproduces the reviewer's probe exactly: instantiate, delete the use case (soft delete,
+    // `template_id` is left untouched by `deleteUseCase`), then delete the template.
+    UseCaseDAL.deleteUseCase(projectId, useCase.id);
+    expect(() => UseCaseTemplateDAL.deleteUseCaseTemplate(template.id)).toThrow(TemplateInUseError);
+    // Confirm it is still there (the guard fired before any DELETE, not a rolled-back FK failure).
+    expect(UseCaseTemplateDAL.getUseCaseTemplateById(template.id)).not.toBeNull();
+  });
+});
+
+describe('T-3-06: sample library instantiated on the data-mapping fixture project', () => {
+  beforeEach(() => {
+    const preview = previewDataMapping(projectId, dataMappingFixture);
+    applyDataMapping(projectId, dataMappingFixture, preview.payload_hash, preview.items.map((i) => i.id));
+
+    const libraryModel = parseUseCaseLibrary(libraryFixture);
+    for (const t of libraryModel.templates) {
+      UseCaseTemplateDAL.createUseCaseTemplate({
+        code: t.code,
+        name: t.name,
+        type: t.type,
+        description: t.description,
+        default_requirements_json: t.default_requirements,
+        narrative_template: t.narrative_template,
+        tags_json: t.tags,
+        flags_json: t.flags,
+      });
+    }
+  });
+
+  it('UC-01 resolves the cart_update[action=add] variant and its two variant properties', () => {
+    const template = UseCaseTemplateDAL.listUseCaseTemplates().find((t) => t.code === 'UC-01')!;
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+    const requirements = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(requirements).toHaveLength(5);
+    expect(requirements.filter((r) => r.status === 'gap')).toHaveLength(0);
+
+    const variant = getDb().prepare('SELECT name FROM variants WHERE id = ?').get(requirements[0].variant_id) as
+      | { name: string }
+      | undefined;
+    expect(variant?.name).toBe('cart_update[action=add]');
+  });
+
+  it('UC-02 fully resolves against the fixture mapping (purchase, purchase_item, email)', () => {
+    const template = UseCaseTemplateDAL.listUseCaseTemplates().find((t) => t.code === 'UC-02')!;
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+    const requirements = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(requirements.filter((r) => r.status === 'gap')).toHaveLength(0);
+  });
+
+  it('UC-03 produces exactly one gap (the unresolvable wishlist_add event)', () => {
+    const template = UseCaseTemplateDAL.listUseCaseTemplates().find((t) => t.code === 'UC-03')!;
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+    const requirements = RequirementDAL.listRequirements(projectId, useCase.id);
+    const gaps = requirements.filter((r) => r.status === 'gap');
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0].note).toContain('wishlist_add');
+  });
+
+  it('previewInstantiateUseCaseTemplate reports UC-01 all-resolved and UC-03 mixed', () => {
+    const uc01 = UseCaseTemplateDAL.listUseCaseTemplates().find((t) => t.code === 'UC-01')!;
+    const uc01Preview = UseCaseTemplateDAL.previewInstantiateUseCaseTemplate(projectId, uc01.id);
+    expect(uc01Preview.unresolved_count).toBe(0);
+    const eventsGroup = uc01Preview.groups.find((g) => g.group === 'events')!;
+    expect(eventsGroup.status).toBe('all');
+    const customerGroup = uc01Preview.groups.find((g) => g.group === 'customer_properties')!;
+    expect(customerGroup.status).toBe('all');
+
+    const uc03 = UseCaseTemplateDAL.listUseCaseTemplates().find((t) => t.code === 'UC-03')!;
+    const uc03Preview = UseCaseTemplateDAL.previewInstantiateUseCaseTemplate(projectId, uc03.id);
+    expect(uc03Preview.unresolved_count).toBe(1);
+    const uc03Events = uc03Preview.groups.find((g) => g.group === 'events')!;
+    expect(uc03Events.status).toBe('mixed');
+  });
+
+  it('fix round WARNING 3: an empty group (no entries of that kind in the template) reports status none with 0/0, never all', () => {
+    // UC-01's default_requirements has no catalog_attribute/consent entries at all -- these two
+    // groups are empty (total: 0), which must render neutral, not "all resolved" (green).
+    const uc01 = UseCaseTemplateDAL.listUseCaseTemplates().find((t) => t.code === 'UC-01')!;
+    const preview = UseCaseTemplateDAL.previewInstantiateUseCaseTemplate(projectId, uc01.id);
+    const catalogGroup = preview.groups.find((g) => g.group === 'catalog')!;
+    const consentsGroup = preview.groups.find((g) => g.group === 'consents')!;
+    expect(catalogGroup).toEqual({ group: 'catalog', total: 0, resolved: 0, status: 'none' });
+    expect(consentsGroup).toEqual({ group: 'consents', total: 0, resolved: 0, status: 'none' });
   });
 });

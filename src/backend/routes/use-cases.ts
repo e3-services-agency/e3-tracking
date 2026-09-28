@@ -52,11 +52,41 @@ router.post('/', (req: Request, res: Response) => {
   }
 });
 
-/** Instantiates a UseCaseTemplate into this project (D-06). Placed before `/:id` so `from-template` is never read as a use case id. */
+/**
+ * Instantiates a UseCaseTemplate into this project (D-06). Placed before `/:id` so `from-template`
+ * is never read as a use case id. T-3-06 (D-47): accepts an optional `{code}` body (defaults to the
+ * template's own code, suffixed `-2`/`-3`... on conflict inside the DAL), generates the narrative
+ * right after creation, and returns `unresolved_count` (the number of `gap` requirements) alongside
+ * the use case.
+ */
 router.post('/from-template/:templateId', (req: Request, res: Response) => {
   try {
-    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(req.projectId!, req.params.templateId);
-    res.status(201).json(useCase);
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const code = typeof body.code === 'string' && body.code.trim() ? body.code.trim() : undefined;
+    let useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(req.projectId!, req.params.templateId, { code });
+    const requirements = RequirementDAL.listRequirements(req.projectId!, useCase.id);
+    const unresolved_count = requirements.filter((r) => r.status === 'gap').length;
+    try {
+      useCase = regenerateNarrative(req.projectId!, useCase.id, true);
+    } catch {
+      // Narrative generation is best-effort here (D-32's own guard never applies to a
+      // freshly-created use case, which never has `narrative_edited_at` set); a failure must never
+      // hide the successfully-instantiated use case from the caller.
+    }
+    res.status(201).json({ ...useCase, unresolved_count });
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+/**
+ * Resolve preview (D-55, D-57): dry-runs `instantiateUseCaseTemplate`'s resolution without
+ * creating anything, grouped for the templates page's prerequisites card. Placed before `/:id` for
+ * the same reason as the instantiate route above.
+ */
+router.post('/from-template/:templateId/preview', (req: Request, res: Response) => {
+  try {
+    res.status(200).json(UseCaseTemplateDAL.previewInstantiateUseCaseTemplate(req.projectId!, req.params.templateId));
   } catch (err) {
     handleRouteError(err, res);
   }

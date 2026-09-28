@@ -441,3 +441,72 @@ describe('use case coverage (T-2-11, "Coverage grid")', () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe('T-3-06: from-template code, unresolved_count, and the resolve preview', () => {
+  it('accepts {code} in the instantiate body and returns unresolved_count', async () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({
+      code: 'UC-T9',
+      name: 'Code and count',
+      type: 'marketing',
+      default_requirements_json: [
+        { target_kind: 'event', event_name: 'checkout', level: 'R' },
+        { target_kind: 'event', event_name: 'does_not_exist', level: 'R' },
+      ],
+    });
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/from-template/${template.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: 'MY-UC-9' }),
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.code).toBe('MY-UC-9');
+    expect(body.unresolved_count).toBe(1);
+    expect(typeof body.narrative).toBe('string');
+  });
+
+  it('fix round WARNING 2: an explicit {code} that collides returns 409 USE_CASE_CODE_TAKEN, never suffixed', async () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-T11', name: 'Collision', type: 'marketing' });
+    const first = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/from-template/${template.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: 'DUP-CODE' }),
+    });
+    expect(first.status).toBe(201);
+
+    const second = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/from-template/${template.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: 'DUP-CODE' }),
+    });
+    expect(second.status).toBe(409);
+    const body = await second.json();
+    expect(body.code).toBe('USE_CASE_CODE_TAKEN');
+  });
+
+  it('the resolve preview reports groups without creating anything', async () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({
+      code: 'UC-T10',
+      name: 'Preview only',
+      type: 'marketing',
+      default_requirements_json: [
+        { target_kind: 'event', event_name: 'checkout', level: 'R' },
+        { target_kind: 'customer_property', property_name: 'email', level: 'R' },
+      ],
+    });
+    const before = await (await fetch(`${baseUrl}/api/projects/${projectId}/use-cases`)).json();
+
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/from-template/${template.id}/preview`, {
+      method: 'POST',
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.total_count).toBe(2);
+    expect(body.unresolved_count).toBe(0);
+    expect(body.groups.find((g: { group: string }) => g.group === 'events').status).toBe('all');
+    expect(body.groups.find((g: { group: string }) => g.group === 'customer_properties').status).toBe('all');
+
+    const after = await (await fetch(`${baseUrl}/api/projects/${projectId}/use-cases`)).json();
+    expect(after.length).toBe(before.length);
+  });
+});

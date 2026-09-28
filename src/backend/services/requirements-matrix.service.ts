@@ -25,6 +25,17 @@ export interface RequirementsMatrixRow {
   variant_id: string | null;
   /** Human-readable label for the row, e.g. "purchase.total_price" or "cart_update[action=add]". */
   label: string;
+  /**
+   * T-3-06 QA fix (2026-09-28 01:59): the row's own stable, unique identity -- `gap:<requirement
+   * id>` for a still-unresolved gap row (see the loop below), or `target_kind` plus every target id
+   * for a resolved row (`rowKey`). Two rows can otherwise share the same `target_kind` and the same
+   * rendered `label` (e.g. two independent instantiations of the same template each producing a gap
+   * requirement with an identical note on the same missing event name), which is exactly the
+   * collision the frontend hit deriving its own React key from `target_kind:label` instead of using
+   * this field. Callers (the Requirements matrix page, the docs export) must key rows on this field,
+   * never on `label`.
+   */
+  key: string;
   /** Keyed by use case id; `null` when that use case has no requirement on this target. */
   cells: Record<string, string | null>;
 }
@@ -115,7 +126,7 @@ export function computeRequirementsMatrix(projectId: string): RequirementsMatrix
       const label = isGapRemoved
         ? `${labelFor(target)}: ${req.note?.trim() || `requirement #${req.sort_order + 1}`}`
         : labelFor(target);
-      row = { ...target, label, cells: {} };
+      row = { ...target, label, key, cells: {} };
       rowsByKey.set(key, row);
     }
     row.cells[req.use_case_id] = req.level;

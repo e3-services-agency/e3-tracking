@@ -278,6 +278,19 @@ export class NarrativeEditedError extends ConflictError {
   }
 }
 
+/**
+ * `DELETE /api/use-case-templates/:id` while any `UseCase` (including a soft-deleted one, whose
+ * `template_id` FK is untouched by soft delete) still references it (T-3-06, D-47: "template
+ * deletion is refused while instantiated"). 409.
+ */
+export class TemplateInUseError extends ConflictError {
+  readonly code = 'TEMPLATE_IN_USE';
+  constructor(message: string) {
+    super(message);
+    this.name = 'TemplateInUseError';
+  }
+}
+
 /** Use when a resource is not found or does not belong to the workspace (404). */
 export class NotFoundError extends Error {
   readonly code = 'NOT_FOUND';
@@ -293,5 +306,20 @@ export class ConfigError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'ConfigError';
+  }
+}
+
+/**
+ * `POST /use-cases/from-template/:id` with an explicit `{code}` that is already taken in the
+ * project (T-3-06 fix round, WARNING 2, 2026-09-27 23:26): the plan's "-2/-3 suffix on conflict"
+ * wording covers only the default path (no `code` given, defaulting to the template's own code);
+ * a caller-supplied code silently coming back changed is not "honoured", so an explicit collision
+ * is rejected outright instead of being suffixed. 409.
+ */
+export class UseCaseCodeTakenError extends ConflictError {
+  readonly code = 'USE_CASE_CODE_TAKEN';
+  constructor(message: string) {
+    super(message);
+    this.name = 'UseCaseCodeTakenError';
   }
 }

@@ -17,6 +17,7 @@ import { IdentityRules } from '@/src/pages/IdentityRules';
 import { ConsentCategories } from '@/src/pages/ConsentCategories';
 import { StandardEvents } from '@/src/pages/StandardEvents';
 import { UseCases } from '@/src/pages/UseCases';
+import { UseCaseTemplates } from '@/src/pages/UseCaseTemplates';
 import { RequirementsMatrix } from '@/src/pages/RequirementsMatrix';
 import { Import } from '@/src/pages/Import';
 import { QaRuns } from '@/src/pages/QaRuns';
@@ -65,6 +66,8 @@ function mainRouteStateFromRestPath(restPath: string): { tab: string; eventCardI
       return { tab: 'standardEvents' };
     case '/use-cases':
       return { tab: 'useCases' };
+    case '/use-case-templates':
+      return { tab: 'useCaseTemplates' };
     case '/requirements-matrix':
       return { tab: 'requirementsMatrix' };
     case '/sources':
@@ -235,6 +238,7 @@ function LayoutInner() {
     if (activeTab === 'consentCategories') pushPath('/consent-categories', activeProjectKey);
     if (activeTab === 'standardEvents') pushPath('/standard-events', activeProjectKey);
     if (activeTab === 'useCases') pushPath('/use-cases', activeProjectKey);
+    if (activeTab === 'useCaseTemplates') pushPath('/use-case-templates', activeProjectKey);
     if (activeTab === 'requirementsMatrix') pushPath('/requirements-matrix', activeProjectKey);
     if (activeTab === 'sources') pushPath('/sources', activeProjectKey);
     if (activeTab === 'import') pushPath('/import', activeProjectKey);
@@ -273,6 +277,7 @@ function LayoutInner() {
         {activeTab === 'consentCategories' && <ConsentCategories />}
         {activeTab === 'standardEvents' && <StandardEvents />}
         {activeTab === 'useCases' && <UseCases />}
+        {activeTab === 'useCaseTemplates' && <UseCaseTemplates />}
         {activeTab === 'requirementsMatrix' && <RequirementsMatrix />}
         {activeTab === 'sources' && <Sources />}
         {activeTab === 'import' && <Import />}

@@ -16,6 +16,8 @@ interface MatrixUseCase {
 interface MatrixRow {
   target_kind: string;
   label: string;
+  /** T-3-06 QA fix (2026-09-28): stable, unique per row (server-computed); see requirements-matrix.service.ts. Two gap rows can share the same target_kind and label text, so this must be used as the React key instead. */
+  key: string;
   cells: Record<string, string | null>;
 }
 
@@ -82,7 +84,7 @@ export function RequirementsMatrix() {
               </thead>
               <tbody className="divide-y">
                 {matrix.rows.map((row) => (
-                  <tr key={`${row.target_kind}:${row.label}`} className="hover:bg-gray-50">
+                  <tr key={row.key} className="hover:bg-gray-50">
                     <td className="px-4 py-2 font-medium text-gray-900 sticky left-0 bg-white whitespace-nowrap">{row.label}</td>
                     {matrix.use_cases.map((uc) => (
                       <td key={uc.id} className="px-4 py-2 text-center text-gray-700">

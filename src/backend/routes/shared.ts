@@ -15,12 +15,17 @@
  *   `{ public: true }` (same field set stripped).
  * - `GET /:token/files/*` -- the same decode/traversal checks as `routes/files.ts`, scoped to this
  *   token's project via `openForProject`.
- * - `GET /:token/comments` / `POST /:token/comments` (D-49, T-4-04): the public counterpart of
- *   `routes/comments.ts`. `GET` lists (optionally filtered by `entity_type`/`entity_id`, same query
- *   params as the internal route) through `toPublicComment` (drops `project_id`, `resolved_by` --
- *   an internal actor name -- and `resolved_at`, which is internal triage state a client has no use
- *   for; `via_share` stays, every comment here is one by definition). `POST` accepts only
- *   `entity_type`/`entity_id`/`author_name`/`body` -- any other key (most importantly `resolved`) is
+ * - `GET /:token/comments` / `POST /:token/comments` (D-49 amendment, T-4-04): the public counterpart
+ *   of `routes/comments.ts`. Comments are one shared thread (D-49 amendment, fix round): `GET`
+ *   returns every comment on the anchor, posted internally or through this same link alike -- an
+ *   internal reply IS visible through the share link by design; a private note belongs in one of the
+ *   internal-only fields the tracking document's public projection strips (`identity_note`,
+ *   `owners`, `agent_instructions`, ...), never in a comment. `GET` lists (optionally filtered by
+ *   `entity_type`/`entity_id`, same query params as the internal route) through `toPublicComment`
+ *   (drops `project_id` and `resolved_by` -- internal ids/actor names -- and `resolved_at`, which is
+ *   internal triage state a client has no use for; `via_share` stays, so the internal Comments page
+ *   and panels can still tell a share-posted comment apart from one posted internally). `POST`
+ *   accepts only `entity_type`/`entity_id`/`author_name`/`body` -- any other key (most importantly `resolved`) is
  *   400 `FIELD_NOT_ALLOWED`, before any other validation; `req.shareAccess !== 'comment'` is 403
  *   `SHARE_READ_ONLY`; a per-token limit of 60 posts per 10 minutes (in-memory, reset on process
  *   restart) is 429 `RATE_LIMITED` -- a cheap guard only, phase 5 (real hosting) replaces it with
@@ -137,11 +142,13 @@ router.get('/:token/files/*', requireShare, async (req: Request, res: Response) 
 });
 
 /**
- * Strips fields a public commenter must never see (D-49, T-4-04): `project_id` (an internal id, no
- * use to a client), `resolved_by` (an internal actor's name) and `resolved_at` (internal triage
- * state -- whether the team marked it done is not this reader's business). `via_share` stays: every
- * comment reachable through this route is one by definition, and the internal Comments page and
- * event/use-case panels still want to tell a share-posted comment apart from one posted internally.
+ * Strips fields a public commenter must never see (D-49 amendment, T-4-04): `project_id` (an
+ * internal id, no use to a client), `resolved_by` (an internal actor's name) and `resolved_at`
+ * (internal triage state -- whether the team marked it done is not this reader's business).
+ * `via_share` stays -- not every comment reachable through this route was posted through a share
+ * link (comments are one shared thread, D-49 amendment: an internal reply is visible here too), but
+ * the flag itself is not private, and the internal Comments page and event/use-case panels still
+ * want to tell a share-posted comment apart from one posted internally.
  */
 function toPublicComment(comment: CommentRow): Omit<CommentRow, 'project_id' | 'resolved_by' | 'resolved_at'> {
   const { project_id: _projectId, resolved_by: _resolvedBy, resolved_at: _resolvedAt, ...rest } = comment;
@@ -156,12 +163,30 @@ const COMMENT_RATE_LIMIT = 60;
 const COMMENT_RATE_WINDOW_MS = 10 * 60 * 1000;
 const commentPostTimestampsByToken = new Map<string, number[]>();
 
+/**
+ * Fix round (L3): every check also prunes *every* token's entry, not just the one being checked --
+ * a filtered-to-empty entry is deleted outright rather than left as a stale empty array. Without
+ * this, a rotated or revoked token's last few post timestamps would sit in the map forever (nothing
+ * else ever revisits that key once the token stops being used), a slow, unbounded leak over a long
+ * server lifetime.
+ */
+function pruneExpiredCommentRateLimitEntries(cutoff: number): void {
+  for (const [tok, timestamps] of commentPostTimestampsByToken) {
+    const filtered = timestamps.filter((t) => t > cutoff);
+    if (filtered.length === 0) {
+      commentPostTimestampsByToken.delete(tok);
+    } else if (filtered.length !== timestamps.length) {
+      commentPostTimestampsByToken.set(tok, filtered);
+    }
+  }
+}
+
 function checkCommentRateLimit(token: string): void {
   const now = Date.now();
   const cutoff = now - COMMENT_RATE_WINDOW_MS;
-  const existing = (commentPostTimestampsByToken.get(token) ?? []).filter((t) => t > cutoff);
+  pruneExpiredCommentRateLimitEntries(cutoff);
+  const existing = commentPostTimestampsByToken.get(token) ?? [];
   if (existing.length >= COMMENT_RATE_LIMIT) {
-    commentPostTimestampsByToken.set(token, existing);
     throw new RateLimitedError('Too many comments posted through this link recently; try again later.');
   }
   existing.push(now);

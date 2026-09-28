@@ -635,7 +635,11 @@ describe('public GET/POST /api/shared/:token/comments (T-4-04, D-49)', () => {
     expect(internalList.some((c: { id: string; via_share: boolean }) => c.id === created.id && c.via_share === true)).toBe(true);
   });
 
-  it('GET lists comments and the public projection has no internal-only fields', async () => {
+  // D-49 amendment (fix round): comments are one shared thread -- a comment posted internally
+  // (never through this share route, `via_share: false`) IS returned by the public GET, not just
+  // one posted through the link itself. The public projection still strips project_id/resolved_by/
+  // resolved_at (internal-only fields), but `via_share` and every other field pass through as-is.
+  it('GET lists comments posted internally too (D-49 amendment: one shared thread), and the public projection has no internal-only fields', async () => {
     const eventId = EventDAL.createEvent(projectId, { name: 't4_04_projection_event', class: 'custom' }).id;
     const internalComment = CommentDAL.createComment(projectId, {
       entity_type: 'event',
@@ -643,16 +647,40 @@ describe('public GET/POST /api/shared/:token/comments (T-4-04, D-49)', () => {
       author_name: 'Team',
       body: 'Internal note',
     });
+    expect(internalComment.via_share).toBe(false);
     CommentDAL.setCommentResolved(projectId, internalComment.id, true, 'jan');
     const token = await createShare('read');
     const res = await fetch(`${baseUrl}/api/shared/${token}/comments?entity_type=event&entity_id=${eventId}`);
     expect(res.status).toBe(200);
     const rows = await res.json();
     expect(rows).toHaveLength(1);
+    expect(rows[0].via_share).toBe(false);
     expect(rows[0]).not.toHaveProperty('project_id');
     expect(rows[0]).not.toHaveProperty('resolved_by');
     expect(rows[0]).not.toHaveProperty('resolved_at');
     expect(rows[0].body).toBe('Internal note');
+  });
+
+  it('GET with no entity filter returns every comment for the project in one request (W1: the page-level fetch)', async () => {
+    // A fresh project (not the shared `projectId`, which other tests in this describe block also
+    // post comments to) so the unfiltered count is exact, not just "includes".
+    const freshClient = ClientDAL.createClient({ key: 't4-04-unfiltered', name: 'T-4-04 Unfiltered' });
+    const freshProjectId = ProjectDAL.createProject({ client_id: freshClient.id, key: 't4-04-unfiltered-proj', name: 'Unfiltered' }).id;
+    const eventId = EventDAL.createEvent(freshProjectId, { name: 't4_04_unfiltered_event', class: 'custom' }).id;
+    const otherEventId = EventDAL.createEvent(freshProjectId, { name: 't4_04_unfiltered_event_2', class: 'custom' }).id;
+    CommentDAL.createComment(freshProjectId, { entity_type: 'event', entity_id: eventId, author_name: 'A', body: 'one' });
+    CommentDAL.createComment(freshProjectId, { entity_type: 'event', entity_id: otherEventId, author_name: 'B', body: 'two' });
+    const created = await (
+      await fetch(`${baseUrl}/api/projects/${freshProjectId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access: 'read' }),
+      })
+    ).json();
+    const res = await fetch(`${baseUrl}/api/shared/${created.share_token}/comments`);
+    expect(res.status).toBe(200);
+    const rows = await res.json();
+    expect(rows.map((r: { body: string }) => r.body).sort()).toEqual(['one', 'two']);
   });
 
   it('resolved is rejected through the share route with 400 FIELD_NOT_ALLOWED', async () => {

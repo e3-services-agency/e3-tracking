@@ -1971,3 +1971,6 @@ Scenario table:
 7. Regression — PASS. Events, Findings, Requirements matrix pages load; `export/tracking-document.json` 200 with the expected top-level keys; `export/data-mapping.json` and `export/expiration-settings.json` 200; `export/csv` list and `export/csv/events`, `export/csv/properties` all 200. Console errors were exclusively Vite HMR/WebSocket reconnect noise from the API restart during scenario 6. Zero network requests matching `supabase`.
 
 History JSON saved at `.claude/team/reports/qa/T-3-02/history-page1-first200.json`, `history-requirements-uc-qa1.json`, `history-events-recent.json`. Both dev servers stopped, ports 3001 and 3010 confirmed free; qa-t302 data files removed from the worktree, `git status` clean.
+
+### 2026-09-28 03:52 | supervisor | STATUS | T-3-02 DONE
+qa-tester PASS (03:49). Merged as eddf434 (registerTools: T-3-07 tools then get_history; docs/MCP.md count seventeen; variant.dal keeps the mapping guard with the projectId signature): 1128 tests (97 files), tsc clean. Six of ten phase 3 tasks merged. T-3-05 QA starts; T-3-10 integrates agent-setup after its pre-QA fix.

@@ -37,7 +37,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-2-EXIT | 2 | Phase 2 exit: qa-roundtrip 1 to 8 plus MCP smoke on merged agent-setup, report to user | supervisor | T-2-13 | DONE | see below |
 | T-3-00 | 3 | Phase 3 and 4 plan: model deltas, contracts, task lists, decision records | architect | T-2-EXIT | DONE | see below |
 | T-3-01 | 3 | ChangeLog table, actor context, DAL write helper; wired into event, event property, property and variant mutations; history API | implementer | T-3-00 | DONE | see below |
-| T-3-02 | 3 | ChangeLog on every other entity, import batch tagging, MCP actor, History panels and History page | implementer | T-3-01 | QA | see below |
+| T-3-02 | 3 | ChangeLog on every other entity, import batch tagging, MCP actor, History panels and History page | implementer | T-3-01 | DONE | see below |
 | T-3-03 | 3 | CSV export per entity: csv.ts headers, service, routes, Settings export block | implementer | T-3-00 | DONE | see below |
 | T-3-04 | 3 | Full JSON backup export with embedded files | implementer | T-3-01 | DONE | see below |
 | T-3-05 | 3 | Restore backup as new project: preview/apply, id remap, files, template re-link, UI | implementer | T-3-04 | QA | see below |
@@ -163,3 +163,4 @@ Detailed acceptance criteria per task live in `reports/PLAN-PHASE2-2026-09-25.md
 - T-3-09: qa-roundtrip scenario 4 open-findings baseline on the merged tree is 77 (40 error / 37 warning), not 75; update the skill text.
 - From T-3-05 review: bodies over the 20 MB json limit on ordinary routes return 500 INTERNAL_ERROR instead of 413 (entity.too.large unmapped in the error handler); map it (T-3-08 or phase 4 touch).
 - From T-3-05 pre-QA fix: RestoreBackupForm reloads immediately on success and never shows apply warnings[]; surface them before navigating (phase 4 UI touch).
+- From T-3-02 QA: the History page Batch id filter needs the full UUID but the page shows only 8 characters; expose the full id (title or click to copy) or accept a prefix match (phase 4 UI touch or T-3-09 note).

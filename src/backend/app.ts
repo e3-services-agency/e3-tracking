@@ -35,6 +35,7 @@ import findingsRouter from './routes/findings';
 import rulesRouter from './routes/rules';
 import ruleTemplatesRouter from './routes/rule-templates';
 import historyRouter from './routes/history';
+import commentsRouter from './routes/comments';
 import restoreBackupRouter from './routes/restore-backup';
 import { optionalAuth } from './middleware/auth';
 import { actorContext } from './middleware/actor';
@@ -95,6 +96,9 @@ export function createApp(): express.Express {
   app.use('/api/projects/:projectId/export', requireProject, exportRouter);
   // D-44, T-3-01: change_log read API (write side lives in the DAL, wired into mutation transactions).
   app.use('/api/projects/:projectId/history', requireProject, historyRouter);
+  // D-49, T-4-02: internal comments API; the public counterpart (`/api/shared/:token/comments`)
+  // is added by T-4-04 on top of `routes/shared.ts`.
+  app.use('/api/projects/:projectId/comments', requireProject, commentsRouter);
   app.use('/api/projects/:projectId/identity-rules', requireProject, identityRulesRouter);
   app.use('/api/projects/:projectId/consent-categories', requireProject, consentCategoriesRouter);
   app.use('/api/projects/:projectId/standard-event-mappings', requireProject, standardEventMappingsRouter);

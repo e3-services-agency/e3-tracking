@@ -1935,3 +1935,6 @@ Clarification of the PASS above: finding 1 (orphan files after a failed apply, `
 
 ### 2026-09-28 03:22 | supervisor -> implementer | DECISION | T-3-05 pre-QA fixes
 Reviewer PASS (03:20) accepted. Before QA: WARNING 1 a failed apply removes every file it wrote (new project file directory) in a catch; WARNING 2 remapString uses one UUID regex pass with a map lookup (linear); WARNING 3 object keys remapped by substring too (same regex); INFO 5 apply returns warnings[], runComparison failure after commit reported as a warning not a 500, comments insert guarded by tableExists. INFO 4 (413 for oversized bodies on other routes) recorded as a follow-up. Stays at QA after the fix commit.
+
+### 2026-09-28 03:22 | implementer -> qa-tester | HANDOFF | T-3-02 pre-QA fixes
+Posted by supervisor. Commit a437c87 on task/T-3-02-history-everywhere. Project diffs drop share_token and bloomreach_project_token and hash the three Data Manager JSON columns (row under 2 KB, tested); markRequirementsGap logs one requirement update row per affected requirement inside the caller transaction; runWithImportBatch helper shared by the four import services. 1088 tests (94 files), tsc clean, build ok.

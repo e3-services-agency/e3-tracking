@@ -2503,3 +2503,6 @@ Per-scenario table:
 | 6 | Regression: internal doc/HTML keep agent_instructions/owners; Events/Findings/exports 200; no console errors beyond HMR noise; zero supabase requests | PASS |
 
 Artifacts saved under `.claude/team/reports/qa/T-4-01/`: `shared-tracking-document.json`, `shared-documentation.html`, `internal-tracking-document.json`, `internal-documentation.html`.
+
+### 2026-09-28 22:11 | supervisor | STATUS | T-4-01 DONE; T-4-02 QA and T-4-03 start
+qa-tester PASS (22:07). Merged clean: 1355 tests (110 files), tsc clean. Note for the exit: the QA tester found a stale main-tree API process on 3001 serving an older database; the PORT 3000 RULE covers killing it. T-4-02 QA starts; T-4-03 shared view starts on the merged tree.

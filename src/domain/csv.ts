@@ -101,7 +101,7 @@ export const CSV_ENTITIES = {
       'name',
       'description',
       'allowed_values_json',
-      'format',
+      'formats_json',
       'example_values_json',
       'using_events',
     ],

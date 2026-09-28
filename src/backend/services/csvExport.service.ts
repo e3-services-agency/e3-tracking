@@ -225,12 +225,18 @@ function buildPropertyDefinitionsRows(projectId: string): CsvRow[] {
     usingEventsByDefinitionId.set(row.definition_id, list);
   }
 
+  // Fix round ERROR 2: exclude a definition whose own property was soft-deleted (`deleteProperty`
+  // now cascades the soft-delete to its definitions, but the join here is a second, independent
+  // guard against a definition ever outliving its property in this export).
   const rows = getDb()
     .prepare(
-      `SELECT id, property_id, name, description, allowed_values_json, format, example_values_json
-       FROM property_definitions
-       WHERE project_id = ? AND deleted_at IS NULL
-       ORDER BY property_id, sort_order, name`
+      `SELECT pd.id as id, pd.property_id as property_id, pd.name as name, pd.description as description,
+              pd.allowed_values_json as allowed_values_json, pd.formats_json as formats_json,
+              pd.example_values_json as example_values_json
+       FROM property_definitions pd
+       JOIN properties p ON p.id = pd.property_id AND p.deleted_at IS NULL
+       WHERE pd.project_id = ? AND pd.deleted_at IS NULL
+       ORDER BY pd.property_id, pd.sort_order, pd.name`
     )
     .all(projectId) as {
     id: string;
@@ -238,7 +244,7 @@ function buildPropertyDefinitionsRows(projectId: string): CsvRow[] {
     name: string;
     description: string | null;
     allowed_values_json: string | null;
-    format: string | null;
+    formats_json: string | null;
     example_values_json: string | null;
   }[];
 
@@ -249,7 +255,7 @@ function buildPropertyDefinitionsRows(projectId: string): CsvRow[] {
     name: row.name,
     description: textCell(row.description),
     allowed_values_json: jsonCell(JSON.parse(row.allowed_values_json ?? '[]')),
-    format: textCell(row.format),
+    formats_json: jsonCell(JSON.parse(row.formats_json ?? '[]')),
     example_values_json: jsonCell(JSON.parse(row.example_values_json ?? '[]')),
     using_events: textCell((usingEventsByDefinitionId.get(row.id) ?? []).join('; ') || null),
   }));

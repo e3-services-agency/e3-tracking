@@ -28,8 +28,7 @@ import type { DiffItem, DiffItemChange } from '../../domain/diff/types';
 import { isKnownStandardEvent, isKnownConsentKey, STANDARD_CUSTOMER_PROPERTIES, type StandardEventSeed } from '../../domain/bloomreach';
 import { generateVariantName, type VariantCondition } from '../../domain/variants';
 import { BadRequestError, ConflictError, PayloadChangedError } from '../errors';
-import { getActor, runWithActor } from '../context/actor';
-import { newId } from '../db/util';
+import { runWithImportBatch } from '../context/actor';
 import { runDefinitionVsMapping } from '../../domain/comparison/definitionVsMapping';
 import { mappingSnapshotFromParsedModel } from '../../domain/comparison/snapshot';
 import type { EngineFinding } from '../../domain/comparison/definitionVsObservations';
@@ -883,7 +882,6 @@ export function applyDataMapping(
 
   const db = getDb();
   const runtimeWarnings: string[] = [];
-  const batchId = newId();
   const run = db.transaction(() => {
     const { items, steps, warnings: planWarnings } = buildPlan(projectId, model);
     const stepById = new Map(steps.map((s) => [s.id, s]));
@@ -947,7 +945,7 @@ export function applyDataMapping(
   // T-3-02: every DAL write this apply triggers is tagged with a shared batch_id and the
   // `import:data-mapping` source (D-44), regardless of who/what is applying (`getActor()` keeps
   // the caller's actor -- a human in the UI or an MCP agent -- only `source`/`batch_id` change).
-  runWithActor({ ...getActor(), source: 'import:data-mapping', batch_id: batchId }, run);
+  const { batchId } = runWithImportBatch('data-mapping', run);
 
   const finalPlan = buildPlan(projectId, model);
   const warnings = Array.from(new Set([...finalPlan.warnings, ...runtimeWarnings]));

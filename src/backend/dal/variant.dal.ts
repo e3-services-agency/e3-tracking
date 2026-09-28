@@ -336,7 +336,7 @@ export function deleteVariant(projectId: string, eventId: string, id: string): v
   const variant = getVariantOrThrow(projectId, eventId, id);
   const db = getDb();
   const run = db.transaction(() => {
-    markRequirementsGapForVariantRemoval(id, variant.name);
+    markRequirementsGapForVariantRemoval(projectId, id, variant.name);
     const result = db
       .prepare('DELETE FROM variants WHERE id = ? AND project_id = ? AND event_id = ?')
       .run(id, projectId, eventId);

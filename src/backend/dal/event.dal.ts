@@ -698,7 +698,7 @@ export function deleteEvent(projectId: string, eventId: string): void {
       });
     }
 
-    markRequirementsGapForEventRemoval(eventId, event.name);
+    markRequirementsGapForEventRemoval(projectId, eventId, event.name);
     // Fix round WARNING 3: cascaded variant deletes get their own change_log row (D-44's "no
     // definition-mutating DAL path skips history" applies here too), even though this whole-event
     // delete only needed name/id/conditions to build the row -- select the fields the diff snapshot
@@ -717,7 +717,7 @@ export function deleteEvent(projectId: string, eventId: string): void {
       expiration_json: string | null;
     }[];
     for (const variant of variantRows) {
-      markRequirementsGapForVariantRemoval(variant.id, variant.name);
+      markRequirementsGapForVariantRemoval(projectId, variant.id, variant.name);
     }
 
     db.prepare('DELETE FROM variants WHERE event_id = ? AND project_id = ?').run(eventId, projectId);
@@ -1019,7 +1019,7 @@ export function detachPropertyFromEvent(projectId: string, eventId: string, prop
     if (result.changes === 0) {
       throw new NotFoundError('This property is not attached to the event.', 'event_property');
     }
-    markRequirementsGapForDetach(eventId, propertyId, property?.name ?? propertyId);
+    markRequirementsGapForDetach(projectId, eventId, propertyId, property?.name ?? propertyId);
 
     if (existingLink) {
       ChangeLogDAL.recordChange({
@@ -1152,7 +1152,7 @@ export function replaceEventProperties(
       db.prepare('DELETE FROM event_properties WHERE event_id = ?').run(eventId);
       for (const droppedId of droppedPropertyIds) {
         const property = cachedProperty(droppedId);
-        markRequirementsGapForDetach(eventId, droppedId, property?.name ?? droppedId);
+        markRequirementsGapForDetach(projectId, eventId, droppedId, property?.name ?? droppedId);
       }
       const insert = db.prepare(
         `INSERT INTO event_properties (

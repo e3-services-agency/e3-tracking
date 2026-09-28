@@ -289,6 +289,37 @@ describe('change-log.dal: project.dal.ts updateProject', () => {
   });
 });
 
+describe('change-log.dal: markRequirementsGapFor* (T-3-02 pre-QA fix, reviewer WARNING 2)', () => {
+  it('deleteEvent on an event a requirement targets writes a requirement/update row (null -> gap), parented under its use case', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'cart_update' });
+    const useCase = UseCaseDAL.createUseCase(projectId, { name: 'Abandoned cart' });
+    RequirementDAL.replaceRequirements(projectId, useCase.id, [
+      { target_kind: 'event', event_id: event.id, level: 'R' },
+    ]);
+    const [requirement] = RequirementDAL.listRequirements(projectId, useCase.id);
+
+    EventDAL.deleteEvent(projectId, event.id);
+
+    const rows = changesFor('requirement', requirement.id).filter((r) => r.action === 'update');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].parent_entity_id).toBe(useCase.id);
+    expect(rows[0].diff_json.find((d) => d.field === 'status')).toEqual({
+      field: 'status',
+      before: null,
+      after: 'gap',
+    });
+    expect(rows[0].diff_json.find((d) => d.field === 'event_id')).toEqual({
+      field: 'event_id',
+      before: event.id,
+      after: null,
+    });
+
+    const [afterRow] = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(afterRow.status).toBe('gap');
+    expect(afterRow.event_id).toBeNull();
+  });
+});
+
 describe('change-log.dal: deleteEvent cascade (from the T-3-01 review)', () => {
   it('logs an identity_rule update (trigger_event_id nulled) and a standard_event_mapping delete, and the variant delete snapshot carries its own id', () => {
     const event = EventDAL.createEvent(projectId, { name: 'cart_update' });

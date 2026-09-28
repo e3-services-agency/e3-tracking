@@ -15,6 +15,7 @@ import * as ClientDAL from '../dal/client.dal';
 import * as ProjectDAL from '../dal/project.dal';
 import * as PropertyDAL from '../dal/property.dal';
 import * as EventDAL from '../dal/event.dal';
+import * as ChangeLogDAL from '../dal/change-log.dal';
 import { applyDataMapping, previewDataMapping } from './dataMappingImport.service';
 import { applyExpirationSettings, previewExpirationSettings } from './expirationSettingsImport.service';
 import { previewDataManagerEvents, applyDataManagerEvents } from './dataManagerEventsImport.service';
@@ -181,6 +182,24 @@ describe('applyDataManagerEvents on the default selection', () => {
     for (const name of stillMissing) {
       expect(events.find((e) => e.name === name)).toBeUndefined();
     }
+  });
+
+  it('T-3-02 pre-QA fix: the project change_log row this apply writes stays under 2 KB (the snapshot JSON is hashed, not embedded)', () => {
+    setUpPhase1Definition();
+    const preview = previewDataManagerEvents(projectId, eventsFixture);
+    const selected = preview.items.filter((i) => i.default_selected).map((i) => i.id);
+    applyDataManagerEvents(projectId, eventsFixture, preview.payload_hash, selected);
+
+    const rows = ChangeLogDAL.listChanges(projectId, { entity_type: 'project', entity_id: projectId, limit: 10 });
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      const size = Buffer.byteLength(JSON.stringify(row.diff_json), 'utf-8');
+      expect(size).toBeLessThan(2048);
+    }
+    const eventsHashDiff = rows[0].diff_json.find((d) => d.field === 'data_manager_events_hash');
+    expect(eventsHashDiff).toBeDefined();
+    expect(rows[0].diff_json.find((d) => d.field === 'data_manager_events_json')).toBeUndefined();
+    expect(rows[0].diff_json.find((d) => d.field === 'share_token')).toBeUndefined();
   });
 
   it('a re-preview after apply proposes no duplicate item for an already-applied event, property or link', () => {

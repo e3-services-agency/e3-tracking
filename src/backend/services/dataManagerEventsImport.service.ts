@@ -55,8 +55,7 @@ import { classifyEventType } from '../../domain/bloomreach';
 import { payloadHash } from '../../domain/diff/hash';
 import type { DiffItem, DiffItemChange } from '../../domain/diff/types';
 import { PayloadChangedError } from '../errors';
-import { getActor, runWithActor } from '../context/actor';
-import { newId } from '../db/util';
+import { runWithImportBatch } from '../context/actor';
 
 const EMPTY_SENTINEL = '(empty)';
 const SNAPSHOT_STEP_ID = 'project:data_manager_events_snapshot';
@@ -579,7 +578,6 @@ export function applyDataManagerEvents(
 
   const db = getDb();
   const runtimeWarnings: string[] = [];
-  const batchId = newId();
   const run = db.transaction(() => {
     const { items, steps, warnings: planWarnings } = buildPlan(projectId, model, rawJson);
     const stepById = new Map(steps.map((s) => [s.id, s]));
@@ -652,7 +650,7 @@ export function applyDataManagerEvents(
     }
     runtimeWarnings.push(...planWarnings);
   });
-  runWithActor({ ...getActor(), source: 'import:data-manager-events', batch_id: batchId }, run);
+  const { batchId } = runWithImportBatch('data-manager-events', run);
 
   const finalPlan = buildPlan(projectId, model, rawJson);
   const warnings = Array.from(new Set([...finalPlan.warnings, ...runtimeWarnings]));

@@ -21,8 +21,7 @@ import { classifyEventType } from '../../domain/bloomreach';
 import { generateVariantName, type VariantCondition } from '../../domain/variants';
 import { ConflictError, PayloadChangedError } from '../errors';
 import { findEventByName, findPropertyByName, findMatchingVariant, canonicalizeFilter } from './bloomreachImportHelpers';
-import { getActor, runWithActor } from '../context/actor';
-import { newId } from '../db/util';
+import { runWithImportBatch } from '../context/actor';
 
 interface PlanStep {
   id: string;
@@ -339,7 +338,6 @@ export function applyExpirationSettings(
   const skipped: string[] = [];
 
   const db = getDb();
-  const batchId = newId();
   const run = db.transaction(() => {
     const { items, steps } = buildPlan(projectId, model);
     for (const item of items) {
@@ -350,7 +348,7 @@ export function applyExpirationSettings(
       if (selected.has(step.id)) step.run();
     }
   });
-  runWithActor({ ...getActor(), source: 'import:expiration-settings', batch_id: batchId }, run);
+  const { batchId } = runWithImportBatch('expiration-settings', run);
 
   const finalPlan = buildPlan(projectId, model);
   return { applied, skipped, warnings: finalPlan.warnings, batch_id: batchId };

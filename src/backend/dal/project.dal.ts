@@ -10,6 +10,7 @@ import { getClientOrThrow, type ClientRow } from './client.dal';
 import { validateExpirationJson } from './validators';
 import { STANDARD_EVENTS } from '../../domain/bloomreach';
 import * as ChangeLogDAL from './change-log.dal';
+import { payloadHash } from '../../domain/diff/hash';
 
 /** `fields` entries must be snake_case: lowercase letters/digits, single underscores, no leading digit. */
 const SNAKE_CASE_RE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
@@ -354,6 +355,36 @@ function normalizeStringListColumn(value: unknown, field: string): string[] {
   return result;
 }
 
+/**
+ * `change_log` snapshot for a `project` row (T-3-02 pre-QA fix round, WARNING 1): the raw
+ * `ProjectRow` is unusable as-is for a history diff -- `data_manager_events_json`/
+ * `data_manager_customers_json` (the whole verbatim Data Manager payload, D-35) run to hundreds of
+ * KB, so a Data Manager apply's `updateProject` call (the snapshot step) wrote a `diff_json` the
+ * same size as the fixture, twice (before and after), on *every* apply including a no-op re-apply
+ * where nothing else changed. Replaced here with a short content hash (`payloadHash`, the same
+ * stable hash `import/<format>/preview`'s `payload_hash` uses) per JSON blob, so a real change to
+ * the underlying Data Manager payload still shows as one small diff line
+ * (`data_manager_events_hash: <old> -> <new>`) instead of ballooning the row. `share_token` and
+ * `bloomreach_project_token` are dropped entirely (never diffed, defensively -- a token rotation
+ * should not put the token value itself in a history row anyone with History-page access can read).
+ */
+function buildProjectDiffSnapshot(row: ProjectRow): Record<string, unknown> {
+  const snapshot: Record<string, unknown> = { ...row };
+  delete snapshot.share_token;
+  delete snapshot.bloomreach_project_token;
+  delete snapshot.data_manager_events_json;
+  delete snapshot.data_manager_customers_json;
+  delete snapshot.bloomreach_mapping_meta_json;
+  snapshot.data_manager_events_hash = row.data_manager_events_json ? payloadHash(row.data_manager_events_json) : null;
+  snapshot.data_manager_customers_hash = row.data_manager_customers_json
+    ? payloadHash(row.data_manager_customers_json)
+    : null;
+  snapshot.bloomreach_mapping_meta_hash = row.bloomreach_mapping_meta_json
+    ? payloadHash(row.bloomreach_mapping_meta_json)
+    : null;
+  return snapshot;
+}
+
 export function updateProject(id: string, updates: UpdateProjectInput): ProjectRow {
   const before = getProjectOrThrow(id);
   const db = getDb();
@@ -446,8 +477,8 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
       entityId: id,
       entityLabel: after.name,
       action: 'update',
-      before: before as unknown as Record<string, unknown>,
-      after: after as unknown as Record<string, unknown>,
+      before: buildProjectDiffSnapshot(before),
+      after: buildProjectDiffSnapshot(after),
     });
   });
   run();

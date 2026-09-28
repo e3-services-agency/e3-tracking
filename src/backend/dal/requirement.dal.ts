@@ -587,24 +587,61 @@ export function getRequirementOrThrow(useCaseId: string, id: string): Requiremen
  * `note` is appended, not overwritten (`CASE WHEN ... ELSE note || ' | ' || ?`), so an existing note
  * survives; this and the three wrappers below run synchronously against whatever transaction the
  * caller is already inside (they take no `db.transaction` of their own).
+ *
+ * T-3-02 pre-QA fix round (reviewer WARNING 2): the affected rows are read *before* the UPDATE so
+ * a real `requirement/update` change_log row (parent = the row's own use case) can be written per
+ * row, `before` the pre-gap fields and `after` the post-gap ones -- previously this whole write path
+ * (called from `deleteEvent`/`deleteVariant`/`deleteProperty`/`detachPropertyFromEvent`) left no
+ * trace at all, so a use case's History never showed why one of its requirements became a `gap`.
  */
 function markRequirementsGap(
+  projectId: string,
   nullColumns: Array<'property_id' | 'event_id' | 'variant_id'>,
   whereSql: string,
   whereParams: unknown[],
   targetName: string
 ): void {
+  const db = getDb();
+  const affected = db
+    .prepare(`SELECT * FROM requirements WHERE ${whereSql}`)
+    .all(...whereParams) as RequirementRow[];
+  if (affected.length === 0) return;
+
   const now = nowIso();
   const note = `target removed: ${targetName}`;
   const setClause = nullColumns.map((c) => `${c} = NULL`).join(', ');
-  getDb()
-    .prepare(
-      `UPDATE requirements SET ${setClause}, status = 'gap',
-         note = CASE WHEN note IS NULL OR note = '' THEN ? ELSE note || ' | ' || ? END,
-         updated_at = ?
-       WHERE ${whereSql}`
-    )
-    .run(note, note, now, ...whereParams);
+  db.prepare(
+    `UPDATE requirements SET ${setClause}, status = 'gap',
+       note = CASE WHEN note IS NULL OR note = '' THEN ? ELSE note || ' | ' || ? END,
+       updated_at = ?
+     WHERE ${whereSql}`
+  ).run(note, note, now, ...whereParams);
+
+  for (const before of affected) {
+    const after: Record<string, unknown> = {
+      property_id: nullColumns.includes('property_id') ? null : before.property_id,
+      event_id: nullColumns.includes('event_id') ? null : before.event_id,
+      variant_id: nullColumns.includes('variant_id') ? null : before.variant_id,
+      status: 'gap',
+      note: before.note ? `${before.note} | ${note}` : note,
+    };
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'requirement',
+      entityId: before.id,
+      entityLabel: labelForTarget(before.target_kind, before.property_id, before.event_id, before.variant_id),
+      parentEntityId: before.use_case_id,
+      action: 'update',
+      before: {
+        property_id: before.property_id,
+        event_id: before.event_id,
+        variant_id: before.variant_id,
+        status: before.status,
+        note: before.note,
+      },
+      after,
+    });
+  }
 }
 
 /**
@@ -613,8 +650,8 @@ function markRequirementsGap(
  * one of the event's variants are a separate call to `markRequirementsGapForVariantRemoval` per
  * variant (the caller does this once per variant, before deleting the variants themselves).
  */
-export function markRequirementsGapForEventRemoval(eventId: string, eventName: string): void {
-  markRequirementsGap(['event_id'], 'event_id = ?', [eventId], eventName);
+export function markRequirementsGapForEventRemoval(projectId: string, eventId: string, eventName: string): void {
+  markRequirementsGap(projectId, ['event_id'], 'event_id = ?', [eventId], eventName);
 }
 
 /**
@@ -622,8 +659,8 @@ export function markRequirementsGapForEventRemoval(eventId: string, eventName: s
  * before the `DELETE FROM variants` itself: nulls `variant_id` on `target_kind =
  * 'variant'|'variant_property'` rows referencing this variant.
  */
-export function markRequirementsGapForVariantRemoval(variantId: string, variantName: string): void {
-  markRequirementsGap(['variant_id'], 'variant_id = ?', [variantId], variantName);
+export function markRequirementsGapForVariantRemoval(projectId: string, variantId: string, variantName: string): void {
+  markRequirementsGap(projectId, ['variant_id'], 'variant_id = ?', [variantId], variantName);
 }
 
 /**
@@ -632,8 +669,8 @@ export function markRequirementsGapForVariantRemoval(variantId: string, variantN
  * `variant_property` leftovers can still reference it): nulls `property_id` on every row referencing
  * this property, regardless of `target_kind`.
  */
-export function markRequirementsGapForPropertyRemoval(propertyId: string, propertyName: string): void {
-  markRequirementsGap(['property_id'], 'property_id = ?', [propertyId], propertyName);
+export function markRequirementsGapForPropertyRemoval(projectId: string, propertyId: string, propertyName: string): void {
+  markRequirementsGap(projectId, ['property_id'], 'property_id = ?', [propertyId], propertyName);
 }
 
 /**
@@ -642,8 +679,14 @@ export function markRequirementsGapForPropertyRemoval(propertyId: string, proper
  * their target — `event_property` rows for this exact event, and `variant_property` rows whose
  * `variant_id` belongs to this event and whose `property_id` is the one being detached.
  */
-export function markRequirementsGapForDetach(eventId: string, propertyId: string, propertyName: string): void {
+export function markRequirementsGapForDetach(
+  projectId: string,
+  eventId: string,
+  propertyId: string,
+  propertyName: string
+): void {
   markRequirementsGap(
+    projectId,
     ['property_id'],
     `property_id = ? AND (
        (target_kind = 'event_property' AND event_id = ?)

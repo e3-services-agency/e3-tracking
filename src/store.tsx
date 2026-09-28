@@ -1,6 +1,7 @@
 /**
  * UI-only state (D-18): the legacy in-memory data model (`mainData`, branches, `useActiveData`,
- * audit config, journeys) is removed. Every entity now lives in SQLite behind the API (D-12); this
+ * audit config, the old multi-step campaign flows feature) is removed. Every entity now lives in
+ * SQLite behind the API (D-12); this
  * store only tracks what genuinely belongs to the browser tab: the active project and whichever
  * item id a page wants pre-selected.
  */

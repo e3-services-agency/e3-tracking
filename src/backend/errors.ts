@@ -322,7 +322,7 @@ export class DuplicateObservationError extends ConflictError {
   }
 }
 
-/** Use when a resource is not found or does not belong to the workspace (404). */
+/** Use when a resource is not found or does not belong to the project (404). */
 export class NotFoundError extends Error {
   readonly code = 'NOT_FOUND';
   constructor(message: string, public readonly resource?: string) {

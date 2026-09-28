@@ -1,30 +1,15 @@
 /**
- * Phase 1 Core Data Foundation — strict schema types for DB/API.
- * Aligns with docs/DATA_SCHEMA_AND_ARCHITECTURE_PLAN.md.
- * Use for API DTOs, DB row types, and validation. No UI coupling.
+ * Legacy schema types still imported by the codegen/document/export services (T-3-08 dead-code
+ * sweep reduced this file to exactly the exports with a live importer, grep-proven: everything
+ * else in the original Phase 1 schema draft — the pre-D-15 multi-tenant scope row and its member
+ * role type, `NamingConvention`, `PropertyContext`/`PROPERTY_CONTEXTS`, `EventType`/`EVENT_TYPES`,
+ * `PropertyNameMapping*`, `PropertyRow`/`EventRow`/`SourceRow`/bundle rows, the catalog row/enum
+ * types — was replaced by the real DAL row types (`src/backend/dal/*.dal.ts`) and
+ * `src/domain/enums.ts` during phase 1 and had no remaining importer). New code should keep
+ * importing enums from `src/domain/enums.ts` directly (see the `domain-model` skill).
  */
 
-// ----- Enums (match DB) -----
-
-export type PropertyContext = 'event_property' | 'user_property' | 'system_property';
-
-export const PROPERTY_CONTEXTS: PropertyContext[] = [
-  'event_property',
-  'user_property',
-  'system_property',
-];
-
-// T-1-04 delta: PropertyDataType/PropertyDataFormat (incl. `money`) moved to the single enum
-// module `src/domain/enums.ts` (reviewer finding on T-1-01). Re-exported here for this legacy
-// schema file's own consumers; new code should import from `@/src/domain/enums` directly.
 import type { PropertyDataType, PropertyDataFormat } from '../domain/enums';
-import { PROPERTY_DATA_TYPES, PROPERTY_DATA_FORMATS } from '../domain/enums';
-export type { PropertyDataType, PropertyDataFormat };
-export { PROPERTY_DATA_TYPES, PROPERTY_DATA_FORMATS };
-
-export type EventType = 'track' | 'page' | 'identify';
-
-export const EVENT_TYPES: EventType[] = ['track', 'page', 'identify'];
 
 /** Codegen output-only event name overrides per method (canonical `events.name` unchanged). */
 export type CodegenEventNameOverrides = {
@@ -32,273 +17,6 @@ export type CodegenEventNameOverrides = {
   bloomreachSdk?: string | null;
   bloomreachApi?: string | null;
 };
-
-/** How a property relates to a catalog field: lookup key (event value joins to catalog) or mapped value (event value is the catalog field value). */
-export type PropertyMappingType = 'lookup_key' | 'mapped_value';
-
-// ----- Catalogs & Data Governance -----
-
-/** Catalog classification: Product, Variant (e.g. SKU), or General lookup table. */
-export type CatalogType = 'Product' | 'Variant' | 'General';
-
-export const CATALOG_TYPES: CatalogType[] = ['Product', 'Variant', 'General'];
-
-export type CatalogFieldDataType = 'string' | 'number' | 'boolean';
-
-export const CATALOG_FIELD_DATA_TYPES: CatalogFieldDataType[] = [
-  'string',
-  'number',
-  'boolean',
-];
-
-export type CatalogFieldFamily = 'system' | 'custom';
-
-export const CATALOG_FIELD_FAMILIES: CatalogFieldFamily[] = ['system', 'custom'];
-
-export type CatalogFieldItemLevel = 'parent' | 'variant' | 'general';
-
-export const CATALOG_FIELD_ITEM_LEVELS: CatalogFieldItemLevel[] = [
-  'parent',
-  'variant',
-  'general',
-];
-
-export type CatalogFieldSourceMappingType = 'json_field' | 'json_path' | 'alias';
-
-export const CATALOG_FIELD_SOURCE_MAPPING_TYPES: CatalogFieldSourceMappingType[] = [
-  'json_field',
-  'json_path',
-  'alias',
-];
-
-export interface CatalogFieldSourceMapping {
-  mapping_type: CatalogFieldSourceMappingType;
-  source_value: string;
-}
-
-export interface CatalogRow {
-  id: string;
-  workspace_id: string;
-  name: string;
-  description: string | null;
-  owner: string;
-  source_system: string;
-  sync_method: string;
-  update_frequency: string;
-  catalog_type: CatalogType;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CatalogFieldRow {
-  id: string;
-  catalog_id: string;
-  name: string;
-  description: string | null;
-  data_type: CatalogFieldDataType;
-  is_lookup_key: boolean;
-  field_family: CatalogFieldFamily;
-  item_level: CatalogFieldItemLevel;
-  source_mapping_json: CatalogFieldSourceMapping | null;
-  created_at: string;
-  updated_at: string;
-}
-
-// ----- Workspace audit rules (stored in workspace_settings.audit_rules_json) -----
-
-export type NamingConvention =
-  | 'snake_case'
-  | 'camelCase'
-  | 'PascalCase'
-  | 'Title Case'
-  | 'Sentence case';
-
-export interface WorkspaceAuditRules {
-  eventNaming: NamingConvention;
-  propertyNaming: NamingConvention;
-  forbiddenWords?: string[];
-  requireEventDescription?: boolean;
-  requirePropertyDescription?: boolean;
-  requireAuditPassForMerge?: boolean;
-}
-
-// ----- Core entities (all workspace-scoped; soft delete where noted) -----
-
-export type WorkspaceMemberRole = 'admin' | 'member' | 'viewer';
-
-export interface WorkspaceMemberRow {
-  workspace_id: string;
-  user_id: string;
-  role: WorkspaceMemberRole;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface WorkspaceRow {
-  id: string;
-  name: string;
-  /** URL-safe public key used in /w/<workspace_key>/... paths. */
-  workspace_key: string;
-  created_at: string; // ISO
-  updated_at: string;
-  deleted_at: string | null;
-}
-
-export interface WorkspaceSettingsRow {
-  workspace_id: string;
-  audit_rules_json: string; // JSON string of WorkspaceAuditRules
-  client_primary_color: string | null;
-  client_name: string | null;
-  client_logo_url: string | null;
-  /** Bloomreach Tracking API customer_ids key (default: "registered"). */
-  bloomreach_api_customer_id_key: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface SourceRow {
-  id: string;
-  workspace_id: string;
-  name: string;
-  color: string | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-}
-
-/** Workspace-scoped named bundle of properties (`property_bundle_items` junction). */
-export interface PropertyBundleRow {
-  id: string;
-  workspace_id: string;
-  name: string;
-  description: string | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-}
-
-export interface PropertyBundleItemRow {
-  bundle_id: string;
-  property_id: string;
-  created_at: string;
-}
-
-export interface PropertyRow {
-  id: string;
-  workspace_id: string;
-  context: PropertyContext;
-  name: string;
-  description: string | null;
-  category: string | null;
-  pii: boolean;
-  data_type: PropertyDataType;
-  data_formats: PropertyDataFormat[] | null;
-  value_schema_json: PropertyValueSchema | null;
-  /**
-   * When `data_type` is `object`: maps keys in `value_schema_json.properties` to existing
-   * workspace property ids (canonical registry). Used only for nested docs/export/codegen.
-   */
-  object_child_property_refs_json: Record<string, string> | null;
-  example_values_json: PropertyExampleValue[] | null;
-  name_mappings_json: PropertyNameMapping[] | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-  /** Optional catalog mapping: which catalog/field this property maps to. */
-  mapped_catalog_id: string | null;
-  mapped_catalog_field_id: string | null;
-  mapping_type: PropertyMappingType | null;
-  /**
-   * Bundle memberships for this property (API list/detail only; not a column on `properties`).
-   */
-  bundle_ids?: string[];
-}
-
-/** Payload for creating a property (DAL/API). id, workspace_id, timestamps set by DB or DAL. */
-export type CreatePropertyInput = Pick<
-  PropertyRow,
-  | 'context'
-  | 'name'
-  | 'description'
-  | 'category'
-  | 'pii'
-  | 'data_type'
-  | 'data_formats'
-  | 'value_schema_json'
-  | 'object_child_property_refs_json'
-  | 'example_values_json'
-  | 'name_mappings_json'
-  | 'mapped_catalog_id'
-  | 'mapped_catalog_field_id'
-  | 'mapping_type'
-> & {
-  /**
-   * Optional workspace source ids to link via property_sources after the property row exists.
-   * On create: omit or null or [] → no links. On PATCH: include `source_ids` to replace links; [] clears all.
-   * Not for event-scoped variants—only workspace sources validated against `sources.workspace_id`.
-   */
-  source_ids?: string[] | null;
-  /**
-   * After insert, server links `property_bundle_items` for this property (bundles must belong to workspace).
-   */
-  bundle_ids?: string[] | null;
-};
-
-export interface PropertySourceRow {
-  property_id: string;
-  source_id: string;
-  created_at: string;
-}
-
-export interface EventRow {
-  id: string;
-  workspace_id: string;
-  name: string;
-  description: string | null;
-  purpose: string | null;
-  event_type: EventType | null;
-  owner_team_id: string | null;
-  categories: string[] | null;
-  tags: string[] | null;
-  /**
-   * Canonical structured trigger entries for the event.
-   * Stored durably in the backend.
-   */
-  triggers: EventTriggerEntry[] | null;
-  /** Codegen snippet output names per method; does not change canonical `name`. */
-  codegen_event_name_overrides: CodegenEventNameOverrides | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-}
-
-export interface EventTriggerEntry {
-  title: string;
-  description: string;
-  image?: string | null;
-  source?: string | null;
-  order: number;
-}
-
-/** Payload for creating/updating an event (DAL/API). */
-export interface CreateEventInput {
-  name: string;
-  description?: string | null;
-  purpose?: string | null;
-  event_type?: EventType | null;
-  owner_team_id?: string | null;
-  categories?: string[] | null;
-  tags?: string[] | null;
-  triggers?: EventTriggerEntry[] | null;
-  source_ids?: string[] | null;
-  codegen_event_name_overrides?: CodegenEventNameOverrides | null;
-}
-
-export interface EventSourceRow {
-  event_id: string;
-  source_id: string;
-  created_at: string;
-}
 
 export interface PropertyValueSchemaNode {
   type: PropertyDataType;
@@ -330,7 +48,7 @@ export interface ObjectChildFieldSnapshot {
   property_value_schema_json?: PropertyValueSchema | null;
   property_object_child_property_refs_json?: Record<string, string> | null;
   object_child_snapshots_by_field?: Record<string, ObjectChildFieldSnapshot> | null;
-  /** Referenced property row was deleted or not in workspace. */
+  /** Referenced property row was deleted or not in the project. */
   missing?: boolean;
   /** Stopped recursion to avoid a cycle in object ref graph. */
   cycle_break?: boolean;
@@ -339,27 +57,5 @@ export interface ObjectChildFieldSnapshot {
 export interface PropertyExampleValue {
   value: unknown;
   label?: string;
-  notes?: string;
-}
-
-export type PropertyNameMappingRole =
-  | 'payload_key'
-  | 'source_field'
-  | 'lookup_key'
-  | 'mapped_value'
-  | 'alias';
-
-export const PROPERTY_NAME_MAPPING_ROLES: PropertyNameMappingRole[] = [
-  'payload_key',
-  'source_field',
-  'lookup_key',
-  'mapped_value',
-  'alias',
-];
-
-export interface PropertyNameMapping {
-  system: string;
-  name: string;
-  role: PropertyNameMappingRole;
   notes?: string;
 }

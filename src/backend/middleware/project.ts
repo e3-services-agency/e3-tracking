@@ -1,5 +1,6 @@
 /**
- * Project isolation middleware (D-15): replaces `requireWorkspace` / `x-workspace-id`.
+ * Project isolation middleware (D-15): replaces the pre-D-15 scope-isolation middleware and its
+ * request header.
  * Reads `:projectId` from the route path, verifies it is a non-deleted project, and sets
  * `req.projectId`. Membership: in local auth mode (D-13) the single local user is admin of
  * every project, so this only checks the project exists — a remote provider would add a

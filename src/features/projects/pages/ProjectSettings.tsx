@@ -1,5 +1,5 @@
 /**
- * Project settings (replaces WorkspaceSettings.tsx, D-15): name, client, the three Bloomreach
+ * Project settings (replaces the pre-D-15 scope settings page): name, client, the three Bloomreach
  * identifiers (D-27) and the project default expiration. Local auth mode has no roles to manage
  * (D-13), so there is no Members tab here.
  */

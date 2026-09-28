@@ -74,16 +74,14 @@ describe('getDb on :memory:', () => {
       expect(tables, `missing table ${table}`).toContain(table);
     }
 
-    // Removed-from-schema tables (D-17, D-18) must not exist.
+    // Removed-from-schema tables (D-17, D-18; the pre-D-15 rewrite dropped the old
+    // customer-lifecycle and multi-tenant-scope tables entirely) must not exist.
     for (const table of [
-      'journeys',
-      'journey_events',
       'qa_run_evidence',
       'qa_run_payloads',
       'event_variants',
       'event_property_definitions',
       'metrics',
-      'workspace_settings',
     ]) {
       expect(tables, `table ${table} should not exist`).not.toContain(table);
     }

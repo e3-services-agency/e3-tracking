@@ -36,7 +36,8 @@ export interface PropertyValueSchema {
 
 /**
  * Resolved nested field for a parent object property (docs/export/codegen). Children remain
- * canonical `PropertyRow` entities; this is a read-only snapshot for rendering.
+ * canonical property entities (`src/backend/dal/property.dal.ts`); this is a read-only snapshot
+ * for rendering.
  */
 export interface ObjectChildFieldSnapshot {
   property_id: string;

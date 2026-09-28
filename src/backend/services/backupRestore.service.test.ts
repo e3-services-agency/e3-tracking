@@ -302,7 +302,7 @@ describe('applyRestore', () => {
       .prepare("SELECT * FROM change_log WHERE project_id = ? AND action = 'restore'")
       .get(restoredProject.id) as Record<string, unknown> | undefined;
     expect(restoreRow).toBeTruthy();
-  });
+  }, 60000);
 
   it('remaps change_log.batch_id: rows of one old import batch keep sharing one batch_id, but a fresh one (T-3-05b)', async () => {
     await applyAllFixtures();

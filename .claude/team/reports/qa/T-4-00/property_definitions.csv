@@ -1,0 +1,400 @@
+﻿id,property_id,property_name,name,description,allowed_values_json,formats_json,example_values_json,using_events
+4f1f385bb82c6bf85ad49d905a8b0d44,005273d6-75c3-4fa6-af46-f2206b6710ff,At Risk Segment for tomorrow (Meta Retargeting),general,,[],[],[],
+2b4f9f351f55ed780e993df8abe6baa4,0177b916-6742-4f2d-97d9-bd7c78a9c786,page_url,general,,[],[],[],double_opt_in_study_interest
+dd67f0f47e0a5fac556a29d3667a3bf3,01b1bf13-f028-4724-bf32-7e775d5f0b83,is_referrer,general,,[],[],[],parcel_insert
+f1e24697ed7a67a708c60ace36bd8494,01f6a289-a91c-434e-9a33-3e3ee74fd727,deletion_requested,general,,[],[],[],
+0a64489c93dac33eb8a0c2cac2deccb2,0229d8a4-eabe-477d-bf18-132c594c0f60,passenger_city,general,,[],[],[],booking_b
+095b6abf4ee14685ebb85f1fbca89028,02384530-6229-4e08-a438-ad10918bfc69,property1,general,,[],[],[],survey_data
+0783a230955e6a436685486ff3954810,0239926d-6041-4a55-8613-c6d4bc51ed36,pool name,general,,[],[],[],voucher_notification
+a62fb842875bfbc8057225fdd14ba8b6,02ac894a-5bf2-4394-9cf5-06341baa5dc5,country,general,,[],[],[],double_opt_in_study_interest; store_visit
+839c3da5ed3e69f7d6a871b3dcbaed6a,04307acb-44d8-42f2-9e53-488c7bb80e93,qbr_subscribed_news_info,general,,[],[],[],qbr_metrics
+174aa95b2c8e3e4a9d7bda052f1f0ba7,04f6ff42-1ff4-495a-950d-16ee2ebf2a91,passenger_count_children,general,,[],[],[],booking_b
+e4c6dc3d974c1a6c8a4f26c0bce6cb52,0538c264-fd48-4225-9eb4-1e65f81b2811,seedlist_member,general,,[],[],[],
+a10f7995007ed134f0adb7e44d10c580,05e34f0a-a417-46eb-8cb8-2c8abc9fd588,type,general,,[],[],[],parcel_insert
+d89b2f0fa38f08ec39c887d236a2fb22,06af8a2b-da88-4abf-a8e7-455b37c56068,passenger_first_name,general,,[],[],[],booking_b
+993e5d4d2b95304992b73e91e97bf642,071d1df2-cd38-4634-b534-c74b28871455,has_sample_delivery_harpers_bazaar,general,,[],[],[],
+2638502ce07c8061371792fa840bb0f9,07baccfd-804a-435c-8108-33a87f2ffbd8,points_change,general,,[],[],[],loyalty_update
+3aba29771f25ceafe64cab9867a7a629,0932f694-147f-4152-b937-fc576befc5fb,language,general,,[],[],[],double_opt_in_study_interest
+7d504da352e9312c3f30191b81e55701,09dae586-fddf-4409-821a-a7e08fea04b7,flight_home_departure_date,general,,[],[],[],booking_b
+7ad6180c721dc6cc1a5b69da62c093e1,0b1ffb96-0812-43a6-8483-0106e96f09f6,booking_phase,general,,[],[],[],booking_b
+1e1809ad0fa344fb8336d5d1148a23c0,0b51e911-14c2-4dc2-b7ac-849720dc8c55,test_property,general,,[],[],[],initialize_event
+faf39f2a934da82c8ad0f0f3aba75d25,0c345541-c79b-4dfb-ab2e-5bb451d841ed,ticket_class,general,,[],[],[],ticket_registration
+871a89787d9f41c5e644cd190af38404,0c63908d-2e0b-4d3c-a678-2d7d87a92e0f,travel_type,general,,[],[],[],booking_b
+e27474f8103f117fc74ea92b7b818338,0c7c90ec-49eb-4f71-9ed9-79c5e7ce452e,shipping_type,general,,[],[],[],purchase; shipment
+b7e7fcdcb3e3171b062e5a23b705c8e5,0cdb258d-0afc-4802-99d8-30d4cc695661,only_homebound_usage,general,,[],[],[],booking_b
+e575910d7861042b4356865266ce1931,0d1cb4bf-dec1-489c-af6d-551912a54637,gclid,general,,[],[],[],double_opt_in_study_interest
+57a553c05ceabd8a2492dbb8676528a9,0e6e4c9e-d993-444a-a144-6f66bffed2ad,final_points,general,,[],[],[],loyalty_update
+56e6f740356167dff49663f38b84d7e8,0ede8856-256d-4ac0-8e42-fd7dc2c7fb04,4thorder4_unique_voucher,general,,[],[],[],
+fcfbbae53d25a044e970be2e0fffd52c,0f77634d-6d03-4a9f-ba27-4900290e9aab,group_customer_number,general,,[],[],[],booking_b
+b990f29a02212b28da348f7f9a48b019,0f851f5a-1545-4e8e-b3f2-c204a24a906c,flight_home_flight_series,general,,[],[],[],booking_b
+f23864908215e43bfb3f46ddd18299db,1084d445-2c1f-4b8c-820e-c2388e5d7d0e,is_sample,general,,[],[],[],purchase
+8d8b4e90e029ea7fd80ffaf17796a699,1156675c-4e7e-4d75-822e-1c873b679377,phone_data_capture,general,,[],[],[],
+3465d8234bc6ce708a7d0de75ee17d8d,11794847-d889-415a-8742-105ef7c2536e,Churn_risk,general,,[],[],[],
+b127c49d7b022813de3f93cd26930d5c,11948f7c-9878-4c25-b6a3-375d2e73eda2,timestamp_tracked,general,,[],[],[],qbr_metrics
+49ae6fe027bfc1aaa4a660b387c38f5c,11a151a2-50e8-4c47-b770-50f9e756fbe4,payment_method,general,,[],[],[],parcel_insert; purchase
+642fcbaeb98e8f7dfa29423121b80c64,11c57cf6-3225-4355-808c-bcc8a8d17bb4,share_source,general,,[],[],[],registered_as_referee
+c5da612571e13e19621b365d1abe6983,12aed658-2caa-4bec-ae53-f1a2bb339251,duration,general,,[],[],[],booking_b; user_active
+2ff4c533ca8c7da7fcd1c774f4359403,135ec9de-27c4-47cc-8cc2-80ac49e6b696,company_name,general,updated by DWH,[],[],[],
+b81c136d5d3c2ea56ebd573697059f27,136f9296-e639-43f0-80c6-47dcd9feb9b2,extras,general,,[],[],[],booking_b
+b973f8640abae6da21bef27fd496e9f2,13f32882-9fde-4a90-806f-e70646fe9829,sponsoring_years,general,"""2022""",[],[],"[{""value"":""\""2023\""]""}]",
+f6b8e6ca4e8ddd30d36bda39d3bf996f,14b1db63-ad0b-4609-8ccb-653a3720408b,sales_unit,general,,[],[],[],booking_b
+60dcde14173829cf0192affb1709956d,1586ff32-8647-4308-8393-cdd36353da95,answers,general,,[],[],[],survey_all
+a32c0e0ea01c35e097086890a1e5a1db,1608fced-5479-4187-b3f0-e7121d955e64,sdk,general,,[],[],[],
+0e7c90a107a5709462b356450f50757b,174ce949-f487-4980-815e-e0a50514ef6c,qbr_one_time_shoppers,general,,[],[],[],qbr_metrics
+9029d8c22106acae1985d33839d0c8fd,177a0b42-ae32-40b3-833f-43fabe301008,device,general,,[],[],[],initialize_event; newsletter_signup; purchase; registration; survey_all; survey_all_test; trigger_push; user_active
+224792a03b02c17d7bfb8b65d35627cc,183117d8-2d63-4660-8fca-715b19b21ce4,category,general,,[],[],[],Opt_in_proof
+ab2fa4e0dd00312cd9b82d3ab76c9812,190bf14f-2b7d-40ed-9d0b-8b7699087886,num_pages,general,,[],[],[],paper_catalogue
+0fbeeb0ba9ad400001df3433e72acd0a,19ea95a5-a80b-4782-a8ce-387c64453639,currency_symbol,general,,[],[],[],received_referee_reward; received_referrer_reward
+36e94a4e24db104245e711a7de0da29c,1b4fbe1d-d051-4d7d-ab3b-27f4b6794d62,purchased_extra_hotel_activities,general,,[],[],[],booking_b
+b7c1a5401f4df9e5bc29fe8d403ab6f7,1bf60dcb-193e-4bf8-8e25-c9e828c370cd,group_number,general,,[],[],[],booking_b
+5b45af5914c0159a7595dd9f036b2a90,1c1e718e-9115-4f92-a706-3e34e39c1767,parcel_inserts_inactive_customer,general,,[],[],[],parcel_insert
+63af76eaa3857393e40868c411b6a0d5,1d4da360-ac0d-428b-b1aa-4633c084f597,return_reason,general,,[],[],[],return
+263c125e78278a6719a83c76e60f78a0,1d9bf230-a46e-4c89-a6fe-617c7757f651,address,general,,[],[],[],
+9d94b56ff191fc5dfa462ca63e75bd9a,1fca34dc-570b-431a-b234-12f648682869,qbr_two_time_shoppers,general,,[],[],[],qbr_metrics
+0937f39f6cf816f9b2e8de48638cc18b,201dbffc-bce9-4d03-a4e5-8369b8ca0014,survey_answers_json,general,,[],[],[],double_opt_in_study_interest
+21049a49733336696fa13b8dc46268af,21380092-e6fe-4f3d-be5f-ac4f289577f2,Bidding Strategy Split Flag,general,,[],[],[],
+3295652e68bef8139bac0de17ef02639,229a3e14-12e0-46c2-b402-2ade465fe808,is_agent,general,,[],[],[],booking_b
+3538a0f79dba41bbd5b1ad525e5ad846,22a4eaf8-23f7-4bad-b8c0-dfd2fc5f0663,acq_level_3,general,,[],[],[],double_opt_in_study_interest
+2fcab83a9d1e34233f6f229c82ece14e,22c75420-1e93-44f8-89b6-48da871dc7f2,retailer_has_received_payment,general,,[],[],[],booking_b
+b483cecb5b4f6ea94431a969bfe135f1,22dd2cb2-b464-4382-b366-efa9cf224732,Collagen Meta Retargeting Split Flag,general,,[],[],[],
+f45e0336560a9672f4b48ea8d8641c20,234e952f-d873-40c8-b946-4be491447746,At Risk 50:50 split (Meta Retargeting),general,,[],[],[],
+b5ed6198579feb0094565842d0cd0100,2383487a-14da-47d5-acea-37e311e1258d,city,general,,[],[],[],store_visit
+977d8b6f8d83bec451a22388d1c7b190,24df409f-d3b7-4c90-82e2-f0dfdc178ffc,shipping_company,general,,[],[],[],purchase
+fceabe0b3f8cfe542b1ed581418f725c,254ef96b-ced1-454b-a674-769219ac387e,purchase_status,general,,"[{""value"":""success"",""standard_event"":""purchase""}]",[],[],parcel_insert; purchase; purchase_item; return; shipment
+e4afd320a823c098f289a5bd02b50b57,26b7a66e-63bb-4b65-9aba-8306392887e5,consent_taxfree,general,,[],[],[],booking_b
+f85d69c0fb9f2998440fec95c24bbe79,27cbe493-295f-49c7-af36-76b6b9350921,id,general,,[],[],[],booking_b
+1f07779e0931a82550ac668db3a6ae00,28c58c6a-946e-40bc-9d0e-cf0c4a4e5043,qbr_three_time+_shoppers,general,,[],[],[],qbr_metrics
+4ed9f0bac5b135bdb83b5125e0b3aa0a,2a62cc12-ea64-4426-9dbc-75cf606cd8bd,voucher_assign_date,general,,[],[],[],
+a2efdb5efd4115820c8155c4fac32d6c,2a6d1889-d801-4eb4-976d-701c4668183b,browser,general,,[],[],[],initialize_event; newsletter_signup; purchase; registration; survey_all; survey_all_test; trigger_push; user_active
+523bc5cba566f0e28f6d2443e182e534,2aaec6d4-05a2-4b76-b2c2-9b04afe6098c,customer_group_code,general,updated by DWH,[],[],[],
+c57474996447125603986d5066828627,2b7e4022-3083-4e8a-811f-9ab6caf9bdcc,flight_out_class_code,general,,[],[],[],booking_b
+cf84e6b7441d00ef738a9dd82ed197ff,2b7fb1a8-eb01-45e8-b17d-685999d00726,customer_group_id,general,updated by DWH,[],[],[],
+4d6c50037703d9169a8c723675e6c29c,2b9f48ce-cde2-4c1d-8f88-6f49d8836a38,send_parental_cert,general,,[],[],[],booking_b
+14b69bc1918c368a3dedc4fc428919a9,2c272df8-43ba-44a6-a51b-ac8b52a0a6fc,booked_by,general,,[],[],[],booking_b
+01e9714a2e8b47c7900a574ad4d56473,2c5e48a3-ba3c-4eed-ad10-5cb270ae6773,flight_out_aircraft_type,general,,[],[],[],booking_b
+11c6e2fa57af4e380bad32c329633eb4,2c72c4a1-58a2-422c-a464-4bf2bba6bd5c,inserted_items,general,,[],[],[],parcel_insert
+bba57918402ea855a8c3235e8d01b2e6,2cdec06e-2fb2-4d1b-8871-5deeb4016e81,survey_id,general,,[],[],[],double_opt_in_study_interest; survey_all; survey_all_test
+83413a6d81ff1c49838f63c0bfbba17f,2e376033-1d2f-493b-8fd6-b4f01b328b06,survey_brand,general,,[],[],[],double_opt_in_study_interest
+fe05cbbb88ccdf1efc5d3a468e2200be,2e41b77b-c607-46ce-88b3-3af1bcb17870,category_1_alltime,general,updated by DWH,[],"[""uri""]",[],
+2e1c0032cec426f803b0a9f7a1ffe024,2e606c68-3569-4faf-a220-628ef18a01ab,external_score,general,"""High""",[],[],"[{""value"":""\""A+\""""}]",
+7cf6ebb7b83869f68d0eafc260e7fcf3,2e64be09-6f57-42b2-a16e-0561bcefec72,flight_home_flight_number,general,,[],[],[],booking_b
+0bd6d463a2846c9f22e2edf65e3166d7,2ed59e46-a062-4e09-9972-a34b48b9496a,browser_push_notification,general,,[],[],[],
+da11a6c4b775adc35da9f13fc51c967b,2ef664e7-6f9d-4bac-8d5e-ef4eb1fddf8a,app_version,general,,[],[],[],
+93a59007206ee45f4a8140457276f527,2f075ada-f474-4c09-9912-3168b7282917,referee_first_name,general,,[],[],[],received_referrer_reward
+f51efce609f007e76a32f6533abddbd6,2f0f7804-ddda-4edd-9ef4-145856443914,fulfilled_by,general,,[],[],[],received_referee_reward; received_referrer_reward; registered_as_referee
+0649b442f3a0134c457cee9ae9f888db,2f6551d0-2cd4-470b-90be-c851425999a4,shipping_city,general,,[],[],[],shipment
+6e3474beac1f5c427519b1927747f5a5,3269ba0b-41f5-4b7f-89ee-435df4253bd7,flight_out_carrier_code,general,,[],[],[],booking_b
+3a354e9efe5de711289066864e18957a,33fa4a12-2a1a-439b-b96e-bfe7caeb7ec9,parcel_inserts_low_value,general,,[],[],[],parcel_insert
+dfde5fa074a2f43563a5936b5b4e9e29,344e496b-fba7-4b2a-93fb-0c7fe1db673c,acq_level_1,general,,[],[],[],double_opt_in_study_interest
+5add6d51181de561e7ad72c6134f0db8,3523338d-9361-48ef-b4f3-fcae3a1470f0,phone,general,,[],[],[],booking_b
+aac61161863c25eb01c52a46a2aa9e57,35414559-ee3b-46ef-a938-2093b2b72710,purchased_extra_car,general,,[],[],[],booking_b
+b9a620be9c7cc8bb49ad715d873afea9,3627682f-8d0a-4fb6-87e3-f393bcfa3467,Back_in_Stock__unique_10Voucher,general,,[],[],[],
+51ebe99fcb6553eb03f18c064fd04562,36de8f7f-8b04-404e-ac4c-abe5122600b6,parent_referrer_url,general,,[],[],[],double_opt_in_study_interest
+d08e51d10eb09571f675762def6e0276,385d2dc5-61db-4721-b215-18bf88516ffd,has_purchased_sports,general,,[],[],[],parcel_insert
+3740b90132a1ac8e95393364385be170,38b4121e-92a5-48f3-9de4-100e72886e2e,Property,general,,[],[],[],
+79a45930149551639c1bee2d6f424c8a,391206dd-3c89-4a36-8988-6f410e7d2db4,qbr_revenue_emails_last_click,general,,[],[],[],qbr_metrics
+fce1ba25ff82bea265769d0d51fd6d87,3a1672e5-3bc7-47d9-8b2d-df4590c59da2,City,general,,[],[],[],
+d6cc3827654ee3f64b77f7e2777a9ead,3a6c524d-c60c-414b-b9e5-ef16bda9c95f,firstname,general,,[],[],[],received_referee_reward; received_referrer_reward; registered_as_referee; registered_as_referrer
+11dd9dd470bad8561d2be17200f3025f,3acbcc4a-c428-4382-8726-0ab98c32316e,survey_name,general,,[],[],[],double_opt_in_study_interest; survey_all; survey_all_test
+de74b272b1c84d1f22b3e2841e0b0d8c,3b8dcf46-c54c-4289-9e56-c8303537fc49,market_unit,general,,[],[],[],booking_b
+278d833eff975f7c6d9fe9f9f76b383b,3c4fe7cf-fc88-48a9-ba0f-806496c870f6,shipping_postal_code,general,,[],[],[],shipment
+d24fb9595b4e5f1614b07e641af976ff,3cdd191d-47ca-4104-9516-958de16daa3e,passenger_count_adults,general,,[],[],[],booking_b
+51aa943077b0c7bdb60fa7762d2261dc,3d7160b1-b3bd-44c1-9743-1312f0879e36,total,general,,[],[],[],voucher_notification
+3228bf73a31f1b600c7efe681d1ab20b,3e762d6a-12c6-4ae6-bc63-99928b52537c,flight_home_class_code,general,,[],[],[],booking_b
+99d02f9e100c2ac7d079df0c0813c623,3eac06a3-5a68-4042-b442-46e50a2f34e9,utm_campaign,general,,[],[],[],double_opt_in_study_interest
+e81df3a33cdb9ce578ee5c436aa347e0,3f2625ae-60c0-4563-8709-9ef7fc8bb8ce,device_type,general,,[],[],[],
+1516f05cd477c9f95a14b142ed652940,40852b18-a430-4531-a88f-d019dd0bd846,device_id,general,,[],[],[],installation; test
+d8a81422fff24b59ad44eea10302d599,40bf9e25-ee3f-42e8-aebb-9c6b8a7de625,is_flyer_order,general,,[],[],[],flyer
+ebabe2de797f9160cf57b5d005adff28,41bdc53a-017b-4666-b8ba-52ea83b6a6b4,birthdate,general,,[],"[""iso8601_date""]",[],
+490a92858fe891b919658c5b5bfe841a,42781200-0cd7-467a-80df-3b6b010dc39f,share_link,general,,[],[],[],registered_as_referrer
+0af92ef1a1cf976cde219b9ee01b38c3,42e2cdb4-0536-4134-aed4-fb04e172ea47,BIS Weblayer Product_id,general,,[],[],[],
+28bd796375527f01573b2e6d5dfa4e12,42f77a1a-8028-444e-9909-4138ae7fffa8,first_name,general,,[],[],[],double_opt_in_study_interest; registration; survey_all; ticket_order; ticket_registration
+2cb6d0760e407fed87f6a4c3e7f1c8c9,42ffea51-d327-45dd-8013-17ea0897b7e7,campaign_tags,general,updated by DWH,[],"[""iso8601_date""]",[],
+5381fcd55548b4030e6a33bb3608f7de,446ba8ab-62d5-493c-8ad5-b2b70d4b42e3,flight_home_departure_station,general,,[],[],[],booking_b
+11fadf1268cf23947cb041099c6cabb9,44c167c2-d8f2-4edc-9847-62727f436335,optilyz_campaign_name,general,,[],[],[],optilyz_campaign
+39e1fe045db4f6aeee82f7b7e758e327,4646b278-01e3-4cf9-84d5-c2e900e1c9e0,flight_out_flight_series,general,,[],[],[],booking_b
+0b2a80507ed7b8ab9feb99a35f157356,46c127b6-62dd-4a91-9491-9c5c3c0c26d0,reward_type,general,,[],[],[],received_referee_reward; received_referrer_reward; registered_as_referee
+9c7553500fabd0115e0afe367ab064a9,47666598-f97a-4f0a-b6aa-78544fffb82a,Currency Code,general,,[],[],[],
+5c5a6bebef66682c67a2c812ce26d25e,47d74c9f-5dd9-4c15-bffd-63d62a13d00f,purchased_extra_transfer,general,,[],[],[],booking_b
+7b000d67ef9a9eba7080ea9ea8b8a084,495be50c-0ad6-4c84-b623-350a27ddc322,event_name,general,,[],[],[],ticket_order; ticket_registration
+dd7e6f2473cb2bc4a28941d812e73321,499778d6-5d7e-4b00-94ac-94343a9b48af,2ndorderDE_unique_voucher,general,,[],[],[],
+a4e1607c7227387731b81fec486329df,49e5fc6e-7648-498d-9697-eabdd0944ddc,is_group,general,,[],[],[],booking_b
+98855784fd28a23edc2faf540db6989d,4aa4c0bc-b1e6-4cb7-9ef7-6bd329a707f2,media_audiences_memberships,general,"""retargeting_q3""",[],[],[],
+988704ddc260df359d7be92fae654c1d,4ac90b56-f30c-484d-bd3c-6c9c03fa8bf8,referee_reward,general,,[],[],[],received_referee_reward; received_referrer_reward; registered_as_referee; registered_as_referrer
+fc5a3dc0e44fa62a9f4837a91562dc4b,4ae273e0-9799-4464-9ded-9c200782a01c,is_invoice,general,,[],[],[],booking_b
+c7db95c1845b97bf600e3a4ef74539e5,4cc4646e-52b0-49dc-9f38-662d78f35b14,quantity,general,,[],[],[],purchase_item
+cd4bc5a04b6a7b105030e95e643d0725,4f6feb5d-fd38-409e-9b05-76eb10faa2d8,crm_tag,general,,[],[],[],
+a7a481b63048e6e5a1821f544bb0e30d,4fa6e53f-d7d9-4311-823a-94acc31995aa,passenger_gender,general,,[],[],[],booking_b
+e8851985be232c6dae0f38a499b97a77,503483d3-1d06-4d8b-9da6-6a3e30b668e3,average_rating_from_customer,general,,[],[],[],
+83225661c3c0d15af19dda564ad1c630,511542bc-1f17-4346-97ad-317aef76ebab,city,general,updated by DWH,[],"[""long_text""]",[],
+a509043bb441be8ae8a8ec2fa06e1d87,51a20e4f-b5da-4bd6-83de-3ce8305be2e7,barcode,general,,[],[],[],ticket_order; ticket_registration
+a9742e573a5f2da240219dbaae173260,51e47f7c-01e7-432b-9d70-09f3eaf3c10f,flight_home_aircraft_type,general,,[],[],[],booking_b
+7677d079ae0456e101db7eda7f4e7803,52353c3d-e908-445f-b7c9-f17fcf558be3,opt_in_method,general,,[],[],[],double_opt_in_study_interest
+056ae7fde885f1955bfd7e6358b699f0,524cf749-0d87-4e2c-8e7f-8fd182474bdf,shipment_status,general,,[],[],[],shipment
+39d043045972db6101b16423b10734b1,5350265f-2710-4f38-80f6-d1ad30cf1d00,campaign_context,general,,[],[],[],double_opt_in_study_interest
+4a0a39491e9bf5d24303848e6ef6c9c6,54d98c83-7489-408e-8d64-51c1e1563dc6,coupon_code,general,,[],[],[],received_referee_reward; received_referrer_reward
+f637f815a10ba8d6ffcdc3d67ae679da,554d37be-6af4-4aeb-b21a-35ba8bcd56eb,crosssell_flag,general,,[],[],[],
+044f3bae2023ca37e49d062ba5d5f256,55f72035-0c5b-43ea-9255-add62fb1260c,fbclid,general,,[],[],[],double_opt_in_study_interest
+782b705120943980c527b14a19863986,5666f346-dc2c-4f93-9521-5b8cb22aac6d,stock_level,general,,[],[],[],view_item
+945bd289c5ab388a1ff17c801422a0c9,5817d948-1282-42e3-a321-2ac6d12d973a,utm_source,general,,[],[],[],double_opt_in_study_interest
+9860b9ab75c40d77e203235597dd032c,591919dd-148d-4ae0-b369-e5122cd6be20,test,general,,[],[],[],test
+707369b71c5b191bda645729440cf3e8,5984dfb0-f0c2-4d6b-94e0-e4e53f1e7ca4,offer_terms_url,general,,[],[],[],received_referee_reward; received_referrer_reward
+fdcb5517752f53393ae44bf0bd8bd44d,5a7e9448-6dc0-4c1d-8f7a-e061f9bee84d,hotels,general,,[],[],[],booking_b
+413c6cee30d6ea9f21b6611cfb331ebe,5ac1e47d-761b-4d1e-a835-e4b28caefc8d,is_women_health_interest,general,,[],[],[],parcel_insert
+4228c3fac7f3d21939dc03292e89dfc2,5bf4a09d-9cd6-47e3-899c-a23183b71eb2,USA: count(customer),general,,[],[],[],monitoring
+647bfbe973c1897bbd9a6ff2b95fb74e,5c91eaa6-60bb-4a57-b684-094856e5ebb3,customer,general,,[],[],[],newsletter_signup
+8aff091f95e4cfdf65e02155c7e74541,5cc0df83-2774-4b26-9552-d7eb9641d681,email_opt_in,general,,[],[],[],registration
+c5804e96671147bf601f0509a9d5ce19,5df5d9ab-0fbc-456a-896f-70cbd4a8be35,os_name,general,,[],[],[],installation
+4d809dd1f94053e997e1dc2ce66f3e54,5e28c513-9f1a-420f-aac7-33c183629f46,surname,general,,[],[],[],received_referee_reward; received_referrer_reward; registered_as_referee; registered_as_referrer
+04a6fea4ff28850e9205e912f5c8c1db,5e47f252-fb3d-416b-a6ce-5deb83e5088c,Germany: count(customer),general,,[],[],[],monitoring
+5277afdb2e6bd6db0f747569779e477e,5fc27487-72ba-42f6-a0c8-674f22e31187,optilyz_unique_voucher,general,,[],[],[],optilyz_campaign
+f3a29b81207b1f051478daeeee44bf2f,60130f4d-68bf-4e60-9d05-2b0a526f5cf0,purchase_date,general,,[],[],[],shipment
+8714b346188f3fd9f29e662bcc8ddf00,6039bc54-ae52-4e47-9a8a-25af524839df,10_euro_geschenkgutschein,general,Healthy Friday Offer,[],[],[],
+0b4d25278ef40f9b89c5c018b0cab390,61b55086-da7f-4f34-96b7-92c3bc0876bf,purchased_extra,general,,[],[],[],booking_b
+61bb785cf5f6906f39d4e8420e58e2b9,61cd81bc-bcba-45bb-9b65-f3dce1d30347,consent_version,general,,[],[],[],double_opt_in_study_interest
+4439b7952d24daaf1381619277eb127b,628d7363-9450-42f3-b028-df3f2f05a700,UK: count(customer),general,,[],[],[],monitoring
+873a79228c50c9e4ddc3e7518f85df9f,62a961fe-ea21-4bdd-987c-f7232250cff2,coupon_expiry,general,,[],[],[],received_referee_reward; received_referrer_reward
+5bf2293b11dafe64f825a7da51b8987d,63cdfe40-4c35-45c6-82fc-7a2bebb27249,flight_out_arrival_station,general,,[],[],[],booking_b
+e1be7babc680a2d3740824579e50c663,63ec3a04-eb8c-4295-bbe5-a04445d83d22,referee_last_name,general,,[],[],[],received_referrer_reward
+a3a33a3913842663567f358a776cfb62,63f4faec-5cc5-423b-9012-4946c3526294,is_staff,general,,[],[],[],booking_b
+d975adab7774f588793a6ee8ba7d0bce,64455a66-97ce-4c50-ba83-3a06b51ba35f,source,general,,[],[],[],Opt_in_proof; double_opt_in_study_interest; purchase; received_referee_reward; received_referrer_reward; registered_as_referee; registered_as_referrer; trigger_push
+6f4e0f3f07197fb0f1ef9ebe766c8484,652f5f59-ae57-46f5-9b17-9f2e4f56936a,end_client_timestamp,general,,[],[],[],user_active
+98c2e232fe49aae1a1e691bfbc0285c9,655a2b17-70d5-4cd1-bf79-2b1a473be60e,updated at,general,,[],[],[],Opt_in_proof
+a42a680b08362e2f665137f34863037e,67dc2a53-667b-4a6d-a756-594333df15d4,customer_id,general,,[],[],[],monitoring
+91db8a39743e03a2e77392f697d4f9ec,6849b6d4-be5b-4fa0-a848-6a9e03e4af2f,app_version,general,,[],[],[],installation
+e15c15c2280052cb786cb46b9ec96755,68821e1d-b14b-4bed-bc97-be1cdc63d320,local_currency,general,,[],[],[],purchase
+8e7977a17a775b9d153e491f62919372,68cde774-69cd-4161-b816-c7a6099aa1af,no_parcel_insert_180d,general,,[],[],[],parcel_insert
+39dfb1bf120250cd732470ea55c42c8a,6912e2c4-8c24-4093-bd43-1dc8cccaf734,optilyz_campaign_status,general,,[],[],[],optilyz_campaign
+8a70b27c7f75e9939f6fbb0e809574b1,69e768a7-2c91-4368-8c5b-7f5465f1e4a7,device_model,general,,[],[],[],installation
+aed6910c5d6cbf7cf8cd8bbe7c6af016,6a970804-ca38-4173-809d-6012c571f38d,offer_call_to_action_copy,general,,[],[],[],received_referee_reward; received_referrer_reward; registered_as_referee; registered_as_referrer
+1f2c6e7d5361ddbea106b7e223cb3faa,6aa60d70-90ef-4137-b673-4aed24a51b81,booking_segment,general,,[],[],[],booking_b
+8a755b7c0b4de4f69e1175cfe1047fec,6abc2ef2-94bb-471e-bdb3-695312b5ae24,bday_unique_voucher,general,will be used in the automations itself,[],[],[],
+137ae879813f4089aa3253933f6346df,6b7be656-047a-4305-8ff5-b756c063f239,qbr_revenue_web_layer,general,,[],[],[],qbr_metrics
+5386c985aa3162b0aa915a0ef8e2a445,6d404c8f-2388-4cfb-8dd1-e9ed8697ee37,locale_code,general,,[],[],[],received_referee_reward; received_referrer_reward; registered_as_referee; registered_as_referrer
+7a996aafa96fb2d38a93ae289fa604a2,6d97b972-141b-44c3-b8c6-fc9284b21629,design_variant,general,,[],[],[],
+a288e69d548f236286fa58c65a50e5de,6e5c8338-cca1-433b-a314-102b1cab72d1,size,general,,[],[],[],cart_update; purchase_item
+493cdd54ce883a13bbfbd2082b459a4a,6eb60b44-f19f-4820-bcbd-5e0108fade8e,2ndorder_infl_unique_voucher,general,,[],[],[],
+740ba39b17c6322ac1d582ecea0be433,6ed2877d-d485-458c-b929-15e29b0eacf1,language_tag,general,,[],[],[],double_opt_in_study_interest
+24a6ae78a5445c46d1b453af2a0459ae,6ef09a04-06f1-45bd-87be-acf088e7dee2,source_risk_level,general,,[],[],[],double_opt_in_study_interest
+33169b380337325b47e8c09c9733c161,6fec8d4c-86be-4023-8f2d-f13ad5beabcb,os_name,general,,[],[],[],
+6692e9e1ec1035e26b1aa12dd335ef9c,707cf9f8-ec40-4262-b44a-92ddf71445fd,customer_id,general,,[],[],[],
+12ec0dc77abb4ba696e0c057d8247e3f,70e8784b-9c7d-4bab-bf12-e4b619795bba,total_price_local_currency,general,,[],[],[],purchase
+d4d934ddcdcd0d25ac602c0d3d0e2a77,719bed7d-9278-4d9d-85b3-eb1ea4b22d6f,has_sample_delivery,general,,[],[],[],
+b8714f9814749bd5b5056602521bb0c6,72731166-f200-49ff-928d-2eb82747993e,inserted_item,general,,[],[],[],parcel_insert
+4a96b3aa7438973c91ebd14d14efaff0,72959374-e7bb-4b23-a933-cb91f2ebb641,is_new,general,,[],[],[],purchase_item
+2bc91a4956b438dd0b70a9f600e6e63d,72e9b146-8949-4867-b0c0-12a1049d2c8e,reward_amount,general,,[],[],[],received_referee_reward; received_referrer_reward; registered_as_referee
+179196c1c951d3bccbbf03e0215eacd7,73cb6556-d871-400d-b868-f39825d7a246,booking_number,general,,[],[],[],booking_b
+0e04a3115b413432cfb1129a68ea45e6,73da4e25-788a-41a7-8e47-d4a22f605b21,feedback,general,,[],[],[],inbound_call; outbound_call
+b57ae57f9d5dca7c05905e6b03eda715,73ffec07-f823-4b2d-8f47-d0e1f71d2f5d,purchase_id,general,,[],[],[],flyer; parcel_insert; purchase; purchase_item; sample; shipment
+702ee3e8434c4c5e2b7f9b31cc6b7e14,7425fefd-bc40-472b-8219-2ab59f26b19a,flight_out_carrier_description,general,,[],[],[],booking_b
+c87f2a1ef6d1479290ac00bdb8b11f82,747957bb-2f14-4941-bd7d-506b27ea1f8d,passenger_adress,general,,[],[],[],booking_b
+50e66dde8b4aa7c58cffd1b99cb458f9,755ad95a-ac82-4696-8c64-969a14520823,qbr_conversion_newsletter_subscribers,general,,[],[],[],qbr_metrics
+e22f116d5fd8badfa1934b9b561a01e9,764d1439-fd39-4009-ae36-f1dca8929c26,membership_id,general,,[],[],[],booking_b
+7a36c733d6116444b4ed51331d766786,7780e1ef-21b3-42f1-8f02-7681612d5649,control_group,general,used to define who receives which type of communication,[],[],"[{""value"":""cg_1_no, cg_2_sunday, cg_3_special, cg_4_autolanes""}]",
+44e93dccaea70dfa7310b7fd2c736b22,77eafa8d-ed0d-4310-8930-180bfe97257e,is_owner,general,,[],[],[],booking_b
+fdd33584a63563873e0ed05aab37283f,785c44e3-2ecf-46fe-9041-b090f908ab94,sku_id,general,,[],[],[],back_in_stock_list; sample
+2e4a20c1d442a30a15eba6c88c754e05,78b32059-e1de-475e-a1be-8bef604527ac,flyer_name,general,,[],[],[],flyer
+95d0e9d28cd686c4eadb5f92066db18b,79189a0d-90a8-43e8-8571-4a687be243b5,qbr_subscribed,general,,[],[],[],qbr_metrics
+b8483320548214b2beeb6c8bb20feeb6,792f973e-47a7-4662-bb1c-27bca2c2dd48,price_deposit_pay_date,general,,[],[],[],booking_b
+1e378ea201928b9d756310fef0cea775,79631a7e-fcd0-4b23-8620-2095f35bc8a2,qbr_revenue_newsletters,general,,[],[],[],qbr_metrics
+134ff93af08cb50e9e407af7261a7230,796eea8c-37da-4819-a878-69318828ee4a,retailer,general,,[],[],[],purchase
+cca4519129daeb94eed73be825aef592,79c23bc4-76fe-41fc-b978-a01be3522377,CO_unique_code_referee,general,,[],[],[],
+bbb2cb2c3f658d24a6407f53b5fafbf5,7af190aa-580f-4fa5-920c-fdfc277d9b1a,qbr_unsubscribed_news_info,general,,[],[],[],qbr_metrics
+1fc6e95b8e2a9c33e6cd974a18abfb24,7b1109ec-073f-492e-a859-a0b1802e46e0,4thorder13_unique_voucher,general,,[],[],[],
+ee2c2fbe8f2edcc705aeb447a9fc3df2,7b552d5e-318f-4a9d-8380-9ebb6f3ebc20,incentive_type,general,,[],[],[],double_opt_in_study_interest
+96a02b19bfa47001ddf507f2a2e018fb,7bde1ba0-9475-4f94-a72d-7b23ac7c3c3c,customer_exists_yoshien,general,,[],[],[],
+9c366164fd8bf9d156ac01a38017bedb,7c7a7cb5-f019-4d79-87b3-b56b3b9b97c4,platform,general,,[],[],[],installation
+7347970c5af88caccac9428d8ec812d1,7cbc7190-b8d0-4bb1-851d-5c39e5126f23,travel_agent,general,,[],[],[],booking_b
+2abb25c846d100f597ea6d4fd4f6044d,7d17c9dc-e2a1-4e89-b804-d65742646d0d,purchased_extra_excursions,general,,[],[],[],booking_b
+193bbf6fc74517ea100eb96232cc529b,7d18a4f6-9469-40cd-86c0-337e2948efda,optilyz_campaign_validation_result,general,,[],[],[],optilyz_campaign
+933a329a9cd4ba830255ba08b13a7830,7e3d7557-c4e2-4e28-a2ed-7a8f0727c0ea,length,general,,[],[],[],inbound_call; outbound_call
+a105e0b5eac313d72179e99c3927938d,7fc3437f-bdb4-4281-8a37-f1b53f3464a3,monitoring,general,"""monitored""",[],[],[],
+67206d09d674f7ad0f191cdb95e57d73,80586276-8a41-4bfa-a996-6d1a41a49910,DE Bidding Strategy Split Flag,general,,[],[],[],
+b11f8410a893943dacc70f0ece363b75,810fdab4-fe31-45a7-a56c-16a2bb54cd42,qbr_active_news,general,,[],[],[],qbr_metrics
+74f822afd24f03dd9f16f7756a79d441,8145de8f-6300-4b7e-a372-7ce1ad3f7ba9,optilyz_campaign_variant,general,,[],[],[],optilyz_campaign
+92c4f19cb4eb362b93b9afc3e08eee00,814b7c7c-4575-4bba-b7b8-510db63d847f,flight_home_carrier_description,general,,[],[],[],booking_b
+252db2b2ef051b9ae9a9c4906e76c885,827ecb76-ae4d-4556-926e-546b5eab1862,purchased_extra_seating,general,,[],[],[],booking_b
+48dfeecaeea0f1e4c821032c89ac6c63,84d95274-6c4d-461e-9e9e-0086916ae4db,store_id,general,,[],[],[],back_in_stock_list; double_opt_in_study_interest; parcel_insert
+e833ec5c71cbccfcbc113715cf20e87a,85aed5a7-dd15-45a9-a1be-6d4c79bbb8bf,use_case,general,,[],[],[],parcel_insert
+607e2757845d79d5125c08ef4598d3cb,8808202a-ea72-4e44-800f-7b7a520af4ab,passenger_birth_date,general,,[],[],[],booking_b
+84db2bde48dfd2d2730dfd06d68542b3,88763f9d-42c6-4d56-ae18-e1af73234fe5,DM_2ndOrder_automated_received,general,,[],[],[],
+fddc183661f87bfdc538f2d2261e2454,88bacf01-b7d2-41a4-886f-65a88a216226,qbr_inactive,general,,[],[],[],qbr_metrics
+d8ac628eefd66f3c27989491d231f83e,89974686-0ca2-40f4-a77c-8d8967ba09bc,test_voucher,general,,[],[],[],
+411832ce756cc4d248a8d05b2a469df3,8a26bc96-bd01-455f-8803-4839dea7cd77,testing_boolean_2,general,,[],[],[],
+d765143d9994a83c0f9404af36dd7831,8adb25bb-2fdf-4f85-a811-df3ce9a7e758,master_split,general,"""Control""",[],[],"[{""value"":""\""Treatment\""""}]",
+41e63911a592f73bba5861efc1d32aec,8bc8a78a-07d4-4f84-b9af-7b355e9d3c14,price_final_pay_date,general,,[],[],[],booking_b
+6995921e4d5e21ce892cd20161ed7308,8caae62c-6ac4-4378-bcca-1e05e14c4cc0,country,general,updated by DWH,[],[],[],
+fafeb760f850a2bd1f0ee0883732b38c,8cb556e6-61ad-4fc1-9091-b815e1edd422,location,general,,[],[],[],initialize_event; newsletter_signup; purchase; registration; survey_all; survey_all_test; trigger_push; user_active
+626aa48aa1b5d6d0218e8b61927de438,8d8a771e-1d02-46cf-a23c-e1acdbed1a77,qbr_CLTV,general,,[],[],[],qbr_metrics
+d80e256de3524f2d1346bb1e0f112013,8e17bd60-3645-498c-b109-056e144d067d,flight_home_country_description,general,,[],[],[],booking_b
+c398b8e6bb3428583abb3a008a8074b2,8f23ed2f-72f3-4944-82aa-200d214d5141,passenger_count_infants,general,,[],[],[],booking_b
+3c5085c80f211a40de47b930637946b1,8f83ff05-eeac-42b0-94da-187041e3ab57,address_data_capture,general,"""profile_update""",[],[],[],
+1775c70d62b48b2dab81eefcf72a2e1b,8ff73458-0b66-4ec0-a100-1b7ddf446c60,Testing Property,general,,[],[],[],
+484432e241087ca40fa995089ebba89f,9063b6d7-6c18-4b78-bd98-00cdccefb5c9,acq_level_4,general,,[],[],[],double_opt_in_study_interest
+b085a1639c5e524148088ec7ceb9608f,91fb0f86-05b1-4a01-be54-1c806999a21c,qbr_inactive_database_news_info,general,,[],[],[],qbr_metrics
+949813ff8bc6aa061e471c9f72a4fea2,92010e50-a4e6-40eb-94e7-60c4a72e391b,email_data_capture,general,,[],[],[],
+4c7871b1120775d27ddf75e28653bad1,93a8b888-3050-4b9c-ab32-64b33fdc49a5,sdk,general,,[],[],[],installation
+a3b890b6aa1aef263edbd832ea1636c5,93b7e3ed-aef5-44d8-873a-79a0c7df8448,AT/FR/IT Bidding Strategy Split Flag,general,,[],[],[],
+19214895acd9d6f6cdf61f16a80f8251,9474e992-1790-4faa-9ef1-03bb43696806,voucher_code,general,,[],[],[],purchase
+2b3b4e381e9e8e664f270f79180bd661,94a6868a-7f1b-4321-9ad0-006241cbedf8,address_suffix,general,updated by DWH,[],[],[],
+840e47ef1808f47145b3503ebfa96708,94be0be4-c63a-4d01-8484-7d7d413dbef0,test_list,general,,[],[],[],
+7a5ab8e6044f1c1f120d4a86bc4384e7,95c2cc1e-d0ac-439e-82e4-583e208071cf,price_component_descriptions,general,,[],[],[],booking_b
+95917f5e67a9005e528c4e38cfbad6bc,969dde85-ed27-4ba8-9efe-300831c4a104,item_ids,general,,[],[],[],parcel_insert
+fac2a438f2e114d68aac7e487defc682,97bdce09-dde2-45a6-a8fc-2f0a56e50587,order_value,general,,[],[],[],parcel_insert
+c35f8bd13ee1ebf036eb242b63bc8b9b,98948e17-cb1f-4247-972c-6958718eac78,postcode_data_capture,general,,[],[],[],
+c61f780a22ecaf865852b3e994b6094b,98a91579-fd88-4ae3-8512-c641a58b2755,category_level_1,general,,[],[],[],purchase_item; view_category; view_item
+2cdcfc8ed87a83ff6b847b4eb9890cb7,98b56e46-2a21-4210-9001-f1e96b233c0c,email,general,,[],[],[],booking_b; double_opt_in_study_interest; newsletter_signup; parcel_insert; received_referee_reward; received_referrer_reward; registered_as_referee; registered_as_referrer; registration; ticket_order; ticket_registration
+94ba8891b511a222552fcf95092f67dd,99440657-5946-429a-931a-f1bac1833176,now_client_timestamp,general,,[],[],[],user_active
+0f64bc7a419e546d637cf33517a7aadc,99eda501-f38d-414f-ab1a-8d7de555cfeb,last_name,general,"""Smith""",[],[],[],
+63db1e0b643bff37e0e69a126b171415,9a16abaf-2f44-4595-a4d0-0768f48cf052,4thorder10_unique_voucher,general,,[],[],[],
+8405ba6896df1cce0f5a862c748913fa,9a1837cc-e6d0-485e-aa6e-4fbeb9ba87dc,passenger_postal_code,general,,[],[],[],booking_b
+c17e20d709f8629f0e11e7bc53019a3b,9a82d841-cd28-461e-9631-73d89a29e882,category_name,general,,[],[],[],view_category
+3424214291a10a10a9b70765c43ff4a3,9cd43551-2139-4a39-9e3d-e523c2d405b8,browser_push_notification_vapid_key,general,,[],[],[],
+58cb2bb5151590b28efff97f62b278d6,9d968c03-b8e1-4c4a-ba66-c8b769cbf9ab,qbr_conversion_news_info_subscribers,general,,[],[],[],qbr_metrics
+afde9613c3dab42a38e72286e30230c4,9dc25550-9061-4743-89df-79d00e37357d,qbr_revenue_automated_emails,general,,[],[],[],qbr_metrics
+45a584026765a8daf0484867db6cb5d2,9e9f1413-2edc-483a-9386-31680bf6fad5,device_type,general,,[],[],[],installation
+1499243daa3de68a14221087bde80f6c,a0449944-387d-4923-9c0d-bce9f6f8d87f,campaign_name,general,,[],[],[],
+2755fee560af462369367a6916094481,a209932b-9978-42bd-b90b-9539fd810398,title,general,,[],[],[],cart_update; purchase_item; return; view_item
+befc0d48c7175967318857d23283abef,a64b0443-b2f9-47bf-adf9-d95ea07f9bd5,first_name_data_capture,general,,[],[],[],
+674ef6a0af40739111d0dc9581ab190c,a732e61f-0bbd-4870-8ba1-5fae176471ba,is_gift,general,,[],[],[],purchase
+a3d6985c1d3c62a4ec4c1241460d8dc3,a739cc42-6b05-439b-98e4-bbf33f51b4d1,total_price,general,,[],"[""money""]",[],cart_update; checkout; purchase
+613259f02d5707edef3e77b06434f08b,a9450ea1-78b1-4d68-a6ed-ef49fc53d846,all_preferences,general,,[],[],[],
+d09e2a5ca6c27a9614b34303755abd82,a96e074a-2053-4ed0-82f2-c335bdf6d8d4,call_to_action_url,general,,[],[],[],received_referee_reward; received_referrer_reward; received_reward_next_order
+6212d61084cc5c460a5a89863a25c4e3,a9d9965c-1dbe-40b1-83ca-af74bb89758c,referrer_reward,general,,[],[],[],received_referee_reward; received_referrer_reward; registered_as_referee; registered_as_referrer
+b7e4c3fccbc9f8a87895ce6087af81f4,aa42254e-2ea2-4b69-a4fc-591efce0fc42,purchase_source_type,general,,[],[],[],purchase; purchase_item
+7f1b43a157dc157b38f7231677f09924,aab850d2-2a67-4f22-8fd2-64aeecc3e34e,ChurnRisk_unique_voucher,general,,[],[],[],
+046bd544f15edc64d47d85acebbb6d6a,abc7c795-d858-4b0b-9b99-248c7622e882,product_list,general,,[],[],[],cart_update; checkout; purchase
+8b01e4c1d5cba866ae44265cdf428ad5,acaae8a6-4b69-478e-b82e-761f0c462a14,qbr_ucr_automated_emails,general,,[],[],[],qbr_metrics
+61b85afbd92eab7c7259e1c299a2e480,ad3f435c-e4b8-4639-bcd2-50e7e639aed6,call_reason,general,,[],[],[],inbound_call; outbound_call
+71f0034a4f50c520686aa9041dbdded4,ad54ddab-dc3d-40ed-a351-9a620b4cae9a,offer_subject_copy,general,,[],[],[],received_referee_reward; received_referrer_reward; registered_as_referee; registered_as_referrer
+a52e90d400a1636d1e61f4dddc96b660,ae3776bc-a6ea-477e-b300-af866f583a37,device_model,general,,[],[],[],
+d32184dbca62083a92e65f1f20843ac0,aee71fad-b80f-468e-945c-77bcc5aee222,CHF Currency Flag,general,,[],[],[],
+43d672d2ac5bf2074f29c1777dacd73e,b0e73f9e-e44c-4da3-8270-10e9dff98e5a,at_bday_unique_voucher,general,,[],[],[],
+2e025a287842e785209cfee94111d004,b2e59c21-185b-46c9-9ca0-e6611739d7ef,message,general,,[],[],[],Opt_in_proof; double_opt_in_study_interest
+3b93d40598d7ee7686e6232dff17baf0,b3a6b36d-f617-4c3d-84e5-0af051d91ba5,os,general,,[],[],[],initialize_event; newsletter_signup; purchase; registration; survey_all; survey_all_test; trigger_push; user_active
+94c6940cd3f7c15b320abd9094bfa822,b52a906e-1991-4b6a-b17c-ed52e1659c0c,available,general,,[],[],[],voucher_notification
+5161734dd26064054568064f8115c08c,b538876e-c3e7-41d3-bfc4-e2254ac10880,login_state,general,,[],[],[],double_opt_in_study_interest
+ab7648047d817a7fb1f5cb9bea1986d0,b5df94bf-9758-44c5-ab85-6c9ee4f91c9a,region,general,,[],[],[],purchase
+0b76ed569c207c6c4e8369f778bdfbf3,b5ea73d6-1acc-41f9-b025-965411bb9bc1,CodeDuration,general,,[],[],[],
+a9c29f450816a061540d8a8036caba76,b7bf9d6a-04bd-4542-852b-ed6f7d51dfff,qbr_active_database_news_info,general,,[],[],[],qbr_metrics
+cc05999bc41d0ec8d76c6312118df850,bb31eaf7-5b02-4d84-86ff-a048e6a2849d,application_id,general,,[],[],[],installation; test
+548123750247b773e0f9d74afd8d95f4,bbba0ea4-0fbd-40a9-b522-f8436aa10050,has_voucher,general,,[],[],[],purchase
+073c450db14d8b5a5f2fc3012f6acb8e,bd8695ec-a1a8-47f4-a1dd-75f94dfec3a2,product_ids,general,,[],[],[],cart_update; checkout; purchase
+8d8473df3c65100067b667fe88971094,bdb935d6-a860-4691-8d51-0221f8c55e7b,city_data_capture,general,,[],[],[],
+80ec04fd994e02e2b527024ac6379f11,be0210de-adeb-4539-b07d-bebc43b1ee4a,only_outbound_usage,general,,[],[],[],booking_b
+55a4e3686be7513683821674d82d9136,bea003cb-f254-4e51-941f-49456be74f26,delivery_date,general,,[],[],[],shipment
+ff6bbb005cc0c6a02eb416edf61f0a16,c0b48b75-ddff-4180-b701-4e762df1ac80,last_name,general,,[],[],[],double_opt_in_study_interest; registration; ticket_order; ticket_registration
+0ec90648e4745fab465017f0cd1c2cb8,c13fc5b0-b1df-46b1-9590-ed8dbdfbfa43,iframe_url,general,,[],[],[],double_opt_in_study_interest
+003980075caf8a509a5400033dd80f91,c18ffe2a-0027-4e84-8530-d936fcf20d6a,last_name_data_capture,general,,[],[],[],
+d2ae60547a74636f394c0c43d37fedb4,c1ce87e0-829a-4bd1-894e-d9af72b2d6ca,action,general,,"[{""value"":""add"",""standard_event"":""add_to_cart""}]",[],[],back_in_stock_list; cart_update; double_opt_in_study_interest; loyalty_update
+85714c66-5f18-4a5a-94a7-4dbac503361d,c1ce87e0-829a-4bd1-894e-d9af72b2d6ca,action,consent action,Consent decision,"[{""value"":""accept""},{""value"":""reject""}]",[],[],consent
+6b2c5e98d18fc9f323bb4bf54ed5f9dd,c260d40c-d6e1-42b2-b8be-5ed448a0a431,sdk_version,general,,[],[],[],
+fe5dff5abc5491a938eb6f7ebc642831,c3bc3652-1c1d-4cff-b8e0-20a2e0464f14,price_deposit,general,,[],[],[],booking_b
+eec184ea4a808ae844551c87981ea81c,c3e51d3e-fd0e-4c31-97e3-45ca1c99da95,identification_type,general,,[],[],[],Opt_in_proof
+3367802efd74f933d68ab44b61cf5cbf,c407ae03-edff-4ea3-92be-7b5589e7318e,product_id,general,,[],[],[],back_in_stock_list; cart_update; purchase_item; return; view_item
+6976564cd0bdeace7b7fb8a9ec064d38,c49a8fcf-7705-426f-b2ff-eaf1fdaeba16,Cart_Abandonment_Voucher,general,,[],[],[],
+8cc6f0c6d21b87e48fa3490960641620,c54a76f6-5eb0-4022-9298-3e256e5525fe,sdk_version,general,,[],[],[],installation
+957aa106fdfb20587e67441fb6e4e910,c59301a2-7823-4ea8-96e2-81da8d933af2,flight_home_carrier_code,general,,[],[],[],booking_b
+7ea6c87be8c0368a0bf70a3df172013a,c59e7a85-4316-4caa-a409-0c40abcfd9c0,Braintree Transaction Source,general,,[],[],[],
+023003c1ca556964b99a63dc36b6945f,c60c6192-eb8c-4dcf-a12d-b033026372e9,shipping_country,general,,[],[],[],parcel_insert; purchase; shipment
+efbbc92b4697fa8faab9488f1856dfca,c63cc0c4-807d-48c9-94a6-079fcc62f86f,category_level_2,general,,[],[],[],purchase_item; view_category; view_item
+bc496c9011a8c541daa5645840b7869e,c7e7fffe-bfcc-4c97-a9b1-3667f4d15717,event_end,general,,[],[],[],ticket_registration
+3e2748758d3b1320ae8380e83b0419d4,c8889daf-fc55-4572-832f-63604e0f6cdf,campaign_name,general,,[],[],[],double_opt_in_study_interest; received_referee_reward; received_referrer_reward; registered_as_referee; registered_as_referrer
+5ab700a06d75f798c425aba4e80389b2,c9003541-d879-49db-b675-425e5f610109,ab_test_variant,general,,[],[],[],parcel_insert
+6897113495a73272c8ead9d9912c78cb,c99a01ba-4b47-4d24-92aa-e847ba2b9172,sample_delivery,general,,[],[],[],
+5269cc24db87d6d761ebbeecd67b7999,ca67d0b6-b5c0-4917-81f5-78ae48838458,store,general,,[],[],[],store_visit
+1c2438744bde759d0cc9806235c2844e,cb998304-cd1e-4edc-883a-411ea1a7cf65,campaign_codes,general,,[],[],[],booking_b
+03591e30cb067895b8239c2e4e8a1d79,cbb1cee2-fd8c-405e-9265-ce45049db053,sample_name,general,,[],[],[],sample
+44396d7ca2f1a0dadc91a9fa8cd76c8d,cca36caa-5762-47e8-9b2e-b36be5c3b08f,categories_string,general,,[],[],[],parcel_insert
+dde5fc03f8a19dd3eeee8da1185dae79,cd7cd8e1-385f-40c9-a3c2-8fbdaf127dbe,order_count,general,,[],[],[],parcel_insert
+2db3b1b6092b915ed6c435927151a13a,cdf53765-a6c2-47b0-bd01-36c1f793c5e4,flight_out_departure_date,general,,[],[],[],booking_b
+573a765561a696ed8291fabfdf8d83b3,ce614cec-2ffb-412d-8efb-8d63e556de2f,agent,general,,[],[],[],inbound_call; outbound_call
+a86d7d4e015eabb366ffc56feb8c0fbe,d1cdfda3-2b37-431a-a231-7639d7331c50,language,general,"""fr-FR""",[],[],"[{""value"":""\""es\""""}]",
+1eaaffdc6b177a39ddddc76d973f9029,d29cb321-ce04-4821-9fab-b9dd8f6b3cd3,category_2_alltime,general,updated by DWH,[],[],[],
+31e9ab63ba90145615e36c4c56669f2d,d308c985-4e34-4d17-a7e0-bbb80fc820e2,stop_correspondence,general,,[],[],[],booking_b
+b0955a6e96a52c26a2d65f960c5a8c2d,d375a109-c694-4f44-a539-ff8c4ecd6190,tags,general,"""Loyal""",[],[],"[{""value"":""\""2023_Attendee\""]""}]",
+70d032842d7d2022de6df633695e60f0,d3ac25fc-b794-438b-8d58-88224bc54dba,first_name,general,"""John""",[],[],[],
+27fe44f0061f2486d9844db707d8b166,d48d61b3-05c5-40ec-99c4-452e07f6475d,CodeDuration_Date,general,,[],"[""iso8601_date""]",[],
+9914a4861ce3cade2f9cde8ced738831,d4d47244-b336-4d20-96d2-227f425726db,referrer_last_name,general,,[],[],[],received_referee_reward
+825a8e23a377e13f0e8d8b5fdd5ac0a7,d52b71c1-5729-4070-883d-f32a6a05007a,shipping_date,general,,[],[],[],shipment
+ec38e7ad9811b03ade286e35d7b9048f,d52c2777-f972-47ef-a6cb-14fb805b41d3,DM_digital_reminder,general,,[],[],[],
+e39717ada4278bd29124d7f71c138846,d559ccb9-ce8d-4354-84d2-34ba3186b0f8,event_start,general,,[],[],[],ticket_registration
+8d7f58cedac272e9fcc3bb2d27fd0df1,d60c9809-4eba-4631-a1d0-25c28f49e2fc,total_quantity,general,,[],[],[],cart_update; purchase
+dc838a7cdc5b8960743b0906b0feb5f0,d624227d-3022-405a-b4e6-020f860c5cdd,flight_out_country_description,general,,[],[],[],booking_b
+1264b6d62c2e0de6a452b46c4c41b47d,d65aec02-abb8-4706-9ab2-47e2a0dedadb,experiment_name,general,,[],[],[],received_referee_reward; received_referrer_reward; registered_as_referee; registered_as_referrer
+39c5f97aa5d896630fb8137c8bb2b400,d6bdf718-ed7e-4958-8774-111883974576,dashboard_link,general,,[],[],[],registered_as_referrer
+5cf5629784fe2eed28da28c63f1661bd,d79aa5cb-5639-42d6-860c-a326eec99653,utm_medium,general,,[],[],[],double_opt_in_study_interest
+90bd24f7ba570f169554678cc948aa29,d7fcaaee-7fde-4f27-a183-a60190480ae3,start_client_timestamp,general,,[],[],[],user_active
+5afe641c028ec90987e3b41edec1f9eb,d86103f4-9499-4e0c-9238-2a125d08e36c,qbr_ucr_web_layer,general,,[],[],[],qbr_metrics
+81c042787d922b3dd5c4164a7177b84f,d8b37c4c-e56e-4575-9564-91ae5dcd0397,testing_boolean_3,general,"""1""",[],[],"[{""value"":""\""yes\""""}]",
+d504c0731bc5d83a9a12d28a395f3832,d949ac08-f7e2-44a9-a219-ed8bdbf2d23c,price_currency,general,,[],[],[],booking_b
+737fc77986cb2b05ace358eec93e3dcd,da0f1464-ac52-4525-a730-a2cd99e09697,voucher,general,"""SUMMER-SALE-X9Y""",[],[],[],
+bf41b8832abb2555083837f57acf0c64,dabe283b-df40-4b7b-be5f-f064efaf7696,purchase_source_name,general,,[],[],[],purchase
+69e95d920fe47873c082b52dfef5a031,db5c34f0-db69-4e97-adc6-e3028bf15d89,consent_marketing,general,,[],[],[],booking_b
+56656ffda49b0b55ebad97fd647e6a85,dba297e4-12b6-49a7-b2fe-8465a189fff8,is_therapist,general,,[],[],[],parcel_insert
+b466bb471e2a41e18b16aafb7e5e21c5,dd218983-dfde-49df-87af-3a3c1788b84a,booking_date,general,,[],[],[],booking_b
+dab9b8e6a8edcd924a56d30513c6a8fb,dd530319-53b1-4cb9-ab35-84d05d92bb3f,monitoring_string,general,,[],[],[],
+5f25284890a5ba7da7465a0a866aba62,dd89857e-463c-43a2-bc5f-b935473ba98e,consent_list,general,,[],[],[],double_opt_in_study_interest
+a7462ea433c270e58fcc1f88b43c40c4,ddbb30d6-a9aa-4a46-afa2-271996fddab5,CO_unique_code_referrer,general,,[],[],[],
+9a00a0cafdddedfe83eaac2bf404f324,ddfae959-523c-4a05-82a6-7a69d75ec1ec,booked_days_before_departure,general,,[],[],[],booking_b
+5d2aaba58ede23f01a36748b154f043c,de1097d7-af8d-441a-b5c7-5c9fc0a2accf,purchased_extra_meals_flight,general,,[],[],[],booking_b
+9f5fbb9d4dee87192d0f2da03ac7fdfd,ded3c459-8fcc-4855-9e3a-26e9dde09d74,email,general,,[],[],[],
+6652dbf1d3c20365b0a4a650c963cd42,df805144-5667-4e57-a07a-fea032ccd7e8,qbr_unsubscribed,general,,[],[],[],qbr_metrics
+57607f816cdbeaa6631fe4bffed1ac00,e0880999-b301-4d77-a591-af26b06c2db3,aov,general,,[],[],[],parcel_insert
+937d63936e95733d605859cdb534f08e,e159897f-f145-4ebe-85c6-2c1b5e9be939,testing_boolean_4,general,,[],[],[],
+f6e6dceaeb0b2245ccc0bfea520ed511,e1e56679-53a2-4d3a-9f4b-aa93beb11ad8,product_title,general,,[],[],[],back_in_stock_list
+10fcd77c3e59d614470aa7dcc9a8a439,e21d124d-a6e7-44a6-a594-3bd3c5752a8e,subscription_source,general,,[],[],[],double_opt_in_study_interest
+7ebcf9227fe18dde7b51fd0e004f0609,e25057ea-4ae0-4cc4-937a-bc20ed547880,flight_out_departure_station,general,,[],[],[],booking_b
+1b757d3f67115d0e9fb9c6b7c7c52e1a,e273f6da-4b20-40d2-bddb-d37a9b1ad9c1,DM_Collagen_Received,general,,[],[],[],
+1a145de0cb3ffa21c13622b6aab80bc3,e2cc7564-f67f-4079-8c33-16863686b649,brand,general,,[],[],[],cart_update; purchase_item; view_item
+95fe024349f919cea49100f7cdcca6e4,e3125ffa-1630-4a50-9526-8c1df746f84d,order_id,general,,[],[],[],ticket_order; ticket_registration
+b8af927f6d19129db529aa776d5196c6,e32a5f73-0271-4639-8eab-7b808c225dcd,price,general,,[],"[""money""]",[],purchase_item; return; view_item
+ea92a9c04f2a5a95fd6a5ce8019d6cb0,e339e36e-b2cc-47ad-9329-337d85e46aea,is_combination,general,,[],[],[],booking_b
+7bee10fc8b2067a2629a23c3664fb41a,e41d3562-850c-438b-a8b0-9c038c66839a,purchase_reason,general,,[],[],[],purchase
+c12eeccd68dd9943d7599c8c90c6cc5e,e4324195-7c03-4c8f-83ae-ed24b6c3cc43,passengers,general,,[],[],[],booking_b
+9222b64e7b8b00f15c0093e32c57f53c,e4693724-b8ad-468c-bc3f-f373da1bef1a,os_version,general,,[],[],[],installation
+d469d47be5beb50f6937a6f8a6773587,e47da949-e26c-431e-abc0-c4ad51163686,price_components,general,,[],[],[],booking_b
+7d2bfcadfe8501fd59c61a731ccae2d5,e49bf449-c87f-41b9-b92b-78a67c8d7b6f,offer_name,general,,[],[],[],received_referee_reward; received_referrer_reward; registered_as_referee; registered_as_referrer
+b086cb472914b9e4120d0d5bcb0d750a,e59b4594-174a-406b-9872-fac0a8564fd2,gender,general,"""Male""",[],[],[],
+caa8d0255a85c45fff835a6616f0c928,e59fe6df-bda5-486c-9489-132fe3260221,status,general,,[],[],[],booking_b; loyalty_update; paper_catalogue; ticket_order
+dfb6eb1ac2f541637c2df35044791924,e67c8f02-6396-47e7-a2ce-6dc8e49c7aa5,flight_out_country_code,general,,[],[],[],booking_b
+4c4e0bc836f59bc5881b4bea37790e86,e6d60fea-4958-4337-ae20-e510e5323555,flight_home_arrival_station,general,,[],[],[],booking_b
+fd7cdd59661345ede106bd5f72cbc7c0,e78f53f2-0f91-4903-932c-ffcc711e40bf,At Risk Segment for Monday (Updated on Saturday),general,,[],[],[],
+cfcec6beb60ce80fc13e69ebf7065d2d,e7af6e80-fbde-45d1-beed-f2704601c927,flight_home_country_code,general,,[],[],[],booking_b
+97942040cc4200ed168f747f0ea42600,e7edd1d3-2dc6-4f32-afc6-02dcf7de6ae2,passenger_last_name,general,,[],[],[],booking_b
+6ca5d0cf70252b0d861be862d199d487,e7f747f1-a5e8-4f2b-ae1c-141ba29d62f1,postcode,general,"""10001""",[],[],[],
+65ecef6778575dd830e5c7123ba8fc68,e9293ae7-f3dc-4d22-a4e9-24fbaf7fdc55,price_total,general,,[],[],[],booking_b
+fe837b19b71a47df7bc62dc54725a8d2,ea3f2a68-c304-44d1-b827-a596f8137c2f,offer_type,general,,[],[],[],received_referee_reward; received_referrer_reward; registered_as_referee; registered_as_referrer
+f03c31841f51b04a27fd5fc4f5f18c49,ea40b2d6-48a9-4d7f-b172-2b3f214d6188,referrer_first_name,general,,[],[],[],received_referee_reward
+d70c5994eef8ecc0b20b459734ebc3b5,ea9b31eb-447f-43ea-9e10-06ebdd86b816,customer_segment,general,,[],[],[],registered_as_referrer
+b6ba9568abfd31acce0dd963bb2617c7,eb8c5656-e890-441b-abfa-f4ee8a5f979d,qbr_ucr_newsletters,general,,[],[],[],qbr_metrics
+c3ce207a35ee6c19c17845d3fb7777c7,eb9ca573-0172-4824-bef4-1fcf7e207d27,phone,general,,[],[],[],
+0fab57a0d6816f87e2394445fbbbe3c5,ec799a37-8655-408d-94c7-da120c75d66f,acq_level_2,general,,[],[],[],double_opt_in_study_interest
+72120f31fe23bcdc9a4a10bd21ac0b13,ecd42de1-ab6d-44ad-bc81-8d07d5a97063,managed_endpoint_version,general,,[],[],[],parcel_insert
+152ce48efba5675efecf94fa6a2a30c2,ece55a19-bab0-41af-9281-8b70b883500c,booking_phase_name,general,,[],[],[],booking_b
+15657c497f6628d4dc6eaa310a972392,edbb1e30-6854-4f5a-8109-82aa35d3dd41,purchased_extra_other_hotel_meals,general,,[],[],[],booking_b
+52a6f6c574c2a69b74c022c56860f35f,ef0e728b-78f6-4344-82c0-aeca820ebbcb,DM_campaign_tag,general,to use for overlapping DMs,[],[],[],
+ba84d93efead8d3b36101f2b3785377d,f011d101-2871-4902-a257-5ae0c3618ac8,shipping_cost,general,,[],[],[],purchase; shipment
+09efe789632d35e3eb02a7181aafa646,f0e18b7b-bfc0-46ec-b53a-cb40be935599,color,general,,[],[],[],purchase_item
+d87f0670c999018d4c45c4e2f253671a,f0ec8a20-b7ac-4922-9f10-bb69a6da2c4f,passenger_country_code,general,,[],[],[],booking_b
+79ced800ceadc82bb4d1d281ea947f00,f16e39e1-72fa-406a-ab92-2b84e7fbbd4b,2ndorder_unique_voucher,general,,[],[],[],
+c6a3ca7469f57d2a8fe4e7823dd357a9,f2158e11-5a77-4261-9323-1d0b96215b9a,purchase_source_id,general,,[],[],[],purchase
+1b79af708467a37fd9d2cd131a1f909f,f2b6324d-755a-4809-9a16-002393d600ab,threshold,general,,[],[],[],voucher_notification
+696e2c8e9f7480141e9d75f4b453cd59,f3817327-6eb7-483c-bfc6-262d0c242f91,os_version,general,,[],[],[],
+fdd09a76ce954fec6ba1bd8a6f622b59,f4a8c721-90c1-41ee-90b5-e9bed276f26f,payment_type,general,,[],[],[],purchase
+dafc295cbbe56e8e7df93ae7892dbc32,f4d07e10-cbff-485e-8927-cb87263782df,price_total_paid,general,,[],[],[],booking_b
+aff7db6e67313ae68e9442807dc64d0a,f4f57cd4-41ee-4258-8119-b9ed4a3d563c,delivery_method,general,,[],[],[],ticket_registration
+5e9cfc92f5252683925bfaac4a70a71f,f55eeba9-2584-4fbc-9df1-4e77b1b736b1,currency,general,,[],[],[],purchase
+2fd79e52c8c1b5eb3393478b6e0495df,f6d46231-214f-49a4-b548-06e6e3999fd4,category_3_alltime,general,updated by DWH,[],[],[],
+062cf846ca01736d22d793c79361b259,f6fbb588-c76d-44f1-850c-8e73d95ad263,event_id,general,,[],[],[],ticket_order; ticket_registration
+4e0e84a7d654117c8149b52428c713ee,f87d1053-7c59-4a38-bc0c-77bbc3d903d8,flight_out_flight_number,general,,[],[],[],booking_b
+ea280e04db3208cfd3e5c056452e6b28,f9f15c50-0a6d-445e-9b10-f108806124b2,delivery-delay-order,general,,[],[],[],
+d34df6866e27b1b08744ac4a69c26276,fb0f2e97-7c5d-4f51-9208-e93fa8e79ca7,customer_id_registered,general,,[],[],[],
+711835cc0ea760e9a6d4aaee36682a16,fb221284-28fb-4baf-93ab-12f070043bac,is_local_sale,general,,[],[],[],booking_b
+d6fe9721fa9ed681388d870ab5119f0a,fb3fe1cd-3c04-4ea9-abd9-c41cbb252e6f,purchased_extra_all_inclusive,general,,[],[],[],booking_b
+273dce0b0eab2fe39591288ed32e7784,fb7e6de2-2a93-4ed0-94d6-1d2dbb63ff29,in_preview,general,,[],[],[],parcel_insert
+222b61fd05ed548c99fc26a4a2aa1229,fb82ed2f-f6be-415f-8dbb-98fe243dce07,order_date,general,,[],[],[],flyer; parcel_insert; sample
+63336781b5beaea19ff25c79a4512656,fcbfb36a-ae2b-4bb0-9449-47924cba4713,testing_boolean,general,,[],[],[],
+5edc458a0e29bde4aae1a195c698d2c1,fcea4b4f-41be-4029-8697-e9ce60623659,purchased_aroma_lifetime,general,,[],[],[],parcel_insert
+c0f72e4201999639feae7003e8f771eb,fd7c726e-2d68-4a75-b1fa-2429d67ac178,category_level_3,general,,[],[],[],purchase_item; view_category; view_item
+a1dedc6e2428214211c99735eca947cc,fe61930f-19bf-4818-aa71-c5db72536ce3,packed_date,general,,[],[],[],flyer; sample

@@ -1,0 +1,103 @@
+[
+  {
+    "label": "stderr",
+    "text": "[mcp] INFO e3-tracking MCP server ready on stdio\n"
+  },
+  {
+    "label": "candidates count",
+    "obj": 13
+  },
+  {
+    "label": "picked target",
+    "obj": {
+      "id": "9e017fd4-edeb-453b-8122-a70f3233ae31",
+      "project_id": "0ca1dd8a-52c3-4ded-a446-12f7e20591f1",
+      "comparison": "definition_vs_observations",
+      "kind": "type_mismatch",
+      "severity": "error",
+      "event_id": "605a70b6-d1d6-4c88-9c37-1cd0b211aa24",
+      "variant_id": null,
+      "property_id": "4c63aea6-1a79-4303-b4c0-a5918680c777",
+      "observation_id": "05e4e196-3b3c-4320-8a80-03a9cc71d1e0",
+      "qa_run_id": "246ac5b6-9c85-42da-bc9c-632bed1d0713",
+      "expected_json": {
+        "data_type": "number"
+      },
+      "actual_json": {
+        "value": "13",
+        "js_type": "string"
+      },
+      "message": "Property \"stock_level\" on event \"view_item\" is string, expected number.",
+      "fingerprint": "definition_vs_observations|type_mismatch|605a70b6-d1d6-4c88-9c37-1cd0b211aa24||4c63aea6-1a79-4303-b4c0-a5918680c777|string",
+      "status": "open",
+      "first_seen_at": "2026-09-28T00:02:40.740Z",
+      "last_seen_at": "2026-09-28T00:13:06.276Z",
+      "resolved_at": null,
+      "resolved_by": null
+    }
+  },
+  {
+    "label": "update_observation (fix stock_level) result",
+    "obj": {
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\n  \"observation\": {\n    \"id\": \"05e4e196-3b3c-4320-8a80-03a9cc71d1e0\",\n    \"project_id\": \"0ca1dd8a-52c3-4ded-a446-12f7e20591f1\",\n    \"qa_run_id\": \"246ac5b6-9c85-42da-bc9c-632bed1d0713\",\n    \"source\": \"export\",\n    \"event_type\": \"view_item\",\n    \"event_id\": \"605a70b6-d1d6-4c88-9c37-1cd0b211aa24\",\n    \"variant_id\": null,\n    \"timestamp\": 1723577880,\n    \"properties_json\": {\n      \"stock_level\": 13,\n      \"price\": 28.4,\n      \"product_id\": \"102589\",\n      \"brand\": \"Rang Gali\",\n      \"category_level_1\": \"women\",\n      \"category_level_2\": \"tops\",\n      \"category_level_3\": \"\",\n      \"title\": \"Rang Gali Maroon Solid Asymmetric Hemline Top\"\n    },\n    \"page_url\": null,\n    \"context_values_json\": null,\n    \"captured_at\": \"2026-09-28T00:11:17.303Z\",\n    \"raw_hash\": \"23d7aeea58321ec48302c7bf6f79bbe50e950037\"\n  },\n  \"comparison\": {\n    \"open\": {\n      \"error\": 38,\n      \"warning\": 37,\n      \"info\": 0\n    },\n    \"produced\": 76,\n    \"resolved\": 2,\n    \"by_comparison\": {\n      \"definition_vs_observations\": {\n        \"open\": {\n          \"error\": 14,\n          \"warning\": 34,\n          \"info\": 0\n        },\n        \"produced\": 48,\n        \"resolved\": 2\n      },\n      \"data_manager\": {\n        \"open\": {\n          \"error\": 24,\n          \"warning\": 0,\n          \"info\": 0\n        },\n        \"produced\": 25,\n        \"resolved\": 0\n      },\n      \"definition_vs_mapping\": {\n        \"open\": {\n          \"error\": 0,\n          \"warning\": 2,\n          \"info\": 0\n        },\n        \"produced\": 2,\n        \"resolved\": 0\n      },\n      \"mapping_vs_observations\": {\n        \"open\": {\n          \"error\": 0,\n          \"warning\": 1,\n          \"info\": 0\n        },\n        \"produced\": 1,\n        \"resolved\": 0\n      }\n    }\n  }\n}"
+          }
+        ]
+      },
+      "jsonrpc": "2.0",
+      "id": 3
+    }
+  },
+  {
+    "label": "picked target2 for delete",
+    "obj": {
+      "id": "16f199df-35aa-4f1c-aec1-ddaf61150109",
+      "project_id": "0ca1dd8a-52c3-4ded-a446-12f7e20591f1",
+      "comparison": "definition_vs_observations",
+      "kind": "type_mismatch",
+      "severity": "error",
+      "event_id": "33b421e7-62e4-4b61-9679-9ae32e0e3a0c",
+      "variant_id": "27a0e3c1-c78a-419a-89f9-e5c682b46e94",
+      "property_id": "ed0cae18-fc9c-45ca-adea-d80678047fc9",
+      "observation_id": "1742940a-cb32-4b09-88b5-da68f68d86c9",
+      "qa_run_id": "246ac5b6-9c85-42da-bc9c-632bed1d0713",
+      "expected_json": {
+        "data_type": "string"
+      },
+      "actual_json": {
+        "value": [
+          {
+            "product_id": "102589",
+            "quantity": 1
+          }
+        ],
+        "js_type": "array"
+      },
+      "message": "Property \"product_list\" on event \"cart_update\" is array, expected string.",
+      "fingerprint": "definition_vs_observations|type_mismatch|33b421e7-62e4-4b61-9679-9ae32e0e3a0c||ed0cae18-fc9c-45ca-adea-d80678047fc9|array",
+      "status": "open",
+      "first_seen_at": "2026-09-28T00:02:40.739Z",
+      "last_seen_at": "2026-09-28T00:13:06.275Z",
+      "resolved_at": null,
+      "resolved_by": null
+    }
+  },
+  {
+    "label": "delete_observation result",
+    "obj": {
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\n  \"deleted\": true,\n  \"comparison\": {\n    \"open\": {\n      \"error\": 35,\n      \"warning\": 38,\n      \"info\": 0\n    },\n    \"produced\": 74,\n    \"resolved\": 3,\n    \"by_comparison\": {\n      \"definition_vs_observations\": {\n        \"open\": {\n          \"error\": 11,\n          \"warning\": 35,\n          \"info\": 0\n        },\n        \"produced\": 46,\n        \"resolved\": 3\n      },\n      \"data_manager\": {\n        \"open\": {\n          \"error\": 24,\n          \"warning\": 0,\n          \"info\": 0\n        },\n        \"produced\": 25,\n        \"resolved\": 0\n      },\n      \"definition_vs_mapping\": {\n        \"open\": {\n          \"error\": 0,\n          \"warning\": 2,\n          \"info\": 0\n        },\n        \"produced\": 2,\n        \"resolved\": 0\n      },\n      \"mapping_vs_observations\": {\n        \"open\": {\n          \"error\": 0,\n          \"warning\": 1,\n          \"info\": 0\n        },\n        \"produced\": 1,\n        \"resolved\": 0\n      }\n    }\n  }\n}"
+          }
+        ]
+      },
+      "jsonrpc": "2.0",
+      "id": 4
+    }
+  }
+]

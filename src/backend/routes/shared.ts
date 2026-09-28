@@ -15,6 +15,19 @@
  *   `{ public: true }` (same field set stripped).
  * - `GET /:token/files/*` -- the same decode/traversal checks as `routes/files.ts`, scoped to this
  *   token's project via `openForProject`.
+ * - `GET /:token/comments` / `POST /:token/comments` (D-49, T-4-04): the public counterpart of
+ *   `routes/comments.ts`. `GET` lists (optionally filtered by `entity_type`/`entity_id`, same query
+ *   params as the internal route) through `toPublicComment` (drops `project_id`, `resolved_by` --
+ *   an internal actor name -- and `resolved_at`, which is internal triage state a client has no use
+ *   for; `via_share` stays, every comment here is one by definition). `POST` accepts only
+ *   `entity_type`/`entity_id`/`author_name`/`body` -- any other key (most importantly `resolved`) is
+ *   400 `FIELD_NOT_ALLOWED`, before any other validation; `req.shareAccess !== 'comment'` is 403
+ *   `SHARE_READ_ONLY`; a per-token limit of 60 posts per 10 minutes (in-memory, reset on process
+ *   restart) is 429 `RATE_LIMITED` -- a cheap guard only, phase 5 (real hosting) replaces it with
+ *   actual rate limiting. The anchor (`entity_type`/`entity_id`) is validated the same way the
+ *   internal route validates it (`comment.dal.ts#createComment`'s `assertEntityExists`, scoped to
+ *   this token's own project via `requireShare`'s `req.projectId`), so a comment can never attach to
+ *   another project's entity. Every created comment carries `via_share: true`.
  *
  * D-48 amendment (fix round, 2026-09-28 reviewer FAIL): every response here carries
  * `Cache-Control: no-store` (a token-bearing URL must never be cached by a browser or proxy), and
@@ -27,15 +40,17 @@
  * `POST`/`PATCH`/`DELETE /api/projects/:id/share` (create/rotate, change access, revoke) are
  * internal, authenticated routes in `routes/projects.ts`, not here.
  */
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import express, { Router, type Request, type Response, type NextFunction } from 'express';
 import { requireShare } from '../middleware/share';
 import { getProjectWithClient } from '../dal/project.dal';
 import { buildTrackingDocument, toPublicTrackingDocument } from '../services/document.service';
 import { generateProjectDocumentationHtml } from '../services/export.service';
 import { getFileStore } from '../files/FileStore';
 import { TRACKING_DOCUMENT_VERSION } from '../../domain/document/trackingDocument';
-import { BadRequestError } from '../errors';
+import { BadRequestError, FieldNotAllowedError, RateLimitedError, ShareReadOnlyError, ValidationError } from '../errors';
 import { handleRouteError } from './routeErrors';
+import * as CommentDAL from '../dal/comment.dal';
+import type { CommentRow } from '../dal/comment.dal';
 
 const router = Router();
 
@@ -118,6 +133,99 @@ router.get('/:token/files/*', requireShare, async (req: Request, res: Response) 
     res.status(200).send(opened.buffer);
   } catch {
     res.status(404).json({ error: 'File not found.', code: 'NOT_FOUND' });
+  }
+});
+
+/**
+ * Strips fields a public commenter must never see (D-49, T-4-04): `project_id` (an internal id, no
+ * use to a client), `resolved_by` (an internal actor's name) and `resolved_at` (internal triage
+ * state -- whether the team marked it done is not this reader's business). `via_share` stays: every
+ * comment reachable through this route is one by definition, and the internal Comments page and
+ * event/use-case panels still want to tell a share-posted comment apart from one posted internally.
+ */
+function toPublicComment(comment: CommentRow): Omit<CommentRow, 'project_id' | 'resolved_by' | 'resolved_at'> {
+  const { project_id: _projectId, resolved_by: _resolvedBy, resolved_at: _resolvedAt, ...rest } = comment;
+  return rest;
+}
+
+// D-49, T-4-04: a cheap in-memory sliding-window guard, 60 posts per 10 minutes per token. Reset on
+// process restart; not shared across multiple server instances. Replaced by real rate limiting once
+// the app is actually hosted (phase 5, D-48's phase 5 notes) -- this exists only so a stray script
+// hammering a leaked link today cannot flood a project's comment list.
+const COMMENT_RATE_LIMIT = 60;
+const COMMENT_RATE_WINDOW_MS = 10 * 60 * 1000;
+const commentPostTimestampsByToken = new Map<string, number[]>();
+
+function checkCommentRateLimit(token: string): void {
+  const now = Date.now();
+  const cutoff = now - COMMENT_RATE_WINDOW_MS;
+  const existing = (commentPostTimestampsByToken.get(token) ?? []).filter((t) => t > cutoff);
+  if (existing.length >= COMMENT_RATE_LIMIT) {
+    commentPostTimestampsByToken.set(token, existing);
+    throw new RateLimitedError('Too many comments posted through this link recently; try again later.');
+  }
+  existing.push(now);
+  commentPostTimestampsByToken.set(token, existing);
+}
+
+const COMMENT_POST_FIELDS = new Set(['entity_type', 'entity_id', 'author_name', 'body']);
+
+/** Same "present but not a string" guard as `routes/comments.ts`'s own `stringOrUndefined`. */
+function stringOrUndefined(body: Record<string, unknown>, key: string): string | undefined {
+  const value = body[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string') {
+    throw new ValidationError(`${key} must be a string.`, key);
+  }
+  return value;
+}
+
+router.get('/:token/comments', requireShare, (req: Request, res: Response) => {
+  try {
+    const { entity_type, entity_id } = req.query;
+    if (entity_type !== undefined && typeof entity_type !== 'string') {
+      throw new ValidationError('entity_type must be a single string value.', 'entity_type');
+    }
+    if (entity_id !== undefined && typeof entity_id !== 'string') {
+      throw new ValidationError('entity_id must be a single string value.', 'entity_id');
+    }
+    const comments = CommentDAL.listComments(req.projectId!, {
+      entity_type: entity_type as string | undefined,
+      entity_id: entity_id as string | undefined,
+    });
+    res.status(200).json(comments.map(toPublicComment));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.post('/:token/comments', express.json({ limit: '20kb' }), requireShare, (req: Request, res: Response) => {
+  try {
+    if (req.shareAccess !== 'comment') {
+      throw new ShareReadOnlyError('This share link is read-only; comments cannot be posted through it.');
+    }
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const unknownField = Object.keys(body).find((key) => !COMMENT_POST_FIELDS.has(key));
+    if (unknownField !== undefined) {
+      throw new FieldNotAllowedError(`"${unknownField}" is not accepted on this route.`, unknownField);
+    }
+    checkCommentRateLimit(req.params.token);
+
+    const entityType = stringOrUndefined(body, 'entity_type');
+    const entityId = stringOrUndefined(body, 'entity_id');
+    const authorName = stringOrUndefined(body, 'author_name');
+    const commentBody = stringOrUndefined(body, 'body');
+
+    const comment = CommentDAL.createComment(req.projectId!, {
+      entity_type: entityType ?? '',
+      entity_id: entityId ?? '',
+      author_name: authorName ?? '',
+      body: commentBody ?? '',
+      via_share: true,
+    });
+    res.status(201).json(toPublicComment(comment));
+  } catch (err) {
+    handleRouteError(err, res);
   }
 });
 

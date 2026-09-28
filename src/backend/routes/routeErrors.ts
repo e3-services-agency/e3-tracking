@@ -2,11 +2,30 @@
  * Shared error-to-HTTP mapping for route handlers (JSON error envelope, `{error, code, field?}`).
  */
 import type { Response } from 'express';
-import { BadRequestError, ConfigError, ConflictError, DatabaseError, NotFoundError, TemplateInUseError } from '../errors';
+import {
+  BadRequestError,
+  ConfigError,
+  ConflictError,
+  DatabaseError,
+  ForbiddenError,
+  NotFoundError,
+  RateLimitedError,
+  TemplateInUseError,
+} from '../errors';
 
 export function handleRouteError(err: unknown, res: Response): void {
   if (err instanceof NotFoundError) {
     res.status(404).json({ error: err.message, code: err.code, resource: err.resource });
+    return;
+  }
+  // D-49, T-4-04: `ShareReadOnlyError` and any future 403 both flow through this one branch.
+  if (err instanceof ForbiddenError) {
+    res.status(403).json({ error: err.message, code: err.code });
+    return;
+  }
+  // D-49, T-4-04: the per-token comment post limit.
+  if (err instanceof RateLimitedError) {
+    res.status(429).json({ error: err.message, code: err.code });
     return;
   }
   // T-3-10 (D-47 amendment): checked before the generic `ConflictError` branch so the 409 body

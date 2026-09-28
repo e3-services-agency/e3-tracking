@@ -14,9 +14,21 @@
  * exactly the property D-56 asks a backup to have for phase-4-only columns. The two tables that
  * don't exist until a later phase (`comments`, T-4-02) are gated on the table's presence in
  * `sqlite_master` (not a try/catch): the array comes back empty until the table exists.
+ *
+ * Pre-QA fix round (reviewer PASS 2026-09-28 02:36, supervisor decision 02:37):
+ * - `project.share_token`/`project.share_access` are exported as `null` (the keys stay present):
+ *   D-48 stores the share token in plaintext and D-45 makes a backup portable between machines, so
+ *   carrying a live token would let a restored project (T-3-05) silently duplicate a public link.
+ *   T-3-05 must never write these two columns back on restore either.
+ * - A malformed `*_json` column (never produced by the DAL, which always writes through
+ *   `toJsonColumn`, but a backup is meant to be a faithful snapshot of whatever is actually in the
+ *   database) is kept as its raw string instead of being silently turned into `null`, and reported
+ *   in the top-level `warnings[]` array (`"<table>.<column> for id <id> is not valid JSON; kept as
+ *   the raw string."`).
+ * - `observations` is ordered `timestamp, id` like every other array (it previously had no
+ *   `ORDER BY` at all, so two backups of the same project could differ in row order).
  */
 import { getDb } from '../db';
-import { parseJsonColumn } from '../db/util';
 import { getProjectOrThrow } from '../dal/project.dal';
 import { getClientById } from '../dal/client.dal';
 import { getFileStore } from '../files/FileStore';
@@ -34,22 +46,49 @@ function tableColumns(table: string): string[] {
   return (getDb().prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name);
 }
 
-/** Parses every `*_json` column of a raw SQLite row into its value; everything else passes through. */
-function parseRow(row: Row, columns: string[]): Row {
+/** A human-readable id for a warning message; falls back to whatever primary/composite key columns exist. */
+function describeRowId(row: Row): string {
+  if (row.id !== undefined && row.id !== null) return String(row.id);
+  const keyParts = Object.keys(row)
+    .filter((k) => k.endsWith('_id'))
+    .map((k) => `${k}=${String(row[k])}`);
+  return keyParts.length > 0 ? keyParts.join(',') : '(no id)';
+}
+
+/**
+ * Parses one `*_json` TEXT cell. `null`/`undefined`/empty string is a normal absent value ->
+ * `null`, no warning. A non-empty string that fails `JSON.parse` is malformed (never produced by
+ * the DAL, but a backup must not silently drop it): kept as the raw string, and a warning is
+ * pushed (pre-QA fix INFO 2).
+ */
+function parseJsonCell(value: unknown, table: string, column: string, rowId: string, warnings: string[]): unknown {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    warnings.push(`${table}.${column} for id ${rowId} is not valid JSON; kept as the raw string.`);
+    return value;
+  }
+}
+
+/** Parses every `*_json` column of a raw SQLite row; everything else passes through. */
+function parseRow(row: Row, columns: string[], table: string, warnings: string[]): Row {
+  const rowId = describeRowId(row);
   const out: Row = {};
   for (const col of columns) {
-    out[col] = col.endsWith('_json') ? parseJsonColumn(row[col], null) : row[col];
+    out[col] = col.endsWith('_json') ? parseJsonCell(row[col], table, col, rowId, warnings) : row[col];
   }
   return out;
 }
 
 /** Rows of a project-scoped table (`project_id` column directly on it), every column, optionally ordered. */
-function directRows(table: string, projectId: string, orderBy?: string): Row[] {
+function directRows(table: string, projectId: string, warnings: string[], orderBy?: string): Row[] {
   if (!tableExists(table)) return [];
   const columns = tableColumns(table);
   const sql = `SELECT * FROM ${table} WHERE project_id = ?${orderBy ? ` ORDER BY ${orderBy}` : ''}`;
   const rows = getDb().prepare(sql).all(projectId) as Row[];
-  return rows.map((r) => parseRow(r, columns));
+  return rows.map((r) => parseRow(r, columns, table, warnings));
 }
 
 /**
@@ -65,6 +104,7 @@ function joinedRows(
   parentIdColumn: string,
   childParentColumn: string,
   projectId: string,
+  warnings: string[],
   orderBy?: string
 ): Row[] {
   if (!tableExists(childTable)) return [];
@@ -74,7 +114,7 @@ function joinedRows(
     JOIN ${parentTable} p ON p.${parentIdColumn} = c.${childParentColumn}
     WHERE p.project_id = ?${orderBy ? ` ORDER BY ${orderBy}` : ''}`;
   const rows = getDb().prepare(sql).all(projectId) as Row[];
-  return rows.map((r) => parseRow(r, columns));
+  return rows.map((r) => parseRow(r, columns, childTable, warnings));
 }
 
 /** Latest applied migration's numeric prefix (e.g. `0016_use_case_template_tags.sql` -> `'0016'`). */
@@ -124,6 +164,8 @@ export interface BackupPayload {
   comments: Row[];
   files: BackupFileEntry[];
   files_missing: string[];
+  /** Malformed `*_json` cells kept as raw strings instead of being silently nulled (pre-QA fix INFO 2). */
+  warnings: string[];
 }
 
 /** Every distinct, non-null `image_path` referenced by any event's `triggers_json` entries. */
@@ -171,15 +213,22 @@ async function collectFiles(
 export async function buildBackup(projectId: string): Promise<BackupPayload> {
   const project = getProjectOrThrow(projectId);
   const client = project.client_id ? getClientById(project.client_id) : null;
+  const warnings: string[] = [];
 
   const projectColumns = tableColumns('projects');
   const projectRawRow = getDb().prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as Row;
-  const projectParsed = parseRow(projectRawRow, projectColumns);
+  const projectParsed = parseRow(projectRawRow, projectColumns, 'projects', warnings);
   delete projectParsed.id;
   delete projectParsed.client_id;
+  // Pre-QA fix WARNING 1: never export a live share token/access (D-48 stores it in plaintext; a
+  // portable backup must not silently carry a working public link between machines). Keys stay
+  // present (a restored project always has *some* value for these columns) with a `null` value,
+  // matching D-48's "revoke by nulling"; T-3-05 must never write them back on restore either.
+  projectParsed.share_token = null;
+  projectParsed.share_access = null;
 
-  const events = directRows('events', projectId, 'created_at');
-  const useCases = directRows('use_cases', projectId, 'sort_order, created_at');
+  const events = directRows('events', projectId, warnings, 'created_at');
+  const useCases = directRows('use_cases', projectId, warnings, 'sort_order, created_at');
 
   const templateIds = Array.from(
     new Set(useCases.map((uc) => uc.template_id).filter((v): v is string => typeof v === 'string'))
@@ -191,7 +240,7 @@ export async function buildBackup(projectId: string): Promise<BackupPayload> {
     const rows = getDb()
       .prepare(`SELECT * FROM use_case_templates WHERE id IN (${placeholders})`)
       .all(...templateIds) as Row[];
-    useCaseTemplates = rows.map((r) => parseRow(r, columns));
+    useCaseTemplates = rows.map((r) => parseRow(r, columns, 'use_case_templates', warnings));
   }
 
   const { files, files_missing } = await collectFiles(projectId, events, project.client_logo_path);
@@ -206,37 +255,57 @@ export async function buildBackup(projectId: string): Promise<BackupPayload> {
       : null,
     project: projectParsed,
     use_case_templates: useCaseTemplates,
-    sources: directRows('sources', projectId, 'created_at'),
-    properties: directRows('properties', projectId, 'created_at'),
+    sources: directRows('sources', projectId, warnings, 'created_at'),
+    properties: directRows('properties', projectId, warnings, 'created_at'),
     events,
-    event_sources: joinedRows('event_sources', 'events', 'id', 'event_id', projectId, 'c.created_at'),
-    event_properties: joinedRows('event_properties', 'events', 'id', 'event_id', projectId, 'c.sort_order, c.created_at'),
-    variants: directRows('variants', projectId, 'created_at'),
-    standard_event_mappings: directRows('standard_event_mappings', projectId, 'created_at'),
-    identity_rules: directRows('identity_rules', projectId, 'sort_order, created_at'),
-    catalogs: directRows('catalogs', projectId, 'created_at'),
-    catalog_fields: joinedRows('catalog_fields', 'catalogs', 'id', 'catalog_id', projectId, 'c.created_at'),
-    consent_categories: directRows('consent_categories', projectId, 'sort_order, created_at'),
+    event_sources: joinedRows('event_sources', 'events', 'id', 'event_id', projectId, warnings, 'c.created_at'),
+    event_properties: joinedRows(
+      'event_properties',
+      'events',
+      'id',
+      'event_id',
+      projectId,
+      warnings,
+      'c.sort_order, c.created_at'
+    ),
+    variants: directRows('variants', projectId, warnings, 'created_at'),
+    standard_event_mappings: directRows('standard_event_mappings', projectId, warnings, 'created_at'),
+    identity_rules: directRows('identity_rules', projectId, warnings, 'sort_order, created_at'),
+    catalogs: directRows('catalogs', projectId, warnings, 'created_at'),
+    catalog_fields: joinedRows('catalog_fields', 'catalogs', 'id', 'catalog_id', projectId, warnings, 'c.created_at'),
+    consent_categories: directRows('consent_categories', projectId, warnings, 'sort_order, created_at'),
     use_cases: useCases,
-    requirements: joinedRows('requirements', 'use_cases', 'id', 'use_case_id', projectId, 'c.sort_order, c.created_at'),
-    rules: directRows('rules', projectId, 'created_at'),
-    property_bundles: directRows('property_bundles', projectId, 'created_at'),
+    requirements: joinedRows(
+      'requirements',
+      'use_cases',
+      'id',
+      'use_case_id',
+      projectId,
+      warnings,
+      'c.sort_order, c.created_at'
+    ),
+    rules: directRows('rules', projectId, warnings, 'created_at'),
+    property_bundles: directRows('property_bundles', projectId, warnings, 'created_at'),
     property_bundle_items: joinedRows(
       'property_bundle_items',
       'property_bundles',
       'id',
       'bundle_id',
       projectId,
+      warnings,
       'c.created_at'
     ),
-    qa_runs: directRows('qa_runs', projectId, 'started_at'),
-    observations: directRows('observations', projectId),
-    findings: directRows('findings', projectId, 'first_seen_at'),
-    change_log: directRows('change_log', projectId, 'changed_at'),
+    qa_runs: directRows('qa_runs', projectId, warnings, 'started_at'),
+    // Pre-QA fix INFO 3: ordered like every other array (was unordered, so two backups of the same
+    // project could differ in row order).
+    observations: directRows('observations', projectId, warnings, 'timestamp, id'),
+    findings: directRows('findings', projectId, warnings, 'first_seen_at'),
+    change_log: directRows('change_log', projectId, warnings, 'changed_at'),
     // T-4-02 adds the `comments` table; until then this is always `[]` (checked through
     // `sqlite_master`, per the plan, not a try/catch around a SELECT on a table that may not exist).
-    comments: directRows('comments', projectId),
+    comments: directRows('comments', projectId, warnings),
     files,
     files_missing,
+    warnings,
   };
 }

@@ -92,6 +92,40 @@ function applyAllFixtures(): void {
   runComparison(projectId);
 }
 
+const EXPECTED_KEYS = [
+  'format',
+  'version',
+  'exported_at',
+  'app',
+  'client',
+  'project',
+  'use_case_templates',
+  'sources',
+  'properties',
+  'events',
+  'event_sources',
+  'event_properties',
+  'variants',
+  'standard_event_mappings',
+  'identity_rules',
+  'catalogs',
+  'catalog_fields',
+  'consent_categories',
+  'use_cases',
+  'requirements',
+  'rules',
+  'property_bundles',
+  'property_bundle_items',
+  'qa_runs',
+  'observations',
+  'findings',
+  'change_log',
+  'comments',
+  'files',
+  'files_missing',
+  'warnings',
+].sort();
+
 describe('buildBackup on the Data Manager fixture project', () => {
   it('every table array has the expected counts, files embed, ids stripped from project, templates included, soft-deleted rows survive', async () => {
     applyAllFixtures();
@@ -114,6 +148,15 @@ describe('buildBackup on the Data Manager fixture project', () => {
     });
     UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
 
+    // An unreferenced template: not instantiated in this project, must not be embedded (reviewer
+    // probe / pre-QA fix INFO 4).
+    const unreferencedTemplate = UseCaseTemplateDAL.createUseCaseTemplate({
+      code: 'UC-BACKUP-UNREF',
+      name: 'Never instantiated',
+      type: 'marketing',
+      default_requirements_json: [],
+    });
+
     // A QA run + observation + (via runComparison) findings, exercised again after the use case.
     const run = QaRunDAL.createQaRun(projectId, { kind: 'manual' });
     ObservationDAL.createObservation(projectId, run.id, {
@@ -124,9 +167,23 @@ describe('buildBackup on the Data Manager fixture project', () => {
     });
     runComparison(projectId);
 
-    // A soft-deleted event: still present in the backup with `deleted_at` set.
+    // A soft-deleted event with a linked property: the event_properties child row survives the
+    // soft delete (deleteEvent only sets events.deleted_at; it never touches event_properties),
+    // so the backup's event_properties array must still carry it (reviewer probe / pre-QA fix
+    // INFO 4 "child rows of a soft-deleted parent").
     const toDelete = EventDAL.createEvent(projectId, { name: 'backup_soft_delete_event', class: 'custom' });
+    const linkedProperty = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'backup_soft_delete_prop',
+      data_type: 'string',
+    });
+    EventDAL.attachPropertyToEvent(projectId, toDelete.id, { property_id: linkedProperty.id });
     EventDAL.deleteEvent(projectId, toDelete.id);
+
+    // A live share token/access: must never appear in the backup (pre-QA fix WARNING 1).
+    getDb()
+      .prepare('UPDATE projects SET share_token = ?, share_access = ? WHERE id = ?')
+      .run('SHARE-TOKEN-SECRET', 'read', projectId);
 
     const backup = await buildBackup(projectId);
 
@@ -134,10 +191,22 @@ describe('buildBackup on the Data Manager fixture project', () => {
     expect(backup.version).toBe(BACKUP_VERSION);
     expect(backup.app.schema_migration).toMatch(/^\d+$/);
 
+    // The exact key set (pre-QA fix INFO 4): no extra, no missing.
+    expect(Object.keys(backup).sort()).toEqual(EXPECTED_KEYS);
+
     // project row never leaks its own id or the client's id (D-45).
     expect(backup.project.id).toBeUndefined();
     expect(backup.project.client_id).toBeUndefined();
     expect(backup.project.name).toBe('Acme EU');
+
+    // A live share token/access is exported as null, keys present, never the secret value
+    // (pre-QA fix WARNING 1). Assert against the raw serialized JSON too so no other code path
+    // (e.g. a nested JSON column) could reintroduce the secret string.
+    expect('share_token' in backup.project).toBe(true);
+    expect('share_access' in backup.project).toBe(true);
+    expect(backup.project.share_token).toBeNull();
+    expect(backup.project.share_access).toBeNull();
+    expect(JSON.stringify(backup)).not.toContain('SHARE-TOKEN-SECRET');
 
     // Client is reference-only, the four documented fields.
     expect(backup.client).toEqual({ key: 'acme', name: 'Acme', bloomreach_account_id: 'acc-1', notes: 'ref only' });
@@ -158,16 +227,23 @@ describe('buildBackup on the Data Manager fixture project', () => {
     expect(softDeletedRow).toBeTruthy();
     expect(softDeletedRow!.deleted_at).toBeTruthy();
 
+    // Its event_properties link survives too (child row of a soft-deleted parent).
+    const survivingLink = backup.event_properties.find(
+      (ep) => ep.event_id === toDelete.id && ep.property_id === linkedProperty.id
+    );
+    expect(survivingLink).toBeTruthy();
+
     // change_log has rows (T-3-01 wires event/property/variant mutations already).
     expect(backup.change_log.length).toBeGreaterThan(0);
 
     // comments table does not exist yet (T-4-02): always [].
     expect(backup.comments).toEqual([]);
 
-    // Referenced use_case_templates included in full.
+    // Referenced use_case_templates included in full; an unreferenced template is excluded.
     expect(backup.use_case_templates.some((t) => t.code === 'UC-BACKUP-01')).toBe(true);
     const templateRow = backup.use_case_templates.find((t) => t.code === 'UC-BACKUP-01');
     expect(templateRow!.name).toBe('Backup test use case');
+    expect(backup.use_case_templates.some((t) => t.code === unreferencedTemplate.code)).toBe(false);
 
     // The uploaded file decodes back to the exact bytes; no missing-file warning for it.
     const fileEntry = backup.files.find((f) => f.path === stored.path);
@@ -175,8 +251,23 @@ describe('buildBackup on the Data Manager fixture project', () => {
     expect(Buffer.from(fileEntry!.base64, 'base64').equals(imageBytes)).toBe(true);
     expect(backup.files_missing).not.toContain(stored.path);
 
+    // No malformed JSON in this fixture: warnings stays empty.
+    expect(backup.warnings).toEqual([]);
+
     // eslint-disable-next-line no-console
     console.log(`T-3-04 fixture backup.json size: ${JSON.stringify(backup).length} bytes`);
+  });
+
+  it('observations are ordered by timestamp, id', async () => {
+    const run = QaRunDAL.createQaRun(projectId, { kind: 'manual' });
+    ObservationDAL.createObservation(projectId, run.id, { source: 'manual', event_type: 'evt_b', timestamp: 200, properties: {} });
+    ObservationDAL.createObservation(projectId, run.id, { source: 'manual', event_type: 'evt_a', timestamp: 100, properties: {} });
+    ObservationDAL.createObservation(projectId, run.id, { source: 'manual', event_type: 'evt_c', timestamp: 300, properties: {} });
+
+    const backup = await buildBackup(projectId);
+    const timestamps = backup.observations.map((o) => o.timestamp);
+    expect(timestamps).toEqual([...timestamps].sort((a, b) => (a as number) - (b as number)));
+    expect(timestamps).toEqual([100, 200, 300]);
   });
 
   it('a referenced file missing on disk becomes a files_missing warning, not a thrown error', async () => {
@@ -188,5 +279,18 @@ describe('buildBackup on the Data Manager fixture project', () => {
     const backup = await buildBackup(projectId);
     expect(backup.files_missing).toContain('nowhere/does-not-exist.png');
     expect(backup.files.some((f) => f.path === 'nowhere/does-not-exist.png')).toBe(false);
+  });
+
+  it('a malformed *_json cell is kept as its raw string and reported in warnings[], not silently nulled', async () => {
+    const event = EventDAL.createEvent(projectId, { name: 'malformed_json_event', class: 'custom' });
+    // Bypass the DAL (which always writes through toJsonColumn) to simulate a row that somehow
+    // ended up with non-JSON text in a `*_json` column.
+    getDb().prepare('UPDATE events SET tags_json = ? WHERE id = ?').run('{not valid json', event.id);
+
+    const backup = await buildBackup(projectId);
+    const row = backup.events.find((e) => e.id === event.id);
+    expect(row).toBeTruthy();
+    expect(row!.tags_json).toBe('{not valid json');
+    expect(backup.warnings.some((w) => w.includes('events.tags_json') && w.includes(event.id))).toBe(true);
   });
 });

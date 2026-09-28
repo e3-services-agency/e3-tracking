@@ -24,7 +24,7 @@ import {
   type RequirementTargetKind,
 } from '@/src/domain/enums';
 import { HistorySection } from '@/src/features/history/HistorySection';
-import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
+import { CommentsPanel, type CommentPanelRow } from '@/src/features/comments/CommentsPanel';
 
 interface UseCaseRow {
   id: string;
@@ -373,6 +373,26 @@ function UseCaseDetail({
   const [regenerating, setRegenerating] = useState(false);
   const [narrativeError, setNarrativeError] = useState<string | null>(null);
   const [coverage, setCoverage] = useState<UseCaseCoverage | null>(null);
+  // Fix round (W1): one fetch for every comment on this use case and its requirements, shared by
+  // every `CommentsPanel` mounted below (a panel per requirement row plus the use-case-level one --
+  // 18 requests on the sandbox project's largest use case before this).
+  const [comments, setComments] = useState<CommentPanelRow[]>([]);
+
+  const reloadComments = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/comments`);
+      const data = await parseJson(res);
+      if (res.ok && Array.isArray(data)) setComments(data);
+    } catch {
+      // Best-effort refresh only -- see the analogous note in `SharedProject.tsx`.
+    }
+  }, [projectId]);
+
+  const commentsFor = useCallback(
+    (entityType: string, entityId: string) => comments.filter((c) => c.entity_type === entityType && c.entity_id === entityId),
+    [comments]
+  );
 
   const load = useCallback(async () => {
     if (!projectId) return;
@@ -420,7 +440,9 @@ function UseCaseDetail({
     } catch {
       // network error: leave the coverage block hidden, nothing else in the page depends on it.
     }
-  }, [projectId, useCaseId]);
+
+    await reloadComments();
+  }, [projectId, useCaseId, reloadComments]);
 
   useEffect(() => {
     void load();
@@ -795,7 +817,13 @@ function UseCaseDetail({
         })()}
 
         <div className="bg-white rounded-lg border shadow-sm p-6">
-          <CommentsPanel entityType="use_case" entityId={useCaseId} api={{ mode: 'internal', projectId: projectId ?? '' }} />
+          <CommentsPanel
+            entityType="use_case"
+            entityId={useCaseId}
+            api={{ mode: 'internal', projectId: projectId ?? '' }}
+            rows={commentsFor('use_case', useCaseId)}
+            onChanged={reloadComments}
+          />
         </div>
 
         <div className="bg-white rounded-lg border shadow-sm">
@@ -904,6 +932,8 @@ function UseCaseDetail({
                         entityId={req.id}
                         api={{ mode: 'internal', projectId: projectId ?? '' }}
                         title="Comments on this requirement"
+                        rows={commentsFor('requirement', req.id)}
+                        onChanged={reloadComments}
                       />
                     </td>
                   </tr>

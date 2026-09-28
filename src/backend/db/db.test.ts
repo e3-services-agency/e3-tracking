@@ -254,6 +254,7 @@ const ALL_MIGRATION_FILES = [
   '0015_change_log.sql',
   '0016_use_case_template_tags.sql',
   '0017_project_industry_and_requirement_targets.sql',
+  '0018_project_share_created_at.sql',
   '0021_property_definitions.sql',
 ];
 

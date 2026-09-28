@@ -2627,3 +2627,7 @@ Verdict: PASS. Both findings from the previous round are resolved; no new issues
 
 ### 2026-09-28 23:53 | supervisor | MERGE | T-4-03 merged into agent-setup (f4b9cab) — DONE
 QA re-check PASS (Page URL input, javascript: blocked client-side, shared view still clean). Merge clean; merged tree: tsc clean, 1426 tests / 122 files. T-4-04 (comments in both views) starts now.
+
+### 2026-09-29 00:10 | supervisor | HANDOFF | T-4-04 comments in both views — REVIEW
+Branch task/T-4-04-comments-both-views (off agent-setup fd1c8d4), 5 commits, HEAD b2da3ea. Tests 1432/0 (122 files, +6), tsc, build, lint green.
+Public routes GET/POST /api/shared/:token/comments: 403 SHARE_READ_ONLY, 400 FIELD_NOT_ALLOWED for any key outside entity_type/entity_id/author_name/body, 429 RATE_LIMITED (60 per token per 10 min, in memory, phase 5 placeholder), cross-project anchor 404 via assertEntityExists, public projection strips project_id/resolved_by/resolved_at; new error classes in errors.ts wired into routeErrors. 20 kb JSON limit on the POST; malformed JSON falls to the router's identical 404 (flagged for the reviewer). Additive id on TrackingDocumentUseCase/Requirement. CommentsPanel (src/features/comments) internal + shared modes, localStorage author name, via-share badge; mounted on event editor, event card, property editor, use case page, persisted requirement rows; shared view on event cards, use cases, requirement rows, form hidden unless access is comment.

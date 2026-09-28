@@ -78,6 +78,10 @@ export interface ExpectedPayloadField {
   data_type: string;
   formats: string[];
   allowed_values?: string[];
+  /** D-58: which of the property's named definitions this event uses; `null` only when the link
+   * carries no definition (defensive, every link resolves to one). */
+  definition_id: string | null;
+  definition_name: string | null;
 }
 
 export interface ExpectedPayload {
@@ -109,6 +113,8 @@ export async function getExpectedPayload(input: GetExpectedPayloadInput): Promis
       data_type: property.data_type,
       formats: property.data_formats,
       ...(property.allowed_values ? { allowed_values: property.allowed_values.map((v) => v.value) } : {}),
+      definition_id: property.definition_id,
+      definition_name: property.definition_name,
     };
     if (property.role === 'discriminator') {
       discriminators[property.payload_key] = property.allowed_values?.map((v) => v.value) ?? [];

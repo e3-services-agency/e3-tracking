@@ -321,3 +321,10 @@ export type ChangeLogEntityType = (typeof CHANGE_LOG_ENTITY_TYPES)[number];
  * `create`/`update`, tagged by `source: 'import:<format>'` instead of its own action (D-44). */
 export const CHANGE_LOG_ACTIONS = ['create', 'update', 'delete', 'restore'] as const;
 export type ChangeLogAction = (typeof CHANGE_LOG_ACTIONS)[number];
+
+// ----- Backup (D-45, T-3-04) -----
+/** Full-project JSON backup format tag/version (`backup.service.ts#buildBackup`). Every table as
+ * full rows including soft-deleted ones, files embedded as base64, referenced `use_case_templates`
+ * embedded in full; restore (T-3-05) validates both fields before touching anything. */
+export const BACKUP_FORMAT = 'e3-tracking-backup';
+export const BACKUP_VERSION = 1;

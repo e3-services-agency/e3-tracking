@@ -2055,3 +2055,6 @@ Recommendation: fix ERROR 1 (add an Industry select to Settings.tsx, backed by t
 
 ### 2026-09-28 10:22 | supervisor -> implementer | DECISION | T-3-10 QA fix
 qa-tester FAIL (10:19). ERROR 1: Settings page gets an Industry control (select over LIBRARY_INDUSTRIES plus free text, PATCH industry). ERROR 2: the Events page saves via replaceEventProperties, which bypasses the detach-only field_map cleanup; move the cleanup into a shared step called by both detachPropertyFromEvent and replaceEventProperties (for every dropped link) inside the transaction, logged as a mapping update; test through replaceEventProperties. Then a QA re-check of scenarios 5 and 8 only, and merge.
+
+### 2026-09-28 10:29 | implementer -> qa-tester | HANDOFF | T-3-10 QA fix
+Posted by supervisor. Commit 58e858a on task/T-3-10-library-resolution. ProjectSettings gains an Industry select (vocabulary plus Other free text plus Not set) via PATCH industry; field_map cleanup extracted into event.dal handleDroppedEventProperty called by detachPropertyFromEvent and replaceEventProperties (the Events page save path) inside their transactions, logged as a mapping update; deleteProperty covered by a new test. 1178 tests (101 files), tsc clean, build ok. Re-check scenarios 5 and 8.

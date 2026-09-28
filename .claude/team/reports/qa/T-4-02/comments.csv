@@ -1,0 +1,4 @@
+﻿id,entity_type,entity_id,entity_label,author_name,via_share,body,created_at,resolved_at,resolved_by
+e54ebe81-e798-4b70-95e8-455f54d60edc,event,6ddd1a54-5093-4ba1-a130-71d53feed66f,cart_update,QA Tester,false,Event comment on cart_update,2026-09-28T20:21:25.447Z,,
+1586fcd1-5dac-4eb7-9313-e64328c47a76,use_case,3c2c6d5a-8aa7-4b96-bd61-f41a5a8e6b53,UC-01 Abandoned cart,QA Tester,false,Use case comment on UC-01,2026-09-28T20:21:25.663Z,,
+93e22e91-c68b-4909-be64-c4febdd89a36,requirement,85dad536-1f2c-4949-abfc-68ed3aa3770d,removed requirement (UC-01),QA Tester,false,Requirement comment on email requirement,2026-09-28T20:21:25.759Z,,

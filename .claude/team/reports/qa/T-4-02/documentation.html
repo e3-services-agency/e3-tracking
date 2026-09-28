@@ -1,0 +1,1635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>T-4-02 Fixture — Tracking documentation</title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 2rem; color: #1f2933; background: #fff; }
+  h1 { margin-bottom: 0.25rem; }
+  .subtitle { color: #52606d; margin-top: 0; }
+  nav.toc { margin: 1.5rem 0; padding: 1rem; border: 1px solid #e4e7eb; border-radius: 8px; }
+  nav.toc a { display: block; padding: 0.15rem 0; color: #1a56db; text-decoration: none; }
+  section.event { border-top: 1px solid #e4e7eb; padding: 1.5rem 0; }
+  table.property-table { border-collapse: collapse; width: 100%; margin: 0.5rem 0 1rem; }
+  table.property-table th, table.property-table td { border: 1px solid #e4e7eb; padding: 0.4rem 0.6rem; text-align: left; font-size: 0.875rem; }
+  table.property-table th { background: #f5f7fa; }
+  dl.event-meta { display: grid; grid-template-columns: max-content 1fr; gap: 0.15rem 1rem; margin: 0.5rem 0; }
+  dl.event-meta dt { font-weight: 600; color: #52606d; }
+  pre { background: #0b1120; color: #e5e7eb; padding: 0.75rem 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.8rem; }
+  .codegen { display: flex; flex-direction: column; gap: 0.75rem; }
+  .trigger-image { max-width: 320px; display: block; margin-top: 0.5rem; border: 1px solid #e4e7eb; border-radius: 4px; }
+</style>
+</head>
+<body>
+  <h1>T-4-02 Fixture</h1>
+  <p class="subtitle">QA T-4-02 · Generated 2026-09-28T20:29:50.401Z</p>
+  <nav class="toc"><a href="#event-6ddd1a54-5093-4ba1-a130-71d53feed66f">cart_update</a>
+<a href="#event-545523db-ac64-4e90-a96a-06a52a100b97">checkout</a>
+<a href="#event-922e4f70-3522-4414-bea4-09a8748ce08c">consent</a>
+<a href="#event-74847683-516b-4c8c-8a12-4e778c12e0e9">notification_state</a>
+<a href="#event-7a1d712f-8d01-4994-bcd6-bb86129629ab">page_visit</a>
+<a href="#event-066f5c1b-e19b-452d-b551-0affaec390c4">purchase</a>
+<a href="#event-6a8e72ef-a904-4143-a075-740bac31968c">purchase_item</a>
+<a href="#event-ae37460b-4b36-44dc-8d27-5aebdd8df9a5">session_end</a>
+<a href="#event-ae948895-93d5-470f-91ca-41f57e625141">session_start</a>
+<a href="#event-f072d84c-0669-4bff-92bc-e79494e7bbf0">view_category</a>
+<a href="#event-9b5e4cf8-713d-433b-8594-727612df0720">view_item</a>
+<a href="#event-fb824f17-6159-4cd1-81eb-e5c87a2faaec">web_exit</a></nav>
+  <section class="event" id="event-6ddd1a54-5093-4ba1-a130-71d53feed66f">
+    <h2>cart_update</h2>
+    <dl class="event-meta">
+      
+      <dt>Class</dt><dd>custom</dd>
+      <dt>Status</dt><dd>planned</dd>
+      
+      
+      
+    </dl>
+    <p class="certification certified"><strong>Certification:</strong> certified</p>
+    
+    
+    
+    <h3>Properties</h3>
+    <table class="property-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Required</th>
+        <th>Role</th>
+        <th>Data type</th>
+        <th>Payload key</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody><tr>
+        <td>action</td>
+        <td>Optional</td>
+        <td>discriminator</td>
+        <td>string</td>
+        <td>action</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>product_id</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>product_id</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>total_price</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>total_price</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>total_quantity</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>total_quantity</td>
+        <td></td>
+      </tr></tbody>
+  </table>
+    <h3>Sample payload</h3>
+    <pre class="payload-doc"><code>{
+  &quot;action&quot;: &quot;string&quot;,
+  &quot;product_id&quot;: &quot;string&quot;,
+  &quot;total_price&quot;: &quot;string&quot;,
+  &quot;total_quantity&quot;: &quot;string&quot;
+}</code></pre>
+    <h3>Implementation</h3>
+    <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;cart_update&#39;,
+  // Optional:
+  action: &#39;string&#39;,
+  product_id: &#39;string&#39;,
+  total_price: &#39;string&#39;,
+  total_quantity: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;cart_update&#39;, {
+  // Optional:
+  action: &#39;string&#39;,
+  product_id: &#39;string&#39;,
+  total_price: &#39;string&#39;,
+  total_quantity: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>// Optional properties: action, product_id, total_price, total_quantity
+
+{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;cart_update&quot;,
+  &quot;properties&quot;: {
+    &quot;action&quot;: &quot;string&quot;,
+    &quot;product_id&quot;: &quot;string&quot;,
+    &quot;total_price&quot;: &quot;string&quot;,
+    &quot;total_quantity&quot;: &quot;string&quot;
+  }
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;cart_update&quot;,&quot;properties&quot;:{&quot;action&quot;:&quot;string&quot;,&quot;product_id&quot;:&quot;string&quot;,&quot;total_price&quot;:&quot;string&quot;,&quot;total_quantity&quot;:&quot;string&quot;}}&#39;</code></pre>
+  </div>
+  </div>
+    <div class="variants">
+    <h3>Variants</h3>
+    <table>
+      <thead>
+        <tr><th>Variant</th><th>Conditions</th><th>Description</th><th>Standard event</th></tr>
+      </thead>
+      <tbody>
+        <tr class="variant-row">
+        <td>cart_update[action=add]</td>
+        <td>action = add</td>
+        <td>—</td>
+        <td>add_to_cart</td>
+      </tr>
+      </tbody>
+    </table>
+  </div>
+    <div class="variant-codegen">
+        <h4>cart_update[action=add]</h4>
+        <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;cart_update&#39;,
+  // Optional:
+  action: &#39;add&#39;,
+  product_id: &#39;string&#39;,
+  total_price: &#39;string&#39;,
+  total_quantity: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;cart_update&#39;, {
+  // Optional:
+  action: &#39;add&#39;,
+  product_id: &#39;string&#39;,
+  total_price: &#39;string&#39;,
+  total_quantity: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>// Optional properties: action, product_id, total_price, total_quantity
+
+{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;cart_update&quot;,
+  &quot;properties&quot;: {
+    &quot;action&quot;: &quot;add&quot;,
+    &quot;product_id&quot;: &quot;string&quot;,
+    &quot;total_price&quot;: &quot;string&quot;,
+    &quot;total_quantity&quot;: &quot;string&quot;
+  }
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;cart_update&quot;,&quot;properties&quot;:{&quot;action&quot;:&quot;add&quot;,&quot;product_id&quot;:&quot;string&quot;,&quot;total_price&quot;:&quot;string&quot;,&quot;total_quantity&quot;:&quot;string&quot;}}&#39;</code></pre>
+  </div>
+  </div>
+      </div>
+    
+    
+    <div class="findings">
+    <h3>Open findings</h3>
+    <table>
+      <thead>
+        <tr><th>Severity</th><th>Kind</th><th>Comparison</th><th>Property</th><th>Variant</th><th>Rule</th><th>Message</th></tr>
+      </thead>
+      <tbody><tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>cart_update[action=add]</td>
+        <td>—</td>
+        <td>Observed payload key &quot;brand&quot; on event &quot;cart_update&quot; is not linked to the event.</td>
+      </tr>
+<tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>cart_update[action=add]</td>
+        <td>—</td>
+        <td>Observed payload key &quot;product_ids&quot; on event &quot;cart_update&quot; is not linked to the event.</td>
+      </tr>
+<tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>cart_update[action=add]</td>
+        <td>—</td>
+        <td>Observed payload key &quot;product_list&quot; on event &quot;cart_update&quot; is not linked to the event.</td>
+      </tr>
+<tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>cart_update[action=add]</td>
+        <td>—</td>
+        <td>Observed payload key &quot;size&quot; on event &quot;cart_update&quot; is not linked to the event.</td>
+      </tr>
+<tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>cart_update[action=add]</td>
+        <td>—</td>
+        <td>Observed payload key &quot;title&quot; on event &quot;cart_update&quot; is not linked to the event.</td>
+      </tr></tbody>
+    </table>
+  </div>
+  </section>
+<section class="event" id="event-545523db-ac64-4e90-a96a-06a52a100b97">
+    <h2>checkout</h2>
+    <dl class="event-meta">
+      
+      <dt>Class</dt><dd>custom</dd>
+      <dt>Status</dt><dd>planned</dd>
+      
+      
+      
+    </dl>
+    <p class="certification certified"><strong>Certification:</strong> certified</p>
+    
+    
+    
+    <h3>Properties</h3>
+    <p class="empty">No properties attached.</p>
+    <h3>Sample payload</h3>
+    <pre class="payload-doc"><code>{}</code></pre>
+    <h3>Implementation</h3>
+    <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;checkout&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;checkout&#39;, {
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;checkout&quot;
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;checkout&quot;}&#39;</code></pre>
+  </div>
+  </div>
+    
+    
+    
+    
+    <div class="findings">
+    <h3>Open findings</h3>
+    <table>
+      <thead>
+        <tr><th>Severity</th><th>Kind</th><th>Comparison</th><th>Property</th><th>Variant</th><th>Rule</th><th>Message</th></tr>
+      </thead>
+      <tbody><tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>Observed payload key &quot;product_ids&quot; on event &quot;checkout&quot; is not linked to the event.</td>
+      </tr>
+<tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>Observed payload key &quot;product_list&quot; on event &quot;checkout&quot; is not linked to the event.</td>
+      </tr>
+<tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>Observed payload key &quot;total_price&quot; on event &quot;checkout&quot; is not linked to the event.</td>
+      </tr></tbody>
+    </table>
+  </div>
+  </section>
+<section class="event" id="event-922e4f70-3522-4414-bea4-09a8748ce08c">
+    <h2>consent</h2>
+    <dl class="event-meta">
+      
+      <dt>Class</dt><dd>platform</dd>
+      <dt>Status</dt><dd>planned</dd>
+      
+      
+      
+    </dl>
+    <p class="certification not-applicable"><strong>Certification:</strong> n/a (not a custom event)</p>
+    
+    
+    
+    <h3>Properties</h3>
+    <p class="empty">No properties attached.</p>
+    <h3>Sample payload</h3>
+    <pre class="payload-doc"><code>{}</code></pre>
+    <h3>Implementation</h3>
+    <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;consent&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;consent&#39;, {
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;consent&quot;
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;consent&quot;}&#39;</code></pre>
+  </div>
+  </div>
+    
+    
+    
+    
+    
+  </section>
+<section class="event" id="event-74847683-516b-4c8c-8a12-4e778c12e0e9">
+    <h2>notification_state</h2>
+    <dl class="event-meta">
+      
+      <dt>Class</dt><dd>platform</dd>
+      <dt>Status</dt><dd>planned</dd>
+      
+      
+      
+    </dl>
+    <p class="certification not-applicable"><strong>Certification:</strong> n/a (not a custom event)</p>
+    
+    
+    
+    <h3>Properties</h3>
+    <p class="empty">No properties attached.</p>
+    <h3>Sample payload</h3>
+    <pre class="payload-doc"><code>{}</code></pre>
+    <h3>Implementation</h3>
+    <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;notification_state&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;notification_state&#39;, {
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;notification_state&quot;
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;notification_state&quot;}&#39;</code></pre>
+  </div>
+  </div>
+    
+    
+    
+    
+    
+  </section>
+<section class="event" id="event-7a1d712f-8d01-4994-bcd6-bb86129629ab">
+    <h2>page_visit</h2>
+    <dl class="event-meta">
+      
+      <dt>Class</dt><dd>sdk</dd>
+      <dt>Status</dt><dd>planned</dd>
+      
+      
+      
+    </dl>
+    <p class="certification not-applicable"><strong>Certification:</strong> n/a (not a custom event)</p>
+    
+    
+    
+    <h3>Properties</h3>
+    <p class="empty">No properties attached.</p>
+    <h3>Sample payload</h3>
+    <pre class="payload-doc"><code>{}</code></pre>
+    <h3>Implementation</h3>
+    <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;page_visit&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;page_visit&#39;, {
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;page_visit&quot;
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;page_visit&quot;}&#39;</code></pre>
+  </div>
+  </div>
+    
+    
+    
+    
+    
+  </section>
+<section class="event" id="event-066f5c1b-e19b-452d-b551-0affaec390c4">
+    <h2>purchase</h2>
+    <dl class="event-meta">
+      
+      <dt>Class</dt><dd>custom</dd>
+      <dt>Status</dt><dd>planned</dd>
+      
+      
+      
+    </dl>
+    <p class="certification not-certified"><strong>Certification:</strong> not certified (open_errors: 2)</p>
+    
+    
+    
+    <h3>Properties</h3>
+    <table class="property-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Required</th>
+        <th>Role</th>
+        <th>Data type</th>
+        <th>Payload key</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody><tr>
+        <td>purchase_status</td>
+        <td>Optional</td>
+        <td>discriminator</td>
+        <td>string</td>
+        <td>purchase_status</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>product_ids</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>product_ids</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>product_list</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>product_list</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>purchase_id</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>purchase_id</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>total_price</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>total_price</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>voucher_code</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>voucher_code</td>
+        <td></td>
+      </tr></tbody>
+  </table>
+    <h3>Sample payload</h3>
+    <pre class="payload-doc"><code>{
+  &quot;purchase_status&quot;: &quot;string&quot;,
+  &quot;product_ids&quot;: &quot;string&quot;,
+  &quot;product_list&quot;: &quot;string&quot;,
+  &quot;purchase_id&quot;: &quot;string&quot;,
+  &quot;total_price&quot;: &quot;string&quot;,
+  &quot;voucher_code&quot;: &quot;string&quot;
+}</code></pre>
+    <h3>Implementation</h3>
+    <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;purchase&#39;,
+  // Optional:
+  product_ids: &#39;string&#39;,
+  product_list: &#39;string&#39;,
+  purchase_id: &#39;string&#39;,
+  purchase_status: &#39;string&#39;,
+  total_price: &#39;string&#39;,
+  voucher_code: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;purchase&#39;, {
+  // Optional:
+  product_ids: &#39;string&#39;,
+  product_list: &#39;string&#39;,
+  purchase_id: &#39;string&#39;,
+  purchase_status: &#39;string&#39;,
+  total_price: &#39;string&#39;,
+  voucher_code: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>// Optional properties: product_ids, product_list, purchase_id, purchase_status, total_price, voucher_code
+
+{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;purchase&quot;,
+  &quot;properties&quot;: {
+    &quot;product_ids&quot;: &quot;string&quot;,
+    &quot;product_list&quot;: &quot;string&quot;,
+    &quot;purchase_id&quot;: &quot;string&quot;,
+    &quot;purchase_status&quot;: &quot;string&quot;,
+    &quot;total_price&quot;: &quot;string&quot;,
+    &quot;voucher_code&quot;: &quot;string&quot;
+  }
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;purchase&quot;,&quot;properties&quot;:{&quot;product_ids&quot;:&quot;string&quot;,&quot;product_list&quot;:&quot;string&quot;,&quot;purchase_id&quot;:&quot;string&quot;,&quot;purchase_status&quot;:&quot;string&quot;,&quot;total_price&quot;:&quot;string&quot;,&quot;voucher_code&quot;:&quot;string&quot;}}&#39;</code></pre>
+  </div>
+  </div>
+    <div class="variants">
+    <h3>Variants</h3>
+    <table>
+      <thead>
+        <tr><th>Variant</th><th>Conditions</th><th>Description</th><th>Standard event</th></tr>
+      </thead>
+      <tbody>
+        <tr class="variant-row">
+        <td>purchase[purchase_status=success]</td>
+        <td>purchase_status = success</td>
+        <td>—</td>
+        <td>purchase</td>
+      </tr>
+      </tbody>
+    </table>
+  </div>
+    <div class="variant-codegen">
+        <h4>purchase[purchase_status=success]</h4>
+        <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;purchase&#39;,
+  // Optional:
+  product_ids: &#39;string&#39;,
+  product_list: &#39;string&#39;,
+  purchase_id: &#39;string&#39;,
+  purchase_status: &#39;success&#39;,
+  total_price: &#39;string&#39;,
+  voucher_code: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;purchase&#39;, {
+  // Optional:
+  product_ids: &#39;string&#39;,
+  product_list: &#39;string&#39;,
+  purchase_id: &#39;string&#39;,
+  purchase_status: &#39;success&#39;,
+  total_price: &#39;string&#39;,
+  voucher_code: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>// Optional properties: product_ids, product_list, purchase_id, purchase_status, total_price, voucher_code
+
+{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;purchase&quot;,
+  &quot;properties&quot;: {
+    &quot;product_ids&quot;: &quot;string&quot;,
+    &quot;product_list&quot;: &quot;string&quot;,
+    &quot;purchase_id&quot;: &quot;string&quot;,
+    &quot;purchase_status&quot;: &quot;success&quot;,
+    &quot;total_price&quot;: &quot;string&quot;,
+    &quot;voucher_code&quot;: &quot;string&quot;
+  }
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;purchase&quot;,&quot;properties&quot;:{&quot;product_ids&quot;:&quot;string&quot;,&quot;product_list&quot;:&quot;string&quot;,&quot;purchase_id&quot;:&quot;string&quot;,&quot;purchase_status&quot;:&quot;success&quot;,&quot;total_price&quot;:&quot;string&quot;,&quot;voucher_code&quot;:&quot;string&quot;}}&#39;</code></pre>
+  </div>
+  </div>
+      </div>
+    
+    
+    <div class="findings">
+    <h3>Open findings</h3>
+    <table>
+      <thead>
+        <tr><th>Severity</th><th>Kind</th><th>Comparison</th><th>Property</th><th>Variant</th><th>Rule</th><th>Message</th></tr>
+      </thead>
+      <tbody><tr>
+        <td>error</td>
+        <td>type_mismatch</td>
+        <td>definition_vs_observations</td>
+        <td>product_ids</td>
+        <td>purchase[purchase_status=success]</td>
+        <td>—</td>
+        <td>Property &quot;product_ids&quot; on event &quot;purchase&quot; is array, expected string.</td>
+      </tr>
+<tr>
+        <td>error</td>
+        <td>type_mismatch</td>
+        <td>definition_vs_observations</td>
+        <td>product_list</td>
+        <td>purchase[purchase_status=success]</td>
+        <td>—</td>
+        <td>Property &quot;product_list&quot; on event &quot;purchase&quot; is array, expected string.</td>
+      </tr>
+<tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>purchase[purchase_status=success]</td>
+        <td>—</td>
+        <td>Observed payload key &quot;currency&quot; on event &quot;purchase&quot; is not linked to the event.</td>
+      </tr>
+<tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>purchase[purchase_status=success]</td>
+        <td>—</td>
+        <td>Observed payload key &quot;payment_method&quot; on event &quot;purchase&quot; is not linked to the event.</td>
+      </tr>
+<tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>purchase[purchase_status=success]</td>
+        <td>—</td>
+        <td>Observed payload key &quot;purchase_source_type&quot; on event &quot;purchase&quot; is not linked to the event.</td>
+      </tr></tbody>
+    </table>
+  </div>
+  </section>
+<section class="event" id="event-6a8e72ef-a904-4143-a075-740bac31968c">
+    <h2>purchase_item</h2>
+    <dl class="event-meta">
+      
+      <dt>Class</dt><dd>custom</dd>
+      <dt>Status</dt><dd>planned</dd>
+      
+      
+      
+    </dl>
+    <p class="certification certified"><strong>Certification:</strong> certified</p>
+    
+    
+    
+    <h3>Properties</h3>
+    <table class="property-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Required</th>
+        <th>Role</th>
+        <th>Data type</th>
+        <th>Payload key</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody><tr>
+        <td>category_level_1</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>category_level_1</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>category_level_2</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>category_level_2</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>category_level_3</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>category_level_3</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>product_id</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>product_id</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>purchase_id</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>purchase_id</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>size</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>size</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>price</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>price</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>quantity</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>quantity</td>
+        <td></td>
+      </tr></tbody>
+  </table>
+    <h3>Sample payload</h3>
+    <pre class="payload-doc"><code>{
+  &quot;category_level_1&quot;: &quot;string&quot;,
+  &quot;category_level_2&quot;: &quot;string&quot;,
+  &quot;category_level_3&quot;: &quot;string&quot;,
+  &quot;product_id&quot;: &quot;string&quot;,
+  &quot;purchase_id&quot;: &quot;string&quot;,
+  &quot;size&quot;: &quot;string&quot;,
+  &quot;price&quot;: &quot;string&quot;,
+  &quot;quantity&quot;: &quot;string&quot;
+}</code></pre>
+    <h3>Implementation</h3>
+    <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;purchase_item&#39;,
+  // Optional:
+  category_level_1: &#39;string&#39;,
+  category_level_2: &#39;string&#39;,
+  category_level_3: &#39;string&#39;,
+  price: &#39;string&#39;,
+  product_id: &#39;string&#39;,
+  purchase_id: &#39;string&#39;,
+  quantity: &#39;string&#39;,
+  size: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;purchase_item&#39;, {
+  // Optional:
+  category_level_1: &#39;string&#39;,
+  category_level_2: &#39;string&#39;,
+  category_level_3: &#39;string&#39;,
+  price: &#39;string&#39;,
+  product_id: &#39;string&#39;,
+  purchase_id: &#39;string&#39;,
+  quantity: &#39;string&#39;,
+  size: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>// Optional properties: category_level_1, category_level_2, category_level_3, price, product_id, purchase_id, quantity, size
+
+{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;purchase_item&quot;,
+  &quot;properties&quot;: {
+    &quot;category_level_1&quot;: &quot;string&quot;,
+    &quot;category_level_2&quot;: &quot;string&quot;,
+    &quot;category_level_3&quot;: &quot;string&quot;,
+    &quot;price&quot;: &quot;string&quot;,
+    &quot;product_id&quot;: &quot;string&quot;,
+    &quot;purchase_id&quot;: &quot;string&quot;,
+    &quot;quantity&quot;: &quot;string&quot;,
+    &quot;size&quot;: &quot;string&quot;
+  }
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;purchase_item&quot;,&quot;properties&quot;:{&quot;category_level_1&quot;:&quot;string&quot;,&quot;category_level_2&quot;:&quot;string&quot;,&quot;category_level_3&quot;:&quot;string&quot;,&quot;price&quot;:&quot;string&quot;,&quot;product_id&quot;:&quot;string&quot;,&quot;purchase_id&quot;:&quot;string&quot;,&quot;quantity&quot;:&quot;string&quot;,&quot;size&quot;:&quot;string&quot;}}&#39;</code></pre>
+  </div>
+  </div>
+    
+    
+    
+    
+    <div class="findings">
+    <h3>Open findings</h3>
+    <table>
+      <thead>
+        <tr><th>Severity</th><th>Kind</th><th>Comparison</th><th>Property</th><th>Variant</th><th>Rule</th><th>Message</th></tr>
+      </thead>
+      <tbody><tr>
+        <td>warning</td>
+        <td>rename_mismatch</td>
+        <td>definition_vs_mapping</td>
+        <td>price</td>
+        <td>—</td>
+        <td>—</td>
+        <td>&quot;purchase_item.total_price&quot; maps to property &quot;price&quot; whose payload key (&quot;price&quot;) differs from the standard field name (&quot;total_price&quot;).</td>
+      </tr>
+<tr>
+        <td>warning</td>
+        <td>rename_mismatch</td>
+        <td>definition_vs_mapping</td>
+        <td>quantity</td>
+        <td>—</td>
+        <td>—</td>
+        <td>&quot;purchase_item.total_quantity&quot; maps to property &quot;quantity&quot; whose payload key (&quot;quantity&quot;) differs from the standard field name (&quot;total_quantity&quot;).</td>
+      </tr>
+<tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>Observed payload key &quot;brand&quot; on event &quot;purchase_item&quot; is not linked to the event.</td>
+      </tr>
+<tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>Observed payload key &quot;is_new&quot; on event &quot;purchase_item&quot; is not linked to the event.</td>
+      </tr>
+<tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>Observed payload key &quot;purchase_source_type&quot; on event &quot;purchase_item&quot; is not linked to the event.</td>
+      </tr>
+<tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>Observed payload key &quot;purchase_status&quot; on event &quot;purchase_item&quot; is not linked to the event.</td>
+      </tr>
+<tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>Observed payload key &quot;title&quot; on event &quot;purchase_item&quot; is not linked to the event.</td>
+      </tr></tbody>
+    </table>
+  </div>
+  </section>
+<section class="event" id="event-ae37460b-4b36-44dc-8d27-5aebdd8df9a5">
+    <h2>session_end</h2>
+    <dl class="event-meta">
+      
+      <dt>Class</dt><dd>sdk</dd>
+      <dt>Status</dt><dd>planned</dd>
+      
+      
+      
+    </dl>
+    <p class="certification not-applicable"><strong>Certification:</strong> n/a (not a custom event)</p>
+    
+    
+    
+    <h3>Properties</h3>
+    <p class="empty">No properties attached.</p>
+    <h3>Sample payload</h3>
+    <pre class="payload-doc"><code>{}</code></pre>
+    <h3>Implementation</h3>
+    <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;session_end&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;session_end&#39;, {
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;session_end&quot;
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;session_end&quot;}&#39;</code></pre>
+  </div>
+  </div>
+    
+    
+    
+    
+    
+  </section>
+<section class="event" id="event-ae948895-93d5-470f-91ca-41f57e625141">
+    <h2>session_start</h2>
+    <dl class="event-meta">
+      
+      <dt>Class</dt><dd>sdk</dd>
+      <dt>Status</dt><dd>planned</dd>
+      
+      
+      
+    </dl>
+    <p class="certification not-applicable"><strong>Certification:</strong> n/a (not a custom event)</p>
+    
+    
+    
+    <h3>Properties</h3>
+    <p class="empty">No properties attached.</p>
+    <h3>Sample payload</h3>
+    <pre class="payload-doc"><code>{}</code></pre>
+    <h3>Implementation</h3>
+    <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;session_start&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;session_start&#39;, {
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;session_start&quot;
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;session_start&quot;}&#39;</code></pre>
+  </div>
+  </div>
+    
+    
+    
+    
+    
+  </section>
+<section class="event" id="event-f072d84c-0669-4bff-92bc-e79494e7bbf0">
+    <h2>view_category</h2>
+    <dl class="event-meta">
+      
+      <dt>Class</dt><dd>custom</dd>
+      <dt>Status</dt><dd>planned</dd>
+      
+      
+      
+    </dl>
+    <p class="certification certified"><strong>Certification:</strong> certified</p>
+    
+    
+    
+    <h3>Properties</h3>
+    <p class="empty">No properties attached.</p>
+    <h3>Sample payload</h3>
+    <pre class="payload-doc"><code>{}</code></pre>
+    <h3>Implementation</h3>
+    <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;view_category&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;view_category&#39;, {
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;view_category&quot;
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;view_category&quot;}&#39;</code></pre>
+  </div>
+  </div>
+    
+    
+    
+    
+    <div class="findings">
+    <h3>Open findings</h3>
+    <table>
+      <thead>
+        <tr><th>Severity</th><th>Kind</th><th>Comparison</th><th>Property</th><th>Variant</th><th>Rule</th><th>Message</th></tr>
+      </thead>
+      <tbody><tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>Observed payload key &quot;category_level_1&quot; on event &quot;view_category&quot; is not linked to the event.</td>
+      </tr>
+<tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>Observed payload key &quot;category_level_2&quot; on event &quot;view_category&quot; is not linked to the event.</td>
+      </tr>
+<tr>
+        <td>info</td>
+        <td>unexpected_property</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>Observed payload key &quot;category_name&quot; on event &quot;view_category&quot; is not linked to the event.</td>
+      </tr></tbody>
+    </table>
+  </div>
+  </section>
+<section class="event" id="event-9b5e4cf8-713d-433b-8594-727612df0720">
+    <h2>view_item</h2>
+    <dl class="event-meta">
+      
+      <dt>Class</dt><dd>custom</dd>
+      <dt>Status</dt><dd>planned</dd>
+      
+      
+      
+    </dl>
+    <p class="certification certified"><strong>Certification:</strong> certified</p>
+    
+    
+    
+    <h3>Properties</h3>
+    <table class="property-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Required</th>
+        <th>Role</th>
+        <th>Data type</th>
+        <th>Payload key</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody><tr>
+        <td>brand</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>brand</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>category_level_1</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>category_level_1</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>category_level_2</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>category_level_2</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>category_level_3</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>category_level_3</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>price</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>price</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>product_id</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>product_id</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>stock_level</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>stock_level</td>
+        <td></td>
+      </tr>
+<tr>
+        <td>title</td>
+        <td>Optional</td>
+        <td>normal</td>
+        <td>string</td>
+        <td>title</td>
+        <td></td>
+      </tr></tbody>
+  </table>
+    <h3>Sample payload</h3>
+    <pre class="payload-doc"><code>{
+  &quot;brand&quot;: &quot;string&quot;,
+  &quot;category_level_1&quot;: &quot;string&quot;,
+  &quot;category_level_2&quot;: &quot;string&quot;,
+  &quot;category_level_3&quot;: &quot;string&quot;,
+  &quot;price&quot;: &quot;string&quot;,
+  &quot;product_id&quot;: &quot;string&quot;,
+  &quot;stock_level&quot;: &quot;string&quot;,
+  &quot;title&quot;: &quot;string&quot;
+}</code></pre>
+    <h3>Implementation</h3>
+    <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;view_item&#39;,
+  // Optional:
+  brand: &#39;string&#39;,
+  category_level_1: &#39;string&#39;,
+  category_level_2: &#39;string&#39;,
+  category_level_3: &#39;string&#39;,
+  price: &#39;string&#39;,
+  product_id: &#39;string&#39;,
+  stock_level: &#39;string&#39;,
+  title: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;view_item&#39;, {
+  // Optional:
+  brand: &#39;string&#39;,
+  category_level_1: &#39;string&#39;,
+  category_level_2: &#39;string&#39;,
+  category_level_3: &#39;string&#39;,
+  price: &#39;string&#39;,
+  product_id: &#39;string&#39;,
+  stock_level: &#39;string&#39;,
+  title: &#39;string&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>// Optional properties: brand, category_level_1, category_level_2, category_level_3, price, product_id, stock_level, title
+
+{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;view_item&quot;,
+  &quot;properties&quot;: {
+    &quot;brand&quot;: &quot;string&quot;,
+    &quot;category_level_1&quot;: &quot;string&quot;,
+    &quot;category_level_2&quot;: &quot;string&quot;,
+    &quot;category_level_3&quot;: &quot;string&quot;,
+    &quot;price&quot;: &quot;string&quot;,
+    &quot;product_id&quot;: &quot;string&quot;,
+    &quot;stock_level&quot;: &quot;string&quot;,
+    &quot;title&quot;: &quot;string&quot;
+  }
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;view_item&quot;,&quot;properties&quot;:{&quot;brand&quot;:&quot;string&quot;,&quot;category_level_1&quot;:&quot;string&quot;,&quot;category_level_2&quot;:&quot;string&quot;,&quot;category_level_3&quot;:&quot;string&quot;,&quot;price&quot;:&quot;string&quot;,&quot;product_id&quot;:&quot;string&quot;,&quot;stock_level&quot;:&quot;string&quot;,&quot;title&quot;:&quot;string&quot;}}&#39;</code></pre>
+  </div>
+  </div>
+    
+    
+    
+    
+    
+  </section>
+<section class="event" id="event-fb824f17-6159-4cd1-81eb-e5c87a2faaec">
+    <h2>web_exit</h2>
+    <dl class="event-meta">
+      
+      <dt>Class</dt><dd>sdk</dd>
+      <dt>Status</dt><dd>planned</dd>
+      
+      
+      
+    </dl>
+    <p class="certification not-applicable"><strong>Certification:</strong> n/a (not a custom event)</p>
+    
+    
+    
+    <h3>Properties</h3>
+    <p class="empty">No properties attached.</p>
+    <h3>Sample payload</h3>
+    <pre class="payload-doc"><code>{}</code></pre>
+    <h3>Implementation</h3>
+    <div class="codegen">
+    <div class="codegen-snippet">
+    <h4>dataLayer</h4>
+    <pre><code>window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: &#39;web_exit&#39;,
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Web SDK</h4>
+    <pre><code>exponea.track(&#39;web_exit&#39;, {
+});</code></pre>
+  </div>
+    <div class="codegen-snippet">
+    <h4>Bloomreach Tracking API</h4>
+    <pre><code>{
+  &quot;customer_ids&quot;: {
+    &quot;registered&quot;: &quot;&lt;customer_id&gt;&quot;
+  },
+  &quot;event_type&quot;: &quot;web_exit&quot;
+}
+
+// cURL example:
+curl -X POST &quot;https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events&quot; \
+  -H &quot;Authorization: Basic YOUR_BASE64_API_KEY&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{&quot;customer_ids&quot;:{&quot;registered&quot;:&quot;&lt;customer_id&gt;&quot;},&quot;event_type&quot;:&quot;web_exit&quot;}&#39;</code></pre>
+  </div>
+  </div>
+    
+    
+    
+    
+    
+  </section>
+  <div class="findings">
+    <h3>Open findings without an event</h3>
+    <table>
+      <thead>
+        <tr><th>Severity</th><th>Kind</th><th>Comparison</th><th>Property</th><th>Variant</th><th>Rule</th><th>Message</th></tr>
+      </thead>
+      <tbody><tr>
+        <td>error</td>
+        <td>shape_inconsistent</td>
+        <td>definition_vs_observations</td>
+        <td>c0c2b486-1176-4039-a26b-d586fbc366b4</td>
+        <td>—</td>
+        <td>—</td>
+        <td>Property &quot;product_ids&quot; is observed with inconsistent JSON types across events: array, string.</td>
+      </tr>
+<tr>
+        <td>warning</td>
+        <td>rename_mismatch</td>
+        <td>mapping_vs_observations</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>Observed consent category &quot;newsletter&quot; matches standard key &quot;newsletter&quot;, which the mapping renames to &quot;brand_consent&quot;.</td>
+      </tr>
+<tr>
+        <td>info</td>
+        <td>unexpected_event</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>Observed event type &quot;loyalty_update&quot; has no matching Event definition.</td>
+      </tr>
+<tr>
+        <td>info</td>
+        <td>unexpected_event</td>
+        <td>definition_vs_observations</td>
+        <td>—</td>
+        <td>—</td>
+        <td>—</td>
+        <td>Observed event type &quot;paper_catalogue&quot; has no matching Event definition.</td>
+      </tr></tbody>
+    </table>
+  </div>
+  <section id="identity-rules"><h2>Identity rules</h2><p>No identity rules defined.</p></section>
+<section id="identity-codegen">
+    <h2>Identity codegen</h2>
+    <div class="codegen">
+      <div>
+        <h3>identify</h3>
+        <pre>// No hard identity rules configured; exponea.identify() has nothing to send yet.</pre>
+      </div>
+      <div>
+        <h3>update</h3>
+        <pre>exponea.update({
+  address: address,
+  email: email, // special attribute
+  first_name: firstName, // special attribute
+  gender: gender,
+  last_name: lastName, // special attribute
+  phone: phone, // special attribute, E.164 format (e.g. +14155550123)
+});</pre>
+      </div>
+      <div>
+        <h3>anonymize</h3>
+        <pre>// No logout (anonymize) rule configured.</pre>
+      </div>
+    </div>
+  </section>
+<section id="consent-categories">
+    <h2>Consent categories</h2>
+    <table>
+      <thead>
+        <tr><th>Client category</th><th>Standard key</th><th>Description</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+        <td>brand_consent</td>
+        <td>newsletter</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+  <section id="standard-event-mappings">
+    <h2>Standard event mappings</h2>
+    <table>
+      <thead>
+        <tr><th>Standard event</th><th>Event</th><th>Variant</th><th>Field map</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+        <td>add_to_cart</td>
+        <td>cart_update</td>
+        <td>cart_update[action=add]</td>
+        <td>product_id → product_id, total_price → total_price, total_quantity → total_quantity</td>
+      </tr>
+<tr>
+        <td>checkout</td>
+        <td>checkout</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>
+<tr>
+        <td>purchase</td>
+        <td>purchase</td>
+        <td>purchase[purchase_status=success]</td>
+        <td>product_ids → product_ids, product_list → product_list, purchase_id → purchase_id, purchase_status → purchase_status, total_price → total_price, voucher_code → voucher_code</td>
+      </tr>
+<tr>
+        <td>purchase_item</td>
+        <td>purchase_item</td>
+        <td>—</td>
+        <td>category_level_1 → category_level_1, category_level_2 → category_level_2, category_level_3 → category_level_3, product_id → product_id, purchase_id → purchase_id, size → size, total_price → price, total_quantity → quantity</td>
+      </tr>
+<tr>
+        <td>view_category</td>
+        <td>view_category</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>
+<tr>
+        <td>view_item</td>
+        <td>view_item</td>
+        <td>—</td>
+        <td>brand → brand, category_level_1 → category_level_1, category_level_2 → category_level_2, category_level_3 → category_level_3, price → price, product_id → product_id, stock_level → stock_level, title → title</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+  <section id="use-cases">
+    <h2>Use cases</h2>
+    <div class="use-case">
+        <h3>UC-01 — Abandoned cart</h3>
+        <dl class="use-case-meta">
+          <dt>Type</dt><dd>marketing</dd>
+          
+          
+          
+        </dl>
+        <p class="description">Recovers carts abandoned after an add-to-cart event with no completed checkout.</p>
+        <div class="narrative"><p>Abandoned cart is a marketing use case. Recovers carts abandoned after an add-to-cart event with no completed checkout.</p>
+<h5>Flow</h5>
+<ol><li>The site sends <code>cart_update[action=add]</code> with required <code>product_id</code>, <code>total_price</code>.</li><li>The site sends <code>checkout</code>.</li></ol>
+<h5>Customer data</h5>
+<ul><li>Customer property <code>email</code> (required).</li></ul></div>
+        <h4>Requirements</h4>
+        <table>
+              <thead><tr><th>Target</th><th>Level</th><th>Status</th><th>Note</th></tr></thead>
+              <tbody><tr>
+            <td>cart_update[action=add].product_id</td>
+            <td>R</td>
+            <td>—</td>
+            <td>—</td>
+          </tr>
+<tr>
+            <td>cart_update[action=add]</td>
+            <td>R</td>
+            <td>—</td>
+            <td>The abandoned-cart trigger.</td>
+          </tr>
+<tr>
+            <td>cart_update[action=add].total_price</td>
+            <td>O</td>
+            <td>—</td>
+            <td>—</td>
+          </tr>
+<tr>
+            <td>checkout</td>
+            <td>O</td>
+            <td>—</td>
+            <td>Suppresses the recovery email once checkout has started.</td>
+          </tr></tbody>
+            </table>
+      </div>
+  </section>
+  <section id="requirements-matrix">
+    <h2>Requirements matrix</h2>
+    <table>
+      <thead><tr><th>Target</th><th>UC-01 — Abandoned cart</th></tr></thead>
+      <tbody><tr><td>checkout</td><td>O</td></tr>
+<tr><td>cart_update[action=add]</td><td>R</td></tr>
+<tr><td>cart_update[action=add].product_id</td><td>R</td></tr>
+<tr><td>cart_update[action=add].total_price</td><td>O</td></tr></tbody>
+    </table>
+  </section>
+</body>
+</html>

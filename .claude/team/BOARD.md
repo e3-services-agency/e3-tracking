@@ -2546,3 +2546,9 @@ Reviewer PASS (22:50). Before QA: WARNING 1 trigger source validated as http(s) 
 
 ### 2026-09-28 23:02 | implementer -> qa-tester | HANDOFF | T-4-03 pre-QA fixes
 Posted by supervisor. Commit aedc0c7 on task/T-4-03-shared-view: trigger source validated as http(s) at write time, card nulls stored bad values; malformed token escapes fall to the invalid-link page (src/sharedRoute.ts). 1375 tests (112 files), tsc and lint green. QA starts (scenario 12).
+
+### 2026-09-28 23:07 | supervisor | HANDOFF | T-4-09 getting started, Help, glossary, sandbox (D-60) — REVIEW
+Branch: task/T-4-09-getting-started (6 commits on agent-setup a281b6d, HEAD efa3b85). Tests 1399/0 (was 1385), tsc clean, build green, lint green.
+New: migration 0023 (projects.settings_json, is_sandbox), GET /api/projects/:id/getting-started (9 steps computed from change_log/findings/project columns), POST /api/projects/sandbox (restores the bundled backup, auto client "Sandboxes", key sandbox-<slug>), src/domain/glossary.ts (11 terms) + GlossaryTerm tooltip, Help page (6 docs via ?raw + glossary), Getting Started page (sidebar, always reachable), EmptyState on 9 list pages, Clients page sandbox section (create, list, bulk delete) + switcher badge, scripts/build-sandbox-backup.mjs + committed samples/sandbox-project-backup.json (5.7 MB, 62 events, 648 properties, UC-01..03, one acknowledged finding).
+Deviations for review: tooltips on 3 spots only; no inline banner on Events (dedicated page only); Standard events/History without button empty state; Data Manager files were run into the sandbox but not embedded. Share on sandbox refuses without force (test added).
+Reviewer: check migration 0023 numbering vs 0022, sandbox restore idempotence (second create yields a second key), delete of a sandbox cleans files, getting-started step detection against the fixture project, Help page ?raw imports in the production build, and the T-4-08 QA note on the project-create modal first submit.

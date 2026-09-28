@@ -389,3 +389,5 @@ Consequences: Folded into T-4-09 (button, flag, checklist entry); the curated ba
 ## D-57 amendment (2026-09-28): catalog attribute resolution treats item_id and product_id as aliases of the main catalog id field.
 
 ## D-48 amendment (2026-09-28): the shared routes serve a public projection of the tracking document and HTML: agent_instructions, owners, identity_note, bloomreach_project_url and any internal_* field are removed; not_suitable_for stays. Every error under /api/shared is the same 404 SHARE_NOT_FOUND body (malformed escapes included) and the global error handler never returns stack traces outside development. Shared responses carry Cache-Control: no-store.
+
+## D-53 amendment 4 (2026-09-28): 0023 T-4-09 project settings_json (is_sandbox, D-60).

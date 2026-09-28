@@ -38,6 +38,8 @@ import type { DiffItem, DiffItemChange } from '../../domain/diff/types';
 import { STANDARD_CUSTOMER_PROPERTIES } from '../../domain/bloomreach';
 import { PayloadChangedError } from '../errors';
 import { findPropertyByName } from './bloomreachImportHelpers';
+import { getActor, runWithActor } from '../context/actor';
+import { newId } from '../db/util';
 
 const EMPTY_SENTINEL = '(empty)';
 const SNAPSHOT_STEP_ID = 'project:data_manager_customers_snapshot';
@@ -63,6 +65,8 @@ export interface DataManagerCustomersApplySummary {
   applied: string[];
   skipped: string[];
   warnings: string[];
+  /** T-3-02: every change_log row this apply produces shares this id (`source: 'import:data-manager-customers'`). */
+  batch_id: string;
 }
 
 /**
@@ -344,6 +348,7 @@ export function applyDataManagerCustomers(
   const skipped: string[] = [];
 
   const db = getDb();
+  const batchId = newId();
   const run = db.transaction(() => {
     const { items, steps } = buildPlan(projectId, model, rawJson);
     for (const item of items) {
@@ -356,8 +361,8 @@ export function applyDataManagerCustomers(
       if (step.id === SNAPSHOT_STEP_ID || selected.has(step.id)) step.run();
     }
   });
-  run();
+  runWithActor({ ...getActor(), source: 'import:data-manager-customers', batch_id: batchId }, run);
 
   const finalPlan = buildPlan(projectId, model, rawJson);
-  return { applied, skipped, warnings: finalPlan.warnings };
+  return { applied, skipped, warnings: finalPlan.warnings, batch_id: batchId };
 }

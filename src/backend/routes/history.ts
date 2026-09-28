@@ -16,6 +16,16 @@
  * `CHANGE_LOG_ACTIONS`; every query parameter is now whitelisted (`KNOWN_HISTORY_PARAMS`) so a
  * typo (e.g. `?actoin=delete`) is a 400 naming the unknown parameter instead of returning
  * unfiltered results.
+ *
+ * T-3-02 fix round (from the T-3-01 review): Express's extended query parser turns a repeated key
+ * (`?entity_type=a&entity_type=b`) into an array and a bracketed key (`?entity_type[x]=y`) into an
+ * object -- either used to reach the DAL as a non-string and either got silently coerced or threw a
+ * raw `datatype mismatch` 500. Every known parameter is now asserted to be a plain string (or
+ * absent) before use, a 400 otherwise; and `limit=1000` (`MAX_LIMIT`) no longer reports
+ * `next_cursor: null` when more rows exist -- the one-row lookahead (`limit + 1`) used to get
+ * clamped straight back down to `MAX_LIMIT` by the DAL's own `Math.min(..., MAX_LIMIT)`, so a full
+ * page at the max size could never detect "more rows follow". The requested limit is capped at
+ * `MAX_LIMIT - 1` instead, so the lookahead row always fits under the DAL's own clamp.
  */
 import { Router, type Request, type Response } from 'express';
 import { listChanges, getChangeOrThrow, buildCursor, DEFAULT_LIMIT, MAX_LIMIT } from '../dal/change-log.dal';
@@ -42,6 +52,18 @@ const KNOWN_HISTORY_PARAMS = new Set([
 
 function stringParam(v: unknown): string | undefined {
   return typeof v === 'string' && v.length > 0 ? v : undefined;
+}
+
+/**
+ * Rejects an array/object query value for `key` (fix round: Express's extended query parser turns
+ * `?key=a&key=b` into an array and `?key[x]=y` into an object; either used to silently reach the
+ * DAL as a non-string, or throw a raw SQLite `datatype mismatch` 500 further down, instead of a
+ * clean 400 naming the offending parameter).
+ */
+function assertStringOrAbsent(key: string, v: unknown): void {
+  if (v !== undefined && typeof v !== 'string') {
+    throw new ValidationError(`${key} must be a single string value.`, key);
+  }
 }
 
 /**
@@ -127,6 +149,7 @@ function assertKnownParams(query: Request['query']): void {
     if (!KNOWN_HISTORY_PARAMS.has(key)) {
       throw new ValidationError(`Unknown query parameter "${key}".`, key);
     }
+    assertStringOrAbsent(key, query[key]);
   }
 }
 
@@ -137,11 +160,13 @@ router.get('/', (req: Request, res: Response) => {
     const action = parseAction(req.query.action);
     const cursor = parseCursor(req.query.before, req.query.before_id);
     // Fetch one extra row (`limit + 1`) to know whether another page follows, without a second
-    // COUNT query. `requestedLimit` matches the DAL's own default/max contract (100/1000); at the
-    // exact MAX_LIMIT boundary the DAL clamps the lookahead row away too, so `hasMore` can read
-    // `false` one page early only in that one edge case -- accepted rather than shrinking the
-    // documented max page size to fit the lookahead.
-    const requestedLimit = Math.max(1, Math.min(limit ?? DEFAULT_LIMIT, MAX_LIMIT));
+    // COUNT query. `requestedLimit` is capped at `MAX_LIMIT - 1` (fix round, from the T-3-01
+    // review), not `MAX_LIMIT`: the DAL's own `listChanges` clamps whatever it's asked for down to
+    // `MAX_LIMIT`, so a `limit + 1` lookahead built on top of a full `MAX_LIMIT` request used to get
+    // clamped straight back down, and a full page at the max size could never report `next_cursor`
+    // even when more rows existed. Capping one below leaves room for the lookahead row to survive
+    // the DAL's clamp intact.
+    const requestedLimit = Math.max(1, Math.min(limit ?? DEFAULT_LIMIT, MAX_LIMIT - 1));
     const page = listChanges(req.projectId!, {
       entity_type: stringParam(req.query.entity_type),
       entity_id: stringParam(req.query.entity_id),

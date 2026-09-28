@@ -1875,3 +1875,6 @@ Scenario table:
 5. Regression — PASS. CSV list route and 7 sampled entity CSV routes all 200; no 500s; browser console clean (only Vite/HMR/React-DevTools noise); network log showed zero `supabase` requests.
 
 Backups saved (full, both under 5 MB) at `.claude/team/reports/qa/T-3-04/backup-before-soft-delete.json` and `.claude/team/reports/qa/T-3-04/backup-after-soft-delete.json`. Both dev servers stopped; ports 3001 and 3010 confirmed free; qa-t304 data files and tmp_qa scratch removed from the worktree, `git status` clean.
+
+### 2026-09-28 02:56 | supervisor | STATUS | T-3-04 DONE
+qa-tester PASS (02:54). Merged clean into agent-setup: 1100 tests (95 files), tsc clean. Five of ten phase 3 tasks merged. In flight: T-3-02 review, T-3-05 and T-3-10 implementation.

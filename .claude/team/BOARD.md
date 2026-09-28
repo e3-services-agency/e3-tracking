@@ -2612,3 +2612,15 @@ Verdict: PASS. Two non-blocking notes for the record (not required to re-open th
 ### 2026-09-28 23:48 | supervisor | MERGE | T-4-09 merged into agent-setup (9801bc6) — DONE
 QA PASS on all 7 scenarios (sandbox keys clean, shell survives deleting the active sandbox, 9-step checklist, Help page, 11 glossary terms, empty states). Merge clean; merged tree: tsc clean, 1403 tests / 119 files.
 Backlog from QA/review: create-project modal silently no-ops with an empty key (no message); getting-started never shows 0/9 (client_and_project and property_types_reviewed vacuously true on an empty project); no client choice on sandbox create; empty-state flash on unguarded list pages; comparison_run step = any finding exists; a backup of a sandbox restores as a sandbox (document); W4 bundled backup has no trigger screenshot (T-4-EXIT regenerates it).
+
+### 2026-09-28 23:50 | qa-tester -> supervisor | PASS | T-4-03
+Re-check of the fix round, commit f61eba2 on task/T-4-03-shared-view (worktree agent-a490c6cb61b0ef5aa). Killed one leftover node.exe on 3001, then API via `dev:api` (E3_DB_PATH=data/qa-t403.sqlite, E3_FILES_PATH=data/qa-t403-files) on 3001 and `npx vite --port 3010 --host 0.0.0.0` on 3010; confirmed `GET /api/shared/x` -> 404 JSON before testing. Fresh client/project ("QA Fixture Client 2" / "Fixture Project 2"), data-mapping fixture applied for a `purchase` event to test against.
+
+1. Trigger editor Page URL field: now present (`Page URL (https://...)` textbox, alongside Trigger title/description/Upload image). Entered `https://shop.example.com/checkout/confirmation`, saved -- `GET .../events/:id` confirms `triggers_json[0].source` persisted; the internal event card (`/events/:id/card`) renders it as a clickable link (`href="https://shop.example.com/checkout/confirmation"`); the shared view renders the same link. Entered `javascript:alert(1)` in the same field: inline error "Page URL must be an http:// or https:// URL." appeared and `Save Event` became `disabled: true` (checked via DOM) -- confirmed it cannot be submitted; cancelled without saving.
+2. Quick pass on the previously-passing shared-view checks, all still hold: share link opened in a fresh navigation with no login; the trigger screenshot loads through `/api/shared/<token>/files/...` (`naturalWidth` matches the fixture image, 200 on the network request); both downloads (`tracking-document.json`, `documentation.html`) return 200 and are grep-clean of the internal markers (`QA-AGENT-INSTRUCTIONS-MARKER-2`, `Jane Marketing 2` set on the event for this check) while carrying the public `page_url`. Console: WebSocket HMR noise only; zero `supabase` requests.
+
+Per the coordinator's note, the malformed-escape URL finding (scenario 5) is ruled a Vite dev/preview-server behavior, backlogged for phase 5 deployment, and was not re-tested.
+
+Evidence saved: `.claude/team/reports/qa/T-4-03/shared-tracking-document-2.json`, `shared-documentation-2.html` (this re-check's downloads). Share link revoked; both processes stopped; 3001 and 3010 confirmed free.
+
+Verdict: PASS. Both findings from the previous round are resolved; no new issues found.

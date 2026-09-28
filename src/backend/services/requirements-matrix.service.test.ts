@@ -10,6 +10,7 @@ import * as EventDAL from '../dal/event.dal';
 import * as PropertyDAL from '../dal/property.dal';
 import * as UseCaseDAL from '../dal/use-case.dal';
 import * as RequirementDAL from '../dal/requirement.dal';
+import { insertUnresolvedRequirement } from '../dal/requirement.dal';
 import { computeRequirementsMatrix } from './requirements-matrix.service';
 
 let projectId: string;
@@ -135,5 +136,43 @@ describe('computeRequirementsMatrix', () => {
     expect(gapRows).toHaveLength(2);
     expect(new Set(gapRows.map((r) => r.label)).size).toBe(2);
     expect(gapRows.map((r) => r.cells[useCase.id]).sort()).toEqual(['O', 'R']);
+  });
+
+  it('T-3-06 QA fix (2026-09-28 01:59): two gap rows with identical notes still get distinct keys', () => {
+    // Reproduces the qa-tester's repro: two independent use cases (e.g. two instantiations of the
+    // same template) each produce a gap requirement on the same unresolvable event name, so both
+    // rows render the exact same label text ("(removed): No event named \"wishlist_add\" ...").
+    // Before the fix, the frontend derived its React key from `target_kind:label`, which collided;
+    // the fix is that the service itself exposes a stable, already-unique `key` per row (`gap:<id>`
+    // for a gap row) so no caller ever needs to re-derive one from display text.
+    const useCaseA = UseCaseDAL.createUseCase(projectId, { name: 'A' });
+    const useCaseB = UseCaseDAL.createUseCase(projectId, { name: 'B' });
+    const sameNote = 'No event named "wishlist_add" in this project.';
+    insertUnresolvedRequirement(useCaseA.id, 0, { target_kind: 'event', level: 'R', note: sameNote });
+    insertUnresolvedRequirement(useCaseB.id, 0, { target_kind: 'event', level: 'R', note: sameNote });
+
+    const matrix = computeRequirementsMatrix(projectId);
+    const gapRows = matrix.rows.filter((r) => r.key.startsWith('gap:'));
+    expect(gapRows).toHaveLength(2);
+    // Identical label text (this is exactly the case that used to collide)...
+    expect(gapRows[0].label).toBe(gapRows[1].label);
+    // ...but distinct, stable keys.
+    expect(gapRows[0].key).not.toBe(gapRows[1].key);
+    expect(new Set(gapRows.map((r) => r.key)).size).toBe(2);
+  });
+
+  it('T-3-06 QA fix: a resolved row key is stable across recomputes', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'checkout' }).id;
+    const useCase = UseCaseDAL.createUseCase(projectId, { name: 'A' });
+    RequirementDAL.replaceRequirements(projectId, useCase.id, [
+      { target_kind: 'event', event_id: event, level: 'R' },
+    ]);
+
+    const first = computeRequirementsMatrix(projectId);
+    const second = computeRequirementsMatrix(projectId);
+    expect(first.rows).toHaveLength(1);
+    expect(first.rows[0].key).toBe(second.rows[0].key);
+    expect(first.rows[0].key).not.toMatch(/^gap:/);
+    expect(first.rows[0].key).toBe(`event::${event}:`);
   });
 });

@@ -67,6 +67,7 @@ export interface RestoreTarget {
 export interface RestoreApplyResult {
   project: ProjectRow;
   counts: Record<string, number>;
+  warnings: string[];
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -202,18 +203,24 @@ function resolveUseCaseTemplates(templates: BackupRow[], warnings: string[]): Ma
   return idMap;
 }
 
-/** Every string of at least this length is worth a substring scan (shortest id-bearing compound value, e.g. `a:b` with 2 short ids, is still far longer in practice — real ids are UUIDs). Short strings (`"true"`, a two-letter code, ...) are never worth the scan. */
-const MIN_SCAN_LENGTH = 20;
+/**
+ * Every id this restore ever generates is a random v4 UUID (`newId()` = `randomUUID()`), so one
+ * global regex pass finds every UUID-shaped substring of a string in a single linear scan; a
+ * `Map` lookup per match replaces it (or leaves it as-is when the matched id isn't in `idMap` --
+ * e.g. a `change_log` row referencing an entity hard-deleted before the backup was taken). This
+ * replaces an earlier `O(strings x ids)` approach (loop every `idMap` entry per string) that grew
+ * quadratically (reviewer WARNING 2, 2026-09-28: 1517 ids x 3966 `change_log` rows cost 4.5 s vs
+ * 0.9 s for 966 rows) with one that costs one regex pass per string regardless of `idMap` size.
+ * Also covers a *compound* key such as `"<event_id>:<property_id>"` (an `event_property`
+ * `change_log.entity_id`/`parent_entity_id`) since the regex finds every match inside the string,
+ * not just a whole-string equality.
+ */
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 
 function remapString(value: string, idMap: Map<string, string>, pathMap: Map<string, string>): string {
-  const exact = idMap.get(value) ?? pathMap.get(value);
-  if (exact !== undefined) return exact;
-  if (value.length < MIN_SCAN_LENGTH) return value;
-  let result = value;
-  for (const [oldId, newIdValue] of idMap) {
-    if (result.includes(oldId)) result = result.split(oldId).join(newIdValue);
-  }
-  return result;
+  const exactPath = pathMap.get(value);
+  if (exactPath !== undefined) return exactPath;
+  return value.replace(UUID_RE, (match) => idMap.get(match) ?? match);
 }
 
 function deepRemapValue(value: unknown, idMap: Map<string, string>, pathMap: Map<string, string>): unknown {
@@ -222,7 +229,10 @@ function deepRemapValue(value: unknown, idMap: Map<string, string>, pathMap: Map
   if (isPlainObject(value)) {
     const out: Record<string, unknown> = {};
     for (const [key, v] of Object.entries(value)) {
-      const newKey = idMap.get(key) ?? key;
+      // Object keys go through the same regex-based rewrite (fix round WARNING 3, 2026-09-28):
+      // a compound key such as `"<id>:x"` used to only have its *value* rewritten, keeping the
+      // old id in the key itself (D-45: "keys and values of every JSON column").
+      const newKey = remapString(key, idMap, pathMap);
       out[newKey] = deepRemapValue(v, idMap, pathMap);
     }
     return out;
@@ -319,84 +329,116 @@ export async function applyRestore(
 
   const warnings = [...parsed.warnings];
   const newProjectId = newId();
-
-  // Files are written through the (async) FileStore before the (synchronous) db.transaction below.
-  const pathMap = await restoreFiles(newProjectId, parsed.files, warnings);
-
   const batchId = newId();
   const counts: Record<string, number> = {};
   const unknownColsSeen = new Map<string, Set<string>>();
   const actor = getActor();
-
   const db = getDb();
-  const run = db.transaction(() => {
-    runWithActor({ actor: actor.actor, source: 'restore', batch_id: batchId }, () => {
-      const idMap = new Map<string, string>();
-      for (const table of PROJECT_SCOPED_TABLES) {
-        for (const row of parsed.tables[table] ?? []) {
-          if (typeof row.id === 'string') idMap.set(row.id, newId());
+
+  // Fix round WARNING 1 (reviewer, 2026-09-28): everything that touches the filesystem or the
+  // database for this restore attempt is wrapped in one try/catch. A thrown error rolls the
+  // `db.transaction` back on its own (nothing to do there), but the files `restoreFiles` already
+  // wrote before/alongside it are *not* part of that transaction (better-sqlite3 transactions are
+  // synchronous, so the async file writes cannot be inside one) and would otherwise be orphaned on
+  // disk under `newProjectId`'s own directory forever, growing by one directory per failed retry;
+  // `removeProjectFiles` cleans that whole directory up before the error is re-thrown.
+  try {
+    // Files are written through the (async) FileStore before the (synchronous) db.transaction below.
+    const pathMap = await restoreFiles(newProjectId, parsed.files, warnings);
+
+    const run = db.transaction(() => {
+      runWithActor({ actor: actor.actor, source: 'restore', batch_id: batchId }, () => {
+        const idMap = new Map<string, string>();
+        for (const table of PROJECT_SCOPED_TABLES) {
+          for (const row of parsed.tables[table] ?? []) {
+            if (typeof row.id === 'string') idMap.set(row.id, newId());
+          }
         }
-      }
 
-      const templateIdMap = resolveUseCaseTemplates(parsed.tables.use_case_templates ?? [], warnings);
-      for (const [oldId, resolvedId] of templateIdMap) idMap.set(oldId, resolvedId);
+        const templateIdMap = resolveUseCaseTemplates(parsed.tables.use_case_templates ?? [], warnings);
+        for (const [oldId, resolvedId] of templateIdMap) idMap.set(oldId, resolvedId);
 
-      const oldProjectId = deriveOldProjectId(parsed.tables);
-      if (oldProjectId) idMap.set(oldProjectId, newProjectId);
+        const oldProjectId = deriveOldProjectId(parsed.tables);
+        if (oldProjectId) idMap.set(oldProjectId, newProjectId);
 
-      // Project row: every backed-up settings column carried over, id/client_id/name/key/timestamps
-      // overwritten, share_token/share_access always null (never restored, T-3-04's own rule).
-      const remappedProject = deepRemapRow(parsed.project, idMap, pathMap);
-      const now = nowIso();
-      Object.assign(remappedProject, {
-        id: newProjectId,
-        client_id: target.client_id,
-        name,
-        key,
-        share_token: null,
-        share_access: null,
-        created_at: now,
-        updated_at: now,
-      });
-      insertGenericRow('projects', remappedProject, unknownColsSeen);
+        // Project row: every backed-up settings column carried over, id/client_id/name/key/timestamps
+        // overwritten, share_token/share_access always null (never restored, T-3-04's own rule).
+        const remappedProject = deepRemapRow(parsed.project, idMap, pathMap);
+        const now = nowIso();
+        Object.assign(remappedProject, {
+          id: newProjectId,
+          client_id: target.client_id,
+          name,
+          key,
+          share_token: null,
+          share_access: null,
+          created_at: now,
+          updated_at: now,
+        });
+        insertGenericRow('projects', remappedProject, unknownColsSeen);
 
-      for (const table of PROJECT_SCOPED_TABLES) {
-        const rows = parsed.tables[table] ?? [];
-        for (const raw of rows) {
-          // `project_id` (on the tables that have the column at all -- the composite-key link
-          // tables `event_sources`/`event_properties`/`property_bundle_items` do not) is rewritten
-          // by the generic id remap below via `oldProjectId -> newProjectId` in `idMap`, same as
-          // every other foreign key; it is never set here directly, so a table with no
-          // `project_id` column never gets one injected (which `insertGenericRow`'s unknown-column
-          // tracking would otherwise misreport as a dropped column on every such row).
-          const remapped = deepRemapRow(raw, idMap, pathMap);
-          insertGenericRow(table, remapped, unknownColsSeen);
+        for (const table of PROJECT_SCOPED_TABLES) {
+          const rows = parsed.tables[table] ?? [];
+          // Fix round INFO 5 (reviewer, 2026-09-28): a table this schema doesn't have yet (e.g.
+          // `comments` before T-4-02's migration lands) is guarded explicitly rather than relying
+          // on `insertGenericRow`'s empty-live-columns fallback, which would otherwise both
+          // misreport every row's every key as an "unknown column" and attempt an invalid
+          // `INSERT INTO t () VALUES ()`. `buildBackup` always emits `[]` for such a table, so
+          // this only matters for a hand-edited/foreign backup file.
+          if (rows.length > 0 && !tableExists(table)) {
+            warnings.push(`"${table}" does not exist in the current schema; ${rows.length} row(s) were not restored.`);
+            counts[table] = 0;
+            continue;
+          }
+          for (const raw of rows) {
+            // `project_id` (on the tables that have the column at all -- the composite-key link
+            // tables `event_sources`/`event_properties`/`property_bundle_items` do not) is rewritten
+            // by the generic id remap below via `oldProjectId -> newProjectId` in `idMap`, same as
+            // every other foreign key; it is never set here directly, so a table with no
+            // `project_id` column never gets one injected (which `insertGenericRow`'s unknown-column
+            // tracking would otherwise misreport as a dropped column on every such row).
+            const remapped = deepRemapRow(raw, idMap, pathMap);
+            insertGenericRow(table, remapped, unknownColsSeen);
+          }
+          counts[table] = rows.length;
         }
-        counts[table] = rows.length;
-      }
-      counts.use_case_templates = (parsed.tables.use_case_templates ?? []).length;
-      counts.files = parsed.files.length;
+        counts.use_case_templates = (parsed.tables.use_case_templates ?? []).length;
+        counts.files = parsed.files.length;
 
-      for (const [table, cols] of unknownColsSeen) {
-        warnings.push(
-          `"${table}" had unknown column(s) not present in the current schema: ${Array.from(cols).sort().join(', ')}; dropped.`
-        );
-      }
+        for (const [table, cols] of unknownColsSeen) {
+          warnings.push(
+            `"${table}" had unknown column(s) not present in the current schema: ${Array.from(cols).sort().join(', ')}; dropped.`
+          );
+        }
 
-      recordChange({
-        projectId: newProjectId,
-        entityType: 'project',
-        entityId: newProjectId,
-        entityLabel: name,
-        action: 'restore',
-        before: null,
-        after: { counts: JSON.stringify(counts) },
+        recordChange({
+          projectId: newProjectId,
+          entityType: 'project',
+          entityId: newProjectId,
+          entityLabel: name,
+          action: 'restore',
+          before: null,
+          after: { counts: JSON.stringify(counts) },
+        });
       });
     });
-  });
-  run();
+    run();
+  } catch (err) {
+    await getFileStore().removeProjectFiles(newProjectId);
+    throw err;
+  }
 
-  runComparison(newProjectId);
+  // Fix round INFO 5 (reviewer, 2026-09-28): the restore itself already committed at this point
+  // (every row and file is in place); a `runComparison` failure is reported back as a warning
+  // instead of surfacing as a 500 that would make the caller think the whole restore failed and
+  // retry into a colliding key, when in fact only the post-restore recompute did not run.
+  try {
+    runComparison(newProjectId);
+  } catch (err) {
+    warnings.push(
+      `The post-restore comparison recompute failed: ${err instanceof Error ? err.message : String(err)}. Run it again from the project's Findings page.`
+    );
+  }
 
-  return { project: ProjectDAL.getProjectOrThrow(newProjectId), counts };
+  return { project: ProjectDAL.getProjectOrThrow(newProjectId), counts, warnings };
 }

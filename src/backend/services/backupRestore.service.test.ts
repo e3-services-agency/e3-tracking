@@ -360,4 +360,80 @@ describe('applyRestore', () => {
     expect(EventDAL.listEvents(restored.id).length).toBeGreaterThan(0);
     expect(preview.warnings.some((w) => w.includes('properties') && w.includes('made_up_future_column'))).toBe(true);
   });
+
+  it('a failed apply removes every file it already wrote, leaving no orphan directory (fix round WARNING 1)', async () => {
+    await applyAllFixtures();
+    const backup = await buildBackup(projectId);
+    expect(backup.files.length).toBeGreaterThan(0); // the cart_update trigger screenshot
+
+    // Corrupt one finding's property_id to a uuid that will never exist in the restored project:
+    // insertGenericRow (inside the transaction, after the files are already written) then hits a
+    // real FOREIGN KEY violation, the same shape of failure the reviewer probed with a bad
+    // `severity` value -- any mid-transaction throw after the file write must be handled alike.
+    expect(backup.findings.length).toBeGreaterThan(0);
+    (backup.findings[0] as Record<string, unknown>).property_id = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+
+    const preview = previewRestore(backup);
+    const client = ClientDAL.createClient({ key: 'cleanup', name: 'Cleanup Co' });
+
+    const beforeDirs = fs.readdirSync(filesDir).sort();
+    await expect(
+      applyRestore(backup, preview.payload_hash, { name: 'Cleanup test', key: 'cleanup-test', client_id: client.id })
+    ).rejects.toThrow();
+    const afterDirs = fs.readdirSync(filesDir).sort();
+
+    expect(afterDirs).toEqual(beforeDirs); // no new (orphaned) project directory was left behind
+    expect(ProjectDAL.listProjects().some((p) => p.key === 'cleanup-test')).toBe(false);
+  });
+
+  it('rewrites a compound object key that embeds an id, not just its value (fix round WARNING 3)', async () => {
+    await applyAllFixtures();
+    const prop = PropertyDAL.listProperties(projectId, { scope: 'event' }).find((p) => p.name === 'total_price');
+    expect(prop).toBeTruthy();
+    const backup = await buildBackup(projectId);
+    const cartUpdateRow = backup.events.find((e) => e.name === 'cart_update') as Record<string, unknown>;
+    cartUpdateRow.bloomreach_meta_json = { [`${prop!.id}:extra`]: prop!.id };
+
+    const preview = previewRestore(backup);
+    const client = ClientDAL.createClient({ key: 'compoundkey', name: 'Compound Key Co' });
+    const { project: restored } = await applyRestore(backup, preview.payload_hash, {
+      name: 'Compound key test',
+      key: 'compound-key-test',
+      client_id: client.id,
+    });
+
+    const restoredCartUpdate = EventDAL.listEvents(restored.id).find((e) => e.name === 'cart_update');
+    const restoredProp = PropertyDAL.listProperties(restored.id, { scope: 'event' }).find((p) => p.name === 'total_price');
+    expect(restoredProp).toBeTruthy();
+    const restoredEventRow = EventDAL.getEventById(restored.id, restoredCartUpdate!.id);
+    const meta = restoredEventRow!.bloomreach_meta_json as Record<string, unknown>;
+    expect(Object.keys(meta)).toEqual([`${restoredProp!.id}:extra`]);
+    expect(meta[`${restoredProp!.id}:extra`]).toBe(restoredProp!.id);
+    // The old id survives nowhere in the restored key or value.
+    expect(Object.keys(meta).some((k) => k.includes(prop!.id))).toBe(false);
+  });
+
+  it('returns warnings on apply, and a comments row restores with a warning instead of crashing when the table does not exist yet', async () => {
+    await applyAllFixtures();
+    const backup = await buildBackup(projectId);
+    // `comments` (T-4-02) does not exist on this schema; a hand-crafted backup carrying rows for
+    // it anyway must warn and skip them, not throw `INSERT INTO comments () VALUES ()`.
+    (backup as unknown as Record<string, unknown>).comments = [
+      { id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', entity_type: 'event', entity_id: 'x', body: 'hello' },
+    ];
+
+    const preview = previewRestore(backup);
+    const client = ClientDAL.createClient({ key: 'commentsguard', name: 'Comments Guard Co' });
+    const result = await applyRestore(backup, preview.payload_hash, {
+      name: 'Comments guard test',
+      key: 'comments-guard-test',
+      client_id: client.id,
+    });
+
+    expect(Array.isArray(result.warnings)).toBe(true);
+    expect(result.warnings.some((w) => w.includes('comments') && w.includes('does not exist'))).toBe(true);
+    expect(result.counts.comments).toBe(0);
+    // Everything else still restored normally.
+    expect(EventDAL.listEvents(result.project.id).length).toBeGreaterThan(0);
+  });
 });

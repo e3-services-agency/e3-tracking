@@ -47,7 +47,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-3-08 | 3 | Dead-code sweep per the verified list, schema.ts reduction, legacy docs removal | implementer | T-3-02, T-3-03, T-3-05, T-3-07, T-3-10 | DONE | see below |
 | T-3-09 | 3 | Docs refresh: CLAUDE.md, docs/DOMAIN.md, docs/EXPORTS.md (CSV, backup, library formats), docs/QA-LOCAL.md, qa-roundtrip scenario text for 6, 9, 10, 11 | docs-writer | T-3-08 | DONE | see below |
 | T-3-EXIT | 3 | Phase 3 exit: qa-roundtrip 1 to 11 plus MCP smoke on merged agent-setup, report to user | supervisor | T-3-09 | DONE | see below |
-| T-4-00 | 4 | Property definitions (D-58): migration 0021, DAL, link definition_id, comparison, card and document, exports and imports, Properties page, MCP, backup/CSV | implementer | T-3-EXIT | REVIEW | see below |
+| T-4-00 | 4 | Property definitions (D-58): migration 0021, DAL, link definition_id, comparison, card and document, exports and imports, Properties page, MCP, backup/CSV | implementer | T-3-EXIT | IN_PROGRESS | see below |
 | T-4-01 | 4 | Share token: migration, DAL and service, requireShare middleware, public document/HTML/file routes, Settings share block | implementer | T-4-00 | TODO | see below |
 | T-4-02 | 4 | Comments model: migration, DAL, internal API, requirement id stability, Comments page | implementer | T-4-00 | TODO | see below |
 | T-4-03 | 4 | Shared documentation view reusing the event card renderer; EventCard triggers; public frontend route | implementer | T-4-01 | TODO | see below |

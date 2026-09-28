@@ -141,6 +141,10 @@ export function UseCaseTemplates() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [instantiateDialogTemplateId, setInstantiateDialogTemplateId] = useState<string | null>(null);
+  // Fix round LOW 3 (reviewer, 2026-09-28 03:15): the preview `openInstantiate` already fetched to
+  // decide whether to open the dialog is handed straight to it, instead of the dialog re-fetching
+  // the same preview again on mount (one request per Instantiate click, not two).
+  const [instantiateDialogPreview, setInstantiateDialogPreview] = useState<ResolvePreviewResult | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -154,8 +158,16 @@ export function UseCaseTemplates() {
     void load();
   }, [load]);
 
-  // T-3-10 (D-57): the project's own `industry` is the default `industries` facet filter, applied
-  // once per project switch (a user's own filter choice is never overridden after that).
+  // T-3-10 (D-57), fix round WARNING 2 (reviewer, 2026-09-28 03:15): the project's own free-text
+  // `industry` is the default `industries` facet filter, but only when it matches one of the
+  // rendered `LIBRARY_INDUSTRIES` chips case-insensitively -- a value like "aerospace" or
+  // "Ecommerce" (different casing) must never silently hide every template with no visible,
+  // clickable chip to undo it. `defaultIndustryApplied` names the matched chip so the facet bar can
+  // show it as an explicit "Default: <value>" pill with its own Clear control (distinct from the
+  // ordinary chip toggle, which stays available too); `offVocabularyIndustry` carries the raw value
+  // for a plain hint when it did not match, applied once per project switch.
+  const [defaultIndustryApplied, setDefaultIndustryApplied] = useState<string | null>(null);
+  const [offVocabularyIndustry, setOffVocabularyIndustry] = useState<string | null>(null);
   const appliedDefaultIndustryFor = useRef<string | null>(null);
   useEffect(() => {
     if (!activeProjectId || appliedDefaultIndustryFor.current === activeProjectId) return;
@@ -164,13 +176,39 @@ export function UseCaseTemplates() {
       .then(parseJson)
       .then((data) => {
         const industry = typeof data?.industry === 'string' ? data.industry.trim() : '';
+        setDefaultIndustryApplied(null);
+        setOffVocabularyIndustry(null);
         if (!industry) return;
-        setFilters((prev) => (prev.industries?.size ? prev : { ...prev, industries: new Set([industry]) }));
+        const matched = LIBRARY_INDUSTRIES.find((v) => v.toLowerCase() === industry.toLowerCase());
+        if (!matched) {
+          setOffVocabularyIndustry(industry);
+          return;
+        }
+        setFilters((prev) => {
+          if (prev.industries?.size) return prev; // never override an existing filter choice
+          setDefaultIndustryApplied(matched);
+          return { ...prev, industries: new Set([matched]) };
+        });
       })
       .catch(() => {});
   }, [activeProjectId]);
 
+  const clearDefaultIndustry = () => {
+    if (!defaultIndustryApplied) return;
+    setFilters((prev) => {
+      const next = { ...prev };
+      const set = new Set(next.industries ?? []);
+      set.delete(defaultIndustryApplied);
+      next.industries = set;
+      return next;
+    });
+    setDefaultIndustryApplied(null);
+  };
+
   const toggleFacetValue = (facet: string, value: string) => {
+    // Manually toggling the auto-applied default chip (either way) retires the "Default:" pill --
+    // the ordinary chip toggle already does the un-filtering; there is no separate default to clear.
+    if (facet === 'industries' && value === defaultIndustryApplied) setDefaultIndustryApplied(null);
     setFilters((prev) => {
       const next = { ...prev };
       const set = new Set(next[facet] ?? []);
@@ -239,6 +277,7 @@ export function UseCaseTemplates() {
       await instantiate(templateId);
       return;
     }
+    setInstantiateDialogPreview(data);
     setInstantiateDialogTemplateId(templateId);
   };
 
@@ -302,7 +341,7 @@ export function UseCaseTemplates() {
             {FACETS.map(({ key, label, values }) => (
               <div key={key} className="space-y-1">
                 <div className="text-xs font-medium text-gray-500">{label}</div>
-                <div className="flex flex-wrap gap-1 max-w-xs">
+                <div className="flex flex-wrap gap-1 max-w-xs items-center">
                   {values.map((v) => {
                     const active = filters[key]?.has(v) ?? false;
                     return (
@@ -318,7 +357,23 @@ export function UseCaseTemplates() {
                       </button>
                     );
                   })}
+                  {/* Fix round WARNING 2 (2026-09-28): the project industry's auto-applied default
+                      chip is visibly distinct, with its own Clear control (never a hidden filter). */}
+                  {key === 'industries' && defaultIndustryApplied && (
+                    <span className="text-xs px-2 py-1 rounded-full border border-gray-300 bg-gray-50 text-gray-600 flex items-center gap-1">
+                      Default: {defaultIndustryApplied}
+                      <button type="button" onClick={clearDefaultIndustry} className="underline hover:text-gray-900">
+                        Clear
+                      </button>
+                    </span>
+                  )}
                 </div>
+                {/* An off-vocabulary project industry is a hint only, never a hidden filter. */}
+                {key === 'industries' && offVocabularyIndustry && (
+                  <div className="text-xs text-gray-400">
+                    Project industry "{offVocabularyIndustry}" is not in this list; no default filter applied.
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -385,14 +440,17 @@ export function UseCaseTemplates() {
           <TemplateDetail template={detailTemplate} projectId={activeProjectId} onClose={() => setDetailId(null)} />
         )}
 
-        {instantiateDialogTemplateId && activeProjectId && (
+        {instantiateDialogTemplateId && activeProjectId && instantiateDialogPreview && (
           <InstantiateMappingDialog
-            templateId={instantiateDialogTemplateId}
-            projectId={activeProjectId}
-            onClose={() => setInstantiateDialogTemplateId(null)}
+            preview={instantiateDialogPreview}
+            onClose={() => {
+              setInstantiateDialogTemplateId(null);
+              setInstantiateDialogPreview(null);
+            }}
             onInstantiate={async (mappings) => {
               await instantiate(instantiateDialogTemplateId, mappings);
               setInstantiateDialogTemplateId(null);
+              setInstantiateDialogPreview(null);
             }}
           />
         )}
@@ -406,34 +464,24 @@ export function UseCaseTemplates() {
  * with an event/variant/property picker (only the ones its `target_kind` needs) plus a Skip option
  * (the row's default -- no mapping is applied for that index, matching the plan's "Skip option");
  * "Create use case" sends every non-skipped row as a `mappings` entry.
+ *
+ * Fix round LOW 3 (reviewer, 2026-09-28 03:15): takes the `preview` its caller already fetched
+ * (`openInstantiate` has to preview first anyway, to decide whether to open this dialog at all)
+ * instead of fetching the same preview again on mount -- one request per Instantiate click.
  */
 function InstantiateMappingDialog({
-  templateId,
-  projectId,
+  preview,
   onClose,
   onInstantiate,
 }: {
-  templateId: string;
-  projectId: string;
+  preview: ResolvePreviewResult;
   onClose: () => void;
   onInstantiate: (mappings: { index: number; event_id: string; variant_id?: string; property_id?: string }[]) => Promise<void>;
 }) {
-  const [preview, setPreview] = useState<ResolvePreviewResult | null>(null);
-  const [loading, setLoading] = useState(true);
   const [rowEventId, setRowEventId] = useState<Record<number, string>>({});
   const [rowVariantId, setRowVariantId] = useState<Record<number, string>>({});
   const [rowPropertyId, setRowPropertyId] = useState<Record<number, string>>({});
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    setLoading(true);
-    fetchWithAuth(`${API_BASE}/api/projects/${projectId}/use-cases/from-template/${templateId}/preview`, {
-      method: 'POST',
-    })
-      .then(parseJson)
-      .then((data) => setPreview(data as ResolvePreviewResult))
-      .finally(() => setLoading(false));
-  }, [projectId, templateId]);
 
   const setEvent = (index: number, eventId: string) => {
     setRowEventId((prev) => ({ ...prev, [index]: eventId }));
@@ -443,7 +491,6 @@ function InstantiateMappingDialog({
   };
 
   const handleCreate = async () => {
-    if (!preview) return;
     setSubmitting(true);
     try {
       const mappings = preview.unresolved
@@ -474,10 +521,7 @@ function InstantiateMappingDialog({
           property) for each, or leave it as Skip to create it as a gap.
         </p>
 
-        {loading && <p className="text-sm text-gray-500">Loading…</p>}
-
-        {!loading && preview && (
-          <table className="w-full text-left text-xs border rounded-md overflow-hidden">
+        <table className="w-full text-left text-xs border rounded-md overflow-hidden">
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-3 py-2 font-medium text-gray-500">Target</th>
@@ -558,13 +602,12 @@ function InstantiateMappingDialog({
               })}
             </tbody>
           </table>
-        )}
 
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
-          <Button onClick={() => void handleCreate()} disabled={submitting || loading}>
+          <Button onClick={() => void handleCreate()} disabled={submitting}>
             Create use case
           </Button>
         </div>

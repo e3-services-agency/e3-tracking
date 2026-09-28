@@ -44,6 +44,16 @@ describe('list_use_case_templates', () => {
 });
 
 describe('instantiate_use_case_template', () => {
+  it('fix round LOW 6 (2026-09-28): template_code lookup is case-insensitive', async () => {
+    UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-CASE', name: 'Case test', type: 'marketing' });
+    const preview = (await instantiateUseCaseTemplate({
+      project_key: projectKey,
+      template_code: 'uc-case',
+      dry_run: true,
+    })) as { unresolved: unknown[] };
+    expect(preview.unresolved).toEqual([]);
+  });
+
   it('TEMPLATE_NOT_FOUND for an unknown template_code', async () => {
     let caught: unknown;
     try {

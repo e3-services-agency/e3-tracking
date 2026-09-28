@@ -317,19 +317,18 @@ function propertyLinkedToEvent(eventId: string, propertyId: string): boolean {
 
 /**
  * `resolveEntry`'s result: either a fully-resolved target (ready for `insertResolvedRequirement`),
- * or a reason it could not be. Deliberately *not* a discriminated union on `resolved` -- this
- * project's `tsconfig.json` does not set `strict`/`strictNullChecks`, under which TS does not apply
- * control-flow narrowing to a boolean-literal discriminant (confirmed by a standalone repro against
- * this repo's exact compiler options), so an `if (outcome.resolved)`/`else` here would type-check
- * with `target`/`reason` still seen as absent from *both* branches. `target`/`reason` are therefore
- * both optional on one shape, read with `!` inside the branch that just checked `resolved`.
+ * or a reason it could not be. A real discriminated union on `resolved` -- fix round INFO 7
+ * (reviewer, 2026-09-28 03:15): the truthiness form (`if (outcome.resolved)`) does not narrow under
+ * this project's non-`strict` `tsconfig.json` (confirmed by a standalone repro), but an explicit
+ * `=== true`/`=== false` comparison does narrow correctly even without `strict` (same repro), so
+ * every read below uses that form instead of the single-interface-plus-`!` workaround the first
+ * round used.
  */
-interface ResolveOutcome {
-  resolved: boolean;
-  target?: Pick<RequirementInput, 'property_id' | 'event_id' | 'variant_id' | 'catalog_field_id' | 'consent_category_id'>;
-  reason?: string;
-}
-type ResolvedTarget = NonNullable<ResolveOutcome['target']>;
+type ResolvedTarget = Pick<
+  RequirementInput,
+  'property_id' | 'event_id' | 'variant_id' | 'catalog_field_id' | 'consent_category_id'
+>;
+type ResolveOutcome = { resolved: true; target: ResolvedTarget } | { resolved: false; reason: string };
 
 function resolvedOutcome(target: ResolvedTarget): ResolveOutcome {
   return { resolved: true, target };
@@ -449,16 +448,29 @@ function resolveEntry(projectId: string, entry: DefaultRequirementTemplate): Res
     // D-55 field_map translation: a standard field name resolved through the mapping's own
     // `field_map_json` takes priority (this is what lets a client rename `total_price` to `price`
     // on `purchase_item` and still have the template's standard property name resolve correctly).
+    // Fix round ERROR 1 (reviewer, 2026-09-28 03:15): a field_map hit is only actually resolved
+    // when that property is *still* linked to the event -- detaching a property never clears the
+    // mapping's own `field_map_json` (a pre-existing gap in `detachPropertyFromEvent`/
+    // `standard-event-mapping.dal.ts`), so a stale field_map entry used to be accepted here without
+    // re-checking the link, and `insertResolvedRequirement`'s own `assertPropertyLinkedToEvent`
+    // then rejected it with a raw 400 that rolled back the *whole* instantiate transaction instead
+    // of this one row becoming a gap -- preview and the writer disagreed exactly the way this
+    // function's own doc says they never should. A stale hit now falls through to the exact-name
+    // lookup below (still on the correct event) instead of resolving.
     const mapped = mapping?.field_map_json?.[entry.property_name];
-    if (mapped) {
+    if (mapped && propertyLinkedToEvent(eventId, mapped)) {
       propertyId = mapped;
     } else {
       const property = findPropertyByName(projectId, entry.property_name, 'event');
-      if (property && eventId && propertyLinkedToEvent(eventId, property.id)) propertyId = property.id;
+      if (property && propertyLinkedToEvent(eventId, property.id)) propertyId = property.id;
     }
     if (!propertyId) {
+      const staleNote =
+        mapped && !propertyLinkedToEvent(eventId, mapped)
+          ? ` The mapped property is no longer linked to event "${displayName}" (field_map is stale).`
+          : '';
       return unresolvedOutcome(
-        `No property named "${entry.property_name}" is mapped (field_map) or linked to event "${displayName}".`
+        `No property named "${entry.property_name}" is mapped (field_map) or linked to event "${displayName}".${staleNote}`
       );
     }
   }
@@ -481,16 +493,16 @@ function resolveOne(
     : 'O';
   const note = entry.note?.trim() || null;
   const outcome = resolveEntry(projectId, entry);
-  if (outcome.resolved) {
+  if (outcome.resolved === true) {
     insertResolvedRequirement(projectId, useCaseId, sortOrder, {
       target_kind: entry.target_kind,
       level,
       note,
-      ...outcome.target!,
+      ...outcome.target,
     });
     return;
   }
-  const reason = outcome.reason!;
+  const reason = outcome.reason;
   insertUnresolvedRequirement(useCaseId, sortOrder, {
     target_kind: entry.target_kind,
     level,
@@ -542,11 +554,18 @@ function applyTemplateMappings(
     if (!entry || !entry.standard_event) continue;
     const standardEvent = entry.standard_event.trim();
     const existing = getStandardEventMappingByKey(projectId, standardEvent);
-    const fieldMap: Record<string, string | null> = { ...(existing?.field_map_json ?? {}) };
+    // Fix round LOW 5 (reviewer, 2026-09-28 03:15): only carry the existing mapping's variant and
+    // field_map forward when the dialog row picked the *same* event that mapping already targets.
+    // A different event's variant ids and field_map property ids belong to that other event, not
+    // this one -- carrying them forward either 400s out of `upsertStandardEventMapping` (a variant
+    // of the wrong event) or silently mixes two events' properties into one field_map. Picking a
+    // new event always starts a fresh mapping for it instead.
+    const carryForward = existing !== null && existing.event_id === m.event_id;
+    const fieldMap: Record<string, string | null> = carryForward ? { ...existing!.field_map_json } : {};
     if (entry.property_name) fieldMap[entry.property_name] = m.property_id ?? null;
     upsertStandardEventMapping(projectId, standardEvent, {
       event_id: m.event_id,
-      variant_id: m.variant_id ?? existing?.variant_id ?? null,
+      variant_id: m.variant_id ?? (carryForward ? existing!.variant_id : null),
       field_map_json: fieldMap,
     });
   }
@@ -716,7 +735,7 @@ export function previewInstantiateUseCaseTemplate(projectId: string, templateId:
     const group = groupForTargetKind(entry.target_kind);
     const outcome = resolveEntry(projectId, entry);
     counts[group].total += 1;
-    if (outcome.resolved) {
+    if (outcome.resolved === true) {
       counts[group].resolved += 1;
       resolvedItems.push({ index, target_kind: entry.target_kind });
     } else {

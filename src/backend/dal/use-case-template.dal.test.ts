@@ -709,6 +709,60 @@ describe('T-3-10 (D-55): standard event mapping resolution order and the mapping
     expect(mapping.field_map_json.total_price).toBe(orderTotalPropertyId);
   });
 
+  it('fix round LOW 5 (2026-09-28): picking a different event for an already-mapped standard_event starts a fresh mapping, never carrying the old event\'s variant or field_map', () => {
+    // Give `transactions` a variant, and map "purchase" -> transactions[status=success] with a
+    // field_map entry, exactly like a first mapping-step answer would.
+    const statusPropertyId = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'status',
+      data_type: 'string',
+      allowed_values_json: [{ value: 'success' }],
+    }).id;
+    EventDAL.attachPropertyToEvent(projectId, transactionsEventId, { property_id: statusPropertyId, role: 'discriminator' });
+    const transactionsVariantId = VariantDAL.createVariant(projectId, transactionsEventId, {
+      conditions: [{ property_id: statusPropertyId, operator: 'equals', values: ['success'] }],
+    }).id;
+    StandardEventMappingDAL.upsertStandardEventMapping(projectId, 'purchase', {
+      event_id: transactionsEventId,
+      variant_id: transactionsVariantId,
+      field_map_json: { total_price: orderTotalPropertyId },
+    });
+
+    // A different event, unrelated to `transactions` (no shared variant/property ids at all).
+    const invoicesEventId = EventDAL.createEvent(projectId, { name: 'invoices', class: 'custom' }).id;
+    const grandTotalPropertyId = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'grand_total',
+      data_type: 'number',
+    }).id;
+    EventDAL.attachPropertyToEvent(projectId, invoicesEventId, { property_id: grandTotalPropertyId, role: 'normal' });
+
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({
+      code: 'UC-STD-LOW5',
+      name: 'Different event picked for an already-mapped standard_event',
+      type: 'transactional',
+      default_requirements_json: [
+        { target_kind: 'event_property', standard_event: 'purchase', property_name: 'total_price', level: 'R' },
+      ],
+    });
+
+    // The mapping dialog row picks `invoices`, no variant, the invoices property.
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, {
+      mappings: [{ index: 0, event_id: invoicesEventId, property_id: grandTotalPropertyId }],
+    });
+
+    const mapping = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'purchase')!;
+    expect(mapping.event_id).toBe(invoicesEventId);
+    // Neither the stale transactions variant nor the stale field_map entry survive.
+    expect(mapping.variant_id).toBeNull();
+    expect(mapping.field_map_json).toEqual({ total_price: grandTotalPropertyId });
+
+    const [requirement] = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(requirement.status).not.toBe('gap');
+    expect(requirement.event_id).toBe(invoicesEventId);
+    expect(requirement.property_id).toBe(grandTotalPropertyId);
+  });
+
   it('once the mapping exists, a second template with the same standard_event resolves automatically (no mappings needed)', () => {
     const template = makeTemplate();
     UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, {
@@ -731,5 +785,52 @@ describe('T-3-10 (D-55): standard event mapping resolution order and the mapping
     const [requirement] = RequirementDAL.listRequirements(projectId, useCase.id);
     expect(requirement.status).not.toBe('gap');
     expect(requirement.property_id).toBe(orderTotalPropertyId);
+  });
+
+  it('fix round ERROR 1 (2026-09-28): a stale field_map (mapped property detached from the event) is unresolved, never a 400 that rolls back the whole instantiate', () => {
+    const template = makeTemplate();
+    UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, {
+      mappings: [{ index: 0, event_id: transactionsEventId, property_id: orderTotalPropertyId }],
+    });
+
+    // Detach the mapped property from the event: the standard event mapping's field_map still
+    // names it (a pre-existing gap in detachPropertyFromEvent), so this reproduces the stale hit.
+    EventDAL.detachPropertyFromEvent(projectId, transactionsEventId, orderTotalPropertyId);
+    const mapping = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'purchase')!;
+    expect(mapping.field_map_json.total_price).toBe(orderTotalPropertyId); // still stale in the mapping
+
+    const secondTemplate = UseCaseTemplateDAL.createUseCaseTemplate({
+      code: 'UC-STD-3',
+      name: 'Stale field_map',
+      type: 'transactional',
+      default_requirements_json: [
+        { target_kind: 'event_property', standard_event: 'purchase', property_name: 'total_price', level: 'R' },
+      ],
+    });
+
+    const preview = UseCaseTemplateDAL.previewInstantiateUseCaseTemplate(projectId, secondTemplate.id);
+    expect(preview.resolved).toEqual([]);
+    expect(preview.unresolved).toHaveLength(1);
+    expect(preview.unresolved[0].candidates.some((c) => c.id === transactionsEventId)).toBe(true);
+
+    // Preview and the writer agree: instantiate never throws (no rolled-back use case), the
+    // requirement is a gap instead.
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, secondTemplate.id);
+    const [requirement] = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(requirement.status).toBe('gap');
+    expect(requirement.note).toContain('stale');
+
+    // Re-attaching (or re-mapping) resolves it again, same as any other unresolved row.
+    EventDAL.attachPropertyToEvent(projectId, transactionsEventId, { property_id: orderTotalPropertyId, role: 'normal' });
+    const thirdTemplate = UseCaseTemplateDAL.createUseCaseTemplate({
+      code: 'UC-STD-4',
+      name: 'Re-attached',
+      type: 'transactional',
+      default_requirements_json: [
+        { target_kind: 'event_property', standard_event: 'purchase', property_name: 'total_price', level: 'R' },
+      ],
+    });
+    const reattachedPreview = UseCaseTemplateDAL.previewInstantiateUseCaseTemplate(projectId, thirdTemplate.id);
+    expect(reattachedPreview.unresolved).toEqual([]);
   });
 });

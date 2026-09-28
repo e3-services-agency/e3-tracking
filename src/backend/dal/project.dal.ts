@@ -381,6 +381,12 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
   }
   validateExpirationJson(updates.default_expiration_json, 'default_expiration_json');
   validateMoneyTolerance(updates.money_tolerance_percent, updates.money_tolerance_floor);
+  // Fix round LOW 4 (reviewer, 2026-09-28 03:15): `industry` is `string | null` per its type, but
+  // nothing enforced that at the API boundary -- `PATCH {industry: 42}` reached `updates.industry
+  // ?.trim()` below and threw a raw `updates.industry?.trim is not a function` (500), not a 400.
+  if (updates.industry !== undefined && updates.industry !== null && typeof updates.industry !== 'string') {
+    throw new ValidationError('industry must be a string or null.', 'industry');
+  }
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (updates.name !== undefined) patch.name = updates.name.trim();

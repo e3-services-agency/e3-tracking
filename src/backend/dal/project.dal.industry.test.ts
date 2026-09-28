@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { closeDb } from '../db';
 import * as ClientDAL from './client.dal';
 import * as ProjectDAL from './project.dal';
+import { ValidationError } from '../errors';
 
 let projectId: string;
 
@@ -37,5 +38,12 @@ describe('project.dal: industry (T-3-10, D-57)', () => {
   it('accepts a value outside the suggested LIBRARY_INDUSTRIES vocabulary (free text, not a closed enum)', () => {
     const updated = ProjectDAL.updateProject(projectId, { industry: 'aerospace' });
     expect(updated.industry).toBe('aerospace');
+  });
+
+  it('fix round LOW 4 (2026-09-28): rejects a non-string, non-null industry with a 400 ValidationError, not a raw 500', () => {
+    // @ts-expect-error -- deliberately wrong type, reproducing a client sending PATCH {industry: 42}
+    expect(() => ProjectDAL.updateProject(projectId, { industry: 42 })).toThrow(ValidationError);
+    // @ts-expect-error
+    expect(() => ProjectDAL.updateProject(projectId, { industry: { nested: true } })).toThrow(ValidationError);
   });
 });

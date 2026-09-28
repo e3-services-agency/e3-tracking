@@ -100,8 +100,14 @@ export async function listUseCaseTemplates(): Promise<ListUseCaseTemplatesRow[]>
   }));
 }
 
+/**
+ * Fix round LOW 6 (reviewer, 2026-09-28 03:15): case-insensitive, like the use case `code` lookup
+ * itself (`use-case.dal.ts`'s `normalizeCode` upper-cases on store) -- `template_code: 'uc-std2'`
+ * used to 404 `TEMPLATE_NOT_FOUND` even though `UC-STD2` exists.
+ */
 function resolveTemplateByCode(templateCode: string): UseCaseTemplateDAL.UseCaseTemplateRow {
-  const found = UseCaseTemplateDAL.listUseCaseTemplates().find((t) => t.code === templateCode);
+  const wanted = templateCode.trim().toUpperCase();
+  const found = UseCaseTemplateDAL.listUseCaseTemplates().find((t) => t.code.toUpperCase() === wanted);
   if (!found) throw new McpToolError('TEMPLATE_NOT_FOUND', `No use case template coded "${templateCode}".`);
   return found;
 }

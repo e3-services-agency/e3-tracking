@@ -93,3 +93,40 @@ Every property gets one `general` definition seeded from its own fields at creat
 `property-definition.dal.ts`: `listDefinitions`/`createDefinition`/`updateDefinition` (409 on a duplicate name)/`deleteDefinition` (409 while any event link still uses it, or when it is the property's last remaining definition — a property always has at least one meaning)/`reorderDefinitions`, `getDefaultDefinitionId` (the `general` definition, or the first by sort order if `general` was renamed away), `listAllDefinitionsById`/`listDefinitionsByPropertyIds` (batched, project-wide reads used by `document.service.ts`'s `EventCardBuildContext` and `comparison.service.ts`'s `buildDefinitionSnapshot` so building a card or running comparison never issues one definition query per link). Routes under `/api/projects/:id/properties/:id/definitions` (`GET`/`POST`, `PATCH`/`DELETE .../:definitionId`, `PUT .../order`); the Properties page expands a property row into its definitions (add/edit/remove, using events); the event editor's property row shows a definition picker only when the property carries more than one.
 
 The migration backfill (and, on import, the Data Manager events planner's `definition_create`/`definition_update` preview items) names an override definition after the first event it was linked to; when that name would collide with the property's own `general` definition (an event literally named `general`, or a definition already named that), it is renamed `"<event> (event)"`, with a numeric `-2`/`-3` suffix on any further collision.
+
+## Share link and the public documentation view (D-48, D-50, phase 4)
+
+A project has at most one share link (`share_token`, `share_access: read | comment`,
+`share_created_at`). It needs no login (`/tracking-plan/shared/<token>`) and serves a **public
+projection** of the tracking document and HTML export — internal-only fields
+(`agent_instructions`, `owners`, `identity_note`, `bloomreach_project_url`, every `internal_*`
+field) are stripped, `not_suitable_for` stays. Access `comment` additionally shows a comment form.
+Every route error is the identical 404 `SHARE_NOT_FOUND`, and responses never cache. A sandbox
+project (see below) refuses a share link unless the request explicitly forces it. Full detail in
+`docs/SHARING.md`.
+
+## Comments (D-49, phase 4)
+
+A `Comment` attaches to an `event`, `property`, `use_case`, or `requirement` — free-text author and
+body, no edit, only resolve (internal-only) and delete. **A comment thread is one shared thread**
+(D-49 amendment): whether posted internally or through a `comment`-access share link, every comment
+on an anchor is visible on both sides. `via_share` records where a given comment was *posted*, not
+who can *see* it. Comments never appear in the tracking document, the HTML export, or any MCP tool
+output; they do appear in the full JSON backup and the `comments` CSV entity.
+
+## Sandbox projects (D-60, phase 4)
+
+The app bundles a fully-loaded sample project (`.claude/team/samples/sandbox-project-backup.json`,
+rebuilt by `scripts/build-sandbox-backup.mjs`). "Create a sandbox" (Clients page) restores it as a
+brand-new project under a chosen or auto-created "Sandboxes" client, flagged `is_sandbox` in
+`projects.settings_json`. A sandbox is badged in the switcher and Clients list, refuses a share link
+unless the request explicitly forces it, and is meant for exploration and onboarding rather than
+real client data — a backup of a sandbox restores as a sandbox.
+
+## Glossary (T-4-09)
+
+`src/domain/glossary.ts`'s `GLOSSARY` is the one place every app term (certified, acknowledged,
+definition, variant, discriminator, context, gap, requirement level, batch, activation, sandbox) is
+defined in plain words. The Help page renders the full list; a `GlossaryTerm` tooltip attaches the
+same text to the first occurrence of a term in a page header or table column. Add a new term there,
+not inline in a component.

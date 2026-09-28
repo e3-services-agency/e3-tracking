@@ -93,6 +93,14 @@ backup automatically. Soft-deleted rows are included (`deleted_at` present) — 
 faithful snapshot, never filtered. A referenced file missing from disk is listed in
 `files_missing[]`, never a thrown error.
 
+`comments` (D-49, T-4-02) and `projects.settings_json` (D-60, T-4-09, carrying `is_sandbox`) are
+included the same way as every other table/column — a backup of a sandbox project therefore
+restores as a sandbox (same flag, same badge), and a restored project carries its source's comment
+threads. Embedded `use_case_templates` (D-59, T-4-08) include their `prerequisites_json`/
+`expected_assets_json`/`source_json`/`documentation_url`/`internal_notes`/`internal_url` columns —
+the last two are user-owned and travel with the template like any other column, even though they
+never appear in the tracking document or any export a client sees.
+
 ### Restore
 
 `POST /api/projects/restore-backup/preview` takes the **raw backup object itself** as the whole

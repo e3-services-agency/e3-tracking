@@ -100,6 +100,41 @@ Event-scope properties do not get their own top-level list in this document — 
 show up per event, inline on `EventCard.properties[]` (`definition_id`/`definition_name`, plus the
 allowed values/formats/example/description already resolved from that link's own definition).
 
+### Top-level `use_cases[]` fields
+
+```ts
+{
+  id: string,                              // D-49, T-4-04: additive -- lets a comment anchor to this row
+  code: string | null,
+  name: string,
+  type: string | null,
+  status: string | null,
+  narrative: string | null,
+  requirements: [{
+    id: string,                            // D-49, T-4-04: additive, same reason
+    target_label: string,
+    level: string,
+    status: string | null,
+  }],
+  documentation_url: string | null,        // D-59 amendment 1: additive, public
+  // internal_notes/internal_url are deliberately never included here (D-59 amendment 2)
+}
+```
+
+Both `id` fields are additive (no `version` bump, D-34's versioning rule) — a consumer reading only
+the fields it knows about is unaffected.
+
+### The shared (public) view of this document
+
+`GET /api/shared/:token/tracking-document.json` (D-48, T-4-03) serves the same builder run through
+`toPublicTrackingDocument`: `agent_instructions`, `owners`, `identity_note`,
+`project.bloomreach_project_url`, and every `internal_*` field (`use_cases[].internal_notes`/
+`internal_url`, deep-swept) are stripped; `not_suitable_for` stays. Everything else in this
+document — including `triggers[]`, property `definitions[]`, and the two additive `id` fields above
+— is identical between the internal and public responses. See `docs/SHARING.md` for the full field
+list and the shared routes. Comments are never part of this document on either side (D-49) — they
+have their own routes.
+
 ### Payload keys (ERROR 2 fix round)
 
 Observations and their `context_values_json` column are keyed by **payload key**, not the

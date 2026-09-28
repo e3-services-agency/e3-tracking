@@ -1832,3 +1832,6 @@ No error-severity findings. Verdict: **PASS**. Artifacts saved under `.claude/te
 
 ### 2026-09-28 02:17 | supervisor | STATUS | T-3-07 DONE
 qa-tester PASS (02:16). Merged (keep-both in errors.ts); tests and tsc re-run on the merged tree.
+
+### 2026-09-28 02:19 | supervisor | STATUS | T-3-07 merge repaired
+The keep-both resolution of errors.ts dropped the closing braces of TemplateInUseError; fixed in 97ba83f. Merged tree: 1096 tests (94 files), tsc clean. Four of ten phase 3 tasks merged. T-3-02, T-3-04, T-3-10 in progress (branched before this merge; they pick up the fix at merge).

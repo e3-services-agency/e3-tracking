@@ -6,11 +6,13 @@ import json from 'react-syntax-highlighter/dist/esm/languages/hljs/json';
 import { googlecode } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import { Copy, Check } from 'lucide-react';
 
-// Apply clarity overrides to fix googlecode's default overlapping colors
-googlecode['hljs-number'] = { color: '#005cc5' }; // Modern Blue for integers
-googlecode['hljs-attr'] = { color: '#24292e', fontWeight: 'bold' }; // Bold keys
-googlecode['hljs-comment'] = { color: '#d73a49', fontStyle: 'italic' }; // Distinct Red for comments
-googlecode['hljs-string'] = { color: '#0A8040' }; // Darker green for strings
+// Apply clarity overrides to fix googlecode's default overlapping colors. Colors come from the
+// `--syntax-*` CSS variables (src/index.css) rather than literal hex so this file passes
+// `lint:colors` (no hex allowed outside src/index.css).
+googlecode['hljs-number'] = { color: 'var(--syntax-number)' }; // Modern Blue for integers
+googlecode['hljs-attr'] = { color: 'var(--syntax-attr)', fontWeight: 'bold' }; // Bold keys
+googlecode['hljs-comment'] = { color: 'var(--syntax-comment)', fontStyle: 'italic' }; // Distinct Red for comments
+googlecode['hljs-string'] = { color: 'var(--syntax-string)' }; // Darker green for strings
 
 // Register only required languages to keep your app's bundle size small
 SyntaxHighlighter.registerLanguage('javascript', js);
@@ -41,7 +43,10 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   };
 
   return (
-    <div className={`relative rounded-md overflow-hidden border border-gray-200 bg-[#fafafa] group ${className}`}>
+    <div
+      className={`relative rounded-md overflow-hidden border border-gray-200 group ${className}`}
+      style={{ backgroundColor: 'var(--syntax-code-bg)' }}
+    >
       {/* Copy Button Overlay */}
       <button
         type="button"

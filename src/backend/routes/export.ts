@@ -1,6 +1,7 @@
 /**
  * Project-scope export routes (D-10, D-18), mounted at `/api/projects/:projectId/export` behind
- * `requireProject`. Journey-scoped export and share-token export are gone; this is project-wide.
+ * `requireProject`. The old customer-lifecycle-scoped export and share-token export are gone;
+ * this is project-wide.
  */
 import { Router, type Request, type Response } from 'express';
 import { generateProjectDocumentationHtml } from '../services/export.service';

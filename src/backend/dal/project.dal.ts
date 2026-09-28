@@ -1,6 +1,6 @@
 /**
- * Project Data Access Layer (replaces workspace.dal.ts, D-15). `workspace_settings` folded into
- * `projects` columns (D-15); `default_expiration_json` and the D-27 Bloomreach identifiers live
+ * Project Data Access Layer (replaces the pre-D-15 scope DAL, D-15). The old scope settings table
+ * folded into `projects` columns (D-15); `default_expiration_json` and the D-27 Bloomreach identifiers live
  * on the project row directly.
  */
 import { getDb } from '../db';

@@ -1,5 +1,5 @@
 /**
- * Projects list + create (D-15, replaces useWorkspaces.ts). Local auth mode (D-13): no user-scoped
+ * Projects list + create (D-15, replaces the pre-D-15 scope-list hook). Local auth mode (D-13): no user-scoped
  * membership filter — `GET /api/projects` returns every project with its client embedded.
  */
 import { useState, useCallback, useEffect } from 'react';

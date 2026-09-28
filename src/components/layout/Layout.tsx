@@ -34,7 +34,7 @@ function getPathWithoutBase(pathname: string): string {
   return pathname.startsWith(BASE) ? pathname.slice(BASE.length) || '/' : pathname;
 }
 
-/** URL prefix `/p/<key>` (D-15, replaces `/w/<workspace_key>`). */
+/** URL prefix `/p/<key>` (D-15, replaces the pre-D-15 `/w/<scope_key>` prefix). */
 function parseProjectFromPath(pathname: string): { projectKey: string | null; restPath: string } {
   const path = getPathWithoutBase(pathname);
   const m = path.match(/^\/p\/([^/]+)(\/.*)?$/);

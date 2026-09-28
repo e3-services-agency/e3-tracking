@@ -1,5 +1,5 @@
 /**
- * Express app: single entry point for all API routes (D-15: Project replaces Workspace).
+ * Express app: single entry point for all API routes (D-15: Project replaces the pre-D-15 scope entity).
  *
  * Usage:
  *   import { createApp } from './backend/app.js';
@@ -113,11 +113,12 @@ export function createApp(): express.Express {
   // Public share-link mechanism (D-18): stub until phase 4 (see routes/shared.ts).
   app.use('/api/shared', sharedRouter);
 
-  // Removed in the schema rewrite (D-18); journeys/metrics never had tables in the fresh schema
-  // and T-1-03 removed every frontend code path that called them, so no stub is mounted for them
-  // anymore (`routes/removed.ts` is unused after T-1-09; kept only in case a future task needs
-  // the same 501-stub pattern). Variant is real as of T-1-05 (mounted as a sub-path of
-  // eventsRouter above); QaRun, Observation, Finding are real as of T-1-09 (mounted above).
+  // Removed in the schema rewrite (D-18); the old customer-lifecycle and metrics features never
+  // had tables in the fresh schema and T-1-03 removed every frontend code path that called them,
+  // so no stub is mounted for them anymore (`routes/removed.ts`, the 501-stub reference, was
+  // deleted by the T-3-08 dead-code sweep since nothing referenced it after T-1-09). Variant is
+  // real as of T-1-05 (mounted as a sub-path of eventsRouter above); QaRun, Observation, Finding
+  // are real as of T-1-09 (mounted above).
 
   // Simple health endpoint. Kept in Express so we don't need a separate Vercel function on the
   // Hobby plan.

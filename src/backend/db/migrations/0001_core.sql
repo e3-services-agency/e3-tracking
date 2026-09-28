@@ -19,7 +19,7 @@ CREATE TABLE clients (
 );
 
 -- ---------------------------------------------------------------------------
--- Project (replaces Workspace, D-15; settings folded in; D-27 Bloomreach identifiers).
+-- Project (replaces the pre-D-15 scope entity, D-15; settings folded in; D-27 Bloomreach identifiers).
 -- ---------------------------------------------------------------------------
 CREATE TABLE projects (
   id TEXT PRIMARY KEY,

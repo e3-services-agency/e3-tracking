@@ -1,7 +1,7 @@
 /**
  * Documentation export (D-10, D-18): project-scope self-contained HTML file, one section per
  * non-deleted event (name, description, purpose, trigger text, identity note, property table,
- * codegen snippets). Journey-scoped export and the manual QA overlay are gone (D-17, D-18); this
+ * codegen snippets). The old customer-lifecycle-scoped export and the manual QA review layer are gone (D-17, D-18); this
  * is the minimal replacement that keeps documentation output alive until use cases (T-1-07) add
  * the ordered requirement view on top. Images referenced by triggers are embedded as data URIs
  * from the local FileStore (D-14) so the file is fully self-contained (no server round-trip to

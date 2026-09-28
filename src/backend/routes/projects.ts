@@ -1,5 +1,5 @@
 /**
- * Project API routes (replaces workspaces.ts, D-15). `GET/POST /api/projects`,
+ * Project API routes (replaces the pre-D-15 scope routes, D-15). `GET/POST /api/projects`,
  * `GET/PATCH/DELETE /api/projects/:id`. Project-scoped sub-routers (sources, properties, events,
  * catalogs, bundles, files) are mounted on `/api/projects/:projectId/...` in `app.ts`, guarded by
  * `requireProject`.

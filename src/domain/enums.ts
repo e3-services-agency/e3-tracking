@@ -150,7 +150,7 @@ export const FINDING_STATUSES = ['open', 'resolved'] as const;
 export type FindingStatus = (typeof FINDING_STATUSES)[number];
 
 // ----- Property data type and data formats (T-1-04 delta: moved from src/types/schema.ts, a
-// reviewer finding on T-1-01; `src/types/schema.ts` re-exports these for its legacy consumers) -----
+// reviewer finding on T-1-01; `src/types/schema.ts` imports these for its own remaining types) -----
 export const PROPERTY_DATA_TYPES = ['string', 'number', 'boolean', 'timestamp', 'object', 'array'] as const;
 export type PropertyDataType = (typeof PROPERTY_DATA_TYPES)[number];
 

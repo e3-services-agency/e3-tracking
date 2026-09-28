@@ -1,6 +1,6 @@
 /**
  * Single project list fetch + derived gate: the active project must exist in the API list.
- * Replaces WorkspaceShellContext (D-15). Also loads `GET /api/projects/:id` for shell branding
+ * Replaces the pre-D-15 scope shell context. Also loads `GET /api/projects/:id` for shell branding
  * (client name, logo, primary color) when context is valid.
  */
 import React, {

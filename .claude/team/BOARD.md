@@ -2326,3 +2326,9 @@ Findings (none blocking):
 - INFO 3: the widened branch only matters for a backup taken from a database that ran the pre-fix 0021; 0021 is unmerged, so the only such databases are QA-worktree copies. Harmless, and the migration test pins the dashed shape going forward.
 Verdict: PASS. T-4-00 stays at QA for the supervisor to merge directly (per the 17:04 decision).
 Summary lines: npm test: 104 files, 1206 tests passed (threads, maxThreads 2); tsc, build, lint: green; merge dry-run onto agent-setup aa32331: clean; probes: 0021 on 0017 fixture chain 305/305 dashed v4 unique ok, 464 links repointed ok, fk clean, backup/restore remap ok (no collision), dashless-id restore ok, regex free-text untouched ok; open: none.
+
+### 2026-09-28 17:35 | supervisor | STATUS | T-4-00 DONE; T-4-01 and T-4-02 started
+Reviewer probe PASS on the QA fix. T-4-00 merged clean into agent-setup: 1208 tests (104 files), tsc clean. Property definitions (D-58) are in. T-4-01 share token and T-4-02 comments start in parallel worktrees (migrations 0018 and 0019 per D-53).
+
+### 2026-09-28 17:35 | implementer -> reviewer | HANDOFF | T-4-08 fix round
+Posted by supervisor. Commit 3beb1e1 on task/T-4-08-pnp-import. ERROR 1 generator matches by documentation-link slug too: 99 templates (98 pnp plus UCC-email-18); ERROR 2 one MCP sanitiser for list, get and instantiate with the secret test; ERROR 3 array guards, 400 for a malformed template; WARNING 1 trim; WARNING 2 doc and internal fields set on create only, excluded from the update diff; WARNING 3 weblayers only; WARNING 4 18 corpus asset types; WARNING 5 row link; WARNING 6 docs; WARNING 7 cart_update -> add_to_cart (remove_from_cart on action remove) and item_id/product_id alias; WARNING 8 http(s) URL validation. Fixture resolve preview 40/99 fully resolved (588 rows, 136 unresolved, fixture data). 1211 tests (103 files), tsc clean, build and lint green.

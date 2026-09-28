@@ -93,6 +93,11 @@ export function ProjectSwitcher() {
                   }`}
                 >
                   {p.name}
+                  {p.is_sandbox && (
+                    <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-700 bg-amber-100 rounded px-1 py-0.5 align-middle">
+                      Sandbox
+                    </span>
+                  )}
                 </button>
               ))}
             </div>

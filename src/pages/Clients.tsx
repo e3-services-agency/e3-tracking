@@ -4,14 +4,19 @@
  */
 import React, { useState } from 'react';
 import { useClients, type ClientRow } from '@/src/features/clients/hooks/useClients';
+import { useProjects } from '@/src/features/projects/hooks/useProjects';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { RestoreBackupForm } from '@/src/features/clients/components/RestoreBackupForm';
+import { SandboxSection } from '@/src/features/clients/components/SandboxSection';
+import { NewProjectModal } from '@/src/features/projects/components/NewProjectModal';
 
 export function Clients() {
   const { clients, isLoading, error, createClient, updateClient, deleteClient } = useClients();
+  const { projects, fetchProjects } = useProjects();
   const [editing, setEditing] = useState<ClientRow | null>(null);
   const [creating, setCreating] = useState(false);
+  const [newProjectModalOpen, setNewProjectModalOpen] = useState(false);
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -25,6 +30,17 @@ export function Clients() {
 
       <div className="p-8 flex-1 overflow-y-auto space-y-6">
         {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</div>}
+
+        {!isLoading && projects.length === 0 && (
+          <div className="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 flex items-center justify-between gap-4">
+            <p className="text-sm text-blue-900">
+              No projects yet. Create your first project, or start from a populated sandbox.
+            </p>
+            <div className="flex gap-2 flex-shrink-0">
+              <Button onClick={() => setNewProjectModalOpen(true)}>Create your first project</Button>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white rounded-lg border shadow-sm">
           <table className="w-full text-left text-sm">
@@ -86,8 +102,16 @@ export function Clients() {
           />
         )}
 
+        <SandboxSection projects={projects} onChanged={fetchProjects} />
+
         <RestoreBackupForm clients={clients} />
       </div>
+
+      <NewProjectModal
+        isOpen={newProjectModalOpen}
+        onClose={() => setNewProjectModalOpen(false)}
+        onSuccess={() => { setNewProjectModalOpen(false); fetchProjects(); }}
+      />
     </div>
   );
 }

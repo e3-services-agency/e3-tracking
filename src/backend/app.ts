@@ -64,6 +64,12 @@ export function createApp(): express.Express {
       optionsSuccessStatus: 204,
     })
   );
+  // Public share-link mechanism (D-48, T-4-01), mounted ahead of `optionalAuth`: a share visitor
+  // sends no auth headers and needs none -- `requireShare` (`middleware/share.ts`) never reads
+  // `req.userId`/`req.userName`, so these routes work identically whether or not auth middleware
+  // has run. Kept before the general `express.json()` parser too since every route here is a GET.
+  app.use('/api/shared', sharedRouter);
+
   app.use(optionalAuth);
   // D-44, T-3-01: every request runs inside an actor context (AsyncLocalStorage) so
   // change-log.dal.ts's recordChange sees {actor: req.userName, source: 'ui'} without any route
@@ -109,9 +115,6 @@ export function createApp(): express.Express {
   // D-30, D-31, T-2-06: rule CRUD (create/list-by-event nested under eventsRouter above).
   app.use('/api/projects/:projectId/rules', requireProject, rulesRouter);
   app.use('/api/projects/:projectId/rule-templates', requireProject, ruleTemplatesRouter);
-
-  // Public share-link mechanism (D-18): stub until phase 4 (see routes/shared.ts).
-  app.use('/api/shared', sharedRouter);
 
   // Removed in the schema rewrite (D-18); the old customer-lifecycle and metrics features never
   // had tables in the fresh schema and T-1-03 removed every frontend code path that called them,

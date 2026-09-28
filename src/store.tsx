@@ -46,7 +46,12 @@ function writeStoredActiveProject(value: StoredActiveProject | null): void {
 }
 
 interface StoreState {
-  /** Item id a page wants pre-selected/opened (e.g. deep-linking into an editor sheet). */
+  /**
+   * Item id a page wants pre-selected/opened (e.g. deep-linking into an editor sheet). T-4-02 fix
+   * round (ERROR 1): `Comments.tsx`'s per-row entity link sets this (plus `requestedTab`) to jump
+   * straight to a property or use case; `Properties.tsx`/`UseCases.tsx` consume it once on mount
+   * (same one-shot "pending" pattern as `pendingFindingsRunId` below), then clear it.
+   */
   selectedItemIdToEdit: string | null;
   setSelectedItemIdToEdit: (id: string | null) => void;
 

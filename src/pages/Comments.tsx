@@ -2,10 +2,19 @@
  * Comments page (sidebar, T-4-02, D-49 capability 13): a project-wide list of every comment with
  * an entity link, author, "via share" badge, a resolved filter, and resolve/delete actions.
  * Enums (entity type) come from `src/domain/enums.ts`, never hardcoded. Simplified UI (D-07).
+ *
+ * Fix round (reviewer FAIL 2026-09-28 18:18, ERROR 1): `entity_label` links to its target using the
+ * app's existing cross-page navigation pattern (`Findings.tsx`'s `openEventCard` via
+ * `setEventCardEventId` + `setRequestedTab('eventCard')`, and the generic `selectedItemIdToEdit` +
+ * `requestedTab` pair `Properties.tsx`/`UseCases.tsx` now also consume, T-4-02 fix round): `event`
+ * jumps to the event card, `property` to the Properties page with that row's editor open, `use_case`
+ * and `requirement` (via the list response's `use_case_id`, since a requirement has no page of its
+ * own) to the Use cases page with that use case open.
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { Loader2, Trash2 } from 'lucide-react';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
+import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { COMMENT_ENTITY_TYPES } from '@/src/domain/enums';
@@ -16,6 +25,8 @@ interface CommentRow {
   entity_type: string;
   entity_id: string;
   entity_label: string;
+  /** Set only for `entity_type: 'requirement'` (its owning use case); null otherwise. */
+  use_case_id: string | null;
   author_name: string;
   via_share: boolean;
   body: string;
@@ -38,6 +49,38 @@ export function Comments() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  const setRequestedTab = useStore((s) => s.setRequestedTab);
+  const setEventCardEventId = useStore((s) => s.setEventCardEventId);
+  const setSelectedItemIdToEdit = useStore((s) => s.setSelectedItemIdToEdit);
+
+  const openEntity = useCallback(
+    (row: CommentRow) => {
+      switch (row.entity_type) {
+        case 'event':
+          setEventCardEventId(row.entity_id);
+          setRequestedTab('eventCard');
+          return;
+        case 'property':
+          setSelectedItemIdToEdit(row.entity_id);
+          setRequestedTab('properties');
+          return;
+        case 'use_case':
+          setSelectedItemIdToEdit(row.entity_id);
+          setRequestedTab('useCases');
+          return;
+        case 'requirement':
+          if (row.use_case_id) {
+            setSelectedItemIdToEdit(row.use_case_id);
+            setRequestedTab('useCases');
+          }
+          return;
+        default:
+          return;
+      }
+    },
+    [setEventCardEventId, setRequestedTab, setSelectedItemIdToEdit]
+  );
 
   const load = useCallback(async () => {
     if (!hasValidProjectContext || !activeProjectId) {
@@ -150,7 +193,17 @@ export function Comments() {
               <div className="min-w-0">
                 <div className="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
                   <span className="font-mono">{row.entity_type}</span>
-                  <span className="font-medium text-gray-700">{row.entity_label}</span>
+                  {row.entity_type !== 'requirement' || row.use_case_id ? (
+                    <button
+                      type="button"
+                      onClick={() => openEntity(row)}
+                      className="font-medium text-[var(--brand-primary)] hover:underline"
+                    >
+                      {row.entity_label}
+                    </button>
+                  ) : (
+                    <span className="font-medium text-gray-700">{row.entity_label}</span>
+                  )}
                   <span>·</span>
                   <span>{row.author_name}</span>
                   {row.via_share && (

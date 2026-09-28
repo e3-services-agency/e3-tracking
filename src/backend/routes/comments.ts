@@ -5,7 +5,7 @@
  */
 import { Router, type Request, type Response } from 'express';
 import * as CommentDAL from '../dal/comment.dal';
-import { withEntityLabels, resolveCommentEntityLabel } from '../services/comments.service';
+import { withEntityLabels, resolveCommentEntity } from '../services/comments.service';
 import { ValidationError } from '../errors';
 import { handleRouteError } from './routeErrors';
 
@@ -38,17 +38,38 @@ router.get('/', (req: Request, res: Response) => {
   }
 });
 
+/**
+ * Fix round (reviewer FAIL 2026-09-28 18:18, LOW 1): `author_name`/`entity_type`/`entity_id`/`body`
+ * are each either a real string or entirely absent -- a non-string, non-undefined value (`42`,
+ * `null`, `[]`, ...) used to be silently coerced away (falling back to `req.userName` for
+ * `author_name`, or an empty string for the others, which the DAL then rejected with a *different*
+ * "is required" message than the one actually sent), attributing the post to the wrong author with
+ * no indication anything was dropped. `entity_type`/`entity_id`/`body` are still required (checked
+ * by the DAL as an empty string), so only `author_name` (optional, defaults to the signed-in user)
+ * needs the explicit "present but not a string" branch.
+ */
+function stringOrUndefined(body: Record<string, unknown>, key: string): string | undefined {
+  const value = body[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string') {
+    throw new ValidationError(`${key} must be a string.`, key);
+  }
+  return value;
+}
+
 router.post('/', (req: Request, res: Response) => {
   try {
     const body = req.body as Record<string, unknown>;
+    const authorName = stringOrUndefined(body, 'author_name');
     const comment = CommentDAL.createComment(req.projectId!, {
-      entity_type: typeof body.entity_type === 'string' ? body.entity_type : '',
-      entity_id: typeof body.entity_id === 'string' ? body.entity_id : '',
-      author_name: typeof body.author_name === 'string' ? body.author_name : req.userName ?? '',
-      body: typeof body.body === 'string' ? body.body : '',
+      entity_type: stringOrUndefined(body, 'entity_type') ?? '',
+      entity_id: stringOrUndefined(body, 'entity_id') ?? '',
+      author_name: authorName ?? req.userName ?? '',
+      body: stringOrUndefined(body, 'body') ?? '',
       via_share: false,
     });
-    res.status(201).json({ ...comment, entity_label: resolveCommentEntityLabel(req.projectId!, comment) });
+    const entity = resolveCommentEntity(req.projectId!, comment);
+    res.status(201).json({ ...comment, use_case_id: entity.use_case_id, entity_label: entity.label });
   } catch (err) {
     handleRouteError(err, res);
   }
@@ -61,7 +82,8 @@ router.patch('/:id', (req: Request, res: Response) => {
       throw new ValidationError('resolved must be a boolean.', 'resolved');
     }
     const comment = CommentDAL.setCommentResolved(req.projectId!, req.params.id, body.resolved, req.userName ?? 'system');
-    res.status(200).json({ ...comment, entity_label: resolveCommentEntityLabel(req.projectId!, comment) });
+    const entity = resolveCommentEntity(req.projectId!, comment);
+    res.status(200).json({ ...comment, use_case_id: entity.use_case_id, entity_label: entity.label });
   } catch (err) {
     handleRouteError(err, res);
   }

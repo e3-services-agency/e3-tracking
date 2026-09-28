@@ -12,7 +12,7 @@ import * as PropertyDAL from '../dal/property.dal';
 import * as UseCaseDAL from '../dal/use-case.dal';
 import * as RequirementDAL from '../dal/requirement.dal';
 import * as CommentDAL from '../dal/comment.dal';
-import { resolveCommentEntityLabel, withEntityLabels } from './comments.service';
+import { resolveCommentEntity, resolveCommentEntityLabel, withEntityLabels } from './comments.service';
 
 let projectId: string;
 let eventId: string;
@@ -61,7 +61,7 @@ describe('comments.service: resolveCommentEntityLabel', () => {
     expect(resolveCommentEntityLabel(projectId, onUseCase)).toBe('UC-01 Abandoned cart');
   });
 
-  it('resolves a live requirement to its target label via buildTargetLabelResolver', () => {
+  it('resolves a live requirement to its target label via buildTargetLabelResolver, and its use_case_id', () => {
     const [req] = RequirementDAL.replaceRequirements(projectId, useCaseId, [
       { target_kind: 'event', event_id: eventId, level: 'R' },
     ]);
@@ -72,9 +72,10 @@ describe('comments.service: resolveCommentEntityLabel', () => {
       body: 'x',
     });
     expect(resolveCommentEntityLabel(projectId, comment)).toBe('cart_update');
+    expect(resolveCommentEntity(projectId, comment).use_case_id).toBe(useCaseId);
   });
 
-  it('falls back to "removed requirement (<use case>)" once the target is genuinely swapped out', () => {
+  it('falls back to "removed requirement (<use case>)" once the target is genuinely swapped out, still carrying use_case_id', () => {
     const [req] = RequirementDAL.replaceRequirements(projectId, useCaseId, [
       { target_kind: 'event', event_id: eventId, level: 'R' },
     ]);
@@ -91,12 +92,21 @@ describe('comments.service: resolveCommentEntityLabel', () => {
     ]);
 
     expect(resolveCommentEntityLabel(projectId, comment)).toBe('removed requirement (UC-01)');
+    expect(resolveCommentEntity(projectId, comment).use_case_id).toBe(useCaseId);
   });
 
-  it('withEntityLabels attaches entity_label to every row in one call', () => {
+  it('withEntityLabels attaches entity_label and use_case_id to every row in one call', () => {
     CommentDAL.createComment(projectId, { entity_type: 'event', entity_id: eventId, author_name: 'Jan', body: 'x' });
     CommentDAL.createComment(projectId, { entity_type: 'property', entity_id: customerPropertyId, author_name: 'Jan', body: 'y' });
+    const [req] = RequirementDAL.replaceRequirements(projectId, useCaseId, [
+      { target_kind: 'event', event_id: eventId, level: 'R' },
+    ]);
+    CommentDAL.createComment(projectId, { entity_type: 'requirement', entity_id: req.id, author_name: 'Jan', body: 'z' });
+
     const rows = withEntityLabels(projectId, CommentDAL.listComments(projectId));
-    expect(rows.map((r) => r.entity_label).sort()).toEqual(['cart_update', 'email']);
+    expect(rows.map((r) => r.entity_label).sort()).toEqual(['cart_update', 'cart_update', 'email']);
+    expect(rows.find((r) => r.entity_type === 'event')!.use_case_id).toBeNull();
+    expect(rows.find((r) => r.entity_type === 'property')!.use_case_id).toBeNull();
+    expect(rows.find((r) => r.entity_type === 'requirement')!.use_case_id).toBe(useCaseId);
   });
 });

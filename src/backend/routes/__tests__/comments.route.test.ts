@@ -12,6 +12,8 @@ import { createApp } from '../../app';
 import * as ClientDAL from '../../dal/client.dal';
 import * as ProjectDAL from '../../dal/project.dal';
 import * as EventDAL from '../../dal/event.dal';
+import * as UseCaseDAL from '../../dal/use-case.dal';
+import * as RequirementDAL from '../../dal/requirement.dal';
 
 let server: http.Server;
 let baseUrl: string;
@@ -81,6 +83,44 @@ describe('POST /api/projects/:projectId/comments', () => {
       body: '',
     });
     expect(res.res.status).toBe(400);
+  });
+
+  it('400s on a non-string author_name instead of silently attributing it to the signed-in user (fix round LOW 1)', async () => {
+    const res = await postJson(`${baseUrl}/api/projects/${projectId}/comments`, {
+      entity_type: 'event',
+      entity_id: eventId,
+      author_name: 42,
+      body: 'x',
+    });
+    expect(res.res.status).toBe(400);
+  });
+
+  it('a requirement comment carries use_case_id (fix round ERROR 1, for the Comments page link)', async () => {
+    const useCase = UseCaseDAL.createUseCase(projectId, { name: 'Abandoned cart', code: 'UC-COMMENTS' });
+    const [req] = RequirementDAL.replaceRequirements(projectId, useCase.id, [
+      { target_kind: 'event', event_id: eventId, level: 'R' },
+    ]);
+    const created = await postJson(`${baseUrl}/api/projects/${projectId}/comments`, {
+      entity_type: 'requirement',
+      entity_id: req.id,
+      author_name: 'Jan',
+      body: 'requirement comment',
+    });
+    expect(created.res.status).toBe(201);
+    expect(created.body.use_case_id).toBe(useCase.id);
+
+    const list = await (await fetch(`${baseUrl}/api/projects/${projectId}/comments?entity_type=requirement`)).json();
+    const row = list.find((c: { id: string }) => c.id === created.body.id);
+    expect(row.use_case_id).toBe(useCase.id);
+
+    // Every other entity_type's rows carry a null use_case_id.
+    const eventRow = await postJson(`${baseUrl}/api/projects/${projectId}/comments`, {
+      entity_type: 'event',
+      entity_id: eventId,
+      author_name: 'Jan',
+      body: 'y',
+    });
+    expect(eventRow.body.use_case_id).toBeNull();
   });
 });
 

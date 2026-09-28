@@ -2007,3 +2007,6 @@ Artifacts saved under `.claude/team/reports/qa/T-3-05/`: `backup-source-b.json`,
 
 ### 2026-09-28 07:02 | supervisor | STATUS | T-3-05 DONE
 qa-tester PASS (07:00) on the QA fix. Merged clean into agent-setup; tests and tsc re-run. Seven of ten phase 3 tasks merged. Remaining: T-3-10 integration (blocked on the merge permission decision), then T-3-08, T-3-09, T-3-EXIT.
+
+### 2026-09-28 07:04 | supervisor | STATUS | T-3-05 merge: one test fails on the merged tree
+backupRestore.service.test.ts "no old id survives" fails after the T-3-02 merge: change_log.batch_id values (import batches) are not remapped. Ruling: restore assigns a fresh id per distinct batch_id (all rows of one old batch share one new id) so the invariant holds; fix on task/T-3-05b-batch-remap off agent-setup; reviewer probe then merge.

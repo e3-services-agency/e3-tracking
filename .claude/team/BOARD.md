@@ -2080,3 +2080,6 @@ Both servers stopped at the end (taskkill on the API and Vite PIDs); `data/qa-t3
 | 4 | No console errors beyond Vite HMR noise, zero supabase requests | PASS |
 
 Verdict: PASS. Both ERROR 1 (Industry field) and ERROR 2 (field_map cleanup on the Events-page save path) from the 10:19 FAIL are fixed and hold up under a fresh re-check. Recommend merge.
+
+### 2026-09-28 10:46 | supervisor | STATUS | T-3-10 DONE, T-3-08 started
+qa-tester PASS (10:44) on the QA fix. Merged clean into agent-setup: 1178 tests (101 files), tsc clean. Eight of ten phase 3 tasks merged; all implementer tasks except the sweep are in. T-3-08 dead-code sweep runs alone now.

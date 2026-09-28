@@ -46,7 +46,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-3-07 | 3 | QA evidence maintenance and carried fixes: observation edit/delete, run delete, variant delete guard, identity codegen dedupe, open review items | implementer | T-3-00 | DONE | see below |
 | T-3-08 | 3 | Dead-code sweep per the verified list, schema.ts reduction, legacy docs removal | implementer | T-3-02, T-3-03, T-3-05, T-3-07, T-3-10 | DONE | see below |
 | T-3-09 | 3 | Docs refresh: CLAUDE.md, docs/DOMAIN.md, docs/EXPORTS.md (CSV, backup, library formats), docs/QA-LOCAL.md, qa-roundtrip scenario text for 6, 9, 10, 11 | docs-writer | T-3-08 | DONE | see below |
-| T-3-EXIT | 3 | Phase 3 exit: qa-roundtrip 1 to 11 plus MCP smoke on merged agent-setup, report to user | supervisor | T-3-09 | IN_PROGRESS | see below |
+| T-3-EXIT | 3 | Phase 3 exit: qa-roundtrip 1 to 11 plus MCP smoke on merged agent-setup, report to user | supervisor | T-3-09 | DONE | see below |
 | T-4-00 | 4 | Property definitions (D-58): migration 0021, DAL, link definition_id, comparison, card and document, exports and imports, Properties page, MCP, backup/CSV | implementer | T-3-EXIT | TODO | see below |
 | T-4-01 | 4 | Share token: migration, DAL and service, requireShare middleware, public document/HTML/file routes, Settings share block | implementer | T-4-00 | TODO | see below |
 | T-4-02 | 4 | Comments model: migration, DAL, internal API, requirement id stability, Comments page | implementer | T-4-00 | TODO | see below |
@@ -165,3 +165,4 @@ Detailed acceptance criteria per task live in `reports/PLAN-PHASE2-2026-09-25.md
 - From T-3-05 review: bodies over the 20 MB json limit on ordinary routes return 500 INTERNAL_ERROR instead of 413 (entity.too.large unmapped in the error handler); map it (T-3-08 or phase 4 touch).
 - From T-3-05 pre-QA fix: RestoreBackupForm reloads immediately on success and never shows apply warnings[]; surface them before navigating (phase 4 UI touch).
 - From T-3-02 QA: the History page Batch id filter needs the full UUID but the page shows only 8 characters; expose the full id (title or click to copy) or accept a prefix match (phase 4 UI touch or T-3-09 note).
+- From T-3-EXIT re-check: the full-chain baseline shows 77 or 78 open findings (one missing_event warning varies); investigate the source of the one-count drift when touching comparison 3 next (phase 4 or 5).

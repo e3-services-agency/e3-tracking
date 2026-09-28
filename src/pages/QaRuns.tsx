@@ -14,6 +14,7 @@ import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { parseQaRunsResponse } from '@/src/domain/qaRunsResponse';
 import { showEmptyState, showLoadingPlaceholder } from '@/src/domain/loadingState';
+import { EmptyState } from '@/src/components/ui/EmptyState';
 
 interface QaRunRow {
   id: string;
@@ -43,6 +44,7 @@ async function parseJson(res: Response): Promise<any> {
 
 export function QaRuns() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
+  const setRequestedTab = useStore((s) => s.setRequestedTab);
   const [runs, setRuns] = useState<QaRunRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -153,11 +155,12 @@ export function QaRuns() {
                 </tr>
               )}
               {showEmptyState(isLoading, runs.length) && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                    No QA runs yet — apply a customer events export from the Import page.
-                  </td>
-                </tr>
+                <EmptyState
+                  colSpan={6}
+                  message="No QA runs yet. Apply a customer events export from the Import page to create one."
+                  actionLabel="Go to Import"
+                  onAction={() => setRequestedTab('import')}
+                />
               )}
             </tbody>
           </table>

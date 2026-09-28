@@ -33,6 +33,9 @@ interface ProjectDetail {
   money_tolerance_floor: number;
   /** T-3-10 (D-57): optional free-text industry, used as the templates page's default facet filter. */
   industry: string | null;
+  /** D-60: true for a project restored from the bundled sandbox backup; share creation is refused
+   * server-side unless `force=true` (`SandboxShareRefusedError`). */
+  is_sandbox?: boolean;
 }
 
 interface ShareState {
@@ -152,7 +155,12 @@ export function ProjectSettings() {
     fetchShare();
   }, [fetchProject, fetchClients, fetchShare]);
 
-  const handleGenerateOrRotate = async () => {
+  // W2 fix round (reviewer FAIL 2026-09-28): a sandbox project always refuses share creation
+  // server-side without `force=true` (`SandboxShareRefusedError`, D-60). Rather than let that 409's
+  // raw API message surface in `shareError` after the fact, `handleGenerateOrRotateClick` below
+  // asks for confirmation up front on a sandbox and passes `force: true` straight away, so the
+  // refusal is never actually hit through the normal UI path.
+  const handleGenerateOrRotate = async (force: boolean = false) => {
     if (!activeProjectId) return;
     setShareLoading(true);
     setShareError(null);
@@ -161,7 +169,7 @@ export function ProjectSettings() {
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/share`, {
         method: 'POST',
         headers: { Accept: 'application/json' },
-        body: JSON.stringify({ access: shareAccessSelect }),
+        body: JSON.stringify({ access: shareAccessSelect, force }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -174,6 +182,18 @@ export function ProjectSettings() {
     } finally {
       setShareLoading(false);
     }
+  };
+
+  const handleGenerateOrRotateClick = () => {
+    if (project?.is_sandbox) {
+      const confirmed = window.confirm(
+        'This is a sandbox project; sharing is disabled by default. Create a share link on it anyway?'
+      );
+      if (!confirmed) return;
+      void handleGenerateOrRotate(true);
+      return;
+    }
+    void handleGenerateOrRotate(false);
   };
 
   const handleShareAccessChange = async (access: string) => {
@@ -350,6 +370,12 @@ export function ProjectSettings() {
           A public link to this project's tracking document -- no login required. Rotating replaces
           the old link, which stops working immediately; revoking clears it entirely.
         </p>
+        {project?.is_sandbox && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+            This is a sandbox project. Sharing is disabled by default; {share?.share_token ? 'rotating' : 'generating'} a
+            link here will ask you to confirm first.
+          </p>
+        )}
         {shareError && (
           <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm">{shareError}</div>
         )}
@@ -364,7 +390,7 @@ export function ProjectSettings() {
               <option key={a} value={a}>{a}</option>
             ))}
           </select>
-          <Button onClick={handleGenerateOrRotate} disabled={shareLoading} variant="secondary">
+          <Button onClick={handleGenerateOrRotateClick} disabled={shareLoading} variant="secondary">
             {share?.share_token ? 'Rotate' : 'Generate'}
           </Button>
           {share?.share_token && (

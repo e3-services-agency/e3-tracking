@@ -12,6 +12,7 @@ import { Documentation } from '@/src/pages/Documentation';
 import { Clients } from '@/src/pages/Clients';
 import { resolveInitialProject } from './resolveInitialProject';
 import { BASE, pushPath } from './pushPath';
+import { mainRouteStateFromRestPath } from './mainRoute';
 
 import { Catalogs } from '@/src/pages/Catalogs';
 import { IdentityRules } from '@/src/pages/IdentityRules';
@@ -26,6 +27,8 @@ import { Findings } from '@/src/pages/Findings';
 import { History } from '@/src/pages/History';
 import { Comments } from '@/src/pages/Comments';
 import { EventCard } from '@/src/pages/EventCard';
+import { GettingStarted } from '@/src/pages/GettingStarted';
+import { Help } from '@/src/pages/Help';
 
 const DEFAULT_BRAND_PRIMARY = 'var(--e3-emerald)';
 const SIDEBAR_COLLAPSED_KEY = 'e3-tracking.sidebarCollapsed';
@@ -41,55 +44,6 @@ function parseProjectFromPath(pathname: string): { projectKey: string | null; re
   const m = path.match(/^\/p\/([^/]+)(\/.*)?$/);
   if (!m) return { projectKey: null, restPath: path };
   return { projectKey: m[1] ?? null, restPath: m[2] ?? '/' };
-}
-
-/** Maps the path after optional `/p/:projectKey` to the main shell tab. `eventCardId` is set only
- * for `/events/:id/card` (T-2-09), read by `LayoutInner` to seed the store's `eventCardEventId`. */
-function mainRouteStateFromRestPath(restPath: string): { tab: string; eventCardId?: string } {
-  const raw = (restPath.replace(/\/$/, '') || '/').trim() || '/';
-  const cardMatch = raw.match(/^\/events\/([^/]+)\/card$/);
-  if (cardMatch) return { tab: 'eventCard', eventCardId: cardMatch[1] };
-  switch (raw) {
-    case '/':
-    case '/events':
-      return { tab: 'events' };
-    case '/properties':
-      return { tab: 'properties' };
-    case '/catalogs':
-      return { tab: 'catalogs' };
-    case '/identity-rules':
-      return { tab: 'identityRules' };
-    case '/consent-categories':
-      return { tab: 'consentCategories' };
-    case '/standard-events':
-      return { tab: 'standardEvents' };
-    case '/use-cases':
-      return { tab: 'useCases' };
-    case '/use-case-templates':
-      return { tab: 'useCaseTemplates' };
-    case '/requirements-matrix':
-      return { tab: 'requirementsMatrix' };
-    case '/sources':
-      return { tab: 'sources' };
-    case '/import':
-      return { tab: 'import' };
-    case '/qa-runs':
-      return { tab: 'qaRuns' };
-    case '/findings':
-      return { tab: 'findings' };
-    case '/history':
-      return { tab: 'history' };
-    case '/comments':
-      return { tab: 'comments' };
-    case '/clients':
-      return { tab: 'clients' };
-    case '/settings':
-      return { tab: 'settings' };
-    case '/documentation':
-      return { tab: 'documentation' };
-    default:
-      return { tab: 'events' };
-  }
 }
 
 function getInitialMainRouteState(): { tab: string } {
@@ -239,6 +193,8 @@ function LayoutInner() {
     if (activeTab === 'clients') pushPath('/clients', activeProjectKey);
     if (activeTab === 'settings') pushPath('/settings', activeProjectKey);
     if (activeTab === 'documentation') pushPath('/documentation', activeProjectKey);
+    if (activeTab === 'gettingStarted') pushPath('/getting-started', activeProjectKey);
+    if (activeTab === 'help') pushPath('/help', activeProjectKey);
     if (activeTab === 'eventCard' && eventCardEventId) pushPath(`/events/${eventCardEventId}/card`, activeProjectKey);
   }, [activeTab, activeProjectKey, initializedFromUrl, eventCardEventId]);
 
@@ -251,6 +207,8 @@ function LayoutInner() {
   const mainContent =
     activeTab === 'clients' ? (
       <Clients />
+    ) : activeTab === 'help' ? (
+      <Help />
     ) : isLoading ? (
       <div className="flex-1 flex items-center justify-center text-sm text-gray-500" role="status">
         Loading projects…
@@ -279,6 +237,7 @@ function LayoutInner() {
         {activeTab === 'comments' && <Comments />}
         {activeTab === 'settings' && <Settings />}
         {activeTab === 'documentation' && <Documentation />}
+        {activeTab === 'gettingStarted' && <GettingStarted setActiveTab={setActiveTab} />}
         {activeTab === 'eventCard' && eventCardEventId && (
           <EventCard eventId={eventCardEventId} onBack={() => setActiveTab('events')} />
         )}

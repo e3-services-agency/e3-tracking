@@ -2,7 +2,7 @@
  * Shared error-to-HTTP mapping for route handlers (JSON error envelope, `{error, code, field?}`).
  */
 import type { Response } from 'express';
-import { BadRequestError, ConflictError, DatabaseError, NotFoundError, TemplateInUseError } from '../errors';
+import { BadRequestError, ConfigError, ConflictError, DatabaseError, NotFoundError, TemplateInUseError } from '../errors';
 
 export function handleRouteError(err: unknown, res: Response): void {
   if (err instanceof NotFoundError) {
@@ -24,6 +24,15 @@ export function handleRouteError(err: unknown, res: Response): void {
     return;
   }
   if (err instanceof DatabaseError) {
+    res.status(500).json({ error: err.message, code: err.code });
+    return;
+  }
+  // W3 fix round (reviewer FAIL 2026-09-28): a missing/corrupt bundled sandbox backup
+  // (`sandbox.service.ts#loadBundledSandboxBackup`) used to fall through to the generic 500
+  // INTERNAL_ERROR branch below -- same status, but an opaque code indistinguishable from an
+  // actual crash. `ConfigError` gets its own 500 with its own `err.code` ('CONFIG_ERROR') and
+  // `err.message`, no stack (this branch, like every other one here, never sends `err.stack`).
+  if (err instanceof ConfigError) {
     res.status(500).json({ error: err.message, code: err.code });
     return;
   }

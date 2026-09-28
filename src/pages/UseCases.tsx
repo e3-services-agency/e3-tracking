@@ -9,6 +9,7 @@ import { Plus, Trash2, Loader2, ArrowUp, ArrowDown, ArrowLeft, Sparkles, Refresh
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
+import { EmptyState } from '@/src/components/ui/EmptyState';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
@@ -121,6 +122,7 @@ export function UseCases() {
   // use case; consumed once below, then cleared so a later render does not re-trigger it.
   const selectedItemIdToEdit = useStore((s) => s.selectedItemIdToEdit);
   const setSelectedItemIdToEdit = useStore((s) => s.setSelectedItemIdToEdit);
+  const setRequestedTab = useStore((s) => s.setRequestedTab);
 
   const load = useCallback(async () => {
     if (!hasValidProjectContext || !activeProjectId) return;
@@ -251,11 +253,12 @@ export function UseCases() {
                 </tr>
               ))}
               {useCases.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                    No use cases found.
-                  </td>
-                </tr>
+                <EmptyState
+                  colSpan={6}
+                  message="No use cases yet. Instantiate one from the use case template library, or add one by hand."
+                  actionLabel="Browse templates"
+                  onAction={() => setRequestedTab('useCaseTemplates')}
+                />
               )}
             </tbody>
           </table>

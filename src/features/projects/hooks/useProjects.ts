@@ -21,6 +21,8 @@ export interface ProjectItem {
   client_primary_color: string | null;
   client_logo_path: string | null;
   bloomreach_api_customer_id_key: string | null;
+  /** D-60: true for a project restored from the bundled sandbox backup. */
+  is_sandbox?: boolean;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;

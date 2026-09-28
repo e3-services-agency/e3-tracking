@@ -9,6 +9,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
+import { EmptyState } from '@/src/components/ui/EmptyState';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
@@ -372,7 +373,9 @@ export function UseCaseTemplates() {
         {actionError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{actionError}</div>}
         {actionMessage && <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">{actionMessage}</div>}
 
-        <ImportLibraryBox onImported={load} />
+        <div id="import-library-box">
+          <ImportLibraryBox onImported={load} />
+        </div>
 
         <div className="bg-white rounded-lg border shadow-sm p-4 space-y-3">
           <h2 className="text-sm font-semibold text-gray-900">Filters</h2>
@@ -477,7 +480,15 @@ export function UseCaseTemplates() {
                     </td>
                   </tr>
                 ))}
-              {!loading && filteredTemplates.length === 0 && (
+              {!loading && filteredTemplates.length === 0 && templates.length === 0 && (
+                <EmptyState
+                  colSpan={7}
+                  message="No use case templates yet. Import the library JSON below to get started."
+                  actionLabel="Import library"
+                  onAction={() => document.getElementById('import-library-box')?.scrollIntoView({ behavior: 'smooth' })}
+                />
+              )}
+              {!loading && filteredTemplates.length === 0 && templates.length > 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
                     No templates match the current filters.

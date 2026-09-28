@@ -1938,3 +1938,6 @@ Reviewer PASS (03:20) accepted. Before QA: WARNING 1 a failed apply removes ever
 
 ### 2026-09-28 03:22 | implementer -> qa-tester | HANDOFF | T-3-02 pre-QA fixes
 Posted by supervisor. Commit a437c87 on task/T-3-02-history-everywhere. Project diffs drop share_token and bloomreach_project_token and hash the three Data Manager JSON columns (row under 2 KB, tested); markRequirementsGap logs one requirement update row per affected requirement inside the caller transaction; runWithImportBatch helper shared by the four import services. 1088 tests (94 files), tsc clean, build ok.
+
+### 2026-09-28 03:30 | implementer -> reviewer | HANDOFF | T-3-10 fix round
+Posted by supervisor. Commit 537ebbf on task/T-3-10-library-resolution. ERROR 1 stale field_map hit guarded by propertyLinkedToEvent (falls to exact name, else unresolved with a stale note; instantiate yields a gap, never a 400 rollback); WARNING 2 default industry filter only on a case-insensitive vocabulary match, shown as a Default pill with Clear, off-vocabulary value shown as a hint; LOW 3 one preview per click; LOW 4 industry type validation 400; LOW 5 a newly picked event gets a fresh mapping (no stale variant or field_map); LOW 6 MCP template code case-insensitive; INFO 7 real discriminated union with === true/false narrowing. Tests added for each. 1083 tests (94 files), tsc clean, build ok.

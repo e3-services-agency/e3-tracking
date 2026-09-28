@@ -1,0 +1,1132 @@
+{
+  "format": "e3-use-case-library",
+  "version": 1,
+  "templates": [
+    {
+      "code": "UCC-email-01",
+      "name": "Abandoned browse email",
+      "type": "marketing",
+      "description": "Sends an email to a customer who viewed products but left without purchasing, reminding them of the last items they browsed. Content selection from an aggregate of the customer's last viewed products is a Bloomreach asset built outside tracking.",
+      "narrative_template": "When a customer views a product and leaves without purchasing within the session window, send a browse-abandonment email showing their last viewed items.",
+      "tags": { "channels": ["email"], "goals": ["reactivate_customers"], "tiers": ["essentials"], "kpis": ["revenue_per_visitor"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "view_item", "level": "R", "note": "Browse trigger." },
+        { "target_kind": "variant_property", "standard_event": "view_item", "property_name": "product_id", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "catalog_attribute", "field_name": "image", "level": "O", "note": "Product image for the email template." }
+      ]
+    },
+    {
+      "code": "UCC-email-02",
+      "name": "Abandoned cart email with recommendations",
+      "type": "marketing",
+      "description": "Sends a personalized email to customers who leave items in their cart, showing those items plus AI-recommended products to lift order value. The recommendation engine and evaluation dashboard are Bloomreach assets configured outside tracking.",
+      "narrative_template": "When a customer adds a product to their cart and does not check out, send an abandoned-cart email with the cart items and recommended products.",
+      "tags": { "channels": ["email"], "goals": ["reactivate_customers"], "tiers": ["advanced"], "kpis": ["average_order_value"], "industries": ["ecommerce"] },
+      "flags": { "popular": true },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "add_to_cart", "level": "R", "note": "Cart abandonment trigger." },
+        { "target_kind": "variant_property", "standard_event": "add_to_cart", "property_name": "product_id", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "add_to_cart", "property_name": "total_price", "level": "R" },
+        { "target_kind": "event", "standard_event": "checkout", "level": "O", "note": "Suppresses the email once checkout has started." },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "catalog_attribute", "field_name": "image", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-email-03",
+      "name": "Abandoned search email flow",
+      "type": "marketing",
+      "description": "Targets customers who searched for flights, hotels or rentals but did not complete a booking, re-engaging them with a follow-up email built from the last search or last viewed item. Choosing between the aggregate-based or event-based content flow is configured in Bloomreach.",
+      "narrative_template": "When a customer searches or views a travel item without booking within the session window, send an abandoned-search email with the last searched or viewed item.",
+      "tags": { "channels": ["email"], "goals": ["acquire_customers"], "tiers": ["advanced"], "kpis": ["conversion_rate"], "industries": ["travel"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "search", "level": "R", "note": "Search trigger (flow 1, aggregate-based)." },
+        { "target_kind": "variant", "standard_event": "view_item", "level": "O", "note": "Alternative per-item trigger (flow 2, Jinja-based)." },
+        { "target_kind": "variant_property", "standard_event": "view_item", "property_name": "product_id", "level": "O" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-04",
+      "name": "Automated favorite brand newsletter with new items",
+      "type": "marketing",
+      "description": "Sends a weekly newsletter promoting new products from the customer's favorite brand, determined from their purchase and view history. The brand-affinity recommendation engine itself runs in Bloomreach, outside tracking.",
+      "narrative_template": "For customers with enough purchase or view history, send a weekly newsletter of new items from their favorite brand.",
+      "tags": { "channels": ["email"], "goals": ["increase_retention"], "tiers": ["advanced"], "kpis": ["conversion_rate"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant", "standard_event": "view_item", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "view_item", "property_name": "category_level_1", "level": "O" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-05",
+      "name": "Automated newsletter for new items of interest",
+      "type": "marketing",
+      "description": "Sends a weekly newsletter recommending new items from the product category a customer views most, based on category_level_1 seen on view_item. Category ranking and product selection run in a Bloomreach aggregate and recommendation engine outside tracking.",
+      "narrative_template": "For customers who repeatedly view items in one category without buying from it, send a weekly newsletter of new items in that category.",
+      "tags": { "channels": ["email"], "goals": ["acquire_customers"], "tiers": ["advanced"], "kpis": ["conversion_rate"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "view_item", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "view_item", "property_name": "category_level_1", "level": "R" },
+        { "target_kind": "variant", "standard_event": "purchase", "level": "O" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-06",
+      "name": "Automated price drop alert email for items in cart",
+      "type": "marketing",
+      "description": "Alerts a customer by email when the price of an item left in their cart drops, comparing the price recorded on add_to_cart with the current catalog price. Price-drop detection runs as a Bloomreach evaluation outside tracking.",
+      "narrative_template": "When the catalog price of a product in a customer's cart drops below the price recorded on add_to_cart, send a price-drop email.",
+      "tags": { "channels": ["email"], "goals": ["reactivate_customers"], "tiers": ["advanced"], "kpis": ["revenue_per_visitor"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "add_to_cart", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "add_to_cart", "property_name": "product_id", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "add_to_cart", "property_name": "price", "level": "R" },
+        { "target_kind": "catalog_attribute", "field_name": "price", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-07",
+      "name": "Automated price drop email alert",
+      "type": "marketing",
+      "description": "Alerts a customer by email when the price of a product they viewed drops, comparing the price recorded on view_item with the current catalog price. Price-drop detection runs as a Bloomreach evaluation outside tracking.",
+      "narrative_template": "When the catalog price of a viewed product drops below the price recorded on view_item, send a price-drop email.",
+      "tags": { "channels": ["email"], "goals": ["reactivate_customers"], "tiers": ["advanced"], "kpis": ["revenue_per_visitor"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "view_item", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "view_item", "property_name": "product_id", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "view_item", "property_name": "price", "level": "R" },
+        { "target_kind": "catalog_attribute", "field_name": "price", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-08",
+      "name": "Automated restock email alert",
+      "type": "marketing",
+      "description": "Notifies a customer by email when an out-of-stock product they viewed becomes available again, using stock_level recorded on view_item. Stock-level change detection runs as a Bloomreach evaluation outside tracking.",
+      "narrative_template": "When a viewed out-of-stock product's stock_level becomes available, send a restock email.",
+      "tags": { "channels": ["email"], "goals": ["reactivate_customers"], "tiers": ["advanced"], "kpis": ["conversion_rate"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "view_item", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "view_item", "property_name": "product_id", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "view_item", "property_name": "stock_level", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-09",
+      "name": "Bi-weekly product recommendation newsletter",
+      "type": "marketing",
+      "description": "Sends a bi-weekly newsletter of personalized product recommendations built from purchase and browsing history. The recommendation engine and cadence are configured in Bloomreach outside tracking.",
+      "narrative_template": "Every two weeks, send a newsletter of personalized product recommendations to customers with newsletter consent.",
+      "tags": { "channels": ["email"], "goals": ["increase_retention"], "tiers": ["essentials"], "kpis": ["revenue"], "industries": ["ecommerce"] },
+      "flags": { "popular": true },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant", "standard_event": "view_item", "level": "O" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-10",
+      "name": "Birthday campaign",
+      "type": "marketing",
+      "description": "Sends a personalized birthday email with an offer around the customer's birthday, using the customer's stored birthday. Offer content and send-time logic are configured in Bloomreach outside tracking.",
+      "narrative_template": "Around a customer's birthday, send a personalized birthday email with an offer.",
+      "tags": { "channels": ["email"], "goals": ["increase_retention"], "tiers": ["essentials"], "kpis": ["active_subscribers"], "industries": ["ecommerce", "retail"] },
+      "flags": { "popular": true },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "birthday", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-11",
+      "name": "Personalized abandoned cart email",
+      "type": "marketing",
+      "description": "Sends a personalized abandoned-cart email listing exactly the items a customer left behind, without a recommendations engine. Email design personalization runs in Bloomreach outside tracking.",
+      "narrative_template": "When a customer abandons a cart without checking out, send a personalized email listing the abandoned items.",
+      "tags": { "channels": ["email"], "goals": ["reactivate_customers"], "tiers": ["advanced"], "kpis": ["average_order_value"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "add_to_cart", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "add_to_cart", "property_name": "product_id", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "add_to_cart", "property_name": "total_price", "level": "R" },
+        { "target_kind": "event", "standard_event": "checkout", "level": "O", "note": "Suppresses the email once checkout has started." },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-12",
+      "name": "Post-cancellation follow-up email flow",
+      "type": "transactional",
+      "description": "Sends a follow-up email after a customer cancels a booking, offering alternatives or collecting feedback based on the returned purchase's status. Alternative recommendations are a Bloomreach asset built outside tracking.",
+      "narrative_template": "When a booking's purchase_status changes to cancelled, send a follow-up email with alternatives.",
+      "tags": { "channels": ["email"], "goals": ["increase_retention"], "tiers": ["advanced"], "kpis": ["return_rate"], "industries": ["travel"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "returned_purchase", "level": "R", "note": "Cancellation trigger via purchase_status." },
+        { "target_kind": "variant_property", "standard_event": "returned_purchase", "property_name": "purchase_status", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "returned_purchase", "property_name": "purchase_id", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-13",
+      "name": "Post-holiday feedback",
+      "type": "transactional",
+      "description": "Sends a post-trip feedback survey email after a completed booking, timed from the purchase event. Survey scoring and evaluation dashboards run in Bloomreach outside tracking.",
+      "narrative_template": "After a purchase completes and the trip ends, send a feedback survey email.",
+      "tags": { "channels": ["email"], "goals": ["increase_retention"], "tiers": ["essentials"], "kpis": ["active_subscribers"], "industries": ["travel"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "purchase_id", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-14",
+      "name": "Post-purchase email with recommendations",
+      "type": "marketing",
+      "description": "Sends a post-purchase email recommending follow-on products, based on the purchased items and a Bloomreach recommendation engine. The engine and evaluation dashboard are configured outside tracking.",
+      "narrative_template": "After a purchase completes, send an email with recommended follow-on products.",
+      "tags": { "channels": ["email"], "goals": ["increase_retention"], "tiers": ["advanced"], "kpis": ["revenue"], "industries": ["ecommerce"] },
+      "flags": { "popular": true },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "purchase_id", "level": "R" },
+        { "target_kind": "event_property", "standard_event": "purchase_item", "property_name": "product_id", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "catalog_attribute", "field_name": "image", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-email-15",
+      "name": "Post-purchase NPS survey email",
+      "type": "transactional",
+      "description": "Sends a Net Promoter Score survey email after a purchase completes, to measure satisfaction. Score aggregation and reporting run in a Bloomreach dashboard outside tracking.",
+      "narrative_template": "After a purchase completes, send an NPS survey email.",
+      "tags": { "channels": ["email"], "goals": ["increase_retention"], "tiers": ["essentials"], "kpis": ["active_subscribers"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "purchase_id", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-16",
+      "name": "Pre-travel engagement email flow",
+      "type": "marketing",
+      "description": "Sends a series of engagement emails ahead of a customer's booked trip, using the booking's purchase date. Content timing relative to the trip date is configured in Bloomreach outside tracking.",
+      "narrative_template": "In the days before a booked trip, send a pre-travel engagement email with trip details.",
+      "tags": { "channels": ["email"], "goals": ["increase_retention"], "tiers": ["advanced"], "kpis": ["average_order_value"], "industries": ["travel"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "purchase_id", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-17",
+      "name": "Purchase anniversary recommendations",
+      "type": "marketing",
+      "description": "Sends a yearly email around the anniversary of a customer's purchase, recommending new products. Anniversary date computation and the recommendation engine run in Bloomreach outside tracking.",
+      "narrative_template": "Around the anniversary of a customer's purchase, send an email with new product recommendations.",
+      "tags": { "channels": ["email"], "goals": ["increase_retention"], "tiers": ["advanced"], "kpis": ["cltv"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "purchase_id", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-18",
+      "name": "Reactivation campaign for disengaged email subscribers",
+      "type": "marketing",
+      "description": "Sends a win-back email to subscribers who stopped opening or clicking campaigns, aiming to restore engagement before they lapse further. Engagement scoring runs in a Bloomreach evaluation outside tracking.",
+      "narrative_template": "When a subscriber's email engagement drops below the reactivation threshold, send a win-back email.",
+      "tags": { "channels": ["email"], "goals": ["reengage_subscribers"], "tiers": ["advanced"], "kpis": ["active_subscribers"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" },
+        { "target_kind": "variant", "standard_event": "purchase", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-email-19",
+      "name": "Reactivation campaign for lapsing and lapsed customers",
+      "type": "marketing",
+      "description": "Sends a reactivation email to customers who have not purchased in a defined period, split into lapsing and lapsed segments by purchase recency. Segmentation runs in a Bloomreach evaluation outside tracking.",
+      "narrative_template": "When a customer's time since their last purchase crosses the lapsing or lapsed threshold, send a reactivation email.",
+      "tags": { "channels": ["email"], "goals": ["reactivate_customers"], "tiers": ["advanced"], "kpis": ["purchase_frequency"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "purchase_id", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-20",
+      "name": "Refer-a-friend campaign",
+      "type": "marketing",
+      "description": "Invites existing customers to refer friends in exchange for a reward, triggered after a purchase and sent to their email address. Referral link generation and reward issuance run in Bloomreach outside tracking.",
+      "narrative_template": "After a purchase, invite the customer to refer a friend for a reward.",
+      "tags": { "channels": ["email"], "goals": ["acquire_customers"], "tiers": ["advanced"], "kpis": ["cltv"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "O" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-21",
+      "name": "Refill reminder email campaign",
+      "type": "marketing",
+      "description": "Reminds a customer to reorder a consumable product after the expected usage period following their purchase, using the purchased item's product_id. Refill-interval configuration per product runs in Bloomreach outside tracking.",
+      "narrative_template": "After the expected usage period following a purchase of a consumable item, send a refill reminder email.",
+      "tags": { "channels": ["email"], "goals": ["increase_retention"], "tiers": ["advanced"], "kpis": ["purchase_frequency"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "event_property", "standard_event": "purchase_item", "property_name": "product_id", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-22",
+      "name": "Retention campaign for repeat purchasers",
+      "type": "marketing",
+      "description": "Rewards and re-engages customers with a history of repeat purchases to keep them buying, using purchase frequency. Loyalty-tier logic runs in a Bloomreach evaluation outside tracking.",
+      "narrative_template": "When a customer's purchase count crosses the repeat-purchaser threshold, send a retention email with a reward.",
+      "tags": { "channels": ["email"], "goals": ["increase_retention"], "tiers": ["advanced"], "kpis": ["purchase_frequency"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "purchase_id", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-23",
+      "name": "Weather-influenced campaign",
+      "type": "marketing",
+      "description": "Sends a promotional email tailored to the customer's local weather (for example rain gear before a rainy forecast), using the customer's address for geolocation. The weather-data lookup itself is a Bloomreach/third-party integration outside tracking.",
+      "narrative_template": "When the local forecast for a customer's address matches a weather trigger, send a weather-influenced promotional email.",
+      "tags": { "channels": ["email"], "goals": ["drive_traffic"], "tiers": ["sustainability"], "kpis": ["conversion_rate"], "industries": ["ecommerce", "retail"] },
+      "flags": { "new": true },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "address", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-email-24",
+      "name": "Welcome flow",
+      "type": "marketing",
+      "description": "Sends a series of welcome emails to a newly subscribed customer, introducing the brand and encouraging a first purchase. Email cadence and content are configured in Bloomreach outside tracking.",
+      "narrative_template": "When a customer opts in to marketing emails, start a welcome email flow.",
+      "tags": { "channels": ["email"], "goals": ["grow_database"], "tiers": ["essentials"], "kpis": ["conversion_rate"], "industries": ["ecommerce", "retail", "travel"] },
+      "flags": { "popular": true },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" },
+        { "target_kind": "variant", "standard_event": "purchase", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-web-01",
+      "name": "Abandoned browse banner with recommendations",
+      "type": "marketing",
+      "description": "Shows a web banner with recommended products to a returning visitor who previously browsed without buying, based on viewed items and a Bloomreach recommendation engine. The recommendation engine itself runs outside tracking.",
+      "narrative_template": "When a returning visitor previously viewed products without purchasing, show a banner with recommended products.",
+      "tags": { "channels": ["web_layers"], "goals": ["reactivate_customers"], "tiers": ["advanced"], "kpis": ["revenue_per_visitor"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "view_item", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "view_item", "property_name": "product_id", "level": "R" },
+        { "target_kind": "catalog_attribute", "field_name": "image", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-web-02",
+      "name": "Abandoned browse banner",
+      "type": "marketing",
+      "description": "Shows a returning visitor a web banner of the products they previously viewed, encouraging them to continue shopping. Banner display logic runs in Bloomreach's web personalization outside tracking.",
+      "narrative_template": "When a returning visitor previously viewed products without purchasing, show a banner of their last viewed items.",
+      "tags": { "channels": ["web_layers"], "goals": ["reactivate_customers"], "tiers": ["essentials"], "kpis": ["revenue_per_visitor"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "view_item", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "view_item", "property_name": "product_id", "level": "R" },
+        { "target_kind": "catalog_attribute", "field_name": "image", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-web-03",
+      "name": "Abandoned cart banner",
+      "type": "marketing",
+      "description": "Displays the products a customer left in their cart on a previous visit in a web banner, inviting them back to complete the purchase. Cart-contents retrieval uses a Bloomreach aggregate outside tracking.",
+      "narrative_template": "When a returning visitor has items left in their cart, show a banner of the abandoned cart items.",
+      "tags": { "channels": ["web_layers"], "goals": ["reactivate_customers"], "tiers": ["essentials"], "kpis": ["conversion_rate"], "industries": ["ecommerce"] },
+      "flags": { "popular": true },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "add_to_cart", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "add_to_cart", "property_name": "product_id", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "add_to_cart", "property_name": "total_price", "level": "R" },
+        { "target_kind": "event", "standard_event": "checkout", "level": "O", "note": "Suppresses the banner once checkout has started." }
+      ]
+    },
+    {
+      "code": "UCC-web-04",
+      "name": "AI-segmented single opt-in email subscription banner",
+      "type": "marketing",
+      "description": "Shows a single opt-in email subscription banner personalized by an AI-assigned visitor segment. Segment assignment runs in Bloomreach outside tracking.",
+      "narrative_template": "For a visitor without newsletter consent, show a single opt-in subscription banner personalized to their segment.",
+      "tags": { "channels": ["web_layers", "email"], "goals": ["grow_database"], "tiers": ["advanced"], "kpis": ["active_subscribers"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-web-05",
+      "name": "Banner notification for customers with high return rates",
+      "type": "marketing",
+      "description": "Shows a size or fit guidance banner to customers with a history of frequent returns, identified from their return_item history. Return-rate scoring runs in a Bloomreach evaluation outside tracking.",
+      "narrative_template": "When a customer's return_item history crosses the high-return threshold, show a fit-guidance banner.",
+      "tags": { "channels": ["web_layers"], "goals": ["reduce_returns"], "tiers": ["advanced"], "kpis": ["return_rate"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "return_item", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "return_item", "property_name": "product_id", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "return_item", "property_name": "purchase_id", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-web-06",
+      "name": "Banner notification for frequently returned items",
+      "type": "marketing",
+      "description": "Warns a shopper with a sizing or fit banner when they view a product with a high historical return rate. Item-level return-rate scoring runs in Bloomreach outside tracking.",
+      "narrative_template": "When a viewed product has a high historical return rate, show a fit-guidance banner.",
+      "tags": { "channels": ["web_layers"], "goals": ["reduce_returns"], "tiers": ["advanced"], "kpis": ["return_rate"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "view_item", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "view_item", "property_name": "product_id", "level": "R" },
+        { "target_kind": "variant", "standard_event": "returned_purchase", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-web-07",
+      "name": "Birthday reminder banner",
+      "type": "marketing",
+      "description": "Shows a birthday offer banner to a customer during their birthday period, using the stored birthday customer property. Offer content is configured in Bloomreach outside tracking.",
+      "narrative_template": "During a customer's birthday period, show a birthday offer banner.",
+      "tags": { "channels": ["web_layers"], "goals": ["increase_retention"], "tiers": ["essentials"], "kpis": ["active_subscribers"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "birthday", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-web-08",
+      "name": "Browser tab animation",
+      "type": "marketing",
+      "description": "Animates the browser tab title and favicon to recapture attention from a customer with an abandoned cart who has switched tabs. The animation asset itself is a Bloomreach web layer element outside tracking.",
+      "narrative_template": "When a customer with items in their cart switches browser tabs, animate the tab to recapture attention.",
+      "tags": { "channels": ["web_layers"], "goals": ["reactivate_customers"], "tiers": ["advanced"], "kpis": ["conversion_rate"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "add_to_cart", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "add_to_cart", "property_name": "product_id", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-web-09",
+      "name": "Cart consolidation banner",
+      "type": "marketing",
+      "description": "Shows a banner reminding a customer of items already in their cart from a previous session, encouraging one consolidated checkout. Cart aggregation across sessions uses a Bloomreach aggregate outside tracking.",
+      "narrative_template": "When a customer returns with items already in their cart, show a banner consolidating the cart contents.",
+      "tags": { "channels": ["web_layers"], "goals": ["increase_retention"], "tiers": ["advanced"], "kpis": ["average_order_value"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "add_to_cart", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "add_to_cart", "property_name": "product_id", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-web-10",
+      "name": "Customizable customer acquisition weblayer",
+      "type": "marketing",
+      "description": "A configurable web layer aimed at first-time visitors to capture an email address or drive a first purchase. Layer design and targeting rules are configured in Bloomreach outside tracking.",
+      "narrative_template": "For a visitor with no purchase history, show an acquisition web layer collecting an email address.",
+      "tags": { "channels": ["web_layers"], "goals": ["acquire_customers"], "tiers": ["essentials"], "kpis": ["conversion_rate"], "industries": ["ecommerce", "retail", "travel"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-web-11",
+      "name": "Discount countdown banner",
+      "type": "marketing",
+      "description": "Shows a countdown banner for a time-limited discount on a viewed product, driving urgency. The countdown timer itself is a Bloomreach web layer element outside tracking.",
+      "narrative_template": "When a customer views a discounted product, show a countdown banner for the discount.",
+      "tags": { "channels": ["web_layers"], "goals": ["drive_traffic"], "tiers": ["essentials"], "kpis": ["conversion_rate"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "view_item", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "view_item", "property_name": "product_id", "level": "R" },
+        { "target_kind": "catalog_attribute", "field_name": "discount_percentage", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-web-12",
+      "name": "Easy access discount code banner",
+      "type": "marketing",
+      "description": "Shows a persistent banner offering quick access to a discount code for eligible visitors. Eligibility rules (for example new-visitor or cart value) are configured in Bloomreach outside tracking.",
+      "narrative_template": "For an eligible visitor, show a banner with quick access to a discount code.",
+      "tags": { "channels": ["web_layers"], "goals": ["drive_traffic"], "tiers": ["essentials"], "kpis": ["conversion_rate"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "email", "level": "O" },
+        { "target_kind": "variant", "standard_event": "add_to_cart", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-web-13",
+      "name": "Gamified banners with email collection",
+      "type": "marketing",
+      "description": "Shows a gamified spin-to-win banner that collects an email address in exchange for a discount code. Game mechanics run inside the Bloomreach web layer outside tracking.",
+      "narrative_template": "For a visitor without newsletter consent, show a gamified banner that collects their email in exchange for a discount.",
+      "tags": { "channels": ["web_layers", "email"], "goals": ["grow_database"], "tiers": ["advanced"], "kpis": ["active_subscribers"], "industries": ["ecommerce", "retail"] },
+      "flags": { "new": true },
+      "default_requirements": [
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-web-14",
+      "name": "Gamified banners",
+      "type": "marketing",
+      "description": "Shows a gamified spin-to-win style banner offering a discount code to increase engagement and conversion. Game mechanics run inside the Bloomreach web layer outside tracking.",
+      "narrative_template": "For an eligible visitor, show a gamified banner offering a discount code.",
+      "tags": { "channels": ["web_layers"], "goals": ["drive_traffic"], "tiers": ["advanced"], "kpis": ["conversion_rate"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "view_item", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-web-15",
+      "name": "Global and product-specific badges",
+      "type": "marketing",
+      "description": "Shows trust or promotional badges site-wide or on specific product pages, driven by catalog attributes such as stock level or discount. Badge design is a Bloomreach web layer element outside tracking.",
+      "narrative_template": "When a viewed product's catalog attributes match a badge rule, show the matching badge.",
+      "tags": { "channels": ["web_layers"], "goals": ["drive_traffic"], "tiers": ["essentials"], "kpis": ["conversion_rate"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "catalog_attribute", "field_name": "stock_level", "level": "R" },
+        { "target_kind": "catalog_attribute", "field_name": "discount_percentage", "level": "O" },
+        { "target_kind": "variant", "standard_event": "view_item", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-web-16",
+      "name": "Interactive post-purchase feedback banner",
+      "type": "marketing",
+      "description": "Shows an interactive on-site feedback banner shortly after a purchase completes, collecting a satisfaction rating. Rating aggregation runs in a Bloomreach dashboard outside tracking.",
+      "narrative_template": "Shortly after a purchase completes, show an interactive feedback banner.",
+      "tags": { "channels": ["web_layers"], "goals": ["increase_retention"], "tiers": ["advanced"], "kpis": ["active_subscribers"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "purchase_id", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-web-17",
+      "name": "Interactive subscriber banner",
+      "type": "marketing",
+      "description": "Shows an interactive banner inviting a visitor to subscribe to marketing emails in exchange for content or an offer. Banner interactivity runs in the Bloomreach web layer outside tracking.",
+      "narrative_template": "For a visitor without newsletter consent, show an interactive subscription banner.",
+      "tags": { "channels": ["web_layers", "email"], "goals": ["grow_database"], "tiers": ["essentials"], "kpis": ["active_subscribers"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-web-18",
+      "name": "Location-based social proof banner",
+      "type": "marketing",
+      "description": "Shows a social-proof banner referencing recent purchases near the visitor's location, using the customer's address and recent purchase activity. Proximity matching and proof-copy generation run in Bloomreach outside tracking.",
+      "narrative_template": "When nearby customers have recently purchased a viewed product, show a location-based social-proof banner.",
+      "tags": { "channels": ["web_layers"], "goals": ["drive_traffic"], "tiers": ["advanced"], "kpis": ["conversion_rate"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "view_item", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "view_item", "property_name": "product_id", "level": "R" },
+        { "target_kind": "variant", "standard_event": "purchase", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-web-19",
+      "name": "Multistep zero-party data banner",
+      "type": "marketing",
+      "description": "Shows a multistep banner that progressively collects zero-party preference data from the visitor in exchange for personalization or an offer. Each step's answer is stored on the customer profile outside tracking's event model.",
+      "narrative_template": "For an eligible visitor, show a multistep banner collecting preference data.",
+      "tags": { "channels": ["web_layers"], "goals": ["grow_database"], "tiers": ["advanced"], "kpis": ["active_subscribers"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "email", "level": "O" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-web-20",
+      "name": "Next-day delivery countdown banner",
+      "type": "marketing",
+      "description": "Shows a countdown banner for the cutoff time to qualify for next-day delivery on a viewed or in-cart product. Cutoff-time logic is a Bloomreach web layer element outside tracking.",
+      "narrative_template": "When a customer adds a product eligible for next-day delivery to their cart, show a delivery-cutoff countdown banner.",
+      "tags": { "channels": ["web_layers"], "goals": ["drive_traffic"], "tiers": ["advanced"], "kpis": ["conversion_rate"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "add_to_cart", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "add_to_cart", "property_name": "product_id", "level": "R" },
+        { "target_kind": "catalog_attribute", "field_name": "stock_level", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-web-21",
+      "name": "On-exit mobile banner",
+      "type": "marketing",
+      "description": "Shows an exit-intent banner on mobile when a visitor with items in their cart is about to leave the site, offering an incentive to stay. Exit-intent detection is a Bloomreach web layer trigger outside tracking.",
+      "narrative_template": "When a mobile visitor with items in their cart shows exit intent, show an on-exit banner.",
+      "tags": { "channels": ["web_layers"], "goals": ["reactivate_customers"], "tiers": ["advanced"], "kpis": ["conversion_rate"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "add_to_cart", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "add_to_cart", "property_name": "product_id", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-web-22",
+      "name": "Previous searched destination reminder",
+      "type": "marketing",
+      "description": "Reminds a returning visitor of a travel destination they previously searched for, shown as an on-site banner. Destination personalization runs in Bloomreach outside tracking.",
+      "narrative_template": "When a returning visitor previously searched for a destination without booking, show a reminder banner.",
+      "tags": { "channels": ["web_layers"], "goals": ["reactivate_customers"], "tiers": ["advanced"], "kpis": ["conversion_rate"], "industries": ["travel"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "search", "level": "R" },
+        { "target_kind": "variant", "standard_event": "purchase", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-web-23",
+      "name": "Quiz banner with product recommendations",
+      "type": "marketing",
+      "description": "Shows an interactive quiz banner that recommends products based on the visitor's answers. Quiz logic and the recommendation engine run inside the Bloomreach web layer outside tracking.",
+      "narrative_template": "For an eligible visitor, show a quiz banner that ends in personalized product recommendations.",
+      "tags": { "channels": ["web_layers"], "goals": ["acquire_customers"], "tiers": ["advanced"], "kpis": ["conversion_rate"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "email", "level": "O" },
+        { "target_kind": "variant", "standard_event": "view_item", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-web-24",
+      "name": "Recommendations carousel banner",
+      "type": "marketing",
+      "description": "Shows a carousel banner of personalized product recommendations based on a visitor's browsing and purchase history. The recommendation engine runs outside tracking.",
+      "narrative_template": "For a visitor with browsing history, show a recommendations carousel banner.",
+      "tags": { "channels": ["web_layers"], "goals": ["drive_traffic"], "tiers": ["essentials"], "kpis": ["conversion_rate"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "view_item", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "view_item", "property_name": "product_id", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-web-25",
+      "name": "Single opt-in subscription banner",
+      "type": "marketing",
+      "description": "Shows a simple single-field email subscription banner for visitors without marketing consent. Banner design and placement rules run in the Bloomreach web layer outside tracking.",
+      "narrative_template": "For a visitor without newsletter consent, show a single opt-in subscription banner.",
+      "tags": { "channels": ["web_layers", "email"], "goals": ["grow_database"], "tiers": ["essentials"], "kpis": ["active_subscribers"], "industries": ["ecommerce", "retail"] },
+      "flags": { "popular": true },
+      "default_requirements": [
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-web-26",
+      "name": "Social proof banner",
+      "type": "marketing",
+      "description": "Shows a social-proof banner (for example \"12 people bought this today\") on product pages based on recent purchase activity for that product. Purchase-count aggregation runs in a Bloomreach aggregate outside tracking.",
+      "narrative_template": "When a viewed product has recent purchase activity, show a social-proof banner.",
+      "tags": { "channels": ["web_layers"], "goals": ["drive_traffic"], "tiers": ["essentials"], "kpis": ["conversion_rate"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "view_item", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "view_item", "property_name": "product_id", "level": "R" },
+        { "target_kind": "variant", "standard_event": "purchase", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-web-27",
+      "name": "YouTube video banner",
+      "type": "marketing",
+      "description": "Shows a banner embedding a YouTube product video on the product page to support the purchase decision. Video selection per product is configured in Bloomreach outside tracking.",
+      "narrative_template": "When a customer views a product with an associated video, show a video banner.",
+      "tags": { "channels": ["web_layers"], "goals": ["drive_traffic"], "tiers": ["advanced"], "kpis": ["conversion_rate"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "view_item", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "view_item", "property_name": "product_id", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-web-28",
+      "name": "Zero-party data banner",
+      "type": "marketing",
+      "description": "Shows a banner that asks a visitor a single preference question to collect zero-party data used for later personalization. The collected preference is stored on the customer profile outside tracking's event model.",
+      "narrative_template": "For an eligible visitor, show a banner collecting one piece of zero-party preference data.",
+      "tags": { "channels": ["web_layers"], "goals": ["grow_database"], "tiers": ["advanced"], "kpis": ["active_subscribers"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "email", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-omni-01",
+      "name": "Email and SMS reactivation campaign",
+      "type": "marketing",
+      "description": "Reactivates a lapsed customer across email and SMS, choosing the channel by consent and past engagement, triggered from time since last purchase. Channel-selection logic runs in Bloomreach outside tracking.",
+      "narrative_template": "When a customer's time since last purchase crosses the reactivation threshold, send a reactivation message on their consented channel.",
+      "tags": { "channels": ["email", "sms"], "goals": ["reactivate_customers"], "tiers": ["omnichannel"], "kpis": ["purchase_frequency"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "purchase_id", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "phone", "level": "O" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" },
+        { "target_kind": "consent", "property_name": "sms", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-omni-02",
+      "name": "Omnichannel abandoned cart flow",
+      "type": "marketing",
+      "description": "Recovers an abandoned cart across web banner, email and SMS in sequence, escalating channel by consent and engagement. Channel sequencing and timing run in Bloomreach outside tracking.",
+      "narrative_template": "When a customer abandons a cart, run a web, email and SMS recovery sequence based on consent.",
+      "tags": { "channels": ["web_layers", "email", "sms"], "goals": ["reactivate_customers"], "tiers": ["omnichannel"], "kpis": ["conversion_rate"], "industries": ["ecommerce"] },
+      "flags": { "popular": true },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "add_to_cart", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "add_to_cart", "property_name": "product_id", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "add_to_cart", "property_name": "total_price", "level": "R" },
+        { "target_kind": "event", "standard_event": "checkout", "level": "O" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" },
+        { "target_kind": "consent", "property_name": "sms", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-omni-03",
+      "name": "Omnichannel post-purchase NPS survey",
+      "type": "transactional",
+      "description": "Sends an NPS satisfaction survey after a purchase, on whichever channel (email or SMS) the customer has consented to. Score aggregation runs in a Bloomreach dashboard outside tracking.",
+      "narrative_template": "After a purchase completes, send an NPS survey on the customer's consented channel.",
+      "tags": { "channels": ["email", "sms"], "goals": ["increase_retention"], "tiers": ["omnichannel"], "kpis": ["active_subscribers"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "purchase_id", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "sms", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-omni-04",
+      "name": "Personalized reengagement journey",
+      "type": "marketing",
+      "description": "Runs a multi-step re-engagement journey across web, email and SMS for customers whose engagement has dropped, personalized to their browsing and purchase history. Journey branching logic runs in Bloomreach outside tracking.",
+      "narrative_template": "When a customer's engagement drops below the threshold, run a personalized cross-channel re-engagement journey.",
+      "tags": { "channels": ["web_layers", "email", "sms"], "goals": ["reengage_subscribers"], "tiers": ["omnichannel"], "kpis": ["active_subscribers"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "view_item", "level": "O" },
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-omni-05",
+      "name": "Product expiration reminder",
+      "type": "marketing",
+      "description": "Reminds a customer that a purchased product (for example a subscription, warranty or perishable item) is approaching expiration, using the purchase date and the purchased item's product_id. Expiration-window configuration per product runs in Bloomreach outside tracking.",
+      "narrative_template": "As a purchased product approaches its expiration window, send a reminder on the customer's consented channel.",
+      "tags": { "channels": ["email", "sms"], "goals": ["increase_retention"], "tiers": ["omnichannel"], "kpis": ["purchase_frequency"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "event_property", "standard_event": "purchase_item", "property_name": "product_id", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "sms", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-omni-06",
+      "name": "Reactivation campaign for promising and needs-attention segments",
+      "type": "marketing",
+      "description": "Targets RFM-style \"promising\" and \"needs attention\" customer segments with a cross-channel reactivation offer, based on purchase recency and frequency. Segment scoring runs in a Bloomreach evaluation outside tracking.",
+      "narrative_template": "When a customer falls into the promising or needs-attention RFM segment, send a cross-channel reactivation offer.",
+      "tags": { "channels": ["email", "sms"], "goals": ["reactivate_customers"], "tiers": ["omnichannel"], "kpis": ["purchase_frequency"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "purchase_id", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-omni-07",
+      "name": "Reactivation of lapsing customers with contextual personalization",
+      "type": "marketing",
+      "description": "Reactivates customers who are starting to lapse with content personalized to their last browsed and purchased categories, across web and email. Contextual personalization logic runs in Bloomreach outside tracking.",
+      "narrative_template": "When a customer starts lapsing, send a contextually personalized reactivation message.",
+      "tags": { "channels": ["web_layers", "email"], "goals": ["reactivate_customers"], "tiers": ["omnichannel"], "kpis": ["purchase_frequency"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant", "standard_event": "view_item", "level": "O" },
+        { "target_kind": "variant_property", "standard_event": "view_item", "property_name": "category_level_1", "level": "O" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-omni-08",
+      "name": "RFM omnichannel winback campaign",
+      "type": "marketing",
+      "description": "Wins back at-risk customers identified by an RFM (recency, frequency, monetary) score, with an offer delivered across email and SMS. RFM scoring runs in a Bloomreach evaluation outside tracking.",
+      "narrative_template": "When a customer's RFM score crosses the at-risk threshold, send a cross-channel win-back offer.",
+      "tags": { "channels": ["email", "sms"], "goals": ["reactivate_customers"], "tiers": ["omnichannel"], "kpis": ["cltv"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "total_price", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "sms", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-mobile-01",
+      "name": "Abandoned browse SMS",
+      "type": "marketing",
+      "description": "Sends an SMS reminder of recently viewed products to a customer who has SMS consent and left without purchasing. Message content is drawn from a Bloomreach aggregate of the last viewed items.",
+      "narrative_template": "When a customer with SMS consent views products without purchasing, send an abandoned-browse SMS.",
+      "tags": { "channels": ["sms"], "goals": ["reactivate_customers"], "tiers": ["advanced"], "kpis": ["conversion_rate"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "view_item", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "view_item", "property_name": "product_id", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "phone", "level": "R" },
+        { "target_kind": "consent", "property_name": "sms", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-mobile-02",
+      "name": "Mobile SMS subscription banner",
+      "type": "marketing",
+      "description": "Shows a mobile web banner inviting a visitor to subscribe to SMS messaging in exchange for an offer. Banner design runs in the Bloomreach web layer outside tracking.",
+      "narrative_template": "For a mobile visitor without SMS consent, show a banner collecting SMS subscription.",
+      "tags": { "channels": ["web_layers", "sms"], "goals": ["grow_database"], "tiers": ["essentials"], "kpis": ["active_subscribers"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "phone", "level": "R" },
+        { "target_kind": "consent", "property_name": "sms", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-mobile-03",
+      "name": "RCS interactive product recommendation flow",
+      "type": "marketing",
+      "description": "Sends an interactive RCS message with a product-recommendation carousel to customers on RCS-capable devices. Carousel content is produced by a Bloomreach recommendation engine outside tracking.",
+      "narrative_template": "For a customer with SMS/RCS consent, send an interactive product-recommendation RCS message.",
+      "tags": { "channels": ["rcs"], "goals": ["drive_traffic"], "tiers": ["loyal_ai"], "kpis": ["conversion_rate"], "industries": ["ecommerce"] },
+      "flags": { "new": true },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "view_item", "level": "O" },
+        { "target_kind": "customer_property", "property_name": "phone", "level": "R" },
+        { "target_kind": "consent", "property_name": "sms", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-mobile-04",
+      "name": "SMS double opt-in subscription with zero-party data collection",
+      "type": "marketing",
+      "description": "Runs a double opt-in SMS subscription flow that also collects a zero-party preference answer during confirmation. The confirmation flow itself runs in Bloomreach outside tracking.",
+      "narrative_template": "For a visitor confirming SMS subscription, collect a zero-party preference during double opt-in.",
+      "tags": { "channels": ["sms"], "goals": ["grow_database"], "tiers": ["advanced"], "kpis": ["active_subscribers"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "phone", "level": "R" },
+        { "target_kind": "consent", "property_name": "sms", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-mobile-05",
+      "name": "SMS subscription banner with offer",
+      "type": "marketing",
+      "description": "Shows a banner offering a discount in exchange for SMS subscription. Banner design runs in the Bloomreach web layer outside tracking.",
+      "narrative_template": "For a visitor without SMS consent, show a banner offering a discount for subscribing.",
+      "tags": { "channels": ["web_layers", "sms"], "goals": ["grow_database"], "tiers": ["essentials"], "kpis": ["active_subscribers"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "phone", "level": "R" },
+        { "target_kind": "consent", "property_name": "sms", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-mobile-06",
+      "name": "SMS subscription DOI checkout banner",
+      "type": "marketing",
+      "description": "Shows a double opt-in SMS subscription banner during checkout, capturing the phone number at the moment of highest purchase intent. The trigger is placed at the checkout step.",
+      "narrative_template": "When a customer reaches checkout without SMS consent, show a double opt-in SMS subscription banner.",
+      "tags": { "channels": ["web_layers", "sms"], "goals": ["grow_database"], "tiers": ["advanced"], "kpis": ["active_subscribers"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "event", "standard_event": "checkout", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "phone", "level": "R" },
+        { "target_kind": "consent", "property_name": "sms", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-mobile-07",
+      "name": "SMS subscription via text evaluation",
+      "type": "marketing",
+      "description": "Lets a visitor subscribe to SMS by texting a keyword, evaluated by an inbound message handler. Keyword evaluation runs in Bloomreach outside this app's tracking scope.",
+      "narrative_template": "When a visitor texts the subscription keyword, mark them as SMS subscribed.",
+      "tags": { "channels": ["sms"], "goals": ["grow_database"], "tiers": ["advanced"], "kpis": ["active_subscribers"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "phone", "level": "R" },
+        { "target_kind": "consent", "property_name": "sms", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-mobile-08",
+      "name": "SMS subscription with email collection",
+      "type": "marketing",
+      "description": "Collects both an SMS opt-in and an email address in one banner flow, maximizing addressable channels from a single interaction. Banner flow logic runs in the Bloomreach web layer outside tracking.",
+      "narrative_template": "For a visitor without SMS or newsletter consent, show a banner collecting both.",
+      "tags": { "channels": ["web_layers", "sms", "email"], "goals": ["grow_database"], "tiers": ["advanced"], "kpis": ["active_subscribers"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "phone", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "sms", "level": "R" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-mobile-09",
+      "name": "Welcome SMS",
+      "type": "marketing",
+      "description": "Sends a welcome SMS to a customer immediately after they subscribe to SMS messaging. Message content and timing are configured in Bloomreach outside tracking.",
+      "narrative_template": "When a customer subscribes to SMS, send a welcome SMS.",
+      "tags": { "channels": ["sms"], "goals": ["grow_database"], "tiers": ["essentials"], "kpis": ["active_subscribers"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "phone", "level": "R" },
+        { "target_kind": "consent", "property_name": "sms", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-mobile-10",
+      "name": "WhatsApp interactive product recommendation flow",
+      "type": "marketing",
+      "description": "Sends an interactive WhatsApp message with product recommendations to customers who have SMS/WhatsApp consent. Recommendation content is produced by a Bloomreach recommendation engine outside tracking.",
+      "narrative_template": "For a customer with SMS consent, send an interactive WhatsApp product-recommendation message.",
+      "tags": { "channels": ["whatsapp"], "goals": ["drive_traffic"], "tiers": ["loyal_ai"], "kpis": ["conversion_rate"], "industries": ["ecommerce"] },
+      "flags": { "new": true },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "view_item", "level": "O" },
+        { "target_kind": "customer_property", "property_name": "phone", "level": "R" },
+        { "target_kind": "consent", "property_name": "sms", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-paid-01",
+      "name": "CLTV-based lookalike targeting for paid ads",
+      "type": "marketing",
+      "description": "Builds a lookalike ad audience from high customer-lifetime-value customers to acquire similar new customers via paid ads. CLTV scoring and the ad-platform sync run in Bloomreach outside tracking; only the underlying purchase history and consent are tracking requirements.",
+      "narrative_template": "Build a paid-ad lookalike audience from customers with purchase history and retargeting consent.",
+      "tags": { "channels": ["ad_audiences"], "goals": ["acquire_customers"], "tiers": ["loyal_ai"], "kpis": ["cltv"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "total_price", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "retargeting", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-paid-02",
+      "name": "Paid ad optimization using audience predictions",
+      "type": "marketing",
+      "description": "Optimizes paid-ad spend by targeting audiences predicted to convert, based on purchase and browsing history feeding a Bloomreach prediction. The prediction model itself runs outside tracking; only the underlying events are tracking requirements.",
+      "narrative_template": "Build a paid-ad audience from customers with purchase and browsing history and retargeting consent.",
+      "tags": { "channels": ["ad_audiences"], "goals": ["acquire_customers"], "tiers": ["loyal_ai"], "kpis": ["conversion_rate"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant", "standard_event": "view_item", "level": "O" },
+        { "target_kind": "consent", "property_name": "retargeting", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-paid-03",
+      "name": "Paid ads optimized for email engagement",
+      "type": "marketing",
+      "description": "Targets paid ads at customers based on their email engagement level, syncing an email-engaged audience to the ad platform. Engagement scoring runs in a Bloomreach evaluation outside tracking.",
+      "narrative_template": "Build a paid-ad audience from customers with high email engagement and retargeting consent.",
+      "tags": { "channels": ["ad_audiences", "email"], "goals": ["reengage_subscribers"], "tiers": ["advanced"], "kpis": ["conversion_rate"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" },
+        { "target_kind": "consent", "property_name": "retargeting", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-paid-04",
+      "name": "Social media ad audiences",
+      "type": "marketing",
+      "description": "Syncs customer segments (for example recent purchasers or cart abandoners) to social-media ad platforms as custom audiences. The ad-platform sync itself runs in Bloomreach outside tracking; only the underlying events are tracking requirements.",
+      "narrative_template": "Build a social-media ad audience from customers matching a purchase or cart-abandonment segment.",
+      "tags": { "channels": ["ad_audiences"], "goals": ["acquire_customers"], "tiers": ["advanced"], "kpis": ["conversion_rate"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "O" },
+        { "target_kind": "variant", "standard_event": "add_to_cart", "level": "O" },
+        { "target_kind": "consent", "property_name": "retargeting", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-analytics-01",
+      "name": "Apple Mail segmentation dashboard",
+      "type": "marketing",
+      "description": "Reports email performance segmented by Apple Mail Privacy Protection status, so open-rate metrics are not skewed by MPP. Only the newsletter consent and customer email are tracking requirements; the dashboard itself is a Bloomreach analytics asset.",
+      "narrative_template": "Report email performance segmented by Apple Mail Privacy Protection status.",
+      "tags": { "channels": ["email"], "goals": ["analyze_data"], "tiers": ["essentials"], "kpis": ["active_subscribers"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-analytics-02",
+      "name": "Black Friday dashboard",
+      "type": "marketing",
+      "description": "A seasonal dashboard tracking purchase volume and revenue through the Black Friday period against the standard purchase events. The dashboard's date filters and visuals are a Bloomreach analytics asset.",
+      "narrative_template": "Report purchase volume and revenue for the Black Friday period.",
+      "tags": { "channels": ["no_channel"], "goals": ["analyze_data"], "tiers": ["essentials"], "kpis": ["revenue"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "total_price", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "purchase_status", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-analytics-03",
+      "name": "Conversion dashboard",
+      "type": "marketing",
+      "description": "Reports the funnel from view_item through add_to_cart to purchase, showing the conversion rate at each step. The dashboard's funnel visualization is a Bloomreach analytics asset.",
+      "narrative_template": "Report the view-to-cart-to-purchase conversion funnel.",
+      "tags": { "channels": ["no_channel"], "goals": ["analyze_data"], "tiers": ["essentials"], "kpis": ["conversion_rate"], "industries": ["ecommerce", "retail"] },
+      "flags": { "popular": true },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "view_item", "level": "R" },
+        { "target_kind": "variant", "standard_event": "add_to_cart", "level": "R" },
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "total_price", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-analytics-04",
+      "name": "Customer lifetime value dashboard",
+      "type": "marketing",
+      "description": "Reports customer lifetime value computed from purchase history, segmented by acquisition channel or cohort. CLTV computation itself is a Bloomreach prediction outside tracking; only the underlying purchase events are tracking requirements.",
+      "narrative_template": "Report customer lifetime value computed from purchase history.",
+      "tags": { "channels": ["no_channel"], "goals": ["analyze_data"], "tiers": ["loyal_ai"], "kpis": ["cltv"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "total_price", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-analytics-05",
+      "name": "Email deliverability dashboard",
+      "type": "marketing",
+      "description": "Reports email deliverability health (bounce and complaint indicators) alongside subscriber consent status. Deliverability metrics themselves come from the ESP integration outside tracking; only consent and email are tracking requirements.",
+      "narrative_template": "Report email deliverability health for the newsletter-consented subscriber base.",
+      "tags": { "channels": ["email"], "goals": ["analyze_data"], "tiers": ["essentials"], "kpis": ["active_subscribers"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-analytics-06",
+      "name": "Email performance dashboard",
+      "type": "marketing",
+      "description": "Reports open, click and conversion performance of email campaigns against the newsletter-consented subscriber base and the resulting purchases. Campaign-level metrics are a Bloomreach analytics asset.",
+      "narrative_template": "Report email campaign performance and resulting purchases.",
+      "tags": { "channels": ["email"], "goals": ["analyze_data"], "tiers": ["essentials"], "kpis": ["conversion_rate"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" },
+        { "target_kind": "variant", "standard_event": "purchase", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-analytics-07",
+      "name": "Executive dashboard",
+      "type": "marketing",
+      "description": "A high-level executive summary of revenue, conversion rate and subscriber growth across channels. The dashboard's layout and rollups are a Bloomreach analytics asset; only the underlying events are tracking requirements.",
+      "narrative_template": "Report top-line revenue, conversion rate and subscriber growth.",
+      "tags": { "channels": ["no_channel"], "goals": ["analyze_data"], "tiers": ["essentials"], "kpis": ["revenue"], "industries": ["ecommerce", "retail", "travel"] },
+      "flags": { "popular": true },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "total_price", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "O" }
+      ]
+    },
+    {
+      "code": "UCC-analytics-08",
+      "name": "Key customer segments and insights dashboard",
+      "type": "marketing",
+      "description": "Reports the size and behaviour of key customer segments (for example by purchase frequency or recency) built from purchase history. Segment definitions are a Bloomreach analytics asset; only the underlying purchase events are tracking requirements.",
+      "narrative_template": "Report the size and behaviour of key customer segments built from purchase history.",
+      "tags": { "channels": ["no_channel"], "goals": ["analyze_data"], "tiers": ["advanced"], "kpis": ["purchase_frequency"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "purchase", "property_name": "purchase_id", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-analytics-09",
+      "name": "Returned items dashboard",
+      "type": "marketing",
+      "description": "Reports the volume and rate of returned items against total purchases, broken down by product. The dashboard's breakdown views are a Bloomreach analytics asset.",
+      "narrative_template": "Report returned-item volume and rate against total purchases.",
+      "tags": { "channels": ["no_channel"], "goals": ["analyze_data"], "tiers": ["advanced"], "kpis": ["return_rate"], "industries": ["ecommerce", "retail"] },
+      "default_requirements": [
+        { "target_kind": "variant", "standard_event": "return_item", "level": "R" },
+        { "target_kind": "variant_property", "standard_event": "return_item", "property_name": "product_id", "level": "R" },
+        { "target_kind": "variant", "standard_event": "purchase", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-analytics-10",
+      "name": "Subscriber and unsubscriber monitoring dashboard",
+      "type": "marketing",
+      "description": "Tracks newsletter subscriber growth and unsubscribe trends over time, based on the newsletter consent state. The trend visualization is a Bloomreach analytics asset.",
+      "narrative_template": "Report newsletter subscriber growth and unsubscribe trends.",
+      "tags": { "channels": ["email"], "goals": ["analyze_data"], "tiers": ["essentials"], "kpis": ["active_subscribers"], "industries": ["ecommerce"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" },
+        { "target_kind": "consent", "property_name": "newsletter", "level": "R" }
+      ]
+    },
+    {
+      "code": "UCC-analytics-11",
+      "name": "Time zone segmentation",
+      "type": "marketing",
+      "description": "Segments customers by inferred time zone (from address) to time campaign sends for local relevance. Time-zone inference itself is a Bloomreach evaluation outside tracking; only the customer's address is a tracking requirement.",
+      "narrative_template": "Segment customers by inferred time zone for local send-time optimization.",
+      "tags": { "channels": ["no_channel"], "goals": ["analyze_data"], "tiers": ["advanced"], "kpis": ["active_subscribers"], "industries": ["ecommerce", "retail", "travel"] },
+      "default_requirements": [
+        { "target_kind": "customer_property", "property_name": "address", "level": "R" },
+        { "target_kind": "customer_property", "property_name": "email", "level": "R" }
+      ]
+    }
+  ]
+}

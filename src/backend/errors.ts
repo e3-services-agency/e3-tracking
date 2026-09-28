@@ -288,6 +288,10 @@ export class TemplateInUseError extends ConflictError {
   constructor(message: string) {
     super(message);
     this.name = 'TemplateInUseError';
+  }
+}
+
+/**
  * `DELETE /events/:id/variants/:variantId` without `?force=true` when a `StandardEventMapping` row
  * still targets this variant (D-52, T-2-05 follow-up, T-3-07): deleting the variant out from under
  * the mapping would silently leave `variant_id` null, turning a filtered mapping into an unfiltered

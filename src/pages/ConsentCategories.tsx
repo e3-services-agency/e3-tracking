@@ -9,6 +9,7 @@ import { Plus, Trash2, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
+import { EmptyState } from '@/src/components/ui/EmptyState';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
@@ -166,7 +167,12 @@ export function ConsentCategories() {
                 </tr>
               ))}
               {categories.length === 0 && (
-                <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">No consent categories found.</td></tr>
+                <EmptyState
+                  colSpan={4}
+                  message="No consent categories yet. Add one to track an opt-in/opt-out preference this project needs."
+                  actionLabel="Add Consent Category"
+                  onAction={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }}
+                />
               )}
             </tbody>
           </table>

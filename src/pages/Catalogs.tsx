@@ -7,6 +7,7 @@ import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
+import { EmptyState } from '@/src/components/ui/EmptyState';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
@@ -89,7 +90,12 @@ export function Catalogs() {
                 </tr>
               ))}
               {catalogs.length === 0 && (
-                <tr><td colSpan={3} className="px-6 py-8 text-center text-gray-500">No catalogs found.</td></tr>
+                <EmptyState
+                  colSpan={3}
+                  message="No catalogs yet. Add one to describe a Bloomreach catalog (products, articles, and so on)."
+                  actionLabel="Add Catalog"
+                  onAction={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }}
+                />
               )}
             </tbody>
           </table>

@@ -9,6 +9,7 @@ import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
+import { EmptyState } from '@/src/components/ui/EmptyState';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
@@ -189,7 +190,12 @@ export function Properties() {
                 );
               })}
               {displayProperties.length === 0 && (
-                <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">No properties found.</td></tr>
+                <EmptyState
+                  colSpan={6}
+                  message="No properties yet. Import a data mapping from the Import page, or add one by hand."
+                  actionLabel="Add Property"
+                  onAction={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); setOrderFrozen(true); }}
+                />
               )}
             </tbody>
           </table>

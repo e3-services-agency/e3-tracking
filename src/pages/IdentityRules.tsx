@@ -8,6 +8,7 @@ import { Plus, Trash2, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
+import { EmptyState } from '@/src/components/ui/EmptyState';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
@@ -163,7 +164,12 @@ export function IdentityRules() {
                 </tr>
               ))}
               {rules.length === 0 && (
-                <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-500">No identity rules found.</td></tr>
+                <EmptyState
+                  colSpan={7}
+                  message="No identity rules yet. Add one to describe how a customer identifier is captured and sent to Bloomreach."
+                  actionLabel="Add Identity Rule"
+                  onAction={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }}
+                />
               )}
             </tbody>
           </table>

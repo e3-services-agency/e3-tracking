@@ -14,6 +14,7 @@ import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { COMPARISON_IDS, FINDING_KINDS, FINDING_SEVERITIES, FINDING_STATUSES } from '@/src/domain/enums';
 import { showEmptyState, showLoadingPlaceholder } from '@/src/domain/loadingState';
+import { EmptyState } from '@/src/components/ui/EmptyState';
 
 interface FindingRow {
   id: string;
@@ -322,11 +323,12 @@ export function Findings() {
                 </tr>
               ))}
               {showEmptyState(loading, findings.length) && (
-                <tr>
-                  <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
-                    No findings match these filters.
-                  </td>
-                </tr>
+                <EmptyState
+                  colSpan={9}
+                  message="No findings match these filters. Run a comparison to check the current definition, mapping and observations."
+                  actionLabel="Run comparison"
+                  onAction={() => void runComparison()}
+                />
               )}
               {showLoadingPlaceholder(loading, findings.length) && (
                 <tr>

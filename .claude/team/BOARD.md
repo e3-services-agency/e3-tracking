@@ -2645,3 +2645,5 @@ Tests 1433/0 (122 files), tsc, build, lint green. W1: SharedProject and UseCases
 
 ### 2026-09-29 00:31 | reviewer | REVIEW | T-4-04 re-review PASS (fd41631)
 1433 tests / 122 files, tsc, build, lint, merge-tree clean. Shared page 3 requests on load (header, document, one comments list); use case page one comments request; uncontrolled panels intact on event editor, property editor, event card; corrected docs and visibility note; rate-limit pruning keeps the 429 test; catch blocks with inline errors. Residual cosmetic notes only. T-4-04 -> QA (scenario 13).
+
+### 2026-09-29 00:32 | supervisor | STATUS | T-4-04 in QA (scenario 13); T-4-05 docs refresh started in parallel on task/T-4-05-docs-refresh (documents T-4-04 from its branch; any QA fix folded in before merge)

@@ -813,9 +813,20 @@ export interface EventPropertyWithDetailsExtended extends EventPropertyWithDetai
   definition: PropertyDefinitionDAL.PropertyDefinitionRow | null;
 }
 
+/**
+ * `definitionsById` (fix round WARNING 3, reviewer FAIL 2026-09-28 14:26): an optional pre-loaded
+ * `property_definitions` lookup (`property-definition.dal.ts#listAllDefinitionsById`), so a caller
+ * that already has the whole project's definitions in memory (`document.service.ts`'s
+ * `EventCardBuildContext`, `comparison.service.ts`'s `buildDefinitionSnapshot`) resolves every
+ * link's definition with a `Map.get`, not one `getDefinitionById` query per link -- on the fixture
+ * project (48 events) `buildTrackingDocument` went from 696 definition queries to 0. Omitted (the
+ * default), this falls back to the original per-link query, for every other caller that has no
+ * such map handy and only reads one or a few events at a time.
+ */
 export function getEventWithProperties(
   projectId: string,
-  eventId: string
+  eventId: string,
+  definitionsById?: Map<string, PropertyDefinitionDAL.PropertyDefinitionRow>
 ): { event: EventRow; properties: EventPropertyWithDetailsExtended[]; source_ids: string[] } {
   const event = getEventOrThrow(projectId, eventId);
   const db = getDb();
@@ -828,7 +839,11 @@ export function getEventWithProperties(
     const link = mapEventPropertyRow(raw);
     const property = getPropertyById(projectId, link.property_id);
     if (!property) continue; // property soft-deleted; link is stale but left intact (T-1-02 keeps it simple)
-    const definition = link.definition_id ? PropertyDefinitionDAL.getDefinitionById(projectId, link.definition_id) : null;
+    const definition = !link.definition_id
+      ? null
+      : definitionsById
+        ? (definitionsById.get(link.definition_id) ?? null)
+        : PropertyDefinitionDAL.getDefinitionById(projectId, link.definition_id);
     properties.push({ ...link, property, definition });
   }
 

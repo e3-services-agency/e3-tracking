@@ -246,7 +246,7 @@ export interface TrackingDocumentPropertyDefinition {
   name: string;
   description: string | null;
   allowed_values: EventCardAllowedValue[] | null;
-  format: string | null;
+  formats: string[];
   example_values: unknown;
 }
 

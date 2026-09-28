@@ -3,7 +3,7 @@
  * custom event with a discriminator variant, a context property, and observations), certification
  * flip when a property is marked required, the coverage grid, and the certification route's `applicable: false` for an sdk event.
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { closeDb } from '../db';
 import * as ClientDAL from '../dal/client.dal';
 import * as ProjectDAL from '../dal/project.dal';
@@ -14,8 +14,9 @@ import * as QaRunDAL from '../dal/qa-run.dal';
 import * as ObservationDAL from '../dal/observation.dal';
 import * as RuleDAL from '../dal/rule.dal';
 import * as FindingDAL from '../dal/finding.dal';
+import * as PropertyDefinitionDAL from '../dal/property-definition.dal';
 import { runComparison } from './comparison.service';
-import { buildEventCard, computeEventCertification, computeEventCoverageGrid, buildTrackingDocument } from './document.service';
+import { buildEventCard, buildEventCardContext, computeEventCertification, computeEventCoverageGrid, buildTrackingDocument } from './document.service';
 
 let projectId: string;
 
@@ -437,5 +438,50 @@ describe('sortEventCardFindings tie-break (WARNING 1 fix round)', () => {
     // Re-running the build gives the exact same order (stable, not just "some" deterministic order).
     const cardAgain = buildEventCard(projectId, eventId);
     expect(cardAgain.findings.map((f) => f.id)).toEqual(card.findings.map((f) => f.id));
+  });
+});
+
+describe('fix round WARNING 3: definitions loaded once per build, no per-link lookup', () => {
+  it('buildEventCard and buildTrackingDocument never call getDefinitionById directly (spy count 0 for both)', () => {
+    // Two events sharing one property with a second (non-general) definition, so there is
+    // something for a per-link lookup to actually resolve if the fix regressed.
+    const eventA = EventDAL.createEvent(projectId, { name: 'cart_update', class: 'custom' });
+    const eventB = EventDAL.createEvent(projectId, { name: 'consent', class: 'custom' });
+    const action = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'action',
+      data_type: 'string',
+      allowed_values_json: [{ value: 'add' }, { value: 'remove' }],
+    });
+    const consentDefinition = PropertyDefinitionDAL.createDefinition(projectId, action.id, {
+      name: 'consent_action',
+      allowed_values_json: [{ value: 'accept' }, { value: 'reject' }],
+    });
+    EventDAL.attachPropertyToEvent(projectId, eventA.id, { property_id: action.id, role: 'discriminator' });
+    EventDAL.attachPropertyToEvent(projectId, eventB.id, {
+      property_id: action.id,
+      role: 'discriminator',
+      definition_id: consentDefinition.id,
+    });
+
+    const spy = vi.spyOn(PropertyDefinitionDAL, 'getDefinitionById');
+    try {
+      const ctx = buildEventCardContext(projectId);
+      spy.mockClear(); // buildEventCardContext's own listAllDefinitionsById call is not getDefinitionById
+
+      const cardA = buildEventCard(projectId, eventA.id, ctx);
+      const cardB = buildEventCard(projectId, eventB.id, ctx);
+      expect(spy).not.toHaveBeenCalled();
+      expect(cardA.properties.find((p) => p.property_id === action.id)?.definition_name).toBe('general');
+      expect(cardB.properties.find((p) => p.property_id === action.id)?.definition_name).toBe('consent_action');
+
+      spy.mockClear();
+      const doc = buildTrackingDocument(projectId);
+      expect(spy).not.toHaveBeenCalled();
+      const docCardB = doc.events.find((e) => e.name === 'consent');
+      expect(docCardB?.properties.find((p) => p.property_id === action.id)?.definition_name).toBe('consent_action');
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

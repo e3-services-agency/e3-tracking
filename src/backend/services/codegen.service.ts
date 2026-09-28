@@ -336,9 +336,11 @@ export function toAttachedPropertyForCodegen(
     // silently renders as optional in the generated snippets/docs).
     required: link.required,
     property_data_type: link.property.data_type,
-    property_data_formats: definition?.format
-      ? [definition.format]
-      : ((link.property.data_formats_json as string[] | null) ?? null),
+    // Fix round ERROR 1: the definition's whole formats_json list, not a single scalar.
+    property_data_formats:
+      Array.isArray(definition?.formats_json) && (definition!.formats_json as unknown[]).length > 0
+        ? (definition!.formats_json as string[])
+        : ((link.property.data_formats_json as string[] | null) ?? null),
     property_example_values_json:
       (definitionExamples && definitionExamples.length > 0 ? definitionExamples : null) ??
       (link.property.example_values_json as AttachedPropertyForCodegen['property_example_values_json']) ??

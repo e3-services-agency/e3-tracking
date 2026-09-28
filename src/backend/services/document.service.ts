@@ -225,6 +225,10 @@ export interface EventCardBuildContext {
    * though they are excluded from `openFindings`/`EventCard.findings[]`. */
   acknowledgedFindingsByEventId: Map<string, FindingRow[]>;
   nameOf: (eventId: string, propertyId: string) => string;
+  /** Fix round WARNING 3: every non-deleted `property_definitions` row of the project, loaded
+   * once and passed to every `getEventWithProperties` call in this file so `buildEventCard`/
+   * `buildTrackingDocument` never run one definition query per link. */
+  definitionsById: Map<string, PropertyDefinitionDAL.PropertyDefinitionRow>;
 }
 
 /** Exported for `export.service.ts`'s HTML documentation export, which also calls `buildEventCard`
@@ -273,6 +277,7 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
     openFindingsByEventId,
     acknowledgedFindingsByEventId,
     nameOf: buildPropertyNameResolver(projectId),
+    definitionsById: PropertyDefinitionDAL.listAllDefinitionsById(projectId),
   };
 }
 
@@ -448,7 +453,7 @@ function computeExpiration(event: EventRow, project: ProjectDAL.ProjectRow): Eve
  * `GET /events/:id/card` route), which then builds its own one-off context. */
 export function buildEventCard(projectId: string, eventId: string, ctx?: EventCardBuildContext): EventCard {
   const context = ctx ?? buildEventCardContext(projectId);
-  const { event, properties } = EventDAL.getEventWithProperties(projectId, eventId);
+  const { event, properties } = EventDAL.getEventWithProperties(projectId, eventId, context.definitionsById);
   const project = context.project;
   const variants = VariantDAL.listVariants(projectId, eventId);
   const mappingsForEvent = context.allMappings.filter((m) => m.event_id === eventId);
@@ -669,7 +674,23 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
   const orderedEventIds = [...events.filter((e) => e.class === 'custom'), ...events.filter((e) => e.class !== 'custom')].map((e) => e.id);
   const eventCards = orderedEventIds.map((id) => buildEventCard(projectId, id, ctx));
 
-  const customerProperties = PropertyDAL.listProperties(projectId, { scope: 'customer' }).map((p) => ({
+  const customerPropertyRows = PropertyDAL.listProperties(projectId, { scope: 'customer' });
+  // Fix round WARNING 3: one batched query for every customer property's definitions, not one
+  // `listDefinitions` call per property.
+  const customerDefinitionsByPropertyId = new Map<string, PropertyDefinitionDAL.PropertyDefinitionRow[]>();
+  for (const [, def] of PropertyDefinitionDAL.listDefinitionsByPropertyIds(
+    projectId,
+    customerPropertyRows.map((p) => p.id)
+  )) {
+    const list = customerDefinitionsByPropertyId.get(def.property_id) ?? [];
+    list.push(def);
+    customerDefinitionsByPropertyId.set(def.property_id, list);
+  }
+  for (const list of customerDefinitionsByPropertyId.values()) {
+    list.sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+  }
+
+  const customerProperties = customerPropertyRows.map((p) => ({
     property_id: p.id,
     name: p.name,
     data_type: p.data_type,
@@ -677,7 +698,7 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
     bloomreach_customer_property: p.bloomreach_customer_property,
     pii: p.pii,
     description: p.description,
-    definitions: PropertyDefinitionDAL.listDefinitions(projectId, p.id).map((d) => ({
+    definitions: (customerDefinitionsByPropertyId.get(p.id) ?? []).map((d) => ({
       id: d.id,
       name: d.name,
       description: d.description,
@@ -688,7 +709,7 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
             standard_event: v.standard_event ?? null,
           }))
         : null,
-      format: d.format,
+      formats: Array.isArray(d.formats_json) ? (d.formats_json as string[]) : [],
       example_values: d.example_values_json,
     })),
   }));

@@ -47,6 +47,7 @@ import * as VariantDAL from '../dal/variant.dal';
 import * as StandardEventMappingDAL from '../dal/standard-event-mapping.dal';
 import * as ProjectDAL from '../dal/project.dal';
 import * as PropertyDAL from '../dal/property.dal';
+import * as PropertyDefinitionDAL from '../dal/property-definition.dal';
 import * as ObservationDAL from '../dal/observation.dal';
 import * as QaRunDAL from '../dal/qa-run.dal';
 import * as FindingDAL from '../dal/finding.dal';
@@ -98,8 +99,11 @@ function toExpirationBlock(value: unknown): ExpirationBlock | null {
 
 export function buildDefinitionSnapshot(projectId: string): DefinitionSnapshot {
   const project = ProjectDAL.getProjectOrThrow(projectId);
+  // Fix round WARNING 3: one query for every definition in the project, reused for every event's
+  // `getEventWithProperties` call below instead of one definition query per link.
+  const definitionsById = PropertyDefinitionDAL.listAllDefinitionsById(projectId);
   const events: DefEvent[] = EventDAL.listEvents(projectId).map((event) => {
-    const { properties } = EventDAL.getEventWithProperties(projectId, event.id);
+    const { properties } = EventDAL.getEventWithProperties(projectId, event.id, definitionsById);
     const defProperties: DefEventProperty[] = properties.map((link) => {
       // D-58: allowed values and format are per-event, read from the link's own definition
       // (falling back to the shared Property's fields when the link carries no definition --
@@ -112,11 +116,18 @@ export function buildDefinitionSnapshot(projectId: string): DefinitionSnapshot {
       const allowedValuesRaw =
         definitionAllowedRaw ??
         (Array.isArray(link.property.allowed_values_json) ? (link.property.allowed_values_json as AllowedValue[]) : []);
-      const dataFormats = link.definition?.format
-        ? [link.definition.format]
-        : Array.isArray(link.property.data_formats_json)
-          ? (link.property.data_formats_json as string[])
-          : [];
+      // Fix round ERROR 1: `formats_json` is the definition's *whole* format list (a property can
+      // carry several, e.g. `email` and `uri` both ticked), not a single scalar -- every one of
+      // them must be checked, not just the first.
+      const definitionFormats = Array.isArray(link.definition?.formats_json)
+        ? (link.definition!.formats_json as string[])
+        : null;
+      const dataFormats =
+        definitionFormats && definitionFormats.length > 0
+          ? definitionFormats
+          : Array.isArray(link.property.data_formats_json)
+            ? (link.property.data_formats_json as string[])
+            : [];
       return {
         property_id: link.property_id,
         name: link.property.name,

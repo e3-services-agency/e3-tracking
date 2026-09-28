@@ -11,6 +11,22 @@
 -- several formats (e.g. `email` and `uri` both ticked) must have every one of them checked per
 -- event, not just the first.
 --
+-- Fix round 2 (reviewer FAIL 2026-09-28 15:37, ERROR 2): the WARNING-4 collision naming below used
+-- to check `NOT EXISTS` against `property_definitions` itself, but a single `INSERT ... SELECT`
+-- reads a snapshot of the table from *before* the statement started, so two override groups of the
+-- *same* property inserted by that one statement never saw each other and could both compute the
+-- same name (e.g. a soft-deleted event `consent` and a live event `consent` -- 0003 supports
+-- delete-then-recreate with the same name -- both first-linking `action` with a different
+-- `description_override` are two distinct groups that both resolve `first_event_name = 'consent'`).
+-- Final names are now computed inside a temp table with `ROW_NUMBER() OVER (PARTITION BY
+-- property_id, base ORDER BY definition_id)` *before* the `INSERT`, so every group of one property
+-- sees every sibling group's chosen base and a `-2`/`-3` suffix is assigned deterministically; the
+-- literal `general` collision (an event named `general`) is folded into the same `base` computation
+-- (renamed `general (event)` up front, so it competes for suffixes like any other candidate).
+-- `tmp_group_first_event`'s own event-name pick now also prefers a *live* event over a soft-deleted
+-- one when a group's occurrences include both (fix round 2 INFO 1: a definition should read like
+-- the event that is still there, not one that no longer exists).
+--
 -- Backfill: every property gets one "general" definition seeded from its own
 -- description/allowed_values_json/data_formats_json/example_values_json. Every distinct
 -- (description_override, example_values_override_json) combination still in use on that
@@ -84,19 +100,61 @@ SELECT g.property_id, g.description_override, g.example_values_override_json, g.
     WHERE ep.property_id = g.property_id
       AND ep.description_override IS g.description_override
       AND ep.example_values_override_json IS g.example_values_override_json
-    ORDER BY ep.created_at, e.name
+    -- Fix round 2 INFO 1: a live event outranks a soft-deleted one sharing this group (e.g. the
+    -- group's occurrences span both a since-deleted "consent" and a still-live "consent"), so the
+    -- definition reads like something that still exists; ties still break by created_at, then name.
+    ORDER BY (e.deleted_at IS NOT NULL), ep.created_at, e.name
     LIMIT 1
-  ) AS first_event_name
+  ) AS first_event_name,
+  -- Whether that winning representative event is itself soft-deleted (0/1); used below to prefer a
+  -- live-event group over a soft-deleted one when two *different* groups of the same property
+  -- collide on the same computed name (fix round 2 ERROR 2 + INFO 1 combined).
+  (
+    SELECT (e.deleted_at IS NOT NULL) FROM event_properties ep
+    JOIN events e ON e.id = ep.event_id
+    WHERE ep.property_id = g.property_id
+      AND ep.description_override IS g.description_override
+      AND ep.example_values_override_json IS g.example_values_override_json
+    ORDER BY (e.deleted_at IS NOT NULL), ep.created_at, e.name
+    LIMIT 1
+  ) AS first_event_deleted
 FROM tmp_override_groups g;
 
--- Fix round (WARNING 4): a definition name collides with the property's own "general" definition
--- (the first-linked event is literally named "general", or the property has some other definition
--- already named that) gets renamed "<event> (event)", with a numeric suffix if even that somehow
--- still collides (defensive; two override groups of the *same* property always have distinct
--- first-linked events by construction, since an event links a property at most once, so a
--- collision can only ever come from the literal "general" case or a hand-edited pre-migration
--- database). Every "general" row is already inserted above, so the `NOT EXISTS` checks below see
--- it. No `JOIN LATERAL` (not supported by SQLite): a bounded `CASE` chain instead.
+-- Fix round 2 (WARNING 4 original + ERROR 2 fix): `base` folds the literal-"general" collision in
+-- up front (renamed "<event> (event)" so it never equals the property's own general definition's
+-- name); `tmp_final_names` then dedupes every group's `base` *within this same migration run* via
+-- `ROW_NUMBER() OVER (PARTITION BY property_id, base ORDER BY first_event_deleted, definition_id)`
+-- -- a live-event group wins the un-suffixed name over a soft-deleted one sharing the same base
+-- (fix round 2 INFO 1), `definition_id` breaking any further tie deterministically -- so two
+-- sibling groups of one property that computed the identical base (e.g. two events both named
+-- "consent", one soft-deleted) get `-2`/`-3` suffixes instead of racing an `INSERT ... SELECT`'s
+-- own before-the-statement snapshot of `property_definitions` (which is what let them collide in
+-- fix round 1). No `JOIN LATERAL` (not supported by SQLite): the window function does the same job.
+CREATE TEMP TABLE tmp_candidate_names AS
+SELECT
+  definition_id,
+  property_id,
+  first_event_deleted,
+  CASE
+    WHEN COALESCE(first_event_name, '') = 'general' THEN 'general (event)'
+    ELSE COALESCE(first_event_name, 'general (' || substr(definition_id, 1, 8) || ')')
+  END AS base
+FROM tmp_group_first_event;
+
+CREATE TEMP TABLE tmp_final_names AS
+SELECT
+  definition_id,
+  property_id,
+  CASE WHEN rn = 1 THEN base ELSE base || '-' || rn END AS final_name
+FROM (
+  SELECT
+    definition_id,
+    property_id,
+    base,
+    ROW_NUMBER() OVER (PARTITION BY property_id, base ORDER BY first_event_deleted, definition_id) AS rn
+  FROM tmp_candidate_names
+);
+
 INSERT INTO property_definitions (
   id, project_id, property_id, name, description, allowed_values_json, formats_json,
   example_values_json, sort_order, created_at, updated_at, deleted_at
@@ -105,26 +163,7 @@ SELECT
   gfe.definition_id,
   p.project_id,
   gfe.property_id,
-  CASE
-    WHEN NOT EXISTS (
-      SELECT 1 FROM property_definitions pd
-      WHERE pd.property_id = gfe.property_id AND pd.deleted_at IS NULL AND pd.name = candidate.base
-    ) THEN candidate.base
-    WHEN NOT EXISTS (
-      SELECT 1 FROM property_definitions pd
-      WHERE pd.property_id = gfe.property_id AND pd.deleted_at IS NULL AND pd.name = candidate.base || ' (event)'
-    ) THEN candidate.base || ' (event)'
-    WHEN NOT EXISTS (
-      SELECT 1 FROM property_definitions pd
-      WHERE pd.property_id = gfe.property_id AND pd.deleted_at IS NULL AND pd.name = candidate.base || ' (event)-2'
-    ) THEN candidate.base || ' (event)-2'
-    WHEN NOT EXISTS (
-      SELECT 1 FROM property_definitions pd
-      WHERE pd.property_id = gfe.property_id AND pd.deleted_at IS NULL AND pd.name = candidate.base || ' (event)-3'
-    ) THEN candidate.base || ' (event)-3'
-    -- Ultimate fallback: the definition id is unique by construction, so this always terminates.
-    ELSE candidate.base || ' (event)-' || substr(gfe.definition_id, 1, 8)
-  END,
+  fn.final_name,
   gfe.description_override,
   p.allowed_values_json,
   p.data_formats_json,
@@ -135,15 +174,10 @@ SELECT
   NULL
 FROM tmp_group_first_event gfe
 JOIN properties p ON p.id = gfe.property_id
-JOIN (
-  SELECT
-    definition_id,
-    CASE
-      WHEN COALESCE(first_event_name, '') = 'general' THEN COALESCE(first_event_name, '')
-      ELSE COALESCE(first_event_name, 'general (' || substr(definition_id, 1, 8) || ')')
-    END AS base
-  FROM tmp_group_first_event
-) candidate ON candidate.definition_id = gfe.definition_id;
+JOIN tmp_final_names fn ON fn.definition_id = gfe.definition_id;
+
+DROP TABLE tmp_candidate_names;
+DROP TABLE tmp_final_names;
 
 -- ---------------------------------------------------------------------------
 -- event_properties: definition_id replaces description_override/example_values_override_json

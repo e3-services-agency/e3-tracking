@@ -193,4 +193,81 @@ describe('0021_property_definitions.sql backfill', () => {
       .get(eventId, propertyId) as { definition_id: string };
     expect(link.definition_id).toBe(overrideDef.id);
   });
+
+  // Fix round 2 ERROR 2: a soft-deleted event and a live event share the same name (0003
+  // delete-then-recreate) and are the first (only) link of two *different* override groups on the
+  // same property -- both groups compute the same base name; the migration must not throw
+  // UNIQUE constraint failed and must instead suffix the second one, preferring the live event's
+  // occurrence as the un-suffixed name (fix round 2 INFO 1).
+  it('suffixes the second of two override groups whose first-linked events share one name (soft-deleted + live "consent")', () => {
+    db = new Database(':memory:');
+    db.pragma('foreign_keys = OFF');
+
+    for (const file of PRE_0021_MIGRATIONS) {
+      db.exec(fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf-8'));
+    }
+
+    const ts = nowIso();
+    const clientId = randomUUID();
+    db.prepare(
+      'INSERT INTO clients (id, key, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
+    ).run(clientId, 'acme', 'Acme', ts, ts);
+    const projectId = randomUUID();
+    db.prepare(
+      'INSERT INTO projects (id, client_id, name, key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(projectId, clientId, 'Acme Brand A', 'acme-brand-a', ts, ts);
+
+    const propertyId = randomUUID();
+    db.prepare(
+      `INSERT INTO properties (id, project_id, scope, name, description, data_type, created_at, updated_at)
+       VALUES (?, ?, 'event', 'action', NULL, 'string', ?, ?)`
+    ).run(propertyId, projectId, ts, ts);
+
+    // A soft-deleted "consent" (deleted after being created and linked first, per created_at)...
+    const deletedConsentId = randomUUID();
+    db.prepare(
+      `INSERT INTO events (id, project_id, name, class, status, created_at, updated_at, deleted_at) VALUES (?, ?, 'consent', 'custom', 'planned', ?, ?, ?)`
+    ).run(deletedConsentId, projectId, '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z', '2024-06-01T00:00:00.000Z');
+    // ...and a live "consent" recreated afterwards (0003: the partial unique index allows this).
+    const liveConsentId = randomUUID();
+    db.prepare(
+      `INSERT INTO events (id, project_id, name, class, status, created_at, updated_at) VALUES (?, ?, 'consent', 'custom', 'planned', ?, ?)`
+    ).run(liveConsentId, projectId, '2024-07-01T00:00:00.000Z', '2024-07-01T00:00:00.000Z');
+
+    // Two distinct override groups on the same property, each with exactly one link -- to the
+    // soft-deleted "consent" and to the live "consent" respectively -- so each group's own
+    // first_event_name resolves to "consent" independently of the other group.
+    db.prepare(
+      `INSERT INTO event_properties (event_id, property_id, required, role, sort_order, description_override, example_values_override_json, created_at, updated_at)
+       VALUES (?, ?, 0, 'normal', 0, 'Deleted consent action', NULL, ?, ?)`
+    ).run(deletedConsentId, propertyId, '2024-01-01T00:00:00.000Z', '2024-01-01T00:00:00.000Z');
+    db.prepare(
+      `INSERT INTO event_properties (event_id, property_id, required, role, sort_order, description_override, example_values_override_json, created_at, updated_at)
+       VALUES (?, ?, 0, 'normal', 0, 'Live consent action', NULL, ?, ?)`
+    ).run(liveConsentId, propertyId, '2024-07-01T00:00:00.000Z', '2024-07-01T00:00:00.000Z');
+
+    expect(() =>
+      db!.exec(fs.readFileSync(path.join(MIGRATIONS_DIR, '0021_property_definitions.sql'), 'utf-8'))
+    ).not.toThrow();
+
+    const defs = db
+      .prepare('SELECT * FROM property_definitions WHERE property_id = ? ORDER BY sort_order, name')
+      .all(propertyId) as Record<string, unknown>[];
+    expect(defs).toHaveLength(3); // general + two override groups
+    const names = defs.map((d) => d.name).sort();
+    expect(names).toEqual(['consent', 'consent-2', 'general']);
+
+    // The un-suffixed "consent" reads like the live event's own override text (fix round 2 INFO 1).
+    const plainConsent = defs.find((d) => d.name === 'consent')!;
+    expect(plainConsent.description).toBe('Live consent action');
+    const suffixedConsent = defs.find((d) => d.name === 'consent-2')!;
+    expect(suffixedConsent.description).toBe('Deleted consent action');
+
+    const links = db
+      .prepare('SELECT event_id, definition_id FROM event_properties WHERE property_id = ?')
+      .all(propertyId) as { event_id: string; definition_id: string }[];
+    const byEvent = new Map(links.map((l) => [l.event_id, l.definition_id]));
+    expect(byEvent.get(liveConsentId)).toBe(plainConsent.id);
+    expect(byEvent.get(deletedConsentId)).toBe(suffixedConsent.id);
+  });
 });

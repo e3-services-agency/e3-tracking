@@ -9,9 +9,10 @@ import * as ProjectDAL from '../../backend/dal/project.dal';
 import * as EventDAL from '../../backend/dal/event.dal';
 import * as PropertyDAL from '../../backend/dal/property.dal';
 import * as UseCaseTemplateDAL from '../../backend/dal/use-case-template.dal';
+import * as UseCaseDAL from '../../backend/dal/use-case.dal';
 import * as StandardEventMappingDAL from '../../backend/dal/standard-event-mapping.dal';
 import { McpToolError } from '../errors';
-import { listUseCaseTemplates, instantiateUseCaseTemplate } from './useCases';
+import { listUseCaseTemplates, instantiateUseCaseTemplate, listUseCases, getUseCase } from './useCases';
 
 let projectId: string;
 let projectKey: string;
@@ -121,5 +122,46 @@ describe('instantiate_use_case_template', () => {
     const mapping = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'purchase')!;
     expect(mapping.event_id).toBe(eventId);
     expect(mapping.field_map_json.total_price).toBe(propertyId);
+  });
+});
+
+describe('D-59 fix round ERROR 2: internal_notes/internal_url never leak through MCP', () => {
+  const SECRET_NOTE = 'SECRET-TPL-NOTE';
+  const SECRET_URL = 'https://internal.example.com/SECRET-TPL-URL';
+
+  it('list_use_cases, get_use_case and instantiate_use_case_template all strip internal_notes/internal_url', async () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({
+      code: 'UC-SECRET',
+      name: 'Secret template',
+      type: 'marketing',
+      internal_notes: SECRET_NOTE,
+      internal_url: SECRET_URL,
+    });
+
+    const instantiateResult = (await instantiateUseCaseTemplate({
+      project_key: projectKey,
+      template_code: 'UC-SECRET',
+    })) as Record<string, unknown>;
+    expect(JSON.stringify(instantiateResult)).not.toContain(SECRET_NOTE);
+    expect(JSON.stringify(instantiateResult)).not.toContain(SECRET_URL);
+
+    // The template's own internal fields copy onto the use case row (DAL behaviour, not an MCP
+    // leak by themselves); plant a second secret directly on the use case to prove list_use_cases
+    // and get_use_case also strip it.
+    const useCase = UseCaseDAL.listUseCases(projectId)[0];
+    UseCaseDAL.updateUseCase(projectId, useCase.id, {
+      name: useCase.name,
+      internal_notes: 'SECRET-UC-NOTE',
+      internal_url: 'https://internal.example.com/SECRET-UC-URL',
+    });
+
+    const list = await listUseCases({ project_key: projectKey });
+    expect(JSON.stringify(list)).not.toContain('SECRET-UC-NOTE');
+    expect(JSON.stringify(list)).not.toContain('SECRET-UC-URL');
+
+    const got = await getUseCase({ project_key: projectKey, use_case: useCase.code! });
+    expect(JSON.stringify(got)).not.toContain('SECRET-UC-NOTE');
+    expect(JSON.stringify(got)).not.toContain('SECRET-UC-URL');
+    void template;
   });
 });

@@ -10,6 +10,7 @@ import * as ProjectDAL from '../dal/project.dal';
 import * as PropertyDAL from '../dal/property.dal';
 import * as EventDAL from '../dal/event.dal';
 import * as VariantDAL from '../dal/variant.dal';
+import * as UseCaseDAL from '../dal/use-case.dal';
 import * as QaRunDAL from '../dal/qa-run.dal';
 import * as ObservationDAL from '../dal/observation.dal';
 import * as RuleDAL from '../dal/rule.dal';
@@ -218,6 +219,20 @@ describe('buildTrackingDocument', () => {
     expect(doc.version).toBe(1);
     expect(doc.events.map((e) => e.name)).toEqual(['cart_update', 'session_start']);
     expect(doc.project.money_tolerance).toEqual({ percent: 1, floor: 0.01 });
+  });
+
+  it('carries a use case documentation_url but never internal_notes/internal_url (D-59 amendment)', () => {
+    UseCaseDAL.createUseCase(projectId, {
+      name: 'Welcome flow',
+      type: 'marketing',
+      documentation_url: 'https://documentation.bloomreach.com/engagement/docs/welcome-flow',
+      internal_notes: 'SECRET-INTERNAL-NOTE-do-not-leak',
+      internal_url: 'https://internal.example.com/SECRET-INTERNAL-URL',
+    });
+    const doc = buildTrackingDocument(projectId);
+    expect(doc.use_cases).toHaveLength(1);
+    expect(doc.use_cases[0].documentation_url).toBe('https://documentation.bloomreach.com/engagement/docs/welcome-flow');
+    expect(JSON.stringify(doc)).not.toContain('SECRET-INTERNAL');
   });
 });
 

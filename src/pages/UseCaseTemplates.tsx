@@ -50,6 +50,18 @@ interface DefaultRequirement {
   note?: string;
 }
 
+interface TemplateExpectedAsset {
+  type: string;
+  headline: string;
+}
+
+interface TemplateSource {
+  kind: string;
+  template_id?: string;
+  documentation_link?: string;
+  callout?: string;
+}
+
 interface TemplateRow {
   id: string;
   code: string;
@@ -59,6 +71,12 @@ interface TemplateRow {
   default_requirements_json: DefaultRequirement[];
   tags_json: TemplateTags;
   flags_json: TemplateFlags;
+  prerequisites_json: string[];
+  expected_assets_json: TemplateExpectedAsset[];
+  source_json: TemplateSource | null;
+  documentation_url: string | null;
+  internal_notes: string | null;
+  internal_url: string | null;
 }
 
 interface DiffItem {
@@ -432,7 +450,20 @@ export function UseCaseTemplates() {
                         {t.code}
                       </button>
                     </td>
-                    <td className="px-4 py-2 font-medium text-gray-900">{t.name}</td>
+                    <td className="px-4 py-2 font-medium text-gray-900">
+                      {t.name}
+                      {t.documentation_url && (
+                        <a
+                          href={t.documentation_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-2 text-xs font-normal text-blue-600 hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {t.source_json?.kind === 'pnp_usecase' ? 'Bloomreach documentation' : 'Documentation'}
+                        </a>
+                      )}
+                    </td>
                     <td className="px-4 py-2 text-gray-500">{t.type}</td>
                     <td className="px-4 py-2 text-gray-500">
                       {t.flags_json?.new && <span className="text-xs text-emerald-700 mr-2">new</span>}
@@ -458,7 +489,12 @@ export function UseCaseTemplates() {
         </div>
 
         {detailTemplate && (
-          <TemplateDetail template={detailTemplate} projectId={activeProjectId} onClose={() => setDetailId(null)} />
+          <TemplateDetail
+            template={detailTemplate}
+            projectId={activeProjectId}
+            onClose={() => setDetailId(null)}
+            onUpdated={load}
+          />
         )}
 
         {instantiateDialogTemplateId && activeProjectId && instantiateDialogPreview && (
@@ -641,13 +677,23 @@ function TemplateDetail({
   template,
   projectId,
   onClose,
+  onUpdated,
 }: {
   template: TemplateRow;
   projectId: string | null;
   onClose: () => void;
+  onUpdated: () => Promise<void>;
 }) {
   const [resolvePreview, setResolvePreview] = useState<ResolvePreviewResult | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+
+  const saveTemplateField = async (field: 'internal_notes' | 'internal_url', value: string) => {
+    await fetchWithAuth(`${API_BASE}/api/use-case-templates/${template.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ [field]: value.trim() || null }),
+    });
+    await onUpdated();
+  };
 
   useEffect(() => {
     if (!projectId) return;
@@ -681,11 +727,53 @@ function TemplateDetail({
             {template.code} — {template.name}
           </h2>
           {template.description && <p className="text-sm text-gray-500 mt-1">{template.description}</p>}
+          {template.documentation_url && (
+            <p className="text-sm mt-1">
+              <a
+                href={template.documentation_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                {template.source_json?.kind === 'pnp_usecase' ? 'Bloomreach documentation' : 'Documentation'}
+              </a>
+            </p>
+          )}
+          {template.source_json?.callout && (
+            <p className="text-sm italic text-gray-500 mt-1">"{template.source_json.callout}"</p>
+          )}
         </div>
         <button type="button" onClick={onClose} className="text-sm text-gray-400 hover:text-gray-900">
           Close
         </button>
       </div>
+
+      {(template.prerequisites_json.length > 0 || template.expected_assets_json.length > 0) && (
+        <div className="grid grid-cols-2 gap-4">
+          {template.prerequisites_json.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">Prerequisites (not tracking-resolvable)</h3>
+              <ul className="text-xs text-gray-600 list-disc pl-4 space-y-1">
+                {template.prerequisites_json.map((p, i) => (
+                  <li key={i}>{p}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {template.expected_assets_json.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">Expected assets</h3>
+              <ul className="text-xs text-gray-600 list-disc pl-4 space-y-1">
+                {template.expected_assets_json.map((a, i) => (
+                  <li key={i}>
+                    {a.type} — {a.headline}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-2">Prerequisites (for the current project)</h3>
@@ -731,6 +819,27 @@ function TemplateDetail({
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="border-t pt-4">
+        <h3 className="text-sm font-semibold text-gray-900 mb-2">Internal (never shown to the client)</h3>
+        <div className="space-y-2">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-700">Internal notes</label>
+            <textarea
+              className="w-full h-16 rounded-md border border-gray-300 px-3 py-2 text-xs"
+              defaultValue={template.internal_notes ?? ''}
+              onBlur={(e) => void saveTemplateField('internal_notes', e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-700">Internal link</label>
+            <Input
+              defaultValue={template.internal_url ?? ''}
+              onBlur={(e) => void saveTemplateField('internal_url', e.target.value)}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

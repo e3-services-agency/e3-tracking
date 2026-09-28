@@ -94,6 +94,20 @@ export interface LibraryFlags {
   popular: boolean;
 }
 
+/** D-59: `fulfillments` -> the Bloomreach assets a use case built from this template is expected to end up with (consumed by T-4-06 activation). */
+export interface LibraryExpectedAsset {
+  type: string;
+  headline: string;
+}
+
+/** D-59: where a template came from -- `pnp_usecase` (converted from a Bloomreach Use Case Center export) or `docs` (hand-authored, T-4-07). */
+export interface LibrarySource {
+  kind: string;
+  template_id?: string;
+  documentation_link?: string;
+  callout?: string;
+}
+
 export interface LibraryTemplate {
   code: string;
   name: string;
@@ -103,6 +117,17 @@ export interface LibraryTemplate {
   tags: LibraryTags;
   flags: LibraryFlags;
   default_requirements: LibraryRequirement[];
+  /** D-59: notes on requirements this format cannot express as a resolvable target (main catalog, integrations, free text). */
+  prerequisites: string[];
+  /** D-59: expected Bloomreach assets (fulfillments), `{type, headline}`. */
+  expected_assets: LibraryExpectedAsset[];
+  /** D-59: provenance -- `null` for a template with no declared source (kept `docs` by convention when hand-authored). */
+  source: LibrarySource | null;
+  /** D-59 amendment 1: external documentation link, shown on the template/use case as "Bloomreach documentation" (pnp_usecase source) or "Documentation". */
+  documentation_url: string | null;
+  /** D-59 amendment 2: internal-only notes, never surfaced in the tracking document, HTML export or MCP output. */
+  internal_notes: string | null;
+  internal_url: string | null;
 }
 
 export interface UseCaseLibraryModel {
@@ -247,6 +272,71 @@ function parseRequirement(
   return requirement;
 }
 
+function parseStringList(value: unknown, path: string, warnings: string[]): string[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) {
+    warnings.push(`${path} must be an array; ignored.`);
+    return [];
+  }
+  const result: string[] = [];
+  for (const item of value) {
+    if (typeof item !== 'string' || !item.trim()) {
+      warnings.push(`${path} contains a non-string value; skipped.`);
+      continue;
+    }
+    result.push(item.trim());
+  }
+  return result;
+}
+
+function parseExpectedAssets(value: unknown, path: string, warnings: string[]): LibraryExpectedAsset[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) {
+    warnings.push(`${path} must be an array; ignored.`);
+    return [];
+  }
+  const result: LibraryExpectedAsset[] = [];
+  for (let i = 0; i < value.length; i += 1) {
+    const item = value[i];
+    if (!isPlainObject(item) || typeof item.type !== 'string' || !item.type.trim() || typeof item.headline !== 'string' || !item.headline.trim()) {
+      warnings.push(`${path}[${i}] must be {type, headline}; skipped.`);
+      continue;
+    }
+    result.push({ type: item.type.trim(), headline: item.headline.trim() });
+  }
+  return result;
+}
+
+function parseSource(value: unknown, path: string, warnings: string[]): LibrarySource | null {
+  if (value === undefined || value === null) return null;
+  if (!isPlainObject(value) || typeof value.kind !== 'string' || !value.kind.trim()) {
+    warnings.push(`${path} must be {kind, ...}; ignored.`);
+    return null;
+  }
+  const source: LibrarySource = { kind: value.kind.trim() };
+  if (typeof value.template_id === 'string' && value.template_id.trim()) source.template_id = value.template_id.trim();
+  if (typeof value.documentation_link === 'string' && value.documentation_link.trim()) source.documentation_link = value.documentation_link.trim();
+  if (typeof value.callout === 'string' && value.callout.trim()) source.callout = value.callout.trim();
+  return source;
+}
+
+/** D-59 fix round 2 (WARNING 2): `documentation_url` (and, from the pnp path, the equivalent check in `pnpUseCase.ts`) must be an http(s) URL -- a `javascript:`/`data:`/anything-else scheme, or a non-string value, is a warning and `null` at parse/preview time (D-04), never a write-time 400 the caller only sees on apply. */
+const HTTP_URL_RE = /^https?:\/\//i;
+
+function parseHttpUrl(value: unknown, path: string, warnings: string[]): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string' || !value.trim()) {
+    if (value !== '') warnings.push(`${path} must be a string; ignored.`);
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!HTTP_URL_RE.test(trimmed)) {
+    warnings.push(`${path} "${trimmed}" is not an http:// or https:// URL; ignored.`);
+    return null;
+  }
+  return trimmed;
+}
+
 function parseTemplate(index: number, raw: unknown, seenCodes: Set<string>, warnings: string[]): LibraryTemplate | null {
   const path = `templates[${index}]`;
   if (!isPlainObject(raw)) {
@@ -292,6 +382,16 @@ function parseTemplate(index: number, raw: unknown, seenCodes: Set<string>, warn
     tags: parseTags(raw.tags, `templates[code=${code}].tags`, warnings),
     flags: parseFlags(raw.flags, `templates[code=${code}].flags`, warnings),
     default_requirements,
+    prerequisites: parseStringList(raw.prerequisites, `templates[code=${code}].prerequisites`, warnings),
+    expected_assets: parseExpectedAssets(raw.expected_assets, `templates[code=${code}].expected_assets`, warnings),
+    source: parseSource(raw.source, `templates[code=${code}].source`, warnings),
+    documentation_url: parseHttpUrl(raw.documentation_url, `templates[code=${code}].documentation_url`, warnings),
+    internal_notes: typeof raw.internal_notes === 'string' && raw.internal_notes.trim() ? raw.internal_notes.trim() : null,
+    // Pre-QA fix: internal_url is a URL field like documentation_url, so it gets the same
+    // http(s)-only parseHttpUrl check (warning, null) -- not the free-text handling internal_notes
+    // gets. A bad internal_url in an imported file is now visible at preview time (D-04), not a
+    // write-time 400 that never happens because parseHttpUrl already nulled it.
+    internal_url: parseHttpUrl(raw.internal_url, `templates[code=${code}].internal_url`, warnings),
   };
 }
 

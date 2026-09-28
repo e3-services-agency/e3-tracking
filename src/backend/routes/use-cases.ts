@@ -26,6 +26,9 @@ function inputFromBody(body: Record<string, unknown>): Partial<UseCaseDAL.UseCas
   if ('notes' in body) input.notes = body.notes as string | null;
   if ('narrative' in body) input.narrative = body.narrative as string | null;
   if (typeof body.sort_order === 'number') input.sort_order = body.sort_order;
+  if ('documentation_url' in body) input.documentation_url = body.documentation_url as string | null;
+  if ('internal_notes' in body) input.internal_notes = body.internal_notes as string | null;
+  if ('internal_url' in body) input.internal_url = body.internal_url as string | null;
   return input;
 }
 

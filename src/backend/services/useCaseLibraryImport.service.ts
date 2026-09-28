@@ -17,11 +17,32 @@
 import { getDb } from '../db';
 import * as UseCaseTemplateDAL from '../dal/use-case-template.dal';
 import { parseUseCaseLibrary, type LibraryTemplate } from '../../domain/import/useCaseLibrary';
+import { convertPnpUseCases, isPnpUseCaseDocument, isMalformedPnpAttempt } from '../../domain/import/pnpUseCase';
 import { payloadHash } from '../../domain/diff/hash';
 import { diffValue } from '../../domain/diff/primitives';
 import type { DiffItem, DiffItemChange } from '../../domain/diff/types';
-import { PayloadChangedError } from '../errors';
+import { PayloadChangedError, ValidationError } from '../errors';
 import { USE_CASE_LIBRARY_FORMAT, USE_CASE_LIBRARY_VERSION } from '../../domain/enums';
+
+/**
+ * D-59: the templates page's paste box (and `import/preview`/`import/apply`) accepts a
+ * `pnp_usecase` Bloomreach Use Case Center export -- one document, an array, or a `{data: ...}`
+ * wrapper -- next to the native `e3-use-case-library` envelope. Detected here so both `preview`
+ * and `apply` convert identically; `payloadHash` still hashes the *original* raw JSON in both
+ * calls, so a preview/apply round trip is unaffected by the conversion happening in between.
+ */
+function toLibraryModel(rawJson: unknown): { templates: LibraryTemplate[]; warnings: string[] } {
+  // D-59 fix round (ERROR 3): a document that names a template_id but whose `template` is not an
+  // object at all (string/number/array) is neither a usable pnp_usecase document nor a plausible
+  // e3-use-case-library template -- 400 instead of a silent, confusing zero-item preview.
+  if (isMalformedPnpAttempt(rawJson)) {
+    throw new ValidationError('template must be an object.', 'template');
+  }
+  if (isPnpUseCaseDocument(rawJson)) {
+    return convertPnpUseCases(rawJson);
+  }
+  return parseUseCaseLibrary(rawJson);
+}
 
 export interface UseCaseLibraryPreviewResult {
   items: DiffItem[];
@@ -35,7 +56,15 @@ export interface UseCaseLibraryApplySummary {
   warnings: string[];
 }
 
-/** The subset of a template's fields this planner diffs/writes, independent of `code` (the diff key) and `id`/timestamps. */
+/**
+ * The subset of a template's fields this planner diffs/writes, independent of `code` (the diff
+ * key) and `id`/timestamps. D-59 fix round (WARNING 2, D-59 amendment 3): `documentation_url`,
+ * `internal_notes` and `internal_url` are deliberately **not** in this set -- they become
+ * user-owned the moment a template is first created (by an import, `POST /import/apply`'s create
+ * step still sets them from the file), and a later re-import of the same or an updated library file
+ * must never propose reverting an app-side edit back to (or clearing it to) the file's value. `note`
+ * per requirement is unaffected -- only these three template-level fields are excluded.
+ */
 function comparableFields(t: LibraryTemplate): Record<string, unknown> {
   return {
     name: t.name,
@@ -45,6 +74,9 @@ function comparableFields(t: LibraryTemplate): Record<string, unknown> {
     default_requirements_json: t.default_requirements,
     tags_json: t.tags,
     flags_json: t.flags,
+    prerequisites_json: t.prerequisites,
+    expected_assets_json: t.expected_assets,
+    source_json: t.source,
   };
 }
 
@@ -57,6 +89,9 @@ function comparableFieldsFromRow(row: UseCaseTemplateDAL.UseCaseTemplateRow): Re
     default_requirements_json: row.default_requirements_json,
     tags_json: row.tags_json,
     flags_json: row.flags_json,
+    prerequisites_json: row.prerequisites_json,
+    expected_assets_json: row.expected_assets_json,
+    source_json: row.source_json,
   };
 }
 
@@ -103,6 +138,12 @@ function buildPlan(templates: LibraryTemplate[]): PlanResult {
             narrative_template: template.narrative_template,
             tags_json: template.tags,
             flags_json: template.flags,
+            prerequisites_json: template.prerequisites,
+            expected_assets_json: template.expected_assets,
+            source_json: template.source,
+            documentation_url: template.documentation_url,
+            internal_notes: template.internal_notes,
+            internal_url: template.internal_url,
           });
         },
       });
@@ -144,6 +185,11 @@ function buildPlan(templates: LibraryTemplate[]): PlanResult {
           narrative_template: template.narrative_template,
           tags_json: template.tags,
           flags_json: template.flags,
+          prerequisites_json: template.prerequisites,
+          expected_assets_json: template.expected_assets,
+          source_json: template.source,
+          // WARNING 2 (D-59 amendment 3): documentation_url/internal_notes/internal_url are
+          // user-owned after create; never overwritten by a re-import.
         });
       },
     });
@@ -153,7 +199,7 @@ function buildPlan(templates: LibraryTemplate[]): PlanResult {
 }
 
 export function previewUseCaseLibrary(rawJson: unknown): UseCaseLibraryPreviewResult {
-  const model = parseUseCaseLibrary(rawJson);
+  const model = toLibraryModel(rawJson);
   const { items } = buildPlan(model.templates);
   return { items, warnings: model.warnings, payload_hash: payloadHash(rawJson) };
 }
@@ -166,7 +212,7 @@ export function applyUseCaseLibrary(
   if (payloadHash(rawJson) !== expectedHash) {
     throw new PayloadChangedError('The payload changed since preview; re-run preview before applying.');
   }
-  const model = parseUseCaseLibrary(rawJson);
+  const model = toLibraryModel(rawJson);
   const selected = new Set(selectedItemIds);
   const applied: string[] = [];
   const skipped: string[] = [];
@@ -203,6 +249,12 @@ export function exportUseCaseLibrary(): { format: string; version: number; templ
       tags: row.tags_json,
       flags: row.flags_json,
       default_requirements: row.default_requirements_json,
+      prerequisites: row.prerequisites_json,
+      expected_assets: row.expected_assets_json,
+      source: row.source_json,
+      documentation_url: row.documentation_url,
+      internal_notes: row.internal_notes,
+      internal_url: row.internal_url,
     })),
   };
 }

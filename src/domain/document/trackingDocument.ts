@@ -297,6 +297,8 @@ export interface TrackingDocumentUseCase {
   status: string | null;
   narrative: string | null;
   requirements: TrackingDocumentRequirement[];
+  /** D-59 amendment 1: additive -- external documentation link. `internal_notes`/`internal_url` are deliberately never included here (D-59 amendment 2). */
+  documentation_url: string | null;
 }
 
 export interface TrackingDocumentStandardEventMapping {

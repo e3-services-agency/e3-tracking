@@ -203,6 +203,9 @@ export const CSV_ENTITIES = {
       // from this task on; the export service emits '' / '[]' until the columns exist.
       'activation',
       'assets_json',
+      // D-59 amendment 2: internal-only notes/link, never in the tracking document or HTML export.
+      'internal_notes',
+      'internal_url',
     ],
   },
   requirements: {

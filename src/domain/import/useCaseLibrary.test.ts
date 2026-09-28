@@ -187,13 +187,23 @@ describe('parseUseCaseLibrary', () => {
     expect(model.warnings.some((w) => w.includes('carrier_pigeon'))).toBe(true);
   });
 
-  it('parses the Use Case Center library (T-4-07) with no warnings, unique codes and exactly 86 templates', () => {
+  it('parses the Use Case Center library (T-4-08: generated from samples/br-pnp) with no warnings and unique codes', () => {
     const model = parseUseCaseLibrary(uccFixture);
     expect(model.warnings).toEqual([]);
-    expect(model.templates.length).toBe(86);
+    expect(model.templates.length).toBeGreaterThan(0);
     const codes = model.templates.map((t) => t.code);
     expect(new Set(codes).size).toBe(codes.length);
-    expect(codes.every((c) => /^UCC-(email|web|omni|mobile|paid|analytics)-\d{2}$/.test(c))).toBe(true);
+    // Every template is either a generated pnp_usecase (upper-cased template_id) or a surviving
+    // hand-authored one (T-4-07's own UCC-<section>-<nn> code, source.kind: 'docs').
+    const pnpTemplates = model.templates.filter((t) => t.source?.kind === 'pnp_usecase');
+    const docsTemplates = model.templates.filter((t) => t.source?.kind === 'docs');
+    expect(pnpTemplates.length + docsTemplates.length).toBe(model.templates.length);
+    // D-59 fix round (ERROR 1): every br-pnp file converts to one template (98), and of the ten
+    // hand-authored T-4-07 templates that survived the first, name-only matching pass, nine turned
+    // out to be duplicates of a pnp export under a different page title (matched by documentation
+    // link slug); only UCC-email-18 (no export) is genuinely unique.
+    expect(pnpTemplates.length).toBe(98);
+    expect(docsTemplates.map((t) => t.code)).toEqual(['UCC-email-18']);
   });
 
   it('every variant/variant_property row in the Use Case Center library carries a condition (T-4-07 final fix)', () => {
@@ -204,5 +214,47 @@ describe('parseUseCaseLibrary', () => {
         .map((r) => `${t.code}:${r.target_kind}:${r.standard_event ?? r.event_name}`)
     );
     expect(variantRowsWithoutCondition).toEqual([]);
+  });
+});
+
+describe('D-59 fix round 2 (WARNING 2) / pre-QA fix: documentation_url and internal_url are http(s)-only, parsed with a warning otherwise', () => {
+  it('a non-http(s) documentation_url warns and is dropped to null', () => {
+    const model = parseUseCaseLibrary({
+      format: 'e3-use-case-library',
+      version: 1,
+      templates: [{ code: 'UC-BADDOC', name: 'Bad doc url', type: 'marketing', documentation_url: 'javascript:alert(1)', default_requirements: [] }],
+    });
+    expect(model.templates[0].documentation_url).toBeNull();
+    expect(model.warnings.some((w) => w.includes('documentation_url') && w.includes('is not an http'))).toBe(true);
+  });
+
+  it('a non-http(s) internal_url warns and is dropped to null (same rule as documentation_url)', () => {
+    const model = parseUseCaseLibrary({
+      format: 'e3-use-case-library',
+      version: 1,
+      templates: [{ code: 'UC-BADINT', name: 'Bad internal url', type: 'marketing', internal_url: 'javascript:alert(1)', default_requirements: [] }],
+    });
+    expect(model.templates[0].internal_url).toBeNull();
+    expect(model.warnings.some((w) => w.includes('internal_url') && w.includes('is not an http'))).toBe(true);
+  });
+
+  it('a valid http(s) documentation_url/internal_url parses with no warnings', () => {
+    const model = parseUseCaseLibrary({
+      format: 'e3-use-case-library',
+      version: 1,
+      templates: [
+        {
+          code: 'UC-OKURLS',
+          name: 'Ok urls',
+          type: 'marketing',
+          documentation_url: 'https://example.com/docs',
+          internal_url: 'https://internal.example.com',
+          default_requirements: [],
+        },
+      ],
+    });
+    expect(model.warnings).toEqual([]);
+    expect(model.templates[0].documentation_url).toBe('https://example.com/docs');
+    expect(model.templates[0].internal_url).toBe('https://internal.example.com');
   });
 });

@@ -255,6 +255,7 @@ const ALL_MIGRATION_FILES = [
   '0016_use_case_template_tags.sql',
   '0017_project_industry_and_requirement_targets.sql',
   '0021_property_definitions.sql',
+  '0022_use_case_template_source.sql',
 ];
 
 describe('listMigrationFiles', () => {

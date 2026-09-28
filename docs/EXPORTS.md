@@ -45,7 +45,7 @@ route list has been complete since T-3-03.
 | `catalogs` | id, name, description, mapping_role, client_name, purpose, catalog_type, owner, source_system, sync_method, update_frequency, priority, status |
 | `catalog_fields` | id, catalog_id, catalog_name, name, description, data_type, is_lookup_key, is_searchable, is_required, client_field_name, bloomreach_column, purpose, field_family, item_level, priority, status |
 | `consent_categories` | id, name, description, standard_key, status, sort_order |
-| `use_cases` | id, code, name, type, description, priority, status, owner, notes, template_id, template_code, requirement_count, narrative, activation, assets_json |
+| `use_cases` | id, code, name, type, description, priority, status, owner, notes, template_id, template_code, requirement_count, narrative, activation, assets_json, internal_notes, internal_url |
 | `requirements` | id, use_case_id, use_case_code, use_case_name, sort_order, target_kind, target_label, event_name, variant_name, property_name, level, status, note |
 | `rules` | id, event_id, event_name, variant_name, kind, name, message, expression_text, tolerance_mode, tolerance_value, report_kind, severity, enabled, version |
 | `qa_runs` | id, kind, actor, environment, started_at, finished_at, archived, customer_id, observation_count, notes |
@@ -62,6 +62,10 @@ human-readable form (empty when `timestamp` is null).
 `use_cases.activation`/`assets_json` are declared ahead of the columns actually existing — D-56
 adds them in phase 4 (T-4-06) — so the header list has been the stable contract since T-3-03; the
 export service emits `''`/`'[]'` for both until then.
+
+`use_cases.internal_notes`/`internal_url` (D-59 amendment 2, T-4-08) are the only `use_cases`
+columns deliberately excluded from the tracking document, the documentation HTML export and every
+MCP tool output — CSV (an operator-only export, not client-facing) is the one place they do appear.
 
 ## Full JSON backup and restore (D-45, capability 1)
 

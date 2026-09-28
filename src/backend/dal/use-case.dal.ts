@@ -9,6 +9,7 @@
 import { getDb } from '../db';
 import { newId, nowIso, mapWriteError } from '../db/util';
 import { NotFoundError, ValidationError } from '../errors';
+import { normalizeHttpUrl, normalizeOptionalText } from './urlValidation';
 import {
   USE_CASE_TYPES,
   USE_CASE_STATUSES,
@@ -47,6 +48,11 @@ export interface UseCaseRow {
   /** Set when a human saves the narrative by hand (`PATCH .../:id` with `narrative`), per D-32. `POST .../narrative/regenerate` clears it back to `null` on a successful regenerate. */
   narrative_edited_at: string | null;
   sort_order: number;
+  /** D-59 amendment 1: external documentation link, copied from the template on instantiate, editable afterwards. */
+  documentation_url: string | null;
+  /** D-59 amendment 2: internal-only, never surfaced in the tracking document, HTML export or MCP output. */
+  internal_notes: string | null;
+  internal_url: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -64,6 +70,9 @@ export interface UseCaseInput {
   notes?: string | null;
   narrative?: string | null;
   sort_order?: number;
+  documentation_url?: string | null;
+  internal_notes?: string | null;
+  internal_url?: string | null;
 }
 
 export function listUseCases(projectId: string): UseCaseRow[] {
@@ -148,14 +157,25 @@ export function createUseCase(projectId: string, input: UseCaseInput): UseCaseRo
   ).m;
   const code = normalizeCode(input.code) || nextUseCaseCode(projectId);
 
+  // D-59 fix (pre-QA): field validation runs *before* the try/catch below -- `mapWriteError` maps
+  // any exception without a SQLite constraint `code` into a 500 `DatabaseError`, so a
+  // `ValidationError` thrown from inside that try block (a bad documentation_url/internal_url/
+  // internal_notes previously evaluated as part of the `.run({...})` call's argument) was getting
+  // reclassified into a 500 instead of surfacing as the 400 it already is.
+  const documentationUrl = normalizeHttpUrl(input.documentation_url, 'documentation_url');
+  const internalNotes = normalizeOptionalText(input.internal_notes, 'internal_notes');
+  const internalUrl = normalizeHttpUrl(input.internal_url, 'internal_url');
+
   const run = db.transaction(() => {
     try {
       db.prepare(
         `INSERT INTO use_cases (
           id, project_id, template_id, code, name, type, description, priority, status, owner,
-          notes, narrative, narrative_generated_at, sort_order, created_at, updated_at
+          notes, narrative, narrative_generated_at, sort_order, documentation_url, internal_notes, internal_url,
+          created_at, updated_at
         ) VALUES (@id, @project_id, @template_id, @code, @name, @type, @description, @priority,
-          @status, @owner, @notes, @narrative, @narrative_generated_at, @sort_order, @created_at, @updated_at)`
+          @status, @owner, @notes, @narrative, @narrative_generated_at, @sort_order, @documentation_url,
+          @internal_notes, @internal_url, @created_at, @updated_at)`
       ).run({
         id,
         project_id: projectId,
@@ -171,6 +191,9 @@ export function createUseCase(projectId: string, input: UseCaseInput): UseCaseRo
         narrative: input.narrative ? normalizeNarrativeLineEndings(input.narrative.trim()) || null : null,
         narrative_generated_at: null,
         sort_order: input.sort_order ?? maxOrder + 1,
+        documentation_url: documentationUrl,
+        internal_notes: internalNotes,
+        internal_url: internalUrl,
         created_at: now,
         updated_at: now,
       });
@@ -233,6 +256,9 @@ export function updateUseCase(projectId: string, id: string, updates: Partial<Us
     patch.narrative_edited_at = nowIso();
   }
   if (updates.sort_order !== undefined) patch.sort_order = updates.sort_order;
+  if (updates.documentation_url !== undefined) patch.documentation_url = normalizeHttpUrl(updates.documentation_url, 'documentation_url');
+  if (updates.internal_notes !== undefined) patch.internal_notes = normalizeOptionalText(updates.internal_notes, 'internal_notes');
+  if (updates.internal_url !== undefined) patch.internal_url = normalizeHttpUrl(updates.internal_url, 'internal_url');
 
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)

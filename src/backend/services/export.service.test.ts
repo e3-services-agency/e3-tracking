@@ -189,4 +189,19 @@ describe('generateProjectDocumentationHtml', () => {
     expect(html).toContain('(removed)');
     expect(html).not.toContain(eventUuid);
   });
+
+  it('renders a use case documentation_url as a link, and never leaks internal_notes/internal_url (D-59 amendment 2)', async () => {
+    UseCaseDAL.createUseCase(projectId, {
+      name: 'Welcome flow',
+      type: 'marketing',
+      documentation_url: 'https://documentation.bloomreach.com/engagement/docs/welcome-flow',
+      internal_notes: 'SECRET-INTERNAL-NOTE-do-not-leak',
+      internal_url: 'https://internal.example.com/SECRET-INTERNAL-URL',
+    });
+
+    const html = await generateProjectDocumentationHtml(projectId);
+    expect(html).toContain('https://documentation.bloomreach.com/engagement/docs/welcome-flow');
+    expect(html).not.toContain('SECRET-INTERNAL-NOTE-do-not-leak');
+    expect(html).not.toContain('SECRET-INTERNAL-URL');
+  });
 });

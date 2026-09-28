@@ -407,6 +407,8 @@ function buildUseCasesRows(projectId: string): CsvRow[] {
     // D-56: use_cases.activation/assets_json do not exist until T-4-06; emit stable empty values.
     activation: '',
     assets_json: jsonCell([]),
+    internal_notes: textCell(uc.internal_notes),
+    internal_url: textCell(uc.internal_url),
   }));
 }
 

@@ -190,6 +190,8 @@ export interface UseCaseForDocs {
   description?: string | null;
   narrative?: string | null;
   requirements: RequirementForDocs[];
+  /** D-59 amendment 1: additive. `internal_notes`/`internal_url` are deliberately not part of this shape (amendment 2: never in the HTML export). */
+  documentation_url?: string | null;
 }
 
 /** Minimal shape the computed requirements matrix section needs (T-1-07, CONTEXT.md 3.2). */
@@ -408,6 +410,7 @@ export function renderUseCasesSection(useCases: UseCaseForDocs[]): string {
           ${useCase.owner ? `<dt>Owner</dt><dd>${escapeHtml(useCase.owner)}</dd>` : ''}
         </dl>
         ${useCase.description ? `<p class="description">${escapeHtml(useCase.description)}</p>` : ''}
+        ${useCase.documentation_url ? `<p class="documentation-link"><a href="${escapeHtml(useCase.documentation_url)}" target="_blank" rel="noopener noreferrer">Documentation</a></p>` : ''}
         ${useCase.narrative ? `<div class="narrative">${renderNarrativeHtml(useCase.narrative)}</div>` : ''}
         <h4>Requirements</h4>
         ${requirementsTable}

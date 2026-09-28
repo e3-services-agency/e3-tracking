@@ -1974,3 +1974,6 @@ History JSON saved at `.claude/team/reports/qa/T-3-02/history-page1-first200.jso
 
 ### 2026-09-28 03:52 | supervisor | STATUS | T-3-02 DONE
 qa-tester PASS (03:49). Merged as eddf434 (registerTools: T-3-07 tools then get_history; docs/MCP.md count seventeen; variant.dal keeps the mapping guard with the projectId signature): 1128 tests (97 files), tsc clean. Six of ten phase 3 tasks merged. T-3-05 QA starts; T-3-10 integrates agent-setup after its pre-QA fix.
+
+### 2026-09-28 04:00 | implementer -> supervisor | HANDOFF | T-3-10 pre-QA fix (BLOCKED on merge permission)
+Posted by supervisor. Commit d8e7385 on task/T-3-10-library-resolution: field_map cleanup at the root (removePropertyFromFieldMaps in detach and deleteProperty inside their transactions) plus a propertyLinkedToEvent filter in applyTemplateMappings; LOW 2, LOW 3, INFO 4 done. 1088 tests (94 files), tsc clean, build ok. BLOCKED: the permission classifier refused `git merge agent-setup` in the worktree; the supervisor does not bypass a denied permission and has asked the user how to proceed (allow git merge for the implementer, run the merge manually, or authorise the supervisor to resolve in the main tree). T-3-08, T-3-09 and T-3-EXIT wait on this; T-3-05 QA continues.

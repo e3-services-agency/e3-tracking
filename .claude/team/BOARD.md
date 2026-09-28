@@ -2250,3 +2250,6 @@ T-4-07 final fix beb7bfa verified by the supervisor (import tests green, 86 temp
 
 ### 2026-09-28 15:42 | supervisor | DECISION | D-59 amendment: documentation links on templates and use cases
 User request. Folded into T-4-08 (migration 0022 gains documentation_url on both tables). T-4-03 shared view and T-4-06 show it too.
+
+### 2026-09-28 15:46 | supervisor | DECISION | Public/internal documentation and initiative intake
+D-59 amendment 2 (documentation_url public, internal_notes and internal_url private; folded into T-4-08 migration 0022 and T-4-03) and D-56 amendment (initiative import intake flow with derived requirements, version and mapping cross-check) recorded.

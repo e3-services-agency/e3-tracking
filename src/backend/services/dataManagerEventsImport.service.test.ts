@@ -16,6 +16,7 @@ import * as ProjectDAL from '../dal/project.dal';
 import * as PropertyDAL from '../dal/property.dal';
 import * as EventDAL from '../dal/event.dal';
 import * as ChangeLogDAL from '../dal/change-log.dal';
+import * as PropertyDefinitionDAL from '../dal/property-definition.dal';
 import { applyDataMapping, previewDataMapping } from './dataMappingImport.service';
 import { applyExpirationSettings, previewExpirationSettings } from './expirationSettingsImport.service';
 import { previewDataManagerEvents, applyDataManagerEvents } from './dataManagerEventsImport.service';
@@ -584,5 +585,160 @@ describe('D-41 fix round: ERROR 2, export precedence follows Property edits sinc
       }
     }
     expect(linkCount).toBeGreaterThan(1);
+  });
+});
+
+describe('T-4-00 (D-58): property definitions created/matched from diverging attributes', () => {
+  function buildPayload(events: { type: string; description: string; example_values: string }[]): unknown {
+    return {
+      default_forbidden: false,
+      default_private: false,
+      default_group: {
+        events: events.map((e) => ({
+          type: e.type,
+          description: null,
+          source: 'user',
+          used: true,
+          forbidden: false,
+          deleting: false,
+          real_time_analytics: false,
+          properties: {
+            are_all_used: true,
+            default_group: {
+              properties: [
+                {
+                  property: 'action',
+                  type: 'text',
+                  description: e.description,
+                  example_values: e.example_values,
+                  private: false,
+                  source: 'user',
+                  used: true,
+                  deleting: false,
+                },
+              ],
+            },
+            groups: [],
+          },
+        })),
+      },
+      groups: [],
+    };
+  }
+
+  it('an import round trip with diverging attributes across two events creates two definitions', () => {
+    const payload = buildPayload([
+      { type: 'cart_update', description: 'Cart action taken', example_values: 'add' },
+      { type: 'loyalty_redeem', description: 'Loyalty action taken', example_values: 'redeem' },
+    ]);
+    const preview = previewDataManagerEvents(projectId, payload);
+    const definitionItems = preview.items.filter((i) => i.entity_type === 'property_definition');
+    expect(definitionItems).toHaveLength(1); // "cart_update" is the creation occurrence (general); "loyalty_redeem" diverges
+    expect(definitionItems[0].op).toBe('create');
+
+    applyDataManagerEvents(projectId, payload, preview.payload_hash, preview.items.map((i) => i.id));
+
+    const action = PropertyDAL.listProperties(projectId, { scope: 'event' }).find((p) => p.name === 'action')!;
+    const definitions = PropertyDefinitionDAL.listDefinitions(projectId, action.id);
+    expect(definitions).toHaveLength(2);
+    const general = definitions.find((d) => d.name === 'general')!;
+    const loyaltyDef = definitions.find((d) => d.name === 'loyalty_redeem')!;
+    expect(general.description).toBe('Cart action taken');
+    expect(loyaltyDef.description).toBe('Loyalty action taken');
+
+    const cartUpdate = EventDAL.listEvents(projectId).find((e) => e.name === 'cart_update')!;
+    const loyaltyRedeem = EventDAL.listEvents(projectId).find((e) => e.name === 'loyalty_redeem')!;
+    const cartLink = EventDAL.getEventWithProperties(projectId, cartUpdate.id).properties.find((l) => l.property_id === action.id)!;
+    const loyaltyLink = EventDAL.getEventWithProperties(projectId, loyaltyRedeem.id).properties.find((l) => l.property_id === action.id)!;
+    expect(cartLink.definition_id).toBe(general.id);
+    expect(loyaltyLink.definition_id).toBe(loyaltyDef.id);
+
+    // Property itself was never overwritten by the divergent occurrence (D-58).
+    expect(action.description).toBe('Cart action taken');
+
+    // Re-preview is idempotent: the divergence already matches an existing definition, so no new item.
+    const rePreview = previewDataManagerEvents(projectId, payload);
+    expect(rePreview.items.filter((i) => i.entity_type === 'property_definition')).toHaveLength(0);
+  });
+
+  it('a type difference across events warns and keeps the property type unchanged (no definition can change it)', () => {
+    const payload = {
+      default_forbidden: false,
+      default_private: false,
+      default_group: {
+        events: [
+          {
+            type: 'cart_update',
+            description: null,
+            source: 'user',
+            used: true,
+            forbidden: false,
+            deleting: false,
+            real_time_analytics: false,
+            properties: {
+              are_all_used: true,
+              default_group: {
+                properties: [
+                  { property: 'action', type: 'text', description: null, example_values: 'add', private: false, source: 'user', used: true, deleting: false },
+                ],
+              },
+              groups: [],
+            },
+          },
+          {
+            type: 'consent',
+            description: null,
+            source: 'user',
+            used: true,
+            forbidden: false,
+            deleting: false,
+            real_time_analytics: false,
+            properties: {
+              are_all_used: true,
+              default_group: {
+                properties: [
+                  { property: 'action', type: 'number', description: null, example_values: '1', private: false, source: 'user', used: true, deleting: false },
+                ],
+              },
+              groups: [],
+            },
+          },
+        ],
+      },
+      groups: [],
+    };
+    const preview = previewDataManagerEvents(projectId, payload);
+    expect(preview.warnings.some((w) => w.includes('action') && w.includes('type differs'))).toBe(true);
+    applyDataManagerEvents(projectId, payload, preview.payload_hash, preview.items.map((i) => i.id));
+    const action = PropertyDAL.listProperties(projectId, { scope: 'event' }).find((p) => p.name === 'action')!;
+    expect(action.data_type).toBe('string'); // "text" -> string, from the creation occurrence; never changed by the "number" occurrence
+  });
+
+  // WARNING 4 fix round: an event literally named "general" whose divergent attribute would
+  // otherwise collide with the property's own "general" definition name.
+  it('names the divergent definition "<event> (event)" when the first event is literally named "general", and re-preview is idempotent', () => {
+    const payload = buildPayload([
+      { type: 'cart_update', description: 'Cart action taken', example_values: 'add' },
+      { type: 'general', description: 'General action taken', example_values: 'noop' },
+    ]);
+    const preview = previewDataManagerEvents(projectId, payload);
+    const definitionItems = preview.items.filter((i) => i.entity_type === 'property_definition');
+    expect(definitionItems).toHaveLength(1);
+    expect(definitionItems[0].entity_key).toBe('action:general (event)');
+
+    applyDataManagerEvents(projectId, payload, preview.payload_hash, preview.items.map((i) => i.id));
+
+    const action = PropertyDAL.listProperties(projectId, { scope: 'event' }).find((p) => p.name === 'action')!;
+    const definitions = PropertyDefinitionDAL.listDefinitions(projectId, action.id);
+    expect(definitions.map((d) => d.name).sort()).toEqual(['general', 'general (event)']);
+    const renamedDef = definitions.find((d) => d.name === 'general (event)')!;
+    expect(renamedDef.description).toBe('General action taken');
+
+    const generalEvent = EventDAL.listEvents(projectId).find((e) => e.name === 'general')!;
+    const link = EventDAL.getEventWithProperties(projectId, generalEvent.id).properties.find((l) => l.property_id === action.id)!;
+    expect(link.definition_id).toBe(renamedDef.id);
+
+    const rePreview = previewDataManagerEvents(projectId, payload);
+    expect(rePreview.items.filter((i) => i.entity_type === 'property_definition')).toHaveLength(0);
   });
 });

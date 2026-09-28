@@ -37,7 +37,8 @@ import {
   type AttachedPropertyForCodegen,
 } from './codegen.service';
 import { SDK_DEFAULT_PROPERTIES } from '../../domain/bloomreach';
-import type { EventPropertyWithDetails, EventRow } from '../dal/event.dal';
+import type { EventPropertyWithDetails, EventPropertyWithDetailsExtended, EventRow } from '../dal/event.dal';
+import * as PropertyDefinitionDAL from '../dal/property-definition.dal';
 import type { VariantRow } from '../dal/variant.dal';
 import type { RuleRow } from '../dal/rule.dal';
 import type { FindingRow } from '../dal/finding.dal';
@@ -224,6 +225,10 @@ export interface EventCardBuildContext {
    * though they are excluded from `openFindings`/`EventCard.findings[]`. */
   acknowledgedFindingsByEventId: Map<string, FindingRow[]>;
   nameOf: (eventId: string, propertyId: string) => string;
+  /** Fix round WARNING 3: every non-deleted `property_definitions` row of the project, loaded
+   * once and passed to every `getEventWithProperties` call in this file so `buildEventCard`/
+   * `buildTrackingDocument` never run one definition query per link. */
+  definitionsById: Map<string, PropertyDefinitionDAL.PropertyDefinitionRow>;
 }
 
 /** Exported for `export.service.ts`'s HTML documentation export, which also calls `buildEventCard`
@@ -272,6 +277,7 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
     openFindingsByEventId,
     acknowledgedFindingsByEventId,
     nameOf: buildPropertyNameResolver(projectId),
+    definitionsById: PropertyDefinitionDAL.listAllDefinitionsById(projectId),
   };
 }
 
@@ -369,27 +375,52 @@ function toEventCardFinding(
 // EventCard
 // ---------------------------------------------------------------------------
 
-function toEventCardProperty(link: EventPropertyWithDetails): EventCardProperty {
-  const allowedValuesRaw = Array.isArray(link.property.allowed_values_json)
-    ? (link.property.allowed_values_json as { value: string; label?: string | null; standard_event?: string | null }[])
-    : [];
+function toEventCardProperty(link: EventPropertyWithDetailsExtended): EventCardProperty {
+  // D-58: allowed values, description and example are per-event, sourced from the link's own
+  // definition (falling back to the shared Property's fields when the link carries no
+  // definition -- defensive only, every link is resolved to a real definition by the DAL).
+  const definitionAllowedRaw = Array.isArray(link.definition?.allowed_values_json)
+    ? (link.definition!.allowed_values_json as { value: string; label?: string | null; standard_event?: string | null }[])
+    : null;
+  const allowedValuesRaw =
+    definitionAllowedRaw ??
+    (Array.isArray(link.property.allowed_values_json)
+      ? (link.property.allowed_values_json as { value: string; label?: string | null; standard_event?: string | null }[])
+      : []);
   const allowedValues: EventCardAllowedValue[] | null =
     allowedValuesRaw.length > 0
       ? allowedValuesRaw.map((v) => ({ value: v.value, label: v.label ?? null, standard_event: v.standard_event ?? null }))
       : null;
+  // Fix round 2 ERROR 1: same fallback chain as comparison.service.ts's buildDefinitionSnapshot
+  // and codegen.service.ts's toAttachedPropertyForCodegen -- the definition's own formats_json
+  // when non-empty, else the shared Property's. Without this the event card, the tracking
+  // document and MCP get_expected_payload kept showing the property's formats even when the link
+  // uses a definition with its own, narrower list (e.g. `contact` allows `email`+`uri` on the
+  // property but only `uri` on the `consent` definition).
+  const definitionFormats = Array.isArray(link.definition?.formats_json)
+    ? (link.definition!.formats_json as string[])
+    : null;
+  const dataFormats =
+    definitionFormats && definitionFormats.length > 0
+      ? definitionFormats
+      : Array.isArray(link.property.data_formats_json)
+        ? (link.property.data_formats_json as string[])
+        : [];
   return {
     property_id: link.property_id,
     name: link.property.name,
     payload_key: link.payload_key?.trim() || link.property.name,
     data_type: link.property.data_type,
-    data_formats: Array.isArray(link.property.data_formats_json) ? (link.property.data_formats_json as string[]) : [],
+    data_formats: dataFormats,
     required: link.required,
     role: (link.role as EventCardProperty['role']) ?? 'normal',
     allowed_values: allowedValues,
     item_schema: Array.isArray(link.property.item_schema_json) ? (link.property.item_schema_json as EventCardProperty['item_schema']) : null,
     example: jsonSampleValueForProperty(toAttachedPropertyForCodegen(link)),
-    description: link.description_override?.trim() || link.property.description || null,
+    description: link.definition?.description?.trim() || link.property.description || null,
     pii: link.property.pii,
+    definition_id: link.definition?.id ?? null,
+    definition_name: link.definition?.name ?? null,
   };
 }
 
@@ -437,7 +468,7 @@ function computeExpiration(event: EventRow, project: ProjectDAL.ProjectRow): Eve
  * `GET /events/:id/card` route), which then builds its own one-off context. */
 export function buildEventCard(projectId: string, eventId: string, ctx?: EventCardBuildContext): EventCard {
   const context = ctx ?? buildEventCardContext(projectId);
-  const { event, properties } = EventDAL.getEventWithProperties(projectId, eventId);
+  const { event, properties } = EventDAL.getEventWithProperties(projectId, eventId, context.definitionsById);
   const project = context.project;
   const variants = VariantDAL.listVariants(projectId, eventId);
   const mappingsForEvent = context.allMappings.filter((m) => m.event_id === eventId);
@@ -658,7 +689,23 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
   const orderedEventIds = [...events.filter((e) => e.class === 'custom'), ...events.filter((e) => e.class !== 'custom')].map((e) => e.id);
   const eventCards = orderedEventIds.map((id) => buildEventCard(projectId, id, ctx));
 
-  const customerProperties = PropertyDAL.listProperties(projectId, { scope: 'customer' }).map((p) => ({
+  const customerPropertyRows = PropertyDAL.listProperties(projectId, { scope: 'customer' });
+  // Fix round WARNING 3: one batched query for every customer property's definitions, not one
+  // `listDefinitions` call per property.
+  const customerDefinitionsByPropertyId = new Map<string, PropertyDefinitionDAL.PropertyDefinitionRow[]>();
+  for (const [, def] of PropertyDefinitionDAL.listDefinitionsByPropertyIds(
+    projectId,
+    customerPropertyRows.map((p) => p.id)
+  )) {
+    const list = customerDefinitionsByPropertyId.get(def.property_id) ?? [];
+    list.push(def);
+    customerDefinitionsByPropertyId.set(def.property_id, list);
+  }
+  for (const list of customerDefinitionsByPropertyId.values()) {
+    list.sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+  }
+
+  const customerProperties = customerPropertyRows.map((p) => ({
     property_id: p.id,
     name: p.name,
     data_type: p.data_type,
@@ -666,6 +713,20 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
     bloomreach_customer_property: p.bloomreach_customer_property,
     pii: p.pii,
     description: p.description,
+    definitions: (customerDefinitionsByPropertyId.get(p.id) ?? []).map((d) => ({
+      id: d.id,
+      name: d.name,
+      description: d.description,
+      allowed_values: Array.isArray(d.allowed_values_json)
+        ? (d.allowed_values_json as { value: string; label?: string | null; standard_event?: string | null }[]).map((v) => ({
+            value: v.value,
+            label: v.label ?? null,
+            standard_event: v.standard_event ?? null,
+          }))
+        : null,
+      formats: Array.isArray(d.formats_json) ? (d.formats_json as string[]) : [],
+      example_values: d.example_values_json,
+    })),
   }));
 
   const identityRules = IdentityRuleDAL.listIdentityRules(projectId).map((r) => ({

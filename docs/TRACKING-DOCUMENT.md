@@ -48,7 +48,7 @@ There is only one version today (`1`); `?version=1` and the unqualified request 
   generated_at: string,      // ISO timestamp, current time on every fetch (not cached)
   project: { key, name, client, bloomreach_project_url, money_tolerance: { percent, floor } },
   events: EventCard[],       // custom events first, then sdk/platform events
-  properties: [...],         // customer-scope properties
+  properties: [...],         // customer-scope properties, each with definitions[] (D-58)
   identity_rules: [...],
   consent_categories: [...],
   catalogs: [...],
@@ -72,7 +72,7 @@ field list is present:
 | `priority`, `status` | `PRIORITIES`/`EVENT_STATUSES` (`src/domain/enums.ts`). |
 | `certification` | `{applicable, certified, reasons[]}` — see below (D-05). |
 | `expiration` | `{effective, source: 'event' \| 'project' \| null}` — the event's own expiration, else the project default, else `null`. |
-| `properties[]` | Every linked property: `payload_key`, `data_type`, `data_formats`, `required`, `role`, `allowed_values` (with `label`/`standard_event` hints), `item_schema` (D-30, array properties only), a generated `example`, `description`, `pii`. |
+| `properties[]` | Every linked property: `payload_key`, `data_type`, `data_formats`, `required`, `role`, `allowed_values` (with `label`/`standard_event` hints), `item_schema` (D-30, array properties only), a generated `example`, `description`, `pii`, `definition_id`/`definition_name` (D-58, T-4-00). `allowed_values`/`data_formats`/`description`/`example` are read from this link's own named definition (`property_definitions`), not the shared property, so the same property attached to two events can validate and document differently (e.g. `action` allows `add`/`remove` on `cart_update` but `accept`/`reject` on `consent`); a property with a single (`general`) definition behaves exactly as before this table existed. |
 | `variants[]` | `id`, `name`, `conditions` (discriminator property names resolved), `standard_event` it maps to (if any), `expected_payload` (a sample JSON payload with the variant's discriminator values as literals), `required_keys` (the `expected_payload` keys that are required, fix round), `expiration` (this variant's own override, or `null` when it follows the event/project value, fix round). |
 | `standard_event_mappings[]` | This event's `StandardEventMapping` rows, `field_map` resolved to property names. |
 | `contexts[]` | `context`-role properties, their `payload_key` (the key `context_values_json`/the raw observation payload actually carries — may differ from the display name `property`, fix round) and their allowed values (D-03: contexts never create variants). |
@@ -85,6 +85,19 @@ field list is present:
 | `findings[]` | Every currently-open `Finding` for this event, across every comparison and severity, **uncapped** (D-40 Q9, fix round): `id`, `comparison`, `kind`, `severity`, `property_id`/`property` (resolved name), `variant_id`/`variant`, `rule` (the originating rule's name, for a `rule_violation`/`bound_violation` finding; `null` otherwise), `message`, `expected`, `actual`, `qa_run_id`, `first_seen`, `last_seen`. |
 | `codegen` | `{gtm, web_sdk, tracking_api}` snippets (same generator as the docs export). |
 | `sdk_default_properties` | The fixed `SDK_DEFAULT_PROPERTIES` list (`os`, `browser`, `device`, `location`) — attributes the Bloomreach SDK attaches automatically, never flagged as unexpected. |
+
+### Property definitions (D-58, T-4-00)
+
+`properties[]` (top-level, customer-scope) carries a `definitions[]` array: every named meaning
+that property holds (`{id, name, description, allowed_values, formats: string[], example_values}`
+-- `formats` is the definition's whole format list, not a single value, so a property with several
+formats ticked at once, e.g. `email` and `uri`, checks every one of them per event), sourced
+from `property_definitions`. A property with one definition (the common case, named `general`) has
+a one-element array; a property whose event links diverge (different events, different named
+definitions) lists every one of them here, independent of which event card is looking at it.
+Event-scope properties do not get their own top-level list in this document — their definitions
+show up per event, inline on `EventCard.properties[]` (`definition_id`/`definition_name`, plus the
+allowed values/formats/example/description already resolved from that link's own definition).
 
 ### Payload keys (ERROR 2 fix round)
 

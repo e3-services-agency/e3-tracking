@@ -47,6 +47,7 @@ import * as VariantDAL from '../dal/variant.dal';
 import * as StandardEventMappingDAL from '../dal/standard-event-mapping.dal';
 import * as ProjectDAL from '../dal/project.dal';
 import * as PropertyDAL from '../dal/property.dal';
+import * as PropertyDefinitionDAL from '../dal/property-definition.dal';
 import * as ObservationDAL from '../dal/observation.dal';
 import * as QaRunDAL from '../dal/qa-run.dal';
 import * as FindingDAL from '../dal/finding.dal';
@@ -98,12 +99,35 @@ function toExpirationBlock(value: unknown): ExpirationBlock | null {
 
 export function buildDefinitionSnapshot(projectId: string): DefinitionSnapshot {
   const project = ProjectDAL.getProjectOrThrow(projectId);
+  // Fix round WARNING 3: one query for every definition in the project, reused for every event's
+  // `getEventWithProperties` call below instead of one definition query per link.
+  const definitionsById = PropertyDefinitionDAL.listAllDefinitionsById(projectId);
   const events: DefEvent[] = EventDAL.listEvents(projectId).map((event) => {
-    const { properties } = EventDAL.getEventWithProperties(projectId, event.id);
+    const { properties } = EventDAL.getEventWithProperties(projectId, event.id, definitionsById);
     const defProperties: DefEventProperty[] = properties.map((link) => {
-      const allowedValuesRaw = Array.isArray(link.property.allowed_values_json)
-        ? (link.property.allowed_values_json as AllowedValue[])
-        : [];
+      // D-58: allowed values and format are per-event, read from the link's own definition
+      // (falling back to the shared Property's fields when the link carries no definition --
+      // defensive only, every link is resolved to a real definition by the DAL). This is what lets
+      // `action: accept` be an `enum_violation` on `cart_update` (allowed `add`/`remove`) but pass
+      // on `consent` (allowed `accept`/`reject`) even though both link the same `action` property.
+      const definitionAllowedRaw = Array.isArray(link.definition?.allowed_values_json)
+        ? (link.definition!.allowed_values_json as AllowedValue[])
+        : null;
+      const allowedValuesRaw =
+        definitionAllowedRaw ??
+        (Array.isArray(link.property.allowed_values_json) ? (link.property.allowed_values_json as AllowedValue[]) : []);
+      // Fix round ERROR 1: `formats_json` is the definition's *whole* format list (a property can
+      // carry several, e.g. `email` and `uri` both ticked), not a single scalar -- every one of
+      // them must be checked, not just the first.
+      const definitionFormats = Array.isArray(link.definition?.formats_json)
+        ? (link.definition!.formats_json as string[])
+        : null;
+      const dataFormats =
+        definitionFormats && definitionFormats.length > 0
+          ? definitionFormats
+          : Array.isArray(link.property.data_formats_json)
+            ? (link.property.data_formats_json as string[])
+            : [];
       return {
         property_id: link.property_id,
         name: link.property.name,
@@ -111,7 +135,7 @@ export function buildDefinitionSnapshot(projectId: string): DefinitionSnapshot {
         role: (link.role as DefEventProperty['role']) ?? 'normal',
         required: link.required,
         data_type: link.property.data_type,
-        data_formats: Array.isArray(link.property.data_formats_json) ? (link.property.data_formats_json as string[]) : [],
+        data_formats: dataFormats,
         allowed_values: allowedValuesRaw.length > 0 ? allowedValuesRaw.map((v) => v.value) : null,
         // T-2-05: carried through for `definitionVsMapping.ts`'s `unmapped_standard_event` check.
         allowed_value_hints:

@@ -1,13 +1,14 @@
 /**
- * `EventProperty` link list editor (D-16, T-1-04): each row edits `required`, `role`,
- * `payload_key`, `source_id`, `priority`, `status`, `description_override`. Discriminator and
- * context rows are badged and show their `allowed_values_json` inline with the standard-event
- * hint per value (D-03).
+ * `EventProperty` link list editor (D-16, T-1-04, D-58 T-4-00): each row edits `required`, `role`,
+ * `payload_key`, `source_id`, `priority`, `status`, and (when the property carries more than one
+ * named definition) which definition this link uses. Discriminator and context rows are badged
+ * and show their allowed values inline (the linked definition's own, falling back to the
+ * property's) with the standard-event hint per value (D-03).
  */
 import React from 'react';
 import { Trash2 } from 'lucide-react';
 import { Input } from '@/src/components/ui/Input';
-import { EVENT_PROPERTY_ROLES, ENTITY_STATUSES, PRIORITIES } from '@/src/domain/enums';
+import { EVENT_PROPERTY_ROLES, ENTITY_STATUSES, PRIORITIES, PROPERTY_DEFINITION_DEFAULT_NAME } from '@/src/domain/enums';
 
 export interface LinkedPropertyRow {
   property_id: string;
@@ -17,7 +18,7 @@ export interface LinkedPropertyRow {
   status: string | null;
   source_id: string | null;
   payload_key: string | null;
-  description_override?: string | null;
+  definition_id?: string | null;
   property: {
     id: string;
     name: string;
@@ -31,6 +32,12 @@ interface SourceRow {
   name: string;
 }
 
+export interface DefinitionOption {
+  id: string;
+  name: string;
+  allowed_values_json?: { value: string; label?: string | null; standard_event?: string | null }[] | null;
+}
+
 const ROLE_BADGE_STYLE: Record<string, string> = {
   discriminator: 'bg-purple-50 text-purple-700 border-purple-200',
   context: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -40,10 +47,14 @@ export function LinkedPropertiesEditor({
   links,
   onChange,
   sources,
+  definitionsByPropertyId,
 }: {
   links: LinkedPropertyRow[];
   onChange: (next: LinkedPropertyRow[]) => void;
   sources: SourceRow[];
+  /** D-58: every definition of every linked property, keyed by property id. A property with one
+   * definition (the common case) shows no picker at all -- there is only one meaning to pick. */
+  definitionsByPropertyId?: Record<string, DefinitionOption[]>;
 }) {
   const removeLink = (propertyId: string) => onChange(links.filter((l) => l.property_id !== propertyId));
   const updateLink = (propertyId: string, patch: Partial<LinkedPropertyRow>) =>
@@ -52,7 +63,20 @@ export function LinkedPropertiesEditor({
   return (
     <div className="space-y-2">
       {links.map((link) => {
-        const allowedValues = Array.isArray(link.property.allowed_values_json) ? link.property.allowed_values_json : [];
+        const definitions = definitionsByPropertyId?.[link.property_id] ?? [];
+        // Fix round INFO 2: a link with no `definition_id` yet (freshly added, or a link the
+        // server resolved to the default without echoing an explicit id) uses the property's
+        // `general` definition -- the picker must show that, not just whichever option the
+        // browser happens to render first for an empty `value`.
+        const effectiveDefinitionId =
+          link.definition_id ??
+          definitions.find((d) => d.name === PROPERTY_DEFINITION_DEFAULT_NAME)?.id ??
+          definitions[0]?.id ??
+          '';
+        const selectedDefinition = definitions.find((d) => d.id === effectiveDefinitionId) ?? null;
+        const allowedValues =
+          (selectedDefinition && Array.isArray(selectedDefinition.allowed_values_json) ? selectedDefinition.allowed_values_json : null) ??
+          (Array.isArray(link.property.allowed_values_json) ? link.property.allowed_values_json : []);
         const badgeStyle = ROLE_BADGE_STYLE[link.role];
         return (
           <div key={link.property_id} className="border rounded-md p-3 space-y-2 bg-gray-50">
@@ -97,12 +121,18 @@ export function LinkedPropertiesEditor({
                 placeholder="payload key override"
                 className="h-8 w-40 text-xs"
               />
-              <Input
-                value={link.description_override ?? ''}
-                onChange={(e) => updateLink(link.property_id, { description_override: e.target.value || null })}
-                placeholder="description override"
-                className="h-8 w-48 text-xs"
-              />
+              {definitions.length > 1 && (
+                <select
+                  value={effectiveDefinitionId}
+                  onChange={(e) => updateLink(link.property_id, { definition_id: e.target.value || null })}
+                  className="h-8 rounded border border-gray-300 px-2"
+                  title="Which of this property's named meanings this event uses (D-58)"
+                >
+                  {definitions.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              )}
             </div>
             {(link.role === 'discriminator' || link.role === 'context') && (
               <div className="text-xs text-gray-600 space-y-1 pt-1 border-t">

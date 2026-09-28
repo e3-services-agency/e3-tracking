@@ -121,7 +121,9 @@ describe('get_expected_payload', () => {
 
     expect(payload.variant).toBe('cart_update[action=add]');
     expect(payload.discriminators.action).toEqual(['add', 'remove']);
-    expect(payload.required.product_id).toEqual({ data_type: 'string', formats: [] });
+    expect(payload.required.product_id).toEqual(
+      expect.objectContaining({ data_type: 'string', formats: [], definition_name: 'general' })
+    );
     expect(payload.item_schemas.product_list).toEqual([
       { field: 'product_id', data_type: 'string', required: true },
       { field: 'price', data_type: 'number', required: true },

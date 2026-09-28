@@ -87,8 +87,23 @@ export const CSV_ENTITIES = {
       'status',
       'source_id',
       'source_name',
-      'description_override',
+      'definition_id',
+      'definition_name',
       'sort_order',
+    ],
+  },
+  // D-58 (0021_property_definitions.sql): one or more named meanings per property.
+  property_definitions: {
+    headers: [
+      'id',
+      'property_id',
+      'property_name',
+      'name',
+      'description',
+      'allowed_values_json',
+      'formats_json',
+      'example_values_json',
+      'using_events',
     ],
   },
   variants: {

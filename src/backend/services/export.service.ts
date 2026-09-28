@@ -51,6 +51,7 @@ import {
   type UseCaseForDocs,
 } from './docs/sections';
 import { escapeHtml } from './htmlEscape';
+import { PROPERTY_DEFINITION_DEFAULT_NAME } from '../../domain/enums';
 import { buildEventCard, buildEventCardContext, buildUnattachedFindings, type EventCardBuildContext } from './document.service';
 
 export { escapeHtml };
@@ -73,9 +74,14 @@ export function buildPropertyDetailsTable(properties: EventPropertyWithDetails[]
   }
   const rows = properties
     .map((link) => {
-      const description = link.description_override?.trim() || link.property.description?.trim() || '';
+      // D-58: this event's own definition wins (e.g. `consent`'s `action` description differs from
+      // `cart_update`'s), falling back to the shared Property's description.
+      const definition = (link as { definition?: { description: string | null; name: string } | null }).definition;
+      const description = definition?.description?.trim() || link.property.description?.trim() || '';
+      const definitionLabel =
+        definition && definition.name !== PROPERTY_DEFINITION_DEFAULT_NAME ? ` (${escapeHtml(definition.name)})` : '';
       return `<tr>
-        <td>${escapeHtml(link.property.name)}</td>
+        <td>${escapeHtml(link.property.name)}${definitionLabel}</td>
         <td>${link.required ? 'Required' : 'Optional'}</td>
         <td>${escapeHtml(link.role)}</td>
         <td>${escapeHtml(link.property.data_type)}</td>

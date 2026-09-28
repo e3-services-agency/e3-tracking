@@ -482,4 +482,62 @@ describe('applyRestore', () => {
     // Everything else still restored normally.
     expect(EventDAL.listEvents(result.project.id).length).toBeGreaterThan(0);
   });
+
+  // Fix round (qa-tester FAIL 2026-09-28 17:03): before 0021 was fixed to generate dashed UUIDs,
+  // its backfilled property_definitions ids were dashless 32-hex strings that the id-remap regex
+  // never matched, so restoring a backup carrying one left it unrewritten and colliding with the
+  // still-live source row's own primary key (UNIQUE constraint failed, 500). Reproduced directly
+  // against the DB (bypassing the DAL, which only ever generates dashed ids) so this test still
+  // catches a regression in the widened regex even after every current code path only produces
+  // dashed ids.
+  it('restores a backup carrying a dashless (32-hex, no dashes) property_definitions id into a new project with a fresh id and no collision', async () => {
+    const property = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'action', data_type: 'string' });
+    const db = getDb();
+    const generalRow = db
+      .prepare('SELECT id FROM property_definitions WHERE project_id = ? AND property_id = ?')
+      .get(projectId, property.id) as { id: string };
+    const dashlessId = generalRow.id.replace(/-/g, '');
+    expect(dashlessId).toMatch(/^[0-9a-f]{32}$/);
+
+    // Simulate a project that went through the pre-fix 0021 backfill: the live row's own id is
+    // dashless (not just the backup's copy of it), so a failed remap during restore would collide
+    // with this exact still-live primary key, reproducing the qa-tester's 500 precisely.
+    db.prepare('UPDATE property_definitions SET id = ? WHERE id = ?').run(dashlessId, generalRow.id);
+
+    const backup = await buildBackup(projectId);
+    expect(
+      (backup.property_definitions as Record<string, unknown>[]).some((d) => d.id === dashlessId)
+    ).toBe(true);
+
+    const preview = previewRestore(backup);
+    const client = ClientDAL.createClient({ key: 'dashlessid', name: 'Dashless Id Co' });
+    const { project: restored } = await applyRestore(backup, preview.payload_hash, {
+      name: 'Dashless id test',
+      key: 'dashless-id-test',
+      client_id: client.id,
+    });
+
+    const restoredDefs = db
+      .prepare('SELECT id, property_id FROM property_definitions WHERE project_id = ?')
+      .all(restored.id) as { id: string; property_id: string }[];
+    expect(restoredDefs).toHaveLength(1);
+    // A genuinely fresh (dashed) id, distinct from the dashless one the backup carried.
+    expect(restoredDefs[0].id).not.toBe(dashlessId);
+    expect(restoredDefs[0].id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+
+    // The restored property's own id was remapped too, and the restored definition points at the
+    // restored property (both new ids, no old dashless or dashed id crossing over).
+    const restoredProperty = PropertyDAL.listProperties(restored.id, { scope: 'event' }).find(
+      (p) => p.name === 'action'
+    );
+    expect(restoredProperty).toBeTruthy();
+    expect(restoredDefs[0].property_id).toBe(restoredProperty!.id);
+
+    // The source project's own row is untouched -- still live, still dashless, still there (proof
+    // there was no collision: two rows with related-but-distinct ids in two different projects).
+    const sourceRowStillThere = db.prepare('SELECT id FROM property_definitions WHERE id = ?').get(dashlessId) as
+      | { id: string }
+      | undefined;
+    expect(sourceRowStillThere?.id).toBe(dashlessId);
+  });
 });

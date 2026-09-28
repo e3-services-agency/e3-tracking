@@ -86,6 +86,10 @@ export interface EventCardProperty {
   example: unknown;
   description: string | null;
   pii: boolean;
+  /** D-58: the named definition this link uses (`property-definition.dal.ts`); `null` only for a
+   * defensive fallback, every link is resolved to a real definition by the DAL. */
+  definition_id: string | null;
+  definition_name: string | null;
 }
 
 export interface EventCardVariantCondition {
@@ -236,6 +240,16 @@ export interface TrackingDocumentProject {
   money_tolerance: { percent: number; floor: number };
 }
 
+/** D-58: one named meaning of a property (`property_definitions`). */
+export interface TrackingDocumentPropertyDefinition {
+  id: string;
+  name: string;
+  description: string | null;
+  allowed_values: EventCardAllowedValue[] | null;
+  formats: string[];
+  example_values: unknown;
+}
+
 export interface TrackingDocumentCustomerProperty {
   property_id: string;
   name: string;
@@ -244,6 +258,9 @@ export interface TrackingDocumentCustomerProperty {
   bloomreach_customer_property: string | null;
   pii: boolean;
   description: string | null;
+  /** D-58: every definition this property carries (additive; a property with one definition looks
+   * as today -- one row named `general`). */
+  definitions: TrackingDocumentPropertyDefinition[];
 }
 
 export interface TrackingDocumentIdentityRule {

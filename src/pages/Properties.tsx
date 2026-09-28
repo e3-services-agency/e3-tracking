@@ -19,6 +19,7 @@ import {
   ORIGIN_TYPES,
   PROPERTY_DATA_TYPES,
   PROPERTY_DATA_FORMATS,
+  PROPERTY_DEFINITION_DEFAULT_NAME,
 } from '@/src/domain/enums';
 import { STANDARD_CUSTOMER_PROPERTIES, type StandardEventSeed } from '@/src/domain/bloomreach';
 import { AllowedValuesEditor, type AllowedValueRow } from '@/src/features/properties/components/AllowedValuesEditor';
@@ -419,6 +420,8 @@ function PropertyEditor({
 
       {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{saveError}</div>}
 
+      {!isCreating && property && <DefinitionsSection projectId={projectId} propertyId={property.id} />}
+
       {!isCreating && property && (
         <HistorySection projectId={projectId} entityType="property" entityId={property.id} />
       )}
@@ -433,6 +436,206 @@ function PropertyEditor({
           <Button variant="outline" onClick={onClose} disabled={saving || deleting}>Cancel</Button>
           <Button onClick={() => void handleSave()} disabled={saving || deleting || !trimmedName}>{saving ? 'Saving…' : 'Save Property'}</Button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+interface DefinitionRow {
+  id: string;
+  name: string;
+  description: string | null;
+  allowed_values_json: AllowedValueRow[];
+  formats_json: string[];
+  example_values_json: { value: string }[];
+  using_events?: string[];
+}
+
+/**
+ * D-58 (T-4-00): a property's named definitions, expanding the Properties page row into "one or
+ * more meanings" as the plan describes -- a property with one definition (the common case) looks
+ * unremarkable here (a single "general" row); a second named definition is added explicitly when
+ * the same attribute means something different on another event (e.g. `action` on `consent`).
+ * Simplified UI (D-07): plain add/edit/remove, no drag reorder.
+ */
+function DefinitionsSection({ projectId, propertyId }: { projectId: string; propertyId: string }) {
+  const [definitions, setDefinitions] = useState<DefinitionRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/properties/${propertyId}/definitions`);
+    const data = await parseJson(res);
+    if (res.ok) setDefinitions(Array.isArray(data) ? data : []);
+    setLoading(false);
+  }, [projectId, propertyId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const editing = editingId ? definitions.find((d) => d.id === editingId) ?? null : null;
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Remove this definition?')) return;
+    const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/properties/${propertyId}/definitions/${id}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok && res.status !== 204) {
+      const data = await parseJson(res);
+      setError(typeof data?.error === 'string' ? data.error : 'Failed to delete definition.');
+      return;
+    }
+    await load();
+  };
+
+  return (
+    <div className="space-y-2 pt-4 border-t">
+      <div className="flex items-center justify-between">
+        <label className="text-sm font-medium text-gray-700">Definitions</label>
+        <Button variant="outline" size="sm" onClick={() => { setEditingId(null); setIsAdding(true); }} className="gap-1">
+          <Plus className="w-3 h-3" /> Add definition
+        </Button>
+      </div>
+      {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{error}</div>}
+      {loading ? (
+        <p className="text-xs text-gray-400">Loading…</p>
+      ) : (
+        <div className="space-y-2">
+          {definitions.map((d) => (
+            <div key={d.id} className="rounded-md border px-3 py-2 text-sm flex items-start justify-between gap-2">
+              <div>
+                <div className="font-medium text-gray-900">{d.name}</div>
+                {d.description && <div className="text-xs text-gray-500">{d.description}</div>}
+                {Array.isArray(d.allowed_values_json) && d.allowed_values_json.length > 0 && (
+                  <div className="text-xs text-gray-400 mt-1">
+                    {d.allowed_values_json.map((v) => v.value).join(', ')}
+                  </div>
+                )}
+                {Array.isArray(d.using_events) && d.using_events.length > 0 && (
+                  <div className="text-xs text-gray-400 mt-1">Used by: {d.using_events.join(', ')}</div>
+                )}
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <Button variant="outline" size="sm" onClick={() => { setIsAdding(false); setEditingId(d.id); }}>Edit</Button>
+                {definitions.length > 1 && d.name !== PROPERTY_DEFINITION_DEFAULT_NAME && (
+                  <Button variant="outline" size="sm" onClick={() => void handleDelete(d.id)}>Remove</Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {(isAdding || editing) && (
+        <DefinitionEditor
+          projectId={projectId}
+          propertyId={propertyId}
+          definition={editing}
+          onClose={() => { setIsAdding(false); setEditingId(null); }}
+          onSaved={async () => { setIsAdding(false); setEditingId(null); await load(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function DefinitionEditor({
+  projectId,
+  propertyId,
+  definition,
+  onClose,
+  onSaved,
+}: {
+  projectId: string;
+  propertyId: string;
+  definition: DefinitionRow | null;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [name, setName] = useState(definition?.name ?? '');
+  const [description, setDescription] = useState(definition?.description ?? '');
+  const [allowedValues, setAllowedValues] = useState<AllowedValueRow[]>(definition?.allowed_values_json ?? []);
+  const [formats, setFormats] = useState<string[]>(definition?.formats_json ?? []);
+  const [example, setExample] = useState(definition?.example_values_json?.[0]?.value ?? '');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const toggleFormat = (fmt: string) => {
+    setFormats((prev) => (prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt]));
+  };
+
+  const trimmedName = name.trim();
+
+  const handleSave = async () => {
+    if (!trimmedName) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const body = {
+        name: trimmedName,
+        description: description.trim() || null,
+        allowed_values_json: allowedValues.filter((v) => v.value.trim()).map((v) => ({ value: v.value.trim() })),
+        formats_json: formats,
+        example_values_json: example.trim() ? [{ value: example.trim() }] : [],
+      };
+      const url = definition
+        ? `${API_BASE}/api/projects/${projectId}/properties/${propertyId}/definitions/${definition.id}`
+        : `${API_BASE}/api/projects/${projectId}/properties/${propertyId}/definitions`;
+      const res = await fetchWithAuth(url, { method: definition ? 'PATCH' : 'POST', body: JSON.stringify(body) });
+      const data = await parseJson(res);
+      if (!res.ok) {
+        setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to save definition.');
+        return;
+      }
+      await onSaved();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-md border bg-gray-50 p-3 space-y-3">
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-gray-700">Name</label>
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. consent_action"
+          disabled={definition?.name === PROPERTY_DEFINITION_DEFAULT_NAME}
+        />
+        {definition?.name === PROPERTY_DEFINITION_DEFAULT_NAME && (
+          <p className="text-xs text-gray-500">
+            The &quot;{PROPERTY_DEFINITION_DEFAULT_NAME}&quot; definition stays in sync with the property&apos;s own fields and cannot be renamed.
+          </p>
+        )}
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-gray-700">Description</label>
+        <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-gray-700">Formats</label>
+        <div className="flex flex-wrap gap-2">
+          {PROPERTY_DATA_FORMATS.map((fmt) => (
+            <label key={fmt} className="flex items-center gap-1 text-xs bg-white border rounded px-2 py-1">
+              <input type="checkbox" checked={formats.includes(fmt)} onChange={() => toggleFormat(fmt)} />
+              {fmt}
+            </label>
+          ))}
+        </div>
+      </div>
+      <AllowedValuesEditor values={allowedValues} onChange={setAllowedValues} standardEventAdditions={null} />
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-gray-700">Example value</label>
+        <Input value={example} onChange={(e) => setExample(e.target.value)} />
+      </div>
+      {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{saveError}</div>}
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={onClose} disabled={saving}>Cancel</Button>
+        <Button size="sm" onClick={() => void handleSave()} disabled={saving || !trimmedName}>{saving ? 'Saving…' : 'Save'}</Button>
       </div>
     </div>
   );

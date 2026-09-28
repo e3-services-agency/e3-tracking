@@ -25,6 +25,7 @@ import { buildConditionsKey, generateVariantName, normalizeConditions, type Vari
 import { markRequirementsGapForDetach, markRequirementsGapForEventRemoval, markRequirementsGapForVariantRemoval } from './requirement.dal';
 import * as ChangeLogDAL from './change-log.dal';
 import { removePropertyFromFieldMaps } from './standard-event-mapping.dal';
+import * as PropertyDefinitionDAL from './property-definition.dal';
 
 const MAX_DISCRIMINATORS_PER_EVENT = 2;
 
@@ -767,8 +768,10 @@ export interface EventPropertyRow {
   status: string | null;
   source_id: string | null;
   payload_key: string | null;
-  description_override: string | null;
-  example_values_override_json: unknown;
+  /** D-58: the named meaning this link uses (`property-definition.dal.ts`); always resolved to a
+   * real definition on write (never left `null` by the DAL, though the column itself is nullable
+   * with `ON DELETE SET NULL` for defensive future-proofing). */
+  definition_id: string | null;
   sort_order: number;
   /** Per (event, property) Data Manager flags (T-2-02/T-2-03, D-28, D-35): `{dm_type, private, source, used, deleting, group, dm_index, raw}`. */
   bloomreach_meta_json: unknown;
@@ -788,40 +791,60 @@ export interface EventPropertyInput {
   status?: string | null;
   source_id?: string | null;
   payload_key?: string | null;
-  description_override?: string | null;
-  example_values_override_json?: unknown;
+  /** D-58: which of the property's named definitions this link uses; defaults to the property's
+   * `general` definition when omitted. Validated to belong to the same property. */
+  definition_id?: string | null;
   sort_order?: number;
   bloomreach_meta_json?: unknown;
 }
 
-type EventPropertyDbRow = Omit<EventPropertyRow, 'required' | 'example_values_override_json' | 'bloomreach_meta_json'>;
+type EventPropertyDbRow = Omit<EventPropertyRow, 'required' | 'bloomreach_meta_json'>;
 
 function mapEventPropertyRow(row: EventPropertyDbRow): EventPropertyRow {
   const raw = row as unknown as Record<string, unknown>;
   return {
     ...row,
     required: fromSqliteBool(raw.required),
-    example_values_override_json: parseJsonColumn(raw.example_values_override_json, null),
     bloomreach_meta_json: parseJsonColumn(raw.bloomreach_meta_json, null),
   };
 }
 
+export interface EventPropertyWithDetailsExtended extends EventPropertyWithDetails {
+  definition: PropertyDefinitionDAL.PropertyDefinitionRow | null;
+}
+
+/**
+ * `definitionsById` (fix round WARNING 3, reviewer FAIL 2026-09-28 14:26): an optional pre-loaded
+ * `property_definitions` lookup (`property-definition.dal.ts#listAllDefinitionsById`), so a caller
+ * that already has the whole project's definitions in memory (`document.service.ts`'s
+ * `EventCardBuildContext`, `comparison.service.ts`'s `buildDefinitionSnapshot`) resolves every
+ * link's definition with a `Map.get`, not one `getDefinitionById` query per link -- on the fixture
+ * project (48 events) `buildTrackingDocument` went from 696 definition queries to 0. Omitted (the
+ * default), this falls back to the original per-link query, for every other caller that has no
+ * such map handy and only reads one or a few events at a time.
+ */
 export function getEventWithProperties(
   projectId: string,
-  eventId: string
-): { event: EventRow; properties: EventPropertyWithDetails[]; source_ids: string[] } {
+  eventId: string,
+  definitionsById?: Map<string, PropertyDefinitionDAL.PropertyDefinitionRow>
+): { event: EventRow; properties: EventPropertyWithDetailsExtended[]; source_ids: string[] } {
   const event = getEventOrThrow(projectId, eventId);
   const db = getDb();
   const linkRows = db
     .prepare('SELECT * FROM event_properties WHERE event_id = ? ORDER BY sort_order, created_at')
     .all(eventId) as EventPropertyDbRow[];
 
-  const properties: EventPropertyWithDetails[] = [];
+  const properties: EventPropertyWithDetailsExtended[] = [];
   for (const raw of linkRows) {
     const link = mapEventPropertyRow(raw);
     const property = getPropertyById(projectId, link.property_id);
     if (!property) continue; // property soft-deleted; link is stale but left intact (T-1-02 keeps it simple)
-    properties.push({ ...link, property });
+    const definition = !link.definition_id
+      ? null
+      : definitionsById
+        ? (definitionsById.get(link.definition_id) ?? null)
+        : PropertyDefinitionDAL.getDefinitionById(projectId, link.definition_id);
+    properties.push({ ...link, property, definition });
   }
 
   return { event, properties, source_ids: listEventSourceIds(projectId, eventId) };
@@ -855,6 +878,9 @@ export function attachPropertyToEvent(
   assertRoleAllowedForProperty(role, property);
   if (role === 'discriminator') assertDiscriminatorLimit(eventId, null);
   assertEventPropertyLimitNotReached(eventId);
+  PropertyDefinitionDAL.assertDefinitionBelongsToProperty(projectId, input.property_id, input.definition_id);
+  const definitionId =
+    input.definition_id ?? PropertyDefinitionDAL.getDefaultDefinitionId(projectId, input.property_id);
 
   const now = nowIso();
   const maxOrder = (
@@ -868,9 +894,9 @@ export function attachPropertyToEvent(
       db.prepare(
         `INSERT INTO event_properties (
           event_id, property_id, required, role, priority, status, source_id, payload_key,
-          description_override, example_values_override_json, sort_order, bloomreach_meta_json,
+          definition_id, sort_order, bloomreach_meta_json,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         eventId,
         input.property_id,
@@ -880,8 +906,7 @@ export function attachPropertyToEvent(
         input.status ?? null,
         input.source_id ?? null,
         input.payload_key?.trim() || null,
-        input.description_override?.trim() || null,
-        toJsonColumn(input.example_values_override_json ?? null),
+        definitionId,
         input.sort_order ?? maxOrder + 1,
         toJsonColumn(input.bloomreach_meta_json ?? null),
         now,
@@ -952,11 +977,9 @@ export function updateEventProperty(
   if (updates.status !== undefined) patch.status = updates.status;
   if (updates.source_id !== undefined) patch.source_id = updates.source_id;
   if (updates.payload_key !== undefined) patch.payload_key = updates.payload_key?.trim() || null;
-  if (updates.description_override !== undefined) {
-    patch.description_override = updates.description_override?.trim() || null;
-  }
-  if (updates.example_values_override_json !== undefined) {
-    patch.example_values_override_json = toJsonColumn(updates.example_values_override_json);
+  if (updates.definition_id !== undefined) {
+    PropertyDefinitionDAL.assertDefinitionBelongsToProperty(projectId, propertyId, updates.definition_id);
+    patch.definition_id = updates.definition_id ?? PropertyDefinitionDAL.getDefaultDefinitionId(projectId, propertyId);
   }
   if (updates.sort_order !== undefined) patch.sort_order = updates.sort_order;
   if (updates.bloomreach_meta_json !== undefined) {
@@ -1103,6 +1126,7 @@ export function replaceEventProperties(
     }
     assertSourceInProject(projectId, link.source_id);
     validateEventPropertyLinkFields(link);
+    PropertyDefinitionDAL.assertDefinitionBelongsToProperty(projectId, link.property_id, link.definition_id);
     const role = link.role || DEFAULT_ROLE;
     assertRoleAllowedForProperty(role, property);
     if (role === 'discriminator') {
@@ -1154,6 +1178,17 @@ export function replaceEventProperties(
       ) as { property_id: string; bloomreach_meta_json: string | null }[]
     ).map((r) => [r.property_id, r.bloomreach_meta_json])
   );
+  // D-58: same carry-forward as bloomreach_meta_json above, for a caller that resends the whole
+  // list without naming a definition_id per link (the common case: the Edit Event panel round
+  // -trips the property list without necessarily touching the definition picker).
+  const existingDefinitionByPropertyId = new Map(
+    (
+      db.prepare('SELECT property_id, definition_id FROM event_properties WHERE event_id = ?').all(eventId) as {
+        property_id: string;
+        definition_id: string | null;
+      }[]
+    ).map((r) => [r.property_id, r.definition_id])
+  );
 
   // Full "before" snapshot of every link, for the per-link change_log diff below (D-44: one row
   // per changed link, keyed by property_id, since this whole-list replace deletes and re-inserts
@@ -1174,11 +1209,16 @@ export function replaceEventProperties(
       const insert = db.prepare(
         `INSERT INTO event_properties (
           event_id, property_id, required, role, priority, status, source_id, payload_key,
-          description_override, example_values_override_json, sort_order, bloomreach_meta_json,
+          definition_id, sort_order, bloomreach_meta_json,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       );
       uniqueLinks.forEach((link, index) => {
+        const definitionId =
+          link.definition_id !== undefined
+            ? link.definition_id
+            : (existingDefinitionByPropertyId.get(link.property_id) ??
+              PropertyDefinitionDAL.getDefaultDefinitionId(projectId, link.property_id));
         insert.run(
           eventId,
           link.property_id,
@@ -1188,8 +1228,7 @@ export function replaceEventProperties(
           link.status ?? null,
           link.source_id ?? null,
           link.payload_key?.trim() || null,
-          link.description_override?.trim() || null,
-          toJsonColumn(link.example_values_override_json ?? null),
+          definitionId,
           link.sort_order ?? index,
           link.bloomreach_meta_json !== undefined
             ? toJsonColumn(link.bloomreach_meta_json)

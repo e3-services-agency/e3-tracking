@@ -23,6 +23,7 @@ import { isValidItemSchemaShape } from '../../domain/rules/itemSchema';
 import { markRequirementsGapForPropertyRemoval } from './requirement.dal';
 import * as ChangeLogDAL from './change-log.dal';
 import { removePropertyFromFieldMaps } from './standard-event-mapping.dal';
+import * as PropertyDefinitionDAL from './property-definition.dal';
 
 export interface AllowedValue {
   value: string;
@@ -593,6 +594,16 @@ export function createProperty(projectId: string, input: PropertyInput): Propert
       BundleDAL.replacePropertyBundlesForProperty(projectId, id, input.bundle_ids);
     }
 
+    // D-58: every property gets its one `general` definition, seeded from its own fields, at
+    // creation time -- a property with a single definition behaves exactly as it did before
+    // property_definitions existed.
+    PropertyDefinitionDAL.seedDefaultDefinition(projectId, id, {
+      description: input.description?.trim() || null,
+      allowed_values_json: input.allowed_values_json ?? [],
+      data_formats_json: input.data_formats_json ?? [],
+      example_values_json: input.example_values_json ?? [],
+    });
+
     const created = getPropertyOrThrow(projectId, id);
     ChangeLogDAL.recordChange({
       projectId,
@@ -728,6 +739,22 @@ export function updateProperty(
       regenerateVariantNamesForPropertyRename(projectId, id, updates.name.trim());
     }
 
+    // D-58: keep the `general` definition's matching fields in sync with the property's own, so a
+    // property with a single definition keeps behaving exactly as it did before this table existed.
+    if (
+      updates.description !== undefined ||
+      updates.allowed_values_json !== undefined ||
+      updates.example_values_json !== undefined ||
+      updates.data_formats_json !== undefined
+    ) {
+      PropertyDefinitionDAL.syncGeneralDefinitionFromProperty(projectId, id, {
+        description: updates.description !== undefined ? updates.description?.trim() || null : undefined,
+        allowed_values_json: updates.allowed_values_json,
+        example_values_json: updates.example_values_json,
+        data_formats_json: updates.data_formats_json,
+      });
+    }
+
     const after = getPropertyOrThrow(projectId, id);
     ChangeLogDAL.recordChange({
       projectId,
@@ -787,6 +814,10 @@ export function deleteProperty(projectId: string, id: string): void {
     // point (the attached-count guard above), so clear it out of every standard event mapping's
     // field_map_json in the project, wherever it was mapped.
     removePropertyFromFieldMaps(projectId, id);
+    // Fix round (reviewer FAIL 2026-09-28 14:26, ERROR 2): the property's definitions never
+    // survive it -- soft-delete them in the same transaction so CSV/backup consumers that filter
+    // by the property's own liveness never see an orphaned definition again.
+    PropertyDefinitionDAL.softDeleteAllDefinitionsForProperty(projectId, id);
 
     ChangeLogDAL.recordChange({
       projectId,

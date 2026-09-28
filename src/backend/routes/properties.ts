@@ -5,6 +5,7 @@
  */
 import { Router, type Request, type Response } from 'express';
 import * as PropertyDAL from '../dal/property.dal';
+import * as PropertyDefinitionDAL from '../dal/property-definition.dal';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -106,6 +107,86 @@ router.delete('/:id', (req: Request, res: Response) => {
   try {
     PropertyDAL.deleteProperty(req.projectId!, req.params.id);
     res.status(204).end();
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+// ---- D-58 (T-4-00): named definitions under a property ----
+
+function definitionInputFromBody(body: Record<string, unknown>): Partial<PropertyDefinitionDAL.PropertyDefinitionInput> {
+  const input: Partial<PropertyDefinitionDAL.PropertyDefinitionInput> = {};
+  if (typeof body.name === 'string') input.name = body.name;
+  if ('description' in body) input.description = body.description as string | null;
+  if ('allowed_values_json' in body) input.allowed_values_json = body.allowed_values_json;
+  if ('formats_json' in body) input.formats_json = body.formats_json;
+  if ('example_values_json' in body) input.example_values_json = body.example_values_json;
+  return input;
+}
+
+router.get('/:id/definitions', (req: Request, res: Response) => {
+  try {
+    PropertyDAL.getPropertyOrThrow(req.projectId!, req.params.id);
+    const definitions = PropertyDefinitionDAL.listDefinitions(req.projectId!, req.params.id);
+    const usingEventsByDefinitionId = PropertyDefinitionDAL.listUsingEventNamesByDefinitionId(req.projectId!, req.params.id);
+    res.status(200).json(
+      definitions.map((d) => ({ ...d, using_events: usingEventsByDefinitionId.get(d.id) ?? [] }))
+    );
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.post('/:id/definitions', (req: Request, res: Response) => {
+  const body = req.body as Record<string, unknown>;
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
+  if (!name) {
+    res.status(400).json({ error: 'name is required.', code: 'NAME_REQUIRED', field: 'name' });
+    return;
+  }
+  try {
+    const definition = PropertyDefinitionDAL.createDefinition(req.projectId!, req.params.id, {
+      ...definitionInputFromBody(body),
+      name,
+    } as PropertyDefinitionDAL.PropertyDefinitionInput);
+    res.status(201).json(definition);
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.patch('/:id/definitions/:definitionId', (req: Request, res: Response) => {
+  try {
+    const definition = PropertyDefinitionDAL.updateDefinition(
+      req.projectId!,
+      req.params.id,
+      req.params.definitionId,
+      definitionInputFromBody(req.body as Record<string, unknown>)
+    );
+    res.status(200).json(definition);
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.delete('/:id/definitions/:definitionId', (req: Request, res: Response) => {
+  try {
+    PropertyDefinitionDAL.deleteDefinition(req.projectId!, req.params.id, req.params.definitionId);
+    res.status(204).end();
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.put('/:id/definitions/order', (req: Request, res: Response) => {
+  const body = req.body as Record<string, unknown>;
+  const order = Array.isArray(body.order) ? (body.order as unknown[]).filter((v): v is string => typeof v === 'string') : null;
+  if (!order) {
+    res.status(400).json({ error: 'order must be an array of definition ids.', code: 'ORDER_REQUIRED', field: 'order' });
+    return;
+  }
+  try {
+    res.status(200).json(PropertyDefinitionDAL.reorderDefinitions(req.projectId!, req.params.id, order));
   } catch (err) {
     handleRouteError(err, res);
   }

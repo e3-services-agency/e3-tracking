@@ -23,6 +23,7 @@ import {
 import { toDataManagerType } from '../../domain/bloomreach/dataManagerTypes';
 import { parseDataManagerEvents } from '../../domain/import/dataManagerEvents';
 import type { VariantCondition } from '../../domain/variants';
+import { PROPERTY_DEFINITION_DEFAULT_NAME } from '../../domain/enums';
 
 function buildPropertyNameMap(projectId: string): Map<string, string> {
   return new Map(PropertyDAL.listProperties(projectId).map((p) => [p.id, p.name]));
@@ -375,7 +376,7 @@ export function exportDataManagerEvents(projectId: string, options: { passthroug
 
   const liveEvents = EventDAL.listEvents(projectId);
 
-  function buildPropertyRow(link: EventDAL.EventPropertyWithDetails): Record<string, unknown> {
+  function buildPropertyRow(link: EventDAL.EventPropertyWithDetailsExtended): Record<string, unknown> {
     const lm = (link.bloomreach_meta_json ?? null) as EventPropertyLinkMeta | null;
     const p = link.property;
     const formats = Array.isArray(p.data_formats_json) ? (p.data_formats_json as string[]) : [];
@@ -398,8 +399,15 @@ export function exportDataManagerEvents(projectId: string, options: { passthroug
     // current definition and PII instead, so the edit reaches the export.
     const unchanged = propertyUnchangedSinceImport(lm, p);
     const type = unchanged && lm?.dm_type ? lm.dm_type : toDataManagerType(p.data_type, formats).type;
-    const overrideDescription = link.description_override;
-    const overrideExample = firstExampleValue(link.example_values_override_json);
+    // D-58: each event's attribute is written from its own linked definition. A link on the
+    // property's `general` definition (the common single-definition case) still resolves through
+    // the pre-D-58 precedence below (link-meta raw text, then the shared Property) for byte
+    // equivalence on an untouched project; a link on a distinct *named* definition (D-58's "action
+    // means something different on this event") overrides with that definition's own text, exactly
+    // like the old per-link `description_override`/`example_values_override_json` did.
+    const isNamedDefinition = !!link.definition && link.definition.name !== PROPERTY_DEFINITION_DEFAULT_NAME;
+    const overrideDescription = isNamedDefinition ? (link.definition?.description ?? null) : null;
+    const overrideExample = isNamedDefinition ? firstExampleValue(link.definition?.example_values_json ?? null) : null;
     // T-2-03 review carry-over (D-41 amendment): description/example_values each have their own
     // "unchanged since import" check (`fieldUnchangedSinceImport`), independent of `unchanged`
     // (type/PII) above — an app edit to just the description, with the Property's type/PII untouched,

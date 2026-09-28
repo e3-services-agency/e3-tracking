@@ -12,6 +12,7 @@ import * as PropertyDAL from './property.dal';
 import * as EventDAL from './event.dal';
 import * as VariantDAL from './variant.dal';
 import * as StandardEventMappingDAL from './standard-event-mapping.dal';
+import * as PropertyDefinitionDAL from './property-definition.dal';
 import {
   BadRequestError,
   ConflictError,
@@ -247,13 +248,17 @@ describe('event.dal: EventProperty role validation (D-03, D-16)', () => {
     ).toThrow(BadRequestError);
   });
 
-  it('replaceEventProperties persists required/role/payload_key/priority/status/description_override/sort_order per row', () => {
+  it('replaceEventProperties persists required/role/payload_key/priority/status/definition_id/sort_order per row', () => {
     const event = EventDAL.createEvent(projectId, { name: 'cart_update' });
     const action = createEnumProperty('action');
     const quantity = PropertyDAL.createProperty(projectId, {
       scope: 'event',
       name: 'quantity',
       data_type: 'number',
+    });
+    const cartActionDefinition = PropertyDefinitionDAL.createDefinition(projectId, action.id, {
+      name: 'cart_action',
+      description: 'Cart action',
     });
 
     const result = EventDAL.replaceEventProperties(projectId, event.id, [
@@ -264,7 +269,7 @@ describe('event.dal: EventProperty role validation (D-03, D-16)', () => {
         priority: 'high',
         status: 'implemented',
         payload_key: 'act',
-        description_override: 'Cart action',
+        definition_id: cartActionDefinition.id,
         sort_order: 0,
       },
       {
@@ -283,7 +288,7 @@ describe('event.dal: EventProperty role validation (D-03, D-16)', () => {
     expect(actionLink.priority).toBe('high');
     expect(actionLink.status).toBe('implemented');
     expect(actionLink.payload_key).toBe('act');
-    expect(actionLink.description_override).toBe('Cart action');
+    expect(actionLink.definition_id).toBe(cartActionDefinition.id);
     expect(actionLink.sort_order).toBe(0);
 
     const quantityLink = byId.get(quantity.id)!;

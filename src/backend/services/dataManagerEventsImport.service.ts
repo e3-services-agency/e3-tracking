@@ -43,6 +43,7 @@
 import { getDb } from '../db';
 import * as EventDAL from '../dal/event.dal';
 import * as PropertyDAL from '../dal/property.dal';
+import * as PropertyDefinitionDAL from '../dal/property-definition.dal';
 import * as ProjectDAL from '../dal/project.dal';
 import {
   parseDataManagerEvents,
@@ -52,6 +53,7 @@ import {
 } from '../../domain/import/dataManagerEvents';
 import { toAppType, toDataManagerType } from '../../domain/bloomreach/dataManagerTypes';
 import { classifyEventType } from '../../domain/bloomreach';
+import { PROPERTY_DEFINITION_DEFAULT_NAME } from '../../domain/enums';
 import { payloadHash } from '../../domain/diff/hash';
 import type { DiffItem, DiffItemChange } from '../../domain/diff/types';
 import { PayloadChangedError } from '../errors';
@@ -337,6 +339,119 @@ function buildPlan(projectId: string, model: DataManagerEventsModel, rawJson: un
     );
   }
 
+  // ---- D-58 (T-4-00): per-event definitions when description/example diverge across the events
+  // that carry the same attribute name. The "general" values are the property's own (its stored
+  // description/example for an already-existing property, or the creation occurrence's normalized
+  // values for a brand-new one, matching the create step above); every occurrence whose own
+  // normalized description/example differs from "general" is grouped with every other occurrence
+  // sharing that exact combination and gets one definition, named after the first event (file
+  // order, tie-broken by name) to use it -- the property itself is never overwritten by a
+  // divergent occurrence (D-58's whole point). `definitionIdByOccurrenceKey`/
+  // `definitionStepIdByOccurrenceKey` (keyed `${event.type}:${name}`) feed the link steps below.
+  const definitionIdByOccurrenceKey = new Map<string, string>();
+  const definitionStepIdByOccurrenceKey = new Map<string, string>();
+
+  for (const [name, occs] of occByName) {
+    const existingProp = propertyByName.get(name) ?? null;
+    // "general" is whatever the property's own description/example will actually hold: its
+    // current stored values for an already-existing property, or -- for a brand-new one -- the
+    // exact same `occs[0]` ("first occurrence in file order", not the `source: user`-preferring
+    // `creationOccByName`) the property-create step above seeds it from. Comparing against the
+    // wrong reference here would treat some occurrences as "matches general" on the first import
+    // that the just-created property's real description does not actually match, leaving them
+    // without a definition until a second, confusingly non-idempotent preview surfaced them.
+    const firstOcc = occs[0];
+    const generalDescription = existingProp ? existingProp.description : normalizeDescription(firstOcc.prop.description);
+    const generalExample = existingProp
+      ? firstExampleValue(existingProp.example_values_json)
+      : firstExampleValue(normalizeExampleValues(firstOcc.prop.example_values));
+
+    const groups = new Map<string, EventOccurrence[]>();
+    for (const occ of occs) {
+      const desc = normalizeDescription(occ.prop.description);
+      const example = firstExampleValue(normalizeExampleValues(occ.prop.example_values));
+      if (desc === generalDescription && example === generalExample) continue; // matches general; no definition needed
+      const key = `${desc ?? ''}\u0000${example ?? ''}`;
+      const arr = groups.get(key) ?? [];
+      arr.push(occ);
+      groups.set(key, arr);
+    }
+    if (groups.size === 0) continue;
+
+    const existingDefinitions = existingProp ? PropertyDefinitionDAL.listDefinitions(projectId, existingProp.id) : [];
+
+    // Fix round WARNING 4: an event literally named "general" would otherwise collide with the
+    // property's own general definition (created once per property regardless of whether it
+    // exists yet in this same apply); renamed "<event> (event)", -2/-3 suffixed against any other
+    // group of the *same* property that (absurdly) also resolves to that same name. Pure function
+    // of the file's own group order (never of current DB state), so re-preview after apply always
+    // recomputes the exact same name and matches the existing row -- idempotent.
+    const usedDefinitionNames = new Set<string>();
+    let groupIndex = 0;
+    for (const groupOccs of groups.values()) {
+      groupIndex += 1;
+      // File order (matches `creationOccByName`'s own convention): the first occurrence in this
+      // group names the definition, after the first event that actually carries this meaning.
+      const fileFirst = groupOccs[0];
+      const desc = normalizeDescription(fileFirst.prop.description);
+      const example = firstExampleValue(normalizeExampleValues(fileFirst.prop.example_values));
+      const baseDefinitionName =
+        fileFirst.event.type === PROPERTY_DEFINITION_DEFAULT_NAME
+          ? `${fileFirst.event.type} (event)`
+          : fileFirst.event.type;
+      let definitionName = baseDefinitionName;
+      for (let suffix = 2; usedDefinitionNames.has(definitionName); suffix++) {
+        definitionName = `${baseDefinitionName}-${suffix}`;
+      }
+      usedDefinitionNames.add(definitionName);
+      const stepId = `definition:event:${name}:${groupIndex}`;
+
+      const existingByName = existingDefinitions.find((d) => d.name === definitionName) ?? null;
+      const contentMatches =
+        existingByName && existingByName.description === desc && firstExampleValue(existingByName.example_values_json) === example;
+
+      if (existingByName && contentMatches) {
+        for (const occ of groupOccs) definitionIdByOccurrenceKey.set(`${occ.event.type}:${name}`, existingByName.id);
+        continue;
+      }
+
+      const op: 'create' | 'update' = existingByName ? 'update' : 'create';
+      addItem(
+        {
+          id: stepId,
+          op,
+          entity_type: 'property_definition',
+          entity_key: `${name}:${definitionName}`,
+          changes: [{ field: 'description', before: existingByName?.description ?? null, after: desc }],
+          default_selected: groupOccs.some((o) => classifyEventType(o.event.type) === 'custom'),
+          note: `${op === 'create' ? 'Create' : 'Update'} definition "${definitionName}" of property "${name}" (differs from its general meaning).`,
+        },
+        () => {
+          const p = propertyByName.get(name);
+          if (!p) return false;
+          let defId: string;
+          if (existingByName) {
+            const updated = PropertyDefinitionDAL.updateDefinition(projectId, p.id, existingByName.id, {
+              description: desc,
+              example_values_json: normalizeExampleValues(fileFirst.prop.example_values),
+            });
+            defId = updated.id;
+          } else {
+            const created = PropertyDefinitionDAL.createDefinition(projectId, p.id, {
+              name: definitionName,
+              description: desc,
+              example_values_json: normalizeExampleValues(fileFirst.prop.example_values),
+            });
+            defId = created.id;
+          }
+          for (const occ of groupOccs) definitionIdByOccurrenceKey.set(`${occ.event.type}:${name}`, defId);
+        },
+        existingProp ? undefined : [`property:event:${name}`]
+      );
+      for (const occ of groupOccs) definitionStepIdByOccurrenceKey.set(`${occ.event.type}:${name}`, stepId);
+    }
+  }
+
   // ---- Per-occurrence type comparisons: warning only, never an update (D-41 ERROR 1 fix). A
   // property's type is fixed once, at creation (or was already fixed before this import); every
   // other occurrence in the file whose reverse-mapped Data Manager type differs from that reference
@@ -459,9 +574,12 @@ function buildPlan(projectId: string, model: DataManagerEventsModel, rawJson: un
       ) {
         continue; // already linked; refreshed unconditionally by the snapshot step below
       }
-      const dependsOn = [depIf(`event:${event.type}`), depIf(`property:event:${prop.property}`)].filter(
-        (d): d is string => d !== null
-      );
+      const occKey = `${event.type}:${prop.property}`;
+      const dependsOn = [
+        depIf(`event:${event.type}`),
+        depIf(`property:event:${prop.property}`),
+        depIf(definitionStepIdByOccurrenceKey.get(occKey) ?? ''),
+      ].filter((d): d is string => d !== null);
       addItem(
         {
           id: linkId,
@@ -484,11 +602,15 @@ function buildPlan(projectId: string, model: DataManagerEventsModel, rawJson: un
           // row does not exist yet when this closure is *created* (its own `create` step runs earlier
           // in the same `apply`, but only `propertyByName` at *run* time reflects it).
           const linkMeta = buildLinkMeta(prop, p);
+          // D-58: this occurrence's own definition, when one was created/matched above; `undefined`
+          // (the property's default `general` definition) otherwise.
+          const definitionId = definitionIdByOccurrenceKey.get(occKey);
           EventDAL.attachPropertyToEvent(projectId, ev.id, {
             property_id: p.id,
             role: 'normal',
             required: false,
             bloomreach_meta_json: linkMeta,
+            ...(definitionId ? { definition_id: definitionId } : {}),
           });
           linked.add(p.id);
           linkedPropertyIdsByEventId.set(ev.id, linked);
@@ -545,8 +667,13 @@ function buildPlan(projectId: string, model: DataManagerEventsModel, rawJson: un
           if (!propRow) continue;
           if (!linkedPropertyIds.has(propRow.id)) continue; // its link step was not selected/applied
           const priorMeta = originalLinkMetaByKey.get(`${evRow.id}:${propRow.id}`) ?? null;
+          // D-58: an already-existing link also picks up a definition created/matched above by
+          // this same apply (e.g. an already-linked event whose description just diverged on
+          // re-import); a link with no divergent group keeps whatever definition it already had.
+          const definitionId = definitionIdByOccurrenceKey.get(`${event.type}:${prop.property}`);
           EventDAL.updateEventProperty(projectId, evRow.id, propRow.id, {
             bloomreach_meta_json: buildLinkMeta(prop, propRow, priorMeta),
+            ...(definitionId ? { definition_id: definitionId } : {}),
           });
         }
       }

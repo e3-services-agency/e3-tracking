@@ -102,6 +102,7 @@ const EXPECTED_KEYS = [
   'use_case_templates',
   'sources',
   'properties',
+  'property_definitions',
   'events',
   'event_sources',
   'event_properties',

@@ -147,7 +147,7 @@ interface EventPropertyJoinRow {
   priority: string | null;
   status: string | null;
   source_id: string | null;
-  description_override: string | null;
+  definition_id: string | null;
   sort_order: number;
 }
 
@@ -160,13 +160,23 @@ interface EventPropertyJoinRow {
 function buildEventPropertiesRows(projectId: string): CsvRow[] {
   const propertyNameById = new Map(PropertyDAL.listProperties(projectId).map((p) => [p.id, p.name]));
   const sourceNameById = new Map(SourceDAL.listSources(projectId).map((s) => [s.id, s.name]));
+  // D-58: one batched query for every definition name in the project, instead of one lookup per
+  // link (same "no N+1" contract this whole file guards with its own statement-count test).
+  const definitionNameById = new Map(
+    (
+      getDb().prepare('SELECT id, name FROM property_definitions WHERE project_id = ?').all(projectId) as {
+        id: string;
+        name: string;
+      }[]
+    ).map((d) => [d.id, d.name])
+  );
 
   const rows = getDb()
     .prepare(
       `SELECT ep.event_id as event_id, e.name as event_name, ep.property_id as property_id,
               ep.role as role, ep.required as required, ep.payload_key as payload_key,
               ep.priority as priority, ep.status as status, ep.source_id as source_id,
-              ep.description_override as description_override, ep.sort_order as sort_order
+              ep.definition_id as definition_id, ep.sort_order as sort_order
        FROM event_properties ep
        JOIN events e ON e.id = ep.event_id AND e.deleted_at IS NULL
        WHERE e.project_id = ?
@@ -186,8 +196,68 @@ function buildEventPropertiesRows(projectId: string): CsvRow[] {
     status: textCell(row.status),
     source_id: textCell(row.source_id),
     source_name: textCell(row.source_id ? (sourceNameById.get(row.source_id) ?? row.source_id) : null),
-    description_override: textCell(row.description_override),
+    definition_id: textCell(row.definition_id),
+    definition_name: textCell(row.definition_id ? (definitionNameById.get(row.definition_id) ?? null) : null),
     sort_order: row.sort_order,
+  }));
+}
+
+/**
+ * D-58 (T-4-00): one row per `property_definitions` row, `using_events` a `; `-joined list of the
+ * event names currently linked to it (comma inside a name is not a CSV concern here since event
+ * names are ASCII identifiers, `validateAsciiName`). One batched query per lookup, same "no N+1"
+ * contract as the rest of this file.
+ */
+function buildPropertyDefinitionsRows(projectId: string): CsvRow[] {
+  const propertyNameById = new Map(PropertyDAL.listProperties(projectId).map((p) => [p.id, p.name]));
+  const usingEventsByDefinitionId = new Map<string, string[]>();
+  for (const row of getDb()
+    .prepare(
+      `SELECT ep.definition_id as definition_id, e.name as event_name
+       FROM event_properties ep
+       JOIN events e ON e.id = ep.event_id AND e.deleted_at IS NULL
+       WHERE e.project_id = ? AND ep.definition_id IS NOT NULL
+       ORDER BY e.name`
+    )
+    .all(projectId) as { definition_id: string; event_name: string }[]) {
+    const list = usingEventsByDefinitionId.get(row.definition_id) ?? [];
+    list.push(row.event_name);
+    usingEventsByDefinitionId.set(row.definition_id, list);
+  }
+
+  // Fix round ERROR 2: exclude a definition whose own property was soft-deleted (`deleteProperty`
+  // now cascades the soft-delete to its definitions, but the join here is a second, independent
+  // guard against a definition ever outliving its property in this export).
+  const rows = getDb()
+    .prepare(
+      `SELECT pd.id as id, pd.property_id as property_id, pd.name as name, pd.description as description,
+              pd.allowed_values_json as allowed_values_json, pd.formats_json as formats_json,
+              pd.example_values_json as example_values_json
+       FROM property_definitions pd
+       JOIN properties p ON p.id = pd.property_id AND p.deleted_at IS NULL
+       WHERE pd.project_id = ? AND pd.deleted_at IS NULL
+       ORDER BY pd.property_id, pd.sort_order, pd.name`
+    )
+    .all(projectId) as {
+    id: string;
+    property_id: string;
+    name: string;
+    description: string | null;
+    allowed_values_json: string | null;
+    formats_json: string | null;
+    example_values_json: string | null;
+  }[];
+
+  return rows.map((row) => ({
+    id: row.id,
+    property_id: row.property_id,
+    property_name: propertyNameById.get(row.property_id) ?? row.property_id,
+    name: row.name,
+    description: textCell(row.description),
+    allowed_values_json: jsonCell(JSON.parse(row.allowed_values_json ?? '[]')),
+    formats_json: jsonCell(JSON.parse(row.formats_json ?? '[]')),
+    example_values_json: jsonCell(JSON.parse(row.example_values_json ?? '[]')),
+    using_events: textCell((usingEventsByDefinitionId.get(row.id) ?? []).join('; ') || null),
   }));
 }
 
@@ -534,6 +604,7 @@ const ROW_BUILDERS: Record<CsvEntity, (projectId: string) => CsvRow[]> = {
   events: buildEventsRows,
   properties: buildPropertiesRows,
   event_properties: buildEventPropertiesRows,
+  property_definitions: buildPropertyDefinitionsRows,
   variants: buildVariantsRows,
   standard_event_mappings: buildStandardEventMappingsRows,
   identity_rules: buildIdentityRulesRows,
@@ -575,6 +646,8 @@ const COUNT_QUERIES: Record<CsvEntity, (projectId: string) => number> = {
        WHERE e.project_id = ?`,
       projectId
     ),
+  property_definitions: (projectId) =>
+    countOf('SELECT COUNT(*) as n FROM property_definitions WHERE project_id = ? AND deleted_at IS NULL', projectId),
   variants: (projectId) => countOf('SELECT COUNT(*) as n FROM variants WHERE project_id = ?', projectId),
   standard_event_mappings: (projectId) =>
     countOf(

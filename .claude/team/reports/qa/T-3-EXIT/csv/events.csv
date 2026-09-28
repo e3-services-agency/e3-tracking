@@ -1,0 +1,13 @@
+﻿id,name,business_name,class,category,status,certified,priority,description,purpose,page,trigger_text,grain,identity_note,owner_business,owner_technical,expiration_json,not_suitable_for,agent_instructions,derived_metrics_json,tags_json,property_count,variant_count,created_at,updated_at
+2f332cba-06bc-4534-8d08-4f01d0aabdf8,cart_update,,custom,,planned,false,,,,,,,,,,null,,,[],[],4,1,2026-09-28T10:22:59.908Z,2026-09-28T10:22:59.908Z
+8d5c0af1-bc9d-4469-bc6e-7d9ec1a51e3b,checkout,,custom,,planned,true,,,,,,,,,,null,,,[],[],0,0,2026-09-28T10:22:59.910Z,2026-09-28T10:22:59.910Z
+c26a375a-18f8-4dca-9ee8-3d1f834f1215,consent,,platform,,planned,false,,,,,,,,,,"{""enabled"":false,""count"":null,""units"":null}",,,[],[],0,0,2026-09-28T10:23:45.073Z,2026-09-28T10:23:45.073Z
+616520a8-043f-48da-b889-c2b18e385581,notification_state,,platform,,planned,false,,,,,,,,,,"{""enabled"":true,""count"":100,""units"":""days""}",,,[],[],0,0,2026-09-28T10:23:45.075Z,2026-09-28T10:23:45.075Z
+6b5963ee-8dad-43ff-b26d-45f4e66d4d1e,page_visit,,sdk,,planned,false,,,,,,,,,,"{""enabled"":true,""count"":30,""units"":""days""}",,,[],[],0,0,2026-09-28T10:23:45.071Z,2026-09-28T10:23:45.071Z
+a27162c0-20c0-4c28-b814-4a7a21d2404f,purchase,,custom,,planned,false,,,,,,,,,,null,,,[],[],6,1,2026-09-28T10:22:59.911Z,2026-09-28T10:22:59.911Z
+51ba1789-6941-4c75-9217-200877de2c40,purchase_item,,custom,,planned,false,,,,,,,,,,null,,,[],[],9,0,2026-09-28T10:22:59.912Z,2026-09-28T10:22:59.912Z
+fa64da7e-e6bb-4954-a442-b1c234625ab7,session_end,,sdk,,planned,false,,,,,,,,,,"{""enabled"":true,""count"":3,""units"":""months""}",,,[],[],0,0,2026-09-28T10:23:45.069Z,2026-09-28T10:23:45.069Z
+981a1556-532c-4c5e-aac7-7547b7413759,session_start,,sdk,,planned,false,,,,,,,,,,"{""enabled"":true,""count"":3,""units"":""months""}",,,[],[],0,0,2026-09-28T10:23:45.067Z,2026-09-28T10:23:45.067Z
+b56af4f5-fdc9-40c7-a22d-f07c48a31033,view_category,,custom,,planned,true,,,,,,,,,,null,,,[],[],0,0,2026-09-28T10:22:59.913Z,2026-09-28T10:22:59.913Z
+92fe666b-cd2a-4089-83a2-481e1eb1f486,view_item,,custom,,planned,false,,,,,,,,,,null,,,[],[],8,0,2026-09-28T10:22:59.914Z,2026-09-28T10:22:59.914Z
+e455e4e3-2a34-41fa-a0ac-611e44dc73ed,web_exit,,sdk,,planned,false,,,,,,,,,,"{""enabled"":true,""count"":30,""units"":""days""}",,,[],[],0,0,2026-09-28T10:23:45.072Z,2026-09-28T10:23:45.072Z

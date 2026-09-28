@@ -445,7 +445,7 @@ interface DefinitionRow {
   name: string;
   description: string | null;
   allowed_values_json: AllowedValueRow[];
-  format: string | null;
+  formats_json: string[];
   example_values_json: { value: string }[];
   using_events?: string[];
 }
@@ -557,10 +557,14 @@ function DefinitionEditor({
   const [name, setName] = useState(definition?.name ?? '');
   const [description, setDescription] = useState(definition?.description ?? '');
   const [allowedValues, setAllowedValues] = useState<AllowedValueRow[]>(definition?.allowed_values_json ?? []);
-  const [format, setFormat] = useState(definition?.format ?? '');
+  const [formats, setFormats] = useState<string[]>(definition?.formats_json ?? []);
   const [example, setExample] = useState(definition?.example_values_json?.[0]?.value ?? '');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const toggleFormat = (fmt: string) => {
+    setFormats((prev) => (prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt]));
+  };
 
   const trimmedName = name.trim();
 
@@ -573,7 +577,7 @@ function DefinitionEditor({
         name: trimmedName,
         description: description.trim() || null,
         allowed_values_json: allowedValues.filter((v) => v.value.trim()).map((v) => ({ value: v.value.trim() })),
-        format: format || null,
+        formats_json: formats,
         example_values_json: example.trim() ? [{ value: example.trim() }] : [],
       };
       const url = definition
@@ -602,11 +606,15 @@ function DefinitionEditor({
         <Input value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <div className="space-y-1">
-        <label className="text-xs font-medium text-gray-700">Format</label>
-        <select value={format} onChange={(e) => setFormat(e.target.value)} className="w-full h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
-          <option value="">—</option>
-          {PROPERTY_DATA_FORMATS.map((fmt) => <option key={fmt} value={fmt}>{fmt}</option>)}
-        </select>
+        <label className="text-xs font-medium text-gray-700">Formats</label>
+        <div className="flex flex-wrap gap-2">
+          {PROPERTY_DATA_FORMATS.map((fmt) => (
+            <label key={fmt} className="flex items-center gap-1 text-xs bg-white border rounded px-2 py-1">
+              <input type="checkbox" checked={formats.includes(fmt)} onChange={() => toggleFormat(fmt)} />
+              {fmt}
+            </label>
+          ))}
+        </div>
       </div>
       <AllowedValuesEditor values={allowedValues} onChange={setAllowedValues} standardEventAdditions={null} />
       <div className="space-y-1">

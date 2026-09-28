@@ -8,7 +8,7 @@
 import React from 'react';
 import { Trash2 } from 'lucide-react';
 import { Input } from '@/src/components/ui/Input';
-import { EVENT_PROPERTY_ROLES, ENTITY_STATUSES, PRIORITIES } from '@/src/domain/enums';
+import { EVENT_PROPERTY_ROLES, ENTITY_STATUSES, PRIORITIES, PROPERTY_DEFINITION_DEFAULT_NAME } from '@/src/domain/enums';
 
 export interface LinkedPropertyRow {
   property_id: string;
@@ -64,7 +64,16 @@ export function LinkedPropertiesEditor({
     <div className="space-y-2">
       {links.map((link) => {
         const definitions = definitionsByPropertyId?.[link.property_id] ?? [];
-        const selectedDefinition = definitions.find((d) => d.id === link.definition_id) ?? null;
+        // Fix round INFO 2: a link with no `definition_id` yet (freshly added, or a link the
+        // server resolved to the default without echoing an explicit id) uses the property's
+        // `general` definition -- the picker must show that, not just whichever option the
+        // browser happens to render first for an empty `value`.
+        const effectiveDefinitionId =
+          link.definition_id ??
+          definitions.find((d) => d.name === PROPERTY_DEFINITION_DEFAULT_NAME)?.id ??
+          definitions[0]?.id ??
+          '';
+        const selectedDefinition = definitions.find((d) => d.id === effectiveDefinitionId) ?? null;
         const allowedValues =
           (selectedDefinition && Array.isArray(selectedDefinition.allowed_values_json) ? selectedDefinition.allowed_values_json : null) ??
           (Array.isArray(link.property.allowed_values_json) ? link.property.allowed_values_json : []);
@@ -114,7 +123,7 @@ export function LinkedPropertiesEditor({
               />
               {definitions.length > 1 && (
                 <select
-                  value={link.definition_id ?? ''}
+                  value={effectiveDefinitionId}
                   onChange={(e) => updateLink(link.property_id, { definition_id: e.target.value || null })}
                   className="h-8 rounded border border-gray-300 px-2"
                   title="Which of this property's named meanings this event uses (D-58)"

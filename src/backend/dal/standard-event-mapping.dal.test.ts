@@ -10,6 +10,7 @@ import * as PropertyDAL from './property.dal';
 import * as EventDAL from './event.dal';
 import * as VariantDAL from './variant.dal';
 import * as StandardEventMappingDAL from './standard-event-mapping.dal';
+import * as ChangeLogDAL from './change-log.dal';
 import { BadRequestError, UnknownStandardEventError } from '../errors';
 
 let projectId: string;
@@ -143,5 +144,56 @@ describe('standard-event-mapping.dal', () => {
     expect(StandardEventMappingDAL.listStandardEventMappings(projectId)).toHaveLength(1);
     EventDAL.deleteEvent(projectId, eventId);
     expect(StandardEventMappingDAL.listStandardEventMappings(projectId)).toHaveLength(0);
+  });
+});
+
+describe('T-3-10 QA fix (ERROR 2, 2026-09-28 10:22): removePropertyFromFieldMaps runs on every path that drops an event_properties link', () => {
+  function changesFor(entityType: string, entityId: string) {
+    return ChangeLogDAL.listChanges(projectId, { entity_type: entityType, entity_id: entityId });
+  }
+
+  it('detachPropertyFromEvent (DELETE /events/:id/properties/:propertyId) clears the field_map entry and logs one mapping update', () => {
+    const mapping = StandardEventMappingDAL.upsertStandardEventMapping(projectId, 'add_to_cart', {
+      event_id: eventId,
+      field_map_json: { product_id: productIdPropertyId },
+    });
+    expect(changesFor('standard_event_mapping', mapping.id).filter((r) => r.action === 'update')).toHaveLength(0);
+
+    EventDAL.detachPropertyFromEvent(projectId, eventId, productIdPropertyId);
+
+    const after = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'add_to_cart')!;
+    expect(after.field_map_json.product_id).toBeNull();
+    expect(changesFor('standard_event_mapping', mapping.id).filter((r) => r.action === 'update')).toHaveLength(1);
+  });
+
+  // The exact qa-tester repro (2026-09-28 10:19, ERROR 2): the Events page's editor saves the whole
+  // link list through `PUT /events/:id/properties` (`replaceEventProperties`), not the single-
+  // property `DELETE` -- this used to bypass the field_map cleanup entirely.
+  it('replaceEventProperties (PUT /events/:id/properties, the Events page editor\'s save path) clears the field_map entry and logs one mapping update', () => {
+    const mapping = StandardEventMappingDAL.upsertStandardEventMapping(projectId, 'add_to_cart', {
+      event_id: eventId,
+      field_map_json: { product_id: productIdPropertyId },
+    });
+    expect(changesFor('standard_event_mapping', mapping.id).filter((r) => r.action === 'update')).toHaveLength(0);
+
+    // Re-saves the link list without product_id -- action stays linked, product_id is dropped.
+    EventDAL.replaceEventProperties(projectId, eventId, [{ property_id: actionPropertyId, role: 'discriminator' }]);
+
+    const after = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'add_to_cart')!;
+    expect(after.field_map_json.product_id).toBeNull();
+    expect(changesFor('standard_event_mapping', mapping.id).filter((r) => r.action === 'update')).toHaveLength(1);
+  });
+
+  it('deleteProperty (project-wide, unscoped) still clears the property from every mapping it appears in', () => {
+    const mapping = StandardEventMappingDAL.upsertStandardEventMapping(projectId, 'add_to_cart', {
+      event_id: eventId,
+      field_map_json: { product_id: productIdPropertyId },
+    });
+    EventDAL.detachPropertyFromEvent(projectId, eventId, productIdPropertyId);
+    PropertyDAL.deleteProperty(projectId, productIdPropertyId);
+
+    const after = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'add_to_cart')!;
+    expect(after.field_map_json.product_id).toBeNull();
+    expect(mapping.id).toBe(after.id);
   });
 });

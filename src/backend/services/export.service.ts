@@ -178,7 +178,8 @@ async function buildEventSectionHtml(
   properties: EventPropertyWithDetails[],
   variants: VariantRow[],
   standardEventByVariantId: Map<string, string>,
-  cardCtx: EventCardBuildContext
+  cardCtx: EventCardBuildContext,
+  publicView: boolean
 ): Promise<string> {
   const attached = properties.map(toAttachedPropertyForCodegen);
   const codegen = buildCodegenSnippets(
@@ -233,7 +234,7 @@ async function buildEventSectionHtml(
       <dt>Status</dt><dd>${escapeHtml(event.status)}</dd>
       ${event.page ? `<dt>Page</dt><dd>${escapeHtml(event.page)}</dd>` : ''}
       ${event.trigger_text ? `<dt>Trigger</dt><dd>${escapeHtml(event.trigger_text)}</dd>` : ''}
-      ${event.identity_note ? `<dt>Identity note</dt><dd>${escapeHtml(event.identity_note)}</dd>` : ''}
+      ${!publicView && event.identity_note ? `<dt>Identity note</dt><dd>${escapeHtml(event.identity_note)}</dd>` : ''}
     </dl>
     ${certificationHtml}
     ${event.description ? `<p class="description">${escapeHtml(event.description)}</p>` : ''}
@@ -278,7 +279,7 @@ const DOCUMENT_STYLE = `
  * handing off to the pure renderers in `docs/sections.ts` (kept dependency-free of the DB by
  * design, per its own header comment).
  */
-function buildIdentityAndConsentSectionsHtml(projectId: string): string {
+function buildIdentityAndConsentSectionsHtml(projectId: string, publicView: boolean): string {
   const rules = listIdentityRules(projectId);
   const categories = listConsentCategories(projectId);
   // Deleted events are excluded here on purpose: `deleteEvent` (event.dal.ts) nulls out
@@ -289,6 +290,8 @@ function buildIdentityAndConsentSectionsHtml(projectId: string): string {
 
   const rulesForDocs = rules.map((rule) => ({
     ...rule,
+    // D-48 amendment (fix round, LOW 1): the shared HTML must not carry an identity rule's owner.
+    owner: publicView ? null : rule.owner,
     transformations: rule.transformations_json,
     trigger_event_name: rule.trigger_event_id ? eventNameById.get(rule.trigger_event_id) ?? null : null,
     source_name: rule.source_id ? sourceNameById.get(rule.source_id) ?? null : null,
@@ -308,7 +311,7 @@ function buildIdentityAndConsentSectionsHtml(projectId: string): string {
  * resolved to display names (T-1-07 acceptance: "Docs export includes use cases with their ordered
  * requirements"), via the same `buildTargetLabelResolver` the requirements matrix uses.
  */
-function buildUseCasesSectionHtml(projectId: string): string {
+function buildUseCasesSectionHtml(projectId: string, publicView: boolean): string {
   const useCases = listUseCases(projectId);
   const labelFor = buildTargetLabelResolver(projectId);
   const useCasesForDocs: UseCaseForDocs[] = useCases.map((useCase) => {
@@ -319,7 +322,8 @@ function buildUseCasesSectionHtml(projectId: string): string {
       type: useCase.type,
       priority: useCase.priority,
       status: useCase.status,
-      owner: useCase.owner,
+      // D-48 amendment (fix round, LOW 1): the shared HTML must not carry a use case's owner.
+      owner: publicView ? null : useCase.owner,
       description: useCase.description,
       narrative: useCase.narrative,
       requirements: requirements.map((req) => ({
@@ -333,11 +337,23 @@ function buildUseCasesSectionHtml(projectId: string): string {
   return renderUseCasesSection(useCasesForDocs);
 }
 
+export interface GenerateDocumentationHtmlOptions {
+  /** D-48 amendment (fix round, LOW 1): when true (the shared route, `routes/shared.ts`), the
+   * per-event identity note and the identity rule / use case owner fields are omitted -- the same
+   * field set `toPublicTrackingDocument` strips from the JSON export (`document.service.ts`).
+   * Defaults to false (the internal, authenticated route keeps everything). */
+  public?: boolean;
+}
+
 /**
  * Renders every non-deleted event of the project, plus the identity rules and consent categories
  * sections, into one self-contained HTML document.
  */
-export async function generateProjectDocumentationHtml(projectId: string): Promise<string> {
+export async function generateProjectDocumentationHtml(
+  projectId: string,
+  options: GenerateDocumentationHtmlOptions = {}
+): Promise<string> {
+  const publicView = options.public === true;
   const project: ProjectWithClient = getProjectWithClient(projectId);
   const events = listEvents(projectId);
   const allVariants = listVariantsByProject(projectId);
@@ -359,7 +375,7 @@ export async function generateProjectDocumentationHtml(projectId: string): Promi
     events.map(async (event) => {
       const { properties } = getEventWithProperties(projectId, event.id);
       const variants = allVariants.filter((v) => v.event_id === event.id);
-      return buildEventSectionHtml(projectId, event, properties, variants, standardEventByVariantId, cardCtx);
+      return buildEventSectionHtml(projectId, event, properties, variants, standardEventByVariantId, cardCtx, publicView);
     })
   );
 
@@ -368,8 +384,8 @@ export async function generateProjectDocumentationHtml(projectId: string): Promi
   // too -- one table after the per-event sections, sharing `cardCtx` (no second findings query).
   const unattachedFindingsHtml = renderFindingsTable(buildUnattachedFindings(cardCtx), 'Open findings without an event');
 
-  const identityAndConsentHtml = buildIdentityAndConsentSectionsHtml(projectId);
-  const useCasesHtml = buildUseCasesSectionHtml(projectId);
+  const identityAndConsentHtml = buildIdentityAndConsentSectionsHtml(projectId, publicView);
+  const useCasesHtml = buildUseCasesSectionHtml(projectId, publicView);
   const requirementsMatrixHtml = renderRequirementsMatrixSection(computeRequirementsMatrix(projectId));
 
   const propertyNameByEventAndId = new Map<string, string>();

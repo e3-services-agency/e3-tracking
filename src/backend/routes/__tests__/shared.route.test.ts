@@ -15,13 +15,36 @@ import { createApp } from '../../app';
 import * as ClientDAL from '../../dal/client.dal';
 import * as ProjectDAL from '../../dal/project.dal';
 import * as EventDAL from '../../dal/event.dal';
+import * as UseCaseDAL from '../../dal/use-case.dal';
+import * as IdentityRuleDAL from '../../dal/identity-rule.dal';
 import { getFileStore } from '../../files/FileStore';
 
 let server: http.Server;
 let baseUrl: string;
+let serverPort: number;
 let tmpFilesDir: string;
 let projectId: string;
 let clientId: string;
+
+/**
+ * `fetch()`/WHATWG URL normalises/rejects some malformed inputs before a request is ever sent (see
+ * `__tests__/files.route.test.ts`'s own note on this), so the ERROR 1/WARNING 2 fix-round probes
+ * (a raw ".." segment, and every malformed-percent-escape case) need a raw socket write, not
+ * `fetch()`, to prove what the server itself does with the literal bytes on the wire.
+ */
+function rawGet(rawPath: string): Promise<{ status: number; headers: http.IncomingHttpHeaders; text: string }> {
+  return new Promise((resolve, reject) => {
+    const req = http.request({ hostname: '127.0.0.1', port: serverPort, path: rawPath, method: 'GET' }, (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, headers: res.headers, text: data }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
 
 beforeAll(async () => {
   tmpFilesDir = fs.mkdtempSync(path.join(os.tmpdir(), 'e3-shared-route-'));
@@ -38,6 +61,7 @@ beforeAll(async () => {
   server = http.createServer(app);
   await new Promise<void>((resolve) => server.listen(0, resolve));
   const { port } = server.address() as AddressInfo;
+  serverPort = port;
   baseUrl = `http://127.0.0.1:${port}`;
 });
 
@@ -231,7 +255,7 @@ describe('public GET /api/shared/:token/* (no auth headers)', () => {
     expect(await res.text()).toBe('ok');
   });
 
-  it('GET /:token/files/* rejects a ".." traversal segment', async () => {
+  it('GET /:token/files/* rejects a ".." traversal segment (raw HTTP path, no client-side normalisation)', async () => {
     const otherClient = ClientDAL.createClient({ key: 'other', name: 'Other' });
     const otherProjectId = ProjectDAL.createProject({ client_id: otherClient.id, key: 'other-proj', name: 'Other' }).id;
     const stored = await getFileStore().put(otherProjectId, 'event_trigger', 'secret.png', Buffer.from('secret'), 'image/png');
@@ -242,10 +266,48 @@ describe('public GET /api/shared/:token/* (no auth headers)', () => {
         body: JSON.stringify({ access: 'read' }),
       })
     ).json();
-    const res = await fetch(
-      `${baseUrl}/api/shared/${created.share_token}/files/${projectId}/../${stored.path}`
-    );
-    expect(res.status).not.toBe(200);
+    const res = await rawGet(`/api/shared/${created.share_token}/files/${projectId}/../${stored.path}`);
+    expect(res.status).toBe(400);
+    expect(JSON.parse(res.text).code).toBe('INVALID_PATH');
+  });
+
+  // Fix round WARNING 2 (reviewer, 2026-09-28 18:14): the plan's D-48 amendment requires an exact
+  // 400 INVALID_PATH assertion (not just "!= 200"), plus explicit encoded/absolute/malformed cases.
+  // `rawGet` (raw socket), not `fetch()`: `%2e%2e` in particular is silently dot-segment-collapsed
+  // by `fetch()`'s own WHATWG URL normalisation before the request is even sent (same caveat as the
+  // plain ".." case above), so only a raw request line proves what the server does with it.
+  it.each([
+    ['encoded dot-dot (%2e%2e)', '%2e%2e'],
+    ['encoded dot-dot-slash (..%2f)', '..%2f'],
+    ['double-encoded dot-dot (%252e%252e)', '%252e%252e'],
+    ['backslash traversal (..%5C)', '..%5C'],
+  ])('GET /:token/files/* rejects %s with 400 INVALID_PATH', async (_label, segment) => {
+    const created = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access: 'read' }),
+      })
+    ).json();
+    const res = await rawGet(`/api/shared/${created.share_token}/files/${segment}/secret.png`);
+    expect(res.status).toBe(400);
+    expect(JSON.parse(res.text).code).toBe('INVALID_PATH');
+  });
+
+  it.each([
+    ['a leading /etc/passwd', `/${encodeURIComponent('etc/passwd')}`],
+    ['a drive-letter path', encodeURIComponent('C:/secret.png')],
+  ])('GET /:token/files/* rejects an absolute path (%s) with 400 INVALID_PATH', async (_label, segment) => {
+    const created = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access: 'read' }),
+      })
+    ).json();
+    const res = await fetch(`${baseUrl}/api/shared/${created.share_token}/files/${segment}`);
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe('INVALID_PATH');
   });
 
   it('GET /:token/files/* rejects another project\'s path (not reachable through this token)', async () => {
@@ -276,5 +338,214 @@ describe('public GET /api/shared/:token/* (no auth headers)', () => {
     ProjectDAL.softDeleteProject(doomedProjectId);
     const res = await fetch(`${baseUrl}/api/shared/${created.share_token}`);
     expect(res.status).toBe(404);
+  });
+});
+
+// Fix round ERROR 1 (reviewer, 2026-09-28 18:14): a malformed percent-escape anywhere under
+// `/api/shared` used to reach Express's own `Layer.match` decode (before `requireShare` or any
+// handler ran) and bubble to `app.ts`'s global handler as a 500 with a stack trace. Every one of
+// these five inputs must now be the exact same 404 SHARE_NOT_FOUND body, with no `stack` key.
+describe('malformed percent-escapes under /api/shared (fix round ERROR 1)', () => {
+  const shareNotFoundBody = { error: 'This share link is not valid.', code: 'SHARE_NOT_FOUND' };
+
+  it.each([
+    ['GET /api/shared/%', '/api/shared/%'],
+    ['GET /api/shared/%E0%A4%A', '/api/shared/%E0%A4%A'],
+    ['GET /api/shared/%ZZ/tracking-document.json', '/api/shared/%ZZ/tracking-document.json'],
+  ])('%s -> 404 SHARE_NOT_FOUND, no stack', async (_label, rawPath) => {
+    const res = await rawGet(rawPath);
+    expect(res.status).toBe(404);
+    const body = JSON.parse(res.text);
+    expect(body).toEqual(shareNotFoundBody);
+    expect(body).not.toHaveProperty('stack');
+  });
+
+  it('GET /<valid token>/% -> 404 SHARE_NOT_FOUND, no stack (malformed escape after a valid token)', async () => {
+    const created = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access: 'read' }),
+      })
+    ).json();
+    const res = await rawGet(`/api/shared/${created.share_token}/%`);
+    expect(res.status).toBe(404);
+    const body = JSON.parse(res.text);
+    expect(body).toEqual(shareNotFoundBody);
+    expect(body).not.toHaveProperty('stack');
+  });
+
+  it('GET /<valid token>/files/% -> 404 SHARE_NOT_FOUND, no stack (malformed escape on the file wildcard)', async () => {
+    const created = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access: 'read' }),
+      })
+    ).json();
+    const res = await rawGet(`/api/shared/${created.share_token}/files/%`);
+    expect(res.status).toBe(404);
+    const body = JSON.parse(res.text);
+    expect(body).toEqual(shareNotFoundBody);
+    expect(body).not.toHaveProperty('stack');
+  });
+
+  it('the internal (authenticated) files route gets 400 INVALID_PATH for the same malformed escape, not a 500', async () => {
+    const res = await rawGet(`/api/projects/${projectId}/files/%`);
+    expect(res.status).toBe(400);
+    const body = JSON.parse(res.text);
+    expect(body.code).toBe('INVALID_PATH');
+    expect(body).not.toHaveProperty('stack');
+  });
+});
+
+describe('Cache-Control: no-store on every /api/shared response (fix round LOW 2)', () => {
+  it('is set on a 200 (valid token header)', async () => {
+    const created = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access: 'read' }),
+      })
+    ).json();
+    const res = await fetch(`${baseUrl}/api/shared/${created.share_token}`);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+  });
+
+  it('is set on a 404 (unknown token)', async () => {
+    const res = await fetch(`${baseUrl}/api/shared/not-a-real-token`);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+  });
+
+  it('is set on the tracking-document.json, documentation.html and files/* responses', async () => {
+    const stored = await getFileStore().put(projectId, 'event_trigger', 'cc.png', Buffer.from('ok'), 'image/png');
+    const created = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access: 'read' }),
+      })
+    ).json();
+    const doc = await fetch(`${baseUrl}/api/shared/${created.share_token}/tracking-document.json`);
+    expect(doc.headers.get('cache-control')).toBe('no-store');
+    const html = await fetch(`${baseUrl}/api/shared/${created.share_token}/documentation.html`);
+    expect(html.headers.get('cache-control')).toBe('no-store');
+    const file = await fetch(`${baseUrl}/api/shared/${created.share_token}/files/${stored.path}`);
+    expect(file.headers.get('cache-control')).toBe('no-store');
+  });
+});
+
+// Fix round WARNING 1 (reviewer, 2026-09-28 18:14): a non-string `access` must 400 and must not
+// rotate an existing token.
+describe('non-string access is rejected, not silently rotated (fix round WARNING 1)', () => {
+  it.each([[123], [null], [['comment']], [{}]])('POST /:id/share with access=%j -> 400, no rotation', async (access) => {
+    const before = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access: 'read' }),
+      })
+    ).json();
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/share`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ access }),
+    });
+    expect(res.status).toBe(400);
+    const after = await (await fetch(`${baseUrl}/api/projects/${projectId}/share`)).json();
+    expect(after.share_token).toBe(before.share_token);
+  });
+
+  it('PATCH /:id/share with a non-string access -> 400', async () => {
+    await fetch(`${baseUrl}/api/projects/${projectId}/share`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ access: 'read' }),
+    });
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/share`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ access: 42 }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+// Fix round LOW 1 (reviewer, 2026-09-28 18:14; D-48 amendment): the shared JSON/HTML must not carry
+// agent_instructions, owners, identity_note, bloomreach_project_url or any internal_* field; the
+// internal document/HTML are untouched.
+describe('public projection strips internal fields (fix round LOW 1, D-48 amendment)', () => {
+  it('tracking-document.json: strips project.bloomreach_project_url and per-event identity_note/owners/agent_instructions; keeps not_suitable_for; internal document is untouched', async () => {
+    await ProjectDAL.updateProject(projectId, { bloomreach_project_url: 'https://app.exponea.com/secret-console' });
+    EventDAL.createEvent(projectId, {
+      name: 'public_projection_event',
+      class: 'custom',
+      identity_note: 'internal identity note',
+      owner_business: 'Business Owner',
+      owner_technical: 'Technical Owner',
+      agent_instructions: 'Secret QA agent prompt',
+      not_suitable_for: 'Not suitable for X (client-facing)',
+    });
+    const created = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access: 'read' }),
+      })
+    ).json();
+
+    const internal = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/export/tracking-document.json`)
+    ).json();
+    const internalEvent = internal.events.find((e: { name: string }) => e.name === 'public_projection_event');
+    expect(internalEvent.identity_note).toBe('internal identity note');
+    expect(internalEvent.owners).toEqual({ business: 'Business Owner', technical: 'Technical Owner' });
+    expect(internalEvent.agent_instructions).toBe('Secret QA agent prompt');
+    expect(internal.project.bloomreach_project_url).toBe('https://app.exponea.com/secret-console');
+
+    const shared = await (
+      await fetch(`${baseUrl}/api/shared/${created.share_token}/tracking-document.json`)
+    ).json();
+    const sharedEvent = shared.events.find((e: { name: string }) => e.name === 'public_projection_event');
+    expect(sharedEvent.identity_note).toBeNull();
+    expect(sharedEvent.owners).toEqual({ business: null, technical: null });
+    expect(sharedEvent.agent_instructions).toBeNull();
+    expect(sharedEvent.not_suitable_for).toBe('Not suitable for X (client-facing)');
+    expect(shared.project.bloomreach_project_url).toBeNull();
+    expect(JSON.stringify(shared)).not.toContain('secret-console');
+    expect(JSON.stringify(shared)).not.toContain('Secret QA agent prompt');
+    expect(JSON.stringify(shared)).not.toContain('internal identity note');
+  });
+
+  it('documentation.html: strips identity rule and use case owner (public: true)', async () => {
+    IdentityRuleDAL.createIdentityRule(projectId, {
+      identifier_name: 'public_projection_email',
+      identity_type: 'hard',
+      name: 'Email identity',
+      owner: 'Identity Rule Owner Secret',
+    });
+    UseCaseDAL.createUseCase(projectId, {
+      name: 'Public projection use case',
+      owner: 'Use Case Owner Secret',
+    });
+    const created = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access: 'read' }),
+      })
+    ).json();
+
+    const internalHtml = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/export/documentation.html`)
+    ).text();
+    expect(internalHtml).toContain('Identity Rule Owner Secret');
+    expect(internalHtml).toContain('Use Case Owner Secret');
+
+    const sharedHtml = await (
+      await fetch(`${baseUrl}/api/shared/${created.share_token}/documentation.html`)
+    ).text();
+    expect(sharedHtml).not.toContain('Identity Rule Owner Secret');
+    expect(sharedHtml).not.toContain('Use Case Owner Secret');
   });
 });

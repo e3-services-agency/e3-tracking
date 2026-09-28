@@ -129,7 +129,9 @@ export function createApp(): express.Express {
     res.status(200).json({ ok: true });
   });
 
-  // Global error handler: expose error.message and error.stack in JSON so the Network tab shows the real error.
+  // Global error handler: expose error.message (and error.stack only in development, D-48 amendment
+  // fix round -- an unauthenticated caller on /api/shared/* must never see a server-path-bearing
+  // stack trace) so the Network tab shows the real error while developing.
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction): void => {
     if (res.headersSent) return;
 
@@ -148,7 +150,7 @@ export function createApp(): express.Express {
       console.error(err);
     }
     const message = err instanceof Error ? err.message : String(err);
-    const stack = err instanceof Error ? err.stack : undefined;
+    const stack = process.env.NODE_ENV === 'development' && err instanceof Error ? err.stack : undefined;
     const code =
       err instanceof ConfigError
         ? err.code

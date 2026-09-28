@@ -134,9 +134,14 @@ router.get('/:id/share', (req: Request, res: Response) => {
   }
 });
 
+// Fix round WARNING 1 (reviewer, 2026-09-28 18:14): `body.access` is passed through as-is (not
+// coerced to the 'read' default unless genuinely absent) so a non-string value (`123`, `null`,
+// `["comment"]`, `{}`) reaches `assertShareAccess` in the DAL and 400s instead of silently becoming
+// 'read' and rotating -- rotation is destructive (the old link stops working immediately), so a
+// malformed request must never fall through to a default that still does it.
 router.post('/:id/share', (req: Request, res: Response) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
-  const access = typeof body.access === 'string' ? body.access : 'read';
+  const access = body.access === undefined ? 'read' : body.access;
   const force = body.force === true || req.query.force === 'true';
   try {
     const project = ProjectDAL.createOrRotateShare(req.params.id, access, { force });
@@ -148,7 +153,7 @@ router.post('/:id/share', (req: Request, res: Response) => {
 
 router.patch('/:id/share', (req: Request, res: Response) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
-  const access = typeof body.access === 'string' ? body.access : '';
+  const access = body.access;
   try {
     const project = ProjectDAL.updateShareAccess(req.params.id, access);
     res.status(200).json(shareResponse(req, project));

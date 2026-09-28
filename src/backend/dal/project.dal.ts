@@ -548,7 +548,7 @@ function generateShareToken(): string {
  * sandbox project unless `force` (D-60). Logged as a project `update` with the token excluded from
  * the diff (`buildProjectDiffSnapshot`, D-44).
  */
-export function createOrRotateShare(id: string, access: string, options: { force?: boolean } = {}): ProjectRow {
+export function createOrRotateShare(id: string, access: unknown, options: { force?: boolean } = {}): ProjectRow {
   assertShareAccess(access);
   const before = getProjectOrThrow(id);
   if (isSandboxProject(before) && !options.force) {
@@ -579,7 +579,7 @@ export function createOrRotateShare(id: string, access: string, options: { force
 }
 
 /** Changes the access level (`read`/`comment`) of an already-active share link, without rotating the token. */
-export function updateShareAccess(id: string, access: string): ProjectRow {
+export function updateShareAccess(id: string, access: unknown): ProjectRow {
   assertShareAccess(access);
   const before = getProjectOrThrow(id);
   if (!before.share_token) {

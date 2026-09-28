@@ -44,6 +44,21 @@ describe('project.dal: share links (D-48, T-4-01)', () => {
     expect(() => ProjectDAL.createOrRotateShare(projectId, 'write')).toThrow(ValidationError);
   });
 
+  // Fix round WARNING 1 (reviewer, 2026-09-28 18:14): the DAL is the enforcement point that keeps
+  // the route honest -- a non-string access must reject before any rotation happens, not silently
+  // default to 'read'.
+  it('rejects a non-string access without rotating (number, null, array, object)', () => {
+    const before = ProjectDAL.createOrRotateShare(projectId, 'read');
+    for (const bad of [123, null, ['comment'], {}]) {
+      expect(() => ProjectDAL.createOrRotateShare(projectId, bad)).toThrow(ValidationError);
+    }
+    expect(ProjectDAL.getProjectOrThrow(projectId).share_token).toBe(before.share_token);
+
+    for (const bad of [123, null, ['comment'], {}]) {
+      expect(() => ProjectDAL.updateShareAccess(projectId, bad)).toThrow(ValidationError);
+    }
+  });
+
   it('rotating replaces the token so the old one 404s (no longer resolves)', () => {
     const first = ProjectDAL.createOrRotateShare(projectId, 'read');
     const second = ProjectDAL.createOrRotateShare(projectId, 'read');

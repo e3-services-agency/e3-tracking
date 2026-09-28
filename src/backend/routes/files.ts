@@ -3,7 +3,7 @@
  * `POST /` (multipart, field `file`, query `kind`) uploads through `FileStore.put()`.
  * `GET /*` serves a previously stored relative path through `FileStore.open()`.
  */
-import { Router, type Request, type Response } from 'express';
+import { Router, type Request, type Response, type NextFunction } from 'express';
 import multer from 'multer';
 import { getFileStore } from '../files/FileStore';
 import { handleRouteError } from './routeErrors';
@@ -59,6 +59,17 @@ router.get('/*', async (req: Request, res: Response) => {
   } catch {
     res.status(404).json({ error: 'File not found.', code: 'NOT_FOUND' });
   }
+});
+
+// Router-level error handler (reviewer FAIL, ERROR 1, 2026-09-28, folded into the internal route
+// as noted): Express's own `Layer.match` throws a `URIError` while decoding the `*` wildcard for a
+// malformed percent-escape (e.g. `%`, `%ZZ`), before this router's own handler runs -- that used to
+// fall through to `app.ts`'s global handler as a 500 `INTERNAL_ERROR`. This is an authenticated
+// route (unlike `routes/shared.ts`), so a plain 400 `INVALID_PATH` is enough; no need to hide that
+// the path itself was the problem.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+router.use((_err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  res.status(400).json({ error: 'Invalid file path.', code: 'INVALID_PATH' });
 });
 
 export default router;

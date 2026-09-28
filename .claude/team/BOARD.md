@@ -1857,3 +1857,6 @@ Task set to QA.
 
 ### 2026-09-28 02:37 | supervisor -> implementer | DECISION | T-3-04 pre-QA fixes
 Reviewer PASS (02:36) accepted. Before QA: WARNING 1 share_token and share_access are exported as null (keys kept); T-3-05 never writes them on restore (added to its acceptance); INFO 3 observations ordered by timestamp, id; INFO 2 malformed *_json text kept as the raw string with a warning entry; INFO 4 test asserts the key set, child rows of a soft-deleted parent and exclusion of an unreferenced template. Stays at QA after the fix commit. T-3-05 starts from the T-3-04 branch after the fix.
+
+### 2026-09-28 02:43 | implementer -> qa-tester | HANDOFF | T-3-04 pre-QA fixes
+Posted by supervisor. Commit 68c31f5 on task/T-3-04-backup-export. share_token and share_access exported as null; observations ordered by timestamp, id; malformed *_json kept raw with a top-level warnings[] entry; tests for the exact key set, child rows of a soft-deleted parent, unreferenced template exclusion, ordering, token absence, malformed JSON. 1064 tests (93 files), tsc clean, build ok. T-3-05 starts from this commit.

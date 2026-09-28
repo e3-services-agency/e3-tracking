@@ -2,9 +2,15 @@
  * `CommentsPanel` (D-49, T-4-04, capability 13): the one comments UI mounted both internally (event
  * editor, event card page, property editor, use case page, each requirement row) and in the shared
  * view (`src/pages/SharedProject.tsx`, on each event card, use case and requirement row). Lists
- * newest last, shows author/time/`via share` badge (internal only -- every comment shown in the
- * shared view is already "via share" by definition), a resolve toggle (internal only, D-49: no edit,
- * only resolve and delete, and delete stays on the project-wide Comments page), and an add form.
+ * newest last, shows author/time/`via share` badge (internal only -- a comment posted through a
+ * share link, not every comment shown in the shared view: D-49 amendment, fix round W2, comments are
+ * one shared thread and an internally-posted comment *is* visible through the share link by design),
+ * a resolve toggle (internal only, D-49: no edit, only resolve and delete, and delete stays on the
+ * project-wide Comments page), and an add form. Internal mode also shows a small note next to the
+ * form ("Visible to anyone with the share link") so a person posting internally knows a client can
+ * read it too -- a private note belongs in one of the internal-only fields the public tracking
+ * document projection strips (`identity_note`, `owners`, `agent_instructions`, ...), never in a
+ * comment.
  *
  * `api` picks the transport: `internal` hits `/api/projects/:id/comments` with `fetchWithAuth`;
  * `shared` hits the public `/api/shared/:token/comments` (T-4-04) with a plain `fetch` and no auth,
@@ -12,6 +18,15 @@
  * is the same rule, this is just not showing a control that would fail). The shared form's author
  * name is remembered in `localStorage['e3-share-author']` (guarded with try/catch: a private window
  * or a disabled storage API must not break the form, just not remember the name across reloads).
+ *
+ * Fix round (W1): a page mounting many panels for the same project (the shared view: one per event
+ * card, use case and requirement row; the internal use case page: one per requirement row) used to
+ * have every panel fetch its own list independently -- 62 requests on the shared view of the sandbox
+ * project, 18 on its use case page. `rows`/`onChanged` make the panel controllable: when the caller
+ * passes `rows`, the panel renders that list instead of fetching its own, and calls `onChanged()`
+ * (instead of re-fetching itself) after a successful post or resolve toggle so the *page* can
+ * refresh its one shared list and redistribute it. Single-entity pages (event editor, property
+ * editor, event card) omit both props and the panel fetches and reloads on its own, unchanged.
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { fetchWithAuth } from '@/src/lib/api';
@@ -38,6 +53,8 @@ function storeAuthor(name: string): void {
 
 export interface CommentPanelRow {
   id: string;
+  entity_type?: string;
+  entity_id?: string;
   author_name: string;
   via_share: boolean;
   body: string;
@@ -80,19 +97,32 @@ export function CommentsPanel({
   entityId,
   api,
   title = 'Comments',
+  rows: controlledRows,
+  onChanged,
 }: {
   entityType: CommentEntityType;
   entityId: string;
   api: CommentsPanelApi;
   title?: string;
+  /** Fix round W1: when given, the panel renders this list instead of fetching its own -- the
+   *  caller (a page mounting many panels) fetches the full comment list once and passes each panel
+   *  its own filtered slice. Omit for a panel that should fetch and manage its own list. */
+  rows?: CommentPanelRow[];
+  /** Fix round W1: called after a successful post or resolve toggle when `rows` is controlled, so
+   *  the page can refresh its one shared list. Ignored (the panel just reloads itself) when `rows`
+   *  is omitted. */
+  onChanged?: () => void;
 }) {
-  const [rows, setRows] = useState<CommentPanelRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const controlled = controlledRows !== undefined;
+  const [ownRows, setOwnRows] = useState<CommentPanelRow[]>([]);
+  const [loading, setLoading] = useState(!controlled);
   const [error, setError] = useState<string | null>(null);
   const [body, setBody] = useState('');
   const [authorName, setAuthorName] = useState(() => (api.mode === 'shared' ? readStoredAuthor() : ''));
   const [posting, setPosting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  const rows = controlled ? (controlledRows as CommentPanelRow[]) : ownRows;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -102,13 +132,13 @@ export function CommentsPanel({
       const data = await parseJson(res);
       if (!res.ok) {
         setError(typeof data?.error === 'string' ? data.error : 'Failed to load comments.');
-        setRows([]);
+        setOwnRows([]);
         return;
       }
-      setRows(Array.isArray(data) ? data : []);
+      setOwnRows(Array.isArray(data) ? data : []);
     } catch {
       setError('Failed to load comments.');
-      setRows([]);
+      setOwnRows([]);
     } finally {
       setLoading(false);
     }
@@ -116,8 +146,17 @@ export function CommentsPanel({
   }, [entityType, entityId, api.mode, api.mode === 'internal' ? api.projectId : api.token]);
 
   useEffect(() => {
+    if (controlled) return;
     void load();
-  }, [load]);
+  }, [controlled, load]);
+
+  const refresh = useCallback(async () => {
+    if (controlled) {
+      onChanged?.();
+      return;
+    }
+    await load();
+  }, [controlled, onChanged, load]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,7 +179,11 @@ export function CommentsPanel({
       }
       if (api.mode === 'shared') storeAuthor(authorName.trim());
       setBody('');
-      await load();
+      await refresh();
+    } catch {
+      // L4 fix round: a network failure (server down, offline) must surface, not disappear as an
+      // unhandled rejection -- the form's own state (body text) is left intact so nothing is lost.
+      setError('Failed to post comment. Check your connection and try again.');
     } finally {
       setPosting(false);
     }
@@ -160,7 +203,10 @@ export function CommentsPanel({
         setError(typeof data?.error === 'string' ? data.error : 'Failed to update comment.');
         return;
       }
-      await load();
+      await refresh();
+    } catch {
+      // L4 fix round: same as `submit` above.
+      setError('Failed to update comment. Check your connection and try again.');
     } finally {
       setBusyId(null);
     }
@@ -217,6 +263,9 @@ export function CommentsPanel({
 
       {canComment && (
         <form onSubmit={(e) => void submit(e)} className="space-y-2">
+          {api.mode === 'internal' && (
+            <p className="text-[11px] text-gray-400">Visible to anyone with the share link.</p>
+          )}
           {api.mode === 'shared' && (
             <input
               type="text"

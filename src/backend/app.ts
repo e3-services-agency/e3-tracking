@@ -35,6 +35,7 @@ import findingsRouter from './routes/findings';
 import rulesRouter from './routes/rules';
 import ruleTemplatesRouter from './routes/rule-templates';
 import historyRouter from './routes/history';
+import restoreBackupRouter from './routes/restore-backup';
 import { optionalAuth } from './middleware/auth';
 import { actorContext } from './middleware/actor';
 import { requireProject } from './middleware/project';
@@ -68,6 +69,12 @@ export function createApp(): express.Express {
   // change-log.dal.ts's recordChange sees {actor: req.userName, source: 'ui'} without any route
   // threading a value through; must run after optionalAuth so req.userName is already set.
   app.use(actorContext);
+  // T-3-05, D-45: a full JSON backup embeds every uploaded file as base64 and can be far larger
+  // than every other Bloomreach paste box; these two routes get their own 100 MB limit, mounted
+  // (with their own `express.json`) before the general 20 MB parser below so the request body is
+  // only ever read once. Unscoped (no `:projectId`): restoring creates a brand-new project.
+  app.use('/api/projects/restore-backup', express.json({ limit: '100mb' }), restoreBackupRouter);
+
   // T-2-03: default 100kb is too small for a pasted `data-manager-events.json` (the fixture alone is
   // ~360kb; a real Bloomreach project with 61+ event definitions and hundreds of properties is
   // comparable or larger) — every Bloomreach JSON paste box (D-04) shares this one body parser.

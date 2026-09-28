@@ -14,10 +14,15 @@
  * `buildSharedViewModel`/`sharedFileUrl` are exported as plain functions (no DOM) so the event
  * ordering and file-path resolution are unit-testable without `@testing-library/react`, which this
  * repo does not depend on (D-20 uses plain-Node vitest, no jsdom).
+ *
+ * T-4-04 (D-49): `CommentsPanel` is mounted on each event card (`commentsSlot`), on the use case
+ * section and on each requirement row, in `shared` mode (`{token, access: header.access}`); the add
+ * form hides itself when `access !== 'comment'` (`CommentsPanel`'s own `canComment` check).
  */
 import React, { useEffect, useState } from 'react';
 import { API_BASE } from '@/src/config/env';
 import { EventCardView, type EventCardData } from '@/src/features/events/components/EventCardView';
+import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
 import type { TrackingDocument } from '@/src/domain/document/trackingDocument';
 import { sharedFileUrl, buildSharedViewModel } from './sharedViewModel';
 
@@ -153,7 +158,13 @@ export function SharedProject({ token }: { token: string }) {
 
         {customEvents.map((event) => (
           <div key={event.id} id={`event-${event.id}`}>
-            <EventCardView card={event as unknown as EventCardData} fileUrl={fileUrl} />
+            <EventCardView
+              card={event as unknown as EventCardData}
+              fileUrl={fileUrl}
+              commentsSlot={
+                <CommentsPanel entityType="event" entityId={event.id} api={{ mode: 'shared', token, access: header.access }} />
+              }
+            />
           </div>
         ))}
 
@@ -219,8 +230,8 @@ export function SharedProject({ token }: { token: string }) {
 
         <section id="use-cases" className="bg-white rounded-lg border shadow-sm p-4">
           <h2 className="text-sm font-semibold text-gray-900 mb-3">Use cases ({doc.use_cases.length})</h2>
-          {doc.use_cases.map((uc, i) => (
-            <div key={uc.code ?? i} className="mb-4 border rounded-md p-3">
+          {doc.use_cases.map((uc) => (
+            <div key={uc.id} className="mb-4 border rounded-md p-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-semibold text-gray-800">
                   {uc.code ? `${uc.code} — ` : ''}
@@ -243,16 +254,29 @@ export function SharedProject({ token }: { token: string }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {uc.requirements.map((r, j) => (
-                      <tr key={j}>
-                        <td className="px-3 py-2">{r.target_label}</td>
-                        <td className="px-3 py-2">{r.level}</td>
-                        <td className="px-3 py-2">{r.status ?? '—'}</td>
-                      </tr>
+                    {uc.requirements.map((r) => (
+                      <React.Fragment key={r.id}>
+                        <tr>
+                          <td className="px-3 py-2">{r.target_label}</td>
+                          <td className="px-3 py-2">{r.level}</td>
+                          <td className="px-3 py-2">{r.status ?? '—'}</td>
+                        </tr>
+                        <tr>
+                          <td colSpan={3} className="px-3 pb-2">
+                            <CommentsPanel
+                              entityType="requirement"
+                              entityId={r.id}
+                              api={{ mode: 'shared', token, access: header.access }}
+                              title="Comments on this requirement"
+                            />
+                          </td>
+                        </tr>
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>
               )}
+              <CommentsPanel entityType="use_case" entityId={uc.id} api={{ mode: 'shared', token, access: header.access }} />
             </div>
           ))}
           {doc.use_cases.length === 0 && <p className="text-sm text-gray-500">No use cases defined.</p>}

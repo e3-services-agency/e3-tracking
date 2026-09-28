@@ -62,6 +62,7 @@
 import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn } from '../db/util';
 import { ConflictError, NotFoundError, TemplateInUseError, UseCaseCodeTakenError, ValidationError } from '../errors';
+import { normalizeHttpUrl } from './urlValidation';
 import { USE_CASE_TYPES, REQUIREMENT_LEVELS, REQUIREMENT_TARGET_KINDS, type UseCaseType } from '../../domain/enums';
 import { createUseCase, type UseCaseRow } from './use-case.dal';
 import {
@@ -257,9 +258,9 @@ export function createUseCaseTemplate(input: UseCaseTemplateInput): UseCaseTempl
     prerequisites_json: toJsonColumn(input.prerequisites_json ?? []),
     expected_assets_json: toJsonColumn(input.expected_assets_json ?? []),
     source_json: input.source_json ? toJsonColumn(input.source_json) : null,
-    documentation_url: input.documentation_url?.trim() || null,
+    documentation_url: normalizeHttpUrl(input.documentation_url, 'documentation_url'),
     internal_notes: input.internal_notes?.trim() || null,
-    internal_url: input.internal_url?.trim() || null,
+    internal_url: normalizeHttpUrl(input.internal_url, 'internal_url'),
     created_at: now,
     updated_at: now,
   });
@@ -289,9 +290,9 @@ export function updateUseCaseTemplate(id: string, input: Partial<UseCaseTemplate
   if (input.prerequisites_json !== undefined) patch.prerequisites_json = toJsonColumn(input.prerequisites_json ?? []);
   if (input.expected_assets_json !== undefined) patch.expected_assets_json = toJsonColumn(input.expected_assets_json ?? []);
   if (input.source_json !== undefined) patch.source_json = input.source_json ? toJsonColumn(input.source_json) : null;
-  if (input.documentation_url !== undefined) patch.documentation_url = input.documentation_url?.trim() || null;
+  if (input.documentation_url !== undefined) patch.documentation_url = normalizeHttpUrl(input.documentation_url, 'documentation_url');
   if (input.internal_notes !== undefined) patch.internal_notes = input.internal_notes?.trim() || null;
-  if (input.internal_url !== undefined) patch.internal_url = input.internal_url?.trim() || null;
+  if (input.internal_url !== undefined) patch.internal_url = normalizeHttpUrl(input.internal_url, 'internal_url');
 
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
@@ -403,7 +404,16 @@ function resolveEntry(projectId: string, entry: DefaultRequirementTemplate): Res
 
   if (entry.target_kind === 'catalog_attribute') {
     if (!entry.field_name) return unresolvedOutcome('Template requirement is missing field_name.');
-    const field = findMainCatalogFieldByName(projectId, entry.field_name);
+    // D-57 amendment (fix round WARNING 7): `item_id` and `product_id` name the same main-catalog
+    // id field under two conventions (Bloomreach's own main column is `item_id`; the pnp_usecase
+    // corpus and most clients say `product_id`) -- an exact-name miss on one retries the other
+    // before giving up, so a project using either spelling still resolves.
+    const CATALOG_FIELD_ALIASES: Record<string, string> = { product_id: 'item_id', item_id: 'product_id' };
+    const field =
+      findMainCatalogFieldByName(projectId, entry.field_name) ??
+      (CATALOG_FIELD_ALIASES[entry.field_name]
+        ? findMainCatalogFieldByName(projectId, CATALOG_FIELD_ALIASES[entry.field_name])
+        : null);
     if (!field) {
       return unresolvedOutcome(
         `No field named "${entry.field_name}" on this project's main catalog (or the project has no main catalog).`

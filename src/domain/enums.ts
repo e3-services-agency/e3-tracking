@@ -251,9 +251,10 @@ export const USE_CASE_LIBRARY_VERSION = 1;
 // values outside these lists are never rejected -- the parser warns and keeps parsing (D-57: "unknown
 // values import with a warning, never an error"); these arrays only drive the templates page's facet
 // filter bar and are not a closed constraint on what a template file may contain.
-// D-59: `weblayers` is the literal Use Case Center token (one word); kept alongside the
-// pre-existing `web_layers` rather than renamed, since a hand-authored template (T-4-07) may
-// already use the old spelling and both are "kept with a warning" if wrong, never rejected.
+// D-59 fix round (WARNING 3): `weblayers` is the literal, single Use Case Center token (one
+// word) -- the older `web_layers` is removed so the templates page's facet filter never shows two
+// chips for the same channel; `scripts/build-ucc-library.mjs` rewrites every hand-authored
+// template's `web_layers` tag to `weblayers` when it regenerates the seed.
 export const LIBRARY_CHANNELS = [
   'email',
   'sms',
@@ -261,7 +262,6 @@ export const LIBRARY_CHANNELS = [
   'mobile_push',
   'ad_audiences',
   'whatsapp',
-  'web_layers',
   'weblayers',
   'rcs',
   'no_channel',
@@ -304,16 +304,36 @@ export type LibraryKpi = (typeof LIBRARY_KPIS)[number];
 export const LIBRARY_SOURCE_KINDS = ['pnp_usecase', 'docs'] as const;
 export type LibrarySourceKind = (typeof LIBRARY_SOURCE_KINDS)[number];
 
-/** D-59: `expected_assets[].type`, the Bloomreach asset kind a template's `fulfillments` describe. Free-form beyond this suggested list is accepted (same "kept with a warning" policy as the tag vocabularies). */
+/**
+ * D-59 fix round (WARNING 4, D-59 amendment 3): `expected_assets[].type`, the Bloomreach asset
+ * kind a template's `fulfillments` describe -- the 18 `item_reference.type` values that actually
+ * occur across the 98-file `samples/br-pnp/` corpus (counts at fix time: event_segmentation 70,
+ * dashboard 80, campaign_design 65, banner 44, segmentation 39, report 29, recommendation_engine
+ * 22, aggregate 22, email_block 18, survey 9, metric 6, managed_tag 5, autosegment 3, prediction 2,
+ * expression 2, snippet 2, funnel 1, media_file 1). Suggested, not enforced (same "kept with a
+ * warning" policy as the tag vocabularies) -- `campaign_design` is this list's name for what D-56's
+ * `USE_CASE_ASSET_TYPES` (T-4-06, `use_cases.assets_json`) calls `scenario`; T-4-06 aligns its own
+ * list to this one, aliasing `campaign_design` -> `scenario` when it consumes `expected_assets`.
+ */
 export const LIBRARY_ASSET_TYPES = [
-  'campaign_design',
-  'recommendation_engine',
+  'event_segmentation',
   'dashboard',
-  'email_block',
-  'scenario',
+  'campaign_design',
+  'banner',
   'segmentation',
-  'weblayer',
-  'other',
+  'report',
+  'recommendation_engine',
+  'aggregate',
+  'email_block',
+  'survey',
+  'metric',
+  'managed_tag',
+  'autosegment',
+  'prediction',
+  'expression',
+  'snippet',
+  'funnel',
+  'media_file',
 ] as const;
 export type LibraryAssetType = (typeof LIBRARY_ASSET_TYPES)[number];
 

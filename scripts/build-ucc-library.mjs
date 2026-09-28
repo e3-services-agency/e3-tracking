@@ -4,11 +4,18 @@
  * from `.claude/team/samples/br-pnp/*.json` (the real Bloomreach Use Case Center exports) through
  * `src/domain/import/pnpUseCase.ts#convertPnpUseCases`, one template per file.
  *
- * A hand-authored template from T-4-07 (already in the target file, `source.kind` absent) is kept
- * only when no pnp export matches it by *normalised* name (case-insensitive, punctuation collapsed
- * to spaces) -- the hand-authored format has no `documentation_link` field of its own, so name is
- * the only signal available. A kept template is marked `source: {kind: 'docs'}`; every other field
- * is left as written. Run with `npx tsx scripts/build-ucc-library.mjs` (no build step needed).
+ * A hand-authored template from T-4-07 (already in the target file, `source.kind` absent or
+ * `'docs'`) is dropped when a pnp export matches it either by *normalised* name (case-insensitive,
+ * punctuation collapsed to spaces) or by documentation-link page slug (D-59, reviewer FAIL
+ * 2026-09-28 17:12, ERROR 1: name matching alone missed nine pairs where the hand-authored title
+ * and the pnp title differ in wording -- "&" vs "and", a pnp typo ("Caroussel"), or an unrelated
+ * paraphrase -- but both describe the same Bloomreach documentation page). The hand-authored format
+ * has no `documentation_link` field of its own, so the nine known page slugs below were identified
+ * by hand (reviewer cross-check against `documentation.bloomreach.com/engagement/docs/<slug>` for
+ * each of the ten templates that survived the first, name-only pass); only `UCC-email-18`
+ * (reactivation campaign for disengaged subscribers) has no matching pnp export. A kept template is
+ * marked `source: {kind: 'docs'}`; every other field is left as written. Run with
+ * `npx tsx scripts/build-ucc-library.mjs` (no build step needed).
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -23,8 +30,27 @@ const OUT_LIBRARY = path.join(ROOT, '.claude/team/samples/use-case-library-ucc.j
 const OUT_DOCS = path.join(ROOT, 'docs/LIBRARY.md');
 
 function normalizeName(name) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  return name.toLowerCase().replace(/[^a-z0-9&]+/g, ' ').replace(/&/g, ' and ').replace(/\s+/g, ' ').trim();
 }
+
+function docSlugOf(url) {
+  if (!url) return null;
+  const parts = url.split('/').filter(Boolean);
+  return parts[parts.length - 1] ?? null;
+}
+
+/** D-59 fix round ERROR 1: known page slugs for the ten hand-authored templates that survived name matching. */
+const HAND_AUTHORED_DOC_SLUGS = {
+  'UCC-ANALYTICS-08': 'key-customer-segments-and-insights-dashboard',
+  'UCC-ANALYTICS-10': 'subscriber-and-unsubscriber-monitoring-dashboard',
+  'UCC-ANALYTICS-12': 'rfm-segmentation',
+  'UCC-EMAIL-19': 'reactivation-campaign-for-lapsing-and-lapsed',
+  'UCC-MOBILE-08': 'sms-subscription-with-email-collection',
+  'UCC-OMNI-05': 'product-expiration-reminder',
+  'UCC-WEB-15': 'global-and-product-specific-badges',
+  'UCC-WEB-24': 'recommendations-carousel-banner',
+  'UCC-WEB-28': 'zero-party-data-banner',
+};
 
 function main() {
   const pnpFiles = fs.readdirSync(PNP_DIR).filter((f) => f.endsWith('.json')).sort();
@@ -38,18 +64,31 @@ function main() {
   }
 
   const pnpNames = new Set(pnpTemplates.map((t) => normalizeName(t.name)));
+  const pnpSlugs = new Set(pnpTemplates.map((t) => docSlugOf(t.documentation_url)).filter(Boolean));
 
   const existing = JSON.parse(fs.readFileSync(OUT_LIBRARY, 'utf-8'));
   const existingModel = parseUseCaseLibrary(existing);
-  const keptHandAuthored = existingModel.templates
-    .filter((t) => !pnpNames.has(normalizeName(t.name)))
+  // Only ever consider *hand-authored* templates as candidates to keep -- re-running this script
+  // against its own previous output must never re-derive a pnp-sourced template as "hand-authored".
+  const handAuthoredCandidates = existingModel.templates.filter((t) => t.source?.kind !== 'pnp_usecase');
+  const keptHandAuthored = handAuthoredCandidates
+    .filter((t) => {
+      if (pnpNames.has(normalizeName(t.name))) return false;
+      // Case-insensitive: `t.code` in the file is mixed-case (e.g. `UCC-analytics-10`), the map
+      // keys are upper-cased for readability.
+      const knownSlug = HAND_AUTHORED_DOC_SLUGS[t.code.toUpperCase()];
+      if (knownSlug && pnpSlugs.has(knownSlug)) return false;
+      return true;
+    })
     .map((t) => ({
       code: t.code,
       name: t.name,
       type: t.type,
       description: t.description,
       narrative_template: t.narrative_template,
-      tags: t.tags,
+      // D-59 fix round (WARNING 3): rewrite the old two-word token to the single Use Case Center
+      // token so the templates page never shows two chips for one channel.
+      tags: { ...t.tags, channels: t.tags.channels.map((c) => (c === 'web_layers' ? 'weblayers' : c)) },
       flags: t.flags,
       default_requirements: t.default_requirements,
       prerequisites: [],
@@ -60,7 +99,7 @@ function main() {
       internal_url: null,
     }));
 
-  const droppedCount = existingModel.templates.length - keptHandAuthored.length;
+  const droppedCount = handAuthoredCandidates.length - keptHandAuthored.length;
 
   const allTemplates = [...pnpTemplates, ...keptHandAuthored].sort((a, b) => a.code.localeCompare(b.code));
   const codes = new Set();

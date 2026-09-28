@@ -806,7 +806,7 @@
         }
       ],
       "prerequisites": [
-        "Data History: The metrics are calculated correctly only if enough data is available in the project. Therefore the minimal required expiration is: : campaign event - 1 month   : session_start - 1 month: purchase - forever, or at least last 2-3 years: consent - forever"
+        "Data History: The metrics are calculated correctly only if enough data is available in the project. Therefore the minimal required expiration is:: campaign event - 1 month: session_start - 1 month: purchase - forever, or at least last 2-3 years: consent - forever"
       ],
       "expected_assets": [
         {
@@ -1124,7 +1124,7 @@
         "Requires an email integration configured in Bloomreach.",
         "purchase.purchase_source_type must additionally satisfy \"in\" (not modelled as a variant here; verify manually).",
         "Discount Tracking in the Purchase Event — # purchases w/ discount code used: This aggregate uses 'discount_value' and 'voucher_code' to identify discounted purchases. If your project tracks this data differently, open the aggregate and adjust it to match your tracking setup. — # purchases w/o discount code used: This aggregate uses 'discount_value' and 'voucher_code' to identify non-discounted purchases. If your project tracks this data differently, open the aggregate and adjust it to match your tracking setup. — Metric 'Total Attributed Purchases (= voucher used)': The metric uses 'voucher_code' to identify non-discounted purchases. If your project tracks this data differently, open the metric and adjust it to match your tracking setup.",
-        "Catalog with Store Locations — Creation of store_locations catalog : Upload a store_locations catalog with all active stores. Ensure the location fields match your customer data so the use case can link customers to the correct store.",
+        "Catalog with Store Locations — Creation of store_locations catalog: Upload a store_locations catalog with all active stores. Ensure the location fields match your customer data so the use case can link customers to the correct store.",
         "Online vs. Store Purchase Data — Purchase_source_type Tracking: To evaluate the campaign, track purchase_source_type = online/store in the purchase event to measure the impact of the online-offline use case."
       ],
       "expected_assets": [
@@ -1295,6 +1295,7 @@
         {
           "target_kind": "event_property",
           "event_name": "cart_update",
+          "standard_event": "add_to_cart",
           "property_name": "product_list",
           "level": "O"
         },
@@ -1861,18 +1862,21 @@
         {
           "target_kind": "event_property",
           "event_name": "cart_update",
+          "standard_event": "add_to_cart",
           "property_name": "product_list",
           "level": "O"
         },
         {
           "target_kind": "event_property",
           "event_name": "cart_update",
+          "standard_event": "add_to_cart",
           "property_name": "product_id",
           "level": "O"
         },
         {
           "target_kind": "event_property",
           "event_name": "cart_update",
+          "standard_event": "add_to_cart",
           "property_name": "total_quantity",
           "level": "O"
         },
@@ -1998,6 +2002,7 @@
         {
           "target_kind": "event_property",
           "event_name": "cart_update",
+          "standard_event": "add_to_cart",
           "property_name": "product_list",
           "level": "O"
         },
@@ -3354,6 +3359,7 @@
         {
           "target_kind": "event_property",
           "event_name": "cart_update",
+          "standard_event": "add_to_cart",
           "property_name": "product_id",
           "level": "O"
         },
@@ -3454,6 +3460,7 @@
         {
           "target_kind": "event_property",
           "event_name": "cart_update",
+          "standard_event": "add_to_cart",
           "property_name": "price",
           "level": "O"
         },
@@ -4228,6 +4235,7 @@
         {
           "target_kind": "event_property",
           "event_name": "cart_update",
+          "standard_event": "add_to_cart",
           "property_name": "product_list",
           "level": "O"
         },
@@ -5556,7 +5564,7 @@
       "prerequisites": [
         "Requires an email integration configured in Bloomreach.",
         "Catalog \"products\" is expected to be the project's main catalog.",
-        "Tracking Prerequisities — Product Catalog: The product_id values of purchase_item event in Data Manger need to match the product_id in the product catalog. ",
+        "Tracking Prerequisities — Product Catalog: The product_id values of purchase_item event in Data Manger need to match the product_id in the product catalog.",
         "Requires the project's main catalog to be configured."
       ],
       "expected_assets": [
@@ -5638,6 +5646,7 @@
         {
           "target_kind": "event_property",
           "event_name": "cart_update",
+          "standard_event": "add_to_cart",
           "property_name": "product_list",
           "level": "O"
         },
@@ -6706,6 +6715,7 @@
         {
           "target_kind": "event_property",
           "event_name": "cart_update",
+          "standard_event": "add_to_cart",
           "property_name": "product_id",
           "level": "O"
         },
@@ -6888,7 +6898,7 @@
       "prerequisites": [
         "Email as hard_id — Strong Requirement: This use case will only work if the hard ID in your project is the email.",
         "Requires an email integration configured in Bloomreach.",
-        "Voucher pool called 'vouchers'  — Strong Requirement: To ensure this use case works correctly, it is mandatory to have a voucher pool named 'vouchers'. This pool is required for proper voucher assignment. If the pool does not exist, the use case cannot be downloaded or function as expected. Please create the voucher pool beforehand to proceed with the download smoothly.",
+        "Voucher pool called 'vouchers' — Strong Requirement: To ensure this use case works correctly, it is mandatory to have a voucher pool named 'vouchers'. This pool is required for proper voucher assignment. If the pool does not exist, the use case cannot be downloaded or function as expected. Please create the voucher pool beforehand to proceed with the download smoothly.",
         "Tracked voucher_code in Purchase Event — Recommended Requirement: For this use case to work correctly and entirely, it is mandatory to track the voucher code under the purchase event. This condition is necessary for accurate purchase attribution in analytics and to determine whether the referee has made their first purchase through the 'Refer a Friend' campaign. However, if you do not track the voucher code, the use case might still work, but you will need to adjust flows 5 and 6 in the scenario, which requires advanced skills."
       ],
       "expected_assets": [
@@ -7955,183 +7965,6 @@
       "internal_url": null
     },
     {
-      "code": "UCC-analytics-08",
-      "name": "Key customer segments and insights dashboard",
-      "type": "marketing",
-      "description": "Reports the size and behaviour of key customer segments (for example by purchase frequency or recency) built from purchase history. Segment definitions are a Bloomreach analytics asset; only the underlying purchase events are tracking requirements.",
-      "narrative_template": "Report the size and behaviour of key customer segments built from purchase history.",
-      "tags": {
-        "channels": [
-          "no_channel"
-        ],
-        "goals": [
-          "analyze_data"
-        ],
-        "tiers": [
-          "essentials"
-        ],
-        "kpis": [
-          "purchase_frequency"
-        ],
-        "industries": [
-          "ecommerce"
-        ]
-      },
-      "flags": {
-        "new": false,
-        "popular": false
-      },
-      "default_requirements": [
-        {
-          "target_kind": "variant",
-          "level": "R",
-          "standard_event": "purchase",
-          "condition": {
-            "property_name": "purchase_status",
-            "value": "success"
-          }
-        },
-        {
-          "target_kind": "variant_property",
-          "level": "R",
-          "standard_event": "purchase",
-          "property_name": "purchase_id",
-          "condition": {
-            "property_name": "purchase_status",
-            "value": "success"
-          }
-        },
-        {
-          "target_kind": "customer_property",
-          "level": "R",
-          "property_name": "email"
-        }
-      ],
-      "prerequisites": [],
-      "expected_assets": [],
-      "source": {
-        "kind": "docs"
-      },
-      "documentation_url": null,
-      "internal_notes": null,
-      "internal_url": null
-    },
-    {
-      "code": "UCC-analytics-10",
-      "name": "Subscriber and unsubscriber monitoring dashboard",
-      "type": "marketing",
-      "description": "Tracks newsletter subscriber growth and unsubscribe trends over time, based on the newsletter consent state. The trend visualization is a Bloomreach analytics asset.",
-      "narrative_template": "Report newsletter subscriber growth and unsubscribe trends.",
-      "tags": {
-        "channels": [
-          "email"
-        ],
-        "goals": [
-          "analyze_data"
-        ],
-        "tiers": [
-          "essentials"
-        ],
-        "kpis": [
-          "active_subscribers"
-        ],
-        "industries": [
-          "ecommerce"
-        ]
-      },
-      "flags": {
-        "new": false,
-        "popular": false
-      },
-      "default_requirements": [
-        {
-          "target_kind": "customer_property",
-          "level": "R",
-          "property_name": "email"
-        },
-        {
-          "target_kind": "consent",
-          "level": "R",
-          "property_name": "newsletter"
-        }
-      ],
-      "prerequisites": [],
-      "expected_assets": [],
-      "source": {
-        "kind": "docs"
-      },
-      "documentation_url": null,
-      "internal_notes": null,
-      "internal_url": null
-    },
-    {
-      "code": "UCC-analytics-12",
-      "name": "RFM customer segmentation",
-      "type": "marketing",
-      "description": "Segments all customers with at least one successful purchase by recency, frequency and monetary value into a best-practice RFM segment (Champions, Loyal, At risk, and so on), stored as a customer property. The score computation and segment-table lookup are a Bloomreach scenario and 18 supporting customer attributes outside tracking; only the qualifying purchase itself is a tracking requirement.",
-      "narrative_template": "For every customer with at least one successful purchase, compute and store an RFM segment on their profile.",
-      "tags": {
-        "channels": [
-          "no_channel"
-        ],
-        "goals": [
-          "analyze_data"
-        ],
-        "tiers": [
-          "essentials"
-        ],
-        "kpis": [
-          "cltv"
-        ],
-        "industries": [
-          "ecommerce"
-        ]
-      },
-      "flags": {
-        "new": false,
-        "popular": false
-      },
-      "default_requirements": [
-        {
-          "target_kind": "variant",
-          "level": "R",
-          "standard_event": "purchase",
-          "condition": {
-            "property_name": "purchase_status",
-            "value": "success"
-          }
-        },
-        {
-          "target_kind": "variant_property",
-          "level": "R",
-          "standard_event": "purchase",
-          "property_name": "purchase_status",
-          "condition": {
-            "property_name": "purchase_status",
-            "value": "success"
-          }
-        },
-        {
-          "target_kind": "variant_property",
-          "level": "R",
-          "standard_event": "purchase",
-          "property_name": "total_price",
-          "condition": {
-            "property_name": "purchase_status",
-            "value": "success"
-          }
-        }
-      ],
-      "prerequisites": [],
-      "expected_assets": [],
-      "source": {
-        "kind": "docs"
-      },
-      "documentation_url": null,
-      "internal_notes": null,
-      "internal_url": null
-    },
-    {
       "code": "UCC-email-18",
       "name": "Reactivation campaign for disengaged email subscribers",
       "type": "marketing",
@@ -8177,342 +8010,6 @@
             "property_name": "purchase_status",
             "value": "success"
           }
-        }
-      ],
-      "prerequisites": [],
-      "expected_assets": [],
-      "source": {
-        "kind": "docs"
-      },
-      "documentation_url": null,
-      "internal_notes": null,
-      "internal_url": null
-    },
-    {
-      "code": "UCC-email-19",
-      "name": "Reactivation campaign for lapsing and lapsed customers",
-      "type": "marketing",
-      "description": "Sends a reactivation email to customers who have not purchased in a defined period, split into lapsing and lapsed segments by purchase recency. Segmentation runs in a Bloomreach evaluation outside tracking.",
-      "narrative_template": "When a customer's time since their last purchase crosses the lapsing or lapsed threshold, send a reactivation email.",
-      "tags": {
-        "channels": [
-          "email"
-        ],
-        "goals": [
-          "increase_retention"
-        ],
-        "tiers": [
-          "essentials"
-        ],
-        "kpis": [
-          "active_subscribers"
-        ],
-        "industries": [
-          "ecommerce"
-        ]
-      },
-      "flags": {
-        "new": false,
-        "popular": false
-      },
-      "default_requirements": [
-        {
-          "target_kind": "variant",
-          "level": "R",
-          "standard_event": "purchase",
-          "condition": {
-            "property_name": "purchase_status",
-            "value": "success"
-          }
-        },
-        {
-          "target_kind": "variant_property",
-          "level": "R",
-          "standard_event": "purchase",
-          "property_name": "purchase_id",
-          "condition": {
-            "property_name": "purchase_status",
-            "value": "success"
-          }
-        },
-        {
-          "target_kind": "customer_property",
-          "level": "R",
-          "property_name": "email"
-        },
-        {
-          "target_kind": "consent",
-          "level": "R",
-          "property_name": "newsletter"
-        }
-      ],
-      "prerequisites": [],
-      "expected_assets": [],
-      "source": {
-        "kind": "docs"
-      },
-      "documentation_url": null,
-      "internal_notes": null,
-      "internal_url": null
-    },
-    {
-      "code": "UCC-mobile-08",
-      "name": "SMS subscription with email collection",
-      "type": "marketing",
-      "description": "Collects both an SMS opt-in and an email address in one banner flow, maximizing addressable channels from a single interaction. Banner flow logic runs in the Bloomreach web layer outside tracking.",
-      "narrative_template": "For a visitor without SMS or newsletter consent, show a banner collecting both.",
-      "tags": {
-        "channels": [
-          "web_layers",
-          "sms",
-          "email"
-        ],
-        "goals": [
-          "grow_database"
-        ],
-        "tiers": [
-          "essentials"
-        ],
-        "kpis": [
-          "active_subscribers"
-        ],
-        "industries": [
-          "ecommerce",
-          "retail"
-        ]
-      },
-      "flags": {
-        "new": false,
-        "popular": false
-      },
-      "default_requirements": [
-        {
-          "target_kind": "customer_property",
-          "level": "R",
-          "property_name": "phone"
-        },
-        {
-          "target_kind": "customer_property",
-          "level": "R",
-          "property_name": "email"
-        },
-        {
-          "target_kind": "consent",
-          "level": "R",
-          "property_name": "sms"
-        },
-        {
-          "target_kind": "consent",
-          "level": "O",
-          "property_name": "newsletter"
-        }
-      ],
-      "prerequisites": [],
-      "expected_assets": [],
-      "source": {
-        "kind": "docs"
-      },
-      "documentation_url": null,
-      "internal_notes": null,
-      "internal_url": null
-    },
-    {
-      "code": "UCC-omni-05",
-      "name": "Product expiration reminder",
-      "type": "marketing",
-      "description": "Reminds a customer that a purchased product (for example a subscription, warranty or perishable item) is approaching expiration, using the purchase date and product_id. Expiration-window configuration per product runs in Bloomreach outside tracking.",
-      "narrative_template": "As a purchased product approaches its expiration window, send a reminder on the customer's consented channel.",
-      "tags": {
-        "channels": [
-          "email",
-          "sms"
-        ],
-        "goals": [
-          "increase_retention"
-        ],
-        "tiers": [
-          "advanced"
-        ],
-        "kpis": [
-          "purchase_frequency"
-        ],
-        "industries": [
-          "ecommerce",
-          "retail"
-        ]
-      },
-      "flags": {
-        "new": false,
-        "popular": false
-      },
-      "default_requirements": [
-        {
-          "target_kind": "variant",
-          "level": "R",
-          "standard_event": "purchase",
-          "condition": {
-            "property_name": "purchase_status",
-            "value": "success"
-          }
-        },
-        {
-          "target_kind": "event_property",
-          "level": "R",
-          "standard_event": "purchase_item",
-          "property_name": "product_id"
-        },
-        {
-          "target_kind": "customer_property",
-          "level": "R",
-          "property_name": "email"
-        },
-        {
-          "target_kind": "consent",
-          "level": "O",
-          "property_name": "sms"
-        }
-      ],
-      "prerequisites": [],
-      "expected_assets": [],
-      "source": {
-        "kind": "docs"
-      },
-      "documentation_url": null,
-      "internal_notes": null,
-      "internal_url": null
-    },
-    {
-      "code": "UCC-web-15",
-      "name": "Global and product-specific badges",
-      "type": "marketing",
-      "description": "Shows trust or promotional badges site-wide or on specific product pages. The page requires the catalog's item_id plus custom boolean badge columns configured per client (for example a bestseller or eco flag); those custom columns are not expressible as a standard catalog field here and stay a Bloomreach Data Manager configuration step. Badge design itself is a web layer element outside tracking.",
-      "narrative_template": "When a viewed product's catalog attributes match a badge rule, show the matching badge.",
-      "tags": {
-        "channels": [
-          "web_layers"
-        ],
-        "goals": [
-          "drive_traffic"
-        ],
-        "tiers": [
-          "advanced"
-        ],
-        "kpis": [
-          "conversion_rate"
-        ],
-        "industries": [
-          "ecommerce",
-          "retail"
-        ]
-      },
-      "flags": {
-        "new": false,
-        "popular": false
-      },
-      "default_requirements": [
-        {
-          "target_kind": "catalog_attribute",
-          "level": "R",
-          "field_name": "item_id"
-        },
-        {
-          "target_kind": "event",
-          "level": "O",
-          "standard_event": "view_item"
-        }
-      ],
-      "prerequisites": [],
-      "expected_assets": [],
-      "source": {
-        "kind": "docs"
-      },
-      "documentation_url": null,
-      "internal_notes": null,
-      "internal_url": null
-    },
-    {
-      "code": "UCC-web-24",
-      "name": "Recommendations carousel banner",
-      "type": "marketing",
-      "description": "Shows a carousel banner of personalized product recommendations based on a visitor's browsing and purchase history. The recommendation engine runs outside tracking.",
-      "narrative_template": "For a visitor with browsing history, show a recommendations carousel banner.",
-      "tags": {
-        "channels": [
-          "web_layers"
-        ],
-        "goals": [
-          "drive_traffic"
-        ],
-        "tiers": [
-          "essentials"
-        ],
-        "kpis": [
-          "revenue_per_visitor"
-        ],
-        "industries": [
-          "ecommerce",
-          "retail"
-        ]
-      },
-      "flags": {
-        "new": false,
-        "popular": false
-      },
-      "default_requirements": [
-        {
-          "target_kind": "event",
-          "level": "R",
-          "standard_event": "view_item"
-        },
-        {
-          "target_kind": "event_property",
-          "level": "R",
-          "standard_event": "view_item",
-          "property_name": "product_id"
-        }
-      ],
-      "prerequisites": [],
-      "expected_assets": [],
-      "source": {
-        "kind": "docs"
-      },
-      "documentation_url": null,
-      "internal_notes": null,
-      "internal_url": null
-    },
-    {
-      "code": "UCC-web-28",
-      "name": "Zero-party data banner",
-      "type": "marketing",
-      "description": "Shows a banner that asks a visitor a single preference question to collect zero-party data used for later personalization. The collected preference is stored on the customer profile outside tracking's event model.",
-      "narrative_template": "For an eligible visitor, show a banner collecting one piece of zero-party preference data.",
-      "tags": {
-        "channels": [
-          "web_layers"
-        ],
-        "goals": [
-          "acquire_customers"
-        ],
-        "tiers": [
-          "essentials"
-        ],
-        "kpis": [
-          "revenue_per_visitor"
-        ],
-        "industries": [
-          "ecommerce",
-          "retail"
-        ]
-      },
-      "flags": {
-        "new": false,
-        "popular": false
-      },
-      "default_requirements": [
-        {
-          "target_kind": "customer_property",
-          "level": "O",
-          "property_name": "email"
         }
       ],
       "prerequisites": [],
@@ -8930,6 +8427,7 @@
         {
           "target_kind": "event_property",
           "event_name": "cart_update",
+          "standard_event": "add_to_cart",
           "property_name": "product_ids",
           "level": "O"
         },

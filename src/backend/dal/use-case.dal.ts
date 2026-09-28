@@ -9,6 +9,7 @@
 import { getDb } from '../db';
 import { newId, nowIso, mapWriteError } from '../db/util';
 import { NotFoundError, ValidationError } from '../errors';
+import { normalizeHttpUrl } from './urlValidation';
 import {
   USE_CASE_TYPES,
   USE_CASE_STATUSES,
@@ -181,9 +182,9 @@ export function createUseCase(projectId: string, input: UseCaseInput): UseCaseRo
         narrative: input.narrative ? normalizeNarrativeLineEndings(input.narrative.trim()) || null : null,
         narrative_generated_at: null,
         sort_order: input.sort_order ?? maxOrder + 1,
-        documentation_url: input.documentation_url?.trim() || null,
+        documentation_url: normalizeHttpUrl(input.documentation_url, 'documentation_url'),
         internal_notes: input.internal_notes?.trim() || null,
-        internal_url: input.internal_url?.trim() || null,
+        internal_url: normalizeHttpUrl(input.internal_url, 'internal_url'),
         created_at: now,
         updated_at: now,
       });
@@ -246,9 +247,9 @@ export function updateUseCase(projectId: string, id: string, updates: Partial<Us
     patch.narrative_edited_at = nowIso();
   }
   if (updates.sort_order !== undefined) patch.sort_order = updates.sort_order;
-  if (updates.documentation_url !== undefined) patch.documentation_url = updates.documentation_url?.trim() || null;
+  if (updates.documentation_url !== undefined) patch.documentation_url = normalizeHttpUrl(updates.documentation_url, 'documentation_url');
   if (updates.internal_notes !== undefined) patch.internal_notes = updates.internal_notes?.trim() || null;
-  if (updates.internal_url !== undefined) patch.internal_url = updates.internal_url?.trim() || null;
+  if (updates.internal_url !== undefined) patch.internal_url = normalizeHttpUrl(updates.internal_url, 'internal_url');
 
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)

@@ -450,7 +450,20 @@ export function UseCaseTemplates() {
                         {t.code}
                       </button>
                     </td>
-                    <td className="px-4 py-2 font-medium text-gray-900">{t.name}</td>
+                    <td className="px-4 py-2 font-medium text-gray-900">
+                      {t.name}
+                      {t.documentation_url && (
+                        <a
+                          href={t.documentation_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-2 text-xs font-normal text-blue-600 hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {t.source_json?.kind === 'pnp_usecase' ? 'Bloomreach documentation' : 'Documentation'}
+                        </a>
+                      )}
+                    </td>
                     <td className="px-4 py-2 text-gray-500">{t.type}</td>
                     <td className="px-4 py-2 text-gray-500">
                       {t.flags_json?.new && <span className="text-xs text-emerald-700 mr-2">new</span>}

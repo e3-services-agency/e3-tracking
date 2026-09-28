@@ -15,6 +15,36 @@ import { buildTargetLabelResolver } from '../../backend/services/requirements-ma
 import { resolveProject, resolveUseCase } from '../resolve';
 import { McpToolError } from '../errors';
 
+/**
+ * D-59 fix round (ERROR 2, reviewer 2026-09-28 17:12): the one place every MCP-facing use case
+ * shape starts from -- `internal_notes`/`internal_url` (D-59 amendment 2: "never in the tracking
+ * document, MCP or HTML export") are deliberately absent here; `documentation_url` is public and
+ * kept. `list_use_cases`, `get_use_case` and `instantiate_use_case_template` all build their
+ * response by spreading this, so a future field added to `UseCaseRow` needs an explicit decision
+ * here before it can reach an MCP client, instead of leaking through a bare `{...useCase}`.
+ */
+export interface PublicUseCaseFields {
+  code: string | null;
+  name: string;
+  type: string | null;
+  status: string | null;
+  description: string | null;
+  narrative: string | null;
+  documentation_url: string | null;
+}
+
+function sanitizeUseCase(uc: UseCaseDAL.UseCaseRow): PublicUseCaseFields {
+  return {
+    code: uc.code,
+    name: uc.name,
+    type: uc.type,
+    status: uc.status,
+    description: uc.description,
+    narrative: uc.narrative,
+    documentation_url: uc.documentation_url,
+  };
+}
+
 export interface ListUseCasesInput {
   project_key?: string;
 }
@@ -29,13 +59,10 @@ export interface ListUseCasesRow {
 
 export async function listUseCases(input: ListUseCasesInput): Promise<ListUseCasesRow[]> {
   const project = resolveProject(input.project_key);
-  return UseCaseDAL.listUseCases(project.id).map((uc) => ({
-    code: uc.code,
-    name: uc.name,
-    type: uc.type,
-    status: uc.status,
-    requirement_count: RequirementDAL.listRequirements(project.id, uc.id).length,
-  }));
+  return UseCaseDAL.listUseCases(project.id).map((uc) => {
+    const { code, name, type, status } = sanitizeUseCase(uc);
+    return { code, name, type, status, requirement_count: RequirementDAL.listRequirements(project.id, uc.id).length };
+  });
 }
 
 export interface GetUseCaseInput {
@@ -51,13 +78,7 @@ export interface GetUseCaseRequirement {
   note: string | null;
 }
 
-export interface GetUseCaseResult {
-  code: string | null;
-  name: string;
-  type: string | null;
-  status: string | null;
-  description: string | null;
-  narrative: string | null;
+export interface GetUseCaseResult extends PublicUseCaseFields {
   requirements: GetUseCaseRequirement[];
 }
 
@@ -72,15 +93,7 @@ export async function getUseCase(input: GetUseCaseInput): Promise<GetUseCaseResu
     status: r.status,
     note: r.note,
   }));
-  return {
-    code: useCase.code,
-    name: useCase.name,
-    type: useCase.type,
-    status: useCase.status,
-    description: useCase.description,
-    narrative: useCase.narrative,
-    requirements,
-  };
+  return { ...sanitizeUseCase(useCase), requirements };
 }
 
 export interface ListUseCaseTemplatesRow {
@@ -149,5 +162,5 @@ export async function instantiateUseCaseTemplate(
   });
   const requirements = RequirementDAL.listRequirements(project.id, useCase.id);
   const unresolved_count = requirements.filter((r) => r.status === 'gap').length;
-  return { ...useCase, unresolved_count };
+  return { ...sanitizeUseCase(useCase), unresolved_count };
 }

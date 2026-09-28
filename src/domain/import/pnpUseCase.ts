@@ -129,6 +129,25 @@ export function isPnpUseCaseDocument(json: unknown): boolean {
   return check(json);
 }
 
+/**
+ * D-59 fix round (ERROR 3): true when a document (or one item of an array) looks like a pnp_usecase
+ * submission attempt -- it names a `template_id` -- but `template` itself is present and not a
+ * plain object (e.g. a string, number or array). This is distinct from "not detected as pnp at
+ * all" (`isPnpUseCaseDocument` false, silently falls back to the native library format and warns
+ * `templates must be an array`): the route uses this to reject the request outright with 400
+ * rather than accepting it as a confusing zero-item preview.
+ */
+export function isMalformedPnpAttempt(json: unknown): boolean {
+  const check = (item: unknown): boolean => {
+    const inner = isPlainObject(item) && isPlainObject(item.data) ? item.data : item;
+    if (!isPlainObject(inner)) return false;
+    if (typeof inner.template_id !== 'string' || !inner.template_id.trim()) return false;
+    return inner.template !== undefined && !isPlainObject(inner.template);
+  };
+  if (Array.isArray(json)) return json.some(check);
+  return check(json);
+}
+
 const INTEGRATION_LABELS: Record<string, string> = {
   email_integration: 'an email integration',
   sms_integration: 'an SMS integration',
@@ -176,6 +195,43 @@ function levelFor(requirementOptional: boolean | undefined, propertyOptional: bo
   return requirementOptional || propertyOptional ? 'O' : 'R';
 }
 
+/**
+ * D-59 fix round (reviewer FAIL 2026-09-28 17:12, ERROR 3): every array-typed field on a pnp
+ * document is attacker/author-controlled JSON, not a TypeScript-checked shape -- a string, number
+ * or plain object where an array is expected must never throw (`(value ?? []).forEach`/`for...of`
+ * throws on a non-iterable, and a string is iterable by character, silently producing garbage
+ * instead of the warning the "never throws" contract promises). Non-array, non-nullish input
+ * becomes a warning and an empty array; `null`/`undefined` is silently empty (nothing to warn
+ * about -- the field was simply omitted).
+ */
+/**
+ * D-59 fix round (WARNING 7, D-59 amendment 3): the corpus names the cart event `cart_update`
+ * (Bloomreach's own default event name), not the standard-event catalog key `add_to_cart` --
+ * literal-name resolution alone (D-55 step 2) then misses a project whose mapping renames it. This
+ * maps it onto the closest standard event: `add_to_cart` by default, `remove_from_cart` when a
+ * sibling `action` property carries an `equals` constraint of `remove`. `event_name` is always kept
+ * too (the caller still sets it), so the exact-name fallback still works for a project with no
+ * matching standard event mapping.
+ */
+function standardEventFor(eventName: string, properties: PnpProperty[]): string | undefined {
+  if (eventName === 'cart_update') {
+    const isRemove = properties.some(
+      (p) => p.property_name === 'action' && equalsConstant(p.property_constraint) === 'remove'
+    );
+    return isRemove ? 'remove_from_cart' : 'add_to_cart';
+  }
+  return isKnownStandardEvent(eventName) ? eventName : undefined;
+}
+
+function asArray<T>(value: unknown, path: string, warnings: string[]): T[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) {
+    warnings.push(`${path} must be an array; treated as empty.`);
+    return [];
+  }
+  return value as T[];
+}
+
 interface ConvertCtx {
   requirements: LibraryRequirement[];
   prerequisites: string[];
@@ -193,9 +249,9 @@ function convertEventRequirement(ctx: ConvertCtx, req: PnpRequirement, index: nu
     ctx.warnings.push(`${ctx.templateCode}.requirements[${index}] (type "event") is missing event_name; skipped.`);
     return;
   }
-  const standardEvent = isKnownStandardEvent(eventName) ? eventName : undefined;
+  const properties = asArray<PnpProperty>(req.properties, `${ctx.templateCode}.requirements[${index}].properties`, ctx.warnings);
+  const standardEvent = standardEventFor(eventName, properties);
   const standardFields = standardEvent ? getStandardEventFields(standardEvent) : undefined;
-  const properties = req.properties ?? [];
   if (properties.length === 0) {
     // An event requirement with no properties still names an event to require.
     pushRequirement(ctx, { target_kind: 'event', event_name: eventName, standard_event: standardEvent, level: levelFor(req.is_optional, false) });
@@ -244,7 +300,7 @@ function convertEventRequirement(ctx: ConvertCtx, req: PnpRequirement, index: nu
 }
 
 function convertConsentRequirement(ctx: ConvertCtx, req: PnpRequirement, index: number): void {
-  for (const prop of req.properties ?? []) {
+  for (const prop of asArray<PnpProperty>(req.properties, `${ctx.templateCode}.requirements[${index}].properties`, ctx.warnings)) {
     const constant = equalsConstant(prop.property_constraint);
     if (constant === null) {
       ctx.warnings.push(`${ctx.templateCode}.requirements[${index}] (type "consent") has no equals constant constraint; skipped.`);
@@ -259,7 +315,7 @@ function convertConsentRequirement(ctx: ConvertCtx, req: PnpRequirement, index: 
 }
 
 function convertCustomerPropertyRequirement(ctx: ConvertCtx, req: PnpRequirement, index: number): void {
-  for (const prop of req.properties ?? []) {
+  for (const prop of asArray<PnpProperty>(req.properties, `${ctx.templateCode}.requirements[${index}].properties`, ctx.warnings)) {
     const propertyName = prop.property_name?.trim();
     if (!propertyName) {
       ctx.warnings.push(`${ctx.templateCode}.requirements[${index}] (type "customer_property") has a property with no property_name; skipped.`);
@@ -274,7 +330,7 @@ function convertCustomerPropertyRequirement(ctx: ConvertCtx, req: PnpRequirement
 }
 
 function convertCatalogRequirement(ctx: ConvertCtx, req: PnpRequirement, index: number): void {
-  for (const field of req.fields ?? []) {
+  for (const field of asArray<PnpField>(req.fields, `${ctx.templateCode}.requirements[${index}].fields`, ctx.warnings)) {
     const fieldName = field.field_name?.trim();
     if (!fieldName) {
       ctx.warnings.push(`${ctx.templateCode}.requirements[${index}] (type "catalog") has a field with no field_name; skipped.`);
@@ -291,12 +347,14 @@ function convertCatalogRequirement(ctx: ConvertCtx, req: PnpRequirement, index: 
 
 function convertTextRequirement(ctx: ConvertCtx, req: PnpRequirement): void {
   const parts: string[] = [];
-  if (req.name) parts.push(req.name);
-  for (const cat of req.categories ?? []) {
-    const items = (cat.items ?? []).filter((i) => typeof i === 'string' && i.trim());
-    if (cat.name || items.length > 0) parts.push([cat.name, ...items].filter(Boolean).join(': '));
+  if (req.name) parts.push(req.name.trim());
+  for (const cat of asArray<{ name?: string; items?: string[] }>(req.categories, `${ctx.templateCode}.requirements.categories`, ctx.warnings)) {
+    const items = asArray<string>(cat.items, `${ctx.templateCode}.requirements.categories.items`, ctx.warnings)
+      .filter((i) => typeof i === 'string' && i.trim())
+      .map((i) => i.trim());
+    if (cat.name || items.length > 0) parts.push([cat.name?.trim(), ...items].filter(Boolean).join(': '));
   }
-  for (const item of req.items ?? []) {
+  for (const item of asArray<string>(req.items, `${ctx.templateCode}.requirements.items`, ctx.warnings)) {
     if (typeof item === 'string' && item.trim()) parts.push(item.trim());
   }
   if (parts.length > 0) ctx.prerequisites.push(parts.join(' — '));
@@ -310,7 +368,7 @@ function convertRequirement(ctx: ConvertCtx, req: PnpRequirement, index: number)
         ctx.warnings.push(`${ctx.templateCode}.requirements[${index}] (type "mapped_event") is missing event_name; skipped.`);
         return;
       }
-      const standardEvent = isKnownStandardEvent(eventName) ? eventName : undefined;
+      const standardEvent = standardEventFor(eventName, []);
       pushRequirement(ctx, {
         target_kind: 'event',
         event_name: eventName,
@@ -348,9 +406,9 @@ function convertRequirement(ctx: ConvertCtx, req: PnpRequirement, index: number)
   }
 }
 
-function convertFulfillments(fulfillments: PnpFulfillment[] | undefined): LibraryExpectedAsset[] {
+function convertFulfillments(fulfillments: unknown, templateCode: string, warnings: string[]): LibraryExpectedAsset[] {
   const out: LibraryExpectedAsset[] = [];
-  for (const f of fulfillments ?? []) {
+  for (const f of asArray<PnpFulfillment>(fulfillments, `${templateCode}.fulfillments`, warnings)) {
     const headline = f.headline?.trim();
     if (!headline) continue;
     out.push({ type: f.item_reference?.type?.trim() || 'other', headline });
@@ -373,16 +431,19 @@ function convertOne(doc: PnpDocument, warnings: string[]): LibraryTemplate | nul
   const name = doc.name?.trim() || rawCode;
 
   const ctx: ConvertCtx = { requirements: [], prerequisites: [], warnings, templateCode: code };
-  (t.requirements ?? []).forEach((req, index) => convertRequirement(ctx, req, index));
+  asArray<PnpRequirement>(t.requirements, `${code}.requirements`, warnings).forEach((req, index) =>
+    convertRequirement(ctx, req, index)
+  );
 
+  const usecaseTags = asArray<string>(t.usecase_tags, `${code}.usecase_tags`, warnings);
   const tags = {
     channels: normalizeTagList(t.channels, CHANNEL_ALIASES),
     goals: normalizeTagList(t.goal ? [t.goal] : [], GOAL_ALIASES),
-    tiers: normalizeTagList((t.usecase_tags ?? []).filter((tag) => tag !== 'popular')),
+    tiers: normalizeTagList(usecaseTags.filter((tag) => tag !== 'popular')),
     kpis: normalizeTagList(t.kpis, KPI_ALIASES),
     industries: normalizeTagList(t.industries),
   };
-  const flags = { new: false, popular: (t.usecase_tags ?? []).includes('popular') };
+  const flags = { new: false, popular: usecaseTags.includes('popular') };
 
   return {
     code,
@@ -394,7 +455,7 @@ function convertOne(doc: PnpDocument, warnings: string[]): LibraryTemplate | nul
     flags,
     default_requirements: ctx.requirements,
     prerequisites: ctx.prerequisites,
-    expected_assets: convertFulfillments(t.fulfillments),
+    expected_assets: convertFulfillments(t.fulfillments, code, warnings),
     source: {
       kind: 'pnp_usecase',
       template_id: rawCode,

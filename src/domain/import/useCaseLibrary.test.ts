@@ -198,8 +198,12 @@ describe('parseUseCaseLibrary', () => {
     const pnpTemplates = model.templates.filter((t) => t.source?.kind === 'pnp_usecase');
     const docsTemplates = model.templates.filter((t) => t.source?.kind === 'docs');
     expect(pnpTemplates.length + docsTemplates.length).toBe(model.templates.length);
-    expect(pnpTemplates.length).toBeGreaterThan(0);
-    expect(docsTemplates.every((t) => /^UCC-(email|web|omni|mobile|paid|analytics)-\d{2}$/.test(t.code))).toBe(true);
+    // D-59 fix round (ERROR 1): every br-pnp file converts to one template (98), and of the ten
+    // hand-authored T-4-07 templates that survived the first, name-only matching pass, nine turned
+    // out to be duplicates of a pnp export under a different page title (matched by documentation
+    // link slug); only UCC-email-18 (no export) is genuinely unique.
+    expect(pnpTemplates.length).toBe(98);
+    expect(docsTemplates.map((t) => t.code)).toEqual(['UCC-email-18']);
   });
 
   it('every variant/variant_property row in the Use Case Center library carries a condition (T-4-07 final fix)', () => {

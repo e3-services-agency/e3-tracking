@@ -18,6 +18,8 @@ import * as UseCaseTemplateDAL from './use-case-template.dal';
 import * as RequirementDAL from './requirement.dal';
 import { previewDataMapping, applyDataMapping } from '../services/dataMappingImport.service';
 import { parseUseCaseLibrary } from '../../domain/import/useCaseLibrary';
+import { ValidationError } from '../errors';
+import * as UseCaseDAL from './use-case.dal';
 
 const dataMappingFixturePath = path.resolve(__dirname, '../../../.claude/team/samples/data-mapping.json');
 const dataMappingFixture = JSON.parse(fs.readFileSync(dataMappingFixturePath, 'utf-8'));
@@ -63,6 +65,41 @@ describe('use-case-template.dal: D-59 fields round trip', () => {
     expect(updated.documentation_url).toBe('https://example.com/docs'); // unrelated field untouched
   });
 
+  it('WARNING 8: rejects a non-http(s) documentation_url/internal_url (400) and a non-string value (400), on both templates and use cases', () => {
+    expect(() =>
+      UseCaseTemplateDAL.createUseCaseTemplate({
+        code: 'UC-BAD-URL',
+        name: 'Bad url',
+        type: 'marketing',
+        documentation_url: 'javascript:alert(1)',
+      })
+    ).toThrow(ValidationError);
+    expect(() =>
+      UseCaseTemplateDAL.createUseCaseTemplate({
+        code: 'UC-BAD-URL-2',
+        name: 'Bad url 2',
+        type: 'marketing',
+        // @ts-expect-error deliberately wrong type, probing the runtime guard
+        documentation_url: 123,
+      })
+    ).toThrow(ValidationError);
+
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-OK-URL', name: 'Ok url', type: 'marketing' });
+    expect(() => UseCaseTemplateDAL.updateUseCaseTemplate(template.id, { internal_url: 'javascript:alert(1)' })).toThrow(
+      ValidationError
+    );
+
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+    expect(() => UseCaseDAL.updateUseCase(projectId, useCase.id, { name: useCase.name, documentation_url: 'ftp://nope' })).toThrow(
+      ValidationError
+    );
+    // A valid http(s) URL, and clearing with null, both still work.
+    const patched = UseCaseDAL.updateUseCase(projectId, useCase.id, { name: useCase.name, documentation_url: 'https://ok.example.com' });
+    expect(patched.documentation_url).toBe('https://ok.example.com');
+    const cleared = UseCaseDAL.updateUseCase(projectId, useCase.id, { name: useCase.name, documentation_url: null });
+    expect(cleared.documentation_url).toBeNull();
+  });
+
   it('instantiate copies documentation_url/internal_notes/internal_url from the template onto the use case', () => {
     const template = UseCaseTemplateDAL.createUseCaseTemplate({
       code: 'UC-T-COPY',
@@ -84,8 +121,10 @@ describe('generated welcome-flow template instantiated on the data-mapping fixtu
     const preview = previewDataMapping(projectId, dataMappingFixture);
     applyDataMapping(projectId, dataMappingFixture, preview.payload_hash, preview.items.map((i) => i.id));
 
+    // `item_id`, not `product_id` (WARNING 7, D-57 amendment): the Bloomreach main catalog's own
+    // column name, exercising the alias `resolveEntry` now applies for `catalog_attribute`.
     const catalog = CatalogDAL.createCatalog(projectId, { name: 'Products', mapping_role: 'main' });
-    for (const field of ['image', 'price', 'title', 'url', 'product_id']) {
+    for (const field of ['image', 'price', 'title', 'url', 'item_id']) {
       CatalogDAL.createCatalogField(projectId, catalog.id, { name: field });
     }
 

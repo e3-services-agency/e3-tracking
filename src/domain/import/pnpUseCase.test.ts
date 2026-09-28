@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { convertPnpUseCases, isPnpUseCaseDocument } from './pnpUseCase';
+import { convertPnpUseCases, isPnpUseCaseDocument, isMalformedPnpAttempt } from './pnpUseCase';
 
 function loadFixture(name: string): unknown {
   return JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../.claude/team/samples/br-pnp', name), 'utf-8'));
@@ -205,5 +205,103 @@ describe('convertPnpUseCases: unknown requirement type', () => {
     const { templates, warnings } = convertPnpUseCases([doc, doc]);
     expect(templates).toHaveLength(1);
     expect(warnings.some((w) => w.includes('Duplicate template_id'))).toBe(true);
+  });
+});
+
+describe('convertPnpUseCases: fix round ERROR 3 (array guards, never throws)', () => {
+  const arrayFieldDocs: [string, unknown][] = [
+    ['template.requirements a string', { template_id: 'x', template: { type: 'pnp_usecase', requirements: 'nope' } }],
+    ['template.requirements a number', { template_id: 'x', template: { type: 'pnp_usecase', requirements: 42 } }],
+    ['template.requirements a plain object', { template_id: 'x', template: { type: 'pnp_usecase', requirements: { a: 1 } } }],
+    [
+      'an event requirement.properties a number',
+      {
+        template_id: 'x',
+        template: { type: 'pnp_usecase', requirements: [{ type: 'event', event_name: 'purchase', properties: 42 }] },
+      },
+    ],
+    [
+      'a catalog requirement.fields an object',
+      { template_id: 'x', template: { type: 'pnp_usecase', requirements: [{ type: 'catalog', fields: { a: 1 } }] } },
+    ],
+    [
+      'template.fulfillments a number',
+      { template_id: 'x', template: { type: 'pnp_usecase', requirements: [], fulfillments: 42 } },
+    ],
+    [
+      'template.usecase_tags a number',
+      { template_id: 'x', template: { type: 'pnp_usecase', requirements: [], usecase_tags: 42 } },
+    ],
+  ];
+
+  it.each(arrayFieldDocs)('never throws when %s; warns and treats the field as empty', (_label, doc) => {
+    expect(() => convertPnpUseCases(doc)).not.toThrow();
+    const { templates, warnings } = convertPnpUseCases(doc);
+    expect(templates).toHaveLength(1);
+    expect(warnings.some((w) => w.includes('must be an array'))).toBe(true);
+  });
+});
+
+describe('convertPnpUseCases: fix round WARNING 1 (text prerequisites trimmed)', () => {
+  it('trims category names, category items and bare items', () => {
+    const doc = {
+      template_id: 'x',
+      template: {
+        type: 'pnp_usecase',
+        requirements: [
+          {
+            type: 'text',
+            name: '  Tracking Prerequisities  ',
+            categories: [{ name: ' Product Catalog ', items: ['  needs product_id.  '] }],
+            items: ['  a bare item.  '],
+          },
+        ],
+      },
+    };
+    const { templates, warnings } = convertPnpUseCases(doc);
+    expect(warnings).toEqual([]);
+    expect(templates[0].prerequisites).toEqual(['Tracking Prerequisities — Product Catalog: needs product_id. — a bare item.']);
+  });
+});
+
+describe('convertPnpUseCases: fix round WARNING 7 (cart_update -> add_to_cart/remove_from_cart)', () => {
+  it('maps a plain cart_update event requirement to standard_event add_to_cart, keeping event_name', () => {
+    const doc = {
+      template_id: 'x',
+      template: {
+        type: 'pnp_usecase',
+        requirements: [{ type: 'event', event_name: 'cart_update', properties: [{ property_name: 'product_id', property_constraint: null }] }],
+      },
+    };
+    const { templates, warnings } = convertPnpUseCases(doc);
+    expect(warnings).toEqual([]);
+    const req = templates[0].default_requirements[0];
+    expect(req.event_name).toBe('cart_update');
+    expect(req.standard_event).toBe('add_to_cart');
+  });
+
+  it('maps a cart_update event requirement with action=remove to standard_event remove_from_cart', () => {
+    const doc = {
+      template_id: 'x',
+      template: {
+        type: 'pnp_usecase',
+        requirements: [
+          {
+            type: 'event',
+            event_name: 'cart_update',
+            properties: [
+              { property_name: 'action', property_constraint: { operator: 'equals', operands: [{ type: 'constant', value: 'remove' }] } },
+              { property_name: 'product_id', property_constraint: null },
+            ],
+          },
+        ],
+      },
+    };
+    const { templates } = convertPnpUseCases(doc);
+    const variantReq = templates[0].default_requirements.find((r) => r.target_kind === 'variant')!;
+    expect(variantReq.standard_event).toBe('remove_from_cart');
+    expect(variantReq.event_name).toBe('cart_update');
+    const propReq = templates[0].default_requirements.find((r) => r.target_kind === 'event_property')!;
+    expect(propReq.event_name).toBe('cart_update');
   });
 });

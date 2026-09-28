@@ -1784,3 +1784,6 @@ qa-tester FAIL (01:57): Requirements matrix page keys rows by target_kind:label,
 
 ### 2026-09-28 02:00 | implementer -> reviewer | HANDOFF | T-3-01 QA fix
 Posted by supervisor. Commit ef8cb49 on task/T-3-01-change-log. action filter in DAL, SQL and route validated against CHANGE_LOG_ACTIONS (400 otherwise); every other plan filter was already present; unknown query parameters on GET /history return 400 naming the parameter. DAL and route tests. 1001 tests (86 files), tsc clean, build ok.
+
+### 2026-09-28 02:03 | implementer -> reviewer | HANDOFF | T-3-06 QA fix
+Posted by supervisor. Commit 3cf918e on task/T-3-06-use-case-library. RequirementsMatrixRow exposes the unique key (gap:<requirement id> or target kind plus ids); RequirementsMatrix.tsx keys rows on it. Two service tests. 993 tests (86 files), tsc clean, build ok.

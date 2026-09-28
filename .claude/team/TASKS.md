@@ -40,7 +40,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-3-02 | 3 | ChangeLog on every other entity, import batch tagging, MCP actor, History panels and History page | implementer | T-3-01 | QA | see below |
 | T-3-03 | 3 | CSV export per entity: csv.ts headers, service, routes, Settings export block | implementer | T-3-00 | DONE | see below |
 | T-3-04 | 3 | Full JSON backup export with embedded files | implementer | T-3-01 | DONE | see below |
-| T-3-05 | 3 | Restore backup as new project: preview/apply, id remap, files, template re-link, UI | implementer | T-3-04 | REVIEW | see below |
+| T-3-05 | 3 | Restore backup as new project: preview/apply, id remap, files, template re-link, UI | implementer | T-3-04 | QA | see below |
 | T-3-06 | 3 | Use case library: format with tags (D-57), parser, import preview/apply, export, instantiate with code, templates page with facet filters and prerequisites card, sample library | implementer | T-3-00 | DONE | see below |
 | T-3-10 | 3 | Library resolution: mapping step (D-55), catalog_attribute and consent requirement targets (D-57), matrix and coverage updates, project industry field, MCP list/instantiate tools | implementer | T-3-06 | IN_PROGRESS | see below |
 | T-3-07 | 3 | QA evidence maintenance and carried fixes: observation edit/delete, run delete, variant delete guard, identity codegen dedupe, open review items | implementer | T-3-00 | DONE | see below |
@@ -161,3 +161,4 @@ Detailed acceptance criteria per task live in `reports/PLAN-PHASE2-2026-09-25.md
 - From T-3-03 review: deleteEvent does not delete the event rules (GET /rules returns orphans with a raw event id); clean rules in deleteEvent (T-3-07 follow-up or phase 3 sweep).
 - From T-3-01 review (FAIL 2026-09-27 23:27, board entry): ERROR keyset `before` cursor on `changed_at` alone drops rows sharing the millisecond (46 of 60 DAL, 1716 of 1746 route); use a composite `(changed_at, id)` cursor with a same-millisecond paging test. WARNING `limit=1.5` -> 500 datatype mismatch; WARNING `deleteEvent` cascade writes no variant/mapping delete rows (variants in the fix round, mappings and identity rules in T-3-02); WARNING `updateEvent` with only `source_ids` writes no row. INFO identity columns in create/delete diffs; double `getPropertyById` per link in `replaceEventProperties`; T-3-07 also edits `deleteVariant` (no textual conflict, verify after merge).
 - T-3-09: qa-roundtrip scenario 4 open-findings baseline on the merged tree is 77 (40 error / 37 warning), not 75; update the skill text.
+- From T-3-05 review: bodies over the 20 MB json limit on ordinary routes return 500 INTERNAL_ERROR instead of 413 (entity.too.large unmapped in the error handler); map it (T-3-08 or phase 4 touch).

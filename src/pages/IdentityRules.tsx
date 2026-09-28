@@ -12,6 +12,7 @@ import { useProjectShell } from '@/src/features/projects/context/ProjectShellCon
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { PRIORITIES, ENTITY_STATUSES, IDENTITY_TYPES, IDENTITY_TRANSFORMATIONS, IDENTITY_SDK_CALLS } from '@/src/domain/enums';
+import { HistorySection } from '@/src/features/history/HistorySection';
 
 interface IdentityRuleRow {
   id: string;
@@ -444,6 +445,10 @@ function IdentityRuleEditor({
       </div>
 
       {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{saveError}</div>}
+
+      {!isCreating && rule && (
+        <HistorySection projectId={projectId} entityType="identity_rule" entityId={rule.id} />
+      )}
 
       <div className="pt-6 border-t flex justify-between">
         {!isCreating && rule ? (

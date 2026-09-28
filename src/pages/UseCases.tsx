@@ -21,6 +21,7 @@ import {
   REQUIREMENT_STATUSES,
   type RequirementTargetKind,
 } from '@/src/domain/enums';
+import { HistorySection } from '@/src/features/history/HistorySection';
 
 interface UseCaseRow {
   id: string;
@@ -850,6 +851,8 @@ function UseCaseDetail({
             </tbody>
           </table>
         </div>
+
+        <HistorySection projectId={projectId ?? ''} entityType="use_case" entityId={useCaseId} parentEntityId={useCaseId} />
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ import { Settings } from '@/src/pages/Settings';
 import { Documentation } from '@/src/pages/Documentation';
 import { Clients } from '@/src/pages/Clients';
 import { resolveInitialProject } from './resolveInitialProject';
+import { BASE, pushPath } from './pushPath';
 
 import { Catalogs } from '@/src/pages/Catalogs';
 import { IdentityRules } from '@/src/pages/IdentityRules';
@@ -26,10 +27,6 @@ import { EventCard } from '@/src/pages/EventCard';
 
 const DEFAULT_BRAND_PRIMARY = 'var(--e3-emerald)';
 const SIDEBAR_COLLAPSED_KEY = 'e3-tracking.sidebarCollapsed';
-const BASE =
-  typeof import.meta !== 'undefined' && (import.meta.env?.BASE_URL != null)
-    ? String(import.meta.env.BASE_URL).replace(/\/$/, '')
-    : '';
 
 function getPathWithoutBase(pathname: string): string {
   if (!BASE) return pathname;
@@ -93,19 +90,6 @@ function getInitialMainRouteState(): { tab: string } {
   if (typeof window === 'undefined') return { tab: 'events' };
   const { restPath } = parseProjectFromPath(window.location.pathname);
   return mainRouteStateFromRestPath(restPath);
-}
-
-/** `projectKeyForUrl` is the short project key segment (not UUID). Pass null to drop /p/... from the path. */
-function pushPath(nextPath: string, projectKeyForUrl?: string | null): void {
-  try {
-    const prefix = projectKeyForUrl ? `/p/${projectKeyForUrl}` : '';
-    const full = `${BASE}${prefix}${nextPath.startsWith('/') ? nextPath : `/${nextPath}`}`;
-    if (typeof window !== 'undefined' && window.location.pathname !== full) {
-      window.history.pushState({}, '', full);
-    }
-  } catch {
-    // ignore
-  }
 }
 
 export function Layout() {

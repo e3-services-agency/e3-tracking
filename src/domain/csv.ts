@@ -13,8 +13,9 @@
  * service emits empty values for both until then.
  *
  * `change_log`/`comments` are declared here too (T-3-01/T-4-02 add their tables): the CSV route
- * list is complete from this task on, emitting headers-only files for the two until their tables
- * exist.
+ * list is complete from this task on. `change_log`'s table exists from T-3-01 onward, so its export
+ * carries real rows (QA fix, 2026-09-28, `csvExport.service.ts#buildChangeLogRows`); `comments`
+ * still emits headers-only until T-4-02's table exists.
  */
 
 export interface CsvEntityDefinition {

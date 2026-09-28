@@ -2,6 +2,17 @@
  * "Restore backup" form (T-3-05, D-45), Clients page. Paste the backup JSON or pick a file,
  * preview (counts + warnings), pick the target client, name and key, then apply and switch the
  * app into the newly created project. Simplified UI (D-07): no design work, one flat form.
+ *
+ * QA fix (2026-09-28, qa-tester FAIL 04:12): a bare `window.location.reload()` reloads the
+ * *current* URL, which is still the source project's `/p/<oldKey>/...`; `resolveInitialProject`'s
+ * "URL wins over the store" rule (`Layout.tsx`) then silently re-selects the old project on that
+ * reload, undoing `setActiveProject`. The fix pushes the new project's `/p/<newKey>/events` URL
+ * (`pushPath`, the same helper `Layout.tsx` itself uses) *before* reloading, so the reload lands on
+ * a URL that already names the restored project. When `apply`'s response carries `warnings[]`
+ * (T-3-05 pre-QA fix), they are shown with a "Continue" button first instead of navigating
+ * immediately, so a restore that only partly succeeded (an unknown column dropped, a template
+ * definition conflict, a failed post-restore comparison recompute) is not silently swallowed by an
+ * instant reload.
  */
 import React, { useState } from 'react';
 import { fetchWithAuth } from '@/src/lib/api';
@@ -9,6 +20,7 @@ import { API_BASE } from '@/src/config/env';
 import { useStore } from '@/src/store';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
+import { pushPath } from '@/src/components/layout/pushPath';
 import type { ClientRow } from '@/src/features/clients/hooks/useClients';
 
 interface PreviewResult {
@@ -16,6 +28,12 @@ interface PreviewResult {
   project: { name: string; key: string };
   warnings: string[];
   payload_hash: string;
+}
+
+interface ApplyResult {
+  project: { id: string; key: string };
+  counts: Record<string, number>;
+  warnings: string[];
 }
 
 async function parseJson(res: Response): Promise<any> {
@@ -32,6 +50,8 @@ export function RestoreBackupForm({ clients }: { clients: ClientRow[] }) {
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Set only when `apply` succeeded *and* returned warnings -- gates navigation behind a "Continue" click. */
+  const [pendingApply, setPendingApply] = useState<ApplyResult | null>(null);
 
   const handleFile = (file: File) => {
     const reader = new FileReader();
@@ -74,6 +94,15 @@ export function RestoreBackupForm({ clients }: { clients: ClientRow[] }) {
     }
   };
 
+  /** Pushes the restored project's URL (same helper `Layout.tsx` uses) *then* reloads, so the
+   *  reload lands on a URL that already names the new project -- `resolveInitialProject`'s "URL
+   *  wins" rule then selects it correctly instead of re-selecting whatever project the URL still
+   *  named before this call (QA fix, 2026-09-28). */
+  const navigateToRestoredProject = (projectKey: string) => {
+    pushPath('/events', projectKey);
+    window.location.reload();
+  };
+
   const handleApply = async () => {
     if (!preview) return;
     setError(null);
@@ -94,17 +123,46 @@ export function RestoreBackupForm({ clients }: { clients: ClientRow[] }) {
         setError(typeof data?.error === 'string' ? data.error : 'Failed to restore backup');
         return;
       }
-      const restoredProject = data.project as { id: string; key: string };
-      setActiveProject({ id: restoredProject.id, key: restoredProject.key });
-      // Simplest reliable refresh for every other component that already cached the project list
-      // (project switcher, sidebar) -- a full reload lands on the newly active project (D-07).
-      window.location.reload();
+      const result = data as ApplyResult;
+      setActiveProject({ id: result.project.id, key: result.project.key });
+      if (result.warnings && result.warnings.length > 0) {
+        // Hold navigation until the user acknowledges the warnings (QA fix, 2026-09-28): an
+        // instant reload would otherwise carry the user straight past them.
+        setPendingApply(result);
+      } else {
+        navigateToRestoredProject(result.project.key);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Network error');
     } finally {
       setIsApplying(false);
     }
   };
+
+  const handleContinue = () => {
+    if (pendingApply) navigateToRestoredProject(pendingApply.project.key);
+  };
+
+  if (pendingApply) {
+    return (
+      <div className="bg-white p-6 rounded-lg border shadow-sm space-y-4 max-w-2xl">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Restore backup</h2>
+          <p className="text-sm text-gray-500">
+            The project was restored, but with warnings. Review them, then continue to the new project.
+          </p>
+        </div>
+        <ul className="text-sm text-amber-700 list-disc pl-5">
+          {pendingApply.warnings.map((w, i) => (
+            <li key={i}>{w}</li>
+          ))}
+        </ul>
+        <Button type="button" onClick={handleContinue}>
+          Continue
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white p-6 rounded-lg border shadow-sm space-y-4 max-w-2xl">

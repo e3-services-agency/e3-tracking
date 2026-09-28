@@ -478,9 +478,56 @@ function buildFindingsRows(projectId: string): CsvRow[] {
   }));
 }
 
-/** T-3-01/T-4-02 add the `change_log`/`comments` tables; until then both export headers-only. */
+/** T-4-02 adds the `comments` table; until then it exports headers-only. */
 function buildEmptyRows(_projectId: string): CsvRow[] {
   return [];
+}
+
+interface ChangeLogDbRow {
+  id: string;
+  changed_at: string;
+  actor: string;
+  source: string;
+  batch_id: string | null;
+  entity_type: string;
+  entity_id: string;
+  entity_label: string | null;
+  action: string;
+  diff_json: string | null;
+}
+
+/** `true` once T-3-01's migration (0015) has run; guards `change_log` reads the same way `comments`
+ *  is guarded against T-4-02's not-yet-existing table, in case this ever runs against an older
+ *  schema snapshot. */
+function tableExists(name: string): boolean {
+  return !!getDb().prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name);
+}
+
+/**
+ * QA fix (T-3-05 QA round, 2026-09-28): T-3-01's `change_log` table now exists (this branch has it
+ * merged), so its CSV export reads the real rows instead of staying headers-only forever --
+ * `comments` (T-4-02) is the only entity still gated on its table not existing yet. One project-wide
+ * query, newest first (matches `change-log.dal.ts#listChanges`'s own default order); `diff_json` is
+ * already a JSON array column, re-emitted compactly via `jsonCell` (its stored text always parses,
+ * since `recordChange` is the only writer and always writes through `toJsonColumn`).
+ */
+function buildChangeLogRows(projectId: string): CsvRow[] {
+  if (!tableExists('change_log')) return [];
+  const rows = getDb()
+    .prepare('SELECT * FROM change_log WHERE project_id = ? ORDER BY changed_at DESC, id DESC')
+    .all(projectId) as ChangeLogDbRow[];
+  return rows.map((r) => ({
+    id: r.id,
+    changed_at: r.changed_at,
+    actor: r.actor,
+    source: r.source,
+    batch_id: textCell(r.batch_id),
+    entity_type: r.entity_type,
+    entity_id: r.entity_id,
+    entity_label: textCell(r.entity_label),
+    action: r.action,
+    diff_json: jsonCell(JSON.parse(r.diff_json ?? '[]')),
+  }));
 }
 
 const ROW_BUILDERS: Record<CsvEntity, (projectId: string) => CsvRow[]> = {
@@ -499,7 +546,7 @@ const ROW_BUILDERS: Record<CsvEntity, (projectId: string) => CsvRow[]> = {
   qa_runs: buildQaRunsRows,
   observations: buildObservationsRows,
   findings: buildFindingsRows,
-  change_log: buildEmptyRows,
+  change_log: buildChangeLogRows,
   comments: buildEmptyRows,
 };
 
@@ -515,8 +562,8 @@ function countOf(sql: string, projectId: string): number {
  * One `COUNT(*)` per entity (D-46 pre-QA fix, WARNING 1): `GET /export/csv` used to build every
  * entity's full row set just to report its length (3145 statements on the Data Manager fixture);
  * each query below mirrors the corresponding row builder's soft-delete/parent-join filter exactly,
- * so the count always matches the file's row count. `change_log`/`comments` have no table yet
- * (T-3-01/T-4-02), so their count is the literal `0` the builder also returns.
+ * so the count always matches the file's row count. `comments` has no table yet (T-4-02), so its
+ * count is the literal `0` the builder also returns; `change_log` (T-3-01) counts the real table.
  */
 const COUNT_QUERIES: Record<CsvEntity, (projectId: string) => number> = {
   events: (projectId) => countOf('SELECT COUNT(*) as n FROM events WHERE project_id = ? AND deleted_at IS NULL', projectId),
@@ -565,7 +612,8 @@ const COUNT_QUERIES: Record<CsvEntity, (projectId: string) => number> = {
   qa_runs: (projectId) => countOf('SELECT COUNT(*) as n FROM qa_runs WHERE project_id = ?', projectId),
   observations: (projectId) => countOf('SELECT COUNT(*) as n FROM observations WHERE project_id = ?', projectId),
   findings: (projectId) => countOf('SELECT COUNT(*) as n FROM findings WHERE project_id = ?', projectId),
-  change_log: () => 0,
+  // QA fix (2026-09-28): matches buildChangeLogRows now that the table exists (T-3-01).
+  change_log: (projectId) => (tableExists('change_log') ? countOf('SELECT COUNT(*) as n FROM change_log WHERE project_id = ?', projectId) : 0),
   comments: () => 0,
 };
 

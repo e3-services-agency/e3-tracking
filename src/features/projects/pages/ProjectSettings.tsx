@@ -10,7 +10,7 @@ import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
-import { EXPIRATION_UNITS, LIBRARY_INDUSTRIES } from '@/src/domain/enums';
+import { EXPIRATION_UNITS, LIBRARY_INDUSTRIES, SHARE_ACCESS } from '@/src/domain/enums';
 
 /** T-3-10 QA fix (ERROR 1, 2026-09-28 10:22): sentinel select values distinct from any real industry string. */
 const INDUSTRY_NOT_SET = '';
@@ -33,6 +33,13 @@ interface ProjectDetail {
   money_tolerance_floor: number;
   /** T-3-10 (D-57): optional free-text industry, used as the templates page's default facet filter. */
   industry: string | null;
+}
+
+interface ShareState {
+  share_token: string | null;
+  share_access: string | null;
+  share_created_at: string | null;
+  url: string | null;
 }
 
 export function ProjectSettings() {
@@ -62,6 +69,12 @@ export function ProjectSettings() {
   // suggested list must still round-trip through the "other" text box, not be silently dropped.
   const [industrySelect, setIndustrySelect] = useState<string>(INDUSTRY_NOT_SET);
   const [industryOtherText, setIndustryOtherText] = useState('');
+
+  const [share, setShare] = useState<ShareState | null>(null);
+  const [shareAccessSelect, setShareAccessSelect] = useState<string>(SHARE_ACCESS[0]);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
 
   const fetchProject = useCallback(async () => {
     if (!activeProjectId) {
@@ -114,10 +127,111 @@ export function ProjectSettings() {
     }
   }, [activeProjectId]);
 
+  const fetchShare = useCallback(async () => {
+    if (!activeProjectId) {
+      setShare(null);
+      return;
+    }
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/share`, {
+        headers: { Accept: 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return;
+      const s = data as ShareState;
+      setShare(s);
+      if (s.share_access) setShareAccessSelect(s.share_access);
+    } catch {
+      // share block is secondary; a fetch failure just leaves it showing "no link yet"
+    }
+  }, [activeProjectId]);
+
   useEffect(() => {
     fetchProject();
     fetchClients();
-  }, [fetchProject, fetchClients]);
+    fetchShare();
+  }, [fetchProject, fetchClients, fetchShare]);
+
+  const handleGenerateOrRotate = async () => {
+    if (!activeProjectId) return;
+    setShareLoading(true);
+    setShareError(null);
+    setShareCopied(false);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/share`, {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+        body: JSON.stringify({ access: shareAccessSelect }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setShareError(typeof data?.error === 'string' ? data.error : 'Failed to generate a share link');
+        return;
+      }
+      setShare(data as ShareState);
+    } catch (e) {
+      setShareError(e instanceof Error ? e.message : 'Network error');
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const handleShareAccessChange = async (access: string) => {
+    setShareAccessSelect(access);
+    if (!activeProjectId || !share?.share_token) return;
+    setShareLoading(true);
+    setShareError(null);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/share`, {
+        method: 'PATCH',
+        headers: { Accept: 'application/json' },
+        body: JSON.stringify({ access }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setShareError(typeof data?.error === 'string' ? data.error : 'Failed to update access');
+        return;
+      }
+      setShare(data as ShareState);
+    } catch (e) {
+      setShareError(e instanceof Error ? e.message : 'Network error');
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const handleRevokeShare = async () => {
+    if (!activeProjectId) return;
+    setShareLoading(true);
+    setShareError(null);
+    setShareCopied(false);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/share`, {
+        method: 'DELETE',
+        headers: { Accept: 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setShareError(typeof data?.error === 'string' ? data.error : 'Failed to revoke the share link');
+        return;
+      }
+      setShare(data as ShareState);
+    } catch (e) {
+      setShareError(e instanceof Error ? e.message : 'Network error');
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const handleCopyShareLink = async () => {
+    if (!share?.url) return;
+    try {
+      await navigator.clipboard.writeText(share.url);
+      setShareCopied(true);
+    } catch {
+      setShareCopied(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!activeProjectId) return;
@@ -228,6 +342,49 @@ export function ProjectSettings() {
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">Bloomreach project URL</label>
         <Input value={projectUrl} onChange={(e) => setProjectUrl(e.target.value)} placeholder="https://app.exponea.com/..." className="max-w-md" />
+      </div>
+
+      <div className="space-y-2 border-t pt-4">
+        <label className="block text-sm font-medium text-gray-700">Share link (D-48)</label>
+        <p className="text-xs text-gray-500">
+          A public link to this project's tracking document -- no login required. Rotating replaces
+          the old link, which stops working immediately; revoking clears it entirely.
+        </p>
+        {shareError && (
+          <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm">{shareError}</div>
+        )}
+        <div className="flex flex-wrap items-center gap-2 max-w-md">
+          <select
+            value={shareAccessSelect}
+            onChange={(e) => handleShareAccessChange(e.target.value)}
+            disabled={shareLoading}
+            className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+          >
+            {SHARE_ACCESS.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+          <Button onClick={handleGenerateOrRotate} disabled={shareLoading} variant="secondary">
+            {share?.share_token ? 'Rotate' : 'Generate'}
+          </Button>
+          {share?.share_token && (
+            <>
+              <Button onClick={handleCopyShareLink} disabled={shareLoading} variant="secondary">
+                {shareCopied ? 'Copied' : 'Copy link'}
+              </Button>
+              <Button onClick={handleRevokeShare} disabled={shareLoading} variant="secondary">
+                Revoke
+              </Button>
+            </>
+          )}
+        </div>
+        {share?.share_token && share.url && (
+          <div className="text-xs text-gray-600 space-y-1 max-w-md">
+            <div className="font-mono break-all">{share.url}</div>
+            {share.share_created_at && <div>Generated {new Date(share.share_created_at).toLocaleString()}</div>}
+          </div>
+        )}
+        {!share?.share_token && <div className="text-xs text-gray-500">No share link yet.</div>}
       </div>
 
       <div className="space-y-2 border-t pt-4">

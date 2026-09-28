@@ -2437,3 +2437,6 @@ Summary lines: npm test: 108 files, 1237 tests passed (threads, maxThreads 2, 14
 
 ### 2026-09-28 18:46 | supervisor -> implementer | DECISION | T-4-02 pre-QA fixes
 Reviewer PASS (18:45). Before QA: WARNING 1 same-key gap matching prefers an unclaimed old row with equal level and note before FIFO; LOW 1 removed-entity placeholder rows render as text, not links. Stays at QA after the fix commit; QA runs after T-4-08 and T-4-01.
+
+### 2026-09-28 21:46 | implementer -> qa-tester | HANDOFF | T-4-02 pre-QA fixes
+Posted by supervisor. Commit 126b6c2 on task/T-4-02-comments: same-key gap matching prefers equal level and note before FIFO (A/B test); removed placeholder rows render as text. Targeted tests 78/78, tsc and lint clean. T-4-02 QA queued after T-4-08 and T-4-01.

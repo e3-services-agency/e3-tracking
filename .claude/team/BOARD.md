@@ -2404,3 +2404,6 @@ Summary lines: npm test: 103 files, 1261 tests passed (threads, maxThreads 2); t
 
 ### 2026-09-28 18:35 | implementer -> reviewer | HANDOFF | T-4-02 fix round
 Posted by supervisor. Commits e3743c1, 533147d, 12188b1 on task/T-4-02-comments (HEAD 12188b1). ERROR 1 Comments page rows link to the entity (event card, property and use case via selectedItemIdToEdit, requirement -> its use case via a new use_case_id in the responses); WARNING 1 replaceRequirements matches ambiguous gap rows first-come-first-served so ids and comments survive a reorder (test); LOW 1 non-string fields 400; LOW 2 backup comments ordered, stale comment fixed; LOW 3 docs; LOW 4 ORDER BY created_at, id. 1237 tests (108 files), tsc clean, build and lint green.
+
+### 2026-09-28 18:35 | supervisor -> implementer | DECISION | T-4-08 pre-QA fixes
+Reviewer PASS (18:31). Before QA: WARNING 1 createUseCase validates the three fields before the try so a bad value is 400 not 500 (route test); WARNING 2 library parser validates internal_url with parseHttpUrl (warning, null); INFO 1 (413 for oversized bodies) is already a backlog follow-up. Stays at QA after the fix commit.

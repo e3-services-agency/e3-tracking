@@ -2010,3 +2010,6 @@ qa-tester PASS (07:00) on the QA fix. Merged clean into agent-setup; tests and t
 
 ### 2026-09-28 07:04 | supervisor | STATUS | T-3-05 merge: one test fails on the merged tree
 backupRestore.service.test.ts "no old id survives" fails after the T-3-02 merge: change_log.batch_id values (import batches) are not remapped. Ruling: restore assigns a fresh id per distinct batch_id (all rows of one old batch share one new id) so the invariant holds; fix on task/T-3-05b-batch-remap off agent-setup; reviewer probe then merge.
+
+### 2026-09-28 07:13 | supervisor | STATUS | T-3-05b merged
+change_log.batch_id remapped on restore (commit 5848242, one function plus a test); merged directly after a full-suite run on the merged tree: 1146 tests (99 files), tsc clean. agent-setup is green again.

@@ -3,11 +3,17 @@
  * requirement's target to a display label via `requirements-matrix.service.ts#buildTargetLabelResolver`
  * (the same resolver the requirements matrix and the docs export use, so labels never drift), and
  * carries the requirement's `level` alongside it.
+ *
+ * `list_use_case_templates`, `instantiate_use_case_template` (T-3-10, D-55): the global template
+ * library and its instantiate/preview, exposed the same way the `use-case-templates`/`use-cases`
+ * routes are, through the same `use-case-template.dal.ts` functions.
  */
 import * as UseCaseDAL from '../../backend/dal/use-case.dal';
 import * as RequirementDAL from '../../backend/dal/requirement.dal';
+import * as UseCaseTemplateDAL from '../../backend/dal/use-case-template.dal';
 import { buildTargetLabelResolver } from '../../backend/services/requirements-matrix.service';
 import { resolveProject, resolveUseCase } from '../resolve';
+import { McpToolError } from '../errors';
 
 export interface ListUseCasesInput {
   project_key?: string;
@@ -75,4 +81,67 @@ export async function getUseCase(input: GetUseCaseInput): Promise<GetUseCaseResu
     narrative: useCase.narrative,
     requirements,
   };
+}
+
+export interface ListUseCaseTemplatesRow {
+  code: string;
+  name: string;
+  type: string;
+  requirement_count: number;
+}
+
+/** `list_use_case_templates` (T-3-10): the global library, not project-scoped. */
+export async function listUseCaseTemplates(): Promise<ListUseCaseTemplatesRow[]> {
+  return UseCaseTemplateDAL.listUseCaseTemplates().map((t) => ({
+    code: t.code,
+    name: t.name,
+    type: t.type,
+    requirement_count: t.default_requirements_json.length,
+  }));
+}
+
+function resolveTemplateByCode(templateCode: string): UseCaseTemplateDAL.UseCaseTemplateRow {
+  const found = UseCaseTemplateDAL.listUseCaseTemplates().find((t) => t.code === templateCode);
+  if (!found) throw new McpToolError('TEMPLATE_NOT_FOUND', `No use case template coded "${templateCode}".`);
+  return found;
+}
+
+export interface InstantiateUseCaseTemplateMapping {
+  index: number;
+  event_id: string;
+  variant_id?: string | null;
+  property_id?: string | null;
+}
+
+export interface InstantiateUseCaseTemplateInput {
+  project_key?: string;
+  template_code: string;
+  code?: string;
+  mappings?: InstantiateUseCaseTemplateMapping[];
+  dry_run?: boolean;
+}
+
+/**
+ * `instantiate_use_case_template` (T-3-10, D-55): `dry_run: true` returns the resolve preview
+ * (`{resolved, unresolved, groups, ...}`, same shape as `POST .../from-template/:id/preview`)
+ * without creating anything; otherwise applies -- same `mappings`/`code` semantics as the route --
+ * and returns the created use case plus `unresolved_count`.
+ */
+export async function instantiateUseCaseTemplate(
+  input: InstantiateUseCaseTemplateInput
+): Promise<unknown> {
+  const project = resolveProject(input.project_key);
+  const template = resolveTemplateByCode(input.template_code);
+
+  if (input.dry_run) {
+    return UseCaseTemplateDAL.previewInstantiateUseCaseTemplate(project.id, template.id);
+  }
+
+  const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(project.id, template.id, {
+    code: input.code,
+    mappings: input.mappings,
+  });
+  const requirements = RequirementDAL.listRequirements(project.id, useCase.id);
+  const unresolved_count = requirements.filter((r) => r.status === 'gap').length;
+  return { ...useCase, unresolved_count };
 }

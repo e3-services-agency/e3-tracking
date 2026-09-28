@@ -5,7 +5,7 @@
  * Export, per-template Instantiate, multi-select "Add to project", and a template detail panel
  * with the prerequisites card (resolve status per group for the current project).
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -84,10 +84,41 @@ interface ResolvePreviewGroup {
   status: 'all' | 'none' | 'mixed';
 }
 
+interface TemplateEventCandidate {
+  id: string;
+  name: string;
+  variants: { id: string; name: string }[];
+  properties: { id: string; name: string }[];
+}
+
+interface ResolvedPreviewItem {
+  index: number;
+  target_kind: string;
+}
+
+interface UnresolvedPreviewItem {
+  index: number;
+  target_kind: string;
+  standard_event?: string;
+  property_name?: string;
+  candidates: TemplateEventCandidate[];
+}
+
 interface ResolvePreviewResult {
+  resolved: ResolvedPreviewItem[];
+  unresolved: UnresolvedPreviewItem[];
   groups: ResolvePreviewGroup[];
   unresolved_count: number;
   total_count: number;
+}
+
+/** T-3-10 (D-55): which of `event`/`variant`/`property` an unresolved row's target_kind needs a picker for. */
+function pickersFor(targetKind: string): { event: boolean; variant: boolean; property: boolean } {
+  return {
+    event: targetKind === 'event' || targetKind === 'event_property' || targetKind === 'variant' || targetKind === 'variant_property',
+    variant: targetKind === 'variant' || targetKind === 'variant_property',
+    property: targetKind === 'event_property' || targetKind === 'variant_property',
+  };
 }
 
 async function parseJson(res: Response): Promise<any> {
@@ -109,6 +140,7 @@ export function UseCaseTemplates() {
   const [detailId, setDetailId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [instantiateDialogTemplateId, setInstantiateDialogTemplateId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -121,6 +153,22 @@ export function UseCaseTemplates() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // T-3-10 (D-57): the project's own `industry` is the default `industries` facet filter, applied
+  // once per project switch (a user's own filter choice is never overridden after that).
+  const appliedDefaultIndustryFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!activeProjectId || appliedDefaultIndustryFor.current === activeProjectId) return;
+    appliedDefaultIndustryFor.current = activeProjectId;
+    fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}`)
+      .then(parseJson)
+      .then((data) => {
+        const industry = typeof data?.industry === 'string' ? data.industry.trim() : '';
+        if (!industry) return;
+        setFilters((prev) => (prev.industries?.size ? prev : { ...prev, industries: new Set([industry]) }));
+      })
+      .catch(() => {});
+  }, [activeProjectId]);
 
   const toggleFacetValue = (facet: string, value: string) => {
     setFilters((prev) => {
@@ -153,7 +201,8 @@ export function UseCaseTemplates() {
     });
   };
 
-  const instantiate = async (templateId: string) => {
+  /** Fast path: no mapping step needed, or the user chose to skip it entirely. */
+  const instantiate = async (templateId: string, mappings?: { index: number; event_id: string; variant_id?: string; property_id?: string }[]) => {
     if (!activeProjectId) {
       setActionError('Select a project first.');
       return;
@@ -162,6 +211,7 @@ export function UseCaseTemplates() {
     setActionMessage(null);
     const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/use-cases/from-template/${templateId}`, {
       method: 'POST',
+      body: mappings ? JSON.stringify({ mappings }) : undefined,
     });
     const data = await parseJson(res);
     if (!res.ok) {
@@ -171,6 +221,25 @@ export function UseCaseTemplates() {
     setActionMessage(
       `Created use case "${data.name}"${data.unresolved_count ? ` (${data.unresolved_count} gap requirement${data.unresolved_count === 1 ? '' : 's'})` : ''}.`
     );
+  };
+
+  /** T-3-10 (D-55): previews resolution first; opens the mapping dialog only when something is
+   * unresolved, otherwise instantiates directly (unchanged fast path for a fully-resolving template). */
+  const openInstantiate = async (templateId: string) => {
+    if (!activeProjectId) {
+      setActionError('Select a project first.');
+      return;
+    }
+    setActionError(null);
+    const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/use-cases/from-template/${templateId}/preview`, {
+      method: 'POST',
+    });
+    const data = (await parseJson(res)) as ResolvePreviewResult;
+    if (!res.ok || !Array.isArray(data.unresolved) || data.unresolved.length === 0) {
+      await instantiate(templateId);
+      return;
+    }
+    setInstantiateDialogTemplateId(templateId);
   };
 
   const addSelectedToProject = async () => {
@@ -295,7 +364,7 @@ export function UseCaseTemplates() {
                     </td>
                     <td className="px-4 py-2 text-gray-500">{t.default_requirements_json?.length ?? 0}</td>
                     <td className="px-4 py-2 text-right">
-                      <Button size="sm" variant="outline" onClick={() => void instantiate(t.id)} disabled={!activeProjectId}>
+                      <Button size="sm" variant="outline" onClick={() => void openInstantiate(t.id)} disabled={!activeProjectId}>
                         Instantiate
                       </Button>
                     </td>
@@ -315,6 +384,190 @@ export function UseCaseTemplates() {
         {detailTemplate && (
           <TemplateDetail template={detailTemplate} projectId={activeProjectId} onClose={() => setDetailId(null)} />
         )}
+
+        {instantiateDialogTemplateId && activeProjectId && (
+          <InstantiateMappingDialog
+            templateId={instantiateDialogTemplateId}
+            projectId={activeProjectId}
+            onClose={() => setInstantiateDialogTemplateId(null)}
+            onInstantiate={async (mappings) => {
+              await instantiate(instantiateDialogTemplateId, mappings);
+              setInstantiateDialogTemplateId(null);
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * T-3-10 (D-55): the mapping-step dialog. One row per unresolved `default_requirements_json` entry
+ * with an event/variant/property picker (only the ones its `target_kind` needs) plus a Skip option
+ * (the row's default -- no mapping is applied for that index, matching the plan's "Skip option");
+ * "Create use case" sends every non-skipped row as a `mappings` entry.
+ */
+function InstantiateMappingDialog({
+  templateId,
+  projectId,
+  onClose,
+  onInstantiate,
+}: {
+  templateId: string;
+  projectId: string;
+  onClose: () => void;
+  onInstantiate: (mappings: { index: number; event_id: string; variant_id?: string; property_id?: string }[]) => Promise<void>;
+}) {
+  const [preview, setPreview] = useState<ResolvePreviewResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [rowEventId, setRowEventId] = useState<Record<number, string>>({});
+  const [rowVariantId, setRowVariantId] = useState<Record<number, string>>({});
+  const [rowPropertyId, setRowPropertyId] = useState<Record<number, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchWithAuth(`${API_BASE}/api/projects/${projectId}/use-cases/from-template/${templateId}/preview`, {
+      method: 'POST',
+    })
+      .then(parseJson)
+      .then((data) => setPreview(data as ResolvePreviewResult))
+      .finally(() => setLoading(false));
+  }, [projectId, templateId]);
+
+  const setEvent = (index: number, eventId: string) => {
+    setRowEventId((prev) => ({ ...prev, [index]: eventId }));
+    // Changing the event invalidates any previously-picked variant/property from a different event.
+    setRowVariantId((prev) => ({ ...prev, [index]: '' }));
+    setRowPropertyId((prev) => ({ ...prev, [index]: '' }));
+  };
+
+  const handleCreate = async () => {
+    if (!preview) return;
+    setSubmitting(true);
+    try {
+      const mappings = preview.unresolved
+        .filter((item) => rowEventId[item.index])
+        .map((item) => ({
+          index: item.index,
+          event_id: rowEventId[item.index],
+          variant_id: rowVariantId[item.index] || undefined,
+          property_id: rowPropertyId[item.index] || undefined,
+        }));
+      await onInstantiate(mappings);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-8">
+      <div className="bg-white rounded-lg border shadow-lg max-w-3xl w-full max-h-[85vh] overflow-y-auto p-6 space-y-4">
+        <div className="flex items-start justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">Map unresolved requirements</h2>
+          <button type="button" onClick={onClose} className="text-sm text-gray-400 hover:text-gray-900">
+            Close
+          </button>
+        </div>
+        <p className="text-sm text-gray-500">
+          These requirements did not resolve against this project. Pick an event (and, where needed, a variant and
+          property) for each, or leave it as Skip to create it as a gap.
+        </p>
+
+        {loading && <p className="text-sm text-gray-500">Loading…</p>}
+
+        {!loading && preview && (
+          <table className="w-full text-left text-xs border rounded-md overflow-hidden">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-3 py-2 font-medium text-gray-500">Target</th>
+                <th className="px-3 py-2 font-medium text-gray-500">Event</th>
+                <th className="px-3 py-2 font-medium text-gray-500">Variant</th>
+                <th className="px-3 py-2 font-medium text-gray-500">Property</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {preview.unresolved.map((item) => {
+                const needs = pickersFor(item.target_kind);
+                const candidates = item.candidates;
+                const selectedEventId = rowEventId[item.index] ?? '';
+                const selectedEvent = candidates.find((c) => c.id === selectedEventId) ?? null;
+                return (
+                  <tr key={item.index}>
+                    <td className="px-3 py-2">
+                      {item.target_kind}
+                      {item.standard_event ? ` (${item.standard_event})` : ''}
+                      {item.property_name ? ` · ${item.property_name}` : ''}
+                    </td>
+                    <td className="px-3 py-2">
+                      {needs.event ? (
+                        <select
+                          className="border rounded px-1 py-0.5"
+                          value={selectedEventId}
+                          onChange={(e) => setEvent(item.index, e.target.value)}
+                        >
+                          <option value="">Skip</option>
+                          {candidates.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {needs.variant && selectedEvent ? (
+                        <select
+                          className="border rounded px-1 py-0.5"
+                          value={rowVariantId[item.index] ?? ''}
+                          onChange={(e) => setRowVariantId((prev) => ({ ...prev, [item.index]: e.target.value }))}
+                        >
+                          <option value="">(none)</option>
+                          {selectedEvent.variants.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              {v.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {needs.property && selectedEvent ? (
+                        <select
+                          className="border rounded px-1 py-0.5"
+                          value={rowPropertyId[item.index] ?? ''}
+                          onChange={(e) => setRowPropertyId((prev) => ({ ...prev, [item.index]: e.target.value }))}
+                        >
+                          <option value="">(none)</option>
+                          {selectedEvent.properties.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button onClick={() => void handleCreate()} disabled={submitting || loading}>
+            Create use case
+          </Button>
+        </div>
       </div>
     </div>
   );

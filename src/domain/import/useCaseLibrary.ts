@@ -41,12 +41,11 @@ import {
 } from '../enums';
 
 /**
- * Target kinds this format's `default_requirements[].target_kind` may use. Adds `catalog_attribute`
- * and `consent` (D-57) ahead of `REQUIREMENT_TARGET_KINDS` gaining them in T-3-10: a template file
- * using either validates cleanly here and instantiates as a `gap` requirement (an unresolved,
- * clearly-noted placeholder) until T-3-10 adds real resolution for those two kinds.
+ * Target kinds this format's `default_requirements[].target_kind` may use. `REQUIREMENT_TARGET_KINDS`
+ * itself gained `catalog_attribute` and `consent` in T-3-10 (D-57), so this is now just an alias
+ * (kept so callers importing `LIBRARY_TARGET_KINDS` from here need no change).
  */
-export const LIBRARY_TARGET_KINDS = [...REQUIREMENT_TARGET_KINDS, 'catalog_attribute', 'consent'] as const;
+export const LIBRARY_TARGET_KINDS = REQUIREMENT_TARGET_KINDS;
 export type LibraryTargetKind = (typeof LIBRARY_TARGET_KINDS)[number];
 
 /** `target_kind`s whose requirement entry needs `event_name` to mean anything. */
@@ -59,8 +58,16 @@ export interface LibraryCondition {
 
 export interface LibraryRequirement {
   target_kind: string;
+  /** T-3-10 (D-55): the Bloomreach standard event catalog name (e.g. `add_to_cart`); resolved
+   * first through the project's own standard event mapping, then by exact name. Optional for a
+   * custom event outside the catalog, which then needs `event_name`. */
+  standard_event?: string;
+  /** Now optional (D-55): required only when `standard_event` is absent, for a custom event. */
   event_name?: string;
+  /** Standard (or, absent a mapping, exact) property name for `event_property`/`variant_property`. */
   property_name?: string;
+  /** T-3-10 (D-57): the main catalog field name for `target_kind: 'catalog_attribute'`. */
+  field_name?: string;
   condition?: LibraryCondition;
   level: string;
   note?: string;
@@ -181,19 +188,35 @@ function parseRequirement(
     return null;
   }
   const eventName = typeof raw.event_name === 'string' ? raw.event_name.trim() : '';
-  if (EVENT_SCOPED_TARGET_KINDS.has(targetKind) && !eventName) {
-    warnings.push(`${path} is missing event_name, required for target_kind "${targetKind}"; skipped.`);
+  const standardEvent = typeof raw.standard_event === 'string' ? raw.standard_event.trim() : '';
+  // D-55: `event_name` is now optional when `standard_event` names a Bloomreach catalog event --
+  // resolution then goes through the project's own standard event mapping or an exact-name match
+  // against `standard_event` itself. At least one of the two is still required for an event-scoped
+  // kind (nothing to resolve otherwise).
+  if (EVENT_SCOPED_TARGET_KINDS.has(targetKind) && !eventName && !standardEvent) {
+    warnings.push(`${path} is missing both event_name and standard_event, one of which is required for target_kind "${targetKind}"; skipped.`);
     return null;
   }
   const propertyName = typeof raw.property_name === 'string' ? raw.property_name.trim() : '';
+  const fieldName = typeof raw.field_name === 'string' ? raw.field_name.trim() : '';
+  if (targetKind === 'catalog_attribute' && !fieldName) {
+    warnings.push(`${path} is missing field_name, required for target_kind "catalog_attribute"; skipped.`);
+    return null;
+  }
+  if (targetKind === 'consent' && !propertyName) {
+    warnings.push(`${path} is missing property_name, required for target_kind "consent"; skipped.`);
+    return null;
+  }
   const level =
     typeof raw.level === 'string' && (REQUIREMENT_LEVELS as readonly string[]).includes(raw.level) ? raw.level : 'O';
   const note = typeof raw.note === 'string' && raw.note.trim() ? raw.note.trim() : undefined;
   const condition = parseCondition(raw.condition, `${path}.condition`, warnings);
 
   const requirement: LibraryRequirement = { target_kind: targetKind, level };
+  if (standardEvent) requirement.standard_event = standardEvent;
   if (eventName) requirement.event_name = eventName;
   if (propertyName) requirement.property_name = propertyName;
+  if (fieldName) requirement.field_name = fieldName;
   if (condition) requirement.condition = condition;
   if (note) requirement.note = note;
   return requirement;

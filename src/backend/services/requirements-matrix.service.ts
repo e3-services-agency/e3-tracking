@@ -11,6 +11,8 @@ import { listRequirementsByProject, TARGET_SHAPES } from '../dal/requirement.dal
 import { listEvents } from '../dal/event.dal';
 import { listProperties } from '../dal/property.dal';
 import { listVariantsByProject } from '../dal/variant.dal';
+import { getMainCatalog, listCatalogFields } from '../dal/catalog.dal';
+import { listConsentCategories } from '../dal/consent-category.dal';
 
 export interface RequirementsMatrixUseCase {
   id: string;
@@ -23,6 +25,10 @@ export interface RequirementsMatrixRow {
   property_id: string | null;
   event_id: string | null;
   variant_id: string | null;
+  /** T-3-10 (D-57): `target_kind = 'catalog_attribute'`'s target. */
+  catalog_field_id: string | null;
+  /** T-3-10 (D-57): `target_kind = 'consent'`'s target. */
+  consent_category_id: string | null;
   /** Human-readable label for the row, e.g. "purchase.total_price" or "cart_update[action=add]". */
   label: string;
   /**
@@ -45,8 +51,15 @@ export interface RequirementsMatrix {
   rows: RequirementsMatrixRow[];
 }
 
-function rowKey(target: { target_kind: string; property_id: string | null; event_id: string | null; variant_id: string | null }): string {
-  return `${target.target_kind}:${target.property_id ?? ''}:${target.event_id ?? ''}:${target.variant_id ?? ''}`;
+function rowKey(target: {
+  target_kind: string;
+  property_id: string | null;
+  event_id: string | null;
+  variant_id: string | null;
+  catalog_field_id: string | null;
+  consent_category_id: string | null;
+}): string {
+  return `${target.target_kind}:${target.property_id ?? ''}:${target.event_id ?? ''}:${target.variant_id ?? ''}:${target.catalog_field_id ?? ''}:${target.consent_category_id ?? ''}`;
 }
 
 export type TargetLabelResolver = (target: {
@@ -54,23 +67,32 @@ export type TargetLabelResolver = (target: {
   property_id: string | null;
   event_id: string | null;
   variant_id: string | null;
+  catalog_field_id?: string | null;
+  consent_category_id?: string | null;
 }) => string;
 
 /**
  * Builds a `(target) => label` resolver for the project (event/property/variant names, joined for
  * the two `..._property` kinds), reused by both the matrix computation below and the "Use cases"
  * docs section (`export.service.ts`), so the two never drift on how a target is displayed.
+ * T-3-10 (D-57): adds `catalog_attribute` (main catalog field name) and `consent` (consent
+ * category name) to the same resolver.
  */
 export function buildTargetLabelResolver(projectId: string): TargetLabelResolver {
   const eventNameById = new Map(listEvents(projectId).map((e) => [e.id, e.name]));
   const propertyNameById = new Map(listProperties(projectId).map((p) => [p.id, p.name]));
   const variantNameById = new Map(listVariantsByProject(projectId).map((v) => [v.id, v.name]));
+  const mainCatalog = getMainCatalog(projectId);
+  const catalogFieldNameById = new Map(
+    (mainCatalog ? listCatalogFields(projectId, mainCatalog.id) : []).map((f) => [f.id, f.name])
+  );
+  const consentCategoryNameById = new Map(listConsentCategories(projectId).map((c) => [c.id, c.name]));
 
   // Fix round ERROR 2: once a target is deleted, its id column is nulled (see
   // `requirement.dal.ts` `markRequirementsGap*`) — a `null` id must render as "(removed)", not a
   // raw uuid (the previous fallback `... ?? row.property_id ?? ''` only handled a *resolved* id
   // whose name lookup missed, and printed the empty string / the id itself for a null one).
-  const labelPart = (map: Map<string, string>, id: string | null): string => {
+  const labelPart = (map: Map<string, string>, id: string | null | undefined): string => {
     if (!id) return '(removed)';
     return map.get(id) ?? id;
   };
@@ -87,6 +109,10 @@ export function buildTargetLabelResolver(projectId: string): TargetLabelResolver
         return `${labelPart(eventNameById, row.event_id)}.${labelPart(propertyNameById, row.property_id)}`;
       case 'variant_property':
         return `${labelPart(variantNameById, row.variant_id)}.${labelPart(propertyNameById, row.property_id)}`;
+      case 'catalog_attribute':
+        return labelPart(catalogFieldNameById, row.catalog_field_id);
+      case 'consent':
+        return labelPart(consentCategoryNameById, row.consent_category_id);
       default:
         return '';
     }
@@ -105,6 +131,8 @@ export function computeRequirementsMatrix(projectId: string): RequirementsMatrix
       property_id: req.property_id,
       event_id: req.event_id,
       variant_id: req.variant_id,
+      catalog_field_id: req.catalog_field_id,
+      consent_category_id: req.consent_category_id,
     };
     // Second fix round ERROR A: a `gap` row that is still missing one of its `target_kind`'s
     // required ids (e.g. an `event_property` detach nulls only `property_id`, `event_id` stays) is
@@ -134,7 +162,15 @@ export function computeRequirementsMatrix(projectId: string): RequirementsMatrix
 
   // Stable, readable ordering: by target_kind (matching REQUIREMENT_TARGET_KINDS declaration order
   // via the fixed list below), then alphabetically by label.
-  const kindOrder = ['customer_property', 'event', 'event_property', 'variant', 'variant_property'];
+  const kindOrder = [
+    'customer_property',
+    'event',
+    'event_property',
+    'variant',
+    'variant_property',
+    'catalog_attribute',
+    'consent',
+  ];
   const rows = Array.from(rowsByKey.values()).sort((a, b) => {
     const kindDiff = kindOrder.indexOf(a.target_kind) - kindOrder.indexOf(b.target_kind);
     if (kindDiff !== 0) return kindDiff;

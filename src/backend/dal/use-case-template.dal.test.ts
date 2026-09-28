@@ -495,15 +495,34 @@ describe('T-3-06: instantiate code suffixing, tags/flags, catalog_attribute/cons
     expect(UseCaseTemplateDAL.getUseCaseTemplateById(template.id)).toBeNull();
   });
 
-  it('fix round ERROR 1: still refuses (409, never a raw 500) after the only referencing use case is soft-deleted', () => {
+  it('T-3-10 (D-47 amendment): a soft-deleted referencing use case no longer blocks delete, and its template_id is nulled', () => {
     const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-DEL3', name: 'Soft-deleted use case', type: 'marketing' });
     const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
 
-    // Reproduces the reviewer's probe exactly: instantiate, delete the use case (soft delete,
-    // `template_id` is left untouched by `deleteUseCase`), then delete the template.
+    // Soft-delete the only referencing use case, then delete the template: this now succeeds (the
+    // guard counts *live* references only), never a raw 500 from the FK either way.
     UseCaseDAL.deleteUseCase(projectId, useCase.id);
-    expect(() => UseCaseTemplateDAL.deleteUseCaseTemplate(template.id)).toThrow(TemplateInUseError);
-    // Confirm it is still there (the guard fired before any DELETE, not a rolled-back FK failure).
+    UseCaseTemplateDAL.deleteUseCaseTemplate(template.id);
+    expect(UseCaseTemplateDAL.getUseCaseTemplateById(template.id)).toBeNull();
+    const row = getDb().prepare('SELECT template_id FROM use_cases WHERE id = ?').get(useCase.id) as {
+      template_id: string | null;
+    };
+    expect(row.template_id).toBeNull();
+  });
+
+  it('T-3-10 (D-47 amendment): the 409 body carries the live reference count and project name; a live reference still blocks delete', () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-DEL4', name: 'Still live', type: 'marketing' });
+    UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+    let caught: unknown;
+    try {
+      UseCaseTemplateDAL.deleteUseCaseTemplate(template.id);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(TemplateInUseError);
+    const e = caught as TemplateInUseError;
+    expect(e.count).toBe(1);
+    expect(e.project_names).toEqual(['Acme EU']);
     expect(UseCaseTemplateDAL.getUseCaseTemplateById(template.id)).not.toBeNull();
   });
 });

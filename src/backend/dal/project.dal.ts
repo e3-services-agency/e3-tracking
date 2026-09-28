@@ -50,6 +50,10 @@ export interface ProjectRow {
    * `tolerance_mode = 'money'` rule (`src/domain/rules/evaluate.ts`'s `resolveTolerance`). */
   money_tolerance_percent: number;
   money_tolerance_floor: number;
+  /** T-3-10 (D-57): optional free-text industry, used as the templates page's default facet
+   * filter (`LIBRARY_INDUSTRIES` is a suggested vocabulary, not enforced here -- a client's
+   * industry is not limited to the three seed values, same reasoning as D-57's tag values). */
+  industry: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -236,6 +240,8 @@ export interface UpdateProjectInput {
   data_manager_customers_json?: unknown;
   /** Last applied `data-manager-events.json` verbatim plus `applied_at` (T-2-02/T-2-03, D-35). */
   data_manager_events_json?: unknown;
+  /** T-3-10 (D-57): optional industry, used as the templates page's default facet filter. */
+  industry?: string | null;
 }
 
 /** Range validation for the D-30 money tolerance fields (T-2-06 plan: "range validation"). */
@@ -424,6 +430,7 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
   if (updates.data_manager_events_json !== undefined) {
     patch.data_manager_events_json = toJsonColumn(updates.data_manager_events_json);
   }
+  if (updates.industry !== undefined) patch.industry = updates.industry?.trim() || null;
 
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)

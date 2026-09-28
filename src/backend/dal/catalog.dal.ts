@@ -7,6 +7,7 @@ import { newId, nowIso, fromSqliteBool, toSqliteBool, mapWriteError } from '../d
 import { NotFoundError, ValidationError } from '../errors';
 import { CATALOG_MAPPING_ROLES } from '../../domain/enums';
 import { CATALOG_MAIN_COLUMNS } from '../../domain/bloomreach';
+import { markRequirementsGapForCatalogFieldRemoval } from './requirement.dal';
 
 /** `mapping_role` (T-1-06 delta): `null` clears the role; any other value must be a known one. */
 function validateMappingRole(mappingRole: string | null | undefined): void {
@@ -357,8 +358,40 @@ export function updateCatalogField(
 
 export function deleteCatalogField(projectId: string, catalogId: string, fieldId: string): void {
   getCatalogOrThrow(projectId, catalogId);
+  const field = getDb()
+    .prepare('SELECT name FROM catalog_fields WHERE id = ? AND catalog_id = ?')
+    .get(fieldId, catalogId) as { name: string } | undefined;
+  if (!field) throw new NotFoundError('Catalog field not found.', 'catalog_field');
+  // T-3-10 (D-57): mirrors the property/event/variant gap-marking on removal (requirement.dal.ts's
+  // `markRequirementsGap*`) for the new `catalog_attribute` requirement target kind -- the FK itself
+  // is `ON DELETE SET NULL` (0017), but only this call also flips `status` to `gap` and appends a
+  // "target removed" note.
+  markRequirementsGapForCatalogFieldRemoval(fieldId, field.name);
   const result = getDb()
     .prepare('DELETE FROM catalog_fields WHERE id = ? AND catalog_id = ?')
     .run(fieldId, catalogId);
   if (result.changes === 0) throw new NotFoundError('Catalog field not found.', 'catalog_field');
+}
+
+/**
+ * T-3-10 (D-55/D-57): the project's main catalog (`mapping_role = 'main'`, at most one per
+ * project) — resolution target for `catalog_attribute` library requirements, which name a field by
+ * its exact `name` on that catalog. `null` when the project has no main catalog yet.
+ */
+export function getMainCatalog(projectId: string): CatalogRow | null {
+  return (
+    (getDb()
+      .prepare("SELECT * FROM catalogs WHERE project_id = ? AND mapping_role = 'main' AND deleted_at IS NULL")
+      .get(projectId) as CatalogRow | undefined) ?? null
+  );
+}
+
+/** A field of the project's main catalog by exact name, or `null` if there is no main catalog or no such field. */
+export function findMainCatalogFieldByName(projectId: string, name: string): CatalogFieldRow | null {
+  const main = getMainCatalog(projectId);
+  if (!main) return null;
+  const row = getDb()
+    .prepare('SELECT * FROM catalog_fields WHERE catalog_id = ? AND name = ?')
+    .get(main.id, name) as Record<string, unknown> | undefined;
+  return row ? mapCatalogFieldRow(row) : null;
 }

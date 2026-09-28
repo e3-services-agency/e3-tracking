@@ -255,6 +255,7 @@ const ALL_MIGRATION_FILES = [
   '0014_findings_manual_resolve.sql',
   '0015_change_log.sql',
   '0016_use_case_template_tags.sql',
+  '0017_project_industry_and_requirement_targets.sql',
 ];
 
 describe('listMigrationFiles', () => {

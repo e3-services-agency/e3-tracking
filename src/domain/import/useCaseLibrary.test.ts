@@ -84,7 +84,7 @@ describe('parseUseCaseLibrary', () => {
           name: 'Catalog and consent',
           type: 'marketing',
           default_requirements: [
-            { target_kind: 'catalog_attribute', property_name: 'image', level: 'R' },
+            { target_kind: 'catalog_attribute', field_name: 'image', level: 'R' },
             { target_kind: 'consent', property_name: 'newsletter', level: 'R' },
           ],
         },

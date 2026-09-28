@@ -10,6 +10,7 @@ import { BadRequestError, NotFoundError, ValidationError } from '../errors';
 import { isKnownConsentKey } from '../../domain/bloomreach';
 import { getProjectById } from './project.dal';
 import { ENTITY_STATUSES } from '../../domain/enums';
+import { markRequirementsGapForConsentCategoryRemoval } from './requirement.dal';
 
 export interface ConsentCategoryRow {
   id: string;
@@ -158,11 +159,31 @@ export function updateConsentCategory(
 }
 
 export function deleteConsentCategory(projectId: string, id: string): void {
-  getConsentCategoryOrThrow(projectId, id);
+  const category = getConsentCategoryOrThrow(projectId, id);
+  // T-3-10 (D-57): same gap-marking as the property/event/variant/catalog-field removals above.
+  markRequirementsGapForConsentCategoryRemoval(id, category.name);
   const result = getDb()
     .prepare('DELETE FROM consent_categories WHERE id = ? AND project_id = ?')
     .run(id, projectId);
   if (result.changes === 0) throw new NotFoundError('Consent category not found.', 'consent_category');
+}
+
+/**
+ * T-3-10 (D-55/D-57): resolution target for `consent` library requirements, which name a consent
+ * by its Bloomreach `standard_key` (e.g. `newsletter`) -- falls back to an exact `name` match so a
+ * project without that standard key mapped, but with a category literally named that, still
+ * resolves.
+ */
+export function findConsentCategoryByStandardKeyOrName(projectId: string, key: string): ConsentCategoryRow | null {
+  const byStandardKey = getDb()
+    .prepare('SELECT * FROM consent_categories WHERE project_id = ? AND standard_key = ?')
+    .get(projectId, key) as ConsentCategoryRow | undefined;
+  if (byStandardKey) return byStandardKey;
+  return (
+    (getDb()
+      .prepare('SELECT * FROM consent_categories WHERE project_id = ? AND name = ?')
+      .get(projectId, key) as ConsentCategoryRow | undefined) ?? null
+  );
 }
 
 /** Reorders the project's consent categories; `orderedIds` must be the full existing id set. */

@@ -152,6 +152,8 @@ function requirementInputFromBody(row: Record<string, unknown>): RequirementDAL.
     property_id: 'property_id' in row ? (row.property_id as string | null) : undefined,
     event_id: 'event_id' in row ? (row.event_id as string | null) : undefined,
     variant_id: 'variant_id' in row ? (row.variant_id as string | null) : undefined,
+    catalog_field_id: 'catalog_field_id' in row ? (row.catalog_field_id as string | null) : undefined,
+    consent_category_id: 'consent_category_id' in row ? (row.consent_category_id as string | null) : undefined,
     level: String(row.level ?? ''),
     status: 'status' in row ? (row.status as string | null) : undefined,
     note: 'note' in row ? (row.note as string | null) : undefined,

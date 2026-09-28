@@ -173,6 +173,9 @@ describe('computeRequirementsMatrix', () => {
     expect(first.rows).toHaveLength(1);
     expect(first.rows[0].key).toBe(second.rows[0].key);
     expect(first.rows[0].key).not.toMatch(/^gap:/);
-    expect(first.rows[0].key).toBe(`event::${event}:`);
+    // T-3-10: rowKey now also includes catalog_field_id/consent_category_id (both empty here),
+    // so an `event` row (property_id, variant_id, catalog_field_id, consent_category_id all empty)
+    // has three trailing empty segments after the event id.
+    expect(first.rows[0].key).toBe(`event::${event}:::`);
   });
 });

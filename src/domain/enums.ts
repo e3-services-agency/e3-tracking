@@ -57,12 +57,17 @@ export type EventPropertyRole = (typeof EVENT_PROPERTY_ROLES)[number];
 export const REQUIREMENT_LEVELS = ['R', 'O'] as const;
 export type RequirementLevel = (typeof REQUIREMENT_LEVELS)[number];
 
+// `catalog_attribute` and `consent` added by T-3-10 (D-57): a template/requirement can target a
+// main-catalog field (`catalog_field_id`) or a consent category (`consent_category_id`) directly,
+// alongside the five kinds above. Append-only (domain-model skill).
 export const REQUIREMENT_TARGET_KINDS = [
   'customer_property',
   'event',
   'variant',
   'event_property',
   'variant_property',
+  'catalog_attribute',
+  'consent',
 ] as const;
 export type RequirementTargetKind = (typeof REQUIREMENT_TARGET_KINDS)[number];
 

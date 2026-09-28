@@ -2247,3 +2247,6 @@ User uploaded 98 Use Case Center templates (pnp_usecase JSON) to samples/br-pnp;
 
 ### 2026-09-28 15:41 | supervisor | STATUS | T-4-07 DONE; T-4-00 fix round 2; T-4-08 started
 T-4-07 final fix beb7bfa verified by the supervisor (import tests green, 86 templates, no variant row without a condition) and merged. T-4-00 delta review FAIL (15:37): card, tracking document and MCP still read formats from the property, and the 0021 collision naming can throw on two override groups of one property (soft-deleted plus live event of the same name); fix round 2. T-4-08 (D-59 converter and generated seed) starts now on the merged library.
+
+### 2026-09-28 15:42 | supervisor | DECISION | D-59 amendment: documentation links on templates and use cases
+User request. Folded into T-4-08 (migration 0022 gains documentation_url on both tables). T-4-03 shared view and T-4-06 show it too.

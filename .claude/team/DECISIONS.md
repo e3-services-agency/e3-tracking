@@ -371,3 +371,5 @@ Decision: A converter src/domain/import/pnpUseCase.ts turns a pnp_usecase docume
 Consequences: Task T-4-08 after T-4-07 merges. Library format stays v1 with additive optional fields. System events named in requirements (session_start, session_end, first_session, consent, double_opt_in) are allowed as event targets; they resolve by name against the project's sdk/platform events.
 
 ## D-53 amendment 3 (2026-09-28): 0022 T-4-08 use case template source, prerequisites and expected assets.
+
+## D-59 amendment (2026-09-28): use case templates and use cases carry an optional documentation_url (templates: defaults to the pnp documentation_link; use cases: copied from the template on instantiate, editable). Rendered as a link on the template card and detail, the use case page, the documentation HTML, the tracking document (additive field) and the shared view. The pnp callout quote is shown on the template detail.

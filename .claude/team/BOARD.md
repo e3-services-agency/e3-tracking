@@ -2543,3 +2543,6 @@ T-4-03 -> QA. qa-tester scenario 12 (private window, no login, screenshot visibl
 
 ### 2026-09-28 22:52 | supervisor -> implementer | DECISION | T-4-03 pre-QA fixes
 Reviewer PASS (22:50). Before QA: WARNING 1 trigger source validated as http(s) at write time (event.dal.ts, 400 otherwise) and toEventCardTriggers nulls page_url for any non-http(s) value already stored; LOW 3 a malformed token escape in the shared URL shows the invalid-link page, not the error boundary; INFO 5 CLAUDE.md lint note is T-4-05. Stays at QA after the fix commit.
+
+### 2026-09-28 23:02 | implementer -> qa-tester | HANDOFF | T-4-03 pre-QA fixes
+Posted by supervisor. Commit aedc0c7 on task/T-4-03-shared-view: trigger source validated as http(s) at write time, card nulls stored bad values; malformed token escapes fall to the invalid-link page (src/sharedRoute.ts). 1375 tests (112 files), tsc and lint green. QA starts (scenario 12).

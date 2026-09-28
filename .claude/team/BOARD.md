@@ -2016,3 +2016,6 @@ change_log.batch_id remapped on restore (commit 5848242, one function plus a tes
 
 ### 2026-09-28 09:15 | supervisor | STATUS | Merge permission granted (option 1)
 User chose option 1: .claude/settings.local.json (gitignored) allows Bash(git merge *). T-3-10 implementer resumed to integrate agent-setup per the reviewer notes.
+
+### 2026-09-28 09:32 | implementer -> qa-tester | HANDOFF | T-3-10 merged with agent-setup
+Posted by supervisor. Merge commit 1dd665f on task/T-3-10-library-resolution (agent-setup 7bd4710 into d8e7385). requirement.dal.ts labelForTarget, targetKey, isAmbiguous, snapshots and inserts carry catalog_field_id and consent_category_id; markRequirementsGap and its wrappers take projectId; catalog and consent delete gap-marking inside the T-3-02 transaction; findConsentCategoryByStandardKeyOrName kept; removePropertyFromFieldMaps logs a mapping update; registerTools order T-3-07, T-3-10, get_history; docs/MCP.md nineteen tools; new test: catalog_attribute plus consent re-save logs one update row per row. 1175 tests (101 files), tsc clean, build ok. QA on this branch.

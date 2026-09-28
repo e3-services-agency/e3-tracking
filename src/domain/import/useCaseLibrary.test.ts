@@ -216,3 +216,45 @@ describe('parseUseCaseLibrary', () => {
     expect(variantRowsWithoutCondition).toEqual([]);
   });
 });
+
+describe('D-59 fix round 2 (WARNING 2) / pre-QA fix: documentation_url and internal_url are http(s)-only, parsed with a warning otherwise', () => {
+  it('a non-http(s) documentation_url warns and is dropped to null', () => {
+    const model = parseUseCaseLibrary({
+      format: 'e3-use-case-library',
+      version: 1,
+      templates: [{ code: 'UC-BADDOC', name: 'Bad doc url', type: 'marketing', documentation_url: 'javascript:alert(1)', default_requirements: [] }],
+    });
+    expect(model.templates[0].documentation_url).toBeNull();
+    expect(model.warnings.some((w) => w.includes('documentation_url') && w.includes('is not an http'))).toBe(true);
+  });
+
+  it('a non-http(s) internal_url warns and is dropped to null (same rule as documentation_url)', () => {
+    const model = parseUseCaseLibrary({
+      format: 'e3-use-case-library',
+      version: 1,
+      templates: [{ code: 'UC-BADINT', name: 'Bad internal url', type: 'marketing', internal_url: 'javascript:alert(1)', default_requirements: [] }],
+    });
+    expect(model.templates[0].internal_url).toBeNull();
+    expect(model.warnings.some((w) => w.includes('internal_url') && w.includes('is not an http'))).toBe(true);
+  });
+
+  it('a valid http(s) documentation_url/internal_url parses with no warnings', () => {
+    const model = parseUseCaseLibrary({
+      format: 'e3-use-case-library',
+      version: 1,
+      templates: [
+        {
+          code: 'UC-OKURLS',
+          name: 'Ok urls',
+          type: 'marketing',
+          documentation_url: 'https://example.com/docs',
+          internal_url: 'https://internal.example.com',
+          default_requirements: [],
+        },
+      ],
+    });
+    expect(model.warnings).toEqual([]);
+    expect(model.templates[0].documentation_url).toBe('https://example.com/docs');
+    expect(model.templates[0].internal_url).toBe('https://internal.example.com');
+  });
+});

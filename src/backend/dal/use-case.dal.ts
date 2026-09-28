@@ -157,6 +157,15 @@ export function createUseCase(projectId: string, input: UseCaseInput): UseCaseRo
   ).m;
   const code = normalizeCode(input.code) || nextUseCaseCode(projectId);
 
+  // D-59 fix (pre-QA): field validation runs *before* the try/catch below -- `mapWriteError` maps
+  // any exception without a SQLite constraint `code` into a 500 `DatabaseError`, so a
+  // `ValidationError` thrown from inside that try block (a bad documentation_url/internal_url/
+  // internal_notes previously evaluated as part of the `.run({...})` call's argument) was getting
+  // reclassified into a 500 instead of surfacing as the 400 it already is.
+  const documentationUrl = normalizeHttpUrl(input.documentation_url, 'documentation_url');
+  const internalNotes = normalizeOptionalText(input.internal_notes, 'internal_notes');
+  const internalUrl = normalizeHttpUrl(input.internal_url, 'internal_url');
+
   const run = db.transaction(() => {
     try {
       db.prepare(
@@ -182,9 +191,9 @@ export function createUseCase(projectId: string, input: UseCaseInput): UseCaseRo
         narrative: input.narrative ? normalizeNarrativeLineEndings(input.narrative.trim()) || null : null,
         narrative_generated_at: null,
         sort_order: input.sort_order ?? maxOrder + 1,
-        documentation_url: normalizeHttpUrl(input.documentation_url, 'documentation_url'),
-        internal_notes: normalizeOptionalText(input.internal_notes, 'internal_notes'),
-        internal_url: normalizeHttpUrl(input.internal_url, 'internal_url'),
+        documentation_url: documentationUrl,
+        internal_notes: internalNotes,
+        internal_url: internalUrl,
         created_at: now,
         updated_at: now,
       });

@@ -100,6 +100,36 @@ describe('use-case-template.dal: D-59 fields round trip', () => {
     expect(cleared.documentation_url).toBeNull();
   });
 
+  it('pre-QA fix: createUseCase rejects a bad internal_notes/documentation_url with a ValidationError, not a 500-mapped DatabaseError', () => {
+    // Before the fix, normalizeHttpUrl/normalizeOptionalText ran *inside* createUseCase's
+    // try/catch (as part of evaluating the .run({...}) argument), so the ValidationError they threw
+    // was caught and remapped by mapWriteError into a generic DatabaseError (no SQLite constraint
+    // code matches, so mapWriteError's fallback fires) -- a 500, not the 400 the field guard promises.
+    expect(() =>
+      UseCaseDAL.createUseCase(projectId, {
+        name: 'Bad create',
+        // @ts-expect-error deliberately wrong type, probing the runtime guard
+        internal_notes: 123,
+      })
+    ).toThrow(ValidationError);
+    expect(() =>
+      UseCaseDAL.createUseCase(projectId, { name: 'Bad create 2', documentation_url: 'javascript:alert(1)' })
+    ).toThrow(ValidationError);
+    expect(() =>
+      UseCaseDAL.createUseCase(projectId, { name: 'Bad create 3', internal_url: 'ftp://nope' })
+    ).toThrow(ValidationError);
+
+    const good = UseCaseDAL.createUseCase(projectId, {
+      name: 'Good create',
+      documentation_url: 'https://example.com/docs',
+      internal_notes: 'a note',
+      internal_url: 'https://internal.example.com',
+    });
+    expect(good.documentation_url).toBe('https://example.com/docs');
+    expect(good.internal_notes).toBe('a note');
+    expect(good.internal_url).toBe('https://internal.example.com');
+  });
+
   it('instantiate copies documentation_url/internal_notes/internal_url from the template onto the use case', () => {
     const template = UseCaseTemplateDAL.createUseCaseTemplate({
       code: 'UC-T-COPY',

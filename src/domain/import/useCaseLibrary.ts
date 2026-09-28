@@ -387,7 +387,11 @@ function parseTemplate(index: number, raw: unknown, seenCodes: Set<string>, warn
     source: parseSource(raw.source, `templates[code=${code}].source`, warnings),
     documentation_url: parseHttpUrl(raw.documentation_url, `templates[code=${code}].documentation_url`, warnings),
     internal_notes: typeof raw.internal_notes === 'string' && raw.internal_notes.trim() ? raw.internal_notes.trim() : null,
-    internal_url: typeof raw.internal_url === 'string' && raw.internal_url.trim() ? raw.internal_url.trim() : null,
+    // Pre-QA fix: internal_url is a URL field like documentation_url, so it gets the same
+    // http(s)-only parseHttpUrl check (warning, null) -- not the free-text handling internal_notes
+    // gets. A bad internal_url in an imported file is now visible at preview time (D-04), not a
+    // write-time 400 that never happens because parseHttpUrl already nulled it.
+    internal_url: parseHttpUrl(raw.internal_url, `templates[code=${code}].internal_url`, warnings),
   };
 }
 

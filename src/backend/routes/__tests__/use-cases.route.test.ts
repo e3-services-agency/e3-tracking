@@ -543,3 +543,41 @@ describe('D-59 fix round 2 (WARNING 1): PATCH /use-cases/:id rejects a non-strin
     expect((await ok.json()).internal_notes).toBe('a real note');
   });
 });
+
+describe('D-59 pre-QA fix: POST /use-cases (create) also rejects bad internal_notes/documentation_url with 400, never 500', () => {
+  it('a numeric internal_notes on create 400s (not the mapWriteError 500 the try/catch used to produce)', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Bad create', internal_notes: 123 }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('a javascript: documentation_url on create 400s', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Bad create 2', documentation_url: 'javascript:alert(1)' }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('valid documentation_url/internal_notes/internal_url on create still work', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Good create',
+        documentation_url: 'https://example.com/docs',
+        internal_notes: 'a note',
+        internal_url: 'https://internal.example.com',
+      }),
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.documentation_url).toBe('https://example.com/docs');
+    expect(body.internal_notes).toBe('a note');
+    expect(body.internal_url).toBe('https://internal.example.com');
+  });
+});

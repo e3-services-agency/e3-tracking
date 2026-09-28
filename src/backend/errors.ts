@@ -351,3 +351,16 @@ export class UseCaseCodeTakenError extends ConflictError {
     this.name = 'UseCaseCodeTakenError';
   }
 }
+
+/**
+ * `POST /api/projects/restore-backup/apply` with a `project.key` already taken by another
+ * non-deleted project (T-3-05, D-45). Distinguished from the generic `ProjectDAL.createProject`
+ * `ConflictError` (code `CONFLICT`) so the restore form can show a specific message/field. 409.
+ */
+export class ProjectKeyTakenError extends ConflictError {
+  readonly code = 'PROJECT_KEY_TAKEN';
+  constructor(message: string) {
+    super(message);
+    this.name = 'ProjectKeyTakenError';
+  }
+}

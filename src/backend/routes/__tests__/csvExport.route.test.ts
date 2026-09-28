@@ -9,7 +9,7 @@ import type { AddressInfo } from 'node:net';
 import fs from 'node:fs';
 import path from 'node:path';
 import Papa from 'papaparse';
-import { closeDb } from '../../db';
+import { closeDb, getDb } from '../../db';
 import { createApp } from '../../app';
 import * as ClientDAL from '../../dal/client.dal';
 import * as ProjectDAL from '../../dal/project.dal';
@@ -124,15 +124,40 @@ describe('GET /export/csv/:entity', () => {
     expect(JSON.parse(row!.allowed_values_json)).toEqual(withAllowedValues!.allowed_values_json);
   });
 
-  it('change_log and comments export headers-only (tables do not exist yet)', async () => {
-    for (const entity of ['change_log', 'comments']) {
-      const res = await fetch(`${baseUrl}/api/projects/${projectId}/export/csv/${entity}`);
-      expect(res.status).toBe(200);
-      const text = await res.text();
-      const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
-      expect(parsed.meta.fields).toEqual([...csvHeadersFor(entity as 'change_log' | 'comments')]);
-      expect(parsed.data.length).toBe(0);
-    }
+  it('change_log.csv: header line matches the contract and row count equals the change_log table (T-3-01 merged, QA fix)', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/export/csv/change_log`);
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.meta.fields).toEqual([...csvHeadersFor('change_log')]);
+
+    const expectedCount = (
+      getDb().prepare('SELECT COUNT(*) as n FROM change_log WHERE project_id = ?').get(projectId) as { n: number }
+    ).n;
+    // The two fixture applies above (data-mapping, expiration-settings) each write a batch of rows.
+    expect(expectedCount).toBeGreaterThan(0);
+    expect(parsed.data.length).toBe(expectedCount);
+
+    const row = (parsed.data as Record<string, string>[])[0];
+    expect(row.id).toBeTruthy();
+    expect(row.changed_at).toBeTruthy();
+    expect(['create', 'update', 'delete', 'restore']).toContain(row.action);
+    expect(() => JSON.parse(row.diff_json)).not.toThrow();
+
+    const listRes = await fetch(`${baseUrl}/api/projects/${projectId}/export/csv`);
+    const listBody = await listRes.json();
+    const changeLogEntry = listBody.entities.find((e: { entity: string }) => e.entity === 'change_log');
+    expect(changeLogEntry.count).toBe(expectedCount);
+  });
+
+  it('comments.csv exports headers-only (table does not exist yet)', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/export/csv/comments`);
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+    expect(parsed.meta.fields).toEqual([...csvHeadersFor('comments')]);
+    expect(parsed.data.length).toBe(0);
   });
 
   it('a value containing a comma, a quote and a newline round-trips through papaparse', async () => {

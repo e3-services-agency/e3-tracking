@@ -30,6 +30,13 @@ export interface FileStore {
    * `open()`, for anything served under `/api/projects/:projectId/files/*`.
    */
   openForProject(projectId: string, relativePath: string): Promise<OpenedFile>;
+  /**
+   * Removes every file written for `projectId` (its whole directory under the store root),
+   * recursively, never throwing (T-3-05 pre-QA fix: a failed backup restore must clean up any
+   * file it already wrote before the surrounding transaction rolled back, and there is nothing
+   * useful to do if the cleanup itself fails -- the caller is already reporting a different error).
+   */
+  removeProjectFiles(projectId: string): Promise<void>;
 }
 
 function filesRoot(): string {
@@ -123,6 +130,20 @@ export class LocalFileStore implements FileStore {
     }
     const buffer = fs.readFileSync(resolvedTarget);
     return { buffer, mime: guessMimeFromExt(resolvedTarget) };
+  }
+
+  async removeProjectFiles(projectId: string): Promise<void> {
+    const root = filesRoot();
+    const resolvedRoot = path.resolve(root) + path.sep;
+    const projectDir = path.resolve(root, safeSegment(projectId));
+    // Defence in depth (same shape as every other method here): never remove anything outside
+    // the store root, and never throw -- this is best-effort cleanup on an already-failing path.
+    if (!projectDir.startsWith(resolvedRoot)) return;
+    try {
+      fs.rmSync(projectDir, { recursive: true, force: true });
+    } catch {
+      // best-effort; the caller is already reporting a different error
+    }
   }
 }
 

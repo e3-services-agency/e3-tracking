@@ -27,9 +27,8 @@ entity — the service, the route and the Settings page all read this, so they c
 - soft-deleted rows are excluded.
 - there is no CSV import; the app is the system of record (D-01).
 
-`change_log`'s table exists from T-3-01 onward, so its export carries real rows; `comments` (T-4-02,
-not built yet) is declared here too but exports headers-only until its table exists, so the CSV
-route list has been complete since T-3-03.
+`change_log` (T-3-01) and `comments` (T-4-02) both export real rows; the CSV route list has been
+complete since T-3-03, each entity's export starting the moment its own task's migration lands.
 
 ### Headers
 
@@ -52,7 +51,7 @@ route list has been complete since T-3-03.
 | `observations` | id, qa_run_id, source, event_type, event_name, variant_name, timestamp, timestamp_iso, page_url, properties_json, context_values_json, captured_at |
 | `findings` | id, comparison, kind, severity, status, event_name, variant_name, property_name, message, expected_json, actual_json, first_seen_at, last_seen_at, resolved_at, resolved_by |
 | `change_log` | id, changed_at, actor, source, batch_id, entity_type, entity_id, entity_label, action, diff_json |
-| `comments` (phase 4) | id, entity_type, entity_id, entity_label, author_name, via_share, body, created_at, resolved_at, resolved_by |
+| `comments` (D-49) | id, entity_type, entity_id, entity_label, author_name, via_share, body, created_at, resolved_at, resolved_by |
 
 Note on `observations.timestamp`: it is exported as the **raw epoch-seconds value** (e.g.
 `1778232949.3897672`), not an ISO string, so the CSV still joins with a raw

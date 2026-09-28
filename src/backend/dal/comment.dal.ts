@@ -99,7 +99,7 @@ export function listComments(projectId: string, filter: ListCommentsFilter = {})
     conditions.push(filter.resolved ? 'resolved_at IS NOT NULL' : 'resolved_at IS NULL');
   }
   const rows = getDb()
-    .prepare(`SELECT * FROM comments WHERE ${conditions.join(' AND ')} ORDER BY created_at`)
+    .prepare(`SELECT * FROM comments WHERE ${conditions.join(' AND ')} ORDER BY created_at, id`)
     .all(...params) as CommentDbRow[];
   return rows.map(mapCommentRow);
 }

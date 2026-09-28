@@ -2642,3 +2642,6 @@ Ruling for T-4-04 fix round: W1 one comments fetch per page (shared view and use
 
 ### 2026-09-29 00:27 | supervisor | HANDOFF | T-4-04 fix round (5704377, 939ab67, fd41631) — RE-REVIEW
 Tests 1433/0 (122 files), tsc, build, lint green. W1: SharedProject and UseCases fetch the comment list once and pass rows/onChanged into every panel (62 -> 1, 18 -> 1 requests); single-entity pages unchanged. W2: doc comments corrected, internal form note "Visible to anyone with the share link"; test documents an internal comment returned by the public GET. L3: rate-limit entries pruned and deleted when empty. L4: submit/toggleResolved catch network failures with an inline error.
+
+### 2026-09-29 00:31 | reviewer | REVIEW | T-4-04 re-review PASS (fd41631)
+1433 tests / 122 files, tsc, build, lint, merge-tree clean. Shared page 3 requests on load (header, document, one comments list); use case page one comments request; uncontrolled panels intact on event editor, property editor, event card; corrected docs and visibility note; rate-limit pruning keeps the 429 test; catch blocks with inline errors. Residual cosmetic notes only. T-4-04 -> QA (scenario 13).

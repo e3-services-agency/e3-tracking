@@ -2013,3 +2013,6 @@ backupRestore.service.test.ts "no old id survives" fails after the T-3-02 merge:
 
 ### 2026-09-28 07:13 | supervisor | STATUS | T-3-05b merged
 change_log.batch_id remapped on restore (commit 5848242, one function plus a test); merged directly after a full-suite run on the merged tree: 1146 tests (99 files), tsc clean. agent-setup is green again.
+
+### 2026-09-28 09:15 | supervisor | STATUS | Merge permission granted (option 1)
+User chose option 1: .claude/settings.local.json (gitignored) allows Bash(git merge *). T-3-10 implementer resumed to integrate agent-setup per the reviewer notes.

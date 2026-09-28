@@ -16,6 +16,7 @@ import {
   type UseCaseType,
   type UseCaseStatus,
 } from '../../domain/enums';
+import * as ChangeLogDAL from './change-log.dal';
 
 /**
  * Normalizes `\r\n`/lone `\r` to `\n` before a narrative is stored (T-2-11 fix round, ERROR 1):
@@ -147,43 +148,56 @@ export function createUseCase(projectId: string, input: UseCaseInput): UseCaseRo
   ).m;
   const code = normalizeCode(input.code) || nextUseCaseCode(projectId);
 
-  try {
-    db.prepare(
-      `INSERT INTO use_cases (
-        id, project_id, template_id, code, name, type, description, priority, status, owner,
-        notes, narrative, narrative_generated_at, sort_order, created_at, updated_at
-      ) VALUES (@id, @project_id, @template_id, @code, @name, @type, @description, @priority,
-        @status, @owner, @notes, @narrative, @narrative_generated_at, @sort_order, @created_at, @updated_at)`
-    ).run({
-      id,
-      project_id: projectId,
-      template_id: input.template_id ?? null,
-      code,
-      name,
-      type: input.type ?? null,
-      description: input.description?.trim() || null,
-      priority: input.priority ?? null,
-      status: input.status ?? null,
-      owner: input.owner?.trim() || null,
-      notes: input.notes?.trim() || null,
-      narrative: input.narrative ? normalizeNarrativeLineEndings(input.narrative.trim()) || null : null,
-      narrative_generated_at: null,
-      sort_order: input.sort_order ?? maxOrder + 1,
-      created_at: now,
-      updated_at: now,
+  const run = db.transaction(() => {
+    try {
+      db.prepare(
+        `INSERT INTO use_cases (
+          id, project_id, template_id, code, name, type, description, priority, status, owner,
+          notes, narrative, narrative_generated_at, sort_order, created_at, updated_at
+        ) VALUES (@id, @project_id, @template_id, @code, @name, @type, @description, @priority,
+          @status, @owner, @notes, @narrative, @narrative_generated_at, @sort_order, @created_at, @updated_at)`
+      ).run({
+        id,
+        project_id: projectId,
+        template_id: input.template_id ?? null,
+        code,
+        name,
+        type: input.type ?? null,
+        description: input.description?.trim() || null,
+        priority: input.priority ?? null,
+        status: input.status ?? null,
+        owner: input.owner?.trim() || null,
+        notes: input.notes?.trim() || null,
+        narrative: input.narrative ? normalizeNarrativeLineEndings(input.narrative.trim()) || null : null,
+        narrative_generated_at: null,
+        sort_order: input.sort_order ?? maxOrder + 1,
+        created_at: now,
+        updated_at: now,
+      });
+    } catch (err) {
+      mapWriteError(
+        err,
+        `A use case with code "${code}" already exists in this project.`,
+        `Failed to create use case: ${(err as Error).message}`
+      );
+    }
+    const created = getUseCaseOrThrow(projectId, id);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'use_case',
+      entityId: id,
+      entityLabel: created.code ? `${created.code} ${created.name}` : created.name,
+      action: 'create',
+      before: null,
+      after: created as unknown as Record<string, unknown>,
     });
-  } catch (err) {
-    mapWriteError(
-      err,
-      `A use case with code "${code}" already exists in this project.`,
-      `Failed to create use case: ${(err as Error).message}`
-    );
-  }
+  });
+  run();
   return getUseCaseOrThrow(projectId, id);
 }
 
 export function updateUseCase(projectId: string, id: string, updates: Partial<UseCaseInput>): UseCaseRow {
-  getUseCaseOrThrow(projectId, id);
+  const before = getUseCaseOrThrow(projectId, id);
   if (updates.name !== undefined && !updates.name.trim()) {
     throw new ValidationError('Use case name is required.', 'name');
   }
@@ -223,17 +237,30 @@ export function updateUseCase(projectId: string, id: string, updates: Partial<Us
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
     .join(', ');
-  try {
-    getDb()
-      .prepare(`UPDATE use_cases SET ${setClause} WHERE id = @id AND project_id = @project_id`)
-      .run({ ...patch, id, project_id: projectId });
-  } catch (err) {
-    mapWriteError(
-      err,
-      `A use case with code "${String(patch.code ?? '')}" already exists in this project.`,
-      `Failed to update use case: ${(err as Error).message}`
-    );
-  }
+  const db = getDb();
+  const run = db.transaction(() => {
+    try {
+      db.prepare(`UPDATE use_cases SET ${setClause} WHERE id = @id AND project_id = @project_id`)
+        .run({ ...patch, id, project_id: projectId });
+    } catch (err) {
+      mapWriteError(
+        err,
+        `A use case with code "${String(patch.code ?? '')}" already exists in this project.`,
+        `Failed to update use case: ${(err as Error).message}`
+      );
+    }
+    const after = getUseCaseOrThrow(projectId, id);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'use_case',
+      entityId: id,
+      entityLabel: after.code ? `${after.code} ${after.name}` : after.name,
+      action: 'update',
+      before: before as unknown as Record<string, unknown>,
+      after: after as unknown as Record<string, unknown>,
+    });
+  });
+  run();
   return getUseCaseOrThrow(projectId, id);
 }
 
@@ -245,25 +272,50 @@ export function updateUseCase(projectId: string, id: string, updates: Partial<Us
  * and the `force` flag, not just DB access), not here.
  */
 export function regenerateUseCaseNarrative(projectId: string, id: string, narrative: string): UseCaseRow {
-  getUseCaseOrThrow(projectId, id);
+  const before = getUseCaseOrThrow(projectId, id);
   const now = nowIso();
-  getDb()
-    .prepare(
+  const db = getDb();
+  const run = db.transaction(() => {
+    db.prepare(
       `UPDATE use_cases SET narrative = ?, narrative_generated_at = ?, narrative_edited_at = NULL, updated_at = ?
        WHERE id = ? AND project_id = ?`
     )
-    .run(normalizeNarrativeLineEndings(narrative), now, now, id, projectId);
+      .run(normalizeNarrativeLineEndings(narrative), now, now, id, projectId);
+    const after = getUseCaseOrThrow(projectId, id);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'use_case',
+      entityId: id,
+      entityLabel: after.code ? `${after.code} ${after.name}` : after.name,
+      action: 'update',
+      before: before as unknown as Record<string, unknown>,
+      after: after as unknown as Record<string, unknown>,
+    });
+  });
+  run();
   return getUseCaseOrThrow(projectId, id);
 }
 
 /** Soft-deletes the use case; its requirements are hard-deleted in the same transaction (ON DELETE CASCADE). */
 export function deleteUseCase(projectId: string, id: string): void {
-  getUseCaseOrThrow(projectId, id);
+  const existing = getUseCaseOrThrow(projectId, id);
   const db = getDb();
-  const result = db
-    .prepare('UPDATE use_cases SET deleted_at = ? WHERE id = ? AND project_id = ? AND deleted_at IS NULL')
-    .run(nowIso(), id, projectId);
-  if (result.changes === 0) throw new NotFoundError('Use case not found.', 'use_case');
+  const run = db.transaction(() => {
+    const result = db
+      .prepare('UPDATE use_cases SET deleted_at = ? WHERE id = ? AND project_id = ? AND deleted_at IS NULL')
+      .run(nowIso(), id, projectId);
+    if (result.changes === 0) throw new NotFoundError('Use case not found.', 'use_case');
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'use_case',
+      entityId: id,
+      entityLabel: existing.code ? `${existing.code} ${existing.name}` : existing.name,
+      action: 'delete',
+      before: existing as unknown as Record<string, unknown>,
+      after: null,
+    });
+  });
+  run();
 }
 
 /** Every use case in the project referencing this event directly (`target_kind = 'event'|'event_property'`) or via one of its variants. Read-only list for the event editor (T-1-07 acceptance). */

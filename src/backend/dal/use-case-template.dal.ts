@@ -271,7 +271,7 @@ function resolveOne(
     : 'O';
   const note = entry.note?.trim() || null;
   const unresolved = (reason: string) =>
-    insertUnresolvedRequirement(useCaseId, sortOrder, {
+    insertUnresolvedRequirement(projectId, useCaseId, sortOrder, {
       target_kind: entry.target_kind,
       level,
       note: note ? `${reason} ${note}` : reason,

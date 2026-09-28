@@ -5,6 +5,7 @@
 import { getDb } from '../db';
 import { newId, nowIso, mapWriteError } from '../db/util';
 import { BadRequestError, ConflictError, NotFoundError, ValidationError } from '../errors';
+import * as ChangeLogDAL from './change-log.dal';
 
 export interface PropertyBundleRow {
   id: string;
@@ -162,6 +163,16 @@ export function createBundle(
         'INSERT INTO property_bundle_items (bundle_id, property_id, created_at) VALUES (?, ?, ?)'
       );
       for (const propertyId of propertyIds) insert.run(id, propertyId, now);
+      const created = getBundleOrThrow(projectId, id);
+      ChangeLogDAL.recordChange({
+        projectId,
+        entityType: 'property_bundle',
+        entityId: id,
+        entityLabel: created.name,
+        action: 'create',
+        before: null,
+        after: created as unknown as Record<string, unknown>,
+      });
     });
     create();
   } catch (err) {
@@ -179,7 +190,7 @@ export function updateBundle(
   bundleId: string,
   input: { name?: string; description?: string | null; property_ids?: string[] | null }
 ): BundleWithPropertyIds {
-  getBundleOrThrow(projectId, bundleId);
+  const before = getBundleOrThrow(projectId, bundleId);
   const db = getDb();
 
   const patch: Record<string, unknown> = {};
@@ -196,51 +207,74 @@ export function updateBundle(
   }
   if (input.description !== undefined) patch.description = input.description?.trim() || null;
 
-  if (Object.keys(patch).length > 0) {
-    patch.updated_at = nowIso();
-    const setClause = Object.keys(patch)
-      .map((k) => `${k} = @${k}`)
-      .join(', ');
-    try {
-      db.prepare(`UPDATE property_bundles SET ${setClause} WHERE id = @id AND project_id = @project_id`).run({
-        ...patch,
-        id: bundleId,
-        project_id: projectId,
-      });
-    } catch (err) {
-      mapWriteError(
-        err,
-        'A bundle with that name already exists in this project.',
-        `Failed to update bundle: ${(err as Error).message}`
-      );
+  const run = db.transaction(() => {
+    if (Object.keys(patch).length > 0) {
+      patch.updated_at = nowIso();
+      const setClause = Object.keys(patch)
+        .map((k) => `${k} = @${k}`)
+        .join(', ');
+      try {
+        db.prepare(`UPDATE property_bundles SET ${setClause} WHERE id = @id AND project_id = @project_id`).run({
+          ...patch,
+          id: bundleId,
+          project_id: projectId,
+        });
+      } catch (err) {
+        mapWriteError(
+          err,
+          'A bundle with that name already exists in this project.',
+          `Failed to update bundle: ${(err as Error).message}`
+        );
+      }
     }
-  }
 
-  if (input.property_ids !== undefined) {
-    const propertyIds = [...new Set((input.property_ids ?? []).filter(Boolean))];
-    validatePropertyIds(projectId, propertyIds);
-    const now = nowIso();
-    const replace = db.transaction(() => {
+    if (input.property_ids !== undefined) {
+      const propertyIds = [...new Set((input.property_ids ?? []).filter(Boolean))];
+      validatePropertyIds(projectId, propertyIds);
+      const now = nowIso();
       db.prepare('DELETE FROM property_bundle_items WHERE bundle_id = ?').run(bundleId);
       const insert = db.prepare(
         'INSERT INTO property_bundle_items (bundle_id, property_id, created_at) VALUES (?, ?, ?)'
       );
       for (const propertyId of propertyIds) insert.run(bundleId, propertyId, now);
+    }
+
+    const after = getBundleOrThrow(projectId, bundleId);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'property_bundle',
+      entityId: bundleId,
+      entityLabel: after.name,
+      action: 'update',
+      before: before as unknown as Record<string, unknown>,
+      after: after as unknown as Record<string, unknown>,
     });
-    replace();
-  }
+  });
+  run();
 
   return getBundleOrThrow(projectId, bundleId);
 }
 
 export function deleteBundle(projectId: string, bundleId: string): void {
-  getBundleOrThrow(projectId, bundleId);
+  const existing = getBundleOrThrow(projectId, bundleId);
   const db = getDb();
   const now = nowIso();
-  db.prepare('UPDATE property_bundles SET deleted_at = ?, updated_at = ? WHERE id = ? AND project_id = ?').run(
-    now,
-    now,
-    bundleId,
-    projectId
-  );
+  const run = db.transaction(() => {
+    db.prepare('UPDATE property_bundles SET deleted_at = ?, updated_at = ? WHERE id = ? AND project_id = ?').run(
+      now,
+      now,
+      bundleId,
+      projectId
+    );
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'property_bundle',
+      entityId: bundleId,
+      entityLabel: existing.name,
+      action: 'delete',
+      before: existing as unknown as Record<string, unknown>,
+      after: null,
+    });
+  });
+  run();
 }

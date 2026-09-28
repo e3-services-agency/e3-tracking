@@ -9,6 +9,7 @@ import { ConflictError, NotFoundError, StandardEventExistsError, ValidationError
 import { getClientOrThrow, type ClientRow } from './client.dal';
 import { validateExpirationJson } from './validators';
 import { STANDARD_EVENTS } from '../../domain/bloomreach';
+import * as ChangeLogDAL from './change-log.dal';
 
 /** `fields` entries must be snake_case: lowercase letters/digits, single underscores, no leading digit. */
 const SNAKE_CASE_RE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
@@ -354,7 +355,7 @@ function normalizeStringListColumn(value: unknown, field: string): string[] {
 }
 
 export function updateProject(id: string, updates: UpdateProjectInput): ProjectRow {
-  getProjectOrThrow(id);
+  const before = getProjectOrThrow(id);
   const db = getDb();
 
   if (updates.key !== undefined) {
@@ -428,15 +429,28 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
     .join(', ');
-  try {
-    db.prepare(`UPDATE projects SET ${setClause} WHERE id = @id`).run({ ...patch, id });
-  } catch (err) {
-    mapWriteError(
-      err,
-      `A project with key "${String(patch.key ?? '')}" already exists.`,
-      `Failed to update project: ${(err as Error).message}`
-    );
-  }
+  const run = db.transaction(() => {
+    try {
+      db.prepare(`UPDATE projects SET ${setClause} WHERE id = @id`).run({ ...patch, id });
+    } catch (err) {
+      mapWriteError(
+        err,
+        `A project with key "${String(patch.key ?? '')}" already exists.`,
+        `Failed to update project: ${(err as Error).message}`
+      );
+    }
+    const after = getProjectOrThrow(id);
+    ChangeLogDAL.recordChange({
+      projectId: id,
+      entityType: 'project',
+      entityId: id,
+      entityLabel: after.name,
+      action: 'update',
+      before: before as unknown as Record<string, unknown>,
+      after: after as unknown as Record<string, unknown>,
+    });
+  });
+  run();
   return getProjectOrThrow(id);
 }
 

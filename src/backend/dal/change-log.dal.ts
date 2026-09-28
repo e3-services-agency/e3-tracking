@@ -26,19 +26,32 @@ import type { ChangeLogAction, ChangeLogEntityType } from '../../domain/enums';
 import { getActor } from '../context/actor';
 
 /**
- * Fields never diffed: timestamps have their own columns already; `deleted_at` is expressed by
- * `action` (D-44); `project_id`/`event_id`/`property_id` are identity/scoping columns that are
- * always present and never meaningfully "change" from the History panel's point of view (fix
- * round INFO 5) -- `id` itself is kept, since a create/delete diff should still show it.
+ * Fields never diffed, for every entity type: timestamps have their own columns already;
+ * `deleted_at` is expressed by `action` (D-44); `project_id` is always present and never
+ * meaningfully "changes" from the History panel's point of view -- `id` itself is kept, since a
+ * create/delete diff should still show it.
  */
-const EXCLUDED_FIELDS = new Set([
-  'created_at',
-  'updated_at',
-  'deleted_at',
-  'project_id',
-  'event_id',
-  'property_id',
-]);
+const ALWAYS_EXCLUDED_FIELDS = new Set(['created_at', 'updated_at', 'deleted_at', 'project_id']);
+
+/**
+ * `event_id`/`property_id` are pure identity/scoping columns for `event_property` (its composite
+ * key) and `variant`/`rule` (their owning event, which never changes on an update -- neither
+ * `VariantInput` nor `RuleInput` even accepts one) -- excluded there too (fix round INFO 5, T-3-01).
+ * `standard_event_mapping.event_id` is the opposite: it is the mapping's actual content (which
+ * event the standard key points at) and legitimately changes on `upsertStandardEventMapping`
+ * (T-3-02), so it is deliberately *not* in this per-entity-type list and stays diffed like any
+ * other field.
+ */
+const SCOPING_ID_EXCLUSIONS: Record<string, string[]> = {
+  event_property: ['event_id', 'property_id'],
+  variant: ['event_id'],
+  rule: ['event_id'],
+};
+
+function excludedFieldsFor(entityType: string): Set<string> {
+  const scoping = SCOPING_ID_EXCLUSIONS[entityType];
+  return scoping ? new Set([...ALWAYS_EXCLUDED_FIELDS, ...scoping]) : ALWAYS_EXCLUDED_FIELDS;
+}
 
 export interface DiffJsonEntry {
   field: string;
@@ -83,9 +96,10 @@ function computeFieldDiffs(
     ...(before ? Object.keys(before) : []),
     ...(after ? Object.keys(after) : []),
   ]);
+  const excluded = excludedFieldsFor(entityType);
   const entries: DiffJsonEntry[] = [];
   for (const field of keys) {
-    if (EXCLUDED_FIELDS.has(field)) continue;
+    if (excluded.has(field)) continue;
     const beforeValue = before ? before[field] : null;
     const afterValue = after ? after[field] : null;
     const diff = diffValue(entityType, key, field, beforeValue, afterValue);

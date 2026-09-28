@@ -9,6 +9,7 @@ import { newId, nowIso, mapWriteError, parseJsonColumn, toJsonColumn } from '../
 import { BadRequestError, NotFoundError, ValidationError } from '../errors';
 import { IDENTITY_TYPES, IDENTITY_TRANSFORMATIONS, IDENTITY_SDK_CALLS, PRIORITIES, ENTITY_STATUSES } from '../../domain/enums';
 import { validateAsciiName } from './validators';
+import * as ChangeLogDAL from './change-log.dal';
 
 export interface IdentityRuleRow {
   id: string;
@@ -171,40 +172,53 @@ export function createIdentityRule(projectId: string, input: IdentityRuleInput):
     ) as { m: number }
   ).m;
 
-  try {
-    db.prepare(
-      `INSERT INTO identity_rules (
-        id, project_id, identifier_name, identity_type, name, description, trigger_event_id,
-        trigger_text, value_rule, example, owner, source_id, tracker, priority, status,
-        sort_order, transformations_json, sdk_call, created_at, updated_at
-      ) VALUES (@id, @project_id, @identifier_name, @identity_type, @name, @description,
-        @trigger_event_id, @trigger_text, @value_rule, @example, @owner, @source_id, @tracker,
-        @priority, @status, @sort_order, @transformations_json, @sdk_call, @created_at, @updated_at)`
-    ).run({
-      id,
-      project_id: projectId,
-      identifier_name: identifierName,
-      identity_type: input.identity_type,
-      name,
-      description: input.description?.trim() || null,
-      trigger_event_id: input.trigger_event_id ?? null,
-      trigger_text: input.trigger_text?.trim() || null,
-      value_rule: input.value_rule?.trim() || null,
-      example: input.example?.trim() || null,
-      owner: input.owner?.trim() || null,
-      source_id: input.source_id ?? null,
-      tracker: input.tracker?.trim() || null,
-      transformations_json: toJsonColumn(input.transformations_json ?? []),
-      sdk_call: input.sdk_call ?? null,
-      priority: input.priority ?? null,
-      status: input.status ?? null,
-      sort_order: input.sort_order ?? maxOrder + 1,
-      created_at: now,
-      updated_at: now,
+  const run = db.transaction(() => {
+    try {
+      db.prepare(
+        `INSERT INTO identity_rules (
+          id, project_id, identifier_name, identity_type, name, description, trigger_event_id,
+          trigger_text, value_rule, example, owner, source_id, tracker, priority, status,
+          sort_order, transformations_json, sdk_call, created_at, updated_at
+        ) VALUES (@id, @project_id, @identifier_name, @identity_type, @name, @description,
+          @trigger_event_id, @trigger_text, @value_rule, @example, @owner, @source_id, @tracker,
+          @priority, @status, @sort_order, @transformations_json, @sdk_call, @created_at, @updated_at)`
+      ).run({
+        id,
+        project_id: projectId,
+        identifier_name: identifierName,
+        identity_type: input.identity_type,
+        name,
+        description: input.description?.trim() || null,
+        trigger_event_id: input.trigger_event_id ?? null,
+        trigger_text: input.trigger_text?.trim() || null,
+        value_rule: input.value_rule?.trim() || null,
+        example: input.example?.trim() || null,
+        owner: input.owner?.trim() || null,
+        source_id: input.source_id ?? null,
+        tracker: input.tracker?.trim() || null,
+        transformations_json: toJsonColumn(input.transformations_json ?? []),
+        sdk_call: input.sdk_call ?? null,
+        priority: input.priority ?? null,
+        status: input.status ?? null,
+        sort_order: input.sort_order ?? maxOrder + 1,
+        created_at: now,
+        updated_at: now,
+      });
+    } catch (err) {
+      mapWriteError(err, 'This identity rule conflicts with an existing one.', `Failed to create identity rule: ${(err as Error).message}`);
+    }
+    const created = getIdentityRuleOrThrow(projectId, id);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'identity_rule',
+      entityId: id,
+      entityLabel: created.name,
+      action: 'create',
+      before: null,
+      after: created as unknown as Record<string, unknown>,
     });
-  } catch (err) {
-    mapWriteError(err, 'This identity rule conflicts with an existing one.', `Failed to create identity rule: ${(err as Error).message}`);
-  }
+  });
+  run();
   return getIdentityRuleOrThrow(projectId, id);
 }
 
@@ -261,32 +275,60 @@ export function updateIdentityRule(
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
     .join(', ');
-  try {
-    getDb()
-      .prepare(`UPDATE identity_rules SET ${setClause} WHERE id = @id AND project_id = @project_id`)
-      .run({ ...patch, id, project_id: projectId });
-  } catch (err) {
-    mapWriteError(err, 'This identity rule conflicts with an existing one.', `Failed to update identity rule: ${(err as Error).message}`);
-  }
+  const db = getDb();
+  const run = db.transaction(() => {
+    try {
+      db.prepare(`UPDATE identity_rules SET ${setClause} WHERE id = @id AND project_id = @project_id`)
+        .run({ ...patch, id, project_id: projectId });
+    } catch (err) {
+      mapWriteError(err, 'This identity rule conflicts with an existing one.', `Failed to update identity rule: ${(err as Error).message}`);
+    }
+    const after = getIdentityRuleOrThrow(projectId, id);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'identity_rule',
+      entityId: id,
+      entityLabel: after.name,
+      action: 'update',
+      before: existing as unknown as Record<string, unknown>,
+      after: after as unknown as Record<string, unknown>,
+    });
+  });
+  run();
   return getIdentityRuleOrThrow(projectId, id);
 }
 
 export function deleteIdentityRule(projectId: string, id: string): void {
-  getIdentityRuleOrThrow(projectId, id);
-  const result = getDb()
-    .prepare('DELETE FROM identity_rules WHERE id = ? AND project_id = ?')
-    .run(id, projectId);
-  if (result.changes === 0) throw new NotFoundError('Identity rule not found.', 'identity_rule');
+  const existing = getIdentityRuleOrThrow(projectId, id);
+  const db = getDb();
+  const run = db.transaction(() => {
+    const result = db
+      .prepare('DELETE FROM identity_rules WHERE id = ? AND project_id = ?')
+      .run(id, projectId);
+    if (result.changes === 0) throw new NotFoundError('Identity rule not found.', 'identity_rule');
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'identity_rule',
+      entityId: id,
+      entityLabel: existing.name,
+      action: 'delete',
+      before: existing as unknown as Record<string, unknown>,
+      after: null,
+    });
+  });
+  run();
 }
 
 /**
  * Reorders the project's identity rules: `orderedIds` is the full desired order (T-1-06 "move up /
  * move down"). Every id must already belong to the project; sort_order becomes the id's index.
+ * T-3-02: one `update` change_log row per rule whose `sort_order` actually changed.
  */
 export function reorderIdentityRules(projectId: string, orderedIds: string[]): IdentityRuleRow[] {
   const db = getDb();
   const existing = listIdentityRules(projectId);
   const existingIds = new Set(existing.map((r) => r.id));
+  const existingById = new Map(existing.map((r) => [r.id, r]));
   const unique = [...new Set(orderedIds)];
   if (unique.length !== existing.length || !unique.every((id) => existingIds.has(id))) {
     throw new BadRequestError(
@@ -297,7 +339,20 @@ export function reorderIdentityRules(projectId: string, orderedIds: string[]): I
   const now = nowIso();
   const reorder = db.transaction(() => {
     const stmt = db.prepare('UPDATE identity_rules SET sort_order = ?, updated_at = ? WHERE id = ? AND project_id = ?');
-    unique.forEach((id, index) => stmt.run(index, now, id, projectId));
+    unique.forEach((id, index) => {
+      const before = existingById.get(id)!;
+      if (before.sort_order === index) return;
+      stmt.run(index, now, id, projectId);
+      ChangeLogDAL.recordChange({
+        projectId,
+        entityType: 'identity_rule',
+        entityId: id,
+        entityLabel: before.name,
+        action: 'update',
+        before: { sort_order: before.sort_order },
+        after: { sort_order: index },
+      });
+    });
   });
   reorder();
   return listIdentityRules(projectId);

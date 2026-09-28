@@ -26,6 +26,7 @@ import type { VariantCondition } from '../../domain/variants';
 import { getEventOrThrow, getEventWithProperties } from './event.dal';
 import { getVariantByIdInProject, listVariants } from './variant.dal';
 import { listStandardEventMappings } from './standard-event-mapping.dal';
+import * as ChangeLogDAL from './change-log.dal';
 
 export interface RuleRow {
   id: string;
@@ -316,42 +317,56 @@ export function createRule(projectId: string, eventId: string, input: RuleInput)
   const db = getDb();
   const id = newId();
   const now = nowIso();
-  try {
-    db.prepare(
-      `INSERT INTO rules (
-        id, project_id, event_id, variant_id, kind, name, message, expression_json,
-        tolerance_mode, tolerance_value, report_kind, severity, template_key, enabled, version,
-        created_at, updated_at
-      ) VALUES (
-        @id, @project_id, @event_id, @variant_id, @kind, @name, @message, @expression_json,
-        @tolerance_mode, @tolerance_value, @report_kind, @severity, @template_key, @enabled, 1,
-        @created_at, @updated_at
-      )`
-    ).run({
-      id,
-      project_id: projectId,
-      event_id: eventId,
-      variant_id: fields.variant_id,
-      kind: fields.kind,
-      name: fields.name,
-      message: fields.message,
-      expression_json: toJsonColumn(fields.expression),
-      tolerance_mode: fields.tolerance_mode,
-      tolerance_value: fields.tolerance_value,
-      report_kind: fields.report_kind,
-      severity: fields.severity,
-      template_key: input.template_key?.trim() || null,
-      enabled: toSqliteBool(input.enabled ?? true),
-      created_at: now,
-      updated_at: now,
+  const run = db.transaction(() => {
+    try {
+      db.prepare(
+        `INSERT INTO rules (
+          id, project_id, event_id, variant_id, kind, name, message, expression_json,
+          tolerance_mode, tolerance_value, report_kind, severity, template_key, enabled, version,
+          created_at, updated_at
+        ) VALUES (
+          @id, @project_id, @event_id, @variant_id, @kind, @name, @message, @expression_json,
+          @tolerance_mode, @tolerance_value, @report_kind, @severity, @template_key, @enabled, 1,
+          @created_at, @updated_at
+        )`
+      ).run({
+        id,
+        project_id: projectId,
+        event_id: eventId,
+        variant_id: fields.variant_id,
+        kind: fields.kind,
+        name: fields.name,
+        message: fields.message,
+        expression_json: toJsonColumn(fields.expression),
+        tolerance_mode: fields.tolerance_mode,
+        tolerance_value: fields.tolerance_value,
+        report_kind: fields.report_kind,
+        severity: fields.severity,
+        template_key: input.template_key?.trim() || null,
+        enabled: toSqliteBool(input.enabled ?? true),
+        created_at: now,
+        updated_at: now,
+      });
+    } catch (err) {
+      mapWriteError(
+        err,
+        `A rule named "${fields.name}" already exists on this event${fields.variant_id ? ' for this variant' : ''}.`,
+        `Failed to create rule: ${(err as Error).message}`
+      );
+    }
+    const created = getRuleOrThrow(projectId, id);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'rule',
+      entityId: id,
+      entityLabel: created.name,
+      parentEntityId: eventId,
+      action: 'create',
+      before: null,
+      after: created as unknown as Record<string, unknown>,
     });
-  } catch (err) {
-    mapWriteError(
-      err,
-      `A rule named "${fields.name}" already exists on this event${fields.variant_id ? ' for this variant' : ''}.`,
-      `Failed to create rule: ${(err as Error).message}`
-    );
-  }
+  });
+  run();
   return getRuleOrThrow(projectId, id);
 }
 
@@ -374,43 +389,71 @@ export function updateRule(projectId: string, id: string, updates: Partial<RuleI
   const fields = validateRuleFields(projectId, current.event_id, merged);
 
   const db = getDb();
-  try {
-    db.prepare(
-      `UPDATE rules SET
-        variant_id = @variant_id, kind = @kind, name = @name, message = @message,
-        expression_json = @expression_json, tolerance_mode = @tolerance_mode,
-        tolerance_value = @tolerance_value, report_kind = @report_kind, severity = @severity,
-        template_key = @template_key, enabled = @enabled, version = version + 1, updated_at = @updated_at
-       WHERE id = @id AND project_id = @project_id`
-    ).run({
-      id,
-      project_id: projectId,
-      variant_id: fields.variant_id,
-      kind: fields.kind,
-      name: fields.name,
-      message: fields.message,
-      expression_json: toJsonColumn(fields.expression),
-      tolerance_mode: fields.tolerance_mode,
-      tolerance_value: fields.tolerance_value,
-      report_kind: fields.report_kind,
-      severity: fields.severity,
-      template_key: merged.template_key?.trim() || null,
-      enabled: toSqliteBool(merged.enabled ?? true),
-      updated_at: nowIso(),
+  const run = db.transaction(() => {
+    try {
+      db.prepare(
+        `UPDATE rules SET
+          variant_id = @variant_id, kind = @kind, name = @name, message = @message,
+          expression_json = @expression_json, tolerance_mode = @tolerance_mode,
+          tolerance_value = @tolerance_value, report_kind = @report_kind, severity = @severity,
+          template_key = @template_key, enabled = @enabled, version = version + 1, updated_at = @updated_at
+         WHERE id = @id AND project_id = @project_id`
+      ).run({
+        id,
+        project_id: projectId,
+        variant_id: fields.variant_id,
+        kind: fields.kind,
+        name: fields.name,
+        message: fields.message,
+        expression_json: toJsonColumn(fields.expression),
+        tolerance_mode: fields.tolerance_mode,
+        tolerance_value: fields.tolerance_value,
+        report_kind: fields.report_kind,
+        severity: fields.severity,
+        template_key: merged.template_key?.trim() || null,
+        enabled: toSqliteBool(merged.enabled ?? true),
+        updated_at: nowIso(),
+      });
+    } catch (err) {
+      mapWriteError(
+        err,
+        `A rule named "${fields.name}" already exists on this event${fields.variant_id ? ' for this variant' : ''}.`,
+        `Failed to update rule: ${(err as Error).message}`
+      );
+    }
+    const after = getRuleOrThrow(projectId, id);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'rule',
+      entityId: id,
+      entityLabel: after.name,
+      parentEntityId: current.event_id,
+      action: 'update',
+      before: current as unknown as Record<string, unknown>,
+      after: after as unknown as Record<string, unknown>,
     });
-  } catch (err) {
-    mapWriteError(
-      err,
-      `A rule named "${fields.name}" already exists on this event${fields.variant_id ? ' for this variant' : ''}.`,
-      `Failed to update rule: ${(err as Error).message}`
-    );
-  }
+  });
+  run();
   return getRuleOrThrow(projectId, id);
 }
 
 export function deleteRule(projectId: string, id: string): void {
-  getRuleOrThrow(projectId, id);
-  getDb().prepare('DELETE FROM rules WHERE id = ? AND project_id = ?').run(id, projectId);
+  const existing = getRuleOrThrow(projectId, id);
+  const db = getDb();
+  const run = db.transaction(() => {
+    db.prepare('DELETE FROM rules WHERE id = ? AND project_id = ?').run(id, projectId);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'rule',
+      entityId: id,
+      entityLabel: existing.name,
+      parentEntityId: existing.event_id,
+      action: 'delete',
+      before: existing as unknown as Record<string, unknown>,
+      after: null,
+    });
+  });
+  run();
 }
 
 // ---------------------------------------------------------------------------

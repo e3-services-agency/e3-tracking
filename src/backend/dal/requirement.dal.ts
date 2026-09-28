@@ -22,6 +22,42 @@ import {
 } from '../errors';
 import { REQUIREMENT_TARGET_KINDS, REQUIREMENT_LEVELS, REQUIREMENT_STATUSES } from '../../domain/enums';
 import { getUseCaseOrThrow } from './use-case.dal';
+import * as ChangeLogDAL from './change-log.dal';
+
+/**
+ * A short, human-readable label for a requirement's target, for the `change_log` row (T-3-02).
+ * Deliberately a plain SQL lookup rather than `requirements-matrix.service.ts`'s
+ * `buildTargetLabelResolver` — that module imports this one (for `listRequirementsByProject`), so
+ * importing it back here would be circular; a raw id/`(removed)` fallback is fine for a history
+ * entry, which always carries the full `diff_json` alongside the label anyway.
+ */
+function labelForTarget(
+  targetKind: string,
+  propertyId: string | null,
+  eventId: string | null,
+  variantId: string | null
+): string {
+  const db = getDb();
+  const name = (table: string, id: string | null): string => {
+    if (!id) return '(removed)';
+    const row = db.prepare(`SELECT name FROM ${table} WHERE id = ?`).get(id) as { name: string } | undefined;
+    return row?.name ?? id;
+  };
+  switch (targetKind) {
+    case 'customer_property':
+      return name('properties', propertyId);
+    case 'event':
+      return name('events', eventId);
+    case 'variant':
+      return name('variants', variantId);
+    case 'event_property':
+      return `${name('events', eventId)}.${name('properties', propertyId)}`;
+    case 'variant_property':
+      return `${name('variants', variantId)}.${name('properties', propertyId)}`;
+    default:
+      return targetKind;
+  }
+}
 
 export interface RequirementRow {
   id: string;
@@ -240,6 +276,9 @@ export function replaceRequirements(
   getUseCaseOrThrow(projectId, useCaseId);
   const db = getDb();
   const now = nowIso();
+  // T-3-02: the "before" snapshot for the change_log diff below, read before the delete-then-
+  // reinsert wipes it.
+  const oldRows = listRequirements(projectId, useCaseId);
 
   const validated = inputs.map((input) => {
     validateLevel(input.level);
@@ -275,6 +314,27 @@ export function replaceRequirements(
     seenTargets.add(key);
   });
 
+  // T-3-02: matches an old row to a new one by its target (target_kind + ids) so a genuine no-op
+  // save (or a pure reorder) writes nothing beyond the `sort_order` diff, and an actual field edit
+  // shows a real before/after on the same `entity_id` as the row's previous incarnation. A `gap`
+  // row missing one of its required ids (`isAmbiguous` below, same shape `validateTarget` and the
+  // duplicate-target check above already treat as "no real target to collide on") can't be matched
+  // this way -- any number of them may coexist -- so each one is logged as a plain delete (old) +
+  // create (new) pair instead.
+  const targetKey = (t: { target_kind: string; property_id: string | null; event_id: string | null; variant_id: string | null }): string =>
+    `${t.target_kind}:${t.property_id ?? ''}:${t.event_id ?? ''}:${t.variant_id ?? ''}`;
+  const isAmbiguous = (t: { target_kind: string; status: string | null; property_id: string | null; event_id: string | null; variant_id: string | null }): boolean => {
+    const shape = TARGET_SHAPES[t.target_kind];
+    return t.status === 'gap' && shape.required.some((key) => !t[key]);
+  };
+
+  const oldByKey = new Map<string, (typeof oldRows)[number]>();
+  for (const row of oldRows) {
+    if (isAmbiguous(row)) continue;
+    oldByKey.set(targetKey(row), row);
+  }
+  const matchedOldIds = new Set<string>();
+
   const replace = db.transaction(() => {
     db.prepare('DELETE FROM requirements WHERE use_case_id = ?').run(useCaseId);
     const insert = db.prepare(
@@ -284,12 +344,14 @@ export function replaceRequirements(
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
     validated.forEach((row, index) => {
+      const target_kind = inputs[index].target_kind;
+      const newId_ = newId();
       try {
         insert.run(
-          newId(),
+          newId_,
           useCaseId,
           index,
-          inputs[index].target_kind,
+          target_kind,
           row.property_id,
           row.event_id,
           row.variant_id,
@@ -302,7 +364,86 @@ export function replaceRequirements(
       } catch (err) {
         mapWriteError(err, 'This requirement conflicts with an existing one.', `Failed to save requirements: ${(err as Error).message}`);
       }
+
+      const label = labelForTarget(target_kind, row.property_id, row.event_id, row.variant_id);
+      const targetShape = {
+        target_kind,
+        status: row.status,
+        property_id: row.property_id,
+        event_id: row.event_id,
+        variant_id: row.variant_id,
+      };
+      const ambiguous = isAmbiguous(targetShape);
+      const matchedOld = ambiguous ? undefined : oldByKey.get(targetKey(targetShape));
+      if (matchedOld) {
+        matchedOldIds.add(matchedOld.id);
+        // T-3-02: every row is deleted and reinserted with a fresh id on *every* call (ids are not
+        // preserved across a save yet -- the plan's T-4-02 note tracks that follow-up), so the
+        // `entity_id` a change_log row uses can only be as stable as the row's own last-known
+        // physical id; using the just-inserted `newId_` here (rather than `matchedOld.id`, which
+        // this same match logic already knows is about to stop existing) keeps every subsequent
+        // call's "was this old row matched" check consistent with what `oldRows` actually reads
+        // back next time.
+        ChangeLogDAL.recordChange({
+          projectId,
+          entityType: 'requirement',
+          entityId: newId_,
+          entityLabel: label,
+          parentEntityId: useCaseId,
+          action: 'update',
+          before: {
+            level: matchedOld.level,
+            status: matchedOld.status,
+            note: matchedOld.note,
+            sort_order: matchedOld.sort_order,
+          },
+          after: { level: row.level, status: row.status, note: row.note, sort_order: index },
+        });
+      } else {
+        ChangeLogDAL.recordChange({
+          projectId,
+          entityType: 'requirement',
+          entityId: newId_,
+          entityLabel: label,
+          parentEntityId: useCaseId,
+          action: 'create',
+          before: null,
+          after: {
+            target_kind,
+            property_id: row.property_id,
+            event_id: row.event_id,
+            variant_id: row.variant_id,
+            level: row.level,
+            status: row.status,
+            note: row.note,
+            sort_order: index,
+          },
+        });
+      }
     });
+
+    for (const old of oldRows) {
+      if (matchedOldIds.has(old.id)) continue;
+      ChangeLogDAL.recordChange({
+        projectId,
+        entityType: 'requirement',
+        entityId: old.id,
+        entityLabel: labelForTarget(old.target_kind, old.property_id, old.event_id, old.variant_id),
+        parentEntityId: useCaseId,
+        action: 'delete',
+        before: {
+          target_kind: old.target_kind,
+          property_id: old.property_id,
+          event_id: old.event_id,
+          variant_id: old.variant_id,
+          level: old.level,
+          status: old.status,
+          note: old.note,
+          sort_order: old.sort_order,
+        },
+        after: null,
+      });
+    }
   });
   replace();
 
@@ -321,19 +462,43 @@ export function replaceRequirements(
  * human can save the list unchanged and fix the row up later in the requirements editor.
  */
 export function insertUnresolvedRequirement(
+  projectId: string,
   useCaseId: string,
   sortOrder: number,
   input: { target_kind: string; level: string; note: string }
 ): void {
   const now = nowIso();
-  getDb()
-    .prepare(
+  const id = newId();
+  const db = getDb();
+  const run = db.transaction(() => {
+    db.prepare(
       `INSERT INTO requirements (
         id, use_case_id, sort_order, target_kind, property_id, event_id, variant_id, level,
         status, note, created_at, updated_at
       ) VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, 'gap', ?, ?, ?)`
     )
-    .run(newId(), useCaseId, sortOrder, input.target_kind, input.level, input.note, now, now);
+      .run(id, useCaseId, sortOrder, input.target_kind, input.level, input.note, now, now);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'requirement',
+      entityId: id,
+      entityLabel: labelForTarget(input.target_kind, null, null, null),
+      parentEntityId: useCaseId,
+      action: 'create',
+      before: null,
+      after: {
+        target_kind: input.target_kind,
+        property_id: null,
+        event_id: null,
+        variant_id: null,
+        level: input.level,
+        status: 'gap',
+        note: input.note,
+        sort_order: sortOrder,
+      },
+    });
+  });
+  run();
 }
 
 /**
@@ -350,31 +515,54 @@ export function insertResolvedRequirement(
   validateStatus(input.status);
   const target = validateTarget(projectId, input);
   const now = nowIso();
-  try {
-    getDb()
-      .prepare(
+  const id = newId();
+  const db = getDb();
+  const run = db.transaction(() => {
+    try {
+      db.prepare(
         `INSERT INTO requirements (
           id, use_case_id, sort_order, target_kind, property_id, event_id, variant_id, level,
           status, note, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .run(
-        newId(),
-        useCaseId,
-        sortOrder,
-        input.target_kind,
-        target.property_id,
-        target.event_id,
-        target.variant_id,
-        input.level,
-        input.status ?? null,
-        input.note?.trim() || null,
-        now,
-        now
-      );
-  } catch (err) {
-    mapWriteError(err, 'This requirement conflicts with an existing one.', `Failed to create requirement: ${(err as Error).message}`);
-  }
+        .run(
+          id,
+          useCaseId,
+          sortOrder,
+          input.target_kind,
+          target.property_id,
+          target.event_id,
+          target.variant_id,
+          input.level,
+          input.status ?? null,
+          input.note?.trim() || null,
+          now,
+          now
+        );
+    } catch (err) {
+      mapWriteError(err, 'This requirement conflicts with an existing one.', `Failed to create requirement: ${(err as Error).message}`);
+    }
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'requirement',
+      entityId: id,
+      entityLabel: labelForTarget(input.target_kind, target.property_id, target.event_id, target.variant_id),
+      parentEntityId: useCaseId,
+      action: 'create',
+      before: null,
+      after: {
+        target_kind: input.target_kind,
+        property_id: target.property_id,
+        event_id: target.event_id,
+        variant_id: target.variant_id,
+        level: input.level,
+        status: input.status ?? null,
+        note: input.note?.trim() || null,
+        sort_order: sortOrder,
+      },
+    });
+  });
+  run();
 }
 
 export function getRequirementOrThrow(useCaseId: string, id: string): RequirementRow {

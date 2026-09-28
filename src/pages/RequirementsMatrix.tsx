@@ -6,6 +6,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
+import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
+import { Button } from '@/src/components/ui/Button';
+import { useStore } from '@/src/store';
 
 interface MatrixUseCase {
   id: string;
@@ -32,6 +35,7 @@ async function parseJson(res: Response): Promise<any> {
 
 export function RequirementsMatrix() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
+  const setRequestedTab = useStore((s) => s.setRequestedTab);
   const [matrix, setMatrix] = useState<Matrix | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,7 +63,8 @@ export function RequirementsMatrix() {
       <div className="p-8 border-b bg-white">
         <h1 className="text-2xl font-bold text-gray-900">Requirements matrix</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Computed from every use case's requirements: rows are targets, columns are use cases, cells are R/O.
+          Computed from every use case's requirements: rows are targets, columns are use cases, cells show the{' '}
+          <GlossaryTerm glossaryKey="requirement_level">requirement level</GlossaryTerm>.
         </p>
       </div>
 
@@ -68,7 +73,10 @@ export function RequirementsMatrix() {
         {loading ? (
           <div className="text-sm text-gray-500">Loading…</div>
         ) : !matrix || matrix.rows.length === 0 ? (
-          <div className="text-sm text-gray-500">No requirements defined yet.</div>
+          <div className="text-sm text-gray-500 space-y-3">
+            <p>No requirements defined yet. Instantiate a use case from the template library to populate this matrix.</p>
+            <Button onClick={() => setRequestedTab('useCaseTemplates')}>Browse templates</Button>
+          </div>
         ) : (
           <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
             <table className="text-left text-sm border-collapse">

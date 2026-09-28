@@ -10,6 +10,7 @@ import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { CHANGE_LOG_ACTIONS, CHANGE_LOG_ENTITY_TYPES } from '@/src/domain/enums';
 import { showEmptyState, showLoadingPlaceholder } from '@/src/domain/loadingState';
+import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
 
 interface ChangeLogRow {
   id: string;
@@ -186,7 +187,9 @@ export function History() {
             <input value={source} onChange={(e) => setSource(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm" placeholder="ui, mcp, import:…" />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Batch id</label>
+            <label className="text-xs font-medium text-gray-500">
+              <GlossaryTerm glossaryKey="batch">Batch</GlossaryTerm> id
+            </label>
             <input value={batchId} onChange={(e) => setBatchId(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm" placeholder="Any batch" />
           </div>
         </div>
@@ -249,7 +252,9 @@ export function History() {
             );
           })}
           {showEmptyState(loading, batches.length) && (
-            <div className="px-6 py-8 text-center text-gray-500 text-sm">No history matches these filters.</div>
+            <div className="px-6 py-8 text-center text-gray-500 text-sm">
+              No history matches these filters. History fills in as you edit events, properties or import files.
+            </div>
           )}
           {showLoadingPlaceholder(loading, batches.length) && (
             <div className="px-6 py-8 text-center text-gray-400 text-sm flex items-center justify-center gap-2">

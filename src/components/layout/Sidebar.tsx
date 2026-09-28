@@ -19,6 +19,8 @@ import {
   AlertTriangle,
   History,
   MessageSquare,
+  Rocket,
+  HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 
@@ -56,9 +58,11 @@ export function Sidebar({
   ];
 
   const bottomNavItems = [
+    { id: 'gettingStarted', label: 'Getting started', icon: Rocket },
     { id: 'clients', label: 'Clients', icon: Database },
     { id: 'settings', label: 'Settings', icon: Settings },
     { id: 'documentation', label: 'Documentation', icon: BookOpen },
+    { id: 'help', label: 'Help', icon: HelpCircle },
   ];
   const BASE = (typeof import.meta !== 'undefined' && (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL) ? String((import.meta as { env: { BASE_URL: string } }).env.BASE_URL).replace(/\/$/, '') : '';
 

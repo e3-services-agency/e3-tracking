@@ -22,6 +22,8 @@ import { VariantsSection, type DiscriminatorProperty } from '@/src/features/even
 import { RulesSection, type RuleLinkedProperty } from '@/src/features/events/components/RulesSection';
 import { UseCasesForEventSection } from '@/src/features/events/components/UseCasesForEventSection';
 import { HistorySection } from '@/src/features/history/HistorySection';
+import { EmptyState } from '@/src/components/ui/EmptyState';
+import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
 
 interface EventRow {
   id: string;
@@ -222,7 +224,9 @@ export function Events() {
                 <th className="px-6 py-3 font-medium text-gray-500">Name</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Class</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Status</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Certified</th>
+                <th className="px-6 py-3 font-medium text-gray-500">
+                  <GlossaryTerm glossaryKey="certified">Certified</GlossaryTerm>
+                </th>
                 <th className="px-6 py-3 font-medium text-gray-500">Expiration</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Properties</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Card</th>
@@ -251,10 +255,18 @@ export function Events() {
                     </td>
                   </tr>
                 ))}
-              {filteredEvents.length === 0 && (
+              {filteredEvents.length === 0 && events.length === 0 && (
+                <EmptyState
+                  colSpan={7}
+                  message="No events yet. Import a data mapping from the Import page, or add one by hand."
+                  actionLabel="Add Event"
+                  onAction={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }}
+                />
+              )}
+              {filteredEvents.length === 0 && events.length > 0 && (
                 <tr>
                   <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                    {events.length === 0 ? 'No events found.' : 'No events match this class filter.'}
+                    No events match this class filter.
                   </td>
                 </tr>
               )}

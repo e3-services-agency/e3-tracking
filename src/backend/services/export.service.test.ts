@@ -204,4 +204,20 @@ describe('generateProjectDocumentationHtml', () => {
     expect(html).not.toContain('SECRET-INTERNAL-NOTE-do-not-leak');
     expect(html).not.toContain('SECRET-INTERNAL-URL');
   });
+
+  it('renders the project-wide Properties section from a customer property\'s definitions (T-4-00 review follow-up / T-4-03)', async () => {
+    PropertyDAL.createProperty(projectId, {
+      scope: 'customer',
+      name: 'email',
+      data_type: 'string',
+      data_formats_json: ['email'],
+      description: 'The customer email address.',
+    });
+
+    const html = await generateProjectDocumentationHtml(projectId);
+    expect(html).toContain('id="properties"');
+    expect(html).toContain('email');
+    expect(html).toContain('The customer email address.');
+    expect(html).toContain('general');
+  });
 });

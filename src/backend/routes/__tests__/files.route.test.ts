@@ -101,3 +101,24 @@ describe('GET /api/projects/:projectId/files/* (path traversal)', () => {
     expect(res.status).not.toBe(200);
   });
 });
+
+describe('POST /api/projects/:projectId/files (T-4-03: multer error branch, from the T-4-01 review)', () => {
+  it('answers an oversized upload with 400 FILE_TOO_LARGE, not INVALID_PATH', async () => {
+    const oversized = new Blob([Buffer.alloc(11 * 1024 * 1024, 1)], { type: 'image/png' });
+    const form = new FormData();
+    form.append('file', oversized, 'big.png');
+    const res = await fetch(`${baseUrl}/api/projects/${projectAId}/files?kind=event_trigger`, { method: 'POST', body: form });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('FILE_TOO_LARGE');
+  });
+
+  it('answers an unexpected multipart field with 400 UPLOAD_ERROR, not INVALID_PATH', async () => {
+    const form = new FormData();
+    form.append('not_the_file_field', new Blob(['x'], { type: 'image/png' }), 'a.png');
+    const res = await fetch(`${baseUrl}/api/projects/${projectAId}/files?kind=event_trigger`, { method: 'POST', body: form });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('UPLOAD_ERROR');
+  });
+});

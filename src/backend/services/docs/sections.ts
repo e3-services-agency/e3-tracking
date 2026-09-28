@@ -194,6 +194,28 @@ export interface UseCaseForDocs {
   documentation_url?: string | null;
 }
 
+/** D-58/T-4-00 follow-up (T-4-03): one named meaning of a customer-scope property
+ * (`property_definitions`), matching `TrackingDocumentPropertyDefinition`. */
+export interface PropertyDefinitionForDocs {
+  name: string;
+  description?: string | null;
+  allowed_values?: { value: string; label?: string | null }[] | null;
+  formats?: string[];
+  example_values?: unknown;
+}
+
+/** D-58/T-4-00 follow-up (T-4-03): the project-wide "Properties" section needs one row per
+ * customer-scope property, each with every named definition it carries -- the HTML export had no
+ * per-property definition list before this (only the inline per-event definition on the property
+ * table), matching `TrackingDocument.properties[].definitions[]`. */
+export interface PropertyForDocs {
+  name: string;
+  data_type: string;
+  pii?: boolean;
+  description?: string | null;
+  definitions: PropertyDefinitionForDocs[];
+}
+
 /** Minimal shape the computed requirements matrix section needs (T-1-07, CONTEXT.md 3.2). */
 export interface RequirementsMatrixForDocs {
   use_cases: { id: string; code: string | null; name: string }[];
@@ -305,6 +327,51 @@ export function renderConsentCategoriesSection(categories: ConsentCategoryForDoc
         ${rows}
       </tbody>
     </table>
+  </section>`;
+}
+
+/**
+ * Renders the project-wide "Properties" section: one block per customer-scope property, listing
+ * every named definition it carries (D-58) -- name, description, allowed values, formats, example
+ * values. A property with a single (`general`) definition renders one row, same as today; a
+ * property whose event links diverge lists every named definition here regardless of which event
+ * card is looking at it (T-4-00 review follow-up, closed by T-4-03: the HTML export previously had
+ * no per-property definition list, only the inline per-event one in `buildPropertyDetailsTable`).
+ */
+export function renderPropertiesSection(properties: PropertyForDocs[]): string {
+  if (properties.length === 0) {
+    return '<section id="properties"><h2>Properties</h2><p>No customer properties defined.</p></section>';
+  }
+  const blocks = properties
+    .map((property) => {
+      const rows = property.definitions
+        .map(
+          (definition) => `<tr>
+            ${cell(definition.name)}
+            ${cell(definition.description)}
+            ${cell(definition.allowed_values ? definition.allowed_values.map((v) => v.value).join(', ') : null)}
+            ${cell(definition.formats && definition.formats.length > 0 ? definition.formats.join(', ') : null)}
+            ${cell(definition.example_values !== undefined && definition.example_values !== null ? JSON.stringify(definition.example_values) : null)}
+          </tr>`
+        )
+        .join('\n');
+      return `<div class="property-block">
+        <h3>${escapeHtml(property.name)} <small>(${escapeHtml(property.data_type)}${property.pii ? ', PII' : ''})</small></h3>
+        ${property.description ? `<p>${escapeHtml(property.description)}</p>` : ''}
+        <table>
+          <thead>
+            <tr><th>Definition</th><th>Description</th><th>Allowed values</th><th>Formats</th><th>Example</th></tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      </div>`;
+    })
+    .join('\n');
+  return `<section id="properties">
+    <h2>Properties</h2>
+    ${blocks}
   </section>`;
 }
 

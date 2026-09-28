@@ -2266,3 +2266,6 @@ T-4-00 set to QA. Summary lines: npm test: 104 files, 1203 tests passed (threads
 
 ### 2026-09-28 16:04 | supervisor -> implementer | DECISION | T-4-00 pre-QA guard
 Reviewer PASS (16:03). Before QA: deleteDefinition refuses the general definition (409) and the Properties page hides Remove for it; test. Then QA.
+
+### 2026-09-28 16:45 | implementer -> qa-tester | HANDOFF | T-4-00 pre-QA guard
+Posted by supervisor. Commit 0524512 on task/T-4-00-property-definitions: deleting the general definition refused (409), Remove hidden for it, DAL test, CLAUDE.md line. QA starts (scenario 15).

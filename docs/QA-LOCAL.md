@@ -103,6 +103,81 @@ After the steps above and a comparison run, `cart_update` shows certified `yes` 
 
 Phase 2's Data Manager round trip is `qa-roundtrip` scenario 8; the expected comparison-4 findings are in `docs/DOMAIN.md`'s "Definition vs Data Manager" section. The two Data Manager paste boxes on the Import page are plain textareas with no file upload yet (a phase 3 UI gap, `.claude/team/TASKS.md` follow-up list): `data-manager-events.json` alone is roughly 360 KB of single-line JSON, which is impractical to paste by hand through a browser textarea. For QA, apply large Data Manager fixtures directly against the API instead of the UI: `POST /api/projects/:id/import/data-manager-events/preview` (and the `-customers` equivalent) takes the raw fixture JSON as the whole request body and returns the diff plus `payload_hash`; `POST .../data-manager-events/apply` takes `{payload: <the same raw fixture JSON>, payload_hash, selected_item_ids}` (the same D-22 preview/apply/hash shape the UI itself calls) — `curl -X POST -H "Content-Type: application/json" --data-binary @data-manager-events.json .../preview` for the first call, then build the apply body from its response, or script both with `fetch`/`curl`. The result is identical to using the UI, since both call the same service. Reserve the UI textareas for smaller fixtures (`data-mapping.json`, `expiration-settings.json`, `customer-events-export.json`) where pasting is practical.
 
+## Shared view recipe (`qa-roundtrip` scenarios 12-13)
+
+On the fixture project (after the phase 1 round-trip recipe above):
+
+1. Set a marker value on an internal-only field so a leak is easy to spot later — e.g.
+   `agent_instructions` on `purchase`, `identity_note` on any event, `owner_business`/
+   `owner_technical`, or `use_case.internal_notes`/`internal_url` on an instantiated use case.
+2. Settings page, "Share" block: Generate a link with access `read`. Copy the URL
+   (`http://127.0.0.1:<vite-port>/tracking-plan/shared/<token>`).
+3. Open that URL in a **private/incognito window** (no cookies, no session — `AUTH_MODE=local` has
+   none to carry anyway, but a private window rules out any doubt). Expect: no login prompt; a
+   project header with the client name; custom events first, sdk/platform collapsed; the
+   `purchase` trigger screenshot (if one was uploaded) loading through
+   `/api/shared/<token>/files/...`; use cases with their narrative and `documentation_url`; both
+   "Download JSON" and "Download HTML" working; **no edit controls anywhere** and, with `read`
+   access, **no comment form**. Grep both downloads and the live DOM for the marker from step 1 —
+   it must not appear anywhere.
+4. Settings, change access to `comment`. Reload the shared page: a comment form now appears on
+   event cards, use cases, and requirement rows. Post one with an author name (e.g. "Client QA").
+   It should appear immediately in the shared view; internally, the same comment shows on the
+   Comments page and on the event/use case editor's comments panel with a `via share` badge.
+   Because comments are one shared thread (D-49 amendment), an internal reply posted from inside
+   the app on the same anchor is visible back through the share link too — post one and confirm.
+5. Settings, "Revoke". Reload the same URL: "This link is not valid." (404 `SHARE_NOT_FOUND`).
+6. `E3_DB_PATH`: if running a scratch database for this recipe (recommended, so it does not disturb
+   whatever project you were already exploring), set it before starting the API
+   (`E3_DB_PATH=data/qa-shared.sqlite npx tsx src/backend/server.ts`), per the "PORT 3000 RULE"
+   two-process setup above.
+
+See `docs/SHARING.md` for the full route list, the exact fields the public projection strips, and
+the comment rate limit.
+
+## Sandbox creation recipe (`qa-roundtrip` scenario 14)
+
+1. Clients page: "Create a sandbox" (no client selection needed on a fresh install — an "Sandboxes"
+   client is auto-created). This restores the bundled `.claude/team/samples/sandbox-project-backup.json`
+   (built by `scripts/build-sandbox-backup.mjs`) as a brand-new project: key `sandbox-acme-eu` (a
+   second sandbox created the same way gets `sandbox-acme-eu-2`, never a doubled
+   `sandbox-sandbox-...` key), badged "SANDBOX" in the header switcher and the Clients list.
+2. Selecting it: 62 events, 648 properties, 3 use cases (`UC-01`..`UC-03`), 75 open findings plus
+   exactly 1 resolved with `resolved_by: 'user'` (an acknowledged finding, D-42, so the
+   acknowledge/certification path has evidence to inspect immediately).
+3. Getting started on the sandbox: 9 steps, 7 done (only "Review property types" is intentionally
+   left with an open `type_mismatch`, and "Create a share link" is open since a sandbox refuses
+   sharing without confirmation — see below).
+4. Sharing a sandbox: Settings shows a plain sentence ("This is a sandbox project. Sharing is
+   disabled by default...") and asks for confirmation before sending `force: true` on the same
+   `POST /share` call (D-60) — confirm to proceed, same as a normal project's Generate button
+   afterwards.
+5. Bulk delete: Clients page, sandbox section, select one or more and delete. Deleting the
+   *active* sandbox moves the project shell to a surviving project (or clears it if none remain) —
+   it must not strand the app on a 404 loop.
+
+## Getting-started checklist (`qa-roundtrip` scenario 14)
+
+`GET /api/projects/:id/getting-started` computes all nine steps live from the data — there is no
+stored "progress" row, so any path (UI, MCP, a script) that produces the underlying data flips the
+step immediately on next load:
+
+1. Create a client and a project — vacuously done the moment a project exists.
+2. Import the data mapping.
+3. Import expiration settings.
+4. Review property types — done when there is no open `type_mismatch` finding (also vacuously true
+   on a brand-new project with zero properties).
+5. Import Data Manager files (both `data-manager-customers.json` and `-events.json`).
+6. Capture observations.
+7. Run a comparison — coarse: any finding row at all (open or resolved) counts, there is no
+   separate "last run at" timestamp.
+8. Instantiate a use case.
+9. Create a share link.
+
+Each step's "Go" link switches directly to the relevant sidebar tab. The checklist itself is on its
+own sidebar page ("Getting started"), always reachable (not just on a fresh project), so a client
+milestone can be revisited after everything is done.
+
 ## Open findings baseline on the fixture project (`qa-roundtrip` scenario 4)
 
 Two different chains produce two different, both-correct baselines on the merged `agent-setup` tree — pick the one that matches what you have actually applied to the project:

@@ -17,7 +17,7 @@ import { API_BASE } from '@/src/config/env';
 import { PRIORITIES, EVENT_STATUSES, EVENT_CLASSES } from '@/src/domain/enums';
 import { ExpirationEditor, type ExpirationValue } from '@/src/features/events/components/ExpirationEditor';
 import { DerivedMetricsEditor, type DerivedMetricRow } from '@/src/features/events/components/DerivedMetricsEditor';
-import { LinkedPropertiesEditor, type LinkedPropertyRow } from '@/src/features/events/components/LinkedPropertiesEditor';
+import { LinkedPropertiesEditor, type LinkedPropertyRow, type DefinitionOption } from '@/src/features/events/components/LinkedPropertiesEditor';
 import { VariantsSection, type DiscriminatorProperty } from '@/src/features/events/components/VariantsSection';
 import { RulesSection, type RuleLinkedProperty } from '@/src/features/events/components/RulesSection';
 import { UseCasesForEventSection } from '@/src/features/events/components/UseCasesForEventSection';
@@ -298,6 +298,9 @@ function EventEditor({
   const [allSources, setAllSources] = useState<SourceRow[]>([]);
   const [standardEventByVariantId, setStandardEventByVariantId] = useState<Record<string, string>>({});
   const [addPropertyId, setAddPropertyId] = useState('');
+  // D-58 (T-4-00): every definition of every currently-linked property, fetched on demand so the
+  // picker only shows up for a property that actually has more than one meaning.
+  const [definitionsByPropertyId, setDefinitionsByPropertyId] = useState<Record<string, DefinitionOption[]>>({});
 
   const [name, setName] = useState('');
   const [businessName, setBusinessName] = useState('');
@@ -384,13 +387,35 @@ function EventEditor({
     })();
   }, [projectId, eventId]);
 
+  // D-58 (T-4-00): fetch every linked property's definitions once per property id (the picker
+  // stays hidden for a single-definition property, but the check needs the list to know that).
+  useEffect(() => {
+    if (!projectId) return;
+    const missing = links.map((l) => l.property_id).filter((id) => !(id in definitionsByPropertyId));
+    if (missing.length === 0) return;
+    (async () => {
+      const entries = await Promise.all(
+        missing.map(async (propertyId) => {
+          const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/properties/${propertyId}/definitions`);
+          const data = await parseJson(res);
+          return [propertyId, res.ok && Array.isArray(data) ? data : []] as const;
+        })
+      );
+      setDefinitionsByPropertyId((prev) => {
+        const next = { ...prev };
+        for (const [id, defs] of entries) next[id] = defs;
+        return next;
+      });
+    })();
+  }, [projectId, links, definitionsByPropertyId]);
+
   const addLink = () => {
     if (!addPropertyId) return;
     const property = allProperties.find((p) => p.id === addPropertyId);
     if (!property) return;
     setLinks((prev) => [
       ...prev,
-      { property_id: property.id, required: false, role: 'normal', priority: null, status: null, source_id: null, payload_key: null, description_override: null, property },
+      { property_id: property.id, required: false, role: 'normal', priority: null, status: null, source_id: null, payload_key: null, definition_id: null, property },
     ]);
     setAddPropertyId('');
   };
@@ -473,7 +498,7 @@ function EventEditor({
               status: l.status,
               source_id: l.source_id,
               payload_key: l.payload_key,
-              description_override: l.description_override,
+              definition_id: l.definition_id ?? null,
               sort_order: i,
             })),
           }),
@@ -623,7 +648,7 @@ function EventEditor({
       {!isCreating && (
         <div className="space-y-3 border-t pt-4">
           <h3 className="text-sm font-semibold text-gray-900">Linked properties</h3>
-          <LinkedPropertiesEditor links={links} onChange={setLinks} sources={allSources} />
+          <LinkedPropertiesEditor links={links} onChange={setLinks} sources={allSources} definitionsByPropertyId={definitionsByPropertyId} />
           <div className="flex gap-2">
             <select value={addPropertyId} onChange={(e) => setAddPropertyId(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm flex-1">
               <option value="">Select a property to attach…</option>

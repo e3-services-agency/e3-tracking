@@ -54,7 +54,10 @@ router.get('/:token', requireShare, (req: Request, res: Response) => {
   try {
     const project = getProjectWithClient(req.projectId!);
     res.status(200).json({
-      project: { name: project.name },
+      // T-4-03: `client_logo_path` is additive, resolved by the caller through this same token's
+      // `/:token/files/*` route (a project logo is stored the same way a trigger screenshot is,
+      // D-14); `null` when the project has none.
+      project: { name: project.name, client_logo_path: project.client_logo_path },
       client: { name: project.client?.name ?? null },
       access: req.shareAccess,
       generated_at: project.share_created_at,

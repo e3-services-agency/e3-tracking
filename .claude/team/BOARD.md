@@ -1805,3 +1805,6 @@ Verdict PASS. T-3-01 stays at QA per the supervisor's ruling (no second QA run; 
 
 ### 2026-09-28 02:11 | supervisor | STATUS | T-3-01 DONE, group B started
 Reviewer probe PASS (02:09). Merged as e8228ac (keep-both in enums.ts and db.test.ts, migrations ordered 0015, 0016): 1060 tests (92 files), tsc clean. Group B starts: T-3-02 and T-3-04 in parallel worktrees. T-3-07 QA still running.
+
+### 2026-09-28 02:12 | supervisor | STATUS | T-3-10 started early
+T-3-10 depends only on T-3-06 (merged); started in parallel with group B. Overlaps with T-3-02 (requirement DAL recordChange, registerTools append) are keep-both.

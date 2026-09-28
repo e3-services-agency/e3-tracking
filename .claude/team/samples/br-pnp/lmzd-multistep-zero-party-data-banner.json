@@ -1,0 +1,169 @@
+{
+    "data": {
+        "_id": "64e894d30e3e0903ee6aed90",
+        "archived": false,
+        "bee_assets_migrated": true,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1692964051,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "In a world moving away from cookies, zero-party data collection is gaining importance and is the optimal method for gathering customer information. Invite your customers to share their information and subscribe to a newsletter through a short multi-step banner. By incorporating predictions, you'll gain meaningful insights about your customer base. ",
+        "edited": 1754309165.6314747,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_654d517e7b020cbe0772ecd9": {
+                "entity_id": "654d517e7b020cbe0772ecd9",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_654d54c24836a1da2f8c492f": {
+                "entity_id": "654d54c24836a1da2f8c492f",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_654d5613e68badf0497c6188": {
+                "entity_id": "654d5613e68badf0497c6188",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_654d57207b020cbe0772ecf3": {
+                "entity_id": "654d57207b020cbe0772ecf3",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Multistep Zero-Party Data Banner",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/lmzd-multistep-zero-party-data-banner/preview/31941aa4-4125-11f0-abc9-4aff4d8da49c?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737125268.349602,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "“In order to get valuable insights about your customer base, deploy a short, multi-step banner that asks customers to share their information. Learn how here!”",
+            "channels": [
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/multistep-zero-party-data-banner",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the banner to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts",
+                    "headline": "Banner",
+                    "item_reference": {
+                        "id": "64c126b9c0062f810567f32e",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results.",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "64c126bac0062f810567f36f",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "grow_database",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "lead-generation",
+                "retention-rate",
+                "cltv"
+            ],
+            "requirements": [
+                {
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "gender",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "customer_property"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "view_item",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "product_id",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "newsletter"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "view_item",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "popular"
+            ]
+        },
+        "template_id": "lmzd-multistep-zero-party-data-banner"
+    },
+    "success": true
+}

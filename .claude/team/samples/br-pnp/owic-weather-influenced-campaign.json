@@ -1,0 +1,123 @@
+{
+    "data": {
+        "_id": "6776cb3d57a59b60bc5c0bcf",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1735838525,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "Stay up-to-date on your customers’ weather needs with our weather-influenced campaign. This use case automatically updates your catalog with the latest weather data for key customer locations, informing your campaigns to match the current climate of your customers. ",
+        "edited": 1759497242.1296139,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "expression_6776c9bf5f377e84a712f8fc": {
+                "entity_id": "6776c9bf5f377e84a712f8fc",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            }
+        },
+        "name": "Weather Influenced Campaign",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/owic-weather-influenced-campaign/preview/226c3ac4-cf2a-11ef-b246-36a410a9edd5?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1759497245.82079,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Deliver hyper-relevant experiences using real-time weather data to personalize offers and messages for your customers. ",
+            "channels": [
+                "email"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/weather-influenced-campaign",
+            "fulfillments": [
+                {
+                    "description": "Follow the scenario instructions and documentation to set up a daily weather upload from the Weather API successfully.",
+                    "headline": "Weather Catalog Update Setup",
+                    "item_reference": {
+                        "id": "6776c9bf5f377e84a712f8f1",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "Open the campaign and edit the scenario to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts.",
+                    "headline": "Campaign",
+                    "item_reference": {
+                        "id": "6776c9c05f377e84a712f92c",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "Open the dashboard to view an overview of customer locations in your project.",
+                    "headline": "Data Overview",
+                    "item_reference": {
+                        "id": "6776c9bf5f377e84a712f925",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "increase_retention",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "revenue",
+                "active-subscribers",
+                "purchase-frequency"
+            ],
+            "requirements": [
+                {
+                    "categories": [
+                        {
+                            "items": [
+                                "Create catalog  called 'WeatherData' to match the naming in the use case set up. Go to Catalogs > Add Catalog > WeatherData > and paste the following data to create the correct data format."
+                            ],
+                            "name": "Most popular locations have their weather data updated regularly from Weather API."
+                        },
+                        {
+                            "items": [
+                                "item_id,city,latitude,longitude,weatherCount,weatherTimestamp,dt,sunrise,sunset,summary,temp_min_fahrenheit,temp_min_celsius,temp_max_fahrenheit,temp_max_celsius,pressure,humidity,wind_speed,clouds,pop,uvi,rain,snow,weatherMain,weatherDescription,weatherAlerts New York,New York,48.25,14.06,13,1693245320.00,[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]"
+                            ],
+                            "name": "Copy this catalog data structure."
+                        },
+                        {
+                            "items": [
+                                "All attributes for storing weather data (e.g., dt, pressure) should be of type List. This is because data for today and the next 7 days will be stored, with the first list entry representing current weather, the second entry representing tomorrow's prediction, and so on.  EXAMPLE: To find the pressure forecast for the day after tomorrow, check pressure[2]."
+                            ],
+                            "name": "Read Explanation"
+                        }
+                    ],
+                    "is_optional": false,
+                    "items": [],
+                    "name": "Weather Data Catalog",
+                    "tooltip": null,
+                    "type": "text"
+                },
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "email_integration"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "advanced"
+            ]
+        },
+        "template_id": "owic-weather-influenced-campaign"
+    },
+    "success": true
+}

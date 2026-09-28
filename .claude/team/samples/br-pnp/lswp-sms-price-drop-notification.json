@@ -1,0 +1,259 @@
+{
+    "data": {
+        "_id": "64e894d90e3e0903ee6aeef3",
+        "archived": false,
+        "bee_assets_migrated": true,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1692964057,
+        "created_by_display_name": "",
+        "created_by_id": "616e98c1353a70a558b27cd7",
+        "description": "Send your customers an automated SMS message with recently viewed items that have dropped in price. A decreased product price can be just the nudge for a hesitant customer to purchase.",
+        "edited": 1744639256.7488801,
+        "edited_by_display_name": "",
+        "edited_by_id": "664c8b7b3815eee04ccd461a",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_6543a785e3d62c85acdc901c": {
+                "entity_id": "6543a785e3d62c85acdc901c",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6543a786e3d62c85acdc9074": {
+                "entity_id": "6543a786e3d62c85acdc9074",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_6543a786e3d62c85acdc907a": {
+                "entity_id": "6543a786e3d62c85acdc907a",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6543a787e3d62c85acdc9080": {
+                "entity_id": "6543a787e3d62c85acdc9080",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_6543a785e3d62c85acdc9022": {
+                "entity_id": "6543a785e3d62c85acdc9022",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_6543a785e3d62c85acdc9028": {
+                "entity_id": "6543a785e3d62c85acdc9028",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_6543a785e3d62c85acdc902e": {
+                "entity_id": "6543a785e3d62c85acdc902e",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "SMS Price Drop Notification",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/lswp-sms-price-drop-notification/preview/7795a0b4-1938-11f0-9b64-86970513ed88?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737124256.357072,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "\"Customers who receive a price drop alert are twice as likely to purchase the product compared to customers who don't.\"",
+            "channels": [
+                "sms"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/sms-price-drop-notification",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the SMS to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts.",
+                    "headline": "SMS",
+                    "item_reference": {
+                        "id": "63ff58aea565495f1622f557",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results. Make sure to fill in the parameters inside the dashboard e.g. campaign_name.",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "6543a789e3d62c85acdc9111",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "acquire_customers",
+            "industries": [
+                "ecommerce"
+            ],
+            "kpis": [
+                "conversion-rate",
+                "revenue",
+                "rpv"
+            ],
+            "requirements": [
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "sms_integration"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "consent",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "category",
+                            "property_type": "string"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "action",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "total_price",
+                            "property_type": "number"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "view_item",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase_item",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "product_id",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "phone",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "customer_property"
+                },
+                {
+                    "catalog_name": "products",
+                    "fields": [
+                        {
+                            "field_constraint": null,
+                            "field_name": "title",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "url",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "price",
+                            "field_type": "number",
+                            "is_optional": false
+                        }
+                    ],
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "catalog"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "view_item",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "main_catalog"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "popular"
+            ]
+        },
+        "template_id": "lswp-sms-price-drop-notification"
+    },
+    "success": true
+}

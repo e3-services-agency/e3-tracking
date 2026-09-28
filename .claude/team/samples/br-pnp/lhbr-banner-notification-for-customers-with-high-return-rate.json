@@ -1,0 +1,145 @@
+{
+    "data": {
+        "_id": "65f0345bdf9efcf8ac6abc01",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1710240859,
+        "created_by_display_name": "",
+        "created_by_id": "616ee297a7e6cdac192dd97c",
+        "description": " Displaying a message like \"Thank you for being environmentally aware and only buying what you need! ♥\" to customers with high return rates while shopping has multiple benefits. Ultimately, it may lead to more thoughtful purchasing decisions, potentially reducing return rates and promoting a sustainable shopping culture.",
+        "edited": 1753194065.27221,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_65f0341a74089921d63bc913": {
+                "entity_id": "65f0341a74089921d63bc913",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_65f0341a74089921d63bc919": {
+                "entity_id": "65f0341a74089921d63bc919",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "returned_purchase"
+            },
+            "expression_65f0341a74089921d63bc92a": {
+                "entity_id": "65f0341a74089921d63bc92a",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Banner Notification for Customers with High Return Rates",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/lhbr-banner-notification-for-customers-with-high-return-rate/preview/44ac0a78-6706-11f0-b440-faae0838cde8?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737122769.3004,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "This use case can significantly lower return rates and boost customer satisfaction. Don't let returns become a pain point for your business. ",
+            "channels": [
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/banner-notification-for-customers-with-high-return-rates",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the banner to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts.",
+                    "headline": "Banner",
+                    "item_reference": {
+                        "id": "65f0341a74089921d63bc924",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "If you decide to change the name of the campaign, make sure to adjust the banner_name accordingly.",
+                    "headline": "Banner Target",
+                    "item_reference": {
+                        "id": "65f0341a74089921d63bc913",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results.",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "65f0341b74089921d63bc97f",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "reduce_returns",
+            "industries": [
+                "ecommerce",
+                "retail"
+            ],
+            "kpis": [
+                "return-rate"
+            ],
+            "requirements": [
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "add_to_cart",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "purchase_id",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "returned_purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "sustainability"
+            ]
+        },
+        "template_id": "lhbr-banner-notification-for-customers-with-high-return-rate"
+    },
+    "success": true
+}

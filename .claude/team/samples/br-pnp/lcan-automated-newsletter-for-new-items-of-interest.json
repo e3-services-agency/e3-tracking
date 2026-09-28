@@ -1,0 +1,308 @@
+{
+    "data": {
+        "_id": "6528ff87ea01e42814cfde3d",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1697185671,
+        "created_by_display_name": "",
+        "created_by_id": "63049a951bad0460c3dda891",
+        "description": "Customers browsing your website have a high potential to make a purchase. Send them an email with their most viewed items to increase the likelihood of their future purchase.",
+        "edited": 1749042313.6463647,
+        "edited_by_display_name": "",
+        "edited_by_id": "664c8b7b3815eee04ccd461a",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_654d218d7b020cbe0772e6fb": {
+                "entity_id": "654d218d7b020cbe0772e6fb",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_654d228b3eb2071a308e6f0f": {
+                "entity_id": "654d228b3eb2071a308e6f0f",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_654d27784836a1da2f8c4762": {
+                "entity_id": "654d27784836a1da2f8c4762",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_652fab45885edcb58269e0ed": {
+                "entity_id": "652fab45885edcb58269e0ed",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_652fab45885edcb58269e0f3": {
+                "entity_id": "652fab45885edcb58269e0f3",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Automated Newsletter for New Items of Interest",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/lcan-automated-newsletter-for-new-items-of-interest/preview/2ef3d1e0-4125-11f0-ac51-4aff4d8da49c?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737123731.667639,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "\"Acquiring new customers costs 5x times as much as keeping existing ones. Engage your customer base and turn them into a source of recurring revenue!\"",
+            "channels": [
+                "email"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/automated-newsletter-for-new-items-of-interest",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the scenario to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts.",
+                    "headline": "Email Campaign",
+                    "item_reference": {
+                        "id": "6504712d8155d54296ebc418",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "This recommendation engine is used to display products in your campaign (open the campaign for more details). You can change the recommendation engine to one that better suits your needs (e.g. instead of bestsellers using most viewed items) or refine the catalog filters in the first step.",
+                    "headline": "Recommendations",
+                    "item_reference": {
+                        "id": "6504712c8155d54296ebc3b2",
+                        "type": "recommendation_engine"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results. Make sure to fill in the parameters inside the dashboard e.g. campaign_name.",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "652fab48885edcb58269e1e6",
+                        "type": "dashboard"
+                    }
+                },
+                {
+                    "description": "This HTML block displays the products in the email. The block is fully parameterized and any edits can be made directly in the scenario by opening the email node. If you wish to access the code, you can do so via this asset.",
+                    "headline": "HTML block used in the email [optional]",
+                    "item_reference": {
+                        "id": "663a23c04a664a6a107ad512",
+                        "type": "email_block"
+                    }
+                }
+            ],
+            "goal": "reactivate_customers",
+            "industries": [
+                "ecommerce",
+                "retail"
+            ],
+            "kpis": [
+                "conversion-rate",
+                "retention-rate",
+                "active-subscribers"
+            ],
+            "requirements": [
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "newsletter"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "view_item",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "product_id",
+                            "property_type": "string"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "category_level_1",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase_item",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "product_id",
+                            "property_type": "string"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "category_level_1",
+                            "property_type": "string"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "purchase_status",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "catalog_name": "products",
+                    "fields": [
+                        {
+                            "field_constraint": null,
+                            "field_name": "active",
+                            "field_type": "boolean",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "date_added",
+                            "field_type": "datetime",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "category_level_1",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "product_id",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "original_price",
+                            "field_type": "number",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "image",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "title",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "url",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "brand",
+                            "field_type": "string",
+                            "is_optional": false
+                        }
+                    ],
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "catalog"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "total_price",
+                            "property_type": "number"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "email_integration"
+                },
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "main_catalog"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "view_item",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "popular"
+            ]
+        },
+        "template_id": "lcan-automated-newsletter-for-new-items-of-interest"
+    },
+    "success": true
+}

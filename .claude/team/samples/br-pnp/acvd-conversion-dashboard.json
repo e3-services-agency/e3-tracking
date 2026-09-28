@@ -1,0 +1,315 @@
+{
+    "data": {
+        "_id": "64e894d00e3e0903ee6aecd7",
+        "archived": false,
+        "bee_assets_migrated": true,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1692964048,
+        "created_by_display_name": "",
+        "created_by_id": "5fb254367fe28b9dba319aa0",
+        "description": "This dashboard displays the purchase funnel, split across devices, and session conversion by traffic source. It serves as a tool for understanding conversion data, from session start to purchase and to understand whether sources of traffic, devices, or countries influence conversion.",
+        "edited": 1737125668.2892969,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_65bcb2337c371bd7993a7e70": {
+                "entity_id": "65bcb2337c371bd7993a7e70",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_65bcb2337c371bd7993a7e76": {
+                "entity_id": "65bcb2337c371bd7993a7e76",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_65bcb2357c371bd7993a7ee2": {
+                "entity_id": "65bcb2357c371bd7993a7ee2",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_65bcb2397c371bd7993a7f63": {
+                "entity_id": "65bcb2397c371bd7993a7f63",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_65bcb2337c371bd7993a7e7c": {
+                "entity_id": "65bcb2337c371bd7993a7e7c",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_65bcb2337c371bd7993a7e82": {
+                "entity_id": "65bcb2337c371bd7993a7e82",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_65bcb2337c371bd7993a7e88": {
+                "entity_id": "65bcb2337c371bd7993a7e88",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_65bcb2337c371bd7993a7e8e": {
+                "entity_id": "65bcb2337c371bd7993a7e8e",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_65bcb2357c371bd7993a7ee8": {
+                "entity_id": "65bcb2357c371bd7993a7ee8",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_65bcb2367c371bd7993a7eee": {
+                "entity_id": "65bcb2367c371bd7993a7eee",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_65bcb2367c371bd7993a7ef4": {
+                "entity_id": "65bcb2367c371bd7993a7ef4",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Conversion Dashboard",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/acvd-conversion-dashboard/preview/485f51cc-d299-11ef-aa6c-96a4fb04d0a1?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737125668.797509,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "“Conversion rates are an effective way of comparing and contrasting the performance of multiple advertising channels. They can also be used to set ROI expectations when scaling a campaign.”",
+            "channels": [
+                "no-channel"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/conversion-dashboard",
+            "fulfillments": [
+                {
+                    "description": "Event segmentation divides the session_start by device. Check if all the devices tracked in your project are covered within the categories. Do not hesitate to create a new segment if needed.",
+                    "headline": "Device - Event Segmentation",
+                    "item_reference": {
+                        "id": "65bcb2337c371bd7993a7e70",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "All metrics and reports in the Website performance block are working with a purchase event defined as ‘purchase_status’ equals ‘success’ and attribution window 60 minutes from session_start. If the naming conventions in your project are different, please adjust them accordingly. You can also change the attribution window there.",
+                    "headline": "Purchase Definition and Attribution",
+                    "item_reference": {
+                        "id": "65bcb2357c371bd7993a7ee2",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "All other funnels and reports use the purchase status 'success'. If the naming conventions in your project are different, please adjust them accordingly.",
+                    "headline": "Purchase Definition",
+                    "item_reference": {
+                        "id": "65bcb2337c371bd7993a7e76",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "All the explanations are summed up as part of the ‘Conversion Dashboard’. Check the evaluation dashboard regularly to spot any need for improvements as soon as possible. Do not hesitate to open a particular metrics or report in the Dashboard for more details.",
+                    "headline": "Conversion Dashboard",
+                    "item_reference": {
+                        "id": "65bcb23b7c371bd7993a7f92",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "analyse_data",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "conversion-rate",
+                "return-rate",
+                "purchase-frequency"
+            ],
+            "requirements": [
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "view_item",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "add_to_cart",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "country",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "customer_property"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "session_start",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "device",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "session_end",
+                    "is_optional": true,
+                    "properties": [],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase_item",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "quantity",
+                            "property_type": "string"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "total_price",
+                            "property_type": "number"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "purchase_status",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "first_session",
+                    "is_optional": true,
+                    "properties": [],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "checkout",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "payment_type",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "view_category",
+                    "is_optional": false,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "remove_from_cart",
+                    "is_optional": false,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "popular"
+            ]
+        },
+        "template_id": "acvd-conversion-dashboard"
+    },
+    "success": true
+}

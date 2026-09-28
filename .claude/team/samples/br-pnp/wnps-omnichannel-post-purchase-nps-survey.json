@@ -1,0 +1,274 @@
+{
+    "data": {
+        "_id": "6787b9dc6e40680ec5934d4b",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1736948188,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "Send customers an email with a Net Promoter Score (NPS) survey right after they make a purchase on your site. If they visit your site again without responding to the email survey, they’ll also see an on-site banner with the survey. This use case allows you to gather feedback at a crucial point in the customer journey so you can find opportunities to improve CLTV and retention.",
+        "edited": 1753195025.1508255,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_6787b96a885213c046e3814d": {
+                "entity_id": "6787b96a885213c046e3814d",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6787b96a885213c046e38153": {
+                "entity_id": "6787b96a885213c046e38153",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6787b96a885213c046e38159": {
+                "entity_id": "6787b96a885213c046e38159",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6787b96a885213c046e38170": {
+                "entity_id": "6787b96a885213c046e38170",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6787b96a885213c046e38176": {
+                "entity_id": "6787b96a885213c046e38176",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6787b96a885213c046e38182": {
+                "entity_id": "6787b96a885213c046e38182",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            }
+        },
+        "name": "Omnichannel Post-Purchase NPS Survey",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/wnps-omnichannel-post-purchase-nps-survey/preview/385da1d0-f0e3-11ef-be7a-8ed78e7572bb?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1753195025.955391,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Get the valuable feedback you need to improve your business. Reach your customers right after their purchase, while the experience is still fresh in their memory, across a range of channels.",
+            "channels": [
+                "email",
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/omnichannel-post-purchase-nps-survey",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the scenario to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts. Please follow the documentation to ensure the tracking in the HTML scale block is set up correctly.",
+                    "headline": "NPS Email",
+                    "item_reference": {
+                        "id": "6787b96b885213c046e381cb",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "Open the survey and adjust it as needed. Refer to the documentation to understand how conditional questions work.",
+                    "headline": "NPS Survey for Email",
+                    "item_reference": {
+                        "id": "6787b96a885213c046e3815f",
+                        "type": "survey"
+                    }
+                },
+                {
+                    "description": "Open the campaign and edit the banner to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts.",
+                    "headline": "NPS Weblayer",
+                    "item_reference": {
+                        "id": "6787b96a885213c046e38164",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "This HTML block displays the products in the email. The block is fully parameterized and any edits can be made directly in the scenario by opening the email node. If you wish to access the code, you can do so via this asset.",
+                    "headline": "HTML block used in the email [optional]",
+                    "item_reference": {
+                        "id": "6787b96a885213c046e3816a",
+                        "type": "email_block"
+                    }
+                },
+                {
+                    "description": "This is the aggregate referenced in the email and HTML block. Ensure the data definition matches your project.",
+                    "headline": "Last Purchased Products Aggregate [optional]",
+                    "item_reference": {
+                        "id": "6787b96a885213c046e38147",
+                        "type": "aggregate"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and ensure the campaign name matches the scenario name.",
+                    "headline": "Campaign Segmentation",
+                    "item_reference": {
+                        "id": "6787b96a885213c046e3814d",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and ensure the survey name matches the survey name in both segments.",
+                    "headline": "Survey Segmentation",
+                    "item_reference": {
+                        "id": "6787b96a885213c046e38159",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and ensure the banner name matches the weblayer name.",
+                    "headline": "Weblayer Segmentation",
+                    "item_reference": {
+                        "id": "6787b96a885213c046e38153",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and ensure the questions in both segments correspond to the survey questions with open answers. The 'satisfied' and 'non-satisfied' customer segments should align with your survey questions based on the threshold.",
+                    "headline": "Customer Segmentation - Email NPS",
+                    "item_reference": {
+                        "id": "6787b96a885213c046e38176",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and ensure the NPS score in both segments corresponds to the threshold defined in your weblayer. The 'satisfied' and 'non-satisfied' customer segments should align with the NPS threshold.",
+                    "headline": "Customer Segmentation - Weblayer NPS",
+                    "item_reference": {
+                        "id": "6787b96a885213c046e38182",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the report and ensure the question_id in the rows corresponds to the question_id of the first question in your survey. If you changed the question text, rename the report to match it. To find the question_id, run the survey on your test user and check the tracking to identify which question corresponds to which id.",
+                    "headline": " How likely are you to recommend us to your friends and family? [email] 🗣️ (optional)",
+                    "item_reference": {
+                        "id": "6787b96b885213c046e381b8",
+                        "type": "report"
+                    }
+                },
+                {
+                    "description": "Open the report and ensure the question_id in the rows corresponds to the question_id of the corresponding question in your survey. If you changed the question text, rename the report to match it. To find the question_id, run the survey on your test user and check the tracking to identify which question corresponds to which id.",
+                    "headline": "Not Satified Customers - What's the main area you feel we should focus on improving? [email] 📶 (optional)",
+                    "item_reference": {
+                        "id": "6787b96b885213c046e381ac",
+                        "type": "report"
+                    }
+                },
+                {
+                    "description": "Open the report and ensure the question_id in the report filter corresponds to the question_id of the corresponding question in your survey. If you changed the question text, rename the report to match it. To find the question_id, run the survey on your test user and check the tracking to identify which question corresponds to which id.",
+                    "headline": "Satisfied Customers - Which communication channels do you prefer more? [email] 📫 (optional)",
+                    "item_reference": {
+                        "id": "6787b96b885213c046e381b2",
+                        "type": "report"
+                    }
+                }
+            ],
+            "goal": "increase_retention",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "cltv",
+                "retention-rate",
+                "purchase-frequency"
+            ],
+            "requirements": [
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "main_catalog"
+                },
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "email_integration"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "newsletter"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "product_ids",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "popular",
+                "essentials"
+            ]
+        },
+        "template_id": "wnps-omnichannel-post-purchase-nps-survey"
+    },
+    "success": true
+}

@@ -1,0 +1,80 @@
+{
+    "data": {
+        "_id": "678910ac782e0a3f594b4f7a",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1737035948,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "Gather valuable zero-party data from your customers that you can use to personalize your campaigns. This use case features a 100% no-code banner with a large number of customization options. Set the questions you’d like to ask and get the insights you need to create personalized experiences that improve conversions.",
+        "edited": 1753194893.8222346,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": null,
+        "name": "Zero-Party Banner",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/wzpd-zero-party-banner/preview/6916bcea-f0e2-11ef-b80e-8ed78e7572bb?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1753194895.883218,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "One customer saw a 31.1% boost in conversion rate after personalizing its emails with zero-party data from this banner. ",
+            "channels": [
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/zero-party-data-banner",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the banner to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts. Open documentation to learn more about the banner.",
+                    "headline": "Banner",
+                    "item_reference": {
+                        "id": "678910200459aeb464ebd6dd",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "Open the asset and click on the file link to download it. Open documentation to learn about how to work with the spreadsheet. ",
+                    "headline": "Questions Excel File",
+                    "item_reference": {
+                        "id": "bb30c036-d411-11ef-8cfa-ae45ae5aa28a",
+                        "type": "media_file"
+                    }
+                },
+                {
+                    "description": "Open the report and check the tracking. Update the banner_name in the Report Filters if you changed the banner name.",
+                    "headline": "Report",
+                    "item_reference": {
+                        "id": "678910210459aeb464ebd6ea",
+                        "type": "report"
+                    }
+                }
+            ],
+            "goal": "acquire_customers",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "revenue",
+                "rpv",
+                "lead-generation"
+            ],
+            "requirements": [],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "popular"
+            ]
+        },
+        "template_id": "wzpd-zero-party-banner"
+    },
+    "success": true
+}

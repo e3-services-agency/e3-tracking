@@ -1,0 +1,163 @@
+{
+    "data": {
+        "_id": "678a4feac8af85bafb05cda5",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1737117674,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "Display a carousel banner with personalized recommendations. You can show products the customer left in their cart in the last 7 days or broader recommendations like “Customers who bought this also bought” based on the last product the customer viewed. The banners are fully customizable, allowing you to optimize for conversions and RPV with this use case.",
+        "edited": 1762252530.3650682,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": null,
+        "name": "Recommendations Caroussel Banner",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/wcpr-recommendations-caroussel-banner/preview/704c611e-f0e1-11ef-be7a-8ed78e7572bb?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1753196881.58774,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Drive conversions and improve your RPV with an on-site banner featuring personalized recommendations. ",
+            "channels": [
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/recommendations-carousel-banner",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the banner to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts.",
+                    "headline": "Banner",
+                    "item_reference": {
+                        "id": "678a4ed63c5998ca6a862c85",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "This AI-based recommendation engine takes up to 24 hours to train before being used in a live campaign. This recommendation engine displays products in your banner. You only need to change the recommendation engine if you wish to refine the catalog filters in the first step or further customize the setup. Keep the Blacklist setting as is to prevent the same products from being displayed twice, as products are shown from both the cart and recommendations.",
+                    "headline": "Recommendation Engine for the Banner [optional]",
+                    "item_reference": {
+                        "id": "678a4ed63c5998ca6a862c95",
+                        "type": "recommendation_engine"
+                    }
+                },
+                {
+                    "description": "Open the aggregate and ensure the definition matches your project data. The aggregate must be in list format. Adjust the timeframe if preferred. If you do, also adjust the Customer filter in the banner's display settings.",
+                    "headline": "Aggregate (optional)",
+                    "item_reference": {
+                        "id": "678a4ed63c5998ca6a862c70",
+                        "type": "aggregate"
+                    }
+                },
+                {
+                    "description": "Open the aggregate and ensure the definition matches your project data.",
+                    "headline": "Aggregate (optional)",
+                    "item_reference": {
+                        "id": "678a4ed63c5998ca6a862c76",
+                        "type": "aggregate"
+                    }
+                }
+            ],
+            "goal": "acquire_customers",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "conversion-rate",
+                "revenue",
+                "rpv"
+            ],
+            "requirements": [
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "main_catalog"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "view_item",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "add_to_cart",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "cart_update",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "product_ids",
+                            "property_type": "list"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "view_item",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "product_id",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase_item",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "product_id",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "popular"
+            ]
+        },
+        "template_id": "wcpr-recommendations-caroussel-banner"
+    },
+    "success": true
+}

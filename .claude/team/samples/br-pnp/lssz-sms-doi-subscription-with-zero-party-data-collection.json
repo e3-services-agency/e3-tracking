@@ -1,0 +1,209 @@
+{
+    "data": {
+        "_id": "64e894d70e3e0903ee6aee84",
+        "archived": false,
+        "bee_assets_migrated": true,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1692964055,
+        "created_by_display_name": "",
+        "created_by_id": "616e98c1353a70a558b27cd7",
+        "description": "In a world moving away from cookies, zero-party data collection is gaining importance and is the optimal method for gathering customer information. Double opt-in SMS incentivizes customers to consent to communication and sends a voucher code to enhance customer loyalty.",
+        "edited": 1754984983.9683044,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_65df27a210d9fce74db73638": {
+                "entity_id": "65df27a210d9fce74db73638",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_65df27a210d9fce74db7363e": {
+                "entity_id": "65df27a210d9fce74db7363e",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_65df27a310d9fce74db73680": {
+                "entity_id": "65df27a310d9fce74db73680",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_65df27a310d9fce74db73686": {
+                "entity_id": "65df27a310d9fce74db73686",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_65df27a210d9fce74db7364a": {
+                "entity_id": "65df27a210d9fce74db7364a",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_65df27a210d9fce74db73650": {
+                "entity_id": "65df27a210d9fce74db73650",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            }
+        },
+        "name": "SMS Double Opt-in Subscription With Zero-Party Data Collection",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/lssz-sms-doi-subscription-with-zero-party-data-collection/preview/8f5c655e-7750-11f0-abc6-1e1126251e39?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737124681.073944,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Subscribed customers are more engaged and interested in what you offer, leading to higher interaction rates, repeat purchases, and overall customer loyalty. Indeed, subscribed customers can have up to 30% higher conversion rates than those who are not. Incentivize your customers to subscribe, keep them engaged, and increase your revenue!",
+            "channels": [
+                "sms",
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/sms-double-opt-in-subscription-with-zero-party-data-collection",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the banner to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts.",
+                    "headline": "Banner",
+                    "item_reference": {
+                        "id": "676d6b8b1dd9ad86f06ad257",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "Open the campaign and edit the SMS to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts.",
+                    "headline": "SMS",
+                    "item_reference": {
+                        "id": "676d6b8b1dd9ad86f06ad258",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results. Make sure to fill in the parameters inside the dashboard e.g. campaign_name.",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "65df27a610d9fce74db736c7",
+                        "type": "dashboard"
+                    }
+                },
+                {
+                    "description": "Open and make sure that the consent corresponds to your SMS consent.",
+                    "headline": "Metrics [optional]",
+                    "item_reference": {
+                        "id": "65df27a210d9fce74db73644",
+                        "type": "metric"
+                    }
+                }
+            ],
+            "goal": "grow_database",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "conversion-rate",
+                "revenue",
+                "lead-generation"
+            ],
+            "requirements": [
+                {
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "phone",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "customer_property"
+                },
+                {
+                    "categories": [
+                        {
+                            "items": [
+                                "Set phone_id as a soft id."
+                            ],
+                            "name": "Customer identification based on phone number"
+                        }
+                    ],
+                    "is_optional": false,
+                    "items": [],
+                    "name": "Customer Identification",
+                    "tooltip": null,
+                    "type": "text"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "sms"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "view_item",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "sms_integration"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "essentials"
+            ]
+        },
+        "template_id": "lssz-sms-doi-subscription-with-zero-party-data-collection"
+    },
+    "success": true
+}

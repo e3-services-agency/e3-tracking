@@ -1,0 +1,189 @@
+{
+    "data": {
+        "_id": "65290daa2719f930ade99f7b",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1697189290,
+        "created_by_display_name": "",
+        "created_by_id": "63049a951bad0460c3dda891",
+        "description": "Engage with customers who viewed multiple products but haven't made a purchase yet. This dynamic recommendation tool showcases the last three items your customers viewed, paired with three recommended suggestions. It's the ultimate tool to keep shoppers engaged, inspire further exploration, and significantly boost purchase probabilities.",
+        "edited": 1761211747.3545544,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_652fab8a4f9f1364e0bc0b89": {
+                "entity_id": "652fab8a4f9f1364e0bc0b89",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_652fab8a4f9f1364e0bc0ba0": {
+                "entity_id": "652fab8a4f9f1364e0bc0ba0",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_652fab8a4f9f1364e0bc0b8f": {
+                "entity_id": "652fab8a4f9f1364e0bc0b8f",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Abandoned Browse Banner with Recommendations",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/labr-abandoned-browse-banner-with-recommendations/preview/3ee4c6b6-6706-11f0-81fc-faae0838cde8?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737123510.258459,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "\"By guiding customers towards relevant products and motivating them to continue shopping, you can increase the average revenue generated from each visitor.\"",
+            "channels": [
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/abandoned-browse-banner-with-recommendations",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the banner to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts.",
+                    "headline": "Banner",
+                    "item_reference": {
+                        "id": "64fb053ccda7d30e178968a4",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "This is an AI based recommendation engine that takes up to 24 hours to train before being able to be used in a live campaign. \nYou can change the recommendation engine to one that better suits your needs (e.g. instead of bestsellers using most viewed items) or refine the catalog filters in the first step",
+                    "headline": "Recommendations",
+                    "item_reference": {
+                        "id": "64fb053ccda7d30e178968b1",
+                        "type": "recommendation_engine"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results. Make sure to fill in the parameters inside the dashboard e.g. banner_name.",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "652fab8e4f9f1364e0bc0c8c",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "acquire_customers",
+            "industries": [
+                "ecommerce"
+            ],
+            "kpis": [
+                "revenue",
+                "cltv",
+                "retention-rate"
+            ],
+            "requirements": [
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "view_item",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "total_price",
+                            "property_type": "number"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "catalog_name": "products",
+                    "fields": [
+                        {
+                            "field_constraint": null,
+                            "field_name": "active",
+                            "field_type": "boolean",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "product_id",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "url",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "title",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "image",
+                            "field_type": "string",
+                            "is_optional": false
+                        }
+                    ],
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "catalog"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "session_end",
+                    "is_optional": true,
+                    "properties": [],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "main_catalog"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "popular"
+            ]
+        },
+        "template_id": "labr-abandoned-browse-banner-with-recommendations"
+    },
+    "success": true
+}

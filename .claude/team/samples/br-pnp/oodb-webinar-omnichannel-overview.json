@@ -1,0 +1,284 @@
+{
+    "data": {
+        "_id": "6659bc266f043d553c5bc01e",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1717156902,
+        "created_by_display_name": "",
+        "created_by_id": "61f013683328551449eaf106",
+        "description": "The Omnichannel Overview use case provides insights into how many customers can be targeted across different channels, helping determine whether omnichannel campaigns are suitable based on collected data. It also includes logic for Next Best Channel prioritization, identifying the most effective channel for each customer.",
+        "edited": 1754318942.0252442,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": null,
+        "name": "Omnichannel Overview (Best Practice Webinar)",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/oodb-webinar-omnichannel-overview/preview/d6dc8af2-712a-11f0-8800-b68f208e374f?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737122120.299947,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "\"This use case helps optimize campaign strategies by ensuring that the right customers are reached on the right channels, improving overall marketing efficiency.\"",
+            "channels": [
+                "no-channel",
+                "sms",
+                "browser-push-notification",
+                "mobile-push-notification",
+                "whatsapp",
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/omnichannel-overview",
+            "fulfillments": [
+                {
+                    "description": "Go through the segmentation and adjust the consent category value for WhatsApp",
+                    "headline": "Consent Segmentation - WhatsApp",
+                    "item_reference": {
+                        "id": "6659c6a642afea21e39c159d",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "Go through the segmentation and add the consent category value for web personalisation if applicable.",
+                    "headline": "Consent Segmentation - Web",
+                    "item_reference": {
+                        "id": "6659c6a642afea21e39c15b2",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "Go through the segmentation and check the consent category value for SMS.",
+                    "headline": "Consent Segmentation - SMS [optional]",
+                    "item_reference": {
+                        "id": "6659c6a642afea21e39c158f",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "Go through the segmentation and check the consent category value for MMS.",
+                    "headline": "Consent Segmentation - MMS [optional]",
+                    "item_reference": {
+                        "id": "6659c6a642afea21e39c1596",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "Go through the segmentation and check the consent category value for email.",
+                    "headline": "Consent Segmentation - Email [optional]",
+                    "item_reference": {
+                        "id": "6659c6a642afea21e39c1588",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "Go through the segmentation and check the consent category value for browser notifications.",
+                    "headline": "Consent Segmentation - Browser Push Notifications [optional]",
+                    "item_reference": {
+                        "id": "6659c6a642afea21e39c15ab",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "Go through the segmentation and check the consent category value for mobile notifications.",
+                    "headline": "Consent Segmentation - Mobile Push Notifications [optional]",
+                    "item_reference": {
+                        "id": "6659c6a642afea21e39c15a4",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "Open the dashboard overview to get your insights. Go through the notes to understand the dashboard.",
+                    "headline": "Dashboard overview",
+                    "item_reference": {
+                        "id": "6659c6a742afea21e39c15d2",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "analyse_data",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "revenue",
+                "active-subscribers"
+            ],
+            "requirements": [
+                {
+                    "is_optional": true,
+                    "tooltip": "",
+                    "type": "email_integration"
+                },
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "sms_integration"
+                },
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "mms_integration"
+                },
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "browser_notification_integration"
+                },
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "mobile_notification_integration"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "newsletter"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "sms"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "personalized_mobile_notification"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "phone",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "customer_property"
+                },
+                {
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "email",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "customer_property"
+                },
+                {
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "apple_push_notification_id",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "customer_property"
+                },
+                {
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "browser_push_notification",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "customer_property"
+                },
+                {
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "google_push_notification_id",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "customer_property"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "omnichannel"
+            ]
+        },
+        "template_id": "oodb-webinar-omnichannel-overview"
+    },
+    "success": true
+}

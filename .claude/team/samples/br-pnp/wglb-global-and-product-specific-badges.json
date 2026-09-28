@@ -1,0 +1,141 @@
+{
+    "data": {
+        "_id": "68fa1d9480e146a682242e15",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1761222036,
+        "created_by_display_name": "",
+        "created_by_id": "61f013683328551449eaf106",
+        "description": "This use case enables badges to be displayed on product detail pages. They serve as an essential mid-funnel marketing tactic to communicate product-specific offers and policies to your customers.    These badges can be extended and placed on various products and product lists as weblayers, which gives you an easy way to share all applicable policies and deals. Customize your banners to choose what to display, how many, and in what order. ",
+        "edited": 1771424523.3458955,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_6408b0be25e2076a8629ebb7": {
+                "entity_id": "6408b0be25e2076a8629ebb7",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6408b0be25e2076a8629ebed": {
+                "entity_id": "6408b0be25e2076a8629ebed",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_68fa1b529ee58d5a87fd893f": {
+                "entity_id": "68fa1b529ee58d5a87fd893f",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_68fa1b539ee58d5a87fd8967": {
+                "entity_id": "68fa1b539ee58d5a87fd8967",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_6408b0be25e2076a8629ebd6": {
+                "entity_id": "6408b0be25e2076a8629ebd6",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Global & Product Specific Badges",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/wglb-global-and-product-specific-badges/preview/14c6fe04-f07b-11f0-a990-ead263052567?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1769007637.553814,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Want to clearly communicate new offers or policies right where customers are browsing? Highlight them instantly with Product Page Badges and boost conversions with every view.",
+            "channels": [
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/global-and-product-specific-badges",
+            "fulfillments": [
+                {
+                    "description": "Open the Product Badge Container and start it. This will display individual badges you will start later. ",
+                    "headline": "Product Badge Container",
+                    "item_reference": {
+                        "id": "6408b0bc25e2076a8629eb6b",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "Open a global badge, decide on the order and launch it if needed for your purpose. This will display a badge on all products across your website.",
+                    "headline": "Badges - global",
+                    "item_reference": {
+                        "id": "6408b0bd25e2076a8629eb70",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "Open a product specific badge for your purpose, match the badge to specific catalog name and catalog column name, and start the weblayer. ",
+                    "headline": "Badges - specific",
+                    "item_reference": {
+                        "id": "6408b0bd25e2076a8629eb9d",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results.",
+                    "headline": "Custom Dashboard",
+                    "item_reference": {
+                        "id": "6408b0be25e2076a8629ec4a",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "acquire_customers",
+            "industries": [
+                "ecommerce"
+            ],
+            "kpis": [
+                "conversion-rate",
+                "rpv",
+                "aov",
+                "cltv",
+                "revenue"
+            ],
+            "requirements": [
+                {
+                    "is_optional": false,
+                    "tooltip": "You can pull in product specific badges either from your main catalog, or use a separate catalog for storing data about badges.",
+                    "type": "main_catalog"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "advanced",
+                "sustainability"
+            ]
+        },
+        "template_id": "wglb-global-and-product-specific-badges"
+    },
+    "success": true
+}

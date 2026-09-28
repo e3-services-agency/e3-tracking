@@ -1,0 +1,113 @@
+{
+    "data": {
+        "_id": "6924353135492d73b390b932",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1763980593,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "Ensure every campaign lands at the right moment with automated time zone segmentation. Group customers by their detected local time zone, powering precise audience targeting and allowing you to schedule omnichannel messages when each user is most likely to engage.",
+        "edited": 1764778198.2220085,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": null,
+        "name": "Time Zone Segmentation",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/atzs-timezone-segmentation/preview/09420d0a-cf5e-11f0-9f04-6e5f41a66efe?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1764778199.112311,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Deliver perfectly timed messages to customers based on their local time zones.",
+            "channels": [
+                "no-channel"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/time-zone-segmentation",
+            "fulfillments": [
+                {
+                    "description": "Open the segmentation and double check if the data correspond to your tracking. There are no further edits necessary. However, if you do wish to make edits, ensure all relevant segments for a timezone (e.g., both EST segments) are edited. Ensure identical segment names for the same timezone across all segments.\n\nNote: Segment order matters. Higher segments are prioritized (e.g., 'country' attribute before 'most common session_start' aggregate).\n\n",
+                    "headline": "EU + US Segmentation",
+                    "item_reference": {
+                        "id": "692434bfc5ee4a95a6ab10f9",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and double check if the data correspond to your tracking. There are no further edits necessary. However, if you do wish to make edits, ensure all relevant segments for a timezone (e.g., both EST segments) are edited. Ensure identical segment names for the same timezone across all segments.\n\nNote: Segment order matters. Higher segments are prioritized (e.g., 'country' attribute before 'most common session_start' aggregate).",
+                    "headline": "EU Only Segmentation",
+                    "item_reference": {
+                        "id": "692434bfc5ee4a95a6ab10e1",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and double check if the data correspond to your tracking. There are no further edits necessary. However, if you do wish to make edits, ensure all relevant segments for a timezone (e.g., both EST segments) are edited. Ensure identical segment names for the same timezone across all segments.\n\nNote: Segment order matters. Higher segments are prioritized (e.g., 'country' attribute before 'most common session_start' aggregate).",
+                    "headline": "US Only Segmentation",
+                    "item_reference": {
+                        "id": "692434bfc5ee4a95a6ab10d5",
+                        "type": "segmentation"
+                    }
+                }
+            ],
+            "goal": "analyse_data",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "conversion-rate"
+            ],
+            "requirements": [
+                {
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "country",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "customer_property"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "session_start",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "country",
+                            "property_type": "string"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "state",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "essentials"
+            ]
+        },
+        "template_id": "atzs-timezone-segmentation"
+    },
+    "success": true
+}

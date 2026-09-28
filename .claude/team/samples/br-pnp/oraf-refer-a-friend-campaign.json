@@ -1,0 +1,204 @@
+{
+    "data": {
+        "_id": "66d72c3b3b52e691c4f91fb8",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1725377595,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "Refer a Friend Campaign encourages your customers to spread the word about your brand by rewarding both them and their friends. When a customer successfully refers someone new, both the referrer and the new customer receive a voucher.",
+        "edited": 1754319345.2842984,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "expression_66d729f20aea8bc6d70c3938": {
+                "entity_id": "66d729f20aea8bc6d70c3938",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_66d729f20aea8bc6d70c393e": {
+                "entity_id": "66d729f20aea8bc6d70c393e",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Refer a Friend Campaign",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/oraf-refer-a-friend-campaign/preview/e12126ee-712a-11f0-a1e2-1a00b019e081?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737120594.920906,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "\"This win-win approach not only drives new customer acquisition but also strengthens customer loyalty through shared incentives.\"",
+            "channels": [
+                "email"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/refer-a-friend-campaign",
+            "fulfillments": [
+                {
+                    "description": "This survey is used as a unique referral link that existing customers can share with their friends. Open the survey and adjust all the fields where you see parameters in [...]. Follow the documentation for more detailed guidance.",
+                    "headline": "Referral Link via Survey",
+                    "item_reference": {
+                        "id": "66d729f10aea8bc6d70c392e",
+                        "type": "survey"
+                    }
+                },
+                {
+                    "description": "Open this survey and launch it with 'Start'. This will enable the automated SMS opener shared in the email campaign (see scenario) to work.",
+                    "headline": "SMS Opener",
+                    "item_reference": {
+                        "id": "66d729f10aea8bc6d70c3928",
+                        "type": "survey"
+                    }
+                },
+                {
+                    "description": "Open the campaign and edit the scenario to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts. Follow the documentation for detailed instructions.",
+                    "headline": "Email Campaign ",
+                    "item_reference": {
+                        "id": "66d729f10aea8bc6d70c3931",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results. ",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "66d729f30aea8bc6d70c39a9",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "acquire_customers",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "lead-generation",
+                "revenue",
+                "conversion-rate"
+            ],
+            "requirements": [
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "voucher_code",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "newsletter"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "categories": [
+                        {
+                            "items": [
+                                "This use case will only work if the hard ID in your project is the email."
+                            ],
+                            "name": "Strong Requirement"
+                        }
+                    ],
+                    "is_optional": false,
+                    "items": [],
+                    "name": "Email as hard_id",
+                    "tooltip": null,
+                    "type": "text"
+                },
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "email_integration"
+                },
+                {
+                    "categories": [
+                        {
+                            "items": [
+                                "To ensure this use case works correctly, it is mandatory to have a voucher pool named 'vouchers'. This pool is required for proper voucher assignment. If the pool does not exist, the use case cannot be downloaded or function as expected. Please create the voucher pool beforehand to proceed with the download smoothly."
+                            ],
+                            "name": "Strong Requirement"
+                        }
+                    ],
+                    "is_optional": false,
+                    "items": [],
+                    "name": "Voucher pool called 'vouchers' ",
+                    "tooltip": null,
+                    "type": "text"
+                },
+                {
+                    "categories": [
+                        {
+                            "items": [
+                                "For this use case to work correctly and entirely, it is mandatory to track the voucher code under the purchase event. This condition is necessary for accurate purchase attribution in analytics and to determine whether the referee has made their first purchase through the 'Refer a Friend' campaign. However, if you do not track the voucher code, the use case might still work, but you will need to adjust flows 5 and 6 in the scenario, which requires advanced skills."
+                            ],
+                            "name": "Recommended Requirement"
+                        }
+                    ],
+                    "is_optional": false,
+                    "items": [],
+                    "name": "Tracked voucher_code in Purchase Event",
+                    "tooltip": null,
+                    "type": "text"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "advanced"
+            ]
+        },
+        "template_id": "oraf-refer-a-friend-campaign"
+    },
+    "success": true
+}

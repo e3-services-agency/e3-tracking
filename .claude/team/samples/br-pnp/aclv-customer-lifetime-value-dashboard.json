@@ -1,0 +1,244 @@
+{
+    "data": {
+        "_id": "64e894d00e3e0903ee6aecd5",
+        "archived": false,
+        "bee_assets_migrated": true,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1692964048,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "Learn how a CLTV monitoring dashboard can revolutionize your business strategy, providing real-time insights to boost retention rates, identify growth opportunities, and increase overall purchase value. Gain the competitive edge by understanding and optimizing the metrics that directly impact your customers' lifetime value. ",
+        "edited": 1746540887.461749,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_64b7b5da87fa49a17dc3de5a": {
+                "entity_id": "64b7b5da87fa49a17dc3de5a",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_64b7b5da87fa49a17dc3de76": {
+                "entity_id": "64b7b5da87fa49a17dc3de76",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_64b7b5da87fa49a17dc3de7c": {
+                "entity_id": "64b7b5da87fa49a17dc3de7c",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_64b7b5da87fa49a17dc3de82": {
+                "entity_id": "64b7b5da87fa49a17dc3de82",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Customer Lifetime Value Dashboard",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/aclv-customer-lifetime-value-dashboard/preview/43fc9b6c-d299-11ef-be61-96a4fb04d0a1?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737125716.023768,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "\"Unlock the key to long-term business success with our Customer Lifetime Value (CLTV) use case – download now and transform your marketing strategy!\"",
+            "channels": [
+                "no-channel"
+            ],
+            "documentation_link": " https://documentation.bloomreach.com/engagement/docs/customer-lifetime-value-dashboard",
+            "fulfillments": [
+                {
+                    "description": "Open the event segmentation and adjust the purchase statuses to successfull and cancelled purchases in your project. The CLTV value is calculated as sum of successfull purchases minus cancelled purchases.",
+                    "headline": "Purchase Definition",
+                    "item_reference": {
+                        "id": "64b7b5da87fa49a17dc3de5a",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the segmantation and check if the consents correspond to the \"newsletter\" consent in your project.",
+                    "headline": "Customer Segmentation [optional]",
+                    "item_reference": {
+                        "id": "64b7b5db87fa49a17dc3df12",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "Open the segmantation and check if the consents correspond to the \"newsletter\" consent in your project.",
+                    "headline": "Email Customer Segmentation [optional]",
+                    "item_reference": {
+                        "id": "64b7b5da87fa49a17dc3de62",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "Open the segmantation and check if the consents correspond to the \"SMS\" consent in your project. Note that the dashboard will be functional even if you do not use SMS channel.",
+                    "headline": "SMS Customer Segmentation [optional]",
+                    "item_reference": {
+                        "id": "64b7b5da87fa49a17dc3de6a",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "Open the dashboard and analyse the results.",
+                    "headline": "Dashboard",
+                    "item_reference": {
+                        "id": "64b7b5db87fa49a17dc3df21",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "analyse_data",
+            "industries": [
+                "ecommerce",
+                "retail"
+            ],
+            "kpis": [
+                "cltv",
+                "aov",
+                "purchase-frequency"
+            ],
+            "requirements": [
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "total_price",
+                            "property_type": "number"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "newsletter"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "sms"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "gender",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "customer_property"
+                },
+                {
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "country",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "customer_property"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "session_start",
+                    "is_optional": true,
+                    "properties": [],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "returned_purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "popular"
+            ]
+        },
+        "template_id": "aclv-customer-lifetime-value-dashboard"
+    },
+    "success": true
+}

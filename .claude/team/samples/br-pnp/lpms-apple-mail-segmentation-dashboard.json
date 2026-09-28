@@ -1,0 +1,91 @@
+{
+    "data": {
+        "_id": "64e894cd0e3e0903ee6aec21",
+        "archived": false,
+        "bee_assets_migrated": true,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1692964045,
+        "created_by_display_name": "",
+        "created_by_id": "5fb254367fe28b9dba319aa0",
+        "description": "Have segmentations ready to aid you in reporting, and targeting. On top of that, learn from a campaign report with metrics separated by Apple Mail / non-Apple Mail subscribers, to show you more precise open rates, click-through rates, and spam complaint rates, both total and unique.",
+        "edited": 1754309625.0557678,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": null,
+        "name": "Apple Mail Segmentation Dashboard",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/lpms-apple-mail-segmentation-dashboard/preview/c4d45fb0-712a-11f0-b987-b68f208e374f?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737125833.284098,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "“The email open rate is “not dead”. As Apple Mail Privacy Protection (MPP) for iOS15 has been ruled out, we have tackled the challenge accordingly, since Apple devices accounted for approximately 52 % of all email opens. Open rates in your email campaigns will not show any fake increase and will likely be much more reliable.”",
+            "channels": [
+                "no-channel"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/apple-mail-segmentation-dashboard",
+            "fulfillments": [
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results. ",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "654e0f91c6efd5db36bf11d0",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "analyse_data",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "active-subscribers"
+            ],
+            "requirements": [
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "email_integration"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "newsletter"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "essentials"
+            ]
+        },
+        "template_id": "lpms-apple-mail-segmentation-dashboard"
+    },
+    "success": true
+}

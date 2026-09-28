@@ -1,0 +1,281 @@
+{
+    "data": {
+        "_id": "65291ddd72d13c893bbab0e6",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1697193437,
+        "created_by_display_name": "",
+        "created_by_id": "63049a951bad0460c3dda891",
+        "description": "Recover abandoned carts by automatically notifying customers via email when the price of an item in their cart drops. A personalized email message can incentivize them to complete their purchase, helping you recover lost sales opportunities and boosting revenue. At the same time, your customers will feel they're getting the best deal when shopping with you, improving the brand loyalty!",
+        "edited": 1753194389.7140026,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_654d218d7b020cbe0772e6fb": {
+                "entity_id": "654d218d7b020cbe0772e6fb",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_654d228b3eb2071a308e6f0f": {
+                "entity_id": "654d228b3eb2071a308e6f0f",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_654d27784836a1da2f8c4762": {
+                "entity_id": "654d27784836a1da2f8c4762",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_652fab45885edcb58269e0ed": {
+                "entity_id": "652fab45885edcb58269e0ed",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_652fab45885edcb58269e0f3": {
+                "entity_id": "652fab45885edcb58269e0f3",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Automated Price Drop Alert Email for Items in Cart",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/lpau-automated-price-drop-alert-email-for-items-in-cart/preview/4275854a-6706-11f0-9f94-faae0838cde8?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737123446.773599,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "“Around 75% of customers who abandon their carts intend to complete their purchase later. At the same time, customers who receive a price drop alert are twice as likely to purchase the product as customers who don't.”",
+            "channels": [
+                "email"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/automated-price-drop-alert-email-for-items-in-cart",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the scenario to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts.",
+                    "headline": "Email Campaign",
+                    "item_reference": {
+                        "id": "651d8880c64f44194aa96c18",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results. Make sure to fill in the parameters inside the dashboard e.g. campaign_name.",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "652fab48885edcb58269e1e6",
+                        "type": "dashboard"
+                    }
+                },
+                {
+                    "description": "This HTML block displays the products in the email. The block is fully parameterized and any edits can be made directly in the scenario by opening the email node. If you wish to access the code, you can do so via this asset.",
+                    "headline": "HTML block used in the email [optional]",
+                    "item_reference": {
+                        "id": "663dd026c29ec947b0494316",
+                        "type": "email_block"
+                    }
+                }
+            ],
+            "goal": "acquire_customers",
+            "industries": [
+                "ecommerce"
+            ],
+            "kpis": [
+                "conversion-rate",
+                "revenue",
+                "rpv"
+            ],
+            "requirements": [
+                {
+                    "event_instance_existence": false,
+                    "event_name": "cart_update",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "action",
+                            "property_type": "string"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "price",
+                            "property_type": "number"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase_item",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "product_id",
+                            "property_type": "string"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "purchase_status",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "newsletter"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "catalog_name": "products",
+                    "fields": [
+                        {
+                            "field_constraint": null,
+                            "field_name": "active",
+                            "field_type": "boolean",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "product_id",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "url",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "title",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "original_price",
+                            "field_type": "number",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "price",
+                            "field_type": "number",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "image",
+                            "field_type": "string",
+                            "is_optional": false
+                        }
+                    ],
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "catalog"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "total_price",
+                            "property_type": "number"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "email_integration"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "add_to_cart",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "main_catalog"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "popular"
+            ]
+        },
+        "template_id": "lpau-automated-price-drop-alert-email-for-items-in-cart"
+    },
+    "success": true
+}

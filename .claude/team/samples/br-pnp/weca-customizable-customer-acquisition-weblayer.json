@@ -1,0 +1,65 @@
+{
+    "data": {
+        "_id": "6776b1d9f835745ad5417512",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1735832025,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "Take customization to the next level with the advanced customer acquisition weblayer, offering more control over on-site journeys through editable variables to match your unique needs. With customizable consent management, customer identification, and attribute updates, you can create the ideal weblayer to capture relevant data and optimize the user experience. ",
+        "edited": 1742561929.0922084,
+        "edited_by_display_name": "",
+        "edited_by_id": "6560a09f968c086a1e07c019",
+        "is_exported": true,
+        "mapping_hints": null,
+        "name": "Customizable Customer Acquisition Weblayer",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/weca-customizable-customer-acquisition-weblayer/preview/203d616a-cf2a-11ef-b6da-36a410a9edd5?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1742561929.566675,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Customizable weblayers empower you to connect with customers on-site, strengthening their relationship with your brand. Use them to drive engagement, increase conversions, and create a seamless shopping experience that leaves a lasting impression.",
+            "channels": [
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/customizable-customer-acquisition-weblayer",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the banner to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts. Open documentation to learn more about the banner.",
+                    "headline": "Banner",
+                    "item_reference": {
+                        "id": "6776b15af835745ad5417510",
+                        "type": "banner"
+                    }
+                }
+            ],
+            "goal": "acquire_customers",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "rpv",
+                "conversion-rate",
+                "lead-generation"
+            ],
+            "requirements": [],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "popular",
+                "essentials"
+            ]
+        },
+        "template_id": "weca-customizable-customer-acquisition-weblayer"
+    },
+    "success": true
+}

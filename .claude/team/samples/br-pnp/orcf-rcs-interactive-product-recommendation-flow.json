@@ -1,0 +1,119 @@
+{
+    "data": {
+        "_id": "68da89f12403ce91eea2851b",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1759152625,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "Collect customer preferences via RCS messaging using quick-reply buttons, and send personalized product recommendations based on their responses. Engage customers in real time, gather relevant data, and automate the entire experience.",
+        "edited": 1759485005.1077993,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": null,
+        "name": "RCS Interactive Product Recommendation Flow",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/orcf-rcs-interactive-product-recommendation-flow/preview/cdd2bb3e-9ea2-11f0-a960-82da5fa4d4df?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1759485006.199716,
+        "satisfies_modules": false,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Deliver personalized product recommendations at scale while capturing valuable customer insights leveraging the RCS messaging.",
+            "channels": [
+                "rcs"
+            ],
+            "documentation_link": "https://www.bloomreach.com/en/products/engagement/plug-and-play/rcs-interactive-product-recommendation-flow",
+            "fulfillments": [
+                {
+                    "description": "Open the scenario and follow the steps to set it up. Open documentation for more details.",
+                    "headline": "Scenario",
+                    "item_reference": {
+                        "id": "68da882053fb222dac1c49bf",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "This segmentation includes all customers who chose the first answer in response to the initial message. Open the segmentation and follow the documentation. It can be simplified by updating each segmentation if that is not accurate for your use case. You can adjust the segment names if you wish to.",
+                    "headline": "Segmentation - Initial Message - Answer 1 (Optional)",
+                    "item_reference": {
+                        "id": "68da881f53fb222dac1c4992",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "This segmentation includes all customers who chose the second answer in response to the initial message. Open the segmentation and follow the documentation. It can be simplified by updating each segmentation if that is not accurate for your use case. You can adjust the segment names if you wish to.",
+                    "headline": "Segmentation - Initial Message - Answer 2 (Optional)",
+                    "item_reference": {
+                        "id": "68da882053fb222dac1c49a8",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "This segmentation includes all customers who chose the third answer in response to the initial message. Open the segmentation and follow the documentation. It can be simplified by updating each segmentation if that is not accurate for your use case. You can adjust the segment names if you wish to.",
+                    "headline": "Segmentation - Initial Message - Answer 3 (Optional)",
+                    "item_reference": {
+                        "id": "68da882053fb222dac1c49be",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "This event segmentation splits the initial response based on the chosen answer tracked in \"message\". Open the segmentation and follow the documentation to adjust the filters to your use case. Do not change the segment names.",
+                    "headline": "Event Segmentation - Initial Response",
+                    "item_reference": {
+                        "id": "68da881f53fb222dac1c4970",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "This event segmentation splits the 2nd response based on the chosen answer tracked in \"message\". Open the segmentation and follow the documentation to adjust the filters to your use case. Do not change the segment names.",
+                    "headline": "Event Segmentation - 2nd Response",
+                    "item_reference": {
+                        "id": "68da881f53fb222dac1c4976",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "This event segmentation splits the 3rd response based on the chosen answer tracked in \"message\". Open the segmentation and follow the documentation to adjust the filters to your use case. Do not change the segment names.",
+                    "headline": "Event Segmentation - 3rd Response",
+                    "item_reference": {
+                        "id": "68da881f53fb222dac1c497c",
+                        "type": "event_segmentation"
+                    }
+                }
+            ],
+            "goal": "increase_retention",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "revenue",
+                "purchase-frequency",
+                "retention-rate"
+            ],
+            "requirements": [
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "main_catalog"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "advanced",
+                "popular"
+            ]
+        },
+        "template_id": "orcf-rcs-interactive-product-recommendation-flow"
+    },
+    "success": true
+}

@@ -1,0 +1,122 @@
+{
+    "data": {
+        "_id": "64e894d00e3e0903ee6aed02",
+        "archived": false,
+        "bee_assets_migrated": true,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1692964048,
+        "created_by_display_name": "",
+        "created_by_id": "5fb254367fe28b9dba319aa0",
+        "description": "Gain insights with an overview of an email campaign's deliverability metrics such as delivery rate, hard bounce and more. Use these insights to optimize deliverability, support your email reputation, and spare your customers from irrelevant or annoying emails.",
+        "edited": 1764242605.6857734,
+        "edited_by_display_name": "",
+        "edited_by_id": "664c8b7b3815eee04ccd461a",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_6672b185415a763a7624bb98": {
+                "entity_id": "6672b185415a763a7624bb98",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6672b186415a763a7624bc16": {
+                "entity_id": "6672b186415a763a7624bc16",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_6672b185415a763a7624bb9e": {
+                "entity_id": "6672b185415a763a7624bb9e",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_6672b185415a763a7624bba4": {
+                "entity_id": "6672b185415a763a7624bba4",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            }
+        },
+        "name": "Email Deliverability Dashboard",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/ae1d-email-deliverability-dashboard/preview/4270fd9c-d299-11ef-916e-62f9c3b185df?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737125583.47635,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "“One in five emails is not getting to the inbox, meaning only 80% are. That might seem like a high enough number, but an email that fails to get into the inbox is essentially an email that was never sent.”",
+            "channels": [
+                "email",
+                "no-channel"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/email-deliverability-dashboard-use-case",
+            "fulfillments": [
+                {
+                    "description": "Start the scenario in just one click with this ready-made template developed by our e-commerce experts. No adjustments are necessary.",
+                    "headline": "Scenario",
+                    "item_reference": {
+                        "id": "6672b185415a763a7624bb91",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "This segmentation is used in the dashboard to filter out campaigns that you do not wish to analyze such as test campaign. Adjust the definition of the 'exclude' segment. Do not change the order of the segments. If you do not wish to exclude any campaigns, just leave the segmentation as it is.",
+                    "headline": "Campaign Event Segmentation",
+                    "item_reference": {
+                        "id": "6672b185415a763a7624bb98",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the dashboard and insert your emailing consent into the consent parameter. Remember, there is a filter used on the dashboard level that filters out only the campaigns narrowed down in the campaign event segmentation above. Analyse your deliverability and get in touch with your CSM if you need any help.",
+                    "headline": "Deliverability Dashboard",
+                    "item_reference": {
+                        "id": "6672b188415a763a7624bc77",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "analyse_data",
+            "industries": [
+                "ecommerce",
+                "retail",
+                "travel"
+            ],
+            "kpis": [
+                "active-subscribers"
+            ],
+            "requirements": [
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "email_integration"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "essentials"
+            ]
+        },
+        "template_id": "ae1d-email-deliverability-dashboard"
+    },
+    "success": true
+}

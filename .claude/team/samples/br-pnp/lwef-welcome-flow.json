@@ -1,0 +1,337 @@
+{
+    "data": {
+        "_id": "64e894d90e3e0903ee6aeef7",
+        "archived": false,
+        "bee_assets_migrated": true,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1692964057,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "Connect with your new customers who signed up for your newsletter and send them three customized emails to welcome them, provide brand information, and invite them to purchase. ",
+        "edited": 1749036158.7484894,
+        "edited_by_display_name": "",
+        "edited_by_id": "664c8b7b3815eee04ccd461a",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_64cba5ce2ef3ea5ff78c6f3e": {
+                "entity_id": "64cba5ce2ef3ea5ff78c6f3e",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_64cba5ce2ef3ea5ff78c6f44": {
+                "entity_id": "64cba5ce2ef3ea5ff78c6f44",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_64cba5ce2ef3ea5ff78c6f4a": {
+                "entity_id": "64cba5ce2ef3ea5ff78c6f4a",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_64cba5ce2ef3ea5ff78c6f50": {
+                "entity_id": "64cba5ce2ef3ea5ff78c6f50",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_654d09b9d13bf505e33f5a22": {
+                "entity_id": "654d09b9d13bf505e33f5a22",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_654d141cd13bf505e33f5a29": {
+                "entity_id": "654d141cd13bf505e33f5a29",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_654d1480e68badf0497c5e53": {
+                "entity_id": "654d1480e68badf0497c5e53",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_654d14b94836a1da2f8c45e0": {
+                "entity_id": "654d14b94836a1da2f8c45e0",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_64cba5cc2ef3ea5ff78c6ed0": {
+                "entity_id": "64cba5cc2ef3ea5ff78c6ed0",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_64cba5cc2ef3ea5ff78c6ed6": {
+                "entity_id": "64cba5cc2ef3ea5ff78c6ed6",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_64cba5cc2ef3ea5ff78c6edc": {
+                "entity_id": "64cba5cc2ef3ea5ff78c6edc",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_64cba5cc2ef3ea5ff78c6ee2": {
+                "entity_id": "64cba5cc2ef3ea5ff78c6ee2",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Welcome Flow",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/lwef-welcome-flow/preview/3583018e-4125-11f0-ba16-76a5840eac1e?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737124182.981011,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "“Welcome emails have 86% higher open rates than other marketing emails. Subscribers who receive welcome emails show 33% more long-term brand engagement than those who don't.”",
+            "channels": [
+                "email"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/welcome-flow",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the scenario to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts.",
+                    "headline": "Email Campaign",
+                    "item_reference": {
+                        "id": "64cba5cd2ef3ea5ff78c6f37",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "This recommendation engine is used to display products in your campaign (open the campaign for more details). You can change the recommendation engine to one that better suits your needs (e.g. instead of bestsellers using most viewed items) or refine the catalog filters in the first step.",
+                    "headline": "Recommendation Engine for the Campaign [optional]",
+                    "item_reference": {
+                        "id": "64cba5cb2ef3ea5ff78c6ec4",
+                        "type": "recommendation_engine"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results. ",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "64cba5ce2ef3ea5ff78c6f8b",
+                        "type": "dashboard"
+                    }
+                },
+                {
+                    "description": "This HTML block displays the products in the email. The block is fully parameterized and any edits can be made directly in the scenario by opening the email node. If you wish to access the code, you can do so via this asset.",
+                    "headline": "HTML block used in the email [optional]",
+                    "item_reference": {
+                        "id": "663a2012c48f9dde4fe0a8ac",
+                        "type": "email_block"
+                    }
+                }
+            ],
+            "goal": "increase_retention",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "cltv",
+                "retention-rate",
+                "purchase-frequency"
+            ],
+            "requirements": [
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "email_integration"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase_item",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "product_id",
+                            "property_type": "string"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "purchase_status",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "catalog_name": "products",
+                    "fields": [
+                        {
+                            "field_constraint": null,
+                            "field_name": "image",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "price",
+                            "field_type": "number",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "title",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "url",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "product_id",
+                            "field_type": "string",
+                            "is_optional": false
+                        }
+                    ],
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "catalog"
+                },
+                {
+                    "categories": [
+                        {
+                            "items": [
+                                "The product_id values of purchase_item event in Data Manger need to match the product_id in the product catalog. "
+                            ],
+                            "name": "Product Catalog"
+                        }
+                    ],
+                    "is_optional": false,
+                    "items": [],
+                    "name": "Tracking Prerequisities",
+                    "tooltip": null,
+                    "type": "text"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "newsletter"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "total_price",
+                            "property_type": "number"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase_item",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "main_catalog"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "essentials",
+                "popular"
+            ]
+        },
+        "template_id": "lwef-welcome-flow"
+    },
+    "success": true
+}

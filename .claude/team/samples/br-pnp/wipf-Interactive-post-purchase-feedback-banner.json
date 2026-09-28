@@ -1,0 +1,189 @@
+{
+    "data": {
+        "_id": "662a51bbd30aea0a528c6a31",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1714049467,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "Post-purchase banner displayed to customers who recently purchased some products from your e-shop. The objective is to gather feedback about their shopping experience and preferences without the need for a consent",
+        "edited": 1754318829.319987,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_662a4fe1460e7979b13f9a6b": {
+                "entity_id": "662a4fe1460e7979b13f9a6b",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_662a4fe1460e7979b13f9aa1": {
+                "entity_id": "662a4fe1460e7979b13f9aa1",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_662a4fe1460e7979b13f9a89": {
+                "entity_id": "662a4fe1460e7979b13f9a89",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Interactive Post-Purchase Feedback Banner",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/wipf-Interactive-post-purchase-feedback-banner/preview/d1188f26-712a-11f0-a2db-b68f208e374f?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737122348.349521,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "\"Engage with customers who recently made a purchase on your e-shop. Gather valuable insights about their shopping experience and learn more about your customer base without seeking consent.\"",
+            "channels": [
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/interactive-post-purchase-feedback-banner",
+            "fulfillments": [
+                {
+                    "description": "The banner steps are in the following order: 'Number Scale Question', 'Multiple Option Question', 'Card Options Question', and 'Picture Scale Question'. Below, you will find additional versions of this banner. The differences between the versions lie in the order of the steps. The banner is fully customizable, allowing you to tailor it to your design and edit the various questions and answers as needed.",
+                    "headline": "Banner - version 1",
+                    "item_reference": {
+                        "id": "662a4fe1460e7979b13f9a60",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "The banner steps are in the following order: 'Number Scale Question', 'Multiple Option Question', 'Picture Scale Question', and 'Card Options Question'. Below, you will find additional versions of this banner. The differences between the versions lie in the order of the steps. The banner is fully customizable, allowing you to tailor it to your design and edit the various questions and answers as needed.",
+                    "headline": "Banner - version 2",
+                    "item_reference": {
+                        "id": "662a4fe0460e7979b13f9a56",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "The banner steps are in the following order: 'Number Scale Question', 'Picture Scale Question', 'Multiple Option Question', and 'Card Options Question'. Below, you will find additional versions of this banner. The differences between the versions lie in the order of the steps. The banner is fully customizable, allowing you to tailor it to your design and edit the various questions and answers as needed.",
+                    "headline": "Banner - version 3",
+                    "item_reference": {
+                        "id": "662a4fe0460e7979b13f9a5b",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "The banner steps are in the following order: 'Picture Scale Question', 'Multiple Option Question', and 'Card Options Question'. Below, you will find additional versions of this banner. The differences between the versions lie in the order of the steps. The banner is fully customizable, allowing you to tailor it to your design and edit the various questions and answers as needed.",
+                    "headline": "Banner - version 4",
+                    "item_reference": {
+                        "id": "662a4fe1460e7979b13f9a65",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results. Make sure to fill in the parameters inside the dashboard e.g. campaign_name.",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "662a4fe2460e7979b13f9ab2",
+                        "type": "dashboard"
+                    }
+                },
+                {
+                    "description": "This report displays the responses submitted for the 'Number Scale' question. Please rename this report to reflect your 'Number Scale' question accurately. No further edits to the report are required",
+                    "headline": "Report on the 'Number Scale' Question",
+                    "item_reference": {
+                        "id": "662a4fe1460e7979b13f9a71",
+                        "type": "report"
+                    }
+                },
+                {
+                    "description": "This report shows the answers submitted for the 'Picture Scale' question. Please rename this report to mirror your 'Picture Scale' question. No further edits are necessary in the report.",
+                    "headline": "Report on the 'Picture Scale' Question",
+                    "item_reference": {
+                        "id": "662a4fe1460e7979b13f9a83",
+                        "type": "report"
+                    }
+                },
+                {
+                    "description": "This report shows the answers submitted for the 'Card Options' question. Please rename this report to mirror your 'Card Options' question. In the second step, please rename the metrics to reflect the answers to your question. The first metric corresponds to the first answer, and so on.",
+                    "headline": "Report on the 'Card Options' Question",
+                    "item_reference": {
+                        "id": "662a4fe1460e7979b13f9a7d",
+                        "type": "report"
+                    }
+                },
+                {
+                    "description": "This report shows the answers submitted for the 'Multiple Options' question. Please rename this report to mirror your 'Multiple Options' question. In the second step, please rename the metrics to reflect the answers to your question. The first metric corresponds to the first answer, and so on.",
+                    "headline": "Report on the 'Multiple Options' Question",
+                    "item_reference": {
+                        "id": "662a4fe1460e7979b13f9a77",
+                        "type": "report"
+                    }
+                },
+                {
+                    "description": "This is the event segmentation that defines the attributed purchase. Feel free to adjust the status or number of hours (48h by default). DO NOT change the name of the segmant. Otherwise the evaluation dashboard will not work.",
+                    "headline": "Attributed Purchases Definition [optional]",
+                    "item_reference": {
+                        "id": "662a4fe1460e7979b13f9aa1",
+                        "type": "event_segmentation"
+                    }
+                }
+            ],
+            "goal": "increase_retention",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "cltv",
+                "purchase-frequency",
+                "retention-rate"
+            ],
+            "requirements": [
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "total_price",
+                            "property_type": "number"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "popular",
+                "essentials"
+            ]
+        },
+        "template_id": "wipf-Interactive-post-purchase-feedback-banner"
+    },
+    "success": true
+}

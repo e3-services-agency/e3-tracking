@@ -1,0 +1,279 @@
+{
+    "data": {
+        "_id": "697b76257d0ae40615935bcb",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1769698853,
+        "created_by_display_name": "",
+        "created_by_id": "6669544f9aa0fb31bd0f2765",
+        "description": "Stop using guesswork when implementing reengagement campaigns. With this Loomi AI-powered scenario, you can seamlessly reengage customers who had incomplete journeys. By delivering the most relevant message on the customer’s preferred channel, you’ll recapture potential lost sales and keep customers engaged with your brand.",
+        "edited": 1777276258.5183704,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_69a800babc86131e352af568": {
+                "entity_id": "69a800babc86131e352af568",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_69a800babc86131e352af56e": {
+                "entity_id": "69a800babc86131e352af56e",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_69a800babc86131e352af5b0": {
+                "entity_id": "69a800babc86131e352af5b0",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_69a70a83960714b2dd998bc5": {
+                "entity_id": "69a70a83960714b2dd998bc5",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_69a800babc86131e352af574": {
+                "entity_id": "69a800babc86131e352af574",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_69a800babc86131e352af57a": {
+                "entity_id": "69a800babc86131e352af57a",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_69a800babc86131e352af580": {
+                "entity_id": "69a800babc86131e352af580",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_69a800babc86131e352af586": {
+                "entity_id": "69a800babc86131e352af586",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_69a800babc86131e352af58c": {
+                "entity_id": "69a800babc86131e352af58c",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Reengagement With Loomi AI",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/cvrl-reengagement-with-loomi-ai/preview/b8051d94-fd23-11f0-9443-8ed62fceedd2?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1772813201.358076,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Using Loomi AI to calculate dynamic offers, predict the right channel, and predict the right time to reengage customers leads to an average 15-25% decrease in reengagement costs and a 20-30% faster time to recovery.",
+            "channels": [
+                "email",
+                "sms",
+                "browser-push-notification",
+                "mobile-push-notification",
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/reengagement-with-loomi-ai",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the scenario to fit your brand and messaging.",
+                    "headline": "Scenario",
+                    "item_reference": {
+                        "id": "69a70a85960714b2dd998c1b",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "Start the prediction before launching the campaign to ensure users are targeted through the most effective channel.",
+                    "headline": "Prediction Model",
+                    "item_reference": {
+                        "id": "69a70a83960714b2dd998bcf",
+                        "type": "prediction"
+                    }
+                },
+                {
+                    "description": "The emails include a recommendation engine. Open it, adjust the settings to your preferences, and wait for the engine to finish training before starting the use case. Once training is complete, the dot next to its name will turn green.",
+                    "headline": "Product Recommendations",
+                    "item_reference": {
+                        "id": "69a70a83960714b2dd998bd7",
+                        "type": "recommendation_engine"
+                    }
+                },
+                {
+                    "description": "This dashboard will help you evaluate the performance of the use case and its impact.",
+                    "headline": "Dashboard",
+                    "item_reference": {
+                        "id": "69a800bbbc86131e352af64b",
+                        "type": "dashboard"
+                    }
+                },
+                {
+                    "description": "You can adjust the attribution window for each channel directly within this event segmentation if you prefer not to use a single combined value for all channels.",
+                    "headline": "Attribution Window",
+                    "item_reference": {
+                        "id": "69a800babc86131e352af5b0",
+                        "type": "event_segmentation"
+                    }
+                }
+            ],
+            "goal": "acquire_customers",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "retention-rate",
+                "conversion-rate"
+            ],
+            "requirements": [
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "email_integration"
+                },
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "sms_integration"
+                },
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "browser_notification_integration"
+                },
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "mobile_notification_integration"
+                },
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "main_catalog"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "add_to_cart",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "birth_date",
+                            "property_type": "date"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "customer_property"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "discount_value",
+                            "property_type": "string"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "voucher_code",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "categories": [
+                        {
+                            "items": [
+                                "This aggregate uses 'discount_value' and 'voucher_code' to identify discounted purchases. If your project tracks this data differently, open the aggregate and adjust it to match your tracking setup."
+                            ],
+                            "name": "# purchases w/ discount code used"
+                        },
+                        {
+                            "items": [
+                                "This aggregate uses 'discount_value' and 'voucher_code' to identify non-discounted purchases. If your project tracks this data differently, open the aggregate and adjust it to match your tracking setup."
+                            ],
+                            "name": "# purchases w/o discount code used"
+                        }
+                    ],
+                    "is_optional": false,
+                    "items": [],
+                    "name": "Discount Tracking in the Purchase Event",
+                    "tooltip": null,
+                    "type": "text"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "loomi-ai",
+                "advanced"
+            ]
+        },
+        "template_id": "cvrl-reengagement-with-loomi-ai"
+    },
+    "success": true
+}

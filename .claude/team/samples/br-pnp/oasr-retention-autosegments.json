@@ -1,0 +1,90 @@
+{
+    "data": {
+        "_id": "664f619be2ab2eaeee0ac6ea",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1716478363,
+        "created_by_display_name": "",
+        "created_by_id": "62b95e43001b9fb76293ff4d",
+        "description": "Utilize powerful behavioral analytics to identify customers who have made one purchase but not the second one. Craft personalized content, exclusive offers, and tailored experiences to re-engage these customers and boost long-term loyalty.",
+        "edited": 1771244393.821746,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "expression_664f64ed82b2fddefd31f56d": {
+                "entity_id": "664f64ed82b2fddefd31f56d",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Retention Autosegments",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/oasr-retention-autosegments/preview/40f9cbf6-d299-11ef-b7ad-62f9c3b185df?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737122165.204644,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Autosegmentation uncovers hidden opportunities for marketers by automatically generating high-value segments. Using AI to find unique combinations of customer properties and metrics, Autosegments remove the effort needed to analyze data and build hyper-targeted segments manually. This use case focuses on customer retention.",
+            "channels": [
+                "no-channel"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/autosegments",
+            "fulfillments": [
+                {
+                    "description": "Adjust the Autosegment definition with your zero or first party data or run it as it is.",
+                    "headline": "Autosegment definition",
+                    "item_reference": {
+                        "id": "664f63f975e5b6993fd1f8aa",
+                        "type": "autosegment"
+                    }
+                }
+            ],
+            "goal": "analyse_data",
+            "industries": [
+                "ecommerce",
+                "retail"
+            ],
+            "kpis": [
+                "conversion-rate",
+                "revenue",
+                "retention-rate"
+            ],
+            "requirements": [
+                {
+                    "check_attributes_mapped": true,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "view_item",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "loomi-ai"
+            ]
+        },
+        "template_id": "oasr-retention-autosegments"
+    },
+    "success": true
+}

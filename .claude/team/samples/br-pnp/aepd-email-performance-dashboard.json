@@ -1,0 +1,163 @@
+{
+    "data": {
+        "_id": "64e894d00e3e0903ee6aed16",
+        "archived": false,
+        "bee_assets_migrated": true,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1692964048,
+        "created_by_display_name": "",
+        "created_by_id": "5fb254367fe28b9dba319aa0",
+        "description": "The dashboard consists of multiple reports including a standard email deliverability report, revenue reports, and \"negative\" metrics reports for easily identifying your campaigns' strengths and weaknesses, and adjust your strategy accordingly.",
+        "edited": 1752483400.7964451,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_6672dc5c415a763a7624bdb6": {
+                "entity_id": "6672dc5c415a763a7624bdb6",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6672dc5c415a763a7624bdbc": {
+                "entity_id": "6672dc5c415a763a7624bdbc",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6672dc5d415a763a7624be06": {
+                "entity_id": "6672dc5d415a763a7624be06",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_6672dc5c415a763a7624bdc2": {
+                "entity_id": "6672dc5c415a763a7624bdc2",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_6672dc5c415a763a7624bdc8": {
+                "entity_id": "6672dc5c415a763a7624bdc8",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Email Performance Dashboard ",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/aepd-email-performance-dashboard/preview/46e2f308-d299-11ef-bb3a-96a4fb04d0a1?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737125542.203067,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "“Without proper tracking, your email campaigns can become a waste of time or they can have a negative effect by increasing your unsubscribe rate. By giving an insight into a variety of important metrics capturing the performance of email campaigns, we give marketers a complex tool to analyze and improve their campaigns. ”",
+            "channels": [
+                "email",
+                "no-channel"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/email-performance-dashboard-use-case-center",
+            "fulfillments": [
+                {
+                    "description": "Open this event segmentation and create groups for your campaigns e.g. automatized campaigns versus newsletters. Feel free to adjust the number of groups and the naming of segments.",
+                    "headline": "Campaign Group Segmentation",
+                    "item_reference": {
+                        "id": "6672dc5c415a763a7624bdb6",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open this segmentation and adjust the criteria for campaigns that you do not wish to include into the performance analysis e.g. test campaigns. These will be the 'exclude' segments. Do not change the segment names. You can add more 'exclude' segments if necessary. In that case make sure that the segment name will be always 'exclude' and the segments will be positioned before the 'campaign target' segment.",
+                    "headline": "Campaign Segmentation",
+                    "item_reference": {
+                        "id": "6672dc5c415a763a7624bdbc",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and adjust the purchase status to match your completed purchase definition. Do not change the segment name.",
+                    "headline": "Purchase Segmentation",
+                    "item_reference": {
+                        "id": "6672dc5d415a763a7624be06",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the dashboard and add your emailing consent category in the parameter. Analyse the results of your campaigns.",
+                    "headline": "Email Performance Dashboard",
+                    "item_reference": {
+                        "id": "6672dc5f415a763a7624be53",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "analyse_data",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "revenue",
+                "active-subscribers"
+            ],
+            "requirements": [
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "email_integration"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "newsletter"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "essentials"
+            ]
+        },
+        "template_id": "aepd-email-performance-dashboard"
+    },
+    "success": true
+}

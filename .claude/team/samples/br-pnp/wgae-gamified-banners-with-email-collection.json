@@ -1,0 +1,188 @@
+{
+    "data": {
+        "_id": "667597a674904ea1752bab61",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1718982566,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "This Use Case consists of five gamified banners and a fully automated emailing scenario. Enrich your customers' experience on your website with a little reward.",
+        "edited": 1754318801.0134258,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_6675967966d3ed5d1a249404": {
+                "entity_id": "6675967966d3ed5d1a249404",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6675967966d3ed5d1a24940a": {
+                "entity_id": "6675967966d3ed5d1a24940a",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6675967a66d3ed5d1a24945d": {
+                "entity_id": "6675967a66d3ed5d1a24945d",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_6675967966d3ed5d1a24941c": {
+                "entity_id": "6675967966d3ed5d1a24941c",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Gamified Banners with Email Collection",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/wgae-gamified-banners-with-email-collection/preview/cf3b7376-712a-11f0-98db-1a00b019e081?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737121528.911254,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "\"Increase conversions while adding some fun to the user experience on the website with some gamification. Choose from Lucky Wheels, Scratchcards, and Pick-a-gift banners, which are prime examples of gamification in marketing campaigns.\"",
+            "channels": [
+                "email",
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/gamified-banners-with-email-collection",
+            "fulfillments": [
+                {
+                    "description": "The Gamified banner is triggered on a website through the Aggregate worker. Make sure that banner ID parameter features the banner ID of your Gamified banner. Use Audience Settings in the aggregate worker to define your audience. Note that the banner audience settings will not be applied when launching the banner via aggregate worker. In order to launch the use case live, you will need to START the aggregate worker.\n",
+                    "headline": "Aggregate Worker",
+                    "item_reference": {
+                        "id": "6675967966d3ed5d1a24940f",
+                        "type": "managed_tag"
+                    }
+                },
+                {
+                    "description": "This Use Case consists of 5 gamified banners, each with a different game type: Mobile Scratchcard, Desktop Scratchcard, Pexeso, Deal Wheel, and Picks-A-Gift. All are available as different variants within this banner asset. Pick one to use and delete the rest. DO NOT use the Control Group. Note that the audience settings defined in the banner will not apply. Instead, define them in the aggregate worker. Since this use case runs through the aggregate worker, DO NOT START THE BANNER. Starting the aggregate worker will launch the use case.",
+                    "headline": "Gamified banner",
+                    "item_reference": {
+                        "id": "6675967966d3ed5d1a2493fc",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "Open the scenario and follow the notes to set it up correctly. Do not forget to START the scenario at the same time when you launch the use case by starting the aggregate worker.",
+                    "headline": "Scenario to assign vouchers",
+                    "item_reference": {
+                        "id": "6675967966d3ed5d1a2493fd",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "Open the event segmentation and make sure that the banner_name correspond to the name of your gamified banner.",
+                    "headline": "Banner Segmentation",
+                    "item_reference": {
+                        "id": "6675967966d3ed5d1a249404",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the event segmentation and make sure that the campaign_name correspond to the name of your scenario that assigns vouchers.",
+                    "headline": "Campaign Segmentation",
+                    "item_reference": {
+                        "id": "6675967966d3ed5d1a24940a",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the event segmentation and make sure that the purchase definition correspond the completed purchase in your project. The attribution window is from email open/click and is 48 hours by default. Adjust the number of hours here if you wish to change it.",
+                    "headline": "Purchase Segmentation",
+                    "item_reference": {
+                        "id": "6675967a66d3ed5d1a24945d",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results. ",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "6675967b66d3ed5d1a2494e6",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "acquire_customers",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "conversion-rate",
+                "lead-generation",
+                "rpv"
+            ],
+            "requirements": [
+                {
+                    "categories": [
+                        {
+                            "items": [
+                                "To be able to download the use case and consequently save the scenario in this use case, you will need to create voucher pool with name 'vouchers'. In the later stage, you will be able to replace the dummy voucher pool with voucher pools that you will use in the use case and delete the dummy voucher pool."
+                            ],
+                            "name": "Create a dummy voucher catalog called 'vouchers' to unlock the use case download."
+                        }
+                    ],
+                    "is_optional": false,
+                    "items": [],
+                    "name": "Voucher pool",
+                    "tooltip": null,
+                    "type": "text"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "consent",
+                    "is_optional": true,
+                    "properties": [],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "email_integration"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "popular",
+                "omnichannel"
+            ]
+        },
+        "template_id": "wgae-gamified-banners-with-email-collection"
+    },
+    "success": true
+}

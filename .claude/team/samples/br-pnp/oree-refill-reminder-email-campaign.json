@@ -1,0 +1,310 @@
+{
+    "data": {
+        "_id": "6787ccd4885213c046e38345",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1736953044,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "Leverage purchase data to trigger automated refill reminders at the perfect time. For repeat customers, reminders are sent based on their buying history, while first-time buyers receive emails timed to average refill patterns. Each email highlights recently purchased products, making it easy for customers to restock their favorite items. This use case boosts purchase frequency, retention rates, and overall customer satisfaction.",
+        "edited": 1759496964.9304883,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_6787d0aa215834719e9b3bfe": {
+                "entity_id": "6787d0aa215834719e9b3bfe",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6787d0aa215834719e9b3c04": {
+                "entity_id": "6787d0aa215834719e9b3c04",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6787d0aa215834719e9b3c0a": {
+                "entity_id": "6787d0aa215834719e9b3c0a",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6787d0aa215834719e9b3c8e": {
+                "entity_id": "6787d0aa215834719e9b3c8e",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_6787d0aa215834719e9b3c94": {
+                "entity_id": "6787d0aa215834719e9b3c94",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_6787d0aa215834719e9b3c10": {
+                "entity_id": "6787d0aa215834719e9b3c10",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_6787d0aa215834719e9b3c16": {
+                "entity_id": "6787d0aa215834719e9b3c16",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_6787d0aa215834719e9b3c1c": {
+                "entity_id": "6787d0aa215834719e9b3c1c",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_6787d0aa215834719e9b3c22": {
+                "entity_id": "6787d0aa215834719e9b3c22",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_6787d0aa215834719e9b3c28": {
+                "entity_id": "6787d0aa215834719e9b3c28",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_6787d0aa215834719e9b3c2e": {
+                "entity_id": "6787d0aa215834719e9b3c2e",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_6787d0aa215834719e9b3c5e": {
+                "entity_id": "6787d0aa215834719e9b3c5e",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_6787d0aa215834719e9b3c9a": {
+                "entity_id": "6787d0aa215834719e9b3c9a",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            }
+        },
+        "name": "Refill Reminder Email Campaign",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/oree-refill-reminder-email-campaign/preview/d1fd0a18-f0e0-11ef-8518-8ed78e7572bb?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1759496965.700917,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Drive repeat purchases and retain customers with timely, personalized refill reminders based on their buying habits.",
+            "channels": [
+                "email"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/refill-reminder-email-campaign",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the scenario to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts. Follow the documentation for more detailed instrudtions.",
+                    "headline": "Scenario",
+                    "item_reference": {
+                        "id": "6787d0ab215834719e9b3ca1",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and adjust the segment to include all purchase items for products you want to target in the refill campaign. You can choose one or multiple event attributes from these: product_id, variant_id, category_level_1, category_level_2, or category_level_3. Other attributes are not supported in this template. Do not change the segment name.",
+                    "headline": "Refill Products Definition",
+                    "item_reference": {
+                        "id": "6787d0aa215834719e9b3c0a",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and ensure the repeat event definition in 'True' segment matches the repeat definition for this use case. ",
+                    "headline": "Repeat Event Segmentation",
+                    "item_reference": {
+                        "id": "6787d0aa215834719e9b3bfe",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and ensure the definition matches the successful purchase definition in your project. Adjust the attribution window, which is 48 hours by default",
+                    "headline": "Attributed Purchase Definition",
+                    "item_reference": {
+                        "id": "6787d0aa215834719e9b3c8e",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and ensure the definition matches the successful purchase item definition in your project. Adjust the attribution window, which is 48 hours by default",
+                    "headline": "Attributed Purchase Item Definition",
+                    "item_reference": {
+                        "id": "6787d0aa215834719e9b3c94",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and ensure that campaign name matches the scenario.",
+                    "headline": "Campaign Segmentation",
+                    "item_reference": {
+                        "id": "6787d0aa215834719e9b3c04",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results.",
+                    "headline": "Custom Dashboard",
+                    "item_reference": {
+                        "id": "6787d0ab215834719e9b3cef",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "increase_retention",
+            "industries": [
+                "ecommerce",
+                "retail"
+            ],
+            "kpis": [
+                "revenue",
+                "purchase-frequency",
+                "retention-rate"
+            ],
+            "requirements": [
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "email_integration"
+                },
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "main_catalog"
+                },
+                {
+                    "catalog_name": "products",
+                    "fields": [
+                        {
+                            "field_constraint": null,
+                            "field_name": "active",
+                            "field_type": "boolean",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "product_id",
+                            "field_type": "number",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "image",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "title",
+                            "field_type": "string",
+                            "is_optional": false
+                        }
+                    ],
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "catalog"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase_item",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase_item",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "product_id",
+                            "property_type": "string"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "category_level_1",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "advanced",
+                "popular"
+            ]
+        },
+        "template_id": "oree-refill-reminder-email-campaign"
+    },
+    "success": true
+}

@@ -1,0 +1,92 @@
+{
+    "data": {
+        "_id": "669f6b9247ec0eeb26caf71c",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1721723794,
+        "created_by_display_name": "",
+        "created_by_id": "624315520c83b1807df63ce6",
+        "description": "The Interactive Pre-Travel Engagement use case delivers a series of informative and upgrade-offering emails at specified intervals before departure, triggered upon booking completion and tailored to ensure relevance and avoid duplication",
+        "edited": 1754319191.5163698,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": null,
+        "name": "Pre-Travel Engagement Email Flow",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/otpa-pre-travel-engagement-email-flow/preview/dcc86e86-712a-11f0-a1e2-1a00b019e081?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737120867.849579,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Enhance customer engagement and additional revenue streams while attaining high open and click-through rates.",
+            "channels": [
+                "email"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/pre-travel-engagement-email-flow",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the scenario to fit your brand and messaging. Follow the instructions in the scenario and make sure to adjust the conditions to match your data structure. Launch the campaign in just a few clicks with this ready-made template developed by our experts.",
+                    "headline": "Email Campaign",
+                    "item_reference": {
+                        "id": "669fa45247ec0eeb26caf76f",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "This expression takes the timestamp of the departure and calculates the number of days left before the departure. Make sure to adjust it to your data structure.",
+                    "headline": "Expression Calculating Days Before Departure",
+                    "item_reference": {
+                        "id": "669fa45347ec0eeb26caf776",
+                        "type": "expression"
+                    }
+                }
+            ],
+            "goal": "increase_retention",
+            "industries": [
+                "travel"
+            ],
+            "kpis": [
+                "cltv",
+                "retention-rate",
+                "aov"
+            ],
+            "requirements": [
+                {
+                    "categories": [
+                        {
+                            "items": [
+                                "Please review the scenario and crucial assets, and map the events to your data structure. The data structure used in this use case is the default one."
+                            ],
+                            "name": "There is no automated data mapping applied to this use case."
+                        }
+                    ],
+                    "is_optional": false,
+                    "items": [],
+                    "name": "Data Structure check is mandatory",
+                    "tooltip": null,
+                    "type": "text"
+                },
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "email_integration"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "essentials",
+                "popular"
+            ]
+        },
+        "template_id": "otpa-pre-travel-engagement-email-flow"
+    },
+    "success": true
+}

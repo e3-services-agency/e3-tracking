@@ -1,0 +1,202 @@
+{
+    "data": {
+        "_id": "653bbf65de3e84e2f925088c",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1698414437,
+        "created_by_display_name": "",
+        "created_by_id": "616ee297a7e6cdac192dd97c",
+        "description": "A dynamic, easy, and incentivized pathway to build and manage your SMS subscriber list straight from checkout. Offering a sleek double opt-in process and reward perks makes subscription management a breeze!",
+        "edited": 1755072071.5040948,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_65df27a210d9fce74db73638": {
+                "entity_id": "65df27a210d9fce74db73638",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_65df27a210d9fce74db7363e": {
+                "entity_id": "65df27a210d9fce74db7363e",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_65df27a310d9fce74db73680": {
+                "entity_id": "65df27a310d9fce74db73680",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_65df27a310d9fce74db73686": {
+                "entity_id": "65df27a310d9fce74db73686",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_65df27a210d9fce74db7364a": {
+                "entity_id": "65df27a210d9fce74db7364a",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_65df27a210d9fce74db73650": {
+                "entity_id": "65df27a210d9fce74db73650",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            }
+        },
+        "name": "SMS Subscription DOI Checkout Banner",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/lsic-sms-subscription-doi-checkout-banner/preview/9c29b5d6-781b-11f0-a320-1ed69711d348?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737123390.606106,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Easily handle opt-ins, categorize subscribers, and boost customer engagement and consent by offering discount codes. Eliminate the hassle of tracking consent and drive marketing communication to effectiveness, enabling you to expand your SMS marketing audience.",
+            "channels": [
+                "sms",
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/sms-subscription-doi-checkout-banner",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the banner to fit your brand and messaging. Follow the instructions in documentation to deploy the banner correctly on your website.",
+                    "headline": "Banner",
+                    "item_reference": {
+                        "id": "653bbe89de3e84e2f9250887",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "This flow enables you to have the double opt-in framework for your SMS subscribers. Follow the notes in the scenario to make adjustments and launch the scenario.",
+                    "headline": "Double opt-in scenario",
+                    "item_reference": {
+                        "id": "653bbe89de3e84e2f9250888",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results. Make sure to fill in the parameters inside the dashboard e.g. campaign_name.",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "65df27a610d9fce74db736c7",
+                        "type": "dashboard"
+                    }
+                },
+                {
+                    "description": "Open and make sure that the consent corresponds to your SMS consent.",
+                    "headline": "Metrics [optional]",
+                    "item_reference": {
+                        "id": "65df27a210d9fce74db73644",
+                        "type": "metric"
+                    }
+                }
+            ],
+            "goal": "grow_database",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "purchase-frequency",
+                "lead-generation",
+                "cltv"
+            ],
+            "requirements": [
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "sms_integration"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "sms"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "phone",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "customer_property"
+                },
+                {
+                    "categories": [
+                        {
+                            "items": [
+                                "Set phone_id as a soft id."
+                            ],
+                            "name": "Customer identification based on phone number"
+                        }
+                    ],
+                    "is_optional": false,
+                    "items": [],
+                    "name": "Customer Identification",
+                    "tooltip": null,
+                    "type": "text"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "advanced",
+                "popular"
+            ]
+        },
+        "template_id": "lsic-sms-subscription-doi-checkout-banner"
+    },
+    "success": true
+}

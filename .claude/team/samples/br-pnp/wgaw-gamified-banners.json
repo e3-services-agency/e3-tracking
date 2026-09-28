@@ -1,0 +1,156 @@
+{
+    "data": {
+        "_id": "6776a5c057a59b60bc5c0941",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1735828928,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "Make your on-site experience interactive with gamified banners that let shoppers win a voucher towards their next purchase.",
+        "edited": 1749815623.2064426,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_6776a5e95f377e84a712f4e1": {
+                "entity_id": "6776a5e95f377e84a712f4e1",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6776a5e95f377e84a712f50a": {
+                "entity_id": "6776a5e95f377e84a712f50a",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_6776a5e95f377e84a712f4f3": {
+                "entity_id": "6776a5e95f377e84a712f4f3",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Gamified Banners",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/wgaw-gamified-banners/preview/4e9cc7f4-cf5b-11ef-af84-868304c1aa89?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737120358.8513,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Gamified experiences like spin-to-win wheels, scratchcards, and pick-a-gift banners can boost engagement and incentivize customers to convert.",
+            "channels": [
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/gamified-banners",
+            "fulfillments": [
+                {
+                    "description": "The Gamified banner is triggered on a website through the Aggregate worker. Make sure that banner ID parameter features the banner ID of your Gamified banner. Use Audience Settings in the aggregate worker to define your audience. Note that the banner audience settings will not be applied when launching the banner via aggregate worker. In order to launch the use case live, you will need to START the aggregate worker.",
+                    "headline": "Aggregate Worker",
+                    "item_reference": {
+                        "id": "6776a5e95f377e84a712f4e6",
+                        "type": "managed_tag"
+                    }
+                },
+                {
+                    "description": "This Use Case consists of 5 gamified banners, each with a different game type: Mobile Scratchcard, Desktop Scratchcard, Pexeso, Deal Wheel, and Picks-A-Gift. All are available as different variants within this banner asset. Pick one to use and delete the rest. DO NOT use the Control Group. Note that the audience settings defined in the banner will not apply. Instead, define them in the aggregate worker. Since this use case runs through the aggregate worker, DO NOT START THE BANNER. Starting the aggregate worker will launch the use case.",
+                    "headline": "Gamified banner",
+                    "item_reference": {
+                        "id": "6776a5e95f377e84a712f4d9",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "Open the scenario and follow the notes to set it up correctly. Do not forget to START the scenario at the same time when you launch the use case by starting the aggregate worker.",
+                    "headline": "Scenario to assign vouchers",
+                    "item_reference": {
+                        "id": "6776a5e95f377e84a712f4da",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "Open the event segmentation and make sure that the banner_name correspond to the name of your gamified banner.",
+                    "headline": "Banner Segmentation",
+                    "item_reference": {
+                        "id": "6776a5e95f377e84a712f4e1",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the event segmentation and make sure that the purchase definition correspond the completed purchase in your project. The attribution window is frombanner click and is 48 hours by default. Adjust the number of hours here if you wish to change it.",
+                    "headline": "Purchase Segmentation",
+                    "item_reference": {
+                        "id": "6776a5e95f377e84a712f50a",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results. ",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "6776a5ea5f377e84a712f593",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "acquire_customers",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "conversion-rate",
+                "revenue",
+                "rpv"
+            ],
+            "requirements": [
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "categories": [
+                        {
+                            "items": [
+                                "To be able to download the use case and consequently save the scenario in this use case, you will need to create voucher pool with name 'vouchers'. In the later stage, you will be able to replace the dummy voucher pool with voucher pools that you will use in the use case and delete the dummy voucher pool."
+                            ],
+                            "name": "Create a dummy voucher catalog called 'vouchers' to unlock the use case download."
+                        }
+                    ],
+                    "is_optional": false,
+                    "items": [],
+                    "name": "Voucher pool",
+                    "tooltip": null,
+                    "type": "text"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "popular"
+            ]
+        },
+        "template_id": "wgaw-gamified-banners"
+    },
+    "success": true
+}

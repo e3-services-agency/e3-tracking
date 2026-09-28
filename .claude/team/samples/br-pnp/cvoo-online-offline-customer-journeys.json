@@ -1,0 +1,309 @@
+{
+    "data": {
+        "_id": "696deeed631be7a74c56d58e",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1768812269,
+        "created_by_display_name": "",
+        "created_by_id": "6669544f9aa0fb31bd0f2765",
+        "description": "With this use case, you can unify online and offline customer data to deliver seamless cross-channel experiences — all from a single platform. Capture in-store interactions through QR codes, POS systems, and sales associate data, then trigger real-time campaigns across email, SMS, web, and app to create seamlessly personalized experiences.",
+        "edited": 1776154711.5432277,
+        "edited_by_display_name": "",
+        "edited_by_id": "616ee297a7e6cdac192dd97c",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_699efd4794ba24c755ff2d08": {
+                "entity_id": "699efd4794ba24c755ff2d08",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Online-Offline Customer Journeys",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/cvoo-online-offline-customer-journeys/preview/b62407f6-fd23-11f0-ba89-8ed62fceedd2?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1772813186.165631,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Cross-channel customers deliver 3-5x higher lifetime value, but only when systems are connected. Popeyes UK's unified approach drove 3x repeat visits by bridging offline and online experiences.",
+            "channels": [
+                "email",
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/online-offline-customer-journeys",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the scenario to fit your brand and messaging. Adjust individual channels. Add your own Google Maps API key to the webhook node #3 settings. Support the use case by using a weblayer to let customers choose their favourite store. This will save requests to the Google Maps API and also enables the use case when we don't have any location data from the customer yet.\n",
+                    "headline": "Scenario",
+                    "item_reference": {
+                        "id": "699f0f244bf0fc84c7a496ba",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "This dashboard will help you evaluate the performance of the use case and its impact.",
+                    "headline": "Dashboard",
+                    "item_reference": {
+                        "id": "699efd4894ba24c755ff2e4a",
+                        "type": "dashboard"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and adjust the consents to match your project’s data tracking. This is used for reporting.",
+                    "headline": "Omnichannel Segmentation",
+                    "item_reference": {
+                        "id": "699efd4794ba24c755ff2d34",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "Adjust the banner to match your brand’s style and messaging.",
+                    "headline": "Banner",
+                    "item_reference": {
+                        "id": "699efd4794ba24c755ff2cf6",
+                        "type": "banner"
+                    }
+                }
+            ],
+            "goal": "increase_retention",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "purchase-frequency",
+                "cltv",
+                "retention-rate"
+            ],
+            "requirements": [
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "email_integration"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "purchase_status",
+                            "property_type": "string"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "discount_value",
+                            "property_type": "string"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "voucher_code",
+                            "property_type": "string"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "store"
+                                    },
+                                    {
+                                        "type": "constant",
+                                        "value": "online"
+                                    }
+                                ],
+                                "operator": "in",
+                                "type": "string"
+                            },
+                            "property_name": "purchase_source_type",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "newsletter"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "categories": [
+                        {
+                            "items": [
+                                "This aggregate uses 'discount_value' and 'voucher_code' to identify discounted purchases. If your project tracks this data differently, open the aggregate and adjust it to match your tracking setup."
+                            ],
+                            "name": "# purchases w/ discount code used"
+                        },
+                        {
+                            "items": [
+                                "This aggregate uses 'discount_value' and 'voucher_code' to identify non-discounted purchases. If your project tracks this data differently, open the aggregate and adjust it to match your tracking setup."
+                            ],
+                            "name": "# purchases w/o discount code used"
+                        },
+                        {
+                            "items": [
+                                "The metric uses 'voucher_code' to identify non-discounted purchases. If your project tracks this data differently, open the metric and adjust it to match your tracking setup."
+                            ],
+                            "name": "Metric 'Total Attributed Purchases (= voucher used)'"
+                        }
+                    ],
+                    "is_optional": false,
+                    "items": [],
+                    "name": "Discount Tracking in the Purchase Event",
+                    "tooltip": null,
+                    "type": "text"
+                },
+                {
+                    "categories": [
+                        {
+                            "items": [
+                                "Upload a store_locations catalog with all active stores. Ensure the location fields match your customer data so the use case can link customers to the correct store."
+                            ],
+                            "name": "Creation of store_locations catalog "
+                        }
+                    ],
+                    "is_optional": false,
+                    "items": [],
+                    "name": "Catalog with Store Locations",
+                    "tooltip": null,
+                    "type": "text"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "sms"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "personalized_mobile_notification"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "personalized_browser_notification"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "categories": [
+                        {
+                            "items": [
+                                "To evaluate the campaign, track purchase_source_type = online/store in the purchase event to measure the impact of the online-offline use case."
+                            ],
+                            "name": "Purchase_source_type Tracking"
+                        }
+                    ],
+                    "is_optional": false,
+                    "items": [],
+                    "name": "Online vs. Store Purchase Data",
+                    "tooltip": null,
+                    "type": "text"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "advanced",
+                "omnichannel"
+            ]
+        },
+        "template_id": "cvoo-online-offline-customer-journeys"
+    },
+    "success": true
+}

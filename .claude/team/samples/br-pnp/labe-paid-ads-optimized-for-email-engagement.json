@@ -1,0 +1,321 @@
+{
+    "data": {
+        "_id": "64e894d40e3e0903ee6aedb8",
+        "archived": false,
+        "bee_assets_migrated": true,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1692964052,
+        "created_by_display_name": "",
+        "created_by_id": "5fb254367fe28b9dba319aa0",
+        "description": "Spend your budget more effectively and create Ad Audiences based on email engagement to avoid targeting customers who have already engaged via email—target only those less likely to open emails and engage with them more with paid optimization.",
+        "edited": 1753194262.12734,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_6564bd170c08c45b71e15fa3": {
+                "entity_id": "6564bd170c08c45b71e15fa3",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6564bd170c08c45b71e15fa9": {
+                "entity_id": "6564bd170c08c45b71e15fa9",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6564bd170c08c45b71e15fcd": {
+                "entity_id": "6564bd170c08c45b71e15fcd",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_6564bd170c08c45b71e15fd3": {
+                "entity_id": "6564bd170c08c45b71e15fd3",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_6564bd170c08c45b71e15fd9": {
+                "entity_id": "6564bd170c08c45b71e15fd9",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_6564bd190c08c45b71e16005": {
+                "entity_id": "6564bd190c08c45b71e16005",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_6564bd170c08c45b71e15faf": {
+                "entity_id": "6564bd170c08c45b71e15faf",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_6564bd170c08c45b71e15fb5": {
+                "entity_id": "6564bd170c08c45b71e15fb5",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_6564bd170c08c45b71e15fbb": {
+                "entity_id": "6564bd170c08c45b71e15fbb",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_6564bd170c08c45b71e15fc1": {
+                "entity_id": "6564bd170c08c45b71e15fc1",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_6564bd170c08c45b71e15fdf": {
+                "entity_id": "6564bd170c08c45b71e15fdf",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Paid Ads Optimized for Email Engagement",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/labe-paid-ads-optimized-for-email-engagement/preview/4c1aa9c2-6706-11f0-81fc-faae0838cde8?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737125126.426103,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Combine personalized emailing and ad targeting into a powerful marketing campaign that is more cost-effective with your resources and time!",
+            "channels": [
+                "ad-audiences"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/paid-ads-optimized-for-email-engagement",
+            "fulfillments": [
+                {
+                    "description": "Customize the scenario according to the notes under nodes and add the Ad Audiences nodes as instructed.",
+                    "headline": "Paid Ads Scenario",
+                    "item_reference": {
+                        "id": "6564bd180c08c45b71e15ffe",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "Adjust the consent category to match the emailing consent in your project.",
+                    "headline": "Email Consent Segmentation",
+                    "item_reference": {
+                        "id": "6564bd170c08c45b71e15fa3",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Adjust the Campaign Name ONLY IF you changed the name of the scenario.",
+                    "headline": "Campaign Segmentation [optional]",
+                    "item_reference": {
+                        "id": "6564bd170c08c45b71e15fa9",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "After launching the scenario, you can return to this evaluation dashboard to see the real-time campaign performance results. Make sure to fill in the parameters inside the dashboard e.g. attribution window.",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "6564bd1a0c08c45b71e1607c",
+                        "type": "dashboard"
+                    }
+                },
+                {
+                    "description": "Open the event segmentation and make sure that the purchase definition corresponds to your successful purchase.",
+                    "headline": "Event Segmentation 1 (optional)",
+                    "item_reference": {
+                        "id": "6564bd170c08c45b71e15fd9",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the event segmentation and make sure that the purchase definition corresponds to your successful purchase.",
+                    "headline": "Event Segmentation 2 (optional)",
+                    "item_reference": {
+                        "id": "6564bd190c08c45b71e16005",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the event segmentation and make sure that the purchase definition corresponds to your successful purchase.",
+                    "headline": "Event Segmentation 3 (optional)",
+                    "item_reference": {
+                        "id": "6564bd170c08c45b71e15fcd",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the event segmentation and make sure that the purchase definition corresponds to your successful purchase.",
+                    "headline": "Event Segmentation 4 (optional)",
+                    "item_reference": {
+                        "id": "6564bd170c08c45b71e15fd3",
+                        "type": "event_segmentation"
+                    }
+                }
+            ],
+            "goal": "drive_traffic",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "conversion-rate",
+                "revenue",
+                "rpv"
+            ],
+            "requirements": [
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "total_price",
+                            "property_type": "number"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "session_start",
+                    "is_optional": false,
+                    "properties": [],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "retargeting"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "email",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "customer_property"
+                },
+                {
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "phone",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "customer_property"
+                },
+                {
+                    "categories": [
+                        {
+                            "items": [
+                                "For optimal functioning of the use case, the project should have at least 90 days history of campaign events for email communication and for paid ads."
+                            ],
+                            "name": "Campaign events"
+                        }
+                    ],
+                    "is_optional": false,
+                    "items": [],
+                    "name": "Event expiration",
+                    "tooltip": null,
+                    "type": "text"
+                },
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "email_integration"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "popular"
+            ]
+        },
+        "template_id": "labe-paid-ads-optimized-for-email-engagement"
+    },
+    "success": true
+}

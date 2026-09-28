@@ -1,0 +1,149 @@
+{
+    "data": {
+        "_id": "64e894d70e3e0903ee6aee98",
+        "archived": false,
+        "bee_assets_migrated": true,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1692964055,
+        "created_by_display_name": "",
+        "created_by_id": "5fb254367fe28b9dba319aa0",
+        "description": "This use case provides a standard view count banner to highlight social proof on product detail pages. It displays a dynamic banner to the visitor that reads “X customers are looking at this” to drive conversion and overall revenue.",
+        "edited": 1753194731.7946837,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_677ba6774415ddfc3fc44dcc": {
+                "entity_id": "677ba6774415ddfc3fc44dcc",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_677ba6774415ddfc3fc44de3": {
+                "entity_id": "677ba6774415ddfc3fc44de3",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_677ba6774415ddfc3fc44dd2": {
+                "entity_id": "677ba6774415ddfc3fc44dd2",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Social Proof Banner",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/wssp-social-proof-banner/preview/afcdd8fc-d40a-11ef-84b5-f2c03ad6c369?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1753194732.668255,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Having already generated a 36% increase in conversion rates for Bloomreach clients, the Social Proof Banner is a proven tool to elevate your product page performance and turn visitors into customers. ",
+            "channels": [
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/social-proof-banner",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the banner to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts. Keep the AB test for better evaluation. Do not start the banner as this use case is ran by the tag. Note: the banner settings do not apply, only tag settings apply.",
+                    "headline": "Social Proof Banner",
+                    "item_reference": {
+                        "id": "677feea1242e20a1f586315a",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "Trigger the use case via tag. Open and set up the tag and follow the documentation for step-by-step guidance. Ensure the tag runs for the use case to function, with 'settings' configured to display only on product pages and tailored to your audience. Note: Only tag settings apply, not banner settings.",
+                    "headline": "Social Proof Trigger",
+                    "item_reference": {
+                        "id": "677feea1242e20a1f586315f",
+                        "type": "managed_tag"
+                    }
+                },
+                {
+                    "description": "This report will serve as a way of determining how many people are viewing the exact item by looking at the item id as well as counting the number of views it had. Adjust the view timeframe as needed (default is 7 days, but can be set to last 60 minutes, etc.). Ensure the timeframe is set to 'relative'.",
+                    "headline": "Product Views Report (optional)",
+                    "item_reference": {
+                        "id": "677feea1242e20a1f5863165",
+                        "type": "report"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results. Make sure to fill in the parameters inside the dashboard e.g. banner_name.",
+                    "headline": "Dashboard",
+                    "item_reference": {
+                        "id": "677ba6784415ddfc3fc44ecf",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "acquire_customers",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "conversion-rate",
+                "revenue",
+                "rpv"
+            ],
+            "requirements": [
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "view_item",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "product_id",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "view_item",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "advanced",
+                "popular"
+            ]
+        },
+        "template_id": "wssp-social-proof-banner"
+    },
+    "success": true
+}

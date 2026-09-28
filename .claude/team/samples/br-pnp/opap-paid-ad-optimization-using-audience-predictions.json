@@ -1,0 +1,196 @@
+{
+    "data": {
+        "_id": "677cf9920c81d107d333105d",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1736243602,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "Harness predictive analytics to refine ad targeting by excluding customers with very high or low purchase probabilities, ensuring budgets focus on impactful segments. High-probability customers also serve as seed audiences for lookalike targeting, helping attract similarly valuable prospects.",
+        "edited": 1777276307.7115645,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_677cf8e9f3145a6494c5fd6f": {
+                "entity_id": "677cf8e9f3145a6494c5fd6f",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_677cf8e9f3145a6494c5fd75": {
+                "entity_id": "677cf8e9f3145a6494c5fd75",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_677cf8ebf3145a6494c5fd98": {
+                "entity_id": "677cf8ebf3145a6494c5fd98",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Paid Ad Optimization Using Audience Predictions",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/opap-paid-ad-optimization-using-audience-predictions/preview/b2f6912c-d40a-11ef-9477-f2c03ad6c369?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1749815751.217148,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Maximize your ROI and optimize your ad spend with predictive audience insights. Transform your advertising strategy by targeting the right customers at the right time.",
+            "channels": [
+                "ad-audiences"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/paid-ad-optimization-using-audience-predictions",
+            "fulfillments": [
+                {
+                    "description": "This prediction calculates the purchase probability within the next 30 days for all customers who had a session start in the last 90 days. No changes to the settings are needed. Optionally, you can review and adjust the event filters under 'Features > Event filters' to better suit your project.",
+                    "headline": "Purchase Prediction",
+                    "item_reference": {
+                        "id": "677cf8eaf3145a6494c5fd7b",
+                        "type": "prediction"
+                    }
+                },
+                {
+                    "description": "Open the campaign and edit the scenario to fit your brand. Follow the instructions in scenario and documentation.",
+                    "headline": "Ad Audiences Scenario",
+                    "item_reference": {
+                        "id": "677cf8eaf3145a6494c5fd91",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "After the prediction is calculated, view the results in the \"Eligible Customers\" report, filtered by 30-day purchase prediction. This includes customers with a session start in the last 90 days and valid email or phone information. The prediction values are grouped into three categories. You can adjust this grouping in the Drill Down section to better suit your needs. Adjust the low, high, medium probability groups in scenario based on the values in your data set. ",
+                    "headline": "Prediction Report",
+                    "item_reference": {
+                        "id": "677cf8ebf3145a6494c5fda4",
+                        "type": "report"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and verify that the action_name in all segments matches the ad audience names in your scenario. This is necessary only if your ad audience names do not include 'high', 'medium', or 'low' for the respective groups.",
+                    "headline": "Customer Segmentation (optional)",
+                    "item_reference": {
+                        "id": "677cf8ebf3145a6494c5fdb0",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and check that the campaign name correspond to the name of the scenario in this use case.",
+                    "headline": "Campaign Segmentation",
+                    "item_reference": {
+                        "id": "677cf8e9f3145a6494c5fd6f",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and ensure that the purchase definition matches a successful purchase in your project.",
+                    "headline": "Purchase Segmentation",
+                    "item_reference": {
+                        "id": "677cf8ebf3145a6494c5fd98",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Set up the 'utm_campaign' parameter tracking in your ad tools. Then, open the segmentation and ensure that 'utm_campaign' in 'session_start' matches this campaign.",
+                    "headline": "Ad Audience Campaign Tracking",
+                    "item_reference": {
+                        "id": "677cf8e9f3145a6494c5fd75",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this custom evaluation dashboard to see the real-time campaign performance results. ",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "677cf8edf3145a6494c5fe73",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "drive_traffic",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "revenue",
+                "conversion-rate",
+                "rpv"
+            ],
+            "requirements": [
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "session_start",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "utm_campaign",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "add_to_cart",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": "Optional event used to train the prediction model.",
+                    "type": "mapped_event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "view_item",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": "Optional event used to train the prediction model.",
+                    "type": "mapped_event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "view_category",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": "Optional event used to train the prediction model.",
+                    "type": "mapped_event"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "loomi-ai"
+            ]
+        },
+        "template_id": "opap-paid-ad-optimization-using-audience-predictions"
+    },
+    "success": true
+}

@@ -1,0 +1,207 @@
+{
+    "data": {
+        "_id": "6554c130edfe0180ca87b215",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1700053296,
+        "created_by_display_name": "",
+        "created_by_id": "616ee297a7e6cdac192dd97c",
+        "description": "After a customer makes a purchase, send a Net Promoter Score (NPS) survey email to collect feedback on their experience and verify their feelings about your brand. Adopt NPS surveys to maintain customer satisfaction, measure customer loyalty, and gather suggestions for brand improvements.",
+        "edited": 1754984910.2415204,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_6554c1aba30408315b3f3133": {
+                "entity_id": "6554c1aba30408315b3f3133",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6554c1aba30408315b3f3139": {
+                "entity_id": "6554c1aba30408315b3f3139",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_6554c1aba30408315b3f314b": {
+                "entity_id": "6554c1aba30408315b3f314b",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            }
+        },
+        "name": "Post-Purchase NPS Survey Email",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/lnps-post-purchase-nps-survey-email/preview/8ce154a6-7750-11f0-8b65-ba9d70d73cbd?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737123331.333772,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "“Rapidly growing companies constantly look for opportunities to improve their customer experience. Customer feedback is a great way to gain insight into what their customers perceive as areas for improvement.”",
+            "channels": [
+                "email"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/post-purchase-nps-survey-email",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the scenario to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts.",
+                    "headline": "Email Campaign ",
+                    "item_reference": {
+                        "id": "6554c1aba30408315b3f312c",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results.",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "6554c1aca30408315b3f3195",
+                        "type": "dashboard"
+                    }
+                },
+                {
+                    "description": "This survey will be opened when customer clicks on NPS lower than 6. Open the survey and adjust the wording to your liking.",
+                    "headline": "Survey Low NPS",
+                    "item_reference": {
+                        "id": "6554c1aba30408315b3f313f",
+                        "type": "survey"
+                    }
+                },
+                {
+                    "description": "This survey will be opened when customer clicks on NPS higher than 7. Open the survey and adjust the wording to your liking.",
+                    "headline": "Survey High NPS",
+                    "item_reference": {
+                        "id": "6554c1aba30408315b3f3145",
+                        "type": "survey"
+                    }
+                },
+                {
+                    "description": "An aggregate that displays a personalized product in your customer’s campaign (email/sms/banner). There is no need to make any changes in the aggregate.  You can check the definition and adjust it but this is only an optional step. ",
+                    "headline": "Displayed Product in the Campaign [optional]",
+                    "item_reference": {
+                        "id": "656862d99b7d5b6df3e3f714",
+                        "type": "aggregate"
+                    }
+                }
+            ],
+            "goal": "increase_retention",
+            "industries": [
+                "ecommerce",
+                "retail"
+            ],
+            "kpis": [
+                "cltv",
+                "retention-rate",
+                "purchase-frequency"
+            ],
+            "requirements": [
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "email_integration"
+                },
+                {
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "email",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "customer_property"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "total_price",
+                            "property_type": "number"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "purchase_status",
+                            "property_type": "string"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "purchase_id",
+                            "property_type": "string"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "product_ids",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "newsletter"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "essentials",
+                "popular"
+            ]
+        },
+        "template_id": "lnps-post-purchase-nps-survey-email"
+    },
+    "success": true
+}

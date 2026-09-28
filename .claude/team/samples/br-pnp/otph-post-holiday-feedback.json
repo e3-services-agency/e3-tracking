@@ -1,0 +1,108 @@
+{
+    "data": {
+        "_id": "669f6cae3993c1b568f07cb0",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1721724078,
+        "created_by_display_name": "",
+        "created_by_id": "624315520c83b1807df63ce6",
+        "description": "Customers will receive a Net Promoter Score (NPS) survey via email one day after returning from their holiday. If they do not respond, a reminder email will be sent within the first week of their return.",
+        "edited": 1754319167.6305423,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": null,
+        "name": "Post-Holiday Feedback",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/otph-post-holiday-feedback/preview/dbe40188-712a-11f0-8800-b68f208e374f?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737120809.432235,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Get valuable insights that can lead to service enhancements and increased customer loyalty.",
+            "channels": [
+                "email"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/post-holiday-feedback",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the scenario to fit your brand and messaging. Follow the instructions in the scenario and make sure to adjust the conditions to match your data structure. Launch the campaign in just a few clicks with this ready-made template developed by our experts.",
+                    "headline": "Email Campaign",
+                    "item_reference": {
+                        "id": "669fa8ec228d5b11bc3e0b1d",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "This survey will be opened when customer clicks on NPS 'good' or 'awesome'. Open the survey and adjust the wording to your liking. Note that if you change the survey name, you will need to adjust the URL referring to the survey in the email template.",
+                    "headline": "Survey High NPS",
+                    "item_reference": {
+                        "id": "669fa8ec228d5b11bc3e0b1c",
+                        "type": "survey"
+                    }
+                },
+                {
+                    "description": "This survey will be opened when customer clicks on NPS 'bad' or 'average'. Open the survey and adjust the wording to your liking. Note that if you change the survey name, you will need to adjust the URL referring to the survey in the email template.",
+                    "headline": "Survey Low NPS",
+                    "item_reference": {
+                        "id": "669fa8ec228d5b11bc3e0b16",
+                        "type": "survey"
+                    }
+                },
+                {
+                    "description": "This snippet is referenced in the wait node in the scenario. You can adjust the logic directly in the wait node by modifying the number of days and your data structure.",
+                    "headline": "Post Return Time Snippet [optional]",
+                    "item_reference": {
+                        "id": "669fa8ec228d5b11bc3e0b10",
+                        "type": "snippet"
+                    }
+                }
+            ],
+            "goal": "increase_retention",
+            "industries": [
+                "travel"
+            ],
+            "kpis": [
+                "retention-rate",
+                "purchase-frequency",
+                "cltv"
+            ],
+            "requirements": [
+                {
+                    "categories": [
+                        {
+                            "items": [
+                                "Please review the scenario and crucial assets, and map the events to your data structure. The data structure used in this use case is the default one."
+                            ],
+                            "name": "There is no automated data mapping applied to this use case."
+                        }
+                    ],
+                    "is_optional": false,
+                    "items": [],
+                    "name": "Data Structure check is mandatory",
+                    "tooltip": null,
+                    "type": "text"
+                },
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "email_integration"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "essentials",
+                "popular"
+            ]
+        },
+        "template_id": "otph-post-holiday-feedback"
+    },
+    "success": true
+}

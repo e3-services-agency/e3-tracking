@@ -1,0 +1,314 @@
+{
+    "data": {
+        "_id": "64e894d30e3e0903ee6aeda5",
+        "archived": false,
+        "bee_assets_migrated": true,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1692964051,
+        "created_by_display_name": "",
+        "created_by_id": "5fb254367fe28b9dba319aa0",
+        "description": "Create audiences for your paid media channels based on the lifetime value of your customers. This use case will enable you to target the lookalike audiences of the most loyal and valuable customers, leading to higher conversion rates. ",
+        "edited": 1753194291.2126338,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_633fb6b8d33fe1fffc59d51d": {
+                "entity_id": "633fb6b8d33fe1fffc59d51d",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_633fb6b8d33fe1fffc59d523": {
+                "entity_id": "633fb6b8d33fe1fffc59d523",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_633fb6b8d33fe1fffc59d529": {
+                "entity_id": "633fb6b8d33fe1fffc59d529",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_633fb6bad33fe1fffc59d5c7": {
+                "entity_id": "633fb6bad33fe1fffc59d5c7",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_633fb6bad33fe1fffc59d5cd": {
+                "entity_id": "633fb6bad33fe1fffc59d5cd",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_633fb6bbd33fe1fffc59d5d3": {
+                "entity_id": "633fb6bbd33fe1fffc59d5d3",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_633fb6b8d33fe1fffc59d52f": {
+                "entity_id": "633fb6b8d33fe1fffc59d52f",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_633fb6b8d33fe1fffc59d53b": {
+                "entity_id": "633fb6b8d33fe1fffc59d53b",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_633fb6b8d33fe1fffc59d541": {
+                "entity_id": "633fb6b8d33fe1fffc59d541",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_633fb6b8d33fe1fffc59d547": {
+                "entity_id": "633fb6b8d33fe1fffc59d547",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_633fb6b9d33fe1fffc59d54d": {
+                "entity_id": "633fb6b9d33fe1fffc59d54d",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_633fb6b9d33fe1fffc59d553": {
+                "entity_id": "633fb6b9d33fe1fffc59d553",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_633fb6b9d33fe1fffc59d559": {
+                "entity_id": "633fb6b9d33fe1fffc59d559",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_633fb6b9d33fe1fffc59d55f": {
+                "entity_id": "633fb6b9d33fe1fffc59d55f",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "CLTV Based Lookalike Targeting for Paid Ads",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/lltc-cltv-based-lookalike-targeting-for-paid-ads/preview/4803b25c-6706-11f0-bb85-faae0838cde8?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737125218.254354,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Informing lookalike audiences with similar data has yielded our clients up to +151% revenues and -38% cost-per-acquisition (CPA) for lookalike campaigns.",
+            "channels": [
+                "email",
+                "ad-audiences"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/cltv-based-lookalike-targeting-for-paid-ads",
+            "fulfillments": [
+                {
+                    "description": "This scenario gives you 2 possible paths to follow. Choose the desired path and follow the notes to make adjustments. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts.",
+                    "headline": "Campaign ",
+                    "item_reference": {
+                        "id": "633fb6bad33fe1fffc59d5c0",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "This is the aggregate used accross the scenario. Check the id of this aggregate to verify that a correct id is used in the scenario.",
+                    "headline": "Aggregate",
+                    "item_reference": {
+                        "id": "65bb3b5c4dca0b0a2c354c63",
+                        "type": "aggregate"
+                    }
+                },
+                {
+                    "description": "This is the report referenced in the Path 1 of the scenario. Consult the report as instructed in the scenario.",
+                    "headline": "Report for scenario 'Path 1'",
+                    "item_reference": {
+                        "id": "633fb6b9d33fe1fffc59d5bf",
+                        "type": "report"
+                    }
+                },
+                {
+                    "description": "Add and adjust the traffic identification of your Facebook and/or Google campaigns tracked in the session_start events. Do not change the name of the segments inside the segmentation.",
+                    "headline": "Event Segmentation session_start",
+                    "item_reference": {
+                        "id": "633fb6b8d33fe1fffc59d51d",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Make sure you define which purchase events are valid to consider in the evaluation. Do not change the name of the segments inside the segmentation.",
+                    "headline": "Event Segmentation purchase",
+                    "item_reference": {
+                        "id": "633fb6b8d33fe1fffc59d523",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Check if the campaign_name corresponds to the scenario (feel free to replace campaign_name with campaign_id). Do not change the name of the segments inside the segmentation.",
+                    "headline": "Event Segmentation campaign",
+                    "item_reference": {
+                        "id": "633fb6b8d33fe1fffc59d529",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Check if the purchase total price corresponds with your project.",
+                    "headline": "Expression",
+                    "item_reference": {
+                        "id": "633fb6b8d33fe1fffc59d52f",
+                        "type": "expression"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results.",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "633fb6c1d33fe1fffc59d6fe",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "drive_traffic",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "conversion-rate",
+                "revenue",
+                "rpv"
+            ],
+            "requirements": [
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "retargeting"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "email",
+                            "property_type": "string"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "phone",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "customer_property"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "total_price",
+                            "property_type": "number"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "popular"
+            ]
+        },
+        "template_id": "lltc-cltv-based-lookalike-targeting-for-paid-ads"
+    },
+    "success": true
+}

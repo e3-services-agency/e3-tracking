@@ -1,0 +1,298 @@
+{
+    "data": {
+        "_id": "66cca0b823e31c6af59faf3a",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1724686520,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "The Birthday Reminder Banner use case helps you collect the birthdays of one or two friends via a simple banner. Once their birthdays are approaching, you’ll receive an email reminder, ensuring you never miss such an important occasion.",
+        "edited": 1753194088.161267,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_66cc9f5a589b3a5015bd1772": {
+                "entity_id": "66cc9f5a589b3a5015bd1772",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_66cc9f5a589b3a5015bd1778": {
+                "entity_id": "66cc9f5a589b3a5015bd1778",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_66cc9f5d589b3a5015bd185e": {
+                "entity_id": "66cc9f5d589b3a5015bd185e",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_66cc9f5a589b3a5015bd177e": {
+                "entity_id": "66cc9f5a589b3a5015bd177e",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_66cc9f5a589b3a5015bd1784": {
+                "entity_id": "66cc9f5a589b3a5015bd1784",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_66cc9f5a589b3a5015bd17e2": {
+                "entity_id": "66cc9f5a589b3a5015bd17e2",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Birthday Reminder Banner",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/wbrr-birthday-reminder-banner/preview/46dd68a0-6706-11f0-bb9a-faae0838cde8?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737120683.468036,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "\"This automated solution keeps you informed and prepared to celebrate your friends' special days. Stay connected and make every birthday memorable!\"",
+            "channels": [
+                "email",
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/birthday-reminder-banner",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the banner to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts. Note that you can fill in up to five gift categories, but you are free to leave any category blank if you have fewer than five.",
+                    "headline": "Banner",
+                    "item_reference": {
+                        "id": "66cc9f5a589b3a5015bd1766",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and edit each segment with the category names you used as gift category options in the birthday reminder banners, ensuring the order matches (e.g., category 1 corresponds to option 1). Do not change the segment names. If you have fewer than five categories, you may delete the extra segments, but this is optional.",
+                    "headline": "Customer Segmentation - Friend 1",
+                    "item_reference": {
+                        "id": "66cc9f5a589b3a5015bd17b2",
+                        "type": "report"
+                    }
+                },
+                {
+                    "description": "Open the segmentation and edit each segment with the category names you used as gift category options in the birthday reminder banners, ensuring the order matches (e.g., category 1 corresponds to option 1). Do not change the segment names. If you have fewer than five categories, you may delete the extra segments, but this is optional.",
+                    "headline": "Customer Segmentation - Friend 2",
+                    "item_reference": {
+                        "id": "66cc9f5a589b3a5015bd17b2",
+                        "type": "report"
+                    }
+                },
+                {
+                    "description": "Open the campaign and edit the scenario to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts.",
+                    "headline": "Email Campaign ",
+                    "item_reference": {
+                        "id": "66cc9f5a589b3a5015bd17b8",
+                        "type": "report"
+                    }
+                },
+                {
+                    "description": "This recommendation engine displays products in your campaign emails for category 1 (refer to the campaign for more details). Open the recommendation engine and configure the catalog filters to match category 1, applying any additional filters such as price as needed.",
+                    "headline": "Recommendation Engine for the Campaign - category 1",
+                    "item_reference": {
+                        "id": "66cc9f5a589b3a5015bd178c",
+                        "type": "recommendation_engine"
+                    }
+                },
+                {
+                    "description": "This recommendation engine displays products in your campaign emails for category 1 (refer to the campaign for more details). Open the recommendation engine and configure the catalog filters to match category 2, applying any additional filters such as price as needed.",
+                    "headline": "Recommendation Engine for the Campaign - category 2",
+                    "item_reference": {
+                        "id": "66cc9f5a589b3a5015bd1794",
+                        "type": "recommendation_engine"
+                    }
+                },
+                {
+                    "description": "This recommendation engine displays products in your campaign emails for category 1 (refer to the campaign for more details). Open the recommendation engine and configure the catalog filters to match category 3, applying any additional filters such as price as needed.",
+                    "headline": "Recommendation Engine for the Campaign - category 3",
+                    "item_reference": {
+                        "id": "66cc9f5a589b3a5015bd179c",
+                        "type": "recommendation_engine"
+                    }
+                },
+                {
+                    "description": "This recommendation engine displays products in your campaign emails for category 4 (refer to the campaign for more details). Open the recommendation engine and configure the catalog filters to match category 1, applying any additional filters such as price as needed.",
+                    "headline": "Recommendation Engine for the Campaign - category 4",
+                    "item_reference": {
+                        "id": "66cc9f5a589b3a5015bd17a4",
+                        "type": "recommendation_engine"
+                    }
+                },
+                {
+                    "description": "This recommendation engine displays products in your campaign emails for category 1 (refer to the campaign for more details). Open the recommendation engine and configure the catalog filters to match category 5, applying any additional filters such as price as needed.",
+                    "headline": "Recommendation Engine for the Campaign - category 5",
+                    "item_reference": {
+                        "id": "66cc9f5a589b3a5015bd17ac",
+                        "type": "recommendation_engine"
+                    }
+                },
+                {
+                    "description": "This HTML block displays the products in the email. The block is fully parameterized and any edits can be made directly in the scenario by opening the email node. If you wish to access the code, you can do so via this asset.",
+                    "headline": "HTML block used in the email [optional]",
+                    "item_reference": {
+                        "id": "66cc9f5a589b3a5015bd176c",
+                        "type": "email_block"
+                    }
+                },
+                {
+                    "description": "Open the event segmentation and ensure that the banner name matches the name of the birthday banner. This step is only necessary if you have changed the banner name.",
+                    "headline": "Banner Event Segmentation [optional]",
+                    "item_reference": {
+                        "id": "66cc9f5a589b3a5015bd1772",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the event segmentation and ensure that the campaign name matches the name of the birthday campaign. This step is only necessary if you have changed the campaign name.",
+                    "headline": "Campaign Event Segmentation [optional]",
+                    "item_reference": {
+                        "id": "66cc9f5a589b3a5015bd1778",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Open the event segmentation and verify that the event corresponds to a successful purchase. Do not change the attribution window setup.",
+                    "headline": "Purchase Event Segmentation [optional]",
+                    "item_reference": {
+                        "id": "66cc9f5d589b3a5015bd185e",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results. Make sure to fill in the parameter inside the dashboard.",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "66cc9f5d589b3a5015bd188d",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "increase_retention",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "cltv",
+                "purchase-frequency",
+                "retention-rate"
+            ],
+            "requirements": [
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "catalog_name": "products",
+                    "fields": [
+                        {
+                            "field_constraint": null,
+                            "field_name": "title",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "price",
+                            "field_type": "number",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "url",
+                            "field_type": "string",
+                            "is_optional": false
+                        },
+                        {
+                            "field_constraint": null,
+                            "field_name": "image",
+                            "field_type": "string",
+                            "is_optional": false
+                        }
+                    ],
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "catalog"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "newsletter"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "email_integration"
+                },
+                {
+                    "is_optional": true,
+                    "tooltip": null,
+                    "type": "main_catalog"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "advanced"
+            ]
+        },
+        "template_id": "wbrr-birthday-reminder-banner"
+    },
+    "success": true
+}

@@ -1,0 +1,172 @@
+{
+    "data": {
+        "_id": "65df38620bf43bae135f5708",
+        "archived": false,
+        "bee_assets_migrated": false,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1709127778,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "A Single Opt-In Subscription Banner allows users to subscribe to a mailing list by entering their email address and immediately being added without needing to confirm via a follow-up email. The web layer ensures that only an email address in the format of example@example.com gets through.  Consent management is fully automated.",
+        "edited": 1782817006.6714694,
+        "edited_by_display_name": "",
+        "edited_by_id": "664c8b7b3815eee04ccd461a",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_65df273b10d9fce74db734fa": {
+                "entity_id": "65df273b10d9fce74db734fa",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_65df273c10d9fce74db73530": {
+                "entity_id": "65df273c10d9fce74db73530",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_65df273d10d9fce74db73536": {
+                "entity_id": "65df273d10d9fce74db73536",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "expression_65df273b10d9fce74db73506": {
+                "entity_id": "65df273b10d9fce74db73506",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_65df273b10d9fce74db7350c": {
+                "entity_id": "65df273b10d9fce74db7350c",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            }
+        },
+        "name": "Single Opt-In Subscription Banner",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/wsoi-single-opt-in-subscription-banner/preview/51493ddc-6706-11f0-9239-faae0838cde8?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737122916.007649,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Typically the subscription rate ranges from 1% to 5% of visitors, but can be higher with optimized design and compelling offers.",
+            "channels": [
+                "email",
+                "weblayers"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/single-opt-in-subscription-banner",
+            "fulfillments": [
+                {
+                    "description": "Open the campaign and edit the banner to fit your brand and messaging. Launch the campaign in just a few clicks with this ready-made template developed by our e-commerce experts.",
+                    "headline": "Banner",
+                    "item_reference": {
+                        "id": "6672c12f2e883e486d07e491",
+                        "type": "banner"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see the real-time campaign performance results. Make sure to fill in the parameters inside the dashboard e.g. banner_name.",
+                    "headline": "Evaluation Dashboard",
+                    "item_reference": {
+                        "id": "65df273f10d9fce74db73577",
+                        "type": "dashboard"
+                    }
+                },
+                {
+                    "description": "Open and make sure that the consent corresponds to your email consent.",
+                    "headline": "Metrics [optional]",
+                    "item_reference": {
+                        "id": "65df273b10d9fce74db73500",
+                        "type": "metric"
+                    }
+                }
+            ],
+            "goal": "grow_database",
+            "industries": [
+                "ecommerce",
+                "travel",
+                "retail"
+            ],
+            "kpis": [
+                "lead-generation",
+                "conversion-rate",
+                "revenue"
+            ],
+            "requirements": [
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "view_item",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "session_start",
+                    "is_optional": true,
+                    "properties": [],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "newsletter"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "is_optional": false,
+                    "tooltip": null,
+                    "type": "email_integration"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "essentials"
+            ]
+        },
+        "template_id": "wsoi-single-opt-in-subscription-banner"
+    },
+    "success": true
+}

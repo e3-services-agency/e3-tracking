@@ -1,0 +1,313 @@
+{
+    "data": {
+        "_id": "64e894d10e3e0903ee6aed1c",
+        "archived": false,
+        "bee_assets_migrated": true,
+        "company_id": "37b2c00e-582e-11ec-bd17-5ab6a530640c",
+        "created": 1692964049,
+        "created_by_display_name": "",
+        "created_by_id": "624460390a41d95d3d4b5a47",
+        "description": "This Use Case strives to turn various data into digestible, actionable insights. With real-time tracking and intuitive displays, it captures the pulse of your channel performance and areas that need focus. This empowers you to respond instantly, utilize resources optimally, and propel informed decision-making that aligns with business goals.",
+        "edited": 1754318744.2267218,
+        "edited_by_display_name": "",
+        "edited_by_id": "624460390a41d95d3d4b5a47",
+        "is_exported": true,
+        "mapping_hints": {
+            "event_segmentation_654deea670800855fe570fb3": {
+                "entity_id": "654deea670800855fe570fb3",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_654deea670800855fe570fb9": {
+                "entity_id": "654deea670800855fe570fb9",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_654deea670800855fe570fbf": {
+                "entity_id": "654deea670800855fe570fbf",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "empty"
+            },
+            "event_segmentation_654deead70800855fe571087": {
+                "entity_id": "654deead70800855fe571087",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_654deead70800855fe57108d": {
+                "entity_id": "654deead70800855fe57108d",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_654deeae70800855fe571093": {
+                "entity_id": "654deeae70800855fe571093",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "event_segmentation_654deeae70800855fe571099": {
+                "entity_id": "654deeae70800855fe571099",
+                "entity_type": "event_segmentation",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_654deea870800855fe571011": {
+                "entity_id": "654deea870800855fe571011",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_654deea870800855fe571017": {
+                "entity_id": "654deea870800855fe571017",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_654deea870800855fe57101d": {
+                "entity_id": "654deea870800855fe57101d",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_654deea870800855fe571023": {
+                "entity_id": "654deea870800855fe571023",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_654deea870800855fe571029": {
+                "entity_id": "654deea870800855fe571029",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            },
+            "expression_654deeae70800855fe57109f": {
+                "entity_id": "654deeae70800855fe57109f",
+                "entity_type": "expression",
+                "matching_mapped_events": [
+                    "purchase",
+                    "returned_purchase"
+                ],
+                "use_event": "purchase"
+            }
+        },
+        "name": "Executive Dashboard",
+        "owner_view_id": null,
+        "prevent_archivation": false,
+        "preview_images": [
+            "/api/plugandplay/library/pnp_usecase/templates/aetd-executive-dashboard/preview/ccb684a6-712a-11f0-a8de-1a00b019e081?company_id=37b2c00e-582e-11ec-bd17-5ab6a530640c"
+        ],
+        "public_export_timestamp": 1737125497.534047,
+        "satisfies_modules": true,
+        "shared_with_view_ids": [],
+        "show_description_in_view": false,
+        "status": "public",
+        "tags": [],
+        "template": {
+            "callout": "Enhance subscription rates, improve website traffic, and comprehensively understand customer behavior. Get strategic insights and advance your business with accurate forecasting and resource optimization.",
+            "channels": [
+                "no-channel"
+            ],
+            "documentation_link": "https://documentation.bloomreach.com/engagement/docs/executive-dashboard",
+            "fulfillments": [
+                {
+                    "description": "Go through the segments and adjust the consent category values for different channel",
+                    "headline": "Consent Segmentation",
+                    "item_reference": {
+                        "id": "654deea670800855fe570fb3",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Adjust the purchase definition in the segment to match the successful purchase tracking in your project",
+                    "headline": "Purchase Segmentation",
+                    "item_reference": {
+                        "id": "654deea670800855fe570fb9",
+                        "type": "event_segmentation"
+                    }
+                },
+                {
+                    "description": "Select the corresponding newsletter/email consent in both segments",
+                    "headline": "Emailing Customer Segmentation",
+                    "item_reference": {
+                        "id": "654deea770800855fe570ff1",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "Select the corresponding SMS consent in both segments",
+                    "headline": "SMS Customer Segmentation",
+                    "item_reference": {
+                        "id": "654deea770800855fe570ff9",
+                        "type": "segmentation"
+                    }
+                },
+                {
+                    "description": "Adjust the utm_source to match the utm_source tracked for Bloomreach. The value is set up on the project level in Project Settings > General > General campaign settings",
+                    "headline": "Website Traffic Metric",
+                    "item_reference": {
+                        "id": "654deea670800855fe570fcb",
+                        "type": "metric"
+                    }
+                },
+                {
+                    "description": "Follow the instructions in read me document https://engagement-internal.bloomreach.com/docs/aetd-executive-dashboard",
+                    "headline": "Reporting Scenario",
+                    "item_reference": {
+                        "id": "654deeb170800855fe5710d0",
+                        "type": "campaign_design"
+                    }
+                },
+                {
+                    "description": "After launching the campaign, you can return to this evaluation dashboard to see different channels' performance.",
+                    "headline": "Executive Dashboard",
+                    "item_reference": {
+                        "id": "654deeb370800855fe5710d6",
+                        "type": "dashboard"
+                    }
+                }
+            ],
+            "goal": "analyse_data",
+            "industries": [
+                "ecommerce",
+                "retail",
+                "travel"
+            ],
+            "kpis": [
+                "revenue",
+                "purchase-frequency",
+                "cltv"
+            ],
+            "requirements": [
+                {
+                    "consent_instance_existence": false,
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": {
+                                "operands": [
+                                    {
+                                        "type": "constant",
+                                        "value": "newsletter"
+                                    }
+                                ],
+                                "operator": "equals",
+                                "type": "string"
+                            },
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "consent"
+                },
+                {
+                    "check_attributes_mapped": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "mapped_name": "",
+                    "tooltip": null,
+                    "type": "mapped_event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "session_start",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "utm_source",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "consent",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "action",
+                            "property_type": "string"
+                        },
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "category",
+                            "property_type": "string"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                },
+                {
+                    "event_instance_existence": false,
+                    "event_name": "purchase",
+                    "is_optional": true,
+                    "properties": [
+                        {
+                            "is_optional": false,
+                            "property_constraint": null,
+                            "property_name": "total_price",
+                            "property_type": "number"
+                        }
+                    ],
+                    "tooltip": null,
+                    "type": "event"
+                }
+            ],
+            "type": "pnp_usecase",
+            "usecase_tags": [
+                "essentials"
+            ]
+        },
+        "template_id": "aetd-executive-dashboard"
+    },
+    "success": true
+}

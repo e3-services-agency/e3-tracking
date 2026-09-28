@@ -2244,3 +2244,6 @@ T-4-00 set to IN_PROGRESS. Fix ERROR 1 and 2, re-check WARNING 1 to 3; the re-re
 
 ### 2026-09-28 15:40 | supervisor | DECISION | D-59 pnp_usecase seed; T-4-08 added
 User uploaded 98 Use Case Center templates (pnp_usecase JSON) to samples/br-pnp; all parse; 93 carry machine-readable requirements. D-59 recorded: converter, vocabulary alignment (loomi_ai, retention_rate, lead_generation, weblayers, push channels, reduce_returns, analyse_data alias), constraint-to-variant rule, prerequisites and expected_assets fields, generated seed replacing hand-authored duplicates. T-4-08 starts after T-4-07 merges (same library file). Migration 0022 reserved for T-4-08.
+
+### 2026-09-28 15:41 | supervisor | STATUS | T-4-07 DONE; T-4-00 fix round 2; T-4-08 started
+T-4-07 final fix beb7bfa verified by the supervisor (import tests green, 86 templates, no variant row without a condition) and merged. T-4-00 delta review FAIL (15:37): card, tracking document and MCP still read formats from the property, and the 0021 collision naming can throw on two override groups of one property (soft-deleted plus live event of the same name); fix round 2. T-4-08 (D-59 converter and generated seed) starts now on the merged library.

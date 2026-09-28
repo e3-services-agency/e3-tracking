@@ -11,6 +11,7 @@ import * as PropertyDAL from './property.dal';
 import * as UseCaseDAL from './use-case.dal';
 import * as RequirementDAL from './requirement.dal';
 import * as CommentDAL from './comment.dal';
+import { resolveCommentEntityLabel } from '../services/comments.service';
 import { NotFoundError, ValidationError } from '../errors';
 
 let projectId: string;
@@ -203,5 +204,52 @@ describe('comment.dal: comments on a requirement whose target is replaced', () =
     // The comment row itself is untouched (not a foreign key) -- it just no longer resolves to a
     // live requirement; comments.service.ts is responsible for the "removed requirement" fallback.
     expect(CommentDAL.listComments(projectId, { entity_id: comment.entity_id })).toHaveLength(1);
+  });
+
+  it('a gap row (target nulled by markRequirementsGap*) keeps its id and its comment across a reorder (fix round WARNING 1)', () => {
+    const eventPropertyId = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'action',
+      data_type: 'string',
+    }).id;
+    EventDAL.attachPropertyToEvent(projectId, eventId, { property_id: eventPropertyId, role: 'normal' });
+
+    // Two requirements on this use case: the event_property one (which will become a gap row) and
+    // the pre-existing `event` one from beforeEach, so there is something real to reorder against.
+    const [firstEventProperty] = RequirementDAL.replaceRequirements(projectId, useCaseId, [
+      { target_kind: 'event_property', event_id: eventId, property_id: eventPropertyId, level: 'R' },
+      { target_kind: 'event', event_id: eventId, level: 'O' },
+    ]);
+    const eventPropertyReqId = firstEventProperty.id;
+
+    const comment = CommentDAL.createComment(projectId, {
+      entity_type: 'requirement',
+      entity_id: eventPropertyReqId,
+      author_name: 'Jan',
+      body: 'Confirm this stays required.',
+    });
+
+    // Detaching the property nulls property_id and forces status='gap' on the event_property row
+    // (its id is unchanged by this step -- markRequirementsGap* updates in place).
+    EventDAL.detachPropertyFromEvent(projectId, eventId, eventPropertyId);
+    const gapRow = RequirementDAL.getRequirementInProject(projectId, eventPropertyReqId);
+    expect(gapRow?.status).toBe('gap');
+    expect(gapRow?.property_id).toBeNull();
+
+    // Reorder (same two rows, reversed): before the fix, the gap row's ambiguous key was skipped
+    // entirely, deleting it and inserting a fresh id (silently orphaning the comment). It must now
+    // keep its id, and comments.service.ts's label must still resolve through it (not the "removed
+    // requirement" fallback).
+    const reordered = RequirementDAL.replaceRequirements(projectId, useCaseId, [
+      { target_kind: 'event', event_id: eventId, level: 'O' },
+      { target_kind: 'event_property', event_id: eventId, level: 'R', status: 'gap' },
+    ]);
+    const reorderedGapRow = reordered.find((r) => r.target_kind === 'event_property')!;
+    expect(reorderedGapRow.id).toBe(eventPropertyReqId);
+
+    expect(CommentDAL.listComments(projectId, { entity_id: comment.entity_id })).toHaveLength(1);
+    // Label still resolves through the live (gap) row -- "cart_update.(removed)" -- not the
+    // "removed requirement" fallback a lost id would produce.
+    expect(resolveCommentEntityLabel(projectId, comment)).toBe('cart_update.(removed)');
   });
 });

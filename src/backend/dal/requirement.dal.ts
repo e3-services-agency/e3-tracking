@@ -418,9 +418,13 @@ export function replaceRequirements(
   // save (or a pure reorder) writes nothing beyond the `sort_order` diff, and an actual field edit
   // shows a real before/after on the same `entity_id` as the row's previous incarnation. A `gap`
   // row missing one of its required ids (`isAmbiguous` below, same shape `validateTarget` and the
-  // duplicate-target check above already treat as "no real target to collide on") can't be matched
-  // this way -- any number of them may coexist -- so each one is logged as a plain delete (old) +
-  // create (new) pair instead.
+  // duplicate-target check above already treat as "no real target to collide on") cannot be matched
+  // by a unique key -- any number of them may share the same (now-partial) key -- so they are
+  // matched positionally instead (`ambiguousOldByKey` below, fix round WARNING 1, reviewer FAIL
+  // 2026-09-28 18:18): first-come-first-served among the still-unclaimed old rows sharing that
+  // exact key, in `oldRows`' own order. D-49 keeps a requirement's id "for unchanged targets so
+  // comments do not orphan"; a gap row's target_kind and (partial) ids are just as unchanged by a
+  // reorder as a resolved row's, so its id -- and any comment on it -- must survive one too.
   const targetKey = (t: {
     target_kind: string;
     property_id: string | null;
@@ -444,8 +448,19 @@ export function replaceRequirements(
   };
 
   const oldByKey = new Map<string, (typeof oldRows)[number]>();
+  // Fix round WARNING 1: a FIFO queue per key of the still-unclaimed *ambiguous* old rows sharing
+  // it (there can be more than one -- e.g. two `event_property` rows on the same event that each
+  // lost a different `property_id` both key to `event_property:<event>::`), consumed in `oldRows`
+  // order as ambiguous new rows are matched against it below.
+  const ambiguousOldByKey = new Map<string, (typeof oldRows)[number][]>();
   for (const row of oldRows) {
-    if (isAmbiguous(row)) continue;
+    if (isAmbiguous(row)) {
+      const key = targetKey(row);
+      const queue = ambiguousOldByKey.get(key);
+      if (queue) queue.push(row);
+      else ambiguousOldByKey.set(key, [row]);
+      continue;
+    }
     oldByKey.set(targetKey(row), row);
   }
   const matchedOldIds = new Set<string>();
@@ -464,8 +479,14 @@ export function replaceRequirements(
       catalog_field_id: row.catalog_field_id,
       consent_category_id: row.consent_category_id,
     };
-    if (isAmbiguous(targetShape)) return undefined;
-    const old = oldByKey.get(targetKey(targetShape));
+    const key = targetKey(targetShape);
+    if (isAmbiguous(targetShape)) {
+      const queue = ambiguousOldByKey.get(key);
+      const old = queue?.shift();
+      if (old) matchedOldIds.add(old.id);
+      return old;
+    }
+    const old = oldByKey.get(key);
     if (old && !matchedOldIds.has(old.id)) {
       matchedOldIds.add(old.id);
       return old;

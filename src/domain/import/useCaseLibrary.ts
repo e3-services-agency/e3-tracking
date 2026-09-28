@@ -5,21 +5,28 @@
  * malformed pieces become warnings and are dropped, never a thrown exception. No DB or Express
  * import (domain-model skill).
  *
- * Shape (D-47, D-57):
+ * Shape (D-47, D-57, D-55):
  * ```
  * { format: 'e3-use-case-library', version: 1,
  *   templates: [{ code, name, type: 'marketing'|'transactional', description?, narrative_template?,
  *     tags?: { channels?[], goals?[], tiers?[], kpis?[], industries?[] },
  *     flags?: { new?: boolean, popular?: boolean },
- *     default_requirements: [{ target_kind, event_name?, property_name?,
- *       condition?: {property_name, value}, level: 'R'|'O', note? }] }] }
+ *     default_requirements: [{ target_kind, standard_event?, event_name?, property_name?,
+ *       field_name?, condition?: {property_name, value}, level: 'R'|'O', note? }] }] }
  * ```
+ * `standard_event` (T-3-10, D-55) is the Bloomreach catalog key (e.g. `add_to_cart`); resolved
+ * first through the project's own standard event mapping, so a template targets the *concept*
+ * (add to cart) rather than a literal client event name. `event_name` is optional once
+ * `standard_event` is set, required alone for a custom event outside the catalog. `field_name`
+ * (T-3-10, D-57) is `catalog_attribute`'s target (a main-catalog field name); `consent`'s target is
+ * `property_name` (matched against a consent category's standard key, falling back to its name).
  *
  * Template-level drops (whole template skipped, one warning): missing/blank `code`, a `code`
  * already used earlier in the same file (first occurrence wins), missing/blank `name`, or a `type`
  * outside `USE_CASE_TYPES`. Requirement-level drops (that one `default_requirements` entry skipped,
- * the rest of the template is kept): `target_kind` outside `LIBRARY_TARGET_KINDS`, or a missing
- * `event_name` on a target_kind that needs one. Tag values outside the suggested vocabularies (D-57)
+ * the rest of the template is kept): `target_kind` outside `LIBRARY_TARGET_KINDS`, an event-scoped
+ * kind missing both `event_name` and `standard_event`, `catalog_attribute` missing `field_name`, or
+ * `consent` missing `property_name`. Tag values outside the suggested vocabularies (D-57)
  * are kept, each with its own warning, never dropped (D-57: "unknown values import with a warning,
  * never an error" -- a client's tag vocabulary is not limited to the suggested lists). `level` defaults to `'O'`
  * silently (`use-case-template.dal.ts`'s `resolveOne` already does the same for a bad/missing level

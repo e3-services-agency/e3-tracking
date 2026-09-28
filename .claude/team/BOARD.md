@@ -2520,3 +2520,6 @@ Comments model, internal API, requirement id stability, Comments page. Worktree 
 | 6 | Regression: History page unaffected (no comment rows, comment not in the entity-type filter list), Events/Findings load, no 500s, zero supabase requests, no console errors beyond Vite HMR/dev-server noise | PASS — History's entity-type filter has no `comment` option and none of its rows reference comments; Events and Findings pages loaded fine after the fixture chain and restore; no supabase requests in the whole session; console errors were limited to Vite HMR `WebSocket` noise (expected on the non-standard 3010 port per the PORT 3000 RULE) plus one unrelated pre-existing `value` prop React warning and a few dev-server 404s during initial asset optimization, none tied to comments functionality |
 
 Artifacts saved under `.claude/team/reports/qa/T-4-02/`: `backup.json`, `comments.csv`, `tracking-document.json`, `documentation.html`, `event-card-cart_update.json`.
+
+### 2026-09-28 22:34 | supervisor | STATUS | T-4-02 DONE
+qa-tester PASS (22:31). Merged (migration list ordered): 1385 tests (114 files), tsc clean. Phase 4 merged so far: T-4-00, T-4-01, T-4-02, T-4-07, T-4-08. In progress: T-4-03 shared view. Next: T-4-04 comments in both views (after T-4-03), T-4-09 getting started and sandbox, T-4-06 gated on the initiative export sample, T-4-05 docs, T-4-EXIT.

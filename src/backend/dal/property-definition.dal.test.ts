@@ -1,7 +1,9 @@
 /**
  * property-definition.dal tests (T-4-00, D-58): seeding a `general` definition at property
- * creation, sync from `updateProperty`, create/update/delete guards (409 while linked, refuses
- * deleting the last definition), and the `definition_id` validation on event links.
+ * creation, the two-way mirror between `general` and the property's own columns, create/update/
+ * delete guards (409 while linked, refuses deleting the last definition), the `definition_id`
+ * validation on event links, and (fix round, reviewer FAIL 2026-09-28 14:26) `deleteProperty`
+ * cascading to its definitions.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { closeDb } from '../db';
@@ -26,14 +28,14 @@ afterEach(() => {
   delete process.env.E3_DB_PATH;
 });
 
-describe('property-definition.dal: seeding and sync', () => {
-  it('createProperty seeds one "general" definition from the property\'s own fields', () => {
+describe('property-definition.dal: seeding and the WARNING 2 two-way mirror', () => {
+  it('createProperty seeds one "general" definition carrying the property\'s whole formats list (ERROR 1 fix round)', () => {
     const prop = PropertyDAL.createProperty(projectId, {
       scope: 'event',
       name: 'action',
       data_type: 'string',
       description: 'The action taken',
-      data_formats_json: ['email'],
+      data_formats_json: ['email', 'uri'],
       allowed_values_json: [{ value: 'add' }],
       example_values_json: [{ value: 'add' }],
     });
@@ -41,16 +43,88 @@ describe('property-definition.dal: seeding and sync', () => {
     expect(defs).toHaveLength(1);
     expect(defs[0].name).toBe('general');
     expect(defs[0].description).toBe('The action taken');
-    expect(defs[0].format).toBe('email');
+    expect(defs[0].formats_json).toEqual(['email', 'uri']);
     expect(defs[0].allowed_values_json).toEqual([{ value: 'add' }]);
     expect(defs[0].example_values_json).toEqual([{ value: 'add' }]);
   });
 
-  it('updateProperty keeps the "general" definition in sync', () => {
-    const prop = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'action', data_type: 'string' });
-    PropertyDAL.updateProperty(projectId, prop.id, { description: 'Updated description' });
+  it('property -> general: updateProperty keeps the "general" definition in sync', () => {
+    const prop = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'action',
+      data_type: 'string',
+      data_formats_json: ['email'],
+    });
+    PropertyDAL.updateProperty(projectId, prop.id, {
+      description: 'Updated description',
+      data_formats_json: ['email', 'uri'],
+    });
     const defs = PropertyDefinitionDAL.listDefinitions(projectId, prop.id);
     expect(defs[0].description).toBe('Updated description');
+    expect(defs[0].formats_json).toEqual(['email', 'uri']);
+  });
+
+  it('general -> property: updating the "general" definition directly pushes the property columns back', () => {
+    const prop = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'action', data_type: 'string' });
+    const [general] = PropertyDefinitionDAL.listDefinitions(projectId, prop.id);
+
+    PropertyDefinitionDAL.updateDefinition(projectId, prop.id, general.id, {
+      description: 'Edited from the definitions section',
+      allowed_values_json: [{ value: 'y' }],
+      formats_json: ['email', 'uri'],
+      example_values_json: [{ value: 'y' }],
+    });
+
+    const property = PropertyDAL.getPropertyOrThrow(projectId, prop.id);
+    expect(property.description).toBe('Edited from the definitions section');
+    expect(property.allowed_values_json).toEqual([{ value: 'y' }]);
+    expect(property.data_formats_json).toEqual(['email', 'uri']);
+    expect(property.example_values_json).toEqual([{ value: 'y' }]);
+  });
+
+  it('editing a definition that is not "general" never touches the property columns', () => {
+    const prop = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'action',
+      data_type: 'string',
+      description: 'Property description',
+    });
+    const consent = PropertyDefinitionDAL.createDefinition(projectId, prop.id, { name: 'consent_action' });
+
+    PropertyDefinitionDAL.updateDefinition(projectId, prop.id, consent.id, { description: 'Consent-only text' });
+
+    const property = PropertyDAL.getPropertyOrThrow(projectId, prop.id);
+    expect(property.description).toBe('Property description');
+  });
+
+  it('renaming the property (properties.name) does not desync the general definition\'s mirrored fields', () => {
+    const prop = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'action',
+      data_type: 'string',
+      description: 'Stays in sync',
+      data_formats_json: ['email'],
+    });
+    PropertyDAL.updateProperty(projectId, prop.id, { name: 'action_renamed' });
+
+    const [general] = PropertyDefinitionDAL.listDefinitions(projectId, prop.id);
+    const property = PropertyDAL.getPropertyOrThrow(projectId, prop.id);
+    expect(property.name).toBe('action_renamed');
+    expect(general.description).toBe('Stays in sync');
+    expect(general.formats_json).toEqual(['email']);
+    expect(general.description).toBe(property.description);
+    expect(general.formats_json).toEqual(property.data_formats_json);
+  });
+});
+
+describe('property-definition.dal: deleteProperty cascades (ERROR 2 fix round)', () => {
+  it('soft-deletes every definition of a deleted property, keeping their deleted_at set', () => {
+    const prop = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'action', data_type: 'string' });
+    const consent = PropertyDefinitionDAL.createDefinition(projectId, prop.id, { name: 'consent_action' });
+    PropertyDAL.deleteProperty(projectId, prop.id);
+
+    expect(PropertyDefinitionDAL.listDefinitions(projectId, prop.id)).toEqual([]);
+    expect(PropertyDefinitionDAL.getDefinitionById(projectId, consent.id)).toBeNull();
   });
 });
 

@@ -69,7 +69,7 @@ describe('0021_property_definitions.sql backfill', () => {
     const propertyId = randomUUID();
     db.prepare(
       `INSERT INTO properties (id, project_id, scope, name, description, data_type, data_formats_json, allowed_values_json, example_values_json, created_at, updated_at)
-       VALUES (?, ?, 'event', 'action', 'The action taken', 'string', '["email"]', '[{"value":"add"},{"value":"remove"}]', '["add"]', ?, ?)`
+       VALUES (?, ?, 'event', 'action', 'The action taken', 'string', '["email","uri"]', '[{"value":"add"},{"value":"remove"}]', '["add"]', ?, ?)`
     ).run(propertyId, projectId, ts, ts);
 
     const eventA = randomUUID();
@@ -120,16 +120,17 @@ describe('0021_property_definitions.sql backfill', () => {
     const general = defs.find((d) => d.name === 'general')!;
     expect(general.description).toBe('The action taken');
     expect(general.allowed_values_json).toBe('[{"value":"add"},{"value":"remove"}]');
-    expect(general.format).toBe('email');
+    // ERROR 1 fix round: the full formats list, not just the first entry.
+    expect(general.formats_json).toBe('["email","uri"]');
     expect(general.example_values_json).toBe('["add"]');
 
     const overrideDef = defs.find((d) => d.name !== 'general')!;
     expect(overrideDef.name).toBe('consent'); // first-linked event of that override group
     expect(overrideDef.description).toBe('Consent action (accept/reject)');
     expect(overrideDef.example_values_json).toBe('["accept"]');
-    // allowed_values_json/format still carried from the property, overrides never covered those
+    // allowed_values_json/formats_json still carried from the property, overrides never covered those
     expect(overrideDef.allowed_values_json).toBe('[{"value":"add"},{"value":"remove"}]');
-    expect(overrideDef.format).toBe('email');
+    expect(overrideDef.formats_json).toBe('["email","uri"]');
 
     const links = db
       .prepare('SELECT event_id, definition_id FROM event_properties WHERE property_id = ?')
@@ -138,5 +139,58 @@ describe('0021_property_definitions.sql backfill', () => {
     expect(byEvent.get(eventA)).toBe(general.id);
     expect(byEvent.get(eventB)).toBe(overrideDef.id);
     expect(byEvent.get(eventC)).toBe(overrideDef.id);
+  });
+
+  // WARNING 4 fix round: an event literally named "general" whose link carries an override would
+  // otherwise collide with the property's own "general" definition (UNIQUE(property_id, name)).
+  it('names the override definition "<event> (event)" when the first-linked event is literally named "general"', () => {
+    db = new Database(':memory:');
+    db.pragma('foreign_keys = OFF');
+
+    for (const file of PRE_0021_MIGRATIONS) {
+      db.exec(fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf-8'));
+    }
+
+    const ts = nowIso();
+    const clientId = randomUUID();
+    db.prepare(
+      'INSERT INTO clients (id, key, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
+    ).run(clientId, 'acme', 'Acme', ts, ts);
+    const projectId = randomUUID();
+    db.prepare(
+      'INSERT INTO projects (id, client_id, name, key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(projectId, clientId, 'Acme Brand A', 'acme-brand-a', ts, ts);
+
+    const propertyId = randomUUID();
+    db.prepare(
+      `INSERT INTO properties (id, project_id, scope, name, description, data_type, created_at, updated_at)
+       VALUES (?, ?, 'event', 'level', NULL, 'string', ?, ?)`
+    ).run(propertyId, projectId, ts, ts);
+
+    const eventId = randomUUID();
+    db.prepare(
+      `INSERT INTO events (id, project_id, name, class, status, created_at, updated_at) VALUES (?, ?, 'general', 'custom', 'planned', ?, ?)`
+    ).run(eventId, projectId, ts, ts);
+
+    db.prepare(
+      `INSERT INTO event_properties (event_id, property_id, required, role, sort_order, description_override, example_values_override_json, created_at, updated_at)
+       VALUES (?, ?, 0, 'normal', 0, 'General level', NULL, ?, ?)`
+    ).run(eventId, propertyId, ts, ts);
+
+    db.exec(fs.readFileSync(path.join(MIGRATIONS_DIR, '0021_property_definitions.sql'), 'utf-8'));
+
+    const defs = db
+      .prepare('SELECT * FROM property_definitions WHERE property_id = ? ORDER BY sort_order, name')
+      .all(propertyId) as Record<string, unknown>[];
+    expect(defs).toHaveLength(2);
+    expect(defs.map((d) => d.name).sort()).toEqual(['general', 'general (event)']);
+
+    const overrideDef = defs.find((d) => d.name === 'general (event)')!;
+    expect(overrideDef.description).toBe('General level');
+
+    const link = db
+      .prepare('SELECT definition_id FROM event_properties WHERE event_id = ? AND property_id = ?')
+      .get(eventId, propertyId) as { definition_id: string };
+    expect(link.definition_id).toBe(overrideDef.id);
   });
 });

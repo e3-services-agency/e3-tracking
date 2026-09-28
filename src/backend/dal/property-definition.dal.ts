@@ -1,17 +1,25 @@
 /**
  * Property definition Data Access Layer (D-58, T-4-00). A property keeps its shared identity
  * (name, data_type, pii, source); `property_definitions` holds one or more *named* meanings per
- * property (name, description, allowed_values_json, format, example_values_json) -- the same
- * attribute can mean different things on different events (`action` on `cart_update` vs
+ * property (name, description, allowed_values_json, formats_json, example_values_json) -- the
+ * same attribute can mean different things on different events (`action` on `cart_update` vs
  * `consent`). Every property always has at least one definition; `event_properties.definition_id`
  * points at the one an event link uses (validated to belong to the same property).
  *
+ * `formats_json` is an array, not a scalar (fix round, reviewer FAIL 2026-09-28 14:26, ERROR 1): a
+ * property can carry several formats at once (e.g. `email` and `uri` both ticked), and every one
+ * of them must be checked per event, not just the first.
+ *
  * Every property gets its `general` definition seeded at creation time from the property's own
- * fields (`property.dal.ts#createProperty`); an update to the property's
- * description/allowed_values_json/example_values_json/data_formats_json keeps the `general`
- * definition's matching fields in sync (`syncGeneralDefinitionFromProperty`), so a property with a
- * single definition behaves exactly as it did before this table existed (D-58: "a property with
- * one definition looks as today").
+ * fields (`property.dal.ts#createProperty`); until phase 5 drops the now-redundant property
+ * columns, the `general` definition and the property's own
+ * description/allowed_values_json/data_formats_json/example_values_json stay mirrored **both
+ * ways** inside one transaction (fix round, WARNING 2 ruling): an update to the property syncs
+ * `general` (`syncGeneralDefinitionFromProperty`, called from `property.dal.ts#updateProperty`);
+ * an update to the `general` definition itself syncs the property back
+ * (`syncPropertyFromGeneralDefinition`, called from this module's own `updateDefinition`) -- so a
+ * property with a single definition behaves exactly as it did before this table existed, from
+ * either editor (D-58: "a property with one definition looks as today").
  */
 import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn, mapWriteError } from '../db/util';
@@ -26,7 +34,7 @@ export interface PropertyDefinitionRow {
   name: string;
   description: string | null;
   allowed_values_json: unknown;
-  format: string | null;
+  formats_json: unknown;
   example_values_json: unknown;
   sort_order: number;
   created_at: string;
@@ -34,13 +42,17 @@ export interface PropertyDefinitionRow {
   deleted_at: string | null;
 }
 
-type PropertyDefinitionDbRow = Omit<PropertyDefinitionRow, 'allowed_values_json' | 'example_values_json'>;
+type PropertyDefinitionDbRow = Omit<
+  PropertyDefinitionRow,
+  'allowed_values_json' | 'formats_json' | 'example_values_json'
+>;
 
 function mapRow(row: PropertyDefinitionDbRow): PropertyDefinitionRow {
   const raw = row as unknown as Record<string, unknown>;
   return {
     ...row,
     allowed_values_json: parseJsonColumn(raw.allowed_values_json, []),
+    formats_json: parseJsonColumn(raw.formats_json, []),
     example_values_json: parseJsonColumn(raw.example_values_json, []),
   };
 }
@@ -49,14 +61,19 @@ export interface PropertyDefinitionInput {
   name: string;
   description?: string | null;
   allowed_values_json?: unknown;
-  format?: string | null;
+  formats_json?: unknown;
   example_values_json?: unknown;
 }
 
-function validateFormat(format: string | null | undefined): void {
-  if (format === undefined || format === null || format === '') return;
-  if (!(PROPERTY_DATA_FORMATS as readonly string[]).includes(format)) {
-    throw new BadRequestError(`Unknown format "${format}".`, 'format');
+function validateFormats(formats: unknown): void {
+  if (formats === undefined || formats === null) return;
+  if (!Array.isArray(formats)) {
+    throw new BadRequestError('formats_json must be an array.', 'formats_json');
+  }
+  for (const fmt of formats) {
+    if (!(PROPERTY_DATA_FORMATS as readonly string[]).includes(String(fmt))) {
+      throw new BadRequestError(`Unknown format "${fmt}".`, 'formats_json');
+    }
   }
 }
 
@@ -102,6 +119,36 @@ export function listUsingEventNamesByDefinitionId(projectId: string, propertyId:
     list.push(row.event_name);
     map.set(row.definition_id, list);
   }
+  return map;
+}
+
+/** Every definition of every given property in one query (fix round WARNING 3: `EventCardBuildContext`
+ * loads this once per project instead of `getDefinitionById` per link). Soft-deleted definitions
+ * excluded, same as `listDefinitions`. */
+export function listDefinitionsByPropertyIds(
+  projectId: string,
+  propertyIds: string[]
+): Map<string, PropertyDefinitionRow> {
+  const map = new Map<string, PropertyDefinitionRow>();
+  if (propertyIds.length === 0) return map;
+  const placeholders = propertyIds.map(() => '?').join(', ');
+  const rows = getDb()
+    .prepare(
+      `SELECT * FROM property_definitions WHERE project_id = ? AND deleted_at IS NULL AND property_id IN (${placeholders})`
+    )
+    .all(projectId, ...propertyIds) as PropertyDefinitionDbRow[];
+  for (const row of rows) map.set(row.id, mapRow(row));
+  return map;
+}
+
+/** Every non-deleted definition in the project, keyed by id (fix round WARNING 3: one query for
+ * `EventCardBuildContext`/`buildTrackingDocument`, never one per link). */
+export function listAllDefinitionsById(projectId: string): Map<string, PropertyDefinitionRow> {
+  const map = new Map<string, PropertyDefinitionRow>();
+  const rows = getDb()
+    .prepare('SELECT * FROM property_definitions WHERE project_id = ? AND deleted_at IS NULL')
+    .all(projectId) as PropertyDefinitionDbRow[];
+  for (const row of rows) map.set(row.id, mapRow(row));
   return map;
 }
 
@@ -173,10 +220,9 @@ export function seedDefaultDefinition(
   const db = getDb();
   const id = newId();
   const now = nowIso();
-  const format = Array.isArray(fields.data_formats_json) ? (fields.data_formats_json[0] ?? null) : null;
   db.prepare(
     `INSERT INTO property_definitions (
-      id, project_id, property_id, name, description, allowed_values_json, format,
+      id, project_id, property_id, name, description, allowed_values_json, formats_json,
       example_values_json, sort_order, created_at, updated_at, deleted_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, NULL)`
   ).run(
@@ -186,7 +232,7 @@ export function seedDefaultDefinition(
     PROPERTY_DEFINITION_DEFAULT_NAME,
     fields.description,
     toJsonColumn(fields.allowed_values_json ?? []),
-    format,
+    toJsonColumn(Array.isArray(fields.data_formats_json) ? fields.data_formats_json : []),
     toJsonColumn(fields.example_values_json ?? []),
     now,
     now
@@ -196,8 +242,8 @@ export function seedDefaultDefinition(
 
 /** Called by `property.dal.ts#updateProperty` inside its own transaction whenever the property's
  * description/allowed_values_json/example_values_json/data_formats_json change: keeps the
- * `general` definition's matching fields in sync so a property with a single definition behaves
- * exactly as it did before this table existed. Other (renamed) definitions are untouched. */
+ * `general` definition's matching fields in sync (property -> definition, one half of the WARNING
+ * 2 two-way mirror). Other (renamed) definitions are untouched. */
 export function syncGeneralDefinitionFromProperty(
   projectId: string,
   propertyId: string,
@@ -231,12 +277,52 @@ export function syncGeneralDefinitionFromProperty(
     params.example_values_json = toJsonColumn(patch.example_values_json);
   }
   if (patch.data_formats_json !== undefined) {
-    set.push('format = @format');
-    params.format = Array.isArray(patch.data_formats_json) ? (patch.data_formats_json[0] ?? null) : null;
+    set.push('formats_json = @formats_json');
+    params.formats_json = toJsonColumn(Array.isArray(patch.data_formats_json) ? patch.data_formats_json : []);
   }
   if (set.length === 0) return;
   set.push('updated_at = @updated_at');
   db.prepare(`UPDATE property_definitions SET ${set.join(', ')} WHERE id = @id`).run(params);
+}
+
+/** The other half of the WARNING 2 two-way mirror: called from this module's own
+ * `updateDefinition` (never from outside) whenever the definition being edited *was* `general` at
+ * the start of the edit -- writes the touched fields straight to the `properties` row via a raw
+ * `UPDATE` (not `property.dal.ts#updateProperty`, which would pull in unrelated validation/
+ * variant-rename side effects that have nothing to do with editing a definition, and would import-
+ * cycle back into this module). Runs inside the caller's own transaction. */
+function syncPropertyFromGeneralDefinition(
+  projectId: string,
+  propertyId: string,
+  patch: {
+    description?: string | null;
+    allowed_values_json?: unknown;
+    formats_json?: unknown;
+    example_values_json?: unknown;
+  }
+): void {
+  const db = getDb();
+  const set: string[] = [];
+  const params: Record<string, unknown> = { id: propertyId, project_id: projectId, updated_at: nowIso() };
+  if (patch.description !== undefined) {
+    set.push('description = @description');
+    params.description = patch.description;
+  }
+  if (patch.allowed_values_json !== undefined) {
+    set.push('allowed_values_json = @allowed_values_json');
+    params.allowed_values_json = toJsonColumn(patch.allowed_values_json);
+  }
+  if (patch.example_values_json !== undefined) {
+    set.push('example_values_json = @example_values_json');
+    params.example_values_json = toJsonColumn(patch.example_values_json);
+  }
+  if (patch.formats_json !== undefined) {
+    set.push('data_formats_json = @data_formats_json');
+    params.data_formats_json = toJsonColumn(Array.isArray(patch.formats_json) ? patch.formats_json : []);
+  }
+  if (set.length === 0) return;
+  set.push('updated_at = @updated_at');
+  db.prepare(`UPDATE properties SET ${set.join(', ')} WHERE id = @id AND project_id = @project_id`).run(params);
 }
 
 export function createDefinition(
@@ -247,7 +333,7 @@ export function createDefinition(
   assertPropertyExists(projectId, propertyId);
   const name = input.name?.trim();
   if (!name) throw new ValidationError('Definition name is required.', 'name');
-  validateFormat(input.format);
+  validateFormats(input.formats_json);
   validateAllowedValues(input.allowed_values_json);
 
   const db = getDb();
@@ -274,7 +360,7 @@ export function createDefinition(
     try {
       db.prepare(
         `INSERT INTO property_definitions (
-          id, project_id, property_id, name, description, allowed_values_json, format,
+          id, project_id, property_id, name, description, allowed_values_json, formats_json,
           example_values_json, sort_order, created_at, updated_at, deleted_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`
       ).run(
@@ -284,7 +370,7 @@ export function createDefinition(
         name,
         input.description?.trim() || null,
         toJsonColumn(input.allowed_values_json ?? []),
-        input.format || null,
+        toJsonColumn(input.formats_json ?? []),
         toJsonColumn(input.example_values_json ?? []),
         maxOrder + 1,
         now,
@@ -337,19 +423,25 @@ export function updateDefinition(
       .get(projectId, propertyId, name, definitionId);
     if (clash) throw new ConflictError(`A definition named "${name}" already exists on this property.`);
   }
-  if (updates.format !== undefined) validateFormat(updates.format);
+  if (updates.formats_json !== undefined) validateFormats(updates.formats_json);
   if (updates.allowed_values_json !== undefined) validateAllowedValues(updates.allowed_values_json);
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (name !== undefined) patch.name = name;
   if (updates.description !== undefined) patch.description = updates.description?.trim() || null;
   if (updates.allowed_values_json !== undefined) patch.allowed_values_json = toJsonColumn(updates.allowed_values_json);
-  if (updates.format !== undefined) patch.format = updates.format || null;
+  if (updates.formats_json !== undefined) patch.formats_json = toJsonColumn(updates.formats_json);
   if (updates.example_values_json !== undefined) patch.example_values_json = toJsonColumn(updates.example_values_json);
 
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
     .join(', ');
+
+  // WARNING 2 two-way mirror: this definition *was* `general` before this edit -> push the
+  // touched fields straight back to the property, inside the same transaction as the definition
+  // update itself. A rename away from `general` in the same call still mirrors (the definition
+  // was general when the edit started); a definition that was never `general` never mirrors.
+  const wasGeneral = before.name === PROPERTY_DEFINITION_DEFAULT_NAME;
 
   const run = db.transaction(() => {
     try {
@@ -360,6 +452,14 @@ export function updateDefinition(
         `A definition named "${String(patch.name ?? '')}" already exists on this property.`,
         `Failed to update property definition: ${(err as Error).message}`
       );
+    }
+    if (wasGeneral) {
+      syncPropertyFromGeneralDefinition(projectId, propertyId, {
+        description: updates.description !== undefined ? updates.description?.trim() || null : undefined,
+        allowed_values_json: updates.allowed_values_json,
+        example_values_json: updates.example_values_json,
+        formats_json: updates.formats_json,
+      });
     }
     const after = getDefinitionOrThrow(projectId, definitionId);
     ChangeLogDAL.recordChange({
@@ -429,6 +529,21 @@ export function deleteDefinition(projectId: string, propertyId: string, definiti
     });
   });
   run();
+}
+
+/** Called by `property.dal.ts#deleteProperty` inside its own transaction (fix round ERROR 2):
+ * soft-deletes every one of the property's definitions alongside the property itself, so CSV and
+ * backup consumers that already filter `property_definitions` by `deleted_at IS NULL`/property
+ * liveness exclude them without a join, and a definition never outlives the property it belongs
+ * to. No `change_log` row per definition here -- the property's own `delete` change already tells
+ * that story; a lower-level entry per definition would be noise. */
+export function softDeleteAllDefinitionsForProperty(projectId: string, propertyId: string): void {
+  const now = nowIso();
+  getDb()
+    .prepare(
+      'UPDATE property_definitions SET deleted_at = ?, updated_at = ? WHERE project_id = ? AND property_id = ? AND deleted_at IS NULL'
+    )
+    .run(now, now, projectId, propertyId);
 }
 
 export function reorderDefinitions(projectId: string, propertyId: string, orderedIds: string[]): PropertyDefinitionRow[] {

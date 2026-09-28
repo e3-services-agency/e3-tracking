@@ -814,6 +814,10 @@ export function deleteProperty(projectId: string, id: string): void {
     // point (the attached-count guard above), so clear it out of every standard event mapping's
     // field_map_json in the project, wherever it was mapped.
     removePropertyFromFieldMaps(projectId, id);
+    // Fix round (reviewer FAIL 2026-09-28 14:26, ERROR 2): the property's definitions never
+    // survive it -- soft-delete them in the same transaction so CSV/backup consumers that filter
+    // by the property's own liveness never see an orphaned definition again.
+    PropertyDefinitionDAL.softDeleteAllDefinitionsForProperty(projectId, id);
 
     ChangeLogDAL.recordChange({
       projectId,

@@ -119,7 +119,7 @@ function definitionInputFromBody(body: Record<string, unknown>): Partial<Propert
   if (typeof body.name === 'string') input.name = body.name;
   if ('description' in body) input.description = body.description as string | null;
   if ('allowed_values_json' in body) input.allowed_values_json = body.allowed_values_json;
-  if ('format' in body) input.format = body.format as string | null;
+  if ('formats_json' in body) input.formats_json = body.formats_json;
   if ('example_values_json' in body) input.example_values_json = body.example_values_json;
   return input;
 }

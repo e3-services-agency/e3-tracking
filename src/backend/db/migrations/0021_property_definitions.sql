@@ -1,18 +1,23 @@
 -- T-4-00 (D-58, migration number 0021 per the D-53 amendment 2 2026-09-28): property definitions.
 -- A property keeps its shared identity (name, payload key stays on the link, data_type, pii,
 -- source); a new table `property_definitions` holds one or more *named* meanings per property
--- (name, description, allowed_values_json, format, example_values_json). `event_properties` gets
--- a nullable `definition_id` (the default definition when null) and loses its two per-link
+-- (name, description, allowed_values_json, formats_json, example_values_json). `event_properties`
+-- gets a nullable `definition_id` (the default definition when null) and loses its two per-link
 -- override columns (`description_override`, `example_values_override_json`), which this migration
 -- backfills into definitions first.
 --
+-- Fix round (reviewer FAIL 2026-09-28 14:26, ERROR 1): `formats_json` is an array, carrying the
+-- property's *whole* `data_formats_json` list, not a single scalar `format` -- a property with
+-- several formats (e.g. `email` and `uri` both ticked) must have every one of them checked per
+-- event, not just the first.
+--
 -- Backfill: every property gets one "general" definition seeded from its own
--- description/allowed_values_json/data_formats_json[0]/example_values_json. Every distinct
+-- description/allowed_values_json/data_formats_json/example_values_json. Every distinct
 -- (description_override, example_values_override_json) combination still in use on that
 -- property's links becomes a second (or further) definition, named after the first event that
 -- link was attached to (by `event_properties.created_at`, then event name as a tiebreak) --
 -- `description` from the override, `example_values_json` from the override when set else the
--- property's own, `allowed_values_json`/`format` carried from the property (overrides never
+-- property's own, `allowed_values_json`/`formats_json` carried from the property (overrides never
 -- covered those). Links without an override point at the property's "general" definition; links
 -- with one point at their group's definition.
 --
@@ -35,7 +40,7 @@ CREATE TABLE property_definitions (
   name TEXT NOT NULL,
   description TEXT,
   allowed_values_json TEXT,
-  format TEXT,
+  formats_json TEXT,
   example_values_json TEXT,
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
@@ -53,12 +58,12 @@ SELECT id AS property_id, project_id, lower(hex(randomblob(16))) AS definition_i
 FROM properties;
 
 INSERT INTO property_definitions (
-  id, project_id, property_id, name, description, allowed_values_json, format,
+  id, project_id, property_id, name, description, allowed_values_json, formats_json,
   example_values_json, sort_order, created_at, updated_at, deleted_at
 )
 SELECT
   g.definition_id, p.project_id, p.id, 'general', p.description, p.allowed_values_json,
-  json_extract(p.data_formats_json, '$[0]'), p.example_values_json, 0, p.created_at, p.updated_at, NULL
+  p.data_formats_json, p.example_values_json, 0, p.created_at, p.updated_at, NULL
 FROM properties p
 JOIN tmp_general_defs g ON g.property_id = p.id;
 
@@ -84,25 +89,61 @@ SELECT g.property_id, g.description_override, g.example_values_override_json, g.
   ) AS first_event_name
 FROM tmp_override_groups g;
 
+-- Fix round (WARNING 4): a definition name collides with the property's own "general" definition
+-- (the first-linked event is literally named "general", or the property has some other definition
+-- already named that) gets renamed "<event> (event)", with a numeric suffix if even that somehow
+-- still collides (defensive; two override groups of the *same* property always have distinct
+-- first-linked events by construction, since an event links a property at most once, so a
+-- collision can only ever come from the literal "general" case or a hand-edited pre-migration
+-- database). Every "general" row is already inserted above, so the `NOT EXISTS` checks below see
+-- it. No `JOIN LATERAL` (not supported by SQLite): a bounded `CASE` chain instead.
 INSERT INTO property_definitions (
-  id, project_id, property_id, name, description, allowed_values_json, format,
+  id, project_id, property_id, name, description, allowed_values_json, formats_json,
   example_values_json, sort_order, created_at, updated_at, deleted_at
 )
 SELECT
   gfe.definition_id,
   p.project_id,
   gfe.property_id,
-  COALESCE(gfe.first_event_name, 'general (' || substr(gfe.definition_id, 1, 8) || ')'),
+  CASE
+    WHEN NOT EXISTS (
+      SELECT 1 FROM property_definitions pd
+      WHERE pd.property_id = gfe.property_id AND pd.deleted_at IS NULL AND pd.name = candidate.base
+    ) THEN candidate.base
+    WHEN NOT EXISTS (
+      SELECT 1 FROM property_definitions pd
+      WHERE pd.property_id = gfe.property_id AND pd.deleted_at IS NULL AND pd.name = candidate.base || ' (event)'
+    ) THEN candidate.base || ' (event)'
+    WHEN NOT EXISTS (
+      SELECT 1 FROM property_definitions pd
+      WHERE pd.property_id = gfe.property_id AND pd.deleted_at IS NULL AND pd.name = candidate.base || ' (event)-2'
+    ) THEN candidate.base || ' (event)-2'
+    WHEN NOT EXISTS (
+      SELECT 1 FROM property_definitions pd
+      WHERE pd.property_id = gfe.property_id AND pd.deleted_at IS NULL AND pd.name = candidate.base || ' (event)-3'
+    ) THEN candidate.base || ' (event)-3'
+    -- Ultimate fallback: the definition id is unique by construction, so this always terminates.
+    ELSE candidate.base || ' (event)-' || substr(gfe.definition_id, 1, 8)
+  END,
   gfe.description_override,
   p.allowed_values_json,
-  json_extract(p.data_formats_json, '$[0]'),
+  p.data_formats_json,
   COALESCE(gfe.example_values_override_json, p.example_values_json),
   1,
   p.updated_at,
   p.updated_at,
   NULL
 FROM tmp_group_first_event gfe
-JOIN properties p ON p.id = gfe.property_id;
+JOIN properties p ON p.id = gfe.property_id
+JOIN (
+  SELECT
+    definition_id,
+    CASE
+      WHEN COALESCE(first_event_name, '') = 'general' THEN COALESCE(first_event_name, '')
+      ELSE COALESCE(first_event_name, 'general (' || substr(definition_id, 1, 8) || ')')
+    END AS base
+  FROM tmp_group_first_event
+) candidate ON candidate.definition_id = gfe.definition_id;
 
 -- ---------------------------------------------------------------------------
 -- event_properties: definition_id replaces description_override/example_values_override_json

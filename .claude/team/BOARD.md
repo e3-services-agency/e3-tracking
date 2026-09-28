@@ -2440,3 +2440,34 @@ Reviewer PASS (18:45). Before QA: WARNING 1 same-key gap matching prefers an unc
 
 ### 2026-09-28 21:46 | implementer -> qa-tester | HANDOFF | T-4-02 pre-QA fixes
 Posted by supervisor. Commit 126b6c2 on task/T-4-02-comments: same-key gap matching prefers equal level and note before FIFO (A/B test); removed placeholder rows render as text. Targeted tests 78/78, tsc and lint clean. T-4-02 QA queued after T-4-08 and T-4-01.
+
+### 2026-09-28 21:52 | qa-tester -> supervisor | PASS | T-4-08
+QA of T-4-08 (73fa81f, task/T-4-08-pnp-import) in the worktree, API on 3001 (`E3_DB_PATH=data/qa-t408.sqlite`) plus Vite `--port 3010 --host 0.0.0.0` (port 3000 held elsewhere; only a leftover node.exe on 3001, PID 49712, killed). `npm install` first (node_modules/.bin missing). Fresh client/project "QA T-4-08 / Fixture" created through the UI (project-create form's own submit silently failed once — key field didn't take the typed value on the first attempt — retried and it worked; created a second project via the API as a throwaway, unused, harmless). Fixture chain applied (data-mapping, expiration-settings, customer-events-export via a Node script driving preview/apply with default_selected item ids), main catalog "products" with fields image/url/title/price/product_id/active, consent categories newsletter (from the mapping) and sms; `POST comparison/run` returned 29 findings with no 500 (I did not run the round-trip recipe's property retype step, so the exact 35/77/78 counts from qa-roundtrip scenario 4 were not reproduced or claimed — comparison engine itself is out of scope for T-4-08 and unaffected).
+
+Scenario 16 (main focus): pasted `br-pnp/lwef-welcome-flow.json` (had to type into the textarea via `computer.type`, not `form_input` — the latter mis-serializes a JSON-shaped string as `[object Object]`, worth noting for future browser-driven QA) on Use case templates; preview one `create` LWEF-WELCOME-FLOW, zero warnings; applied; detail shows the Bloomreach documentation link, the callout quote, four prerequisite bullets (email integration, tracking-prerequisites text, main catalog x2), four expected assets (campaign_design/recommendation_engine/dashboard/email_block), tags KPI cltv/retention_rate/purchase_frequency, tier essentials, flag popular, 11 default requirements matching D-59 (purchase[O], purchase_item.product_id[O], purchase_item.purchase_status[O], 5x catalog_attribute[O], consent newsletter[O], purchase.total_price[O], purchase_item event[O]); the "Prerequisites (for the current project)" card groups (Events/Customer properties/Catalog/Consents) match `use-case-requirements.md`'s Events/Customer properties/Catalogs/Consents sections. Instantiated on the fixture project: use case created with 1 gap (purchase_item.purchase_status, correctly unresolved since the fixture maps purchase_status on `purchase`, not `purchase_item`), `documentation_url` copied from the template.
+
+Re-import idempotency (raw file, real curly-quote callout, via a Node script hitting the API directly — the UI paste path is confirmed equivalent, same service): re-preview after apply -> `unchanged`. Set `internal_notes`/`internal_url` on both the use case and the template (secrets `SECRET-QA-T408-NOTE`, `SECRET-TPL-NOTE`); re-preview of the raw pnp doc still `unchanged` (D-59 amendment 3: user-owned fields never proposed as a diff on update) and the secrets survived untouched. `tracking-document.json` and `documentation.html` (saved under `.claude/team/reports/qa/T-4-08/`) both contain the `welcome-flow` documentation URL and zero occurrences of either secret string. `PATCH .../use-cases/:id {internal_notes: 123}` -> 400 `VALIDATION_ERROR`.
+
+Full seed (`use-case-library-ucc.json`, worktree copy, 99 templates — note the main-tree copy at the same path is stale at 86 templates and missing LWEF, a leftover from before this task merged; used the worktree's own copy): preview 97 create + 1 unchanged (LWEF) + 1 update (one of the 86 stale-file templates I'd accidentally applied first differed by a trimmed-whitespace field — an artifact of my own mis-step, not a product bug); applied (98); re-preview all 99 `unchanged`. Facet filters render the aligned vocabularies (tier `loomi_ai`, KPI `retention_rate`, channel `weblayers` all present in the filter chip lists).
+
+Malformed pnp docs: `requirements: "nope"` -> 200 with warning `"...requirements must be an array; treated as empty."`; `requirements: [null]` -> 200 with warning `"...requirements[0] must be an object; skipped."` Neither ever 500s or renders an error page.
+
+MCP smoke (app fully stopped, both ports free, spawned `tsx src/mcp/server.ts` directly against `data/qa-t408.sqlite`): `list_use_case_templates` lists `LWEF-WELCOME-FLOW` and does not leak `SECRET-TPL-NOTE`; `get_use_case` (`use_case: 'LWEF-WELCOME-FLOW'`) returns `documentation_url` and leaks neither secret nor `internal_url`.
+
+Regression: Use cases page lists all 187 templates plus the new use case with no console error beyond Vite HMR `WebSocket connection ... failed` noise (expected — non-standard port) and one pre-existing `value prop should not be null` React warning present on first load before any T-4-08 interaction (not a T-4-08 regression); Requirements matrix, `export/tracking-document.json`, `export/documentation.html` all 200; zero supabase requests.
+
+Verdict: PASS. Both servers stopped at the end (`taskkill` on the API and Vite PIDs); `netstat` confirms no LISTENING socket on 3001 or 3010 (TIME_WAIT only).
+
+Per-scenario table:
+| # | Scenario | Result |
+|---|---|---|
+| 1 | Fixture chain + catalog + consents | PASS (imports/catalog/consents applied, comparison runs clean; exact finding counts not re-verified, out of T-4-08 scope) |
+| 16 | LWEF paste -> preview -> apply -> detail -> instantiate | PASS |
+| 3 | Full 99-template seed import + facets + re-paste unchanged | PASS |
+| 4 | Instantiate + internal-notes protection + re-import unchanged + doc export leak checks | PASS |
+| 5 | Malformed pnp (string requirements, null item) | PASS |
+| 6 | PATCH internal_notes non-string -> 400 | PASS |
+| 7 | MCP with app stopped (list/get, no leaks) | PASS |
+| 8 | Regression (Use cases, Requirements matrix, exports, console, network) | PASS |
+
+Artifacts saved: `.claude/team/reports/qa/T-4-08/lwef-welcome-flow-preview.json`, `tracking-document.json`, `documentation.html`.

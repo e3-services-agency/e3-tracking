@@ -2167,3 +2167,6 @@ Verdict: PASS. Both defects that caused the 12:43 FAIL (scenario 11 step 6 not r
 
 ### 2026-09-28 13:01 | supervisor | REPORT | Phase 3 exit PASS
 qa-tester PASS (13:00) after the docs corrections: scenarios 1-11 pass, MCP smoke with 19 tools passes, automated gates green (1178 tests, tsc, build, lint, sweep grep empty). One-count baseline variance recorded as a follow-up. Phase 3 complete on agent-setup at 8369fcf. Per D-43 amendment 2 the supervisor stops here for the phase 4 review with the user (T-4-00 property definitions D-58, T-4-01 share token D-48, T-4-02 comments D-49, T-4-03 shared view D-50, T-4-04 comments in both views, T-4-06 activation and assets D-56, T-4-05 docs, T-4-EXIT).
+
+### 2026-09-28 13:13 | supervisor | STATUS | Phase 4 approved, started
+User reviewed the phase 4 plan and skipped the manual fixture walkthrough in favour of a review on real client data after phase 4. Phase 4 runs unattended to T-4-EXIT (D-43). T-4-EXIT additionally produces samples/fixture-project-backup.json (a loaded fixture project for one-step restore) and the exit report includes a review script for a real client. T-4-00 starts.

@@ -1829,3 +1829,6 @@ No error-severity findings. Verdict: **PASS**. Artifacts saved under `.claude/te
 | 5 | MCP | PASS | 16 tools; update/delete_observation and delete_qa_run each return a comparison summary; bad body -> isError; state consistent after app restart. |
 | 6 | Identity codegen dedupe | PASS | One `identify` call, transformations unioned. |
 | 7 | Regression | PASS | No 500s, no unexpected console errors, zero supabase requests. |
+
+### 2026-09-28 02:17 | supervisor | STATUS | T-3-07 DONE
+qa-tester PASS (02:16). Merged (keep-both in errors.ts); tests and tsc re-run on the merged tree.

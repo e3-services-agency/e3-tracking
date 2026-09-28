@@ -36,13 +36,16 @@ import { BACKUP_FORMAT, BACKUP_VERSION } from '../../domain/enums';
 
 type Row = Record<string, unknown>;
 
-function tableExists(name: string): boolean {
+/** Exported for reuse by `backupRestore.service.ts` (T-3-05): a restore drops any column a row
+ *  carries that the *current* live schema no longer has, which needs this same schema-introspection
+ *  helper rather than a hard-coded column list. */
+export function tableExists(name: string): boolean {
   return !!getDb()
     .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
     .get(name);
 }
 
-function tableColumns(table: string): string[] {
+export function tableColumns(table: string): string[] {
   return (getDb().prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name);
 }
 

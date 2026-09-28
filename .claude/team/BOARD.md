@@ -2585,3 +2585,6 @@ Scenarios 1-4, 6-8 PASS (zero leakage in shared JSON, HTML and DOM; revoke, java
 
 ### 2026-09-28 23:23 | supervisor | HANDOFF | T-4-09 fix round (d7159dc) — RE-REVIEW
 Tests 1403/0 (119 files), tsc, build, lint green. E1: Clients.tsx and SandboxSection use useProjectShell() projects/fetchProjects; deleting the active sandbox moves the shell to a surviving project or clears it. W1: stripSandboxDecoration before slugify, keys sandbox-acme-eu, -2, -3 (tests). W2: sandbox share block shows a plain sentence and a confirm-then-force Generate/Rotate. W3: ConfigError -> 500 CONFIG_ERROR (routeErrors.test.ts). I2: bulk delete checks res.ok per request, keeps failed ids selected, reports failures.
+
+### 2026-09-28 23:29 | reviewer | REVIEW | T-4-09 re-review PASS (d7159dc)
+1403 tests / 119 files, tsc, build, lint green; merge-tree against agent-setup clean. Real restore of the committed backup: keys sandbox-acme-eu, -2, -3; 'My sandbox' -> sandbox-my; zero warnings. E1 shell-shared project list and delete-active handling traced end to end; W1, W2 (confirm-then-force, force in body), W3 (CONFIG_ERROR), I2 verified. Open informational notes I1, I3, I4, I5, I6, W4 unchanged (backlog / T-4-EXIT). T-4-09 -> QA.

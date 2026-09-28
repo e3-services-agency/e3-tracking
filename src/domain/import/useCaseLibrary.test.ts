@@ -12,6 +12,9 @@ import { parseUseCaseLibrary } from './useCaseLibrary';
 const fixturePath = path.resolve(__dirname, '../../../.claude/team/samples/use-case-library-sample.json');
 const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf-8'));
 
+const uccFixturePath = path.resolve(__dirname, '../../../.claude/team/samples/use-case-library-ucc.json');
+const uccFixture = JSON.parse(fs.readFileSync(uccFixturePath, 'utf-8'));
+
 describe('parseUseCaseLibrary', () => {
   it('parses the sample library with no warnings and three templates', () => {
     const model = parseUseCaseLibrary(fixture);
@@ -182,5 +185,24 @@ describe('parseUseCaseLibrary', () => {
     });
     expect(model.templates[0].tags.channels).toEqual(['carrier_pigeon']);
     expect(model.warnings.some((w) => w.includes('carrier_pigeon'))).toBe(true);
+  });
+
+  it('parses the Use Case Center library (T-4-07) with no warnings, unique codes and exactly 86 templates', () => {
+    const model = parseUseCaseLibrary(uccFixture);
+    expect(model.warnings).toEqual([]);
+    expect(model.templates.length).toBe(86);
+    const codes = model.templates.map((t) => t.code);
+    expect(new Set(codes).size).toBe(codes.length);
+    expect(codes.every((c) => /^UCC-(email|web|omni|mobile|paid|analytics)-\d{2}$/.test(c))).toBe(true);
+  });
+
+  it('every variant/variant_property row in the Use Case Center library carries a condition (T-4-07 final fix)', () => {
+    const model = parseUseCaseLibrary(uccFixture);
+    const variantRowsWithoutCondition = model.templates.flatMap((t) =>
+      t.default_requirements
+        .filter((r) => (r.target_kind === 'variant' || r.target_kind === 'variant_property') && !r.condition)
+        .map((r) => `${t.code}:${r.target_kind}:${r.standard_event ?? r.event_name}`)
+    );
+    expect(variantRowsWithoutCondition).toEqual([]);
   });
 });

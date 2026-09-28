@@ -51,13 +51,13 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-4-01 | 4 | Share token: migration, DAL and service, requireShare middleware, public document/HTML/file routes, Settings share block | implementer | T-4-00 | DONE | see below |
 | T-4-02 | 4 | Comments model: migration, DAL, internal API, requirement id stability, Comments page | implementer | T-4-00 | DONE | see below |
 | T-4-03 | 4 | Shared documentation view reusing the event card renderer; EventCard triggers; public frontend route | implementer | T-4-01 | DONE | see below |
-| T-4-04 | 4 | Comments in both views: shared comment routes, CommentsPanel on events, properties, use cases, requirements, shared view forms with access gating | implementer | T-4-02, T-4-03 | QA | see below |
-| T-4-05 | 4 | Docs refresh: docs/SHARING.md, CLAUDE.md, docs/QA-LOCAL.md, qa-roundtrip scenarios 12, 13 and 14 text | docs-writer | T-4-04, T-4-06 | IN_PROGRESS | see below |
+| T-4-04 | 4 | Comments in both views: shared comment routes, CommentsPanel on events, properties, use cases, requirements, shared view forms with access gating | implementer | T-4-02, T-4-03 | DONE | see below |
+| T-4-05 | 4 | Docs refresh: docs/SHARING.md, CLAUDE.md, docs/QA-LOCAL.md, qa-roundtrip scenarios 12, 13 and 14 text | docs-writer | T-4-04, T-4-06 | DONE | see below |
 | T-4-06 | 4 | Use case activation status and Bloomreach asset links (D-56): migration 0020, DAL, routes, use case page section, Activation page with readiness warning, docs HTML, shared view, backup and CSV columns; initiative export import if samples/bloomreach-initiative-export.json exists | implementer | T-4-03 | TODO | see below |
 | T-4-07 | 4 | Use case library extension: templates for the Use Case Center catalog from samples/br-docs (second library file, tags, prerequisites per D-55/D-57), parser-validated, imported in T-4-EXIT | implementer | T-3-EXIT | IN_PROGRESS | see below |
 | T-4-08 | 4 | Use Case Center template import (D-59): pnpUseCase converter, vocabulary alignment, templates page accepts pnp JSON, generated seed from samples/br-pnp replacing hand-authored duplicates, docs/LIBRARY.md regenerated | implementer | T-4-07 | DONE | see below |
 | T-4-09 | 4 | Getting started: project checklist computed from data, empty states with next step on every page, in-app Help page rendering the docs, glossary tooltips from one glossary file | implementer | T-4-04 | DONE | see below |
-| T-4-EXIT | 4 | Phase 4 exit: qa-roundtrip 1 to 13 plus MCP smoke on merged agent-setup, report to user | supervisor | T-4-05 | TODO | see below |
+| T-4-EXIT | 4 | Phase 4 exit: qa-roundtrip 1 to 13 plus MCP smoke on merged agent-setup, report to user | supervisor | T-4-05 | IN_PROGRESS | see below |
 
 Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktrees after T-1-02 merges. Everything else is sequential per the dependency column.
 

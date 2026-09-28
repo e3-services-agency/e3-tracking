@@ -72,4 +72,25 @@ describe('sandbox.service: createSandboxProject (D-60)', () => {
     const second = await createSandboxProject({});
     expect(first.project.key).not.toBe(second.project.key);
   });
+
+  // W1 fix round (reviewer FAIL 2026-09-28): the key used to come out as
+  // `sandbox-sandbox-acme-eu-sandbox` (the word "sandbox" baked into the slug twice, once from a
+  // "Sandbox: " prefix on the backup's own project name and once from this service's own
+  // " (sandbox)" display-name suffix, on top of `nextSandboxKey`'s `sandbox-` prefix). The fixture
+  // backup's project is named "Acme source" (no "sandbox" substring), so the key must be exactly
+  // `sandbox-acme-source`, then `sandbox-acme-source-2` on a second create -- never a duplicated
+  // "sandbox" anywhere in the slug.
+  it('builds the key as sandbox-<slug of the backup project name>, with no duplicated prefix or suffix', async () => {
+    const first = await createSandboxProject({});
+    expect(first.project.key).toBe('sandbox-acme-source');
+    const second = await createSandboxProject({});
+    expect(second.project.key).toBe('sandbox-acme-source-2');
+    const third = await createSandboxProject({});
+    expect(third.project.key).toBe('sandbox-acme-source-3');
+  });
+
+  it('strips a trailing "sandbox" word from an explicit name before slugifying, so the key never doubles it', async () => {
+    const { project } = await createSandboxProject({ name: 'My sandbox' });
+    expect(project.key).toBe('sandbox-my');
+  });
 });

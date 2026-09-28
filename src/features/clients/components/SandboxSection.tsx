@@ -7,6 +7,7 @@ import { Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
+import { useStore } from '@/src/store';
 import type { ProjectItem } from '@/src/features/projects/hooks/useProjects';
 
 async function parseJson(res: Response): Promise<any> {
@@ -15,11 +16,17 @@ async function parseJson(res: Response): Promise<any> {
 
 export function SandboxSection({
   projects,
+  activeProjectId,
   onChanged,
 }: {
   projects: ProjectItem[];
+  /** So a bulk-delete that removes the currently active project can move the shell somewhere valid
+   * instead of leaving every later call 404ing (E1 fix round). */
+  activeProjectId: string;
   onChanged: () => void;
 }) {
+  const setActiveProject = useStore((s) => s.setActiveProject);
+  const clearActiveProject = useStore((s) => s.clearActiveProject);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -62,10 +69,42 @@ export function SandboxSection({
     setDeleting(true);
     setError(null);
     try {
-      for (const id of selected) {
-        await fetchWithAuth(`${API_BASE}/api/projects/${id}`, { method: 'DELETE' });
+      const ids = Array.from(selected);
+      // I2 fix round: check `res.ok` per request instead of assuming every delete succeeded --
+      // a 404/409 on one project must not be reported as a clean bulk delete.
+      const results = await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const res = await fetchWithAuth(`${API_BASE}/api/projects/${id}`, { method: 'DELETE' });
+            return { id, ok: res.ok, status: res.status };
+          } catch {
+            return { id, ok: false, status: 0 };
+          }
+        })
+      );
+      const failed = results.filter((r) => !r.ok);
+      const deletedIds = new Set(results.filter((r) => r.ok).map((r) => r.id));
+
+      // E1 fix round: if the active project was just deleted, move the shell to another surviving
+      // project (any one) or, when none remain, clear it so the shell shows the "select/create a
+      // project" gate instead of every subsequent call 404ing against a dead id.
+      if (deletedIds.has(activeProjectId)) {
+        const survivor = projects.find((p) => p.id !== activeProjectId && !deletedIds.has(p.id));
+        if (survivor) {
+          setActiveProject({ id: survivor.id, key: survivor.key ?? null });
+        } else {
+          clearActiveProject();
+        }
       }
-      setSelected(new Set());
+
+      setSelected(new Set(failed.map((f) => f.id)));
+      if (failed.length > 0) {
+        setError(
+          `Failed to delete ${failed.length} of ${ids.length} sandbox project(s) (status ${failed
+            .map((f) => f.status)
+            .join(', ')}).`
+        );
+      }
       onChanged();
     } finally {
       setDeleting(false);

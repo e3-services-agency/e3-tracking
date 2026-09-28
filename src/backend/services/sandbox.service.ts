@@ -56,6 +56,22 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, '') || 'project';
 }
 
+/**
+ * W1 fix round (reviewer FAIL): the key used to be built as `sandbox-${slugify(name)}` where `name`
+ * already had "Sandbox: " prepended (the bundled backup's own project name) and " (sandbox)"
+ * appended (this service's display-name decoration), so `slugify` baked the word "sandbox" into the
+ * slug itself and `nextSandboxKey`'s own `sandbox-` prefix duplicated it a second time (observed:
+ * `sandbox-sandbox-acme-eu-sandbox`). Stripping a leading "sandbox:"/"sandbox " and a trailing
+ * "(sandbox)"/" sandbox" from whichever name feeds the slug keeps the key to a single, clean
+ * `sandbox-<slug>` (e.g. `sandbox-acme-eu`), whatever decoration the display name carries.
+ */
+function stripSandboxDecoration(value: string): string {
+  return value
+    .replace(/^\s*sandbox\s*[:\-]\s*/i, '')
+    .replace(/\s*[\(\-]?\s*sandbox\s*\)?\s*$/i, '')
+    .trim();
+}
+
 /** Finds or creates the auto "Sandboxes" client used when the caller gives no `client_id`. */
 function getOrCreateSandboxesClient(): ClientDAL.ClientRow {
   const existing = ClientDAL.listClients().find((c) => c.key === SANDBOX_CLIENT_KEY);
@@ -98,7 +114,8 @@ export async function createSandboxProject(input: CreateSandboxInput): Promise<C
       : 'Sandbox';
   const name = input.name?.trim() || `${backupName} (sandbox)`;
   if (!name) throw new ValidationError('name must not be blank.', 'name');
-  const key = nextSandboxKey(slugify(name));
+  const slugSource = stripSandboxDecoration(input.name?.trim() || backupName) || 'project';
+  const key = nextSandboxKey(slugify(slugSource));
 
   const { project, warnings } = await applyRestore(backup, payloadHash(backup), {
     name,

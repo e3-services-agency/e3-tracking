@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 import { useClients, type ClientRow } from '@/src/features/clients/hooks/useClients';
-import { useProjects } from '@/src/features/projects/hooks/useProjects';
+import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { RestoreBackupForm } from '@/src/features/clients/components/RestoreBackupForm';
@@ -13,7 +13,11 @@ import { NewProjectModal } from '@/src/features/projects/components/NewProjectMo
 
 export function Clients() {
   const { clients, isLoading, error, createClient, updateClient, deleteClient } = useClients();
-  const { projects, fetchProjects } = useProjects();
+  // E1 fix round (reviewer FAIL): Clients.tsx used to hold its own `useProjects()` instance, so a
+  // sandbox created (or deleted) here never reached `ProjectSwitcher`/`Layout` (each reads the one
+  // `ProjectShellProvider` instance) until a full reload. Reading the shell's own `projects`/
+  // `fetchProjects` keeps every consumer of the project list in sync from one fetch.
+  const { projects, fetchProjects, activeProjectId } = useProjectShell();
   const [editing, setEditing] = useState<ClientRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [newProjectModalOpen, setNewProjectModalOpen] = useState(false);
@@ -102,7 +106,7 @@ export function Clients() {
           />
         )}
 
-        <SandboxSection projects={projects} onChanged={fetchProjects} />
+        <SandboxSection projects={projects} activeProjectId={activeProjectId} onChanged={fetchProjects} />
 
         <RestoreBackupForm clients={clients} />
       </div>

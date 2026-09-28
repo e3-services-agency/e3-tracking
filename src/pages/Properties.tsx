@@ -24,6 +24,7 @@ import { STANDARD_CUSTOMER_PROPERTIES, type StandardEventSeed } from '@/src/doma
 import { AllowedValuesEditor, type AllowedValueRow } from '@/src/features/properties/components/AllowedValuesEditor';
 import { ItemSchemaEditor, type ItemSchemaFieldRow } from '@/src/features/properties/components/ItemSchemaEditor';
 import { mergeFrozenOrder } from '@/src/domain/propertyOrder';
+import { HistorySection } from '@/src/features/history/HistorySection';
 
 interface PropertyRow {
   id: string;
@@ -417,6 +418,10 @@ function PropertyEditor({
       )}
 
       {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{saveError}</div>}
+
+      {!isCreating && property && (
+        <HistorySection projectId={projectId} entityType="property" entityId={property.id} />
+      )}
 
       <div className="pt-6 border-t flex justify-between">
         {!isCreating && property ? (

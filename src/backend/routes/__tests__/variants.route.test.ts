@@ -114,6 +114,46 @@ describe('POST /api/projects/:projectId/events/:id/variants', () => {
   });
 });
 
+// D-52 / T-2-05 follow-up (T-3-07): DELETE /events/:id/variants/:variantId refuses a variant a
+// standard event mapping still targets, unless ?force=true.
+describe('DELETE /api/projects/:projectId/events/:id/variants/:variantId (D-52 MAPPING_IN_USE)', () => {
+  it('returns 409 MAPPING_IN_USE when a standard event mapping still targets the variant, then 204 with ?force=true clears the mapping instead', async () => {
+    const variantRes = await fetch(`${baseUrl}/api/projects/${projectId}/events/${eventId}/variants`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conditions: [{ property_id: actionPropertyId, operator: 'in', values: ['add', 'remove'] }] }),
+    });
+    expect(variantRes.status).toBe(201);
+    const variant = await variantRes.json();
+
+    const mappingRes = await fetch(`${baseUrl}/api/projects/${projectId}/standard-event-mappings/add_to_cart`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_id: eventId, variant_id: variant.id }),
+    });
+    expect(mappingRes.status).toBe(200);
+
+    const refused = await fetch(`${baseUrl}/api/projects/${projectId}/events/${eventId}/variants/${variant.id}`, {
+      method: 'DELETE',
+    });
+    expect(refused.status).toBe(409);
+    const refusedBody = await refused.json();
+    expect(refusedBody.code).toBe('MAPPING_IN_USE');
+    expect(refusedBody.error).toContain('add_to_cart');
+
+    const forced = await fetch(`${baseUrl}/api/projects/${projectId}/events/${eventId}/variants/${variant.id}?force=true`, {
+      method: 'DELETE',
+    });
+    expect(forced.status).toBe(204);
+
+    const mappingListRes = await fetch(`${baseUrl}/api/projects/${projectId}/standard-event-mappings`);
+    const mappingList = await mappingListRes.json();
+    const cleared = mappingList.find((m: { standard_event: string }) => m.standard_event === 'add_to_cart');
+    expect(cleared).toBeTruthy();
+    expect(cleared.variant_id).toBeNull();
+  });
+});
+
 describe('PUT /api/projects/:projectId/standard-event-mappings/:standardEvent', () => {
   it('creates a mapping to a seed standard event', async () => {
     const res = await fetch(`${baseUrl}/api/projects/${projectId}/standard-event-mappings/checkout`, {

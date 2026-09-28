@@ -8,6 +8,7 @@ import { NotFoundError, ValidationError } from '../errors';
 import { CATALOG_MAPPING_ROLES } from '../../domain/enums';
 import { CATALOG_MAIN_COLUMNS } from '../../domain/bloomreach';
 import { markRequirementsGapForCatalogFieldRemoval } from './requirement.dal';
+import * as ChangeLogDAL from './change-log.dal';
 
 /** `mapping_role` (T-1-06 delta): `null` clears the role; any other value must be a known one. */
 function validateMappingRole(mappingRole: string | null | undefined): void {
@@ -132,40 +133,53 @@ export function createCatalog(projectId: string, input: CatalogInput): CatalogRo
   validateMappingRole(input.mapping_role);
   const id = newId();
   const now = nowIso();
-  try {
-    getDb()
-      .prepare(
+  const db = getDb();
+  const run = db.transaction(() => {
+    try {
+      db.prepare(
         `INSERT INTO catalogs (
           id, project_id, name, description, owner, source_system, sync_method, update_frequency,
           catalog_type, mapping_role, client_name, purpose, priority, status, created_at, updated_at, deleted_at
         ) VALUES (@id, @project_id, @name, @description, @owner, @source_system, @sync_method, @update_frequency,
           @catalog_type, @mapping_role, @client_name, @purpose, @priority, @status, @created_at, @updated_at, NULL)`
       )
-      .run({
-        id,
-        project_id: projectId,
-        name,
-        description: input.description?.trim() || null,
-        owner: input.owner?.trim() || null,
-        source_system: input.source_system?.trim() || null,
-        sync_method: input.sync_method?.trim() || null,
-        update_frequency: input.update_frequency?.trim() || null,
-        catalog_type: input.catalog_type ?? null,
-        mapping_role: input.mapping_role ?? null,
-        client_name: input.client_name?.trim() || null,
-        purpose: input.purpose?.trim() || null,
-        priority: input.priority ?? null,
-        status: input.status ?? null,
-        created_at: now,
-        updated_at: now,
-      });
-  } catch (err) {
-    mapWriteError(
-      err,
-      'Another catalog already has this mapping role in the project.',
-      `Failed to create catalog: ${(err as Error).message}`
-    );
-  }
+        .run({
+          id,
+          project_id: projectId,
+          name,
+          description: input.description?.trim() || null,
+          owner: input.owner?.trim() || null,
+          source_system: input.source_system?.trim() || null,
+          sync_method: input.sync_method?.trim() || null,
+          update_frequency: input.update_frequency?.trim() || null,
+          catalog_type: input.catalog_type ?? null,
+          mapping_role: input.mapping_role ?? null,
+          client_name: input.client_name?.trim() || null,
+          purpose: input.purpose?.trim() || null,
+          priority: input.priority ?? null,
+          status: input.status ?? null,
+          created_at: now,
+          updated_at: now,
+        });
+    } catch (err) {
+      mapWriteError(
+        err,
+        'Another catalog already has this mapping role in the project.',
+        `Failed to create catalog: ${(err as Error).message}`
+      );
+    }
+    const created = getCatalogOrThrow(projectId, id);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'catalog',
+      entityId: id,
+      entityLabel: created.name,
+      action: 'create',
+      before: null,
+      after: created as unknown as Record<string, unknown>,
+    });
+  });
+  run();
   return getCatalogOrThrow(projectId, id);
 }
 
@@ -174,7 +188,7 @@ export function updateCatalog(
   catalogId: string,
   input: Partial<CatalogInput>
 ): CatalogRow {
-  getCatalogOrThrow(projectId, catalogId);
+  const before = getCatalogOrThrow(projectId, catalogId);
   if (input.name !== undefined && !input.name.trim()) {
     throw new ValidationError('Catalog name is required.', 'name');
   }
@@ -196,26 +210,51 @@ export function updateCatalog(
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
     .join(', ');
-  try {
-    getDb()
-      .prepare(`UPDATE catalogs SET ${setClause} WHERE id = @id AND project_id = @project_id`)
-      .run({ ...patch, id: catalogId, project_id: projectId });
-  } catch (err) {
-    mapWriteError(
-      err,
-      'Another catalog already has this mapping role in the project.',
-      `Failed to update catalog: ${(err as Error).message}`
-    );
-  }
+  const db = getDb();
+  const run = db.transaction(() => {
+    try {
+      db.prepare(`UPDATE catalogs SET ${setClause} WHERE id = @id AND project_id = @project_id`)
+        .run({ ...patch, id: catalogId, project_id: projectId });
+    } catch (err) {
+      mapWriteError(
+        err,
+        'Another catalog already has this mapping role in the project.',
+        `Failed to update catalog: ${(err as Error).message}`
+      );
+    }
+    const after = getCatalogOrThrow(projectId, catalogId);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'catalog',
+      entityId: catalogId,
+      entityLabel: after.name,
+      action: 'update',
+      before: before as unknown as Record<string, unknown>,
+      after: after as unknown as Record<string, unknown>,
+    });
+  });
+  run();
   return getCatalogOrThrow(projectId, catalogId);
 }
 
 export function deleteCatalog(projectId: string, catalogId: string): void {
-  getCatalogOrThrow(projectId, catalogId);
+  const existing = getCatalogOrThrow(projectId, catalogId);
   const now = nowIso();
-  getDb()
-    .prepare('UPDATE catalogs SET deleted_at = ?, updated_at = ? WHERE id = ? AND project_id = ?')
-    .run(now, now, catalogId, projectId);
+  const db = getDb();
+  const run = db.transaction(() => {
+    db.prepare('UPDATE catalogs SET deleted_at = ?, updated_at = ? WHERE id = ? AND project_id = ?')
+      .run(now, now, catalogId, projectId);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'catalog',
+      entityId: catalogId,
+      entityLabel: existing.name,
+      action: 'delete',
+      before: existing as unknown as Record<string, unknown>,
+      after: null,
+    });
+  });
+  run();
 }
 
 // ----- Catalog fields -----
@@ -250,15 +289,16 @@ export function createCatalogField(
   catalogId: string,
   input: CatalogFieldInput
 ): CatalogFieldRow {
-  getCatalogOrThrow(projectId, catalogId);
+  const catalog = getCatalogOrThrow(projectId, catalogId);
   const name = input.name.trim();
   if (!name) throw new ValidationError('Catalog field name is required.', 'name');
   validateBloomreachColumn(input.bloomreach_column);
   const id = newId();
   const now = nowIso();
-  try {
-    getDb()
-      .prepare(
+  const db = getDb();
+  const run = db.transaction(() => {
+    try {
+      db.prepare(
         `INSERT INTO catalog_fields (
           id, catalog_id, name, description, data_type, is_lookup_key, is_searchable, is_required,
           client_field_name, bloomreach_column, purpose, priority, status, field_family, item_level,
@@ -267,33 +307,47 @@ export function createCatalogField(
           @is_required, @client_field_name, @bloomreach_column, @purpose, @priority, @status,
           @field_family, @item_level, @source_mapping_json, @created_at, @updated_at)`
       )
-      .run({
-        id,
-        catalog_id: catalogId,
-        name,
-        description: input.description?.trim() || null,
-        data_type: input.data_type ?? 'string',
-        is_lookup_key: toSqliteBool(input.is_lookup_key),
-        is_searchable: toSqliteBool(input.is_searchable),
-        is_required: toSqliteBool(input.is_required),
-        client_field_name: input.client_field_name?.trim() || null,
-        bloomreach_column: input.bloomreach_column ?? null,
-        purpose: input.purpose?.trim() || null,
-        priority: input.priority ?? null,
-        status: input.status ?? null,
-        field_family: input.field_family ?? 'custom',
-        item_level: input.item_level ?? 'general',
-        source_mapping_json: input.source_mapping_json ? JSON.stringify(input.source_mapping_json) : null,
-        created_at: now,
-        updated_at: now,
-      });
-  } catch (err) {
-    mapWriteError(
-      err,
-      `A field named "${name}" already exists in this catalog.`,
-      `Failed to create catalog field: ${(err as Error).message}`
-    );
-  }
+        .run({
+          id,
+          catalog_id: catalogId,
+          name,
+          description: input.description?.trim() || null,
+          data_type: input.data_type ?? 'string',
+          is_lookup_key: toSqliteBool(input.is_lookup_key),
+          is_searchable: toSqliteBool(input.is_searchable),
+          is_required: toSqliteBool(input.is_required),
+          client_field_name: input.client_field_name?.trim() || null,
+          bloomreach_column: input.bloomreach_column ?? null,
+          purpose: input.purpose?.trim() || null,
+          priority: input.priority ?? null,
+          status: input.status ?? null,
+          field_family: input.field_family ?? 'custom',
+          item_level: input.item_level ?? 'general',
+          source_mapping_json: input.source_mapping_json ? JSON.stringify(input.source_mapping_json) : null,
+          created_at: now,
+          updated_at: now,
+        });
+    } catch (err) {
+      mapWriteError(
+        err,
+        `A field named "${name}" already exists in this catalog.`,
+        `Failed to create catalog field: ${(err as Error).message}`
+      );
+    }
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'catalog_field',
+      entityId: id,
+      entityLabel: `${catalog.name}.${name}`,
+      parentEntityId: catalogId,
+      action: 'create',
+      before: null,
+      after: mapCatalogFieldRow(
+        db.prepare('SELECT * FROM catalog_fields WHERE id = ?').get(id) as Record<string, unknown>
+      ) as unknown as Record<string, unknown>,
+    });
+  });
+  run();
   const row = getDb().prepare('SELECT * FROM catalog_fields WHERE id = ?').get(id) as Record<
     string,
     unknown
@@ -307,7 +361,13 @@ export function updateCatalogField(
   fieldId: string,
   input: Partial<CatalogFieldInput>
 ): CatalogFieldRow {
-  getCatalogOrThrow(projectId, catalogId);
+  const catalog = getCatalogOrThrow(projectId, catalogId);
+  const beforeRow = getDb().prepare('SELECT * FROM catalog_fields WHERE id = ? AND catalog_id = ?').get(
+    fieldId,
+    catalogId
+  ) as Record<string, unknown> | undefined;
+  if (!beforeRow) throw new NotFoundError('Catalog field not found.', 'catalog_field');
+  const before = mapCatalogFieldRow(beforeRow);
   if (input.name !== undefined && !input.name.trim()) {
     throw new ValidationError('Catalog field name is required.', 'name');
   }
@@ -335,19 +395,36 @@ export function updateCatalogField(
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
     .join(', ');
-  let result: { changes: number };
-  try {
-    result = getDb()
-      .prepare(`UPDATE catalog_fields SET ${setClause} WHERE id = @id AND catalog_id = @catalog_id`)
-      .run({ ...patch, id: fieldId, catalog_id: catalogId });
-  } catch (err) {
-    mapWriteError(
-      err,
-      `A field named "${String(patch.name ?? '')}" already exists in this catalog.`,
-      `Failed to update catalog field: ${(err as Error).message}`
+  const db = getDb();
+  const run = db.transaction(() => {
+    let result: { changes: number };
+    try {
+      result = db
+        .prepare(`UPDATE catalog_fields SET ${setClause} WHERE id = @id AND catalog_id = @catalog_id`)
+        .run({ ...patch, id: fieldId, catalog_id: catalogId });
+    } catch (err) {
+      mapWriteError(
+        err,
+        `A field named "${String(patch.name ?? '')}" already exists in this catalog.`,
+        `Failed to update catalog field: ${(err as Error).message}`
+      );
+    }
+    if (result.changes === 0) throw new NotFoundError('Catalog field not found.', 'catalog_field');
+    const after = mapCatalogFieldRow(
+      db.prepare('SELECT * FROM catalog_fields WHERE id = ?').get(fieldId) as Record<string, unknown>
     );
-  }
-  if (result.changes === 0) throw new NotFoundError('Catalog field not found.', 'catalog_field');
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'catalog_field',
+      entityId: fieldId,
+      entityLabel: `${catalog.name}.${after.name}`,
+      parentEntityId: catalogId,
+      action: 'update',
+      before: before as unknown as Record<string, unknown>,
+      after: after as unknown as Record<string, unknown>,
+    });
+  });
+  run();
 
   const row = getDb().prepare('SELECT * FROM catalog_fields WHERE id = ?').get(fieldId) as Record<
     string,
@@ -357,20 +434,37 @@ export function updateCatalogField(
 }
 
 export function deleteCatalogField(projectId: string, catalogId: string, fieldId: string): void {
-  getCatalogOrThrow(projectId, catalogId);
-  const field = getDb()
-    .prepare('SELECT name FROM catalog_fields WHERE id = ? AND catalog_id = ?')
-    .get(fieldId, catalogId) as { name: string } | undefined;
-  if (!field) throw new NotFoundError('Catalog field not found.', 'catalog_field');
-  // T-3-10 (D-57): mirrors the property/event/variant gap-marking on removal (requirement.dal.ts's
-  // `markRequirementsGap*`) for the new `catalog_attribute` requirement target kind -- the FK itself
-  // is `ON DELETE SET NULL` (0017), but only this call also flips `status` to `gap` and appends a
-  // "target removed" note.
-  markRequirementsGapForCatalogFieldRemoval(fieldId, field.name);
-  const result = getDb()
-    .prepare('DELETE FROM catalog_fields WHERE id = ? AND catalog_id = ?')
-    .run(fieldId, catalogId);
-  if (result.changes === 0) throw new NotFoundError('Catalog field not found.', 'catalog_field');
+  const catalog = getCatalogOrThrow(projectId, catalogId);
+  const db = getDb();
+  const beforeRow = db.prepare('SELECT * FROM catalog_fields WHERE id = ? AND catalog_id = ?').get(
+    fieldId,
+    catalogId
+  ) as Record<string, unknown> | undefined;
+  if (!beforeRow) throw new NotFoundError('Catalog field not found.', 'catalog_field');
+  const before = mapCatalogFieldRow(beforeRow);
+  const run = db.transaction(() => {
+    // T-3-10 (D-57): mirrors the property/event/variant gap-marking on removal (requirement.dal.ts's
+    // `markRequirementsGap*`) for the new `catalog_attribute` requirement target kind -- the FK
+    // itself is `ON DELETE SET NULL` (0017), but only this call also flips `status` to `gap` and
+    // appends a "target removed" note. Runs inside the same transaction as the DELETE (merge note,
+    // T-3-02 review): before this it ran outside any transaction of its own.
+    markRequirementsGapForCatalogFieldRemoval(projectId, fieldId, before.name);
+    const result = db
+      .prepare('DELETE FROM catalog_fields WHERE id = ? AND catalog_id = ?')
+      .run(fieldId, catalogId);
+    if (result.changes === 0) throw new NotFoundError('Catalog field not found.', 'catalog_field');
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'catalog_field',
+      entityId: fieldId,
+      entityLabel: `${catalog.name}.${before.name}`,
+      parentEntityId: catalogId,
+      action: 'delete',
+      before: before as unknown as Record<string, unknown>,
+      after: null,
+    });
+  });
+  run();
 }
 
 /**

@@ -150,8 +150,8 @@ describe('computeRequirementsMatrix', () => {
     const useCaseA = UseCaseDAL.createUseCase(projectId, { name: 'A' });
     const useCaseB = UseCaseDAL.createUseCase(projectId, { name: 'B' });
     const sameNote = 'No event named "wishlist_add" in this project.';
-    insertUnresolvedRequirement(useCaseA.id, 0, { target_kind: 'event', level: 'R', note: sameNote });
-    insertUnresolvedRequirement(useCaseB.id, 0, { target_kind: 'event', level: 'R', note: sameNote });
+    insertUnresolvedRequirement(projectId, useCaseA.id, 0, { target_kind: 'event', level: 'R', note: sameNote });
+    insertUnresolvedRequirement(projectId, useCaseB.id, 0, { target_kind: 'event', level: 'R', note: sameNote });
 
     const matrix = computeRequirementsMatrix(projectId);
     const gapRows = matrix.rows.filter((r) => r.key.startsWith('gap:'));

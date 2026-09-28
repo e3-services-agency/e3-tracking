@@ -14,19 +14,28 @@ QA round without going through the web UI.
 - Database: the same `getDb()` singleton and migrations as the Express API (`src/backend/db/index.ts`),
   opened via `E3_DB_PATH` — point it at the same file as the running app (`./data/e3-tracking.sqlite`)
   to see the same projects, or at a scratch/`:memory:` path to experiment without touching your data.
-- Tools: fifteen, implemented as plain async handlers in `src/mcp/tools/*.ts` and registered in
+- Tools: nineteen, implemented as plain async handlers in `src/mcp/tools/*.ts` and registered in
   `src/mcp/registerTools.ts` (so a later HTTP transport can mount the same handlers without touching
   their logic): `list_projects`, `list_events`, `get_event_card`, `get_expected_payload`,
   `list_use_cases`, `get_use_case`, `list_findings`, `get_coverage_grid`, `get_tracking_document`,
-  `submit_observation`, `submit_observations_batch`, `finish_qa_run`, `run_comparison` — the plan
-  table's twelve (`PLAN-PHASE2-2026-09-25.md` lines ~205-225) plus `get_tracking_document`, which the
-  plan table did not originally list — plus `list_use_case_templates` and
-  `instantiate_use_case_template` (T-3-10, D-55): the global use case template library and its
-  instantiate/preview. `instantiate_use_case_template` takes `project_key?`, `template_code`,
+  `submit_observation`, `submit_observations_batch`, `finish_qa_run`, `run_comparison`,
+  `update_observation`, `delete_observation`, `delete_qa_run`, `list_use_case_templates`,
+  `instantiate_use_case_template`, `get_history` — the plan table's twelve
+  (`PLAN-PHASE2-2026-09-25.md` lines ~205-225) plus `get_tracking_document` (not in the plan table),
+  three QA evidence tools added in T-3-07 (D-52: each mirrors the matching REST route and is followed
+  by `run_comparison`), `list_use_case_templates`/`instantiate_use_case_template` (T-3-10, D-55: the
+  global use case template library and its instantiate/preview), and `get_history` (T-3-02, D-44:
+  read-only access to a project's `change_log`).
+  `instantiate_use_case_template` takes `project_key?`, `template_code`,
   `code?`, `mappings?` (`{index, event_id, variant_id?, property_id?}[]`, the mapping-step dialog's
   answers for unresolved standard-event targets, saved as standard event mappings before the
   requirements are created) and `dry_run?` (when true, returns the resolve preview -- `resolved`,
   `unresolved` with candidates, plus the templates page's `groups` -- without creating anything).
+- Actor attribution (T-3-02, D-44): every tool call runs inside `runWithActor({actor: <agent_name, if
+  the tool accepts one, else "MCP agent">, source: "mcp"})`, so a future write tool's `change_log`
+  rows are attributed to the calling agent automatically. Today's write tools
+  (`submit_observation`, `submit_observations_batch`, `finish_qa_run`) only touch QA evidence, which
+  D-44 excludes from `change_log`, so this has no visible effect yet.
 
 ## How Claude Code picks up `.mcp.json`
 
@@ -123,6 +132,15 @@ on an empty project too, just with fewer/no findings at the end.
    on `purchase`, not `cart_update` — call `get_expected_payload` for `{"event": "purchase"}` instead to
    see it, or attach a rule to `cart_update` by hand first (`src/mcp/tools/tools.test.ts` exercises the
    `rules`/`item_schemas` shape with a test-created event and rule).
+6. **`update_observation`/`delete_observation`/`delete_qa_run`** (D-52, T-3-07) — from `list_findings`,
+   pick an observation with a `type_mismatch` finding (e.g. `total_price` observed as the string `"28"`
+   on `cart_update`); call `update_observation` with `{"observation_id": "...", "properties":
+   {..., "total_price": 28}}`, expect the returned `comparison` summary's `resolved` count to include
+   that finding. `update_observation` with `properties` matching another observation already in the
+   same run instead returns `{"isError": true, "content": [{"type": "text", "text": "DUPLICATE_
+   OBSERVATION: ..."}]}`. `delete_observation` removes one row and recomputes; `delete_qa_run` removes
+   a whole run (cascading its observations) and recomputes — expect the findings that run's
+   observations used to produce to resolve.
 
 ## Verifying the process starts and answers `tools/list`
 
@@ -131,7 +149,7 @@ beyond the stderr line `[mcp] INFO e3-tracking MCP server ready on stdio`. To co
 without an MCP client, spawn it as a child process and speak minimal JSON-RPC over its stdin/stdout
 (this is exactly what `src/mcp/server.ts`'s own manual verification used, T-2-10): send an
 `initialize` request, then a `tools/list` request, and check the response's `result.tools.length` is
-`13` and every name in the "Tools" list above appears. Verify with the *exact* `.mcp.json` command on
+`17` and every name in the "Tools" list above appears. Verify with the *exact* `.mcp.json` command on
 your platform — on native Windows that means spawning `command: "cmd", args: ["/c", "npx", "tsx",
 "src/mcp/server.ts"]`, not a bare `npx` (`spawn('npx', ...)` without a shell fails with `ENOENT` there,
 since `npx` resolves to `npx.cmd`, not a directly-executable file). `src/mcp/tools/tools.test.ts` and

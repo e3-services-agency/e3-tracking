@@ -294,6 +294,34 @@ export class TemplateInUseError extends ConflictError {
   }
 }
 
+/**
+ * `DELETE /events/:id/variants/:variantId` without `?force=true` when a `StandardEventMapping` row
+ * still targets this variant (D-52, T-2-05 follow-up, T-3-07): deleting the variant out from under
+ * the mapping would silently leave `variant_id` null, turning a filtered mapping into an unfiltered
+ * one with no warning. 409, naming the standard event; `?force=true` clears the mapping's
+ * `variant_id` first instead.
+ */
+export class MappingInUseError extends ConflictError {
+  readonly code = 'MAPPING_IN_USE';
+  constructor(message: string) {
+    super(message);
+    this.name = 'MappingInUseError';
+  }
+}
+
+/**
+ * `PATCH /observations/:id` recomputes `raw_hash` from the updated fields and another observation
+ * of the same `qa_run_id` already carries that hash (D-52, T-3-07): the edit would otherwise create
+ * a silent duplicate of raw evidence. 409.
+ */
+export class DuplicateObservationError extends ConflictError {
+  readonly code = 'DUPLICATE_OBSERVATION';
+  constructor(message: string) {
+    super(message);
+    this.name = 'DuplicateObservationError';
+  }
+}
+
 /** Use when a resource is not found or does not belong to the workspace (404). */
 export class NotFoundError extends Error {
   readonly code = 'NOT_FOUND';
@@ -324,5 +352,18 @@ export class UseCaseCodeTakenError extends ConflictError {
   constructor(message: string) {
     super(message);
     this.name = 'UseCaseCodeTakenError';
+  }
+}
+
+/**
+ * `POST /api/projects/restore-backup/apply` with a `project.key` already taken by another
+ * non-deleted project (T-3-05, D-45). Distinguished from the generic `ProjectDAL.createProject`
+ * `ConflictError` (code `CONFLICT`) so the restore form can show a specific message/field. 409.
+ */
+export class ProjectKeyTakenError extends ConflictError {
+  readonly code = 'PROJECT_KEY_TAKEN';
+  constructor(message: string) {
+    super(message);
+    this.name = 'ProjectKeyTakenError';
   }
 }

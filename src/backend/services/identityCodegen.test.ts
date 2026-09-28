@@ -119,6 +119,29 @@ describe('buildIdentityCodegen', () => {
     expect(snippets.identify).not.toContain('{');
   });
 
+  it('identify: when the identify rule for a duplicated identifier is not the first one, dedupe still prefers it and unions the transformations (T-3-07 follow-up)', () => {
+    const rules: IdentityRuleForCodegen[] = [
+      {
+        identifier_name: 'registered',
+        identity_type: 'hard',
+        transformations_json: ['trim'],
+        sdk_call: 'anonymize',
+        trigger_text: 'User clicks "Log out"',
+      },
+      {
+        identifier_name: 'registered',
+        identity_type: 'hard',
+        transformations_json: ['lowercase'],
+        sdk_call: 'identify',
+      },
+    ];
+    const snippets = buildIdentityCodegen(rules, []);
+    // Preferred rule is the identify one (not the first-by-order anonymize rule), and its
+    // transformations are unioned with the non-identify duplicate's (trim + lowercase, canonical order).
+    expect(snippets.identify).toContain('exponea.identify(String(registered).trim().toLowerCase());');
+    expect(snippets.identify.match(/exponea\.identify\(/g)?.length).toBe(1);
+  });
+
   it('identify: a non-identifier key ("email-id") is quoted, and a reserved-word variable name ("class") gets a trailing underscore (fix round LOW 2)', () => {
     const rules: IdentityRuleForCodegen[] = [
       {

@@ -1,10 +1,12 @@
 /**
  * QaRun routes (T-1-09, plan "API shape"), mounted at `/api/projects/:projectId/qa-runs`: list,
- * get with observations, archive (`PATCH`), finish (`POST .../finish`).
+ * get with observations, archive (`PATCH`), finish (`POST .../finish`), delete (`DELETE /:id`,
+ * D-52, T-3-07 — cascades the run's observations, followed by `runComparison`).
  */
 import { Router, type Request, type Response } from 'express';
 import * as QaRunDAL from '../dal/qa-run.dal';
 import * as ObservationDAL from '../dal/observation.dal';
+import { runComparison } from '../services/comparison.service';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -48,6 +50,17 @@ router.post('/:id/finish', (req: Request, res: Response) => {
     const body = req.body as Record<string, unknown>;
     const notes = typeof body.notes === 'string' ? body.notes : undefined;
     res.status(200).json(QaRunDAL.finishQaRun(req.projectId!, req.params.id, notes));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+/** `DELETE /qa-runs/:id` — hard delete, cascading observations; `runComparison` follows. */
+router.delete('/:id', (req: Request, res: Response) => {
+  try {
+    QaRunDAL.deleteQaRun(req.projectId!, req.params.id);
+    runComparison(req.projectId!);
+    res.status(204).end();
   } catch (err) {
     handleRouteError(err, res);
   }

@@ -22,6 +22,50 @@ import {
 } from '../errors';
 import { REQUIREMENT_TARGET_KINDS, REQUIREMENT_LEVELS, REQUIREMENT_STATUSES } from '../../domain/enums';
 import { getUseCaseOrThrow } from './use-case.dal';
+import * as ChangeLogDAL from './change-log.dal';
+
+/**
+ * A short, human-readable label for a requirement's target, for the `change_log` row (T-3-02).
+ * Deliberately a plain SQL lookup rather than `requirements-matrix.service.ts`'s
+ * `buildTargetLabelResolver` — that module imports this one (for `listRequirementsByProject`), so
+ * importing it back here would be circular; a raw id/`(removed)` fallback is fine for a history
+ * entry, which always carries the full `diff_json` alongside the label anyway.
+ */
+function labelForTarget(
+  targetKind: string,
+  propertyId: string | null,
+  eventId: string | null,
+  variantId: string | null,
+  catalogFieldId: string | null,
+  consentCategoryId: string | null
+): string {
+  const db = getDb();
+  const name = (table: string, id: string | null): string => {
+    if (!id) return '(removed)';
+    const row = db.prepare(`SELECT name FROM ${table} WHERE id = ?`).get(id) as { name: string } | undefined;
+    return row?.name ?? id;
+  };
+  switch (targetKind) {
+    case 'customer_property':
+      return name('properties', propertyId);
+    case 'event':
+      return name('events', eventId);
+    case 'variant':
+      return name('variants', variantId);
+    case 'event_property':
+      return `${name('events', eventId)}.${name('properties', propertyId)}`;
+    case 'variant_property':
+      return `${name('variants', variantId)}.${name('properties', propertyId)}`;
+    // T-3-10 (D-57): the two new target kinds merged from agent-setup's T-3-02 pass -- without
+    // these cases every catalog_attribute/consent row was labelled by the literal target_kind.
+    case 'catalog_attribute':
+      return name('catalog_fields', catalogFieldId);
+    case 'consent':
+      return name('consent_categories', consentCategoryId);
+    default:
+      return targetKind;
+  }
+}
 
 export interface RequirementRow {
   id: string;
@@ -303,6 +347,9 @@ export function replaceRequirements(
   getUseCaseOrThrow(projectId, useCaseId);
   const db = getDb();
   const now = nowIso();
+  // T-3-02: the "before" snapshot for the change_log diff below, read before the delete-then-
+  // reinsert wipes it.
+  const oldRows = listRequirements(projectId, useCaseId);
 
   const validated = inputs.map((input) => {
     validateLevel(input.level);
@@ -338,6 +385,42 @@ export function replaceRequirements(
     seenTargets.add(key);
   });
 
+  // T-3-02: matches an old row to a new one by its target (target_kind + ids) so a genuine no-op
+  // save (or a pure reorder) writes nothing beyond the `sort_order` diff, and an actual field edit
+  // shows a real before/after on the same `entity_id` as the row's previous incarnation. A `gap`
+  // row missing one of its required ids (`isAmbiguous` below, same shape `validateTarget` and the
+  // duplicate-target check above already treat as "no real target to collide on") can't be matched
+  // this way -- any number of them may coexist -- so each one is logged as a plain delete (old) +
+  // create (new) pair instead.
+  const targetKey = (t: {
+    target_kind: string;
+    property_id: string | null;
+    event_id: string | null;
+    variant_id: string | null;
+    catalog_field_id: string | null;
+    consent_category_id: string | null;
+  }): string =>
+    `${t.target_kind}:${t.property_id ?? ''}:${t.event_id ?? ''}:${t.variant_id ?? ''}:${t.catalog_field_id ?? ''}:${t.consent_category_id ?? ''}`;
+  const isAmbiguous = (t: {
+    target_kind: string;
+    status: string | null;
+    property_id: string | null;
+    event_id: string | null;
+    variant_id: string | null;
+    catalog_field_id: string | null;
+    consent_category_id: string | null;
+  }): boolean => {
+    const shape = TARGET_SHAPES[t.target_kind];
+    return t.status === 'gap' && shape.required.some((key) => !t[key]);
+  };
+
+  const oldByKey = new Map<string, (typeof oldRows)[number]>();
+  for (const row of oldRows) {
+    if (isAmbiguous(row)) continue;
+    oldByKey.set(targetKey(row), row);
+  }
+  const matchedOldIds = new Set<string>();
+
   const replace = db.transaction(() => {
     db.prepare('DELETE FROM requirements WHERE use_case_id = ?').run(useCaseId);
     const insert = db.prepare(
@@ -347,12 +430,14 @@ export function replaceRequirements(
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
     validated.forEach((row, index) => {
+      const target_kind = inputs[index].target_kind;
+      const newId_ = newId();
       try {
         insert.run(
-          newId(),
+          newId_,
           useCaseId,
           index,
-          inputs[index].target_kind,
+          target_kind,
           row.property_id,
           row.event_id,
           row.variant_id,
@@ -367,7 +452,106 @@ export function replaceRequirements(
       } catch (err) {
         mapWriteError(err, 'This requirement conflicts with an existing one.', `Failed to save requirements: ${(err as Error).message}`);
       }
+
+      const label = labelForTarget(
+        target_kind,
+        row.property_id,
+        row.event_id,
+        row.variant_id,
+        row.catalog_field_id,
+        row.consent_category_id
+      );
+      const targetShape = {
+        target_kind,
+        status: row.status,
+        property_id: row.property_id,
+        event_id: row.event_id,
+        variant_id: row.variant_id,
+        catalog_field_id: row.catalog_field_id,
+        consent_category_id: row.consent_category_id,
+      };
+      const ambiguous = isAmbiguous(targetShape);
+      const matchedOld = ambiguous ? undefined : oldByKey.get(targetKey(targetShape));
+      if (matchedOld) {
+        matchedOldIds.add(matchedOld.id);
+        // T-3-02: every row is deleted and reinserted with a fresh id on *every* call (ids are not
+        // preserved across a save yet -- the plan's T-4-02 note tracks that follow-up), so the
+        // `entity_id` a change_log row uses can only be as stable as the row's own last-known
+        // physical id; using the just-inserted `newId_` here (rather than `matchedOld.id`, which
+        // this same match logic already knows is about to stop existing) keeps every subsequent
+        // call's "was this old row matched" check consistent with what `oldRows` actually reads
+        // back next time.
+        ChangeLogDAL.recordChange({
+          projectId,
+          entityType: 'requirement',
+          entityId: newId_,
+          entityLabel: label,
+          parentEntityId: useCaseId,
+          action: 'update',
+          before: {
+            level: matchedOld.level,
+            status: matchedOld.status,
+            note: matchedOld.note,
+            sort_order: matchedOld.sort_order,
+          },
+          after: { level: row.level, status: row.status, note: row.note, sort_order: index },
+        });
+      } else {
+        ChangeLogDAL.recordChange({
+          projectId,
+          entityType: 'requirement',
+          entityId: newId_,
+          entityLabel: label,
+          parentEntityId: useCaseId,
+          action: 'create',
+          before: null,
+          after: {
+            target_kind,
+            property_id: row.property_id,
+            event_id: row.event_id,
+            variant_id: row.variant_id,
+            catalog_field_id: row.catalog_field_id,
+            consent_category_id: row.consent_category_id,
+            level: row.level,
+            status: row.status,
+            note: row.note,
+            sort_order: index,
+          },
+        });
+      }
     });
+
+    for (const old of oldRows) {
+      if (matchedOldIds.has(old.id)) continue;
+      ChangeLogDAL.recordChange({
+        projectId,
+        entityType: 'requirement',
+        entityId: old.id,
+        entityLabel: labelForTarget(
+          old.target_kind,
+          old.property_id,
+          old.event_id,
+          old.variant_id,
+          old.catalog_field_id,
+          old.consent_category_id
+        ),
+        parentEntityId: useCaseId,
+        action: 'delete',
+        before: {
+          target_kind: old.target_kind,
+          property_id: old.property_id,
+          event_id: old.event_id,
+          variant_id: old.variant_id,
+          catalog_field_id: old.catalog_field_id,
+          consent_category_id: old.consent_category_id,
+          level: old.level,
+          status: old.status,
+          note: old.note,
+          sort_order: old.sort_order,
+        },
+        after: null,
+      });
+    }
   });
   replace();
 
@@ -386,19 +570,45 @@ export function replaceRequirements(
  * human can save the list unchanged and fix the row up later in the requirements editor.
  */
 export function insertUnresolvedRequirement(
+  projectId: string,
   useCaseId: string,
   sortOrder: number,
   input: { target_kind: string; level: string; note: string }
 ): void {
   const now = nowIso();
-  getDb()
-    .prepare(
+  const id = newId();
+  const db = getDb();
+  const run = db.transaction(() => {
+    db.prepare(
       `INSERT INTO requirements (
         id, use_case_id, sort_order, target_kind, property_id, event_id, variant_id,
         catalog_field_id, consent_category_id, level, status, note, created_at, updated_at
       ) VALUES (?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, ?, 'gap', ?, ?, ?)`
     )
-    .run(newId(), useCaseId, sortOrder, input.target_kind, input.level, input.note, now, now);
+      .run(id, useCaseId, sortOrder, input.target_kind, input.level, input.note, now, now);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'requirement',
+      entityId: id,
+      entityLabel: labelForTarget(input.target_kind, null, null, null, null, null),
+      parentEntityId: useCaseId,
+      action: 'create',
+      before: null,
+      after: {
+        target_kind: input.target_kind,
+        property_id: null,
+        event_id: null,
+        variant_id: null,
+        catalog_field_id: null,
+        consent_category_id: null,
+        level: input.level,
+        status: 'gap',
+        note: input.note,
+        sort_order: sortOrder,
+      },
+    });
+  });
+  run();
 }
 
 /**
@@ -415,33 +625,65 @@ export function insertResolvedRequirement(
   validateStatus(input.status);
   const target = validateTarget(projectId, input);
   const now = nowIso();
-  try {
-    getDb()
-      .prepare(
+  const id = newId();
+  const db = getDb();
+  const run = db.transaction(() => {
+    try {
+      db.prepare(
         `INSERT INTO requirements (
           id, use_case_id, sort_order, target_kind, property_id, event_id, variant_id,
           catalog_field_id, consent_category_id, level, status, note, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .run(
-        newId(),
-        useCaseId,
-        sortOrder,
+        .run(
+          id,
+          useCaseId,
+          sortOrder,
+          input.target_kind,
+          target.property_id,
+          target.event_id,
+          target.variant_id,
+          target.catalog_field_id,
+          target.consent_category_id,
+          input.level,
+          input.status ?? null,
+          input.note?.trim() || null,
+          now,
+          now
+        );
+    } catch (err) {
+      mapWriteError(err, 'This requirement conflicts with an existing one.', `Failed to create requirement: ${(err as Error).message}`);
+    }
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'requirement',
+      entityId: id,
+      entityLabel: labelForTarget(
         input.target_kind,
         target.property_id,
         target.event_id,
         target.variant_id,
         target.catalog_field_id,
-        target.consent_category_id,
-        input.level,
-        input.status ?? null,
-        input.note?.trim() || null,
-        now,
-        now
-      );
-  } catch (err) {
-    mapWriteError(err, 'This requirement conflicts with an existing one.', `Failed to create requirement: ${(err as Error).message}`);
-  }
+        target.consent_category_id
+      ),
+      parentEntityId: useCaseId,
+      action: 'create',
+      before: null,
+      after: {
+        target_kind: input.target_kind,
+        property_id: target.property_id,
+        event_id: target.event_id,
+        variant_id: target.variant_id,
+        catalog_field_id: target.catalog_field_id,
+        consent_category_id: target.consent_category_id,
+        level: input.level,
+        status: input.status ?? null,
+        note: input.note?.trim() || null,
+        sort_order: sortOrder,
+      },
+    });
+  });
+  run();
 }
 
 export function getRequirementOrThrow(useCaseId: string, id: string): RequirementRow {
@@ -466,24 +708,72 @@ export function getRequirementOrThrow(useCaseId: string, id: string): Requiremen
  * `note` is appended, not overwritten (`CASE WHEN ... ELSE note || ' | ' || ?`), so an existing note
  * survives; this and the three wrappers below run synchronously against whatever transaction the
  * caller is already inside (they take no `db.transaction` of their own).
+ *
+ * T-3-02 pre-QA fix round (reviewer WARNING 2): the affected rows are read *before* the UPDATE so
+ * a real `requirement/update` change_log row (parent = the row's own use case) can be written per
+ * row, `before` the pre-gap fields and `after` the post-gap ones -- previously this whole write path
+ * (called from `deleteEvent`/`deleteVariant`/`deleteProperty`/`detachPropertyFromEvent`) left no
+ * trace at all, so a use case's History never showed why one of its requirements became a `gap`.
  */
 function markRequirementsGap(
+  projectId: string,
   nullColumns: TargetIdKey[],
   whereSql: string,
   whereParams: unknown[],
   targetName: string
 ): void {
+  const db = getDb();
+  const affected = db
+    .prepare(`SELECT * FROM requirements WHERE ${whereSql}`)
+    .all(...whereParams) as RequirementRow[];
+  if (affected.length === 0) return;
+
   const now = nowIso();
   const note = `target removed: ${targetName}`;
   const setClause = nullColumns.map((c) => `${c} = NULL`).join(', ');
-  getDb()
-    .prepare(
-      `UPDATE requirements SET ${setClause}, status = 'gap',
-         note = CASE WHEN note IS NULL OR note = '' THEN ? ELSE note || ' | ' || ? END,
-         updated_at = ?
-       WHERE ${whereSql}`
-    )
-    .run(note, note, now, ...whereParams);
+  db.prepare(
+    `UPDATE requirements SET ${setClause}, status = 'gap',
+       note = CASE WHEN note IS NULL OR note = '' THEN ? ELSE note || ' | ' || ? END,
+       updated_at = ?
+     WHERE ${whereSql}`
+  ).run(note, note, now, ...whereParams);
+
+  for (const before of affected) {
+    const after: Record<string, unknown> = {
+      property_id: nullColumns.includes('property_id') ? null : before.property_id,
+      event_id: nullColumns.includes('event_id') ? null : before.event_id,
+      variant_id: nullColumns.includes('variant_id') ? null : before.variant_id,
+      catalog_field_id: nullColumns.includes('catalog_field_id') ? null : before.catalog_field_id,
+      consent_category_id: nullColumns.includes('consent_category_id') ? null : before.consent_category_id,
+      status: 'gap',
+      note: before.note ? `${before.note} | ${note}` : note,
+    };
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'requirement',
+      entityId: before.id,
+      entityLabel: labelForTarget(
+        before.target_kind,
+        before.property_id,
+        before.event_id,
+        before.variant_id,
+        before.catalog_field_id,
+        before.consent_category_id
+      ),
+      parentEntityId: before.use_case_id,
+      action: 'update',
+      before: {
+        property_id: before.property_id,
+        event_id: before.event_id,
+        variant_id: before.variant_id,
+        catalog_field_id: before.catalog_field_id,
+        consent_category_id: before.consent_category_id,
+        status: before.status,
+        note: before.note,
+      },
+      after,
+    });
+  }
 }
 
 /**
@@ -492,8 +782,8 @@ function markRequirementsGap(
  * one of the event's variants are a separate call to `markRequirementsGapForVariantRemoval` per
  * variant (the caller does this once per variant, before deleting the variants themselves).
  */
-export function markRequirementsGapForEventRemoval(eventId: string, eventName: string): void {
-  markRequirementsGap(['event_id'], 'event_id = ?', [eventId], eventName);
+export function markRequirementsGapForEventRemoval(projectId: string, eventId: string, eventName: string): void {
+  markRequirementsGap(projectId, ['event_id'], 'event_id = ?', [eventId], eventName);
 }
 
 /**
@@ -501,8 +791,8 @@ export function markRequirementsGapForEventRemoval(eventId: string, eventName: s
  * before the `DELETE FROM variants` itself: nulls `variant_id` on `target_kind =
  * 'variant'|'variant_property'` rows referencing this variant.
  */
-export function markRequirementsGapForVariantRemoval(variantId: string, variantName: string): void {
-  markRequirementsGap(['variant_id'], 'variant_id = ?', [variantId], variantName);
+export function markRequirementsGapForVariantRemoval(projectId: string, variantId: string, variantName: string): void {
+  markRequirementsGap(projectId, ['variant_id'], 'variant_id = ?', [variantId], variantName);
 }
 
 /**
@@ -511,8 +801,8 @@ export function markRequirementsGapForVariantRemoval(variantId: string, variantN
  * `variant_property` leftovers can still reference it): nulls `property_id` on every row referencing
  * this property, regardless of `target_kind`.
  */
-export function markRequirementsGapForPropertyRemoval(propertyId: string, propertyName: string): void {
-  markRequirementsGap(['property_id'], 'property_id = ?', [propertyId], propertyName);
+export function markRequirementsGapForPropertyRemoval(projectId: string, propertyId: string, propertyName: string): void {
+  markRequirementsGap(projectId, ['property_id'], 'property_id = ?', [propertyId], propertyName);
 }
 
 /**
@@ -521,8 +811,14 @@ export function markRequirementsGapForPropertyRemoval(propertyId: string, proper
  * their target — `event_property` rows for this exact event, and `variant_property` rows whose
  * `variant_id` belongs to this event and whose `property_id` is the one being detached.
  */
-export function markRequirementsGapForDetach(eventId: string, propertyId: string, propertyName: string): void {
+export function markRequirementsGapForDetach(
+  projectId: string,
+  eventId: string,
+  propertyId: string,
+  propertyName: string
+): void {
   markRequirementsGap(
+    projectId,
     ['property_id'],
     `property_id = ? AND (
        (target_kind = 'event_property' AND event_id = ?)
@@ -537,14 +833,22 @@ export function markRequirementsGapForDetach(eventId: string, propertyId: string
  * T-3-10 (D-57): called by `catalog.dal.ts` `deleteCatalogField` before the field itself is
  * deleted: nulls `catalog_field_id` on `target_kind = 'catalog_attribute'` rows referencing it.
  */
-export function markRequirementsGapForCatalogFieldRemoval(catalogFieldId: string, fieldName: string): void {
-  markRequirementsGap(['catalog_field_id'], 'catalog_field_id = ?', [catalogFieldId], fieldName);
+export function markRequirementsGapForCatalogFieldRemoval(
+  projectId: string,
+  catalogFieldId: string,
+  fieldName: string
+): void {
+  markRequirementsGap(projectId, ['catalog_field_id'], 'catalog_field_id = ?', [catalogFieldId], fieldName);
 }
 
 /**
  * T-3-10 (D-57): called by `consent-category.dal.ts` `deleteConsentCategory` before the category
  * itself is deleted: nulls `consent_category_id` on `target_kind = 'consent'` rows referencing it.
  */
-export function markRequirementsGapForConsentCategoryRemoval(consentCategoryId: string, categoryName: string): void {
-  markRequirementsGap(['consent_category_id'], 'consent_category_id = ?', [consentCategoryId], categoryName);
+export function markRequirementsGapForConsentCategoryRemoval(
+  projectId: string,
+  consentCategoryId: string,
+  categoryName: string
+): void {
+  markRequirementsGap(projectId, ['consent_category_id'], 'consent_category_id = ?', [consentCategoryId], categoryName);
 }

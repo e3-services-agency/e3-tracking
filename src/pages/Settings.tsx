@@ -7,6 +7,7 @@
 import React from 'react';
 import { ProjectSettings } from '@/src/features/projects/pages/ProjectSettings';
 import { CsvExportBlock } from '@/src/features/projects/components/CsvExportBlock';
+import { BackupExportBlock } from '@/src/features/projects/components/BackupExportBlock';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 
 export function Settings() {
@@ -20,6 +21,7 @@ export function Settings() {
         </div>
         <ProjectSettings />
         <CsvExportBlock projectId={activeProjectId} />
+        <BackupExportBlock projectId={activeProjectId} />
       </div>
     </div>
   );

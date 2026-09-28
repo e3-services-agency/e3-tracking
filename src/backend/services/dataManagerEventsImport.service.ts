@@ -55,6 +55,7 @@ import { classifyEventType } from '../../domain/bloomreach';
 import { payloadHash } from '../../domain/diff/hash';
 import type { DiffItem, DiffItemChange } from '../../domain/diff/types';
 import { PayloadChangedError } from '../errors';
+import { runWithImportBatch } from '../context/actor';
 
 const EMPTY_SENTINEL = '(empty)';
 const SNAPSHOT_STEP_ID = 'project:data_manager_events_snapshot';
@@ -91,6 +92,8 @@ export interface DataManagerEventsApplySummary {
   applied: string[];
   skipped: string[];
   warnings: string[];
+  /** T-3-02: every change_log row this apply produces shares this id (`source: 'import:data-manager-events'`). */
+  batch_id: string;
 }
 
 function normalizeDescription(raw: string | null): string | null {
@@ -647,9 +650,9 @@ export function applyDataManagerEvents(
     }
     runtimeWarnings.push(...planWarnings);
   });
-  run();
+  const { batchId } = runWithImportBatch('data-manager-events', run);
 
   const finalPlan = buildPlan(projectId, model, rawJson);
   const warnings = Array.from(new Set([...finalPlan.warnings, ...runtimeWarnings]));
-  return { applied, skipped, warnings };
+  return { applied, skipped, warnings, batch_id: batchId };
 }

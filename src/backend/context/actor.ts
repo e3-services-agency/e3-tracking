@@ -11,6 +11,7 @@
  * something usable, never throws.
  */
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { newId } from '../db/util';
 
 export interface ActorContext {
   actor: string;
@@ -36,4 +37,20 @@ export function runWithActor<T>(context: ActorContext, fn: () => T): T {
 /** The current actor context, or the `system` default outside any `runWithActor` call. */
 export function getActor(): ActorContext {
   return storage.getStore() ?? DEFAULT_ACTOR;
+}
+
+/**
+ * T-3-02 pre-QA fix round (INFO 6): the shared shape every import apply service (`dataMapping`,
+ * `expirationSettings`, `dataManagerCustomers`, `dataManagerEvents`, and eventually `restore`,
+ * T-3-05) needs -- a fresh `batch_id` and `source: 'import:<format>'`, layered onto whatever actor
+ * is already in context (a human in the UI, or an MCP agent) so `getActor()`'s own `actor` survives
+ * unchanged. Each service previously inlined these same three lines; extracted once here so a
+ * future import format only has to call this, not re-derive the pattern. Returns `fn`'s result
+ * alongside the `batchId` used, since every apply response echoes `batch_id` back to the caller
+ * (D-44) -- `fn` itself never needs to know the id, only the `change_log` rows it triggers do.
+ */
+export function runWithImportBatch<T>(format: string, fn: () => T): { result: T; batchId: string } {
+  const batchId = newId();
+  const result = runWithActor({ ...getActor(), source: `import:${format}`, batch_id: batchId }, fn);
+  return { result, batchId };
 }

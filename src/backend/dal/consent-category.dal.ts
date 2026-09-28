@@ -11,6 +11,7 @@ import { isKnownConsentKey } from '../../domain/bloomreach';
 import { getProjectById } from './project.dal';
 import { ENTITY_STATUSES } from '../../domain/enums';
 import { markRequirementsGapForConsentCategoryRemoval } from './requirement.dal';
+import * as ChangeLogDAL from './change-log.dal';
 
 export interface ConsentCategoryRow {
   id: string;
@@ -96,29 +97,42 @@ export function createConsentCategory(
       .get(projectId) as { m: number }
   ).m;
 
-  try {
-    db.prepare(
-      `INSERT INTO consent_categories (
-        id, project_id, name, description, standard_key, status, sort_order, created_at, updated_at
-      ) VALUES (@id, @project_id, @name, @description, @standard_key, @status, @sort_order, @created_at, @updated_at)`
-    ).run({
-      id,
-      project_id: projectId,
-      name,
-      description: input.description?.trim() || null,
-      standard_key: input.standard_key?.trim() || null,
-      status: input.status ?? null,
-      sort_order: input.sort_order ?? maxOrder + 1,
-      created_at: now,
-      updated_at: now,
+  const run = db.transaction(() => {
+    try {
+      db.prepare(
+        `INSERT INTO consent_categories (
+          id, project_id, name, description, standard_key, status, sort_order, created_at, updated_at
+        ) VALUES (@id, @project_id, @name, @description, @standard_key, @status, @sort_order, @created_at, @updated_at)`
+      ).run({
+        id,
+        project_id: projectId,
+        name,
+        description: input.description?.trim() || null,
+        standard_key: input.standard_key?.trim() || null,
+        status: input.status ?? null,
+        sort_order: input.sort_order ?? maxOrder + 1,
+        created_at: now,
+        updated_at: now,
+      });
+    } catch (err) {
+      mapWriteError(
+        err,
+        `A consent category named "${name}" already exists in this project.`,
+        `Failed to create consent category: ${(err as Error).message}`
+      );
+    }
+    const created = getConsentCategoryOrThrow(projectId, id);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'consent_category',
+      entityId: id,
+      entityLabel: created.name,
+      action: 'create',
+      before: null,
+      after: created as unknown as Record<string, unknown>,
     });
-  } catch (err) {
-    mapWriteError(
-      err,
-      `A consent category named "${name}" already exists in this project.`,
-      `Failed to create consent category: ${(err as Error).message}`
-    );
-  }
+  });
+  run();
   return getConsentCategoryOrThrow(projectId, id);
 }
 
@@ -127,7 +141,7 @@ export function updateConsentCategory(
   id: string,
   updates: Partial<ConsentCategoryInput>
 ): ConsentCategoryRow {
-  getConsentCategoryOrThrow(projectId, id);
+  const before = getConsentCategoryOrThrow(projectId, id);
   if (updates.name !== undefined && !updates.name.trim()) {
     throw new ValidationError('Consent category name is required.', 'name');
   }
@@ -144,28 +158,55 @@ export function updateConsentCategory(
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
     .join(', ');
-  try {
-    getDb()
-      .prepare(`UPDATE consent_categories SET ${setClause} WHERE id = @id AND project_id = @project_id`)
-      .run({ ...patch, id, project_id: projectId });
-  } catch (err) {
-    mapWriteError(
-      err,
-      `A consent category named "${String(patch.name ?? '')}" already exists in this project.`,
-      `Failed to update consent category: ${(err as Error).message}`
-    );
-  }
+  const db = getDb();
+  const run = db.transaction(() => {
+    try {
+      db.prepare(`UPDATE consent_categories SET ${setClause} WHERE id = @id AND project_id = @project_id`)
+        .run({ ...patch, id, project_id: projectId });
+    } catch (err) {
+      mapWriteError(
+        err,
+        `A consent category named "${String(patch.name ?? '')}" already exists in this project.`,
+        `Failed to update consent category: ${(err as Error).message}`
+      );
+    }
+    const after = getConsentCategoryOrThrow(projectId, id);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'consent_category',
+      entityId: id,
+      entityLabel: after.name,
+      action: 'update',
+      before: before as unknown as Record<string, unknown>,
+      after: after as unknown as Record<string, unknown>,
+    });
+  });
+  run();
   return getConsentCategoryOrThrow(projectId, id);
 }
 
 export function deleteConsentCategory(projectId: string, id: string): void {
-  const category = getConsentCategoryOrThrow(projectId, id);
-  // T-3-10 (D-57): same gap-marking as the property/event/variant/catalog-field removals above.
-  markRequirementsGapForConsentCategoryRemoval(id, category.name);
-  const result = getDb()
-    .prepare('DELETE FROM consent_categories WHERE id = ? AND project_id = ?')
-    .run(id, projectId);
-  if (result.changes === 0) throw new NotFoundError('Consent category not found.', 'consent_category');
+  const existing = getConsentCategoryOrThrow(projectId, id);
+  const db = getDb();
+  const run = db.transaction(() => {
+    // T-3-10 (D-57): same gap-marking as the property/event/variant/catalog-field removals above,
+    // run inside the same transaction as the DELETE (merge note, T-3-02 review).
+    markRequirementsGapForConsentCategoryRemoval(projectId, id, existing.name);
+    const result = db
+      .prepare('DELETE FROM consent_categories WHERE id = ? AND project_id = ?')
+      .run(id, projectId);
+    if (result.changes === 0) throw new NotFoundError('Consent category not found.', 'consent_category');
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'consent_category',
+      entityId: id,
+      entityLabel: existing.name,
+      action: 'delete',
+      before: existing as unknown as Record<string, unknown>,
+      after: null,
+    });
+  });
+  run();
 }
 
 /**
@@ -186,11 +227,13 @@ export function findConsentCategoryByStandardKeyOrName(projectId: string, key: s
   );
 }
 
-/** Reorders the project's consent categories; `orderedIds` must be the full existing id set. */
+/** Reorders the project's consent categories; `orderedIds` must be the full existing id set. One
+ * `update` change_log row per category whose `sort_order` actually changed (T-3-02). */
 export function reorderConsentCategories(projectId: string, orderedIds: string[]): ConsentCategoryRow[] {
   const db = getDb();
   const existing = listConsentCategories(projectId);
   const existingIds = new Set(existing.map((r) => r.id));
+  const existingById = new Map(existing.map((r) => [r.id, r]));
   const unique = [...new Set(orderedIds)];
   if (unique.length !== existing.length || !unique.every((id) => existingIds.has(id))) {
     throw new BadRequestError(
@@ -203,7 +246,20 @@ export function reorderConsentCategories(projectId: string, orderedIds: string[]
     const stmt = db.prepare(
       'UPDATE consent_categories SET sort_order = ?, updated_at = ? WHERE id = ? AND project_id = ?'
     );
-    unique.forEach((id, index) => stmt.run(index, now, id, projectId));
+    unique.forEach((id, index) => {
+      const before = existingById.get(id)!;
+      if (before.sort_order === index) return;
+      stmt.run(index, now, id, projectId);
+      ChangeLogDAL.recordChange({
+        projectId,
+        entityType: 'consent_category',
+        entityId: id,
+        entityLabel: before.name,
+        action: 'update',
+        before: { sort_order: before.sort_order },
+        after: { sort_order: index },
+      });
+    });
   });
   reorder();
   return listConsentCategories(projectId);

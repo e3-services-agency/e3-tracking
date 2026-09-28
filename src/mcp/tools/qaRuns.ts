@@ -10,6 +10,7 @@
  */
 import * as QaRunDAL from '../../backend/dal/qa-run.dal';
 import type { QaRunRow } from '../../backend/dal/qa-run.dal';
+import { runComparison, type ComparisonSummary } from '../../backend/services/comparison.service';
 import { resolveProject } from '../resolve';
 import { McpToolError } from '../errors';
 
@@ -23,4 +24,27 @@ export async function finishQaRun(input: FinishQaRunInput): Promise<QaRunRow> {
   if (!input.qa_run_id?.trim()) throw new McpToolError('VALIDATION_ERROR', 'qa_run_id is required.');
   const project = resolveProject(input.project_key);
   return QaRunDAL.finishQaRun(project.id, input.qa_run_id, input.notes);
+}
+
+export interface DeleteQaRunInput {
+  project_key?: string;
+  qa_run_id: string;
+}
+
+export interface DeleteQaRunResult {
+  deleted: true;
+  comparison: ComparisonSummary;
+}
+
+/**
+ * `delete_qa_run` (D-52, T-3-07): mirrors `DELETE /qa-runs/:id`
+ * (`qa-run.dal.ts#deleteQaRun` -- hard delete, cascading the run's own observations), followed by
+ * `runComparison` so the returned findings summary reflects what is left.
+ */
+export async function deleteQaRun(input: DeleteQaRunInput): Promise<DeleteQaRunResult> {
+  if (!input.qa_run_id?.trim()) throw new McpToolError('VALIDATION_ERROR', 'qa_run_id is required.');
+  const project = resolveProject(input.project_key);
+  QaRunDAL.deleteQaRun(project.id, input.qa_run_id);
+  const comparison = runComparison(project.id);
+  return { deleted: true, comparison };
 }

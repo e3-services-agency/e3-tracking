@@ -503,7 +503,9 @@ function resolveOne(
     return;
   }
   const reason = outcome.reason;
-  insertUnresolvedRequirement(useCaseId, sortOrder, {
+  // T-3-02 merge (agent-setup wired `recordChange` into `insertUnresolvedRequirement`, adding a
+  // leading `projectId` parameter): pass it through like every other call site in this file.
+  insertUnresolvedRequirement(projectId, useCaseId, sortOrder, {
     target_kind: entry.target_kind,
     level,
     note: note ? `${reason} ${note}` : reason,

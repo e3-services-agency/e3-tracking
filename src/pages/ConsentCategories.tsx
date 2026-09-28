@@ -14,6 +14,7 @@ import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { ENTITY_STATUSES } from '@/src/domain/enums';
 import { STANDARD_CONSENT_KEYS, mergeConsentKeys } from '@/src/domain/bloomreach';
+import { HistorySection } from '@/src/features/history/HistorySection';
 
 interface ConsentCategoryRow {
   id: string;
@@ -310,6 +311,10 @@ function ConsentCategoryEditor({
       </div>
 
       {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{saveError}</div>}
+
+      {!isCreating && category && (
+        <HistorySection projectId={projectId} entityType="consent_category" entityId={category.id} />
+      )}
 
       <div className="pt-6 border-t flex justify-between">
         {!isCreating && category ? (

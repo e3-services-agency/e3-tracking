@@ -782,7 +782,7 @@ export function deleteProperty(projectId: string, id: string): void {
       id,
       projectId
     );
-    markRequirementsGapForPropertyRemoval(id, property.name);
+    markRequirementsGapForPropertyRemoval(projectId, id, property.name);
     // T-3-10 pre-QA fix (WARNING 1 root cause): the property is gone from every event by this
     // point (the attached-count guard above), so clear it out of every standard event mapping's
     // field_map_json in the project, wherever it was mapped.

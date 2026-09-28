@@ -10,6 +10,7 @@ import { BadRequestError, NotFoundError, UnknownStandardEventError, ValidationEr
 import { getStandardEventFields, isKnownStandardEvent, type StandardEventSeed } from '../../domain/bloomreach';
 import { getEventOrThrow } from './event.dal';
 import { getVariantByIdInProject } from './variant.dal';
+import * as ChangeLogDAL from './change-log.dal';
 
 export interface StandardEventMappingRow {
   id: string;
@@ -165,60 +166,102 @@ export function upsertStandardEventMapping(
   const now = nowIso();
 
   if (existing) {
+    const run = db.transaction(() => {
+      try {
+        db.prepare(
+          `UPDATE standard_event_mappings
+           SET event_id = @event_id, variant_id = @variant_id, field_map_json = @field_map_json, updated_at = @updated_at
+           WHERE id = @id AND project_id = @project_id`
+        ).run({
+          id: existing.id,
+          project_id: projectId,
+          event_id: event.id,
+          variant_id: input.variant_id ?? null,
+          field_map_json: toJsonColumn(fieldMap),
+          updated_at: now,
+        });
+      } catch (err) {
+        mapWriteError(
+          err,
+          `A mapping for standard event "${key}" already exists.`,
+          `Failed to update standard event mapping: ${(err as Error).message}`
+        );
+      }
+      const after = getStandardEventMappingOrThrow(projectId, key);
+      ChangeLogDAL.recordChange({
+        projectId,
+        entityType: 'standard_event_mapping',
+        entityId: existing.id,
+        entityLabel: key,
+        parentEntityId: event.id,
+        action: 'update',
+        before: existing as unknown as Record<string, unknown>,
+        after: after as unknown as Record<string, unknown>,
+      });
+    });
+    run();
+    return getStandardEventMappingOrThrow(projectId, key);
+  }
+
+  const id = newId();
+  const run = db.transaction(() => {
     try {
       db.prepare(
-        `UPDATE standard_event_mappings
-         SET event_id = @event_id, variant_id = @variant_id, field_map_json = @field_map_json, updated_at = @updated_at
-         WHERE id = @id AND project_id = @project_id`
+        `INSERT INTO standard_event_mappings (id, project_id, standard_event, event_id, variant_id, field_map_json, created_at, updated_at)
+         VALUES (@id, @project_id, @standard_event, @event_id, @variant_id, @field_map_json, @created_at, @updated_at)`
       ).run({
-        id: existing.id,
+        id,
         project_id: projectId,
+        standard_event: key,
         event_id: event.id,
         variant_id: input.variant_id ?? null,
         field_map_json: toJsonColumn(fieldMap),
+        created_at: now,
         updated_at: now,
       });
     } catch (err) {
       mapWriteError(
         err,
         `A mapping for standard event "${key}" already exists.`,
-        `Failed to update standard event mapping: ${(err as Error).message}`
+        `Failed to create standard event mapping: ${(err as Error).message}`
       );
     }
-    return getStandardEventMappingOrThrow(projectId, key);
-  }
-
-  const id = newId();
-  try {
-    db.prepare(
-      `INSERT INTO standard_event_mappings (id, project_id, standard_event, event_id, variant_id, field_map_json, created_at, updated_at)
-       VALUES (@id, @project_id, @standard_event, @event_id, @variant_id, @field_map_json, @created_at, @updated_at)`
-    ).run({
-      id,
-      project_id: projectId,
-      standard_event: key,
-      event_id: event.id,
-      variant_id: input.variant_id ?? null,
-      field_map_json: toJsonColumn(fieldMap),
-      created_at: now,
-      updated_at: now,
+    const created = getStandardEventMappingOrThrow(projectId, key);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'standard_event_mapping',
+      entityId: id,
+      entityLabel: key,
+      parentEntityId: event.id,
+      action: 'create',
+      before: null,
+      after: created as unknown as Record<string, unknown>,
     });
-  } catch (err) {
-    mapWriteError(
-      err,
-      `A mapping for standard event "${key}" already exists.`,
-      `Failed to create standard event mapping: ${(err as Error).message}`
-    );
-  }
+  });
+  run();
   return getStandardEventMappingOrThrow(projectId, key);
 }
 
 export function deleteStandardEventMapping(projectId: string, standardEvent: string): void {
-  getStandardEventMappingOrThrow(projectId, standardEvent);
-  const result = getDb()
-    .prepare('DELETE FROM standard_event_mappings WHERE project_id = ? AND standard_event = ?')
-    .run(projectId, standardEvent);
-  if (result.changes === 0) throw new NotFoundError('Standard event mapping not found.', 'standard_event_mapping');
+  const existing = getStandardEventMappingOrThrow(projectId, standardEvent);
+  const db = getDb();
+  const run = db.transaction(() => {
+    const result = db
+      .prepare('DELETE FROM standard_event_mappings WHERE project_id = ? AND standard_event = ?')
+      .run(projectId, standardEvent);
+    if (result.changes === 0) throw new NotFoundError('Standard event mapping not found.', 'standard_event_mapping');
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'standard_event_mapping',
+      entityId: existing.id,
+      entityLabel: standardEvent,
+      parentEntityId: existing.event_id,
+      action: 'delete',
+      before: existing as unknown as Record<string, unknown>,
+      after: null,
+    });
+  });
+  run();
 }
 
 /**
@@ -241,15 +284,16 @@ export function removePropertyFromFieldMaps(projectId: string, propertyId: strin
   const rows = (
     eventId
       ? db
-          .prepare('SELECT id, field_map_json FROM standard_event_mappings WHERE project_id = ? AND event_id = ?')
+          .prepare('SELECT * FROM standard_event_mappings WHERE project_id = ? AND event_id = ?')
           .all(projectId, eventId)
-      : db.prepare('SELECT id, field_map_json FROM standard_event_mappings WHERE project_id = ?').all(projectId)
-  ) as { id: string; field_map_json: string | null }[];
+      : db.prepare('SELECT * FROM standard_event_mappings WHERE project_id = ?').all(projectId)
+  ) as StandardEventMappingDbRow[];
 
   const now = nowIso();
   const update = db.prepare('UPDATE standard_event_mappings SET field_map_json = ?, updated_at = ? WHERE id = ?');
-  for (const row of rows) {
-    const fieldMap = parseJsonColumn(row.field_map_json, {} as Record<string, string | null>);
+  for (const dbRow of rows) {
+    const before = mapRow(dbRow);
+    const fieldMap = { ...before.field_map_json };
     let changed = false;
     for (const [field, mappedPropertyId] of Object.entries(fieldMap)) {
       if (mappedPropertyId === propertyId) {
@@ -257,6 +301,19 @@ export function removePropertyFromFieldMaps(projectId: string, propertyId: strin
         changed = true;
       }
     }
-    if (changed) update.run(toJsonColumn(fieldMap), now, row.id);
+    if (!changed) continue;
+    update.run(toJsonColumn(fieldMap), now, dbRow.id);
+    // T-3-02 merge note: this cleanup is a real write to the mapping, so it gets a `change_log` row
+    // like every other standard event mapping update, not a silent side effect.
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'standard_event_mapping',
+      entityId: dbRow.id,
+      entityLabel: before.standard_event,
+      parentEntityId: before.event_id,
+      action: 'update',
+      before: before as unknown as Record<string, unknown>,
+      after: { ...before, field_map_json: fieldMap, updated_at: now } as unknown as Record<string, unknown>,
+    });
   }
 }

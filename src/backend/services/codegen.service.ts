@@ -709,15 +709,28 @@ export function buildIdentityCodegen(
 /**
  * A project can hold more than one hard-identity rule for the same `identifier_name` (e.g. an
  * "identify" rule and a separate "anonymize" rule both scoped to "registered"): `exponea.identify()`
- * sends one value per identifier, so dedupe to the first occurrence before building the snippet.
+ * sends one value per identifier, so duplicates are collapsed to a single entry per name (T-3-07
+ * follow-up on T-2-12 review). The entry with `sdk_call === 'identify'` is preferred as the base
+ * rule (falling back to the first occurrence when none is an identify rule), and its
+ * `transformations_json` is the union of every duplicate's transformations, so a transformation
+ * declared only on the non-identify duplicate is not silently dropped.
  */
 function dedupeHardRulesByIdentifierName(hardRules: IdentityRuleForCodegen[]): IdentityRuleForCodegen[] {
-  const seen = new Set<string>();
-  const out: IdentityRuleForCodegen[] = [];
+  const groups = new Map<string, IdentityRuleForCodegen[]>();
   for (const rule of hardRules) {
-    if (seen.has(rule.identifier_name)) continue;
-    seen.add(rule.identifier_name);
-    out.push(rule);
+    const group = groups.get(rule.identifier_name);
+    if (group) group.push(rule);
+    else groups.set(rule.identifier_name, [rule]);
+  }
+  const out: IdentityRuleForCodegen[] = [];
+  for (const group of groups.values()) {
+    if (group.length === 1) {
+      out.push(group[0]);
+      continue;
+    }
+    const preferred = group.find((r) => r.sdk_call === 'identify') ?? group[0];
+    const transformations_json = Array.from(new Set(group.flatMap((r) => r.transformations_json)));
+    out.push({ ...preferred, transformations_json });
   }
   return out;
 }

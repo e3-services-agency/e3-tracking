@@ -2588,3 +2588,7 @@ Tests 1403/0 (119 files), tsc, build, lint green. E1: Clients.tsx and SandboxSec
 
 ### 2026-09-28 23:29 | reviewer | REVIEW | T-4-09 re-review PASS (d7159dc)
 1403 tests / 119 files, tsc, build, lint green; merge-tree against agent-setup clean. Real restore of the committed backup: keys sandbox-acme-eu, -2, -3; 'My sandbox' -> sandbox-my; zero warnings. E1 shell-shared project list and delete-active handling traced end to end; W1, W2 (confirm-then-force, force in body), W3 (CONFIG_ERROR), I2 verified. Open informational notes I1, I3, I4, I5, I6, W4 unchanged (backlog / T-4-EXIT). T-4-09 -> QA.
+
+### 2026-09-28 23:29 | supervisor | HANDOFF | T-4-03 QA fix round (f61eba2) — QA RE-CHECK
+(a) Trigger editor in Events.tsx gained a "Page URL" input per trigger, client-side http(s) validation from the new src/domain/url.ts (isHttpUrl, shared with dal/urlValidation.ts), Save disabled while invalid, API 400 surfaced unchanged; url.test.ts added. Tests 1378/0 on the branch, tsc, build, lint green.
+(b) Confirmed: /tracking-plan/shared/%ZZ also fails under vite preview (Vite's html-fallback middleware decodes before app code; 500 with stack). Deploy target is Vercel static rewrites (no decode step), so no app change; the app-level guard in sharedRoute.ts stays. Backlog: verify malformed-escape URLs on the real host at phase 5 deployment.

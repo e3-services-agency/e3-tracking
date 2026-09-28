@@ -108,6 +108,6 @@ Phase 2's Data Manager round trip is `qa-roundtrip` scenario 8; the expected com
 Two different chains produce two different, both-correct baselines on the merged `agent-setup` tree — pick the one that matches what you have actually applied to the project:
 
 - **Phase 1 chain only** — `data-mapping.json`, `expiration-settings.json`, the round-trip recipe's step 4 type edits, `customer-events-export.json`, no Data Manager files: **35 open findings (11 error / 4 warning / 20 info)**. The certification section above ("Certification and manual resolve") and the scenario 8 note above assume **this** chain (Data Manager import happens separately, as scenario 8 itself, and is not part of their setup).
-- **Full chain, both Data Manager files also applied** (`data-manager-customers.json` and `data-manager-events.json`, scenario 8, comparison 4 joining comparisons 1–3): **77 open findings (40 error / 37 warning)**.
+- **Full chain, both Data Manager files also applied** (`data-manager-customers.json` and `data-manager-events.json`, scenario 8, comparison 4 joining comparisons 1–3): **77 or 78 open findings (40 error / 37 or 38 warning; one missing_event warning varies with the Data Manager apply order)**.
 
 The `qa-roundtrip` skill's scenario 4 text must state both chains with their counts (35/11/4/20 without Data Manager, 77/40/37 with it), not a single number.

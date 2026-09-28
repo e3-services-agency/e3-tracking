@@ -12,11 +12,18 @@
  * uncaught throw into an opaque JSON-RPC error with no code an agent could branch on. Anything else
  * (a real bug) is logged to stderr (`log.ts`) and reported the same way rather than crashing the
  * whole stdio process for every other in-flight tool call.
+ *
+ * T-3-02 (D-44): every tool call runs inside `runWithActor({actor: input.agent_name ?? 'MCP agent',
+ * source: 'mcp'})`, so any definition-mutating DAL write a handler makes is attributed to the
+ * calling agent in `change_log` -- today's write tools (`submit_observation`,
+ * `submit_observations_batch`, `finish_qa_run`) only touch QA evidence, which D-44 excludes from the
+ * log, so this has no visible effect yet, but every future write tool inherits it for free.
  */
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ZodRawShape } from 'zod';
 import { log } from './log';
+import { runWithActor } from '../backend/context/actor';
 import { listProjects } from './tools/projects';
 import { listEvents, getEventCard, getExpectedPayload } from './tools/events';
 import { listUseCases, getUseCase } from './tools/useCases';
@@ -26,6 +33,7 @@ import { getTrackingDocument } from './tools/trackingDocument';
 import { submitObservation, submitObservationsBatch, updateObservation, deleteObservation } from './tools/observations';
 import { runComparison } from './tools/comparison';
 import { finishQaRun, deleteQaRun } from './tools/qaRuns';
+import { getHistory } from './tools/history';
 
 type ToolHandler<I> = (input: I) => Promise<unknown>;
 
@@ -42,7 +50,13 @@ function register<Shape extends ZodRawShape>(
   // than loosening `register`'s own signature for every call site.
   const callback = async (args: z.infer<z.ZodObject<Shape>>) => {
     try {
-      const result = await handler(args);
+      // T-3-02: `agent_name`, when the tool's own input shape carries it, names the actor; every
+      // tool call otherwise falls back to the generic 'MCP agent' label rather than 'system' (the
+      // context's own default), so a change_log row from an MCP write is always recognisable as one
+      // even when the calling agent didn't identify itself.
+      const agentName = (args as { agent_name?: unknown }).agent_name;
+      const actor = typeof agentName === 'string' && agentName.trim() ? agentName.trim() : 'MCP agent';
+      const result = await runWithActor({ actor, source: 'mcp' }, () => handler(args));
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     } catch (err) {
       const code = (err as { code?: string })?.code ?? 'INTERNAL_ERROR';
@@ -197,5 +211,15 @@ export function registerTools(server: McpServer): void {
     'Deletes a QA run (cascading its observations) and runs comparison.',
     { ...projectKeyShape, qa_run_id: z.string() },
     deleteQaRun
+  );
+
+  // T-3-02 (D-44): registered last, per convention -- a read-only tool over `change_log`, useful to
+  // check what a previous import/agent write actually changed.
+  register(
+    server,
+    'get_history',
+    'Change history for one entity (event, property, use case, etc.): who changed what and when, newest first.',
+    { ...projectKeyShape, entity_type: z.string(), entity_id: z.string(), limit: z.number().optional() },
+    getHistory
   );
 }

@@ -17,6 +17,7 @@ import {
   UploadCloud,
   ClipboardCheck,
   AlertTriangle,
+  History,
 } from 'lucide-react';
 import { useAuth } from '@/src/contexts/AuthContext';
 
@@ -49,6 +50,7 @@ export function Sidebar({
     { id: 'import', label: 'Import', icon: UploadCloud },
     { id: 'qaRuns', label: 'QA runs', icon: ClipboardCheck },
     { id: 'findings', label: 'Findings', icon: AlertTriangle },
+    { id: 'history', label: 'History', icon: History },
   ];
 
   const bottomNavItems = [

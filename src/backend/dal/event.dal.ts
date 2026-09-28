@@ -654,12 +654,51 @@ export function deleteEvent(projectId: string, eventId: string): void {
       eventId,
       projectId
     );
+
+    // T-3-02 (from the T-3-01 review): the cascade used to skip a change_log row for the identity
+    // rules whose trigger_event_id it nulls and the standard event mappings it deletes -- both are
+    // real definition mutations (D-44), fetched before the writes so the "before" snapshot is real.
+    const affectedIdentityRules = db
+      .prepare('SELECT id, name, trigger_event_id FROM identity_rules WHERE trigger_event_id = ? AND project_id = ?')
+      .all(eventId, projectId) as { id: string; name: string; trigger_event_id: string | null }[];
+    const affectedMappings = db
+      .prepare('SELECT id, standard_event, variant_id, field_map_json FROM standard_event_mappings WHERE event_id = ? AND project_id = ?')
+      .all(eventId, projectId) as { id: string; standard_event: string; variant_id: string | null; field_map_json: string | null }[];
+
     db.prepare(
       'UPDATE identity_rules SET trigger_event_id = NULL, updated_at = ? WHERE trigger_event_id = ? AND project_id = ?'
     ).run(now, eventId, projectId);
-    db.prepare('DELETE FROM standard_event_mappings WHERE event_id = ? AND project_id = ?').run(eventId, projectId);
+    for (const rule of affectedIdentityRules) {
+      ChangeLogDAL.recordChange({
+        projectId,
+        entityType: 'identity_rule',
+        entityId: rule.id,
+        entityLabel: rule.name,
+        action: 'update',
+        before: { trigger_event_id: rule.trigger_event_id },
+        after: { trigger_event_id: null },
+      });
+    }
 
-    markRequirementsGapForEventRemoval(eventId, event.name);
+    db.prepare('DELETE FROM standard_event_mappings WHERE event_id = ? AND project_id = ?').run(eventId, projectId);
+    for (const mapping of affectedMappings) {
+      ChangeLogDAL.recordChange({
+        projectId,
+        entityType: 'standard_event_mapping',
+        entityId: mapping.id,
+        entityLabel: mapping.standard_event,
+        parentEntityId: eventId,
+        action: 'delete',
+        before: {
+          event_id: eventId,
+          variant_id: mapping.variant_id,
+          field_map_json: parseJsonColumn(mapping.field_map_json, {}),
+        },
+        after: null,
+      });
+    }
+
+    markRequirementsGapForEventRemoval(projectId, eventId, event.name);
     // Fix round WARNING 3: cascaded variant deletes get their own change_log row (D-44's "no
     // definition-mutating DAL path skips history" applies here too), even though this whole-event
     // delete only needed name/id/conditions to build the row -- select the fields the diff snapshot
@@ -678,7 +717,7 @@ export function deleteEvent(projectId: string, eventId: string): void {
       expiration_json: string | null;
     }[];
     for (const variant of variantRows) {
-      markRequirementsGapForVariantRemoval(variant.id, variant.name);
+      markRequirementsGapForVariantRemoval(projectId, variant.id, variant.name);
     }
 
     db.prepare('DELETE FROM variants WHERE event_id = ? AND project_id = ?').run(eventId, projectId);
@@ -692,6 +731,7 @@ export function deleteEvent(projectId: string, eventId: string): void {
         parentEntityId: eventId,
         action: 'delete',
         before: {
+          id: variant.id,
           name: variant.name,
           description: variant.description,
           conditions_json: parseJsonColumn(variant.conditions_json, []),
@@ -979,7 +1019,7 @@ export function detachPropertyFromEvent(projectId: string, eventId: string, prop
     if (result.changes === 0) {
       throw new NotFoundError('This property is not attached to the event.', 'event_property');
     }
-    markRequirementsGapForDetach(eventId, propertyId, property?.name ?? propertyId);
+    markRequirementsGapForDetach(projectId, eventId, propertyId, property?.name ?? propertyId);
 
     if (existingLink) {
       ChangeLogDAL.recordChange({
@@ -1112,7 +1152,7 @@ export function replaceEventProperties(
       db.prepare('DELETE FROM event_properties WHERE event_id = ?').run(eventId);
       for (const droppedId of droppedPropertyIds) {
         const property = cachedProperty(droppedId);
-        markRequirementsGapForDetach(eventId, droppedId, property?.name ?? droppedId);
+        markRequirementsGapForDetach(projectId, eventId, droppedId, property?.name ?? droppedId);
       }
       const insert = db.prepare(
         `INSERT INTO event_properties (

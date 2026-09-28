@@ -363,7 +363,7 @@ export function deleteVariant(
         id
       );
     }
-    markRequirementsGapForVariantRemoval(id, variant.name);
+    markRequirementsGapForVariantRemoval(projectId, id, variant.name);
     const result = db
       .prepare('DELETE FROM variants WHERE id = ? AND project_id = ? AND event_id = ?')
       .run(id, projectId, eventId);

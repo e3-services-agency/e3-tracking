@@ -21,6 +21,7 @@ import { classifyEventType } from '../../domain/bloomreach';
 import { generateVariantName, type VariantCondition } from '../../domain/variants';
 import { ConflictError, PayloadChangedError } from '../errors';
 import { findEventByName, findPropertyByName, findMatchingVariant, canonicalizeFilter } from './bloomreachImportHelpers';
+import { runWithImportBatch } from '../context/actor';
 
 interface PlanStep {
   id: string;
@@ -43,6 +44,8 @@ export interface ExpirationSettingsApplySummary {
   applied: string[];
   skipped: string[];
   warnings: string[];
+  /** T-3-02: every change_log row this apply produces shares this id (`source: 'import:expiration-settings'`). */
+  batch_id: string;
 }
 
 function describeExpiration(block: ExpirationBlock): string {
@@ -345,8 +348,8 @@ export function applyExpirationSettings(
       if (selected.has(step.id)) step.run();
     }
   });
-  run();
+  const { batchId } = runWithImportBatch('expiration-settings', run);
 
   const finalPlan = buildPlan(projectId, model);
-  return { applied, skipped, warnings: finalPlan.warnings };
+  return { applied, skipped, warnings: finalPlan.warnings, batch_id: batchId };
 }

@@ -781,7 +781,7 @@ export function deleteProperty(projectId: string, id: string): void {
       id,
       projectId
     );
-    markRequirementsGapForPropertyRemoval(id, property.name);
+    markRequirementsGapForPropertyRemoval(projectId, id, property.name);
 
     ChangeLogDAL.recordChange({
       projectId,

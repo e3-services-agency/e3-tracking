@@ -21,6 +21,7 @@ import { LinkedPropertiesEditor, type LinkedPropertyRow } from '@/src/features/e
 import { VariantsSection, type DiscriminatorProperty } from '@/src/features/events/components/VariantsSection';
 import { RulesSection, type RuleLinkedProperty } from '@/src/features/events/components/RulesSection';
 import { UseCasesForEventSection } from '@/src/features/events/components/UseCasesForEventSection';
+import { HistorySection } from '@/src/features/history/HistorySection';
 
 interface EventRow {
   id: string;
@@ -662,6 +663,10 @@ function EventEditor({
       )}
 
       {!isCreating && eventId && <UseCasesForEventSection projectId={projectId} eventId={eventId} />}
+
+      {!isCreating && eventId && (
+        <HistorySection projectId={projectId} entityType="event" entityId={eventId} parentEntityId={eventId} />
+      )}
 
       <div className="space-y-3 border-t pt-4">
         <h3 className="text-sm font-semibold text-gray-900">Triggers</h3>

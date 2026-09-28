@@ -203,6 +203,44 @@ describe('GET /api/projects/:projectId/history', () => {
     expect(secondPage.items[0].id).not.toBe(firstPage.items[0].id);
   });
 
+  it('T-3-02 fix round: 400s on an array query value (repeated key), naming the parameter', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/history?entity_type=event&entity_type=property`);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('VALIDATION_ERROR');
+    expect(body.field).toBe('entity_type');
+  });
+
+  it('T-3-02 fix round: 400s on an object query value (bracketed key), naming the parameter', async () => {
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/history?entity_type[foo]=bar`);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('T-3-02 fix round: limit=1000 (MAX_LIMIT) still reports next_cursor when more than 1000 rows remain', async () => {
+    const event = EventDAL.createEvent(projectId, { name: 'max_limit_event' });
+    const timestamps = Array.from({ length: 1001 }, (_, i) => {
+      const ms = String(i % 1000).padStart(3, '0');
+      const s = String(Math.floor(i / 1000)).padStart(2, '0');
+      return `2031-01-01T00:00:${s}.${ms}Z`;
+    });
+    for (let i = 0; i < 1001; i++) {
+      insertChange({ entity_id: `max-limit:${event.id}`, changed_at: timestamps[i] });
+    }
+
+    const res = await fetch(
+      `${baseUrl}/api/projects/${projectId}/history?entity_id=max-limit:${event.id}&limit=1000`
+    );
+    const body = await res.json();
+    // The requested limit is capped at MAX_LIMIT - 1 (999, not 1000) precisely so the one-row
+    // lookahead survives the DAL's own MAX_LIMIT clamp -- before the fix this page reported
+    // `next_cursor: null` here even though 1001 rows exist, because the lookahead row got clamped
+    // away by the DAL along with everything past MAX_LIMIT.
+    expect(body.items).toHaveLength(999);
+    expect(body.next_cursor).not.toBeNull();
+  });
+
   it('pages 60 rows sharing 14 distinct timestamps with limit 7, visiting every row exactly once (no gaps, no duplicates)', async () => {
     const event = EventDAL.createEvent(projectId, { name: 'same_millisecond_event' });
     const timestamps = Array.from({ length: 14 }, (_, i) => `2030-01-01T00:00:00.${String(i).padStart(3, '0')}Z`);

@@ -12,6 +12,7 @@ import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { PRIORITIES, ENTITY_STATUSES, CATALOG_MAPPING_ROLES } from '@/src/domain/enums';
 import { CATALOG_MAIN_COLUMNS } from '@/src/domain/bloomreach';
+import { HistorySection } from '@/src/features/history/HistorySection';
 
 interface CatalogRow {
   id: string;
@@ -304,6 +305,10 @@ function CatalogEditor({
       )}
 
       {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{saveError}</div>}
+
+      {!isCreating && catalog && (
+        <HistorySection projectId={projectId} entityType="catalog" entityId={catalog.id} parentEntityId={catalog.id} />
+      )}
 
       <div className="pt-6 border-t flex justify-between">
         {!isCreating && catalog ? (

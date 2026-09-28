@@ -4,6 +4,7 @@
 import { getDb } from '../db';
 import { newId, nowIso, mapWriteError } from '../db/util';
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
+import * as ChangeLogDAL from './change-log.dal';
 
 export interface SourceRow {
   id: string;
@@ -52,13 +53,26 @@ export function createSource(
 
   const id = newId();
   const now = nowIso();
-  try {
-    db.prepare(
-      'INSERT INTO sources (id, project_id, name, color, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(id, projectId, name, input.color ?? null, now, now);
-  } catch (err) {
-    mapWriteError(err, 'A source with that name already exists.', `Failed to create source: ${(err as Error).message}`);
-  }
+  const run = db.transaction(() => {
+    try {
+      db.prepare(
+        'INSERT INTO sources (id, project_id, name, color, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run(id, projectId, name, input.color ?? null, now, now);
+    } catch (err) {
+      mapWriteError(err, 'A source with that name already exists.', `Failed to create source: ${(err as Error).message}`);
+    }
+    const created = getSourceOrThrow(projectId, id);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'source',
+      entityId: id,
+      entityLabel: created.name,
+      action: 'create',
+      before: null,
+      after: created as unknown as Record<string, unknown>,
+    });
+  });
+  run();
   return getSourceOrThrow(projectId, id);
 }
 
@@ -67,7 +81,7 @@ export function updateSource(
   id: string,
   input: { name?: string; color?: string | null }
 ): SourceRow {
-  getSourceOrThrow(projectId, id);
+  const before = getSourceOrThrow(projectId, id);
   const db = getDb();
 
   const patch: Record<string, unknown> = {};
@@ -88,25 +102,51 @@ export function updateSource(
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
     .join(', ');
-  try {
-    db.prepare(`UPDATE sources SET ${setClause} WHERE id = @id AND project_id = @project_id`).run({
-      ...patch,
-      id,
-      project_id: projectId,
+  const run = db.transaction(() => {
+    try {
+      db.prepare(`UPDATE sources SET ${setClause} WHERE id = @id AND project_id = @project_id`).run({
+        ...patch,
+        id,
+        project_id: projectId,
+      });
+    } catch (err) {
+      mapWriteError(
+        err,
+        'A source with that name already exists.',
+        `Failed to update source: ${(err as Error).message}`
+      );
+    }
+    const after = getSourceOrThrow(projectId, id);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'source',
+      entityId: id,
+      entityLabel: after.name,
+      action: 'update',
+      before: before as unknown as Record<string, unknown>,
+      after: after as unknown as Record<string, unknown>,
     });
-  } catch (err) {
-    mapWriteError(
-      err,
-      'A source with that name already exists.',
-      `Failed to update source: ${(err as Error).message}`
-    );
-  }
+  });
+  run();
   return getSourceOrThrow(projectId, id);
 }
 
 export function deleteSource(projectId: string, id: string): void {
-  getSourceOrThrow(projectId, id);
-  getDb().prepare('DELETE FROM sources WHERE id = ? AND project_id = ?').run(id, projectId);
+  const existing = getSourceOrThrow(projectId, id);
+  const db = getDb();
+  const run = db.transaction(() => {
+    db.prepare('DELETE FROM sources WHERE id = ? AND project_id = ?').run(id, projectId);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'source',
+      entityId: id,
+      entityLabel: existing.name,
+      action: 'delete',
+      before: existing as unknown as Record<string, unknown>,
+      after: null,
+    });
+  });
+  run();
 }
 
 /**

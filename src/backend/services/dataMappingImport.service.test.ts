@@ -15,6 +15,7 @@ import * as VariantDAL from '../dal/variant.dal';
 import * as StandardEventMappingDAL from '../dal/standard-event-mapping.dal';
 import * as ConsentCategoryDAL from '../dal/consent-category.dal';
 import * as RuleDAL from '../dal/rule.dal';
+import * as ChangeLogDAL from '../dal/change-log.dal';
 import { previewDataMapping, applyDataMapping } from './dataMappingImport.service';
 import { exportDataMapping } from './bloomreachExport.service';
 import { PayloadChangedError } from '../errors';
@@ -126,6 +127,24 @@ describe('applyDataMapping', () => {
 
     const consent = ConsentCategoryDAL.listConsentCategories(projectId).find((c) => c.standard_key === 'newsletter')!;
     expect(consent.name).toBe('brand_consent');
+  });
+
+  it('T-3-02: every change_log row this apply produces shares one batch_id and source import:data-mapping', () => {
+    const preview = previewDataMapping(projectId, fixture);
+    const summary = applyDataMapping(
+      projectId,
+      fixture,
+      preview.payload_hash,
+      preview.items.map((i) => i.id)
+    );
+
+    const rows = ChangeLogDAL.listChanges(projectId, { batch_id: summary.batch_id, limit: 1000 });
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((r) => r.batch_id === summary.batch_id)).toBe(true);
+    expect(rows.every((r) => r.source === 'import:data-mapping')).toBe(true);
+    // Every write this apply produced is tagged: the full change_log for the project (minus the
+    // project's own creation row, written outside this apply) equals this one batch.
+    expect(ChangeLogDAL.listChanges(projectId, { limit: 1000 }).length).toBe(rows.length);
   });
 
   it('is idempotent: a second preview after a full apply proposes no create items', () => {

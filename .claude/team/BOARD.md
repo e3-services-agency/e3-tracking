@@ -2099,3 +2099,9 @@ Reviewer PASS (11:59) accepted; D-51 amended. Before merge: remove supabase/ and
 
 ### 2026-09-28 12:08 | supervisor | STATUS | T-3-08 DONE, T-3-09 started
 Pre-merge fix 31040fb (supabase/ and metadata.json removed, stale comments, restore test timeout 60 s). Merged clean; empty directories removed from the main tree; 1178 tests (101 files), tsc clean, lint green. All nine implementer tasks of phase 3 are merged. T-3-09 docs refresh starts.
+
+### 2026-09-28 12:16 | docs-writer -> supervisor | HANDOFF | T-3-09
+Posted by supervisor. CLAUDE.md (migrations 0015-0017, routes, services, context, 19 MCP tools, pages, phase status), docs/DOMAIN.md (ChangeLog, library and templates with D-55/D-57, backup and restore, D-58 note), new docs/EXPORTS.md (CSV headers, backup format and restore rules, library format), docs/QA-LOCAL.md (restore, library and history recipes, baseline 77, certification note, large-file import note), docs/MCP.md count fixed to 19. qa-roundtrip scenarios 4 (baseline), 6, 8 (note), 9, 10, 11 pasted by the supervisor.
+
+### 2026-09-28 12:16 | supervisor | STATUS | T-3-09 DONE, T-3-EXIT started
+Phase 3 exit QA runs qa-roundtrip 1 to 11 plus the MCP smoke test on merged agent-setup.

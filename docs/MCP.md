@@ -149,7 +149,7 @@ beyond the stderr line `[mcp] INFO e3-tracking MCP server ready on stdio`. To co
 without an MCP client, spawn it as a child process and speak minimal JSON-RPC over its stdin/stdout
 (this is exactly what `src/mcp/server.ts`'s own manual verification used, T-2-10): send an
 `initialize` request, then a `tools/list` request, and check the response's `result.tools.length` is
-`17` and every name in the "Tools" list above appears. Verify with the *exact* `.mcp.json` command on
+`19` and every name in the "Tools" list above appears. Verify with the *exact* `.mcp.json` command on
 your platform — on native Windows that means spawning `command: "cmd", args: ["/c", "npx", "tsx",
 "src/mcp/server.ts"]`, not a bare `npx` (`spawn('npx', ...)` without a shell fails with `ENOENT` there,
 since `npx` resolves to `npx.cmd`, not a directly-executable file). `src/mcp/tools/tools.test.ts` and

@@ -391,3 +391,6 @@ Consequences: Folded into T-4-09 (button, flag, checklist entry); the curated ba
 ## D-48 amendment (2026-09-28): the shared routes serve a public projection of the tracking document and HTML: agent_instructions, owners, identity_note, bloomreach_project_url and any internal_* field are removed; not_suitable_for stays. Every error under /api/shared is the same 404 SHARE_NOT_FOUND body (malformed escapes included) and the global error handler never returns stack traces outside development. Shared responses carry Cache-Control: no-store.
 
 ## D-53 amendment 4 (2026-09-28): 0023 T-4-09 project settings_json (is_sandbox, D-60).
+
+## D-49 amendment (2026-09-29): comments are one shared thread
+Comments attached to an event, property, use case or requirement form one thread shown in both the internal and the shared view. Internal replies are visible to anyone with the share link; private notes belong in the internal fields the public projection strips (use case internal_notes/internal_url, agent_instructions, owners, identity_note). The internal panel states the visibility next to the form. Resolved state and via_share origin stay internal. Open for the user's confirmation at the phase 4 review.

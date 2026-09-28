@@ -10,6 +10,7 @@ import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { EventCardView, type EventCardData, type CoverageGridData } from '@/src/features/events/components/EventCardView';
+import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
 
 async function parseJson(res: Response): Promise<any> {
   return res.json().catch(() => ({}));
@@ -80,6 +81,7 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
             card={card}
             grid={grid}
             fileUrl={(path) => `${API_BASE}/api/projects/${activeProjectId}/files/${path}`}
+            commentsSlot={<CommentsPanel entityType="event" entityId={card.id} api={{ mode: 'internal', projectId: activeProjectId }} />}
           />
         )}
       </div>

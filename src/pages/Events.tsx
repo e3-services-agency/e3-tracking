@@ -23,6 +23,7 @@ import { VariantsSection, type DiscriminatorProperty } from '@/src/features/even
 import { RulesSection, type RuleLinkedProperty } from '@/src/features/events/components/RulesSection';
 import { UseCasesForEventSection } from '@/src/features/events/components/UseCasesForEventSection';
 import { HistorySection } from '@/src/features/history/HistorySection';
+import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
 
@@ -705,6 +706,10 @@ function EventEditor({
       )}
 
       {!isCreating && eventId && <UseCasesForEventSection projectId={projectId} eventId={eventId} />}
+
+      {!isCreating && eventId && (
+        <CommentsPanel entityType="event" entityId={eventId} api={{ mode: 'internal', projectId }} />
+      )}
 
       {!isCreating && eventId && (
         <HistorySection projectId={projectId} entityType="event" entityId={eventId} parentEntityId={eventId} />

@@ -14,10 +14,23 @@
  * `buildSharedViewModel`/`sharedFileUrl` are exported as plain functions (no DOM) so the event
  * ordering and file-path resolution are unit-testable without `@testing-library/react`, which this
  * repo does not depend on (D-20 uses plain-Node vitest, no jsdom).
+ *
+ * T-4-04 (D-49): `CommentsPanel` is mounted on each event card (`commentsSlot`), on the use case
+ * section and on each requirement row, in `shared` mode (`{token, access: header.access}`); the add
+ * form hides itself when `access !== 'comment'` (`CommentsPanel`'s own `canComment` check).
+ *
+ * Fix round (W1): this page can mount dozens of panels (one per event card, use case and
+ * requirement row); each fetching its own list independently was 62 requests on the sandbox
+ * project. `GET /api/shared/:token/comments` with no `entity_type`/`entity_id` filter returns every
+ * comment for the project in one request, fetched once alongside the header/document and filtered
+ * client-side per panel (`commentsFor`); `reloadComments` is passed as every panel's `onChanged` so
+ * a post or (there is no resolve toggle in shared mode) refreshes this one list instead of each
+ * panel re-fetching its own copy.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { API_BASE } from '@/src/config/env';
 import { EventCardView, type EventCardData } from '@/src/features/events/components/EventCardView';
+import { CommentsPanel, type CommentPanelRow } from '@/src/features/comments/CommentsPanel';
 import type { TrackingDocument } from '@/src/domain/document/trackingDocument';
 import { sharedFileUrl, buildSharedViewModel } from './sharedViewModel';
 
@@ -41,8 +54,26 @@ function downloadUrl(token: string, suffix: string): string {
 export function SharedProject({ token }: { token: string }) {
   const [header, setHeader] = useState<ShareHeader | null>(null);
   const [doc, setDoc] = useState<TrackingDocument | null>(null);
+  const [comments, setComments] = useState<CommentPanelRow[]>([]);
   const [invalid, setInvalid] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  const reloadComments = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/shared/${encodeURIComponent(token)}/comments`);
+      const data = await parseJson(res);
+      if (res.ok && Array.isArray(data)) setComments(data);
+    } catch {
+      // Best-effort refresh only -- the panel that triggered this already reported its own error
+      // for the post/update that failed (L4 fix round); a failed re-fetch here just leaves the
+      // previous list on screen rather than losing it.
+    }
+  }, [token]);
+
+  const commentsFor = useCallback(
+    (entityType: string, entityId: string) => comments.filter((c) => c.entity_type === entityType && c.entity_id === entityId),
+    [comments]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -62,9 +93,12 @@ export function SharedProject({ token }: { token: string }) {
           return;
         }
         const docData = (await parseJson(docRes)) as TrackingDocument;
+        const commentsRes = await fetch(`${API_BASE}/api/shared/${encodeURIComponent(token)}/comments`);
+        const commentsData = commentsRes.ok ? await parseJson(commentsRes) : [];
         if (!cancelled) {
           setHeader(headerData);
           setDoc(docData);
+          setComments(Array.isArray(commentsData) ? commentsData : []);
         }
       } catch {
         if (!cancelled) setInvalid(true);
@@ -153,7 +187,19 @@ export function SharedProject({ token }: { token: string }) {
 
         {customEvents.map((event) => (
           <div key={event.id} id={`event-${event.id}`}>
-            <EventCardView card={event as unknown as EventCardData} fileUrl={fileUrl} />
+            <EventCardView
+              card={event as unknown as EventCardData}
+              fileUrl={fileUrl}
+              commentsSlot={
+                <CommentsPanel
+                  entityType="event"
+                  entityId={event.id}
+                  api={{ mode: 'shared', token, access: header.access }}
+                  rows={commentsFor('event', event.id)}
+                  onChanged={reloadComments}
+                />
+              }
+            />
           </div>
         ))}
 
@@ -219,8 +265,8 @@ export function SharedProject({ token }: { token: string }) {
 
         <section id="use-cases" className="bg-white rounded-lg border shadow-sm p-4">
           <h2 className="text-sm font-semibold text-gray-900 mb-3">Use cases ({doc.use_cases.length})</h2>
-          {doc.use_cases.map((uc, i) => (
-            <div key={uc.code ?? i} className="mb-4 border rounded-md p-3">
+          {doc.use_cases.map((uc) => (
+            <div key={uc.id} className="mb-4 border rounded-md p-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-sm font-semibold text-gray-800">
                   {uc.code ? `${uc.code} — ` : ''}
@@ -243,16 +289,37 @@ export function SharedProject({ token }: { token: string }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {uc.requirements.map((r, j) => (
-                      <tr key={j}>
-                        <td className="px-3 py-2">{r.target_label}</td>
-                        <td className="px-3 py-2">{r.level}</td>
-                        <td className="px-3 py-2">{r.status ?? '—'}</td>
-                      </tr>
+                    {uc.requirements.map((r) => (
+                      <React.Fragment key={r.id}>
+                        <tr>
+                          <td className="px-3 py-2">{r.target_label}</td>
+                          <td className="px-3 py-2">{r.level}</td>
+                          <td className="px-3 py-2">{r.status ?? '—'}</td>
+                        </tr>
+                        <tr>
+                          <td colSpan={3} className="px-3 pb-2">
+                            <CommentsPanel
+                              entityType="requirement"
+                              entityId={r.id}
+                              api={{ mode: 'shared', token, access: header.access }}
+                              title="Comments on this requirement"
+                              rows={commentsFor('requirement', r.id)}
+                              onChanged={reloadComments}
+                            />
+                          </td>
+                        </tr>
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>
               )}
+              <CommentsPanel
+                entityType="use_case"
+                entityId={uc.id}
+                api={{ mode: 'shared', token, access: header.access }}
+                rows={commentsFor('use_case', uc.id)}
+                onChanged={reloadComments}
+              />
             </div>
           ))}
           {doc.use_cases.length === 0 && <p className="text-sm text-gray-500">No use cases defined.</p>}

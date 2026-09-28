@@ -380,3 +380,52 @@ export class SandboxShareRefusedError extends ConflictError {
     this.name = 'SandboxShareRefusedError';
   }
 }
+
+/** Base class for a request that is well-formed but refused (403); map to `code`-specific bodies. */
+export class ForbiddenError extends Error {
+  readonly code: string = 'FORBIDDEN';
+  constructor(message: string) {
+    super(message);
+    this.name = 'ForbiddenError';
+  }
+}
+
+/**
+ * `POST /api/shared/:token/comments` when the token's `share_access` is `read`, not `comment`
+ * (D-49, T-4-04): a read-only link never accepts a write, no matter what the body carries. 403.
+ */
+export class ShareReadOnlyError extends ForbiddenError {
+  readonly code = 'SHARE_READ_ONLY';
+  constructor(message: string) {
+    super(message);
+    this.name = 'ShareReadOnlyError';
+  }
+}
+
+/**
+ * A request body carries a field the endpoint never accepts at all -- distinct from `ValidationError`
+ * (a field it accepts but with a bad value). `POST /api/shared/:token/comments` uses this for
+ * `resolved` (and any other field beyond `author_name`/`body`/the anchor), since a public commenter
+ * must never be able to resolve a comment (D-49, T-4-04). 400.
+ */
+export class FieldNotAllowedError extends BadRequestError {
+  readonly code = 'FIELD_NOT_ALLOWED';
+  constructor(message: string, field?: string) {
+    super(message, field);
+    this.name = 'FieldNotAllowedError';
+  }
+}
+
+/**
+ * A per-token in-memory guard on `POST /api/shared/:token/comments` (D-49, T-4-04): 60 posts per
+ * 10 minutes per token, reset on process restart. A cheap stand-in only -- phase 5 (real hosting)
+ * replaces this with actual rate limiting (D-48's phase 5 notes); this exists solely so a stray
+ * script hammering a leaked link cannot flood a project's comment list today. 429.
+ */
+export class RateLimitedError extends Error {
+  readonly code = 'RATE_LIMITED';
+  constructor(message: string) {
+    super(message);
+    this.name = 'RateLimitedError';
+  }
+}

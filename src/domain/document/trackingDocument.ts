@@ -301,12 +301,17 @@ export interface TrackingDocumentCatalog {
 }
 
 export interface TrackingDocumentRequirement {
+  /** D-49, T-4-04: additive -- the requirement's own id, so the shared view's `CommentsPanel` (and
+   * any other consumer) can anchor a comment to this row without a second lookup. */
+  id: string;
   target_label: string;
   level: string;
   status: string | null;
 }
 
 export interface TrackingDocumentUseCase {
+  /** D-49, T-4-04: additive -- the use case's own id, same reason as `TrackingDocumentRequirement.id`. */
+  id: string;
   code: string | null;
   name: string;
   type: string | null;

@@ -172,6 +172,10 @@ export function QaRuns() {
             onChanged={async () => {
               await load();
             }}
+            onDeleted={() => {
+              setIsSheetOpen(false);
+              setSelectedId(null);
+            }}
           />
         )}
       </Sheet>
@@ -183,10 +187,12 @@ function QaRunDetail({
   projectId,
   runId,
   onChanged,
+  onDeleted,
 }: {
   projectId: string;
   runId: string;
   onChanged: () => Promise<void>;
+  onDeleted: () => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [run, setRun] = useState<QaRunRow | null>(null);
@@ -195,6 +201,10 @@ function QaRunDetail({
   const [busy, setBusy] = useState(false);
   const [comparisonResult, setComparisonResult] = useState<{ open: Record<string, number> } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // D-52, T-3-07: one observation's properties JSON textarea open for editing at a time.
+  const [editingObsId, setEditingObsId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [obsError, setObsError] = useState<string | null>(null);
   const setRequestedTab = useStore((s) => s.setRequestedTab);
   const setPendingFindingsRunId = useStore((s) => s.setPendingFindingsRunId);
 
@@ -291,6 +301,99 @@ function QaRunDetail({
     setRequestedTab('findings');
   };
 
+  const deleteRun = async () => {
+    if (!window.confirm('Delete this QA run and all its observations? This cannot be undone.')) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/qa-runs/${runId}`, { method: 'DELETE' });
+      if (res.ok || res.status === 204) {
+        // LOW 4 (fix round): close the sheet -- the deleted run's Archive/Finish/Edit/Delete
+        // controls would otherwise stay visible and 404 on the next click.
+        onDeleted();
+        await onChanged();
+      } else {
+        const data = await parseJson(res);
+        setError(typeof data?.error === 'string' ? data.error : 'Failed to delete this QA run.');
+      }
+    } catch {
+      setError('Failed to delete this QA run.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const startEditObservation = (obs: ObservationRow) => {
+    setEditingObsId(obs.id);
+    setEditText(JSON.stringify(obs.properties_json, null, 2));
+    setObsError(null);
+  };
+
+  const cancelEditObservation = () => {
+    setEditingObsId(null);
+    setEditText('');
+    setObsError(null);
+  };
+
+  const saveEditObservation = async (obsId: string) => {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(editText);
+    } catch {
+      setObsError('Properties must be valid JSON.');
+      return;
+    }
+    // Fix round WARNING 2: only submit when the parsed JSON is a plain object -- a bare number,
+    // string, array or null parses fine but is not a valid `properties` value (the API itself now
+    // rejects it with 400, but catching it here avoids the round trip and gives a clearer message).
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      setObsError('Properties must be a JSON object, e.g. {"total_price": 28}.');
+      return;
+    }
+    const properties = parsed as Record<string, unknown>;
+    setBusy(true);
+    setObsError(null);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/observations/${obsId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ properties }),
+      });
+      const data = await parseJson(res);
+      if (res.ok) {
+        setEditingObsId(null);
+        setEditText('');
+        await load();
+        await onChanged();
+      } else {
+        setObsError(typeof data?.error === 'string' ? data.error : 'Failed to save this observation.');
+      }
+    } catch {
+      setObsError('Failed to save this observation.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteObservation = async (obsId: string) => {
+    if (!window.confirm('Delete this observation?')) return;
+    setBusy(true);
+    setObsError(null);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/observations/${obsId}`, { method: 'DELETE' });
+      if (res.ok || res.status === 204) {
+        await load();
+        await onChanged();
+      } else {
+        const data = await parseJson(res);
+        setObsError(typeof data?.error === 'string' ? data.error : 'Failed to delete this observation.');
+      }
+    } catch {
+      setObsError('Failed to delete this observation.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (!loading && !run && error) {
     return <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 m-4">{error}</div>;
   }
@@ -348,6 +451,9 @@ function QaRunDetail({
             Download customer-events-export.json
           </Button>
         </a>
+        <Button type="button" variant="destructive" onClick={() => void deleteRun()} disabled={busy}>
+          Delete run
+        </Button>
       </div>
 
       {comparisonResult && (
@@ -359,6 +465,9 @@ function QaRunDetail({
 
       <div>
         <h3 className="text-sm font-semibold text-gray-900 mb-2">Observations ({observations.length})</h3>
+        {obsError && (
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 mb-2">{obsError}</div>
+        )}
         <div className="border rounded-md overflow-hidden">
           <table className="w-full text-left text-xs">
             <thead className="bg-gray-50 border-b">
@@ -367,22 +476,64 @@ function QaRunDetail({
                 <th className="px-3 py-2 font-medium text-gray-500">Timestamp</th>
                 <th className="px-3 py-2 font-medium text-gray-500">Resolved</th>
                 <th className="px-3 py-2 font-medium text-gray-500">Properties</th>
+                <th className="px-3 py-2 font-medium text-gray-500">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {observations.map((obs) => (
-                <tr key={obs.id}>
-                  <td className="px-3 py-2 font-mono">{obs.event_type}</td>
-                  <td className="px-3 py-2 text-gray-500">{new Date(obs.timestamp * 1000).toLocaleString()}</td>
-                  <td className="px-3 py-2 text-gray-500">{obs.event_id ? (obs.variant_id ? 'event + variant' : 'event') : '—'}</td>
-                  <td className="px-3 py-2 text-gray-500 max-w-xs truncate" title={JSON.stringify(obs.properties_json)}>
-                    {JSON.stringify(obs.properties_json)}
-                  </td>
-                </tr>
+                <React.Fragment key={obs.id}>
+                  <tr>
+                    <td className="px-3 py-2 font-mono">{obs.event_type}</td>
+                    <td className="px-3 py-2 text-gray-500">{new Date(obs.timestamp * 1000).toLocaleString()}</td>
+                    <td className="px-3 py-2 text-gray-500">{obs.event_id ? (obs.variant_id ? 'event + variant' : 'event') : '—'}</td>
+                    <td className="px-3 py-2 text-gray-500 max-w-xs truncate" title={JSON.stringify(obs.properties_json)}>
+                      {JSON.stringify(obs.properties_json)}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          className="text-blue-600 hover:underline"
+                          onClick={() => startEditObservation(obs)}
+                          disabled={busy}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="text-red-600 hover:underline"
+                          onClick={() => void deleteObservation(obs.id)}
+                          disabled={busy}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  {editingObsId === obs.id && (
+                    <tr>
+                      <td colSpan={5} className="px-3 py-2 bg-gray-50">
+                        <textarea
+                          className="w-full h-32 rounded-md border border-gray-300 px-3 py-2 font-mono text-xs"
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <Button type="button" size="sm" onClick={() => void saveEditObservation(obs.id)} disabled={busy}>
+                            Save
+                          </Button>
+                          <Button type="button" size="sm" variant="outline" onClick={cancelEditObservation} disabled={busy}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
               {observations.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-3 py-4 text-center text-gray-400">
+                  <td colSpan={5} className="px-3 py-4 text-center text-gray-400">
                     No observations.
                   </td>
                 </tr>

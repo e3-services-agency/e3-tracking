@@ -14,13 +14,16 @@ QA round without going through the web UI.
 - Database: the same `getDb()` singleton and migrations as the Express API (`src/backend/db/index.ts`),
   opened via `E3_DB_PATH` — point it at the same file as the running app (`./data/e3-tracking.sqlite`)
   to see the same projects, or at a scratch/`:memory:` path to experiment without touching your data.
-- Tools: thirteen, implemented as plain async handlers in `src/mcp/tools/*.ts` and registered in
+- Tools: sixteen, implemented as plain async handlers in `src/mcp/tools/*.ts` and registered in
   `src/mcp/registerTools.ts` (so a later HTTP transport can mount the same handlers without touching
   their logic): `list_projects`, `list_events`, `get_event_card`, `get_expected_payload`,
   `list_use_cases`, `get_use_case`, `list_findings`, `get_coverage_grid`, `get_tracking_document`,
   `submit_observation`, `submit_observations_batch`, `finish_qa_run`, `run_comparison` — the plan
   table's twelve (`PLAN-PHASE2-2026-09-25.md` lines ~205-225) plus `get_tracking_document`, which the
-  plan table did not originally list.
+  plan table did not originally list — plus three more added in T-3-07 (D-52): `update_observation`,
+  `delete_observation`, `delete_qa_run`, each mirroring the matching REST route's DAL functions and
+  error codes and each followed by `run_comparison`, registered at the end of `registerTools.ts` to
+  keep later merges additive.
 
 ## How Claude Code picks up `.mcp.json`
 
@@ -117,6 +120,15 @@ on an empty project too, just with fewer/no findings at the end.
    on `purchase`, not `cart_update` — call `get_expected_payload` for `{"event": "purchase"}` instead to
    see it, or attach a rule to `cart_update` by hand first (`src/mcp/tools/tools.test.ts` exercises the
    `rules`/`item_schemas` shape with a test-created event and rule).
+6. **`update_observation`/`delete_observation`/`delete_qa_run`** (D-52, T-3-07) — from `list_findings`,
+   pick an observation with a `type_mismatch` finding (e.g. `total_price` observed as the string `"28"`
+   on `cart_update`); call `update_observation` with `{"observation_id": "...", "properties":
+   {..., "total_price": 28}}`, expect the returned `comparison` summary's `resolved` count to include
+   that finding. `update_observation` with `properties` matching another observation already in the
+   same run instead returns `{"isError": true, "content": [{"type": "text", "text": "DUPLICATE_
+   OBSERVATION: ..."}]}`. `delete_observation` removes one row and recomputes; `delete_qa_run` removes
+   a whole run (cascading its observations) and recomputes — expect the findings that run's
+   observations used to produce to resolve.
 
 ## Verifying the process starts and answers `tools/list`
 
@@ -125,7 +137,7 @@ beyond the stderr line `[mcp] INFO e3-tracking MCP server ready on stdio`. To co
 without an MCP client, spawn it as a child process and speak minimal JSON-RPC over its stdin/stdout
 (this is exactly what `src/mcp/server.ts`'s own manual verification used, T-2-10): send an
 `initialize` request, then a `tools/list` request, and check the response's `result.tools.length` is
-`13` and every name in the "Tools" list above appears. Verify with the *exact* `.mcp.json` command on
+`16` and every name in the "Tools" list above appears. Verify with the *exact* `.mcp.json` command on
 your platform — on native Windows that means spawning `command: "cmd", args: ["/c", "npx", "tsx",
 "src/mcp/server.ts"]`, not a bare `npx` (`spawn('npx', ...)` without a shell fails with `ENOENT` there,
 since `npx` resolves to `npx.cmd`, not a directly-executable file). `src/mcp/tools/tools.test.ts` and

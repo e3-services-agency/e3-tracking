@@ -23,9 +23,9 @@ import { listUseCases, getUseCase } from './tools/useCases';
 import { listFindings } from './tools/findings';
 import { getCoverageGrid } from './tools/coverage';
 import { getTrackingDocument } from './tools/trackingDocument';
-import { submitObservation, submitObservationsBatch } from './tools/observations';
+import { submitObservation, submitObservationsBatch, updateObservation, deleteObservation } from './tools/observations';
 import { runComparison } from './tools/comparison';
-import { finishQaRun } from './tools/qaRuns';
+import { finishQaRun, deleteQaRun } from './tools/qaRuns';
 
 type ToolHandler<I> = (input: I) => Promise<unknown>;
 
@@ -165,5 +165,37 @@ export function registerTools(server: McpServer): void {
     'Recomputes every comparison engine over the whole project (scope is accepted but ignored -- it never narrows the recompute, same as POST /comparison/run) and returns the findings summary.',
     { ...projectKeyShape, scope: z.object({ event: z.string().optional(), qa_run_id: z.string().optional() }).optional() },
     runComparison
+  );
+
+  // T-3-07 (D-52): registered at the end to keep this file's merges additive across tasks.
+  register(
+    server,
+    'update_observation',
+    'Edits one observation\'s evidence (properties, page_url, context_values, timestamp); recomputes raw_hash (409 DUPLICATE_OBSERVATION on collision with another observation of the same run) and runs comparison.',
+    {
+      ...projectKeyShape,
+      observation_id: z.string(),
+      properties: z.record(z.string(), z.unknown()).optional(),
+      page_url: z.string().nullable().optional(),
+      context_values: z.unknown().optional(),
+      timestamp: z.number().optional(),
+    },
+    updateObservation
+  );
+
+  register(
+    server,
+    'delete_observation',
+    'Deletes one observation and runs comparison.',
+    { ...projectKeyShape, observation_id: z.string() },
+    deleteObservation
+  );
+
+  register(
+    server,
+    'delete_qa_run',
+    'Deletes a QA run (cascading its observations) and runs comparison.',
+    { ...projectKeyShape, qa_run_id: z.string() },
+    deleteQaRun
   );
 }

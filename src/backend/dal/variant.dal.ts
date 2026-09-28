@@ -11,6 +11,7 @@ import {
   ConditionDuplicatePropertyError,
   ConditionNotDiscriminatorError,
   ConditionValueNotAllowedError,
+  MappingInUseError,
   MaxDiscriminatorsError,
   NotFoundError,
   ValidationError,
@@ -331,11 +332,37 @@ export function updateVariant(
  * `replaceRequirements` then rejected any later save of that row. Runs in the same transaction as
  * the delete, marking those rows `status = 'gap'` with `variant_id` nulled and a "target removed:
  * <name>" note (see `requirement.dal.ts` `markRequirementsGapForVariantRemoval`).
+ *
+ * D-52 / T-2-05 follow-up (T-3-07): a `StandardEventMapping` whose `variant_id` still points at
+ * this variant is refused with 409 `MAPPING_IN_USE` naming the standard event, unless
+ * `options.force` is `true`, in which case the mapping's `variant_id` is cleared (its `event_id`
+ * stays, turning it into an unfiltered, event-level mapping) before the variant itself is deleted —
+ * both in the same transaction, so a caller never observes a mapping pointing at a gone variant.
  */
-export function deleteVariant(projectId: string, eventId: string, id: string): void {
+export function deleteVariant(
+  projectId: string,
+  eventId: string,
+  id: string,
+  options?: { force?: boolean }
+): void {
   const variant = getVariantOrThrow(projectId, eventId, id);
   const db = getDb();
   const run = db.transaction(() => {
+    const mappings = db
+      .prepare('SELECT standard_event FROM standard_event_mappings WHERE project_id = ? AND variant_id = ?')
+      .all(projectId, id) as { standard_event: string }[];
+    if (mappings.length > 0) {
+      if (!options?.force) {
+        const names = mappings.map((m) => m.standard_event).join(', ');
+        throw new MappingInUseError(
+          `Variant "${variant.name}" is targeted by the standard event mapping "${names}"; pass ?force=true to clear the mapping's variant instead of keeping it filtered.`
+        );
+      }
+      db.prepare('UPDATE standard_event_mappings SET variant_id = NULL WHERE project_id = ? AND variant_id = ?').run(
+        projectId,
+        id
+      );
+    }
     markRequirementsGapForVariantRemoval(id, variant.name);
     const result = db
       .prepare('DELETE FROM variants WHERE id = ? AND project_id = ? AND event_id = ?')

@@ -523,12 +523,19 @@ export function updateDefinition(
   return getDefinitionOrThrow(projectId, definitionId);
 }
 
-/** Refused (409) while any event link still uses it, or when it is the property's last remaining
- * definition -- a property always has at least one meaning. */
+/** Refused (409) for the `general` definition (it stays in sync with the property's own fields
+ * for as long as this table exists, same reasoning as refusing to rename it -- see
+ * `updateDefinition`), while any event link still uses it, or when it is the property's last
+ * remaining definition -- a property always has at least one meaning. */
 export function deleteDefinition(projectId: string, propertyId: string, definitionId: string): void {
   const existing = getDefinitionOrThrow(projectId, definitionId);
   if (existing.property_id !== propertyId) {
     throw new NotFoundError('Property definition not found.', 'property_definition');
+  }
+  if (existing.name === PROPERTY_DEFINITION_DEFAULT_NAME) {
+    throw new ConflictError(
+      `The "${PROPERTY_DEFINITION_DEFAULT_NAME}" definition cannot be deleted; it stays in sync with the property's own fields.`
+    );
   }
   const db = getDb();
 

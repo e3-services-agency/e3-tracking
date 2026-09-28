@@ -521,7 +521,7 @@ function DefinitionsSection({ projectId, propertyId }: { projectId: string; prop
               </div>
               <div className="flex gap-1 shrink-0">
                 <Button variant="outline" size="sm" onClick={() => { setIsAdding(false); setEditingId(d.id); }}>Edit</Button>
-                {definitions.length > 1 && (
+                {definitions.length > 1 && d.name !== PROPERTY_DEFINITION_DEFAULT_NAME && (
                   <Button variant="outline" size="sm" onClick={() => void handleDelete(d.id)}>Remove</Button>
                 )}
               </div>

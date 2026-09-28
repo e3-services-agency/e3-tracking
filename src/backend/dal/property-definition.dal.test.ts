@@ -205,6 +205,15 @@ describe('property-definition.dal: create/update/delete', () => {
     expect(() => PropertyDefinitionDAL.deleteDefinition(projectId, propertyId, only.id)).toThrow(ConflictError);
   });
 
+  it('pre-QA guard: refuses to delete the "general" definition even when it is not the last one and not linked', () => {
+    const [general] = PropertyDefinitionDAL.listDefinitions(projectId, propertyId);
+    PropertyDefinitionDAL.createDefinition(projectId, propertyId, { name: 'consent_action' });
+    expect(PropertyDefinitionDAL.listDefinitions(projectId, propertyId)).toHaveLength(2);
+
+    expect(() => PropertyDefinitionDAL.deleteDefinition(projectId, propertyId, general.id)).toThrow(ConflictError);
+    expect(PropertyDefinitionDAL.getDefinitionById(projectId, general.id)).toBeTruthy();
+  });
+
   it('event links validate definition_id belongs to the same property', () => {
     const otherProperty = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'other', data_type: 'string' });
     const otherDefs = PropertyDefinitionDAL.listDefinitions(projectId, otherProperty.id);

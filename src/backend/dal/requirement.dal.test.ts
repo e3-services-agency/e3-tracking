@@ -11,6 +11,8 @@ import * as PropertyDAL from './property.dal';
 import * as VariantDAL from './variant.dal';
 import * as UseCaseDAL from './use-case.dal';
 import * as RequirementDAL from './requirement.dal';
+import * as CatalogDAL from './catalog.dal';
+import * as ConsentCategoryDAL from './consent-category.dal';
 import { RequirementDuplicateTargetError, RequirementTargetInvalidError, ValidationError } from '../errors';
 
 let projectId: string;
@@ -390,5 +392,80 @@ describe('requirement.dal: markRequirementsGap* (fix round ERROR 2)', () => {
     const [row] = RequirementDAL.listRequirements(projectId, useCaseId);
     expect(row.note).toContain('Confirmed by analytics team.');
     expect(row.note).toContain('target removed: cart_update');
+  });
+});
+
+describe('T-3-10 (D-57): catalog_attribute and consent target kinds', () => {
+  let catalogFieldId: string;
+  let consentCategoryId: string;
+
+  beforeEach(() => {
+    const catalog = CatalogDAL.createCatalog(projectId, { name: 'Products', mapping_role: 'main' });
+    catalogFieldId = CatalogDAL.createCatalogField(projectId, catalog.id, { name: 'image' }).id;
+    consentCategoryId = ConsentCategoryDAL.createConsentCategory(projectId, {
+      name: 'Newsletter',
+      standard_key: 'newsletter',
+    }).id;
+  });
+
+  it('accepts a catalog_attribute row (catalog_field_id only) and a consent row (consent_category_id only)', () => {
+    const rows = RequirementDAL.replaceRequirements(projectId, useCaseId, [
+      { target_kind: 'catalog_attribute', catalog_field_id: catalogFieldId, level: 'O' },
+      { target_kind: 'consent', consent_category_id: consentCategoryId, level: 'R' },
+    ]);
+    expect(rows[0]).toMatchObject({ target_kind: 'catalog_attribute', catalog_field_id: catalogFieldId, property_id: null, event_id: null, variant_id: null, consent_category_id: null });
+    expect(rows[1]).toMatchObject({ target_kind: 'consent', consent_category_id: consentCategoryId, catalog_field_id: null });
+  });
+
+  it('rejects a catalog_field_id from another project', () => {
+    const otherClient = ClientDAL.createClient({ key: 'other', name: 'Other' });
+    const otherProjectId = ProjectDAL.createProject({ client_id: otherClient.id, key: 'other-eu', name: 'Other EU' }).id;
+    const otherCatalog = CatalogDAL.createCatalog(otherProjectId, { name: 'Other catalog', mapping_role: 'main' });
+    const otherFieldId = CatalogDAL.createCatalogField(otherProjectId, otherCatalog.id, { name: 'image' }).id;
+    expect(() =>
+      RequirementDAL.replaceRequirements(projectId, useCaseId, [
+        { target_kind: 'catalog_attribute', catalog_field_id: otherFieldId, level: 'O' },
+      ])
+    ).toThrow(RequirementTargetInvalidError);
+  });
+
+  it('rejects a consent_category_id from another project', () => {
+    const otherClient = ClientDAL.createClient({ key: 'other2', name: 'Other2' });
+    const otherProjectId = ProjectDAL.createProject({ client_id: otherClient.id, key: 'other2-eu', name: 'Other2 EU' }).id;
+    const otherConsentId = ConsentCategoryDAL.createConsentCategory(otherProjectId, { name: 'X', standard_key: 'sms' }).id;
+    expect(() =>
+      RequirementDAL.replaceRequirements(projectId, useCaseId, [
+        { target_kind: 'consent', consent_category_id: otherConsentId, level: 'R' },
+      ])
+    ).toThrow(RequirementTargetInvalidError);
+  });
+
+  it('rejects mixing a catalog_field_id onto an event-kind row, and vice versa', () => {
+    expect(() =>
+      RequirementDAL.replaceRequirements(projectId, useCaseId, [
+        { target_kind: 'event', event_id: eventId, catalog_field_id: catalogFieldId, level: 'R' },
+      ])
+    ).toThrow(RequirementTargetInvalidError);
+    expect(() =>
+      RequirementDAL.replaceRequirements(projectId, useCaseId, [
+        { target_kind: 'catalog_attribute', catalog_field_id: catalogFieldId, event_id: eventId, level: 'R' },
+      ])
+    ).toThrow(RequirementTargetInvalidError);
+  });
+
+  it('deleting the catalog field or consent category marks the requirement gap and appends a note', () => {
+    RequirementDAL.replaceRequirements(projectId, useCaseId, [
+      { target_kind: 'catalog_attribute', catalog_field_id: catalogFieldId, level: 'O' },
+      { target_kind: 'consent', consent_category_id: consentCategoryId, level: 'R' },
+    ]);
+    const catalog = CatalogDAL.listCatalogs(projectId)[0];
+    CatalogDAL.deleteCatalogField(projectId, catalog.id, catalogFieldId);
+    ConsentCategoryDAL.deleteConsentCategory(projectId, consentCategoryId);
+
+    const rows = RequirementDAL.listRequirements(projectId, useCaseId);
+    for (const row of rows) {
+      expect(row.status).toBe('gap');
+      expect(row.note).toContain('target removed:');
+    }
   });
 });

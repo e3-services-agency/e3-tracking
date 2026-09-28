@@ -17,6 +17,9 @@ import * as VariantDAL from './variant.dal';
 import * as RequirementDAL from './requirement.dal';
 import * as UseCaseDAL from './use-case.dal';
 import * as UseCaseTemplateDAL from './use-case-template.dal';
+import * as CatalogDAL from './catalog.dal';
+import * as ConsentCategoryDAL from './consent-category.dal';
+import * as StandardEventMappingDAL from './standard-event-mapping.dal';
 import { NotFoundError, TemplateInUseError, UseCaseCodeTakenError } from '../errors';
 import { previewDataMapping, applyDataMapping } from '../services/dataMappingImport.service';
 import { parseUseCaseLibrary } from '../../domain/import/useCaseLibrary';
@@ -560,11 +563,49 @@ describe('T-3-06: sample library instantiated on the data-mapping fixture projec
     expect(variant?.name).toBe('cart_update[action=add]');
   });
 
-  it('UC-02 fully resolves against the fixture mapping (purchase, purchase_item, email)', () => {
+  it('UC-02 fully resolves against the fixture mapping (purchase, purchase_item, email, catalog, consent)', () => {
+    // T-3-10: UC-02 now also carries a catalog_attribute (field_name "image") and a consent
+    // (property_name "newsletter") requirement. The fixture's data-mapping apply already created a
+    // consent category with standard_key "newsletter" (consents.newsletter -> "brand_consent"), but
+    // it has no main catalog (catalogs.main is null in the fixture) -- create one here with an
+    // "image" field so this template resolves fully end to end.
+    const catalog = CatalogDAL.createCatalog(projectId, { name: 'Products', mapping_role: 'main' });
+    CatalogDAL.createCatalogField(projectId, catalog.id, { name: 'image' });
+
     const template = UseCaseTemplateDAL.listUseCaseTemplates().find((t) => t.code === 'UC-02')!;
     const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
     const requirements = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(requirements).toHaveLength(8);
     expect(requirements.filter((r) => r.status === 'gap')).toHaveLength(0);
+
+    // field_map translation (D-55): the standard field total_price/total_quantity on purchase_item
+    // resolves to the client's actually-differently-named properties price/quantity.
+    const purchaseItemProps = requirements.filter((r) => r.target_kind === 'event_property');
+    expect(purchaseItemProps).toHaveLength(2);
+    for (const r of purchaseItemProps) {
+      const prop = getDb().prepare('SELECT name FROM properties WHERE id = ?').get(r.property_id) as { name: string };
+      expect(['price', 'quantity']).toContain(prop.name);
+    }
+
+    const catalogReq = requirements.find((r) => r.target_kind === 'catalog_attribute')!;
+    expect(catalogReq.catalog_field_id).not.toBeNull();
+    const consentReq = requirements.find((r) => r.target_kind === 'consent')!;
+    expect(consentReq.consent_category_id).not.toBeNull();
+  });
+
+  it('UC-02 leaves catalog_attribute and consent as gaps when the project has neither', () => {
+    // Same template, no catalog/consent set up: only those two entries should be gap.
+    const template = UseCaseTemplateDAL.listUseCaseTemplates().find((t) => t.code === 'UC-02')!;
+    // Remove the consent category the fixture's data-mapping apply created, so this project
+    // genuinely has no matching consent either.
+    for (const c of ConsentCategoryDAL.listConsentCategories(projectId)) {
+      ConsentCategoryDAL.deleteConsentCategory(projectId, c.id);
+    }
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+    const requirements = RequirementDAL.listRequirements(projectId, useCase.id);
+    const gaps = requirements.filter((r) => r.status === 'gap');
+    expect(gaps).toHaveLength(2);
+    expect(gaps.map((r) => r.target_kind).sort()).toEqual(['catalog_attribute', 'consent']);
   });
 
   it('UC-03 produces exactly one gap (the unresolvable wishlist_add event)', () => {
@@ -601,5 +642,94 @@ describe('T-3-06: sample library instantiated on the data-mapping fixture projec
     const consentsGroup = preview.groups.find((g) => g.group === 'consents')!;
     expect(catalogGroup).toEqual({ group: 'catalog', total: 0, resolved: 0, status: 'none' });
     expect(consentsGroup).toEqual({ group: 'consents', total: 0, resolved: 0, status: 'none' });
+  });
+});
+
+describe('T-3-10 (D-55): standard event mapping resolution order and the mapping-step dialog', () => {
+  let transactionsEventId: string;
+  let orderTotalPropertyId: string;
+
+  beforeEach(() => {
+    // A fresh project whose "purchase" event is named `transactions` (nothing like the Bloomreach
+    // standard event key), with no standard event mapping at all yet -- reproduces the qa-roundtrip
+    // scenario 11 extension verbatim ("rename the fixture purchase event to transactions").
+    transactionsEventId = EventDAL.createEvent(projectId, { name: 'transactions', class: 'custom' }).id;
+    orderTotalPropertyId = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'order_total',
+      data_type: 'number',
+    }).id;
+    EventDAL.attachPropertyToEvent(projectId, transactionsEventId, {
+      property_id: orderTotalPropertyId,
+      role: 'normal',
+    });
+  });
+
+  function makeTemplate() {
+    return UseCaseTemplateDAL.createUseCaseTemplate({
+      code: 'UC-STD',
+      name: 'Standard event mapping test',
+      type: 'transactional',
+      default_requirements_json: [
+        { target_kind: 'event_property', standard_event: 'purchase', property_name: 'total_price', level: 'R' },
+      ],
+    });
+  }
+
+  it('without a mapping: unresolved, with the "transactions" event and its property as a candidate', () => {
+    const template = makeTemplate();
+    const preview = UseCaseTemplateDAL.previewInstantiateUseCaseTemplate(projectId, template.id);
+    expect(preview.resolved).toEqual([]);
+    expect(preview.unresolved).toHaveLength(1);
+    const item = preview.unresolved[0];
+    expect(item).toMatchObject({ index: 0, target_kind: 'event_property', standard_event: 'purchase', property_name: 'total_price' });
+    const candidate = item.candidates.find((c) => c.id === transactionsEventId)!;
+    expect(candidate).toBeTruthy();
+    expect(candidate.name).toBe('transactions');
+    expect(candidate.properties.some((p) => p.id === orderTotalPropertyId && p.name === 'order_total')).toBe(true);
+
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id);
+    const [requirement] = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(requirement.status).toBe('gap');
+    expect(StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'purchase')).toBeNull();
+  });
+
+  it('applying the mapping-step answer creates the standard event mapping (field_map translation) and resolves', () => {
+    const template = makeTemplate();
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, {
+      mappings: [{ index: 0, event_id: transactionsEventId, property_id: orderTotalPropertyId }],
+    });
+    const [requirement] = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(requirement.status).not.toBe('gap');
+    expect(requirement.event_id).toBe(transactionsEventId);
+    expect(requirement.property_id).toBe(orderTotalPropertyId);
+
+    const mapping = StandardEventMappingDAL.getStandardEventMappingByKey(projectId, 'purchase')!;
+    expect(mapping.event_id).toBe(transactionsEventId);
+    expect(mapping.field_map_json.total_price).toBe(orderTotalPropertyId);
+  });
+
+  it('once the mapping exists, a second template with the same standard_event resolves automatically (no mappings needed)', () => {
+    const template = makeTemplate();
+    UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, {
+      mappings: [{ index: 0, event_id: transactionsEventId, property_id: orderTotalPropertyId }],
+    });
+
+    const secondTemplate = UseCaseTemplateDAL.createUseCaseTemplate({
+      code: 'UC-STD-2',
+      name: 'Same standard event, no mapping given',
+      type: 'transactional',
+      default_requirements_json: [
+        { target_kind: 'event_property', standard_event: 'purchase', property_name: 'total_price', level: 'R' },
+      ],
+    });
+    const preview = UseCaseTemplateDAL.previewInstantiateUseCaseTemplate(projectId, secondTemplate.id);
+    expect(preview.unresolved).toEqual([]);
+    expect(preview.resolved).toEqual([{ index: 0, target_kind: 'event_property' }]);
+
+    const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, secondTemplate.id);
+    const [requirement] = RequirementDAL.listRequirements(projectId, useCase.id);
+    expect(requirement.status).not.toBe('gap');
+    expect(requirement.property_id).toBe(orderTotalPropertyId);
   });
 });

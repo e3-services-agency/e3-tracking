@@ -18,28 +18,25 @@
       "default_requirements": [
         {
           "target_kind": "variant",
-          "event_name": "cart_update",
-          "condition": { "property_name": "action", "value": "add" },
+          "standard_event": "add_to_cart",
           "level": "R",
           "note": "The abandoned-cart trigger."
         },
         {
           "target_kind": "variant_property",
-          "event_name": "cart_update",
+          "standard_event": "add_to_cart",
           "property_name": "product_id",
-          "condition": { "property_name": "action", "value": "add" },
           "level": "R"
         },
         {
           "target_kind": "variant_property",
-          "event_name": "cart_update",
+          "standard_event": "add_to_cart",
           "property_name": "total_price",
-          "condition": { "property_name": "action", "value": "add" },
           "level": "R"
         },
         {
           "target_kind": "event",
-          "event_name": "checkout",
+          "standard_event": "checkout",
           "level": "O",
           "note": "Suppresses the recovery email once checkout has started."
         },
@@ -66,39 +63,49 @@
       "default_requirements": [
         {
           "target_kind": "variant",
-          "event_name": "purchase",
-          "condition": { "property_name": "purchase_status", "value": "success" },
+          "standard_event": "purchase",
           "level": "R"
         },
         {
           "target_kind": "variant_property",
-          "event_name": "purchase",
+          "standard_event": "purchase",
           "property_name": "purchase_id",
-          "condition": { "property_name": "purchase_status", "value": "success" },
           "level": "R"
         },
         {
           "target_kind": "variant_property",
-          "event_name": "purchase",
+          "standard_event": "purchase",
           "property_name": "total_price",
-          "condition": { "property_name": "purchase_status", "value": "success" },
           "level": "R"
         },
         {
           "target_kind": "event_property",
-          "event_name": "purchase_item",
-          "property_name": "price",
-          "level": "R"
+          "standard_event": "purchase_item",
+          "property_name": "total_price",
+          "level": "R",
+          "note": "Standard field total_price; the client's purchase_item event calls this property price."
         },
         {
           "target_kind": "event_property",
-          "event_name": "purchase_item",
-          "property_name": "quantity",
-          "level": "R"
+          "standard_event": "purchase_item",
+          "property_name": "total_quantity",
+          "level": "R",
+          "note": "Standard field total_quantity; the client's purchase_item event calls this property quantity."
         },
         {
           "target_kind": "customer_property",
           "property_name": "email",
+          "level": "R"
+        },
+        {
+          "target_kind": "catalog_attribute",
+          "field_name": "image",
+          "level": "O",
+          "note": "Product image for the confirmation email template."
+        },
+        {
+          "target_kind": "consent",
+          "property_name": "newsletter",
           "level": "R"
         }
       ]
@@ -119,13 +126,13 @@
       "default_requirements": [
         {
           "target_kind": "event_property",
-          "event_name": "view_item",
+          "standard_event": "view_item",
           "property_name": "product_id",
           "level": "R"
         },
         {
           "target_kind": "event_property",
-          "event_name": "view_item",
+          "standard_event": "view_item",
           "property_name": "stock_level",
           "level": "R"
         },
@@ -138,7 +145,7 @@
           "target_kind": "event",
           "event_name": "wishlist_add",
           "level": "R",
-          "note": "Deliberately unresolvable on the data-mapping fixture (no wishlist_add event is mapped); demonstrates a gap requirement."
+          "note": "Deliberately unresolvable on the data-mapping fixture (no wishlist_add event is mapped, and it is not a Bloomreach standard event); demonstrates a gap requirement."
         }
       ]
     }

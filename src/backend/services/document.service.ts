@@ -37,7 +37,8 @@ import {
   type AttachedPropertyForCodegen,
 } from './codegen.service';
 import { SDK_DEFAULT_PROPERTIES } from '../../domain/bloomreach';
-import type { EventPropertyWithDetails, EventRow } from '../dal/event.dal';
+import type { EventPropertyWithDetails, EventPropertyWithDetailsExtended, EventRow } from '../dal/event.dal';
+import * as PropertyDefinitionDAL from '../dal/property-definition.dal';
 import type { VariantRow } from '../dal/variant.dal';
 import type { RuleRow } from '../dal/rule.dal';
 import type { FindingRow } from '../dal/finding.dal';
@@ -369,10 +370,18 @@ function toEventCardFinding(
 // EventCard
 // ---------------------------------------------------------------------------
 
-function toEventCardProperty(link: EventPropertyWithDetails): EventCardProperty {
-  const allowedValuesRaw = Array.isArray(link.property.allowed_values_json)
-    ? (link.property.allowed_values_json as { value: string; label?: string | null; standard_event?: string | null }[])
-    : [];
+function toEventCardProperty(link: EventPropertyWithDetailsExtended): EventCardProperty {
+  // D-58: allowed values, description and example are per-event, sourced from the link's own
+  // definition (falling back to the shared Property's fields when the link carries no
+  // definition -- defensive only, every link is resolved to a real definition by the DAL).
+  const definitionAllowedRaw = Array.isArray(link.definition?.allowed_values_json)
+    ? (link.definition!.allowed_values_json as { value: string; label?: string | null; standard_event?: string | null }[])
+    : null;
+  const allowedValuesRaw =
+    definitionAllowedRaw ??
+    (Array.isArray(link.property.allowed_values_json)
+      ? (link.property.allowed_values_json as { value: string; label?: string | null; standard_event?: string | null }[])
+      : []);
   const allowedValues: EventCardAllowedValue[] | null =
     allowedValuesRaw.length > 0
       ? allowedValuesRaw.map((v) => ({ value: v.value, label: v.label ?? null, standard_event: v.standard_event ?? null }))
@@ -388,8 +397,10 @@ function toEventCardProperty(link: EventPropertyWithDetails): EventCardProperty 
     allowed_values: allowedValues,
     item_schema: Array.isArray(link.property.item_schema_json) ? (link.property.item_schema_json as EventCardProperty['item_schema']) : null,
     example: jsonSampleValueForProperty(toAttachedPropertyForCodegen(link)),
-    description: link.description_override?.trim() || link.property.description || null,
+    description: link.definition?.description?.trim() || link.property.description || null,
     pii: link.property.pii,
+    definition_id: link.definition?.id ?? null,
+    definition_name: link.definition?.name ?? null,
   };
 }
 
@@ -666,6 +677,20 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
     bloomreach_customer_property: p.bloomreach_customer_property,
     pii: p.pii,
     description: p.description,
+    definitions: PropertyDefinitionDAL.listDefinitions(projectId, p.id).map((d) => ({
+      id: d.id,
+      name: d.name,
+      description: d.description,
+      allowed_values: Array.isArray(d.allowed_values_json)
+        ? (d.allowed_values_json as { value: string; label?: string | null; standard_event?: string | null }[]).map((v) => ({
+            value: v.value,
+            label: v.label ?? null,
+            standard_event: v.standard_event ?? null,
+          }))
+        : null,
+      format: d.format,
+      example_values: d.example_values_json,
+    })),
   }));
 
   const identityRules = IdentityRuleDAL.listIdentityRules(projectId).map((r) => ({

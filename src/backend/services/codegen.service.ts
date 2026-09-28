@@ -16,7 +16,7 @@ import type {
 import type { PropertyDataFormat, IdentityTransformation } from '../../domain/enums';
 import { IDENTITY_TRANSFORMATIONS } from '../../domain/enums';
 import { BLOOMREACH_SPECIAL_CUSTOMER_ATTRIBUTES } from '../../domain/bloomreach';
-import type { EventPropertyWithDetails } from '../dal/event.dal';
+import type { EventPropertyWithDetails, EventPropertyWithDetailsExtended } from '../dal/event.dal';
 import type { VariantRow } from '../dal/variant.dal';
 
 export interface AttachedPropertyForCodegen {
@@ -319,7 +319,16 @@ function formatJsObjectBodyFromSchema(
  * card's `properties[].example` and `codegen` fields). Used by the docs export and the event card
  * for sample payloads and code snippets alike.
  */
-export function toAttachedPropertyForCodegen(link: EventPropertyWithDetails): AttachedPropertyForCodegen {
+export function toAttachedPropertyForCodegen(
+  link: EventPropertyWithDetails | EventPropertyWithDetailsExtended
+): AttachedPropertyForCodegen {
+  // D-58: examples (and, when set, the format) come from the link's own definition, so codegen
+  // shows the right sample per event (e.g. `accept`/`reject` on `consent`, `add`/`remove` on
+  // `cart_update`) instead of one shared example for every event a property is attached to.
+  const definition = 'definition' in link ? link.definition : null;
+  const definitionExamples = Array.isArray(definition?.example_values_json)
+    ? (definition!.example_values_json as PropertyExampleValue[])
+    : null;
   return {
     property_name: link.payload_key?.trim() || link.property.name,
     // D-16 dropped presence; codegen reads `EventProperty.required` directly (T-1-03/T-1-04
@@ -327,9 +336,13 @@ export function toAttachedPropertyForCodegen(link: EventPropertyWithDetails): At
     // silently renders as optional in the generated snippets/docs).
     required: link.required,
     property_data_type: link.property.data_type,
-    property_data_formats: (link.property.data_formats_json as string[] | null) ?? null,
+    property_data_formats: definition?.format
+      ? [definition.format]
+      : ((link.property.data_formats_json as string[] | null) ?? null),
     property_example_values_json:
-      (link.property.example_values_json as AttachedPropertyForCodegen['property_example_values_json']) ?? null,
+      (definitionExamples && definitionExamples.length > 0 ? definitionExamples : null) ??
+      (link.property.example_values_json as AttachedPropertyForCodegen['property_example_values_json']) ??
+      null,
     property_value_schema_json:
       (link.property.value_schema_json as AttachedPropertyForCodegen['property_value_schema_json']) ?? null,
   };

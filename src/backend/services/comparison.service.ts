@@ -101,9 +101,22 @@ export function buildDefinitionSnapshot(projectId: string): DefinitionSnapshot {
   const events: DefEvent[] = EventDAL.listEvents(projectId).map((event) => {
     const { properties } = EventDAL.getEventWithProperties(projectId, event.id);
     const defProperties: DefEventProperty[] = properties.map((link) => {
-      const allowedValuesRaw = Array.isArray(link.property.allowed_values_json)
-        ? (link.property.allowed_values_json as AllowedValue[])
-        : [];
+      // D-58: allowed values and format are per-event, read from the link's own definition
+      // (falling back to the shared Property's fields when the link carries no definition --
+      // defensive only, every link is resolved to a real definition by the DAL). This is what lets
+      // `action: accept` be an `enum_violation` on `cart_update` (allowed `add`/`remove`) but pass
+      // on `consent` (allowed `accept`/`reject`) even though both link the same `action` property.
+      const definitionAllowedRaw = Array.isArray(link.definition?.allowed_values_json)
+        ? (link.definition!.allowed_values_json as AllowedValue[])
+        : null;
+      const allowedValuesRaw =
+        definitionAllowedRaw ??
+        (Array.isArray(link.property.allowed_values_json) ? (link.property.allowed_values_json as AllowedValue[]) : []);
+      const dataFormats = link.definition?.format
+        ? [link.definition.format]
+        : Array.isArray(link.property.data_formats_json)
+          ? (link.property.data_formats_json as string[])
+          : [];
       return {
         property_id: link.property_id,
         name: link.property.name,
@@ -111,7 +124,7 @@ export function buildDefinitionSnapshot(projectId: string): DefinitionSnapshot {
         role: (link.role as DefEventProperty['role']) ?? 'normal',
         required: link.required,
         data_type: link.property.data_type,
-        data_formats: Array.isArray(link.property.data_formats_json) ? (link.property.data_formats_json as string[]) : [],
+        data_formats: dataFormats,
         allowed_values: allowedValuesRaw.length > 0 ? allowedValuesRaw.map((v) => v.value) : null,
         // T-2-05: carried through for `definitionVsMapping.ts`'s `unmapped_standard_event` check.
         allowed_value_hints:

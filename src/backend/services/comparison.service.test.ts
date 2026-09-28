@@ -28,6 +28,7 @@ import * as ObservationDAL from '../dal/observation.dal';
 import * as QaRunDAL from '../dal/qa-run.dal';
 import * as FindingDAL from '../dal/finding.dal';
 import * as RuleDAL from '../dal/rule.dal';
+import * as PropertyDefinitionDAL from '../dal/property-definition.dal';
 import { previewDataMapping, applyDataMapping } from './dataMappingImport.service';
 import { previewDataManagerEvents, applyDataManagerEvents } from './dataManagerEventsImport.service';
 import { previewCustomerEventsExport, applyCustomerEventsExport } from './customerEventsExportImport.service';
@@ -400,5 +401,49 @@ describe('T-2-07: rules + item schema evaluation inside definition_vs_observatio
     submitObservation({ product_id: 'p1', product_list: [{ product_id: 'p1', quantity: 2 }] });
     runComparison(projectId);
     expect(FindingDAL.listFindings(projectId, { kind: 'item_schema_violation', status: 'open' })).toHaveLength(0);
+  });
+});
+
+describe('T-4-00 (D-58): per-event allowed values via property definitions', () => {
+  it('the same property enforces different allowed values per event through its per-link definition', () => {
+    const action = PropertyDAL.createProperty(projectId, {
+      scope: 'event',
+      name: 'action',
+      data_type: 'string',
+      allowed_values_json: [{ value: 'add' }, { value: 'remove' }],
+    });
+    const consentDefinition = PropertyDefinitionDAL.createDefinition(projectId, action.id, {
+      name: 'consent_action',
+      allowed_values_json: [{ value: 'accept' }, { value: 'reject' }],
+    });
+
+    const cartUpdate = EventDAL.createEvent(projectId, { name: 'cart_update' });
+    const consent = EventDAL.createEvent(projectId, { name: 'consent' });
+    EventDAL.attachPropertyToEvent(projectId, cartUpdate.id, { property_id: action.id, role: 'normal' });
+    EventDAL.attachPropertyToEvent(projectId, consent.id, {
+      property_id: action.id,
+      role: 'normal',
+      definition_id: consentDefinition.id,
+    });
+
+    function submit(eventType: string, properties: Record<string, unknown>) {
+      const run = QaRunDAL.createQaRun(projectId, { kind: 'manual' });
+      ObservationDAL.createObservation(projectId, run.id, {
+        source: 'manual',
+        event_type: eventType,
+        timestamp: Math.floor(Date.now() / 1000),
+        properties,
+      });
+    }
+
+    // "accept" is outside cart_update's allowed values (add|remove) -> enum_violation.
+    submit('cart_update', { action: 'accept' });
+    // "accept" is inside consent's own allowed values (accept|reject) -> no violation.
+    submit('consent', { action: 'accept' });
+    runComparison(projectId);
+
+    const violations = FindingDAL.listFindings(projectId, { kind: 'enum_violation', status: 'open' });
+    expect(violations).toHaveLength(1);
+    expect(violations[0].event_id).toBe(cartUpdate.id);
   });
 });

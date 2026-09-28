@@ -2523,3 +2523,6 @@ Artifacts saved under `.claude/team/reports/qa/T-4-02/`: `backup.json`, `comment
 
 ### 2026-09-28 22:34 | supervisor | STATUS | T-4-02 DONE
 qa-tester PASS (22:31). Merged (migration list ordered): 1385 tests (114 files), tsc clean. Phase 4 merged so far: T-4-00, T-4-01, T-4-02, T-4-07, T-4-08. In progress: T-4-03 shared view. Next: T-4-04 comments in both views (after T-4-03), T-4-09 getting started and sandbox, T-4-06 gated on the initiative export sample, T-4-05 docs, T-4-EXIT.
+
+### 2026-09-28 22:34 | supervisor | STATUS | T-4-09 started early
+T-4-09 (getting started checklist, empty states, Help page, glossary, D-60 sandbox) starts in parallel with T-4-03; it depends on T-4-04 only for the comments empty state, which it will skip. Overlaps (pages touched by the comments panel in T-4-04) resolved at merge.

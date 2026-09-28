@@ -37,7 +37,8 @@ route list has been complete since T-3-03.
 |---|---|
 | `events` | id, name, business_name, class, category, status, certified, priority, description, purpose, page, trigger_text, grain, identity_note, owner_business, owner_technical, expiration_json, not_suitable_for, agent_instructions, derived_metrics_json, tags_json, property_count, variant_count, created_at, updated_at |
 | `properties` | id, scope, name, category, description, data_type, data_formats_json, pii, property_type, allowed_values_json, example_values_json, item_schema_json, bloomreach_customer_property, priority, status, notes, created_at, updated_at |
-| `event_properties` | event_id, event_name, property_id, property_name, role, required, payload_key, priority, status, source_id, source_name, description_override, sort_order |
+| `property_definitions` (D-58) | id, property_id, property_name, name, description, allowed_values_json, formats_json, example_values_json, using_events |
+| `event_properties` | event_id, event_name, property_id, property_name, role, required, payload_key, priority, status, source_id, source_name, definition_id, definition_name, sort_order |
 | `variants` | id, event_id, event_name, name, description, conditions_json, conditions_text, expiration_json, standard_event |
 | `standard_event_mappings` | id, standard_event, event_id, event_name, variant_id, variant_name, field_map_json |
 | `identity_rules` | id, identifier_name, identity_type, name, description, sdk_call, transformations_json, trigger_event_id, trigger_event_name, trigger_text, value_rule, example, owner, source_name, tracker, priority, status, sort_order |
@@ -69,13 +70,14 @@ backup" button on the Settings page):
 
 ```
 {
-  format: 'e3-tracking-backup', version: 1, exported_at, app: { schema_migration: '0017' },
+  format: 'e3-tracking-backup', version: 1, exported_at, app: { schema_migration: '0021' },
   client: { key, name, bloomreach_account_id, notes },              // reference only, never restored
   project: { ...every projects column except id, client_id },        // share_token/share_access always null
   use_case_templates: [...],  // referenced templates, full rows, re-linked by code on restore
-  sources, properties, events, event_sources, event_properties, variants, standard_event_mappings,
-  identity_rules, catalogs, catalog_fields, consent_categories, use_cases, requirements, rules,
-  property_bundles, property_bundle_items, qa_runs, observations, findings, change_log, comments,
+  sources, properties, property_definitions, events, event_sources, event_properties, variants,
+  standard_event_mappings, identity_rules, catalogs, catalog_fields, consent_categories, use_cases,
+  requirements, rules, property_bundles, property_bundle_items, qa_runs, observations, findings,
+  change_log, comments,
   files: [{ path, mime, base64 }],   // every file referenced by triggers_json image_path or client_logo_path
   files_missing: [],                  // paths referenced but not found on disk
   warnings: [],                       // malformed *_json cells kept as raw strings, reported here

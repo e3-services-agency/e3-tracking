@@ -9,6 +9,8 @@ import { ApiAuthConfig } from './components/ApiAuthConfig';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { Layout } from './components/layout/Layout';
 import { Login } from './pages/Login';
+import { SharedProject } from './pages/SharedProject';
+import { sharedTokenFromPath } from './sharedRoute';
 
 function AppContent() {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
@@ -17,8 +19,10 @@ function AppContent() {
     return <Login />;
   }
 
-  // Public share links are a phase 4 capability (D-27 consequence); /api/shared/* 501s until
-  // then (T-1-03), so the share routes are not wired here yet.
+  const sharedToken = sharedTokenFromPath(pathname);
+  if (sharedToken) {
+    return <SharedProject token={sharedToken} />;
+  }
 
   return (
     <ProtectedRoute>

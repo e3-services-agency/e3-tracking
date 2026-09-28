@@ -180,6 +180,22 @@ describe('public GET /api/shared/:token/* (no auth headers)', () => {
     expect(body.generated_at).toBeTruthy();
   });
 
+  it('GET /:token carries the project client_logo_path (T-4-03: the shared view header logo), null when unset', async () => {
+    const created = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access: 'read' }),
+      })
+    ).json();
+    const noLogoRes = await fetch(`${baseUrl}/api/shared/${created.share_token}`);
+    expect((await noLogoRes.json()).project.client_logo_path).toBeNull();
+
+    ProjectDAL.updateProject(projectId, { client_logo_path: `${projectId}/logo/logo.png` });
+    const withLogoRes = await fetch(`${baseUrl}/api/shared/${created.share_token}`);
+    expect((await withLogoRes.json()).project.client_logo_path).toBe(`${projectId}/logo/logo.png`);
+  });
+
   it('an unknown token 404s SHARE_NOT_FOUND', async () => {
     const res = await fetch(`${baseUrl}/api/shared/not-a-real-token`);
     expect(res.status).toBe(404);
@@ -253,6 +269,30 @@ describe('public GET /api/shared/:token/* (no auth headers)', () => {
     const res = await fetch(`${baseUrl}/api/shared/${created.share_token}/files/${stored.path}`);
     expect(res.status).toBe(200);
     expect(await res.text()).toBe('ok');
+  });
+
+  it('T-4-03 (D-50): an event trigger screenshot is in the shared tracking document and servable through this same token', async () => {
+    const stored = await getFileStore().put(projectId, 'event_trigger', 'cart.png', Buffer.from('cart-bytes'), 'image/png');
+    EventDAL.createEvent(projectId, {
+      name: 'cart_update_with_trigger',
+      class: 'custom',
+      triggers_json: [{ title: 'Add to cart', description: 'Cart drawer opens', image_path: stored.path, source: 'https://shop.example/cart', order: 0 }],
+    });
+    const created = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access: 'read' }),
+      })
+    ).json();
+    const doc = await (await fetch(`${baseUrl}/api/shared/${created.share_token}/tracking-document.json`)).json();
+    const event = doc.events.find((e: { name: string }) => e.name === 'cart_update_with_trigger');
+    expect(event.triggers).toEqual([
+      { title: 'Add to cart', description: 'Cart drawer opens', image_path: stored.path, page_url: 'https://shop.example/cart' },
+    ]);
+    const fileRes = await fetch(`${baseUrl}/api/shared/${created.share_token}/files/${stored.path}`);
+    expect(fileRes.status).toBe(200);
+    expect(await fileRes.text()).toBe('cart-bytes');
   });
 
   it('GET /:token/files/* rejects a ".." traversal segment (raw HTTP path, no client-side normalisation)', async () => {

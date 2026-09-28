@@ -26,6 +26,7 @@ import { markRequirementsGapForDetach, markRequirementsGapForEventRemoval, markR
 import * as ChangeLogDAL from './change-log.dal';
 import { removePropertyFromFieldMaps } from './standard-event-mapping.dal';
 import * as PropertyDefinitionDAL from './property-definition.dal';
+import { normalizeHttpUrl } from './urlValidation';
 
 const MAX_DISCRIMINATORS_PER_EVENT = 2;
 
@@ -56,9 +57,28 @@ function assertEventPropertyLimitNotReached(eventId: string): void {
 }
 
 /**
+ * T-4-03 pre-QA fix: `triggers_json[].source` (D-50: the page URL a screenshot was captured on,
+ * exposed as `EventCardTrigger.page_url`) must be `http://`/`https://` or empty -- it renders as an
+ * `href` in `EventCardView`/`SharedProject`, so a `javascript:`/other scheme must be rejected at
+ * write time, the same reasoning as `normalizeHttpUrl`'s existing callers (`documentation_url`/
+ * `internal_url`). Every other trigger field (`title`, `description`, `image_path`, `order`) stays
+ * free-form, unvalidated here. A non-array value is left to `toJsonColumn`/the `?? []` default
+ * upstream, not this function's concern.
+ */
+function validateTriggersJson(value: unknown, field: string): void {
+  if (!Array.isArray(value)) return;
+  for (const entry of value) {
+    if (entry && typeof entry === 'object' && 'source' in (entry as Record<string, unknown>)) {
+      normalizeHttpUrl((entry as Record<string, unknown>).source, `${field}[].source`);
+    }
+  }
+}
+
+/**
  * Cross-field validation for Event create/update (T-1-04 fix round ERROR 1; `class` replaces
  * `event_type`, D-36): `class`, `priority`, `status` against `src/domain/enums.ts`;
- * `expiration_json` and `derived_metrics_json` shape; `tags_json` string array.
+ * `expiration_json` and `derived_metrics_json` shape; `tags_json` string array; `triggers_json[].source`
+ * (T-4-03 pre-QA fix).
  */
 function validateEventFields(fields: {
   class?: string;
@@ -67,6 +87,7 @@ function validateEventFields(fields: {
   expiration_json?: unknown;
   derived_metrics_json?: unknown;
   tags_json?: unknown;
+  triggers_json?: unknown;
 }): void {
   if (fields.class !== undefined && !(EVENT_CLASSES as readonly string[]).includes(fields.class)) {
     throw new BadRequestError(`class must be one of: ${EVENT_CLASSES.join(', ')}.`, 'class');
@@ -84,6 +105,7 @@ function validateEventFields(fields: {
   validateExpirationJson(fields.expiration_json, 'expiration_json');
   validateDerivedMetricsJson(fields.derived_metrics_json, 'derived_metrics_json');
   validateStringArray(fields.tags_json, 'tags_json');
+  validateTriggersJson(fields.triggers_json, 'triggers_json');
 }
 
 /**

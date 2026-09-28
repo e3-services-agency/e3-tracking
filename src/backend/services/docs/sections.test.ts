@@ -5,6 +5,7 @@ import {
   renderIdentityRulesSection,
   renderIdentityCodegenSection,
   renderNarrativeHtml,
+  renderPropertiesSection,
   renderRequirementsMatrixSection,
   renderStandardEventMappingsSection,
   renderUseCasesSection,
@@ -15,6 +16,7 @@ import {
   renderFindingsTable,
   type ConsentCategoryForDocs,
   type IdentityRuleForDocs,
+  type PropertyForDocs,
   type RequirementsMatrixForDocs,
   type StandardEventMappingForDocs,
   type UseCaseForDocs,
@@ -234,6 +236,59 @@ describe('renderConsentCategoriesSection', () => {
     expect(html).toContain('newsletter');
     expect(html).toContain('Marketing emails');
     expect(html).toContain('implemented');
+  });
+});
+
+// T-4-00 review follow-up, closed by T-4-03: the HTML export had no per-property definition list
+// (only the inline per-event one), so `properties[].definitions[]` from the tracking document had
+// nowhere to render project-wide.
+describe('renderPropertiesSection (T-4-00 review follow-up / T-4-03)', () => {
+  it('renders a placeholder when there are no customer properties', () => {
+    const html = renderPropertiesSection([]);
+    expect(html).toContain('No customer properties defined.');
+    expect(html).toContain('id="properties"');
+  });
+
+  it('lists every named definition a property carries, with its own allowed values/formats/example', () => {
+    const properties: PropertyForDocs[] = [
+      {
+        name: 'action',
+        data_type: 'string',
+        pii: false,
+        description: 'The action taken',
+        definitions: [
+          {
+            name: 'general',
+            description: 'Cart action',
+            allowed_values: [{ value: 'add' }, { value: 'remove' }],
+            formats: [],
+            example_values: 'add',
+          },
+          {
+            name: 'consent (event)',
+            description: 'Consent choice',
+            allowed_values: [{ value: 'accept' }, { value: 'reject' }],
+            formats: [],
+            example_values: 'accept',
+          },
+        ],
+      },
+    ];
+    const html = renderPropertiesSection(properties);
+    expect(html).toContain('action');
+    expect(html).toContain('general');
+    expect(html).toContain('add, remove');
+    expect(html).toContain('consent (event)');
+    expect(html).toContain('accept, reject');
+  });
+
+  it('renders a single definition (the common case) without any special-casing artefact', () => {
+    const html = renderPropertiesSection([
+      { name: 'email', data_type: 'string', pii: true, description: null, definitions: [{ name: 'general', formats: ['email'], allowed_values: null, example_values: null }] },
+    ]);
+    expect(html).toContain('email');
+    expect(html).toContain('PII');
+    expect(html).toContain('general');
   });
 });
 

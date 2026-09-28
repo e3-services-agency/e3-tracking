@@ -67,9 +67,28 @@ router.get('/*', async (req: Request, res: Response) => {
 // fall through to `app.ts`'s global handler as a 500 `INTERNAL_ERROR`. This is an authenticated
 // route (unlike `routes/shared.ts`), so a plain 400 `INVALID_PATH` is enough; no need to hide that
 // the path itself was the problem.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-router.use((_err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-  res.status(400).json({ error: 'Invalid file path.', code: 'INVALID_PATH' });
+//
+// T-4-03 (from the T-4-01 review): `upload.single('file')` on `POST /` also reaches this handler
+// on a `multer.MulterError` (oversized file, wrong field name, ...), which used to be misreported
+// as `INVALID_PATH` -- that code belongs to the path-decoding branch above, not an upload failure.
+// Branch on the error's own type instead of assuming every error here is a path problem; anything
+// neither a `MulterError` nor a `URIError` (a `DatabaseError` from `FileStore.put`, for instance) is
+// handed to `next(err)` so `app.ts`'s global handler maps it properly instead of being swallowed as
+// a wrong 400.
+router.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      res.status(400).json({ error: 'File exceeds the upload size limit.', code: 'FILE_TOO_LARGE' });
+    } else {
+      res.status(400).json({ error: err.message, code: 'UPLOAD_ERROR' });
+    }
+    return;
+  }
+  if (err instanceof URIError) {
+    res.status(400).json({ error: 'Invalid file path.', code: 'INVALID_PATH' });
+    return;
+  }
+  next(err);
 });
 
 export default router;

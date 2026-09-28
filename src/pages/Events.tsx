@@ -15,6 +15,7 @@ import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { PRIORITIES, EVENT_STATUSES, EVENT_CLASSES } from '@/src/domain/enums';
+import { isHttpUrl } from '@/src/domain/url';
 import { ExpirationEditor, type ExpirationValue } from '@/src/features/events/components/ExpirationEditor';
 import { DerivedMetricsEditor, type DerivedMetricRow } from '@/src/features/events/components/DerivedMetricsEditor';
 import { LinkedPropertiesEditor, type LinkedPropertyRow, type DefinitionOption } from '@/src/features/events/components/LinkedPropertiesEditor';
@@ -458,6 +459,10 @@ function EventEditor({
 
   const trimmedName = name.trim();
   const nameError = trimmedName ? null : 'Name is required.';
+  // D-50/T-4-03 QA fix: block Save while a trigger's page URL fails the same http(s) rule the API
+  // enforces (event.dal.ts#validateTriggersJson) -- the inline per-row message above already tells
+  // the user which field to fix.
+  const hasInvalidTriggerSource = triggers.some((t) => t.source?.trim() && !isHttpUrl(t.source.trim()));
 
   const handleSave = async () => {
     if (!trimmedName || !projectId) return;
@@ -726,6 +731,22 @@ function EventEditor({
               placeholder="Trigger description"
               className="text-sm"
             />
+            <div>
+              <Input
+                value={trigger.source ?? ''}
+                onChange={(e) => updateTrigger(index, { source: e.target.value })}
+                placeholder="Page URL (https://...)"
+                className="text-sm"
+              />
+              {/* D-50/T-4-03 QA fix: same http(s)-only rule event.dal.ts's validateTriggersJson
+                  applies server-side (src/domain/url.ts#isHttpUrl, one shared regex) -- caught here
+                  before Save so the round trip to the API's 400 is the exception, not the norm; if
+                  it still 400s (e.g. a race with another edit), the API's own message is shown by
+                  the existing saveError banner below the Triggers section. */}
+              {trigger.source?.trim() && !isHttpUrl(trigger.source.trim()) && (
+                <p className="text-xs text-red-600 mt-1">Page URL must be an http:// or https:// URL.</p>
+              )}
+            </div>
             <div className="flex items-center gap-3">
               {trigger.image_path && projectId && (
                 <img
@@ -764,7 +785,7 @@ function EventEditor({
         ) : <div />}
         <div className="flex gap-2">
           <Button variant="outline" onClick={onClose} disabled={saving || deleting}>Cancel</Button>
-          <Button onClick={() => void handleSave()} disabled={saving || deleting || !trimmedName}>{saving ? 'Saving…' : 'Save Event'}</Button>
+          <Button onClick={() => void handleSave()} disabled={saving || deleting || !trimmedName || hasInvalidTriggerSource}>{saving ? 'Saving…' : 'Save Event'}</Button>
         </div>
       </div>
     </div>

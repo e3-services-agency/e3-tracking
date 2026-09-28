@@ -46,10 +46,13 @@ import {
   renderRulesTable,
   renderCoverageSummary,
   renderFindingsTable,
+  renderPropertiesSection,
   type VariantForDocs,
   type StandardEventMappingForDocs,
   type UseCaseForDocs,
+  type PropertyForDocs,
 } from './docs/sections';
+import * as PropertyDefinitionDAL from '../dal/property-definition.dal';
 import { escapeHtml } from './htmlEscape';
 import { PROPERTY_DEFINITION_DEFAULT_NAME } from '../../domain/enums';
 import { buildEventCard, buildEventCardContext, buildUnattachedFindings, type EventCardBuildContext } from './document.service';
@@ -307,6 +310,45 @@ function buildIdentityAndConsentSectionsHtml(projectId: string, publicView: bool
 }
 
 /**
+ * Builds the project-wide "Properties" section (T-4-00 review follow-up, closed by T-4-03): every
+ * customer-scope property with every named definition it carries (D-58), the same
+ * `properties[].definitions[]` shape the tracking document and the shared view render -- the HTML
+ * export previously had no per-property definition list, only the inline per-event one in
+ * `buildPropertyDetailsTable` above.
+ */
+function buildPropertiesSectionHtml(projectId: string): string {
+  const customerPropertyRows = listProperties(projectId, { scope: 'customer' });
+  const definitionsByPropertyId = new Map<string, PropertyDefinitionDAL.PropertyDefinitionRow[]>();
+  for (const [, def] of PropertyDefinitionDAL.listDefinitionsByPropertyIds(
+    projectId,
+    customerPropertyRows.map((p) => p.id)
+  )) {
+    const list = definitionsByPropertyId.get(def.property_id) ?? [];
+    list.push(def);
+    definitionsByPropertyId.set(def.property_id, list);
+  }
+  for (const list of definitionsByPropertyId.values()) {
+    list.sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+  }
+  const properties: PropertyForDocs[] = customerPropertyRows.map((p) => ({
+    name: p.name,
+    data_type: p.data_type,
+    pii: p.pii,
+    description: p.description,
+    definitions: (definitionsByPropertyId.get(p.id) ?? []).map((d) => ({
+      name: d.name,
+      description: d.description,
+      allowed_values: Array.isArray(d.allowed_values_json)
+        ? (d.allowed_values_json as { value: string; label?: string | null }[])
+        : null,
+      formats: Array.isArray(d.formats_json) ? (d.formats_json as string[]) : [],
+      example_values: d.example_values_json,
+    })),
+  }));
+  return renderPropertiesSection(properties);
+}
+
+/**
  * Renders the "Use cases" section: every non-deleted use case with its ordered requirements
  * resolved to display names (T-1-07 acceptance: "Docs export includes use cases with their ordered
  * requirements"), via the same `buildTargetLabelResolver` the requirements matrix uses.
@@ -385,6 +427,7 @@ export async function generateProjectDocumentationHtml(
   // too -- one table after the per-event sections, sharing `cardCtx` (no second findings query).
   const unattachedFindingsHtml = renderFindingsTable(buildUnattachedFindings(cardCtx), 'Open findings without an event');
 
+  const propertiesHtml = buildPropertiesSectionHtml(projectId);
   const identityAndConsentHtml = buildIdentityAndConsentSectionsHtml(projectId, publicView);
   const useCasesHtml = buildUseCasesSectionHtml(projectId, publicView);
   const requirementsMatrixHtml = renderRequirementsMatrixSection(computeRequirementsMatrix(projectId));
@@ -429,6 +472,7 @@ export async function generateProjectDocumentationHtml(
   <nav class="toc">${toc || '<p>No events defined yet.</p>'}</nav>
   ${sections.join('\n')}
   ${unattachedFindingsHtml}
+  ${propertiesHtml}
   ${identityAndConsentHtml}
   ${standardEventMappingsHtml}
   ${useCasesHtml}

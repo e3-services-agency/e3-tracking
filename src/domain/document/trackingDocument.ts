@@ -121,6 +121,18 @@ export interface EventCardStandardEventMapping {
   field_map: Record<string, string | null>;
 }
 
+/** D-50 (T-4-03): one screenshot/trigger entry from `Event.triggers_json`, additive on `EventCard`
+ * so the shared documentation view (and any other `EventCard` consumer) can render the same
+ * trigger screenshots the internal event card shows, through a `fileUrl(image_path)` resolver of
+ * its own (internal: `/api/projects/:id/files/*`, shared: `/api/shared/:token/files/*`). `page_url`
+ * is `triggers_json`'s `source` field (the page the screenshot was captured on). */
+export interface EventCardTrigger {
+  title: string | null;
+  description: string | null;
+  image_path: string | null;
+  page_url: string | null;
+}
+
 export interface EventCardContext {
   property_id: string;
   property: string;
@@ -217,6 +229,10 @@ export interface EventCard {
   variants: EventCardVariant[];
   standard_event_mappings: EventCardStandardEventMapping[];
   contexts: EventCardContext[];
+  /** D-50 (T-4-03): trigger screenshots/descriptions, ordered as stored (`Event.triggers_json`).
+   * Additive, no version bump; kept in the public projection (`toPublicTrackingDocument`) so the
+   * shared view can render them. */
+  triggers: EventCardTrigger[];
   coverage: EventCardCoverage;
   rules: EventCardRule[];
   derived_metrics: unknown;

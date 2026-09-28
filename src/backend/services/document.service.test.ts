@@ -4,7 +4,7 @@
  * flip when a property is marked required, the coverage grid, and the certification route's `applicable: false` for an sdk event.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { closeDb } from '../db';
+import { closeDb, getDb } from '../db';
 import * as ClientDAL from '../dal/client.dal';
 import * as ProjectDAL from '../dal/project.dal';
 import * as PropertyDAL from '../dal/property.dal';
@@ -109,6 +109,40 @@ describe('buildEventCard', () => {
 
     const certification = computeEventCertification(projectId, event.id);
     expect(certification).toEqual({ applicable: false, certified: false, reasons: ['not_applicable'] });
+  });
+
+  it('D-50 (T-4-03): maps triggers_json to EventCard.triggers, ordered, with source exposed as page_url', () => {
+    const event = EventDAL.createEvent(projectId, {
+      name: 'checkout',
+      class: 'custom',
+      triggers_json: [
+        { title: 'Second', description: 'later step', image_path: 'proj/event_trigger/b.png', source: 'https://shop.example/checkout/2', order: 1 },
+        { title: 'First', description: 'first step', image_path: 'proj/event_trigger/a.png', source: 'https://shop.example/checkout/1', order: 0 },
+      ],
+    });
+    const card = buildEventCard(projectId, event.id);
+    expect(card.triggers).toEqual([
+      { title: 'First', description: 'first step', image_path: 'proj/event_trigger/a.png', page_url: 'https://shop.example/checkout/1' },
+      { title: 'Second', description: 'later step', image_path: 'proj/event_trigger/b.png', page_url: 'https://shop.example/checkout/2' },
+    ]);
+  });
+
+  it('D-50: an event with no triggers_json carries an empty triggers array', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'no_triggers', class: 'custom' });
+    const card = buildEventCard(projectId, event.id);
+    expect(card.triggers).toEqual([]);
+  });
+
+  it('T-4-03 pre-QA fix: a pre-existing non-http(s) triggers_json[].source renders no page_url (write-time validation only guards new/updated rows)', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'legacy_bad_source', class: 'custom' });
+    // Bypass the DAL's write-time validation (event.dal.ts#validateTriggersJson) to simulate a row
+    // written before that validation existed, or restored from an older backup.
+    getDb()
+      .prepare('UPDATE events SET triggers_json = ? WHERE id = ?')
+      .run(JSON.stringify([{ title: 'Old', description: 'd', image_path: null, source: 'javascript:alert(1)', order: 0 }]), event.id);
+
+    const card = buildEventCard(projectId, event.id);
+    expect(card.triggers).toEqual([{ title: 'Old', description: 'd', image_path: null, page_url: null }]);
   });
 });
 

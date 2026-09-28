@@ -247,6 +247,34 @@ describe('event.dal + event_properties', () => {
     expect(EventDAL.getEventOrThrow(projectId, created.id).triggers_json).toEqual([updatedTrigger]);
   });
 
+  it('T-4-03 pre-QA fix: rejects a non-http(s) triggers_json[].source on create and update, allows empty', () => {
+    expect(() =>
+      EventDAL.createEvent(projectId, {
+        name: 'checkout_bad_trigger',
+        triggers_json: [{ title: 't', description: 'd', order: 0, source: 'javascript:alert(1)' }],
+      })
+    ).toThrow(ValidationError);
+
+    const event = EventDAL.createEvent(projectId, {
+      name: 'checkout_ok_trigger',
+      triggers_json: [{ title: 't', description: 'd', order: 0, source: 'https://shop.example/cart' }],
+    });
+    expect(event.triggers_json).toEqual([{ title: 't', description: 'd', order: 0, source: 'https://shop.example/cart' }]);
+
+    // Empty/absent source is allowed (not every trigger has a page URL).
+    const noSource = EventDAL.updateEvent(projectId, event.id, {
+      triggers_json: [{ title: 't', description: 'd', order: 0, source: '' }],
+    });
+    expect((noSource.triggers_json as { source: string }[])[0].source).toBe('');
+
+    // A PATCH-style update with a bad scheme also 400s.
+    expect(() =>
+      EventDAL.updateEvent(projectId, event.id, {
+        triggers_json: [{ title: 't', description: 'd', order: 0, source: 'javascript:alert(1)' }],
+      })
+    ).toThrow(ValidationError);
+  });
+
   it('404s attaching a property from another project', () => {
     const client2 = ClientDAL.createClient({ key: 'other', name: 'Other' });
     const otherProjectId = ProjectDAL.createProject({ client_id: client2.id, key: 'other-eu', name: 'Other EU' }).id;

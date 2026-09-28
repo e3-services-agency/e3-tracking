@@ -2096,3 +2096,6 @@ Findings (none blocking): WARNING 1 `supabase/migrations/` (26 tracked Supabase-
 
 ### 2026-09-28 12:01 | supervisor -> implementer | DECISION | T-3-08 pre-merge fix
 Reviewer PASS (11:59) accepted; D-51 amended. Before merge: remove supabase/ and metadata.json (grep-proven unreferenced); fix the three stale comments (index.css IconSelect, enums.ts re-export note, schema.ts PropertyRow); raise the per-test timeout of the full-fixture restore test to 60 s. No QA run needed for a deletion task: the supervisor merges after a full-suite run on the merged tree.
+
+### 2026-09-28 12:08 | supervisor | STATUS | T-3-08 DONE, T-3-09 started
+Pre-merge fix 31040fb (supabase/ and metadata.json removed, stale comments, restore test timeout 60 s). Merged clean; empty directories removed from the main tree; 1178 tests (101 files), tsc clean, lint green. All nine implementer tasks of phase 3 are merged. T-3-09 docs refresh starts.

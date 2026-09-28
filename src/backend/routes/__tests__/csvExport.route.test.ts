@@ -151,13 +151,34 @@ describe('GET /export/csv/:entity', () => {
     expect(changeLogEntry.count).toBe(expectedCount);
   });
 
-  it('comments.csv exports headers-only (table does not exist yet)', async () => {
+  it('comments.csv exports real rows (T-4-02, D-49)', async () => {
+    const events = await fetch(`${baseUrl}/api/projects/${projectId}/events`).then((r) => r.json());
+    const event = events[0];
+    const created = await postJson(`${baseUrl}/api/projects/${projectId}/comments`, {
+      entity_type: 'event',
+      entity_id: event.id,
+      author_name: 'Jan',
+      body: 'CSV round-trip check.',
+    });
+    expect(created.res.status).toBe(201);
+
     const res = await fetch(`${baseUrl}/api/projects/${projectId}/export/csv/comments`);
     expect(res.status).toBe(200);
     const text = await res.text();
     const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+    expect(parsed.errors).toEqual([]);
     expect(parsed.meta.fields).toEqual([...csvHeadersFor('comments')]);
-    expect(parsed.data.length).toBe(0);
+    expect(parsed.data.length).toBe(1);
+    const row = (parsed.data as Record<string, string>[])[0];
+    expect(row.entity_type).toBe('event');
+    expect(row.entity_label).toBe(event.name);
+    expect(row.body).toBe('CSV round-trip check.');
+    expect(row.via_share).toBe('false');
+
+    const listRes = await fetch(`${baseUrl}/api/projects/${projectId}/export/csv`);
+    const listBody = await listRes.json();
+    const commentsEntry = listBody.entities.find((e: { entity: string }) => e.entity === 'comments');
+    expect(commentsEntry.count).toBe(1);
   });
 
   it('a value containing a comma, a quote and a newline round-trips through papaparse', async () => {

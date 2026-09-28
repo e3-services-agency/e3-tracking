@@ -86,7 +86,7 @@ describe('CSV_ENTITIES (D-46, T-3-03)', () => {
     expect(isCsvEntity('not_a_real_entity')).toBe(false);
   });
 
-  it('change_log and comments are declared (headers-only until their tables exist)', () => {
+  it('change_log and comments are declared', () => {
     expect(CSV_ENTITY_NAMES).toContain('change_log');
     expect(CSV_ENTITY_NAMES).toContain('comments');
   });

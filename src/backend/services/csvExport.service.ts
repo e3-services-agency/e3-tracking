@@ -34,7 +34,9 @@ import * as ObservationDAL from '../dal/observation.dal';
 import * as FindingDAL from '../dal/finding.dal';
 import * as SourceDAL from '../dal/source.dal';
 import * as UseCaseTemplateDAL from '../dal/use-case-template.dal';
+import * as CommentDAL from '../dal/comment.dal';
 import { describeRuleExpression, computeCertificationsForProject } from './document.service';
+import { withEntityLabels } from './comments.service';
 import type { VariantCondition } from '../../domain/variants';
 
 type CsvRow = Record<string, unknown>;
@@ -548,9 +550,25 @@ function buildFindingsRows(projectId: string): CsvRow[] {
   }));
 }
 
-/** T-4-02 adds the `comments` table; until then it exports headers-only. */
-function buildEmptyRows(_projectId: string): CsvRow[] {
-  return [];
+/**
+ * T-4-02 (D-49): comments' `entity_label` is resolved the same way the internal API resolves it
+ * (`comments.service.ts#withEntityLabels`, one requirement-label-resolver build for the whole
+ * list, not per row), ordered oldest first (matches `comment.dal.ts#listComments`).
+ */
+function buildCommentsRows(projectId: string): CsvRow[] {
+  const rows = withEntityLabels(projectId, CommentDAL.listComments(projectId));
+  return rows.map((c) => ({
+    id: c.id,
+    entity_type: c.entity_type,
+    entity_id: c.entity_id,
+    entity_label: textCell(c.entity_label),
+    author_name: c.author_name,
+    via_share: boolCell(c.via_share),
+    body: c.body,
+    created_at: c.created_at,
+    resolved_at: textCell(c.resolved_at),
+    resolved_by: textCell(c.resolved_by),
+  }));
 }
 
 interface ChangeLogDbRow {
@@ -566,18 +584,16 @@ interface ChangeLogDbRow {
   diff_json: string | null;
 }
 
-/** `true` once T-3-01's migration (0015) has run; guards `change_log` reads the same way `comments`
- *  is guarded against T-4-02's not-yet-existing table, in case this ever runs against an older
- *  schema snapshot. */
+/** `true` once T-3-01's migration (0015) or T-4-02's (0019) has run; guards `change_log`/`comments`
+ *  reads in case this ever runs against an older schema snapshot. */
 function tableExists(name: string): boolean {
   return !!getDb().prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name);
 }
 
 /**
  * QA fix (T-3-05 QA round, 2026-09-28): T-3-01's `change_log` table now exists (this branch has it
- * merged), so its CSV export reads the real rows instead of staying headers-only forever --
- * `comments` (T-4-02) is the only entity still gated on its table not existing yet. One project-wide
- * query, newest first (matches `change-log.dal.ts#listChanges`'s own default order); `diff_json` is
+ * merged), so its CSV export reads the real rows instead of staying headers-only forever. One
+ * project-wide query, newest first (matches `change-log.dal.ts#listChanges`'s own default order); `diff_json` is
  * already a JSON array column, re-emitted compactly via `jsonCell` (its stored text always parses,
  * since `recordChange` is the only writer and always writes through `toJsonColumn`).
  */
@@ -618,7 +634,7 @@ const ROW_BUILDERS: Record<CsvEntity, (projectId: string) => CsvRow[]> = {
   observations: buildObservationsRows,
   findings: buildFindingsRows,
   change_log: buildChangeLogRows,
-  comments: buildEmptyRows,
+  comments: buildCommentsRows,
 };
 
 export function buildCsvRows(projectId: string, entity: CsvEntity): CsvRow[] {
@@ -633,8 +649,8 @@ function countOf(sql: string, projectId: string): number {
  * One `COUNT(*)` per entity (D-46 pre-QA fix, WARNING 1): `GET /export/csv` used to build every
  * entity's full row set just to report its length (3145 statements on the Data Manager fixture);
  * each query below mirrors the corresponding row builder's soft-delete/parent-join filter exactly,
- * so the count always matches the file's row count. `comments` has no table yet (T-4-02), so its
- * count is the literal `0` the builder also returns; `change_log` (T-3-01) counts the real table.
+ * so the count always matches the file's row count. `change_log` (T-3-01) and `comments` (T-4-02)
+ * both count their real tables.
  */
 const COUNT_QUERIES: Record<CsvEntity, (projectId: string) => number> = {
   events: (projectId) => countOf('SELECT COUNT(*) as n FROM events WHERE project_id = ? AND deleted_at IS NULL', projectId),
@@ -687,7 +703,8 @@ const COUNT_QUERIES: Record<CsvEntity, (projectId: string) => number> = {
   findings: (projectId) => countOf('SELECT COUNT(*) as n FROM findings WHERE project_id = ?', projectId),
   // QA fix (2026-09-28): matches buildChangeLogRows now that the table exists (T-3-01).
   change_log: (projectId) => (tableExists('change_log') ? countOf('SELECT COUNT(*) as n FROM change_log WHERE project_id = ?', projectId) : 0),
-  comments: () => 0,
+  // T-4-02: matches buildCommentsRows now that `comments` exists.
+  comments: (projectId) => (tableExists('comments') ? countOf('SELECT COUNT(*) as n FROM comments WHERE project_id = ?', projectId) : 0),
 };
 
 /** `GET /export/csv`: every declared entity with its current row count (D-46). */

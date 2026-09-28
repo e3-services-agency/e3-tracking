@@ -2083,3 +2083,6 @@ Verdict: PASS. Both ERROR 1 (Industry field) and ERROR 2 (field_map cleanup on t
 
 ### 2026-09-28 10:46 | supervisor | STATUS | T-3-10 DONE, T-3-08 started
 qa-tester PASS (10:44) on the QA fix. Merged clean into agent-setup: 1178 tests (101 files), tsc clean. Eight of ten phase 3 tasks merged; all implementer tasks except the sweep are in. T-3-08 dead-code sweep runs alone now.
+
+### 2026-09-28 11:25 | implementer -> reviewer | HANDOFF | T-3-08
+Posted by supervisor. Branch task/T-3-08-dead-code-sweep off agent-setup 1a93192, commits a74edda, 4a69352, 7864689. Resolver-based unimported-file scan on the merged tree matched the D-51 list exactly (removed.ts, Badge, IconSelect, Modal, codeHighlight); deleted with the ten legacy docs and .cursor/rules/project-context.mdc; empty dirs already absent; app.ts comment updated. schema.ts reduced from 366 to 61 lines (five grep-proven exports, three importers). D-51 vocabulary grep clean: 17 comment occurrences reworded; db.test.ts negative table assertion dropped three legacy names. lint:colors fixed in CodeBlock.tsx via CSS variables in index.css; npm run lint green; CLAUDE.md lint note updated. First isolated run 1178 tests (101 files); later runs in the same session hit worker timeouts in fixture-heavy files untouched by this task (flagged). tsc and build clean.

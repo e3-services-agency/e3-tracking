@@ -146,6 +146,7 @@ export interface BackupPayload {
   use_case_templates: Row[];
   sources: Row[];
   properties: Row[];
+  property_definitions: Row[];
   events: Row[];
   event_sources: Row[];
   event_properties: Row[];
@@ -260,6 +261,8 @@ export async function buildBackup(projectId: string): Promise<BackupPayload> {
     use_case_templates: useCaseTemplates,
     sources: directRows('sources', projectId, warnings, 'created_at'),
     properties: directRows('properties', projectId, warnings, 'created_at'),
+    // D-58 (T-4-00): one or more named definitions per property.
+    property_definitions: directRows('property_definitions', projectId, warnings, 'property_id, sort_order, created_at'),
     events,
     event_sources: joinedRows('event_sources', 'events', 'id', 'event_id', projectId, warnings, 'c.created_at'),
     event_properties: joinedRows(

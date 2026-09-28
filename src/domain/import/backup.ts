@@ -31,6 +31,8 @@ export interface BackupFileEntry {
 export const PROJECT_SCOPED_TABLES = [
   'sources',
   'properties',
+  // D-58 (T-4-00): must insert before `event_properties`, which references it (`definition_id`).
+  'property_definitions',
   'events',
   'event_sources',
   'event_properties',

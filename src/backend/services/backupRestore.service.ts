@@ -232,8 +232,18 @@ function resolveUseCaseTemplates(templates: BackupRow[], warnings: string[]): Ma
  * Also covers a *compound* key such as `"<event_id>:<property_id>"` (an `event_property`
  * `change_log.entity_id`/`parent_entity_id`) since the regex finds every match inside the string,
  * not just a whole-string equality.
+ *
+ * Fix round (qa-tester FAIL 2026-09-28 17:03): also matches a bare 32-hex-character id with no
+ * dashes, as a whole `\b`-bounded token. Every id this app's own code generates is a dashed v4 UUID
+ * (`newId()` = `randomUUID()`), but `0021_property_definitions.sql`'s backfill used to generate
+ * dashless 32-hex ids before that migration was fixed to match (fix round, same date) -- any backup
+ * taken from a project migrated before that fix (or restored from one, propagating the dashless ids
+ * forward) still carries them, and this widened match is what lets such a backup restore instead of
+ * silently leaving those ids unrewritten and colliding with the still-live source row's own primary
+ * key. Defensive, not just a stopgap for already-fixed data: any future id source that happens to
+ * omit dashes is covered too, with no further code change.
  */
-const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\b[0-9a-f]{32}\b/gi;
 
 function remapString(value: string, idMap: Map<string, string>, pathMap: Map<string, string>): string {
   const exactPath = pathMap.get(value);

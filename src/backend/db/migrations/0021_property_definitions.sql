@@ -37,9 +37,16 @@
 -- covered those). Links without an override point at the property's "general" definition; links
 -- with one point at their group's definition.
 --
--- Ids are generated in SQL (`lower(hex(randomblob(16)))`, 32 hex chars) since a migration file is
--- plain SQL with no access to the app's `newId()` -- `id` is never assumed to be a v4 UUID
--- elsewhere in the codebase, just a unique TEXT primary key.
+-- Ids are generated in SQL since a migration file has no access to the app's `newId()`
+-- (`randomUUID()`). Fix round (qa-tester FAIL 2026-09-28 17:03): a plain `lower(hex(randomblob(16)))`
+-- produces 32 hex characters with **no dashes**, which is a valid unique TEXT primary key on its
+-- own but breaks `backupRestore.service.ts`'s id-remap pass, whose regex only recognised the dashed
+-- UUID shape the rest of the app's ids always have (`newId()` = `randomUUID()`) -- every backfilled
+-- id passed through a restore unrewritten and collided with the still-live source row's own primary
+-- key. Ids are now built into the same dashed, version-4-shaped string `randomUUID()` produces
+-- (`xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx`, `y` one of `8`/`9`/`a`/`b`) so restore's existing regex
+-- matches them with no widening needed on its own (widened anyway, defensively -- see
+-- `backupRestore.service.ts`).
 --
 -- Table-rebuild pattern for `event_properties` (see `0009_event_class.sql`'s header comment) and
 -- for `change_log` (its `entity_type` CHECK needs `property_definition` added; SQLite cannot
@@ -70,7 +77,14 @@ CREATE UNIQUE INDEX uq_property_definitions_property_name
 
 -- ---- Backfill: one "general" definition per property ----
 CREATE TEMP TABLE tmp_general_defs AS
-SELECT id AS property_id, project_id, lower(hex(randomblob(16))) AS definition_id
+SELECT id AS property_id, project_id,
+  lower(
+    hex(randomblob(4)) || '-' ||
+    hex(randomblob(2)) || '-' ||
+    '4' || substr(hex(randomblob(2)), 2, 3) || '-' ||
+    substr('89ab', 1 + (abs(random()) % 4), 1) || substr(hex(randomblob(2)), 2, 3) || '-' ||
+    hex(randomblob(6))
+  ) AS definition_id
 FROM properties;
 
 INSERT INTO property_definitions (
@@ -87,7 +101,13 @@ JOIN tmp_general_defs g ON g.property_id = p.id;
 -- combination still referenced by a link ----
 CREATE TEMP TABLE tmp_override_groups AS
 SELECT property_id, description_override, example_values_override_json,
-       lower(hex(randomblob(16))) AS definition_id
+  lower(
+    hex(randomblob(4)) || '-' ||
+    hex(randomblob(2)) || '-' ||
+    '4' || substr(hex(randomblob(2)), 2, 3) || '-' ||
+    substr('89ab', 1 + (abs(random()) % 4), 1) || substr(hex(randomblob(2)), 2, 3) || '-' ||
+    hex(randomblob(6))
+  ) AS definition_id
 FROM event_properties
 WHERE description_override IS NOT NULL OR example_values_override_json IS NOT NULL
 GROUP BY property_id, description_override, example_values_override_json;

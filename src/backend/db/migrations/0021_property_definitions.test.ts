@@ -16,6 +16,11 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = __dirname;
 
+// Fix round (qa-tester FAIL 2026-09-28 17:03): every backfilled id must be a dashed, version-4-
+// shaped UUID string, matching src/backend/db/util.ts#newId (randomUUID()) exactly -- the app's
+// backup/restore id remap depends on this shape.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const PRE_0021_MIGRATIONS = [
   '0001_core.sql',
   '0002_bundles.sql',
@@ -269,5 +274,65 @@ describe('0021_property_definitions.sql backfill', () => {
     const byEvent = new Map(links.map((l) => [l.event_id, l.definition_id]));
     expect(byEvent.get(liveConsentId)).toBe(plainConsent.id);
     expect(byEvent.get(deletedConsentId)).toBe(suffixedConsent.id);
+  });
+
+  // Fix round (qa-tester FAIL 2026-09-28 17:03, backup restore ERROR): 0021 used to generate
+  // dashless 32-hex ids, which backupRestore.service.ts's id-remap regex never matched, so every
+  // backfilled id survived a restore unrewritten and collided with the still-live source row.
+  it('generates dashed, version-4-shaped UUIDs for every backfilled definition (general and override)', () => {
+    db = new Database(':memory:');
+    db.pragma('foreign_keys = OFF');
+
+    for (const file of PRE_0021_MIGRATIONS) {
+      db.exec(fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf-8'));
+    }
+
+    const ts = nowIso();
+    const clientId = randomUUID();
+    db.prepare(
+      'INSERT INTO clients (id, key, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)'
+    ).run(clientId, 'acme', 'Acme', ts, ts);
+    const projectId = randomUUID();
+    db.prepare(
+      'INSERT INTO projects (id, client_id, name, key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(projectId, clientId, 'Acme Brand A', 'acme-brand-a', ts, ts);
+
+    // Two properties: one with only a "general" definition, one with an override group too, so
+    // both backfill code paths (tmp_general_defs and tmp_override_groups) are exercised.
+    const plainPropertyId = randomUUID();
+    db.prepare(
+      `INSERT INTO properties (id, project_id, scope, name, data_type, created_at, updated_at)
+       VALUES (?, ?, 'event', 'quantity', 'number', ?, ?)`
+    ).run(plainPropertyId, projectId, ts, ts);
+
+    const overridePropertyId = randomUUID();
+    db.prepare(
+      `INSERT INTO properties (id, project_id, scope, name, data_type, created_at, updated_at)
+       VALUES (?, ?, 'event', 'action', 'string', ?, ?)`
+    ).run(overridePropertyId, projectId, ts, ts);
+    const eventId = randomUUID();
+    db.prepare(
+      `INSERT INTO events (id, project_id, name, class, status, created_at, updated_at) VALUES (?, ?, 'consent', 'custom', 'planned', ?, ?)`
+    ).run(eventId, projectId, ts, ts);
+    db.prepare(
+      `INSERT INTO event_properties (event_id, property_id, required, role, sort_order, description_override, example_values_override_json, created_at, updated_at)
+       VALUES (?, ?, 0, 'normal', 0, 'Consent action', NULL, ?, ?)`
+    ).run(eventId, overridePropertyId, ts, ts);
+
+    db.exec(fs.readFileSync(path.join(MIGRATIONS_DIR, '0021_property_definitions.sql'), 'utf-8'));
+
+    const defs = db.prepare('SELECT id, property_id, name FROM property_definitions WHERE project_id = ?').all(
+      projectId
+    ) as { id: string; property_id: string; name: string }[];
+    expect(defs.length).toBeGreaterThanOrEqual(3); // 2 general + 1 override
+    for (const def of defs) {
+      expect(def.id, `definition "${def.name}" id "${def.id}"`).toMatch(UUID_RE);
+    }
+
+    // event_properties.definition_id is repointed to those same dashed ids, not left dangling.
+    const links = db.prepare('SELECT definition_id FROM event_properties').all() as { definition_id: string }[];
+    for (const link of links) {
+      expect(link.definition_id).toMatch(UUID_RE);
+    }
   });
 });

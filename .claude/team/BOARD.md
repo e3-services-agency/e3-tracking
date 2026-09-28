@@ -2004,3 +2004,6 @@ Artifacts saved under `.claude/team/reports/qa/T-3-05/`: `backup-source-b.json`,
 | 3 | Warnings path: unknown column in edited backup, restore with another key -> warnings panel with Continue before navigation, Continue lands on new project | PASS |
 | 4 | Settings CSV: change_log count non-zero with real rows, comments headers-only | PASS |
 | 5 | No console errors beyond Vite HMR noise, zero supabase requests | PASS |
+
+### 2026-09-28 07:02 | supervisor | STATUS | T-3-05 DONE
+qa-tester PASS (07:00) on the QA fix. Merged clean into agent-setup; tests and tsc re-run. Seven of ten phase 3 tasks merged. Remaining: T-3-10 integration (blocked on the merge permission decision), then T-3-08, T-3-09, T-3-EXIT.

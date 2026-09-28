@@ -2253,3 +2253,6 @@ User request. Folded into T-4-08 (migration 0022 gains documentation_url on both
 
 ### 2026-09-28 15:46 | supervisor | DECISION | Public/internal documentation and initiative intake
 D-59 amendment 2 (documentation_url public, internal_notes and internal_url private; folded into T-4-08 migration 0022 and T-4-03) and D-56 amendment (initiative import intake flow with derived requirements, version and mapping cross-check) recorded.
+
+### 2026-09-28 15:54 | implementer -> reviewer | HANDOFF | T-4-00 fix round 2
+Posted by supervisor. Commits 92e788c..ea0117e on task/T-4-00-property-definitions (19 total). ERROR 1 toEventCardProperty reads formats through the definition fallback chain (card, tracking document, MCP fixed together, unit test with a definition-specific [uri]); ERROR 2 0021 names computed in a temp table via ROW_NUMBER before the INSERT, live event wins the base name, soft-deleted plus live collision test; WARNING 1 renaming general refused (400), editor disables the field; INFO 2 mirror writes a property-level change_log row; WARNING 2/3 docs corrected. 1203 tests (104 files), tsc clean, build and lint green.

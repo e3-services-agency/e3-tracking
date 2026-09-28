@@ -195,4 +195,14 @@ describe('parseUseCaseLibrary', () => {
     expect(new Set(codes).size).toBe(codes.length);
     expect(codes.every((c) => /^UCC-(email|web|omni|mobile|paid|analytics)-\d{2}$/.test(c))).toBe(true);
   });
+
+  it('every variant/variant_property row in the Use Case Center library carries a condition (T-4-07 final fix)', () => {
+    const model = parseUseCaseLibrary(uccFixture);
+    const variantRowsWithoutCondition = model.templates.flatMap((t) =>
+      t.default_requirements
+        .filter((r) => (r.target_kind === 'variant' || r.target_kind === 'variant_property') && !r.condition)
+        .map((r) => `${t.code}:${r.target_kind}:${r.standard_event ?? r.event_name}`)
+    );
+    expect(variantRowsWithoutCondition).toEqual([]);
+  });
 });

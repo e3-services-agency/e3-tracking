@@ -36,6 +36,12 @@ library targets with `variant`/`variant_property`. Every other standard event us
 natural discriminator, so its requirements use `event`/`event_property` instead — these resolve
 through the mapping's event and client event name alone, with no variant needed.
 
+Every `variant`/`variant_property` requirement also carries an explicit `condition` (`add_to_cart`:
+`{property_name: "action", value: "add"}`; `purchase`: `{property_name: "purchase_status", value:
+"success"}`) so it still resolves through `use-case-template.dal.ts`'s exact-condition variant
+fallback on a project whose standard event mapping itself carries no variant, not only through the
+mapping.
+
 ### Tags: derived from each page's own header badges, not inferred
 
 Every template's `tags` come from the three badges at the top of its Use Case Center page ("Use
@@ -43,8 +49,8 @@ Case maturity", "What to expect", "Use Case goal") plus an explicit "Industry:" 
 has one — never guessed from the page title or category. The mapping tables below are applied
 uniformly so the same badge word always produces the same tag; where a badge phrase has no close
 match in the D-57 vocabulary, the nearest kpi implied by the page's own subject is used and, on the
-handful of templates where that is not obvious (`UCC-omni-05`, `UCC-analytics-02/04/06/07`), noted
-here rather than per template.
+handful of templates where that is not obvious (`UCC-omni-05`, `UCC-analytics-01/02/04/05/06/07/08/09/11`),
+noted here rather than per template.
 
 **Tier** (`Use Case maturity`): `Basic` -> `essentials`; `Advanced` -> `advanced`; `Champion` ->
 `advanced` (the vocabulary has no separate top tier for "Champion"; treated as the top of the
@@ -62,14 +68,20 @@ tier values.
 `Purchase Frequency` -> `purchase_frequency`; `Return rate(s)` / `ROI` on a returns page -> `return_rate`;
 plain `Revenue` -> `revenue`. A few pages use a vaguer phrase with no direct vocabulary match
 ("get data insights", "Strategic insights", "Higher customer satisfaction", "Customer
-segmentation"); those templates carry the single kpi value closest to the page's own subject
-(for example `UCC-omni-05` Product expiration reminder's "Higher customer satisfaction" ->
-`purchase_frequency`, as a repeat-purchase proxy; `UCC-analytics-02` Black Friday's "get data
+segmentation", "Deliverability metrics"); those templates carry the single kpi value closest to the
+page's own subject: `UCC-omni-05` Product expiration reminder's "Higher customer satisfaction" ->
+`purchase_frequency`, as a repeat-purchase proxy; `UCC-analytics-01` Apple Mail segmentation's
+"Customer segmentation" -> `active_subscribers`; `UCC-analytics-02` Black Friday's "get data
 insights" -> `revenue`, since the page is revenue-focused; `UCC-analytics-04` CLTV dashboard's
-"Strategic insights" -> `cltv`, from the page's own title; `UCC-analytics-06` Email performance's
-"Learn more about your active subscriber base" -> `active_subscribers`; `UCC-analytics-07`
-Executive dashboard's "get data insights" -> `revenue`, an executive summary's usual headline
-metric). Where a badge lists several KPIs (`UCC-analytics-03` Conversion dashboard: "Insights into
+"Strategic insights" -> `cltv`, from the page's own title; `UCC-analytics-05` Email deliverability's
+"Deliverability metrics" -> `active_subscribers`, the closest subscriber-health proxy; `UCC-analytics-06`
+Email performance's "Learn more about your active subscriber base" -> `active_subscribers`;
+`UCC-analytics-07` Executive dashboard's "get data insights" -> `revenue`, an executive summary's
+usual headline metric; `UCC-analytics-08` Key customer segments' "get data insights" ->
+`purchase_frequency`, from the page's own segment-by-purchase-history subject; `UCC-analytics-09`
+Returned items' "Get data insights" -> `return_rate`, from the page's own title; `UCC-analytics-11`
+Time zone segmentation's "Strategic insights" -> `active_subscribers`, the closest send-time-relevant
+metric. Where a badge lists several KPIs (`UCC-analytics-03` Conversion dashboard: "Insights into
 RPV, AOV, Revenue"), all matching vocabulary values are kept (`kpis` is an array).
 
 ## Email (24, `samples/br-docs/use-case-center/email-use-cases/`)
@@ -200,6 +212,13 @@ carries `consent newsletter R` in addition to what is listed below.
   six sections; each combines several already-templated building blocks (paid ads, omnichannel
   messaging, Loomi AI) into a value narrative rather than its own distinct set of tracking
   requirements, so none gets its own template.
+- `samples/br-docs/use-case-center/about-use-case-center/` (10 pages: how to meet requirements,
+  adjust/test/enhance/evaluate a banner or email, the Use Case Center FAQ) — how-to and reference
+  guides for the Use Case Center product itself, not use-case pages with their own requirements.
+- `samples/br-docs/use-case-center/analytics-use-cases/rfm-customer-segmentation/rfm-segmentation-business-use.md` —
+  a companion narrative article ("what to do with each of the 11 RFM segments once
+  `UCC-analytics-12` has assigned them"), not a separate deployable use case with its own
+  requirements section.
 
 ## Import and instantiate
 

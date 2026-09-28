@@ -64,6 +64,12 @@ export function createApp(): express.Express {
       optionsSuccessStatus: 204,
     })
   );
+  // Public share-link mechanism (D-48, T-4-01), mounted ahead of `optionalAuth`: a share visitor
+  // sends no auth headers and needs none -- `requireShare` (`middleware/share.ts`) never reads
+  // `req.userId`/`req.userName`, so these routes work identically whether or not auth middleware
+  // has run. Kept before the general `express.json()` parser too since every route here is a GET.
+  app.use('/api/shared', sharedRouter);
+
   app.use(optionalAuth);
   // D-44, T-3-01: every request runs inside an actor context (AsyncLocalStorage) so
   // change-log.dal.ts's recordChange sees {actor: req.userName, source: 'ui'} without any route
@@ -110,9 +116,6 @@ export function createApp(): express.Express {
   app.use('/api/projects/:projectId/rules', requireProject, rulesRouter);
   app.use('/api/projects/:projectId/rule-templates', requireProject, ruleTemplatesRouter);
 
-  // Public share-link mechanism (D-18): stub until phase 4 (see routes/shared.ts).
-  app.use('/api/shared', sharedRouter);
-
   // Removed in the schema rewrite (D-18); the old customer-lifecycle and metrics features never
   // had tables in the fresh schema and T-1-03 removed every frontend code path that called them,
   // so no stub is mounted for them anymore (`routes/removed.ts`, the 501-stub reference, was
@@ -126,7 +129,9 @@ export function createApp(): express.Express {
     res.status(200).json({ ok: true });
   });
 
-  // Global error handler: expose error.message and error.stack in JSON so the Network tab shows the real error.
+  // Global error handler: expose error.message (and error.stack only in development, D-48 amendment
+  // fix round -- an unauthenticated caller on /api/shared/* must never see a server-path-bearing
+  // stack trace) so the Network tab shows the real error while developing.
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction): void => {
     if (res.headersSent) return;
 
@@ -145,7 +150,7 @@ export function createApp(): express.Express {
       console.error(err);
     }
     const message = err instanceof Error ? err.message : String(err);
-    const stack = err instanceof Error ? err.stack : undefined;
+    const stack = process.env.NODE_ENV === 'development' && err instanceof Error ? err.stack : undefined;
     const code =
       err instanceof ConfigError
         ? err.code

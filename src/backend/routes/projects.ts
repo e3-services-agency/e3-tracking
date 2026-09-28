@@ -110,4 +110,65 @@ router.delete('/:id', (req: Request, res: Response) => {
   }
 });
 
+/** `url` built from the request's own origin (D-48: the frontend route is `/tracking-plan/shared/<token>`,
+ * mounted at whatever host/port serves the SPA -- there is no separate "public base URL" setting). */
+function shareUrl(req: Request, token: string): string {
+  return `${req.protocol}://${req.get('host')}/tracking-plan/shared/${token}`;
+}
+
+function shareResponse(req: Request, project: ProjectDAL.ProjectRow) {
+  return {
+    share_token: project.share_token,
+    share_access: project.share_access,
+    share_created_at: project.share_created_at,
+    url: project.share_token ? shareUrl(req, project.share_token) : null,
+  };
+}
+
+router.get('/:id/share', (req: Request, res: Response) => {
+  try {
+    const project = ProjectDAL.getProjectOrThrow(req.params.id);
+    res.status(200).json(shareResponse(req, project));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+// Fix round WARNING 1 (reviewer, 2026-09-28 18:14): `body.access` is passed through as-is (not
+// coerced to the 'read' default unless genuinely absent) so a non-string value (`123`, `null`,
+// `["comment"]`, `{}`) reaches `assertShareAccess` in the DAL and 400s instead of silently becoming
+// 'read' and rotating -- rotation is destructive (the old link stops working immediately), so a
+// malformed request must never fall through to a default that still does it.
+router.post('/:id/share', (req: Request, res: Response) => {
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const access = body.access === undefined ? 'read' : body.access;
+  const force = body.force === true || req.query.force === 'true';
+  try {
+    const project = ProjectDAL.createOrRotateShare(req.params.id, access, { force });
+    res.status(201).json(shareResponse(req, project));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.patch('/:id/share', (req: Request, res: Response) => {
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const access = body.access;
+  try {
+    const project = ProjectDAL.updateShareAccess(req.params.id, access);
+    res.status(200).json(shareResponse(req, project));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.delete('/:id/share', (req: Request, res: Response) => {
+  try {
+    const project = ProjectDAL.revokeShare(req.params.id);
+    res.status(200).json(shareResponse(req, project));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
 export default router;

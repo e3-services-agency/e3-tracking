@@ -367,3 +367,16 @@ export class ProjectKeyTakenError extends ConflictError {
     this.name = 'ProjectKeyTakenError';
   }
 }
+
+/**
+ * `POST /api/projects/:id/share` (create/rotate) on a project whose `settings_json.is_sandbox` is
+ * `true` without `?force=true` (D-60, T-4-01): a bundled sandbox project is meant for local/demo
+ * exploration, not for handing a client a live link by accident. `force=true` bypasses this. 409.
+ */
+export class SandboxShareRefusedError extends ConflictError {
+  readonly code = 'SANDBOX_SHARE_REFUSED';
+  constructor(message: string) {
+    super(message);
+    this.name = 'SandboxShareRefusedError';
+  }
+}

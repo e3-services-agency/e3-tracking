@@ -802,3 +802,48 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
     },
   };
 }
+
+/**
+ * Deep-strips every object key starting with `internal_` (any depth, arrays included). Forward
+ * compatible with T-4-08's `internal_notes`/`internal_url` on templates/use cases -- neither field
+ * exists on `TrackingDocument` yet, but this walk needs no update once they land, matching the D-48
+ * amendment's "any internal_* field at any depth" wording rather than an explicit field list here.
+ */
+function stripInternalKeysDeep<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map((item) => stripInternalKeysDeep(item)) as unknown as T;
+  }
+  if (value !== null && typeof value === 'object') {
+    const source = value as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const key of Object.keys(source)) {
+      if (key.startsWith('internal_')) continue;
+      out[key] = stripInternalKeysDeep(source[key]);
+    }
+    return out as T;
+  }
+  return value;
+}
+
+/**
+ * Public projection of `TrackingDocument` (D-48 amendment, fix round, 2026-09-28): the shape a
+ * `GET /api/shared/:token/tracking-document.json` response is allowed to carry. Strips, in addition
+ * to the deep `internal_*` sweep above: `project.bloomreach_project_url` (the internal Bloomreach
+ * console link), and per event `identity_note`, `owners` and `agent_instructions` (QA-agent prompts,
+ * never meant for a client). `not_suitable_for` is deliberately kept -- it is client-facing
+ * guidance, not an internal note. Never mutates `doc`; `buildTrackingDocument`'s own return value is
+ * untouched (the internal route and MCP tools call it directly, without this projection).
+ */
+export function toPublicTrackingDocument(doc: TrackingDocument): TrackingDocument {
+  const stripped = stripInternalKeysDeep(doc);
+  return {
+    ...stripped,
+    project: { ...stripped.project, bloomreach_project_url: null },
+    events: stripped.events.map((event) => ({
+      ...event,
+      identity_note: null,
+      owners: { business: null, technical: null },
+      agent_instructions: null,
+    })),
+  };
+}

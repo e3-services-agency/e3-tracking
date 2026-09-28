@@ -3,12 +3,20 @@
  * folded into `projects` columns (D-15); `default_expiration_json` and the D-27 Bloomreach identifiers live
  * on the project row directly.
  */
+import { randomBytes } from 'node:crypto';
 import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn, mapWriteError } from '../db/util';
-import { ConflictError, NotFoundError, StandardEventExistsError, ValidationError } from '../errors';
+import {
+  ConflictError,
+  NotFoundError,
+  SandboxShareRefusedError,
+  StandardEventExistsError,
+  ValidationError,
+} from '../errors';
 import { getClientOrThrow, type ClientRow } from './client.dal';
 import { validateExpirationJson } from './validators';
 import { STANDARD_EVENTS } from '../../domain/bloomreach';
+import { SHARE_ACCESS, type ShareAccess } from '../../domain/enums';
 import * as ChangeLogDAL from './change-log.dal';
 import { payloadHash } from '../../domain/diff/hash';
 
@@ -48,6 +56,9 @@ export interface ProjectRow {
   data_manager_events_json: unknown;
   share_token: string | null;
   share_access: string | null;
+  /** When the current `share_token` was created or last rotated (D-48, T-4-01); `null` when no
+   * share link has ever been generated, or after a revoke clears all three share columns. */
+  share_created_at: string | null;
   /** D-30 money tolerance (T-2-06): percent with an absolute floor, applied to every
    * `tolerance_mode = 'money'` rule (`src/domain/rules/evaluate.ts`'s `resolveTolerance`). */
   money_tolerance_percent: number;
@@ -496,6 +507,137 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
   });
   run();
   return getProjectOrThrow(id);
+}
+
+// ----- Share links (D-48, T-4-01) -----
+
+/**
+ * D-60: a bundled sandbox project carries `is_sandbox: true` in `settings_json`. That column does
+ * not exist yet (added by T-4-09); read defensively through the raw row so this check is a no-op
+ * today and starts working the moment T-4-09's migration lands, with no change needed here --
+ * `SELECT *` simply won't have the key until then, and a missing key reads as "not a sandbox".
+ */
+function isSandboxProject(row: ProjectRow): boolean {
+  const raw = (row as unknown as Record<string, unknown>).settings_json;
+  if (!raw) return false;
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return !!(parsed && typeof parsed === 'object' && (parsed as Record<string, unknown>).is_sandbox === true);
+  } catch {
+    return false;
+  }
+}
+
+function assertShareAccess(access: unknown): asserts access is ShareAccess {
+  if (typeof access !== 'string' || !(SHARE_ACCESS as readonly string[]).includes(access)) {
+    throw new ValidationError(
+      `access must be one of: ${SHARE_ACCESS.join(', ')}.`,
+      'access'
+    );
+  }
+}
+
+/** 32 random bytes, base64url (D-48): 43 characters, URL-safe (`[A-Za-z0-9_-]`, no padding). */
+function generateShareToken(): string {
+  return randomBytes(32).toString('base64url');
+}
+
+/**
+ * Creates the project's first share link, or rotates the existing one (D-48: "rotate on
+ * regenerate" -- one token per project, the old one stops resolving immediately). Refuses on a
+ * sandbox project unless `force` (D-60). Logged as a project `update` with the token excluded from
+ * the diff (`buildProjectDiffSnapshot`, D-44).
+ */
+export function createOrRotateShare(id: string, access: unknown, options: { force?: boolean } = {}): ProjectRow {
+  assertShareAccess(access);
+  const before = getProjectOrThrow(id);
+  if (isSandboxProject(before) && !options.force) {
+    throw new SandboxShareRefusedError(
+      'This is a sandbox project; pass force=true to create a share link on it anyway.'
+    );
+  }
+  const db = getDb();
+  const token = generateShareToken();
+  const now = nowIso();
+  const run = db.transaction(() => {
+    db.prepare(
+      'UPDATE projects SET share_token = ?, share_access = ?, share_created_at = ?, updated_at = ? WHERE id = ?'
+    ).run(token, access, now, now, id);
+    const after = getProjectOrThrow(id);
+    ChangeLogDAL.recordChange({
+      projectId: id,
+      entityType: 'project',
+      entityId: id,
+      entityLabel: after.name,
+      action: 'update',
+      before: buildProjectDiffSnapshot(before),
+      after: buildProjectDiffSnapshot(after),
+    });
+  });
+  run();
+  return getProjectOrThrow(id);
+}
+
+/** Changes the access level (`read`/`comment`) of an already-active share link, without rotating the token. */
+export function updateShareAccess(id: string, access: unknown): ProjectRow {
+  assertShareAccess(access);
+  const before = getProjectOrThrow(id);
+  if (!before.share_token) {
+    throw new NotFoundError('No active share link for this project.', 'share');
+  }
+  const db = getDb();
+  const now = nowIso();
+  const run = db.transaction(() => {
+    db.prepare('UPDATE projects SET share_access = ?, updated_at = ? WHERE id = ?').run(access, now, id);
+    const after = getProjectOrThrow(id);
+    ChangeLogDAL.recordChange({
+      projectId: id,
+      entityType: 'project',
+      entityId: id,
+      entityLabel: after.name,
+      action: 'update',
+      before: buildProjectDiffSnapshot(before),
+      after: buildProjectDiffSnapshot(after),
+    });
+  });
+  run();
+  return getProjectOrThrow(id);
+}
+
+/** Revokes the current share link: the token, access and created-at columns are all cleared so the
+ * old link 404s immediately (`getProjectByShareToken` no longer finds it). */
+export function revokeShare(id: string): ProjectRow {
+  const before = getProjectOrThrow(id);
+  const db = getDb();
+  const now = nowIso();
+  const run = db.transaction(() => {
+    db.prepare(
+      'UPDATE projects SET share_token = NULL, share_access = NULL, share_created_at = NULL, updated_at = ? WHERE id = ?'
+    ).run(now, id);
+    const after = getProjectOrThrow(id);
+    ChangeLogDAL.recordChange({
+      projectId: id,
+      entityType: 'project',
+      entityId: id,
+      entityLabel: after.name,
+      action: 'update',
+      before: buildProjectDiffSnapshot(before),
+      after: buildProjectDiffSnapshot(after),
+    });
+  });
+  run();
+  return getProjectOrThrow(id);
+}
+
+/** Looks up a non-deleted project by its exact share token, or `null` for no match (unknown token,
+ * revoked token, or a token whose project was soft-deleted). Used by `middleware/share.ts`. */
+export function getProjectByShareToken(token: string): ProjectRow | null {
+  if (!token) return null;
+  const db = getDb();
+  const row = db
+    .prepare('SELECT * FROM projects WHERE share_token = ? AND deleted_at IS NULL')
+    .get(token) as ProjectDbRow | undefined;
+  return row ? mapProjectRow(row) : null;
 }
 
 export function softDeleteProject(id: string): void {

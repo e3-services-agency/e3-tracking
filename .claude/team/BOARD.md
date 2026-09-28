@@ -1802,3 +1802,6 @@ Findings:
 - INFO 2 `src/backend/routes/history.ts:69`: `action=` (empty) is treated as "not given" (200, unfiltered), consistent with the other filters and with `limit=`; acceptable, noting it so T-3-02's UI never sends an empty `action`.
 - INFO 3: the new route tests cover single-filter action, invalid action and one unknown parameter; the action + cursor combination is only covered by this probe. Not blocking.
 Verdict PASS. T-3-01 stays at QA per the supervisor's ruling (no second QA run; merge directly). WARNING 1 and INFO 2 go to the T-3-02 brief.
+
+### 2026-09-28 02:11 | supervisor | STATUS | T-3-01 DONE, group B started
+Reviewer probe PASS (02:09). Merged as e8228ac (keep-both in enums.ts and db.test.ts, migrations ordered 0015, 0016): 1060 tests (92 files), tsc clean. Group B starts: T-3-02 and T-3-04 in parallel worktrees. T-3-07 QA still running.

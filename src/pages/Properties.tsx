@@ -28,6 +28,7 @@ import { AllowedValuesEditor, type AllowedValueRow } from '@/src/features/proper
 import { ItemSchemaEditor, type ItemSchemaFieldRow } from '@/src/features/properties/components/ItemSchemaEditor';
 import { mergeFrozenOrder } from '@/src/domain/propertyOrder';
 import { HistorySection } from '@/src/features/history/HistorySection';
+import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
 
 interface PropertyRow {
   id: string;
@@ -444,6 +445,10 @@ function PropertyEditor({
       {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{saveError}</div>}
 
       {!isCreating && property && <DefinitionsSection projectId={projectId} propertyId={property.id} />}
+
+      {!isCreating && property && (
+        <CommentsPanel entityType="property" entityId={property.id} api={{ mode: 'internal', projectId }} />
+      )}
 
       {!isCreating && property && (
         <HistorySection projectId={projectId} entityType="property" entityId={property.id} />

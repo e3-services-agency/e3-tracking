@@ -24,6 +24,7 @@ import {
   type RequirementTargetKind,
 } from '@/src/domain/enums';
 import { HistorySection } from '@/src/features/history/HistorySection';
+import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
 
 interface UseCaseRow {
   id: string;
@@ -793,6 +794,10 @@ function UseCaseDetail({
           );
         })()}
 
+        <div className="bg-white rounded-lg border shadow-sm p-6">
+          <CommentsPanel entityType="use_case" entityId={useCaseId} api={{ mode: 'internal', projectId: projectId ?? '' }} />
+        </div>
+
         <div className="bg-white rounded-lg border shadow-sm">
           <div className="px-6 py-4 border-b flex items-center justify-between">
             <h2 className="font-semibold text-gray-900">Requirements (ordered; the flow sequence)</h2>
@@ -819,7 +824,8 @@ function UseCaseDetail({
             </thead>
             <tbody className="divide-y">
               {requirements.map((req, index) => (
-                <tr key={req.id}>
+                <React.Fragment key={req.id}>
+                <tr>
                   <td className="px-4 py-2">
                     <div className="flex gap-1">
                       <button type="button" onClick={() => move(index, -1)} disabled={index === 0} className="text-gray-400 hover:text-gray-900 disabled:opacity-30">
@@ -890,6 +896,19 @@ function UseCaseDetail({
                     </button>
                   </td>
                 </tr>
+                {!req.id.startsWith('new-') && (
+                  <tr>
+                    <td colSpan={7} className="px-4 pb-3 bg-gray-50/50">
+                      <CommentsPanel
+                        entityType="requirement"
+                        entityId={req.id}
+                        api={{ mode: 'internal', projectId: projectId ?? '' }}
+                        title="Comments on this requirement"
+                      />
+                    </td>
+                  </tr>
+                )}
+                </React.Fragment>
               ))}
               {requirements.length === 0 && (
                 <tr>

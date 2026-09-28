@@ -8,15 +8,13 @@
  * to `null`; a non-string value is a 400 the same way a bad scheme is.
  */
 import { ValidationError } from '../errors';
+import { isHttpUrl } from '../../domain/url';
 
-const HTTP_URL_RE = /^https?:\/\//i;
-
-/** Read-time check (no throw), exported for T-4-03's `toEventCardTriggers`: a stored
- * `triggers_json[].source` value written before this file's write-time validation existed (or
- * restored from an older backup) must not render as an `href` if it isn't http(s). */
-export function isHttpUrl(value: string): boolean {
-  return HTTP_URL_RE.test(value);
-}
+/** Re-exported for `document.service.ts`'s `toEventCardTriggers` (T-4-03) and any other DAL-side
+ * read-time check: the http(s) rule itself now lives in `src/domain/url.ts` (T-4-03 QA fix round)
+ * so `src/pages/Events.tsx`'s client-side trigger URL field validates against the exact same rule
+ * without importing a backend module. */
+export { isHttpUrl };
 
 /** Returns the trimmed value or `null`; throws `ValidationError` (400) on a non-string or a non-http(s) URL. */
 export function normalizeHttpUrl(value: unknown, field: string): string | null {

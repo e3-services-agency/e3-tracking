@@ -53,6 +53,7 @@ import {
 } from '../../domain/import/dataManagerEvents';
 import { toAppType, toDataManagerType } from '../../domain/bloomreach/dataManagerTypes';
 import { classifyEventType } from '../../domain/bloomreach';
+import { PROPERTY_DEFINITION_DEFAULT_NAME } from '../../domain/enums';
 import { payloadHash } from '../../domain/diff/hash';
 import type { DiffItem, DiffItemChange } from '../../domain/diff/types';
 import { PayloadChangedError } from '../errors';
@@ -379,6 +380,13 @@ function buildPlan(projectId: string, model: DataManagerEventsModel, rawJson: un
 
     const existingDefinitions = existingProp ? PropertyDefinitionDAL.listDefinitions(projectId, existingProp.id) : [];
 
+    // Fix round WARNING 4: an event literally named "general" would otherwise collide with the
+    // property's own general definition (created once per property regardless of whether it
+    // exists yet in this same apply); renamed "<event> (event)", -2/-3 suffixed against any other
+    // group of the *same* property that (absurdly) also resolves to that same name. Pure function
+    // of the file's own group order (never of current DB state), so re-preview after apply always
+    // recomputes the exact same name and matches the existing row -- idempotent.
+    const usedDefinitionNames = new Set<string>();
     let groupIndex = 0;
     for (const groupOccs of groups.values()) {
       groupIndex += 1;
@@ -387,7 +395,15 @@ function buildPlan(projectId: string, model: DataManagerEventsModel, rawJson: un
       const fileFirst = groupOccs[0];
       const desc = normalizeDescription(fileFirst.prop.description);
       const example = firstExampleValue(normalizeExampleValues(fileFirst.prop.example_values));
-      const definitionName = fileFirst.event.type;
+      const baseDefinitionName =
+        fileFirst.event.type === PROPERTY_DEFINITION_DEFAULT_NAME
+          ? `${fileFirst.event.type} (event)`
+          : fileFirst.event.type;
+      let definitionName = baseDefinitionName;
+      for (let suffix = 2; usedDefinitionNames.has(definitionName); suffix++) {
+        definitionName = `${baseDefinitionName}-${suffix}`;
+      }
+      usedDefinitionNames.add(definitionName);
       const stepId = `definition:event:${name}:${groupIndex}`;
 
       const existingByName = existingDefinitions.find((d) => d.name === definitionName) ?? null;

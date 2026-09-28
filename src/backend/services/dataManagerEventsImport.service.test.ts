@@ -713,4 +713,32 @@ describe('T-4-00 (D-58): property definitions created/matched from diverging att
     const action = PropertyDAL.listProperties(projectId, { scope: 'event' }).find((p) => p.name === 'action')!;
     expect(action.data_type).toBe('string'); // "text" -> string, from the creation occurrence; never changed by the "number" occurrence
   });
+
+  // WARNING 4 fix round: an event literally named "general" whose divergent attribute would
+  // otherwise collide with the property's own "general" definition name.
+  it('names the divergent definition "<event> (event)" when the first event is literally named "general", and re-preview is idempotent', () => {
+    const payload = buildPayload([
+      { type: 'cart_update', description: 'Cart action taken', example_values: 'add' },
+      { type: 'general', description: 'General action taken', example_values: 'noop' },
+    ]);
+    const preview = previewDataManagerEvents(projectId, payload);
+    const definitionItems = preview.items.filter((i) => i.entity_type === 'property_definition');
+    expect(definitionItems).toHaveLength(1);
+    expect(definitionItems[0].entity_key).toBe('action:general (event)');
+
+    applyDataManagerEvents(projectId, payload, preview.payload_hash, preview.items.map((i) => i.id));
+
+    const action = PropertyDAL.listProperties(projectId, { scope: 'event' }).find((p) => p.name === 'action')!;
+    const definitions = PropertyDefinitionDAL.listDefinitions(projectId, action.id);
+    expect(definitions.map((d) => d.name).sort()).toEqual(['general', 'general (event)']);
+    const renamedDef = definitions.find((d) => d.name === 'general (event)')!;
+    expect(renamedDef.description).toBe('General action taken');
+
+    const generalEvent = EventDAL.listEvents(projectId).find((e) => e.name === 'general')!;
+    const link = EventDAL.getEventWithProperties(projectId, generalEvent.id).properties.find((l) => l.property_id === action.id)!;
+    expect(link.definition_id).toBe(renamedDef.id);
+
+    const rePreview = previewDataManagerEvents(projectId, payload);
+    expect(rePreview.items.filter((i) => i.entity_type === 'property_definition')).toHaveLength(0);
+  });
 });

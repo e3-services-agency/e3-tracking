@@ -1989,3 +1989,6 @@ Artifacts saved under `.claude/team/reports/qa/T-3-05/`: `backup-source.json`, `
 
 ### 2026-09-28 04:13 | supervisor -> implementer | DECISION | T-3-05 QA fix
 qa-tester FAIL (04:12): after Apply the page reloads on the old project URL, so the URL wins over the store and the restored project is not selected. Fix: navigate to /p/<newKey>/events (pushPath or equivalent) before or instead of reloading, and show apply warnings[] in the form (with a Continue button) before navigating when non-empty. Also close the T-3-03 leftover the tester found: csvExport.service.ts builds change_log rows from the table now that it exists (headers-only remains only for comments until 0019); count query likewise. Then a short reviewer probe and merge.
+
+### 2026-09-28 06:47 | implementer -> qa-tester | HANDOFF | T-3-05 QA fix
+Posted by supervisor. Commit f61354b on task/T-3-05-restore-backup. pushPath extracted to src/components/layout/pushPath.ts; RestoreBackupForm navigates to /p/<newKey>/events before reloading, with a warnings panel and Continue when apply returns warnings; csvExport change_log rows and count from the table, comments headers-only. 1117 tests (97 files), tsc clean, build ok. Short browser re-check instead of a reviewer probe.

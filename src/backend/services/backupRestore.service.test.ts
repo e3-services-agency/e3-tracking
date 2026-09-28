@@ -304,6 +304,52 @@ describe('applyRestore', () => {
     expect(restoreRow).toBeTruthy();
   });
 
+  it('remaps change_log.batch_id: rows of one old import batch keep sharing one batch_id, but a fresh one (T-3-05b)', async () => {
+    await applyAllFixtures();
+    const backup = await buildBackup(projectId);
+    const preview = previewRestore(backup);
+    const client = ClientDAL.createClient({ key: 'batchremap', name: 'Batch Remap Co' });
+    const { project: restored } = await applyRestore(backup, preview.payload_hash, {
+      name: 'Batch remap test',
+      key: 'batch-remap-test',
+      client_id: client.id,
+    });
+
+    const oldBatchRows = (backup.change_log as Record<string, unknown>[]).filter(
+      (r) => typeof r.batch_id === 'string' && r.batch_id
+    );
+    const oldBatchGroups = new Map<string, number>();
+    for (const row of oldBatchRows) {
+      const batchId = row.batch_id as string;
+      oldBatchGroups.set(batchId, (oldBatchGroups.get(batchId) ?? 0) + 1);
+    }
+    // The fixture applies several imports (data mapping, expiration, Data Manager x2, customer
+    // events), each its own batch, so there is more than one group to tell apart.
+    expect(oldBatchGroups.size).toBeGreaterThan(1);
+
+    const db = getDb();
+    // Exclude the restore's own `action = 'restore'` change_log row: it is a brand-new row applyRestore
+    // itself appends (not one of the backup's own rows) and carries the whole-restore batch id, not
+    // one of the backup's import batch ids.
+    const restoredRows = db
+      .prepare("SELECT batch_id FROM change_log WHERE project_id = ? AND batch_id IS NOT NULL AND action != 'restore'")
+      .all(restored.id) as { batch_id: string }[];
+    expect(restoredRows.length).toBe(oldBatchRows.length);
+
+    const restoredGroups = new Map<string, number>();
+    for (const row of restoredRows) {
+      restoredGroups.set(row.batch_id, (restoredGroups.get(row.batch_id) ?? 0) + 1);
+    }
+
+    // Same grouping (a multiset of batch sizes) survives restore -- rows of one old batch still
+    // share one id -- but every restored batch_id is a fresh one, never one of the old ones.
+    expect(Array.from(restoredGroups.values()).sort()).toEqual(Array.from(oldBatchGroups.values()).sort());
+    expect(restoredGroups.size).toBe(oldBatchGroups.size);
+    for (const oldBatchId of oldBatchGroups.keys()) {
+      expect(restoredGroups.has(oldBatchId)).toBe(false);
+    }
+  });
+
   it('rejects a stale payload_hash with 409 PAYLOAD_CHANGED', async () => {
     await applyAllFixtures();
     const backup = await buildBackup(projectId);

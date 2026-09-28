@@ -159,6 +159,24 @@ export function previewRestore(rawJson: unknown): RestorePreviewResult {
   };
 }
 
+/**
+ * Every distinct `change_log.batch_id` (an import batch, one UUID shared by many rows, D-44) gets
+ * its own fresh id, added to the same `idMap` as every row id, so `remapString`'s regex pass
+ * rewrites it consistently everywhere it appears -- otherwise it is not any row's own `id` column
+ * and would survive the restore verbatim (fix round, T-3-05b): all rows of one old batch keep
+ * sharing one (new) id, they just no longer carry the pre-restore one.
+ */
+function collectBatchIds(tables: Record<string, BackupRow[]>): Map<string, string> {
+  const idMap = new Map<string, string>();
+  for (const row of tables.change_log ?? []) {
+    const batchId = row.batch_id;
+    if (typeof batchId === 'string' && batchId && !idMap.has(batchId)) {
+      idMap.set(batchId, newId());
+    }
+  }
+  return idMap;
+}
+
 /** The old project's id, derived from any row's `project_id` (the backup's own `project` object carries none, D-45). */
 function deriveOldProjectId(tables: Record<string, BackupRow[]>): string | null {
   for (const table of PROJECT_SCOPED_TABLES) {
@@ -353,6 +371,9 @@ export async function applyRestore(
           for (const row of parsed.tables[table] ?? []) {
             if (typeof row.id === 'string') idMap.set(row.id, newId());
           }
+        }
+        for (const [oldBatchId, newBatchId] of collectBatchIds(parsed.tables)) {
+          idMap.set(oldBatchId, newBatchId);
         }
 
         const templateIdMap = resolveUseCaseTemplates(parsed.tables.use_case_templates ?? [], warnings);

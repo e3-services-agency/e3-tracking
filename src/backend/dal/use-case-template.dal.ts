@@ -62,7 +62,7 @@
 import { getDb } from '../db';
 import { newId, nowIso, parseJsonColumn, toJsonColumn } from '../db/util';
 import { ConflictError, NotFoundError, TemplateInUseError, UseCaseCodeTakenError, ValidationError } from '../errors';
-import { normalizeHttpUrl } from './urlValidation';
+import { normalizeHttpUrl, normalizeOptionalText } from './urlValidation';
 import { USE_CASE_TYPES, REQUIREMENT_LEVELS, REQUIREMENT_TARGET_KINDS, type UseCaseType } from '../../domain/enums';
 import { createUseCase, type UseCaseRow } from './use-case.dal';
 import {
@@ -259,7 +259,7 @@ export function createUseCaseTemplate(input: UseCaseTemplateInput): UseCaseTempl
     expected_assets_json: toJsonColumn(input.expected_assets_json ?? []),
     source_json: input.source_json ? toJsonColumn(input.source_json) : null,
     documentation_url: normalizeHttpUrl(input.documentation_url, 'documentation_url'),
-    internal_notes: input.internal_notes?.trim() || null,
+    internal_notes: normalizeOptionalText(input.internal_notes, 'internal_notes'),
     internal_url: normalizeHttpUrl(input.internal_url, 'internal_url'),
     created_at: now,
     updated_at: now,
@@ -291,7 +291,7 @@ export function updateUseCaseTemplate(id: string, input: Partial<UseCaseTemplate
   if (input.expected_assets_json !== undefined) patch.expected_assets_json = toJsonColumn(input.expected_assets_json ?? []);
   if (input.source_json !== undefined) patch.source_json = input.source_json ? toJsonColumn(input.source_json) : null;
   if (input.documentation_url !== undefined) patch.documentation_url = normalizeHttpUrl(input.documentation_url, 'documentation_url');
-  if (input.internal_notes !== undefined) patch.internal_notes = input.internal_notes?.trim() || null;
+  if (input.internal_notes !== undefined) patch.internal_notes = normalizeOptionalText(input.internal_notes, 'internal_notes');
   if (input.internal_url !== undefined) patch.internal_url = normalizeHttpUrl(input.internal_url, 'internal_url');
 
   const setClause = Object.keys(patch)

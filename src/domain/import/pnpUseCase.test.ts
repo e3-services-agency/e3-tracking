@@ -305,3 +305,108 @@ describe('convertPnpUseCases: fix round WARNING 7 (cart_update -> add_to_cart/re
     expect(propReq.event_name).toBe('cart_update');
   });
 });
+
+describe('convertPnpUseCases: fix round 2 (ERROR 1) -- a fuzz table of malformed scalars and array items, never throws', () => {
+  const base = (template: Record<string, unknown>) => ({ template_id: 'x', name: 'x', description: 'x', template: { type: 'pnp_usecase', ...template } });
+
+  const malformedBodies: [string, unknown][] = [
+    ['a null requirement item', base({ requirements: [null] })],
+    ['a numeric event_name on an event requirement', base({ requirements: [{ type: 'event', event_name: 123 }] })],
+    ['a numeric event_name on a mapped_event requirement', base({ requirements: [{ type: 'mapped_event', event_name: 123 }] })],
+    ['a null property inside an event requirement', base({ requirements: [{ type: 'event', event_name: 'purchase', properties: [null] }] })],
+    ['a numeric property_name', base({ requirements: [{ type: 'event', event_name: 'purchase', properties: [{ property_name: 42 }] }] })],
+    ['a numeric text requirement name', base({ requirements: [{ type: 'text', name: 42 }] })],
+    ['a null category inside a text requirement', base({ requirements: [{ type: 'text', categories: [null] }] })],
+    ['a numeric category name/items', base({ requirements: [{ type: 'text', categories: [{ name: 1, items: [2, null, 'ok'] }] }] })],
+    ['a numeric bare item inside a text requirement', base({ requirements: [{ type: 'text', items: [1, null, 'ok'] }] })],
+    ['a null field inside a catalog requirement', base({ requirements: [{ type: 'catalog', fields: [null] }] })],
+    ['a numeric field_name', base({ requirements: [{ type: 'catalog', fields: [{ field_name: 7 }] }] })],
+    ['a numeric catalog_name', base({ requirements: [{ type: 'catalog', catalog_name: 7, fields: [] }] })],
+    ['a null property inside a consent requirement', base({ requirements: [{ type: 'consent', properties: [null] }] })],
+    ['a numeric property inside a consent requirement', base({ requirements: [{ type: 'consent', properties: [42] }] })],
+    ['a null property inside a customer_property requirement', base({ requirements: [{ type: 'customer_property', properties: [null] }] })],
+    ['a numeric requirement type', base({ requirements: [{ type: 42 }] })],
+    ['a null requirement type', base({ requirements: [{ type: null }] })],
+    ['a null fulfillment', base({ requirements: [], fulfillments: [null] })],
+    ['a numeric fulfillment headline', base({ requirements: [], fulfillments: [{ headline: 42 }] })],
+    ['a numeric fulfillment.item_reference.type', base({ requirements: [], fulfillments: [{ headline: 'ok', item_reference: { type: 42 } }] })],
+    ['a nested-nonsense fulfillment.item_reference', base({ requirements: [], fulfillments: [{ headline: 'ok', item_reference: { type: { nested: true } } }] })],
+    ['a numeric usecase_tags item', base({ requirements: [], usecase_tags: [1, null, 'essentials'] })],
+    ['a numeric channels item', base({ requirements: [], channels: [1, null, 'email'] })],
+    ['a numeric goal', base({ requirements: [], goal: 42 })],
+    ['a numeric template_id', { template_id: 42, template: { type: 'pnp_usecase', requirements: [] } }],
+    ['a numeric name', { template_id: 'x', name: 42, template: { type: 'pnp_usecase', requirements: [] } }],
+    ['a numeric description', { template_id: 'x', description: 42, template: { type: 'pnp_usecase', requirements: [] } }],
+    ['a numeric documentation_link', base({ requirements: [], documentation_link: 42 })],
+    ['a numeric callout', base({ requirements: [], callout: 42 })],
+    ['a nested-nonsense requirement (object where a scalar is expected everywhere)', base({ requirements: [{ type: 'event', event_name: { nested: { deeply: true } }, properties: [{ property_name: { also: 'nested' }, property_constraint: { operator: { weird: true } } }] }] })],
+    ['requirements itself an object, not an array', base({ requirements: { not: 'an array' } })],
+    ['a document that is itself null', null],
+    ['a document that is itself a number', 42],
+  ];
+
+  it.each(malformedBodies)('never throws for: %s', (_label, doc) => {
+    expect(() => convertPnpUseCases(doc)).not.toThrow();
+    const { warnings } = convertPnpUseCases(doc);
+    expect(Array.isArray(warnings)).toBe(true);
+  });
+
+  it('also never throws when every malformed body above is wrapped in {data: ...} or given as an array of two', () => {
+    for (const [, doc] of malformedBodies) {
+      expect(() => convertPnpUseCases({ data: doc })).not.toThrow();
+      expect(() => convertPnpUseCases([doc, doc])).not.toThrow();
+    }
+  });
+});
+
+describe('convertPnpUseCases: fix round 2 (ERROR 2) -- source strings trimmed, pnp export round trip clean', () => {
+  it('trims documentation_link and callout in source and documentation_url', () => {
+    const doc = {
+      template_id: 'x',
+      name: 'x',
+      template: {
+        type: 'pnp_usecase',
+        requirements: [],
+        documentation_link: '  https://documentation.bloomreach.com/engagement/docs/x  ',
+        callout: '  A padded quote.  ',
+      },
+    };
+    const { templates, warnings } = convertPnpUseCases(doc);
+    expect(warnings).toEqual([]);
+    expect(templates[0].source).toEqual({
+      kind: 'pnp_usecase',
+      template_id: 'x',
+      documentation_link: 'https://documentation.bloomreach.com/engagement/docs/x',
+      callout: 'A padded quote.',
+    });
+    expect(templates[0].documentation_url).toBe('https://documentation.bloomreach.com/engagement/docs/x');
+  });
+
+  it('converting every real br-pnp file produces trimmed source strings throughout (no leading/trailing whitespace)', () => {
+    const dir = path.resolve(__dirname, '../../../.claude/team/samples/br-pnp');
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));
+    for (const file of files) {
+      const doc = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf-8'));
+      const { templates } = convertPnpUseCases(doc);
+      for (const t of templates) {
+        if (t.source?.documentation_link) expect(t.source.documentation_link).toBe(t.source.documentation_link.trim());
+        if (t.source?.callout) expect(t.source.callout).toBe(t.source.callout.trim());
+        if (t.documentation_url) expect(t.documentation_url).toBe(t.documentation_url.trim());
+      }
+    }
+  });
+});
+
+describe('convertPnpUseCases: fix round 2 (WARNING 2) -- invalid documentation_link warns, url left empty', () => {
+  it('a non-http(s) documentation_link is dropped from documentation_url with a warning; source.documentation_link keeps the raw value', () => {
+    const doc = {
+      template_id: 'x',
+      name: 'x',
+      template: { type: 'pnp_usecase', requirements: [], documentation_link: 'javascript:alert(1)' },
+    };
+    const { templates, warnings } = convertPnpUseCases(doc);
+    expect(templates[0].documentation_url).toBeNull();
+    expect(templates[0].source?.documentation_link).toBe('javascript:alert(1)');
+    expect(warnings.some((w) => w.includes('is not an http:// or https:// URL'))).toBe(true);
+  });
+});

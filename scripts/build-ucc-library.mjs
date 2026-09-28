@@ -127,7 +127,10 @@ function main() {
 }
 
 const MOBILE = new Set(['sms', 'whatsapp', 'rcs', 'mobile_push']);
-const WEB = new Set(['web_layers', 'weblayers', 'browser_push']);
+// D-59 fix round 2 (INFO 2): `web_layers` dropped -- by the time `sectionFor` runs, every
+// template's `tags.channels` has already been through the rewrite above (or came straight from the
+// converter, which only ever emits `weblayers`), so the old token can never actually appear here.
+const WEB = new Set(['weblayers', 'browser_push']);
 
 function sectionFor(template) {
   if (template.source?.kind === 'docs' && /^UCC-([a-z]+)-/.exec(template.code)) {

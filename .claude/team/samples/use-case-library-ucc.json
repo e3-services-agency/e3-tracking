@@ -128,7 +128,7 @@
       "source": {
         "kind": "pnp_usecase",
         "template_id": "abfd-black-fraiday-dashboard",
-        "callout": "Stay ahead this Black Friday! Leverage our new dashboards to track trends and optimize your sales strategy. "
+        "callout": "Stay ahead this Black Friday! Leverage our new dashboards to track trends and optimize your sales strategy."
       },
       "documentation_url": null,
       "internal_notes": null,
@@ -234,7 +234,7 @@
       "source": {
         "kind": "pnp_usecase",
         "template_id": "aclv-customer-lifetime-value-dashboard",
-        "documentation_link": " https://documentation.bloomreach.com/engagement/docs/customer-lifetime-value-dashboard",
+        "documentation_link": "https://documentation.bloomreach.com/engagement/docs/customer-lifetime-value-dashboard",
         "callout": "\"Unlock the key to long-term business success with our Customer Lifetime Value (CLTV) use case – download now and transform your marketing strategy!\""
       },
       "documentation_url": "https://documentation.bloomreach.com/engagement/docs/customer-lifetime-value-dashboard",
@@ -842,7 +842,7 @@
         "kind": "pnp_usecase",
         "template_id": "ascv-key-customer-segments-and-insights-dashboard",
         "documentation_link": "https://documentation.bloomreach.com/engagement/docs/key-customer-segments-and-insights-dashboard",
-        "callout": "Monitor an increase in conversion rates, customer lifetime values,  customer retention rates, or improved targeting of 'Hot Prospects'. "
+        "callout": "Monitor an increase in conversion rates, customer lifetime values,  customer retention rates, or improved targeting of 'Hot Prospects'."
       },
       "documentation_url": "https://documentation.bloomreach.com/engagement/docs/key-customer-segments-and-insights-dashboard",
       "internal_notes": null,
@@ -2653,7 +2653,7 @@
         "kind": "pnp_usecase",
         "template_id": "lhbr-banner-notification-for-customers-with-high-return-rate",
         "documentation_link": "https://documentation.bloomreach.com/engagement/docs/banner-notification-for-customers-with-high-return-rates",
-        "callout": "This use case can significantly lower return rates and boost customer satisfaction. Don't let returns become a pain point for your business. "
+        "callout": "This use case can significantly lower return rates and boost customer satisfaction. Don't let returns become a pain point for your business."
       },
       "documentation_url": "https://documentation.bloomreach.com/engagement/docs/banner-notification-for-customers-with-high-return-rates",
       "internal_notes": null,
@@ -4531,7 +4531,7 @@
         "kind": "pnp_usecase",
         "template_id": "lses-sms-subscription-banner-with-email-collection",
         "documentation_link": "https://documentation.bloomreach.com/engagement/docs/sms-subscription-with-email-collection",
-        "callout": "Inspire customers to connect with your brand via two of the strongest marketing channels. Invite your audience to sign up for SMS and email updates, offer subscription incentives, and boost customer loyalty with more ways to engage. "
+        "callout": "Inspire customers to connect with your brand via two of the strongest marketing channels. Invite your audience to sign up for SMS and email updates, offer subscription incentives, and boost customer loyalty with more ways to engage."
       },
       "documentation_url": "https://documentation.bloomreach.com/engagement/docs/sms-subscription-with-email-collection",
       "internal_notes": null,
@@ -4609,7 +4609,7 @@
       "source": {
         "kind": "pnp_usecase",
         "template_id": "lsfs-flash-sale-sms",
-        "callout": "On average, sales promotions increase conversion rates by 17%. Inform your customers about the current sales through a powerful channel that SMS campaigns are watch your conversion rates grow. "
+        "callout": "On average, sales promotions increase conversion rates by 17%. Inform your customers about the current sales through a powerful channel that SMS campaigns are watch your conversion rates grow."
       },
       "documentation_url": null,
       "internal_notes": null,
@@ -6106,7 +6106,7 @@
       "source": {
         "kind": "pnp_usecase",
         "template_id": "obfs-black-friday-email-campaign-with-send-prioritization",
-        "callout": "Tap into the deep expertise of our email experts to effortlessly unlock extra Black Friday revenue. "
+        "callout": "Tap into the deep expertise of our email experts to effortlessly unlock extra Black Friday revenue."
       },
       "documentation_url": null,
       "internal_notes": null,
@@ -7885,7 +7885,7 @@
         "kind": "pnp_usecase",
         "template_id": "owic-weather-influenced-campaign",
         "documentation_link": "https://documentation.bloomreach.com/engagement/docs/weather-influenced-campaign",
-        "callout": "Deliver hyper-relevant experiences using real-time weather data to personalize offers and messages for your customers. "
+        "callout": "Deliver hyper-relevant experiences using real-time weather data to personalize offers and messages for your customers."
       },
       "documentation_url": "https://documentation.bloomreach.com/engagement/docs/weather-influenced-campaign",
       "internal_notes": null,
@@ -8471,7 +8471,7 @@
         "kind": "pnp_usecase",
         "template_id": "wcpr-recommendations-caroussel-banner",
         "documentation_link": "https://documentation.bloomreach.com/engagement/docs/recommendations-carousel-banner",
-        "callout": "Drive conversions and improve your RPV with an on-site banner featuring personalized recommendations. "
+        "callout": "Drive conversions and improve your RPV with an on-site banner featuring personalized recommendations."
       },
       "documentation_url": "https://documentation.bloomreach.com/engagement/docs/recommendations-carousel-banner",
       "internal_notes": null,
@@ -9091,7 +9091,7 @@
         "kind": "pnp_usecase",
         "template_id": "wivi-youtube-video-banner",
         "documentation_link": "https://documentation.bloomreach.com/engagement/docs/youtube-video-banner",
-        "callout": " \"This video banner makes it easy to show a YouTube video on your website as a pop-up. You can get creative with the message, audience, and purpose of the banner to make it your own.\""
+        "callout": "\"This video banner makes it easy to show a YouTube video on your website as a pop-up. You can get creative with the message, audience, and purpose of the banner to make it your own.\""
       },
       "documentation_url": "https://documentation.bloomreach.com/engagement/docs/youtube-video-banner",
       "internal_notes": null,
@@ -9600,7 +9600,7 @@
         "kind": "pnp_usecase",
         "template_id": "wssp-social-proof-banner",
         "documentation_link": "https://documentation.bloomreach.com/engagement/docs/social-proof-banner",
-        "callout": "Having already generated a 36% increase in conversion rates for Bloomreach clients, the Social Proof Banner is a proven tool to elevate your product page performance and turn visitors into customers. "
+        "callout": "Having already generated a 36% increase in conversion rates for Bloomreach clients, the Social Proof Banner is a proven tool to elevate your product page performance and turn visitors into customers."
       },
       "documentation_url": "https://documentation.bloomreach.com/engagement/docs/social-proof-banner",
       "internal_notes": null,
@@ -9727,7 +9727,7 @@
         "kind": "pnp_usecase",
         "template_id": "wzpd-zero-party-banner",
         "documentation_link": "https://documentation.bloomreach.com/engagement/docs/zero-party-data-banner",
-        "callout": "One customer saw a 31.1% boost in conversion rate after personalizing its emails with zero-party data from this banner. "
+        "callout": "One customer saw a 31.1% boost in conversion rate after personalizing its emails with zero-party data from this banner."
       },
       "documentation_url": "https://documentation.bloomreach.com/engagement/docs/zero-party-data-banner",
       "internal_notes": null,

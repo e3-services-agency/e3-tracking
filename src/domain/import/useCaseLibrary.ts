@@ -320,6 +320,23 @@ function parseSource(value: unknown, path: string, warnings: string[]): LibraryS
   return source;
 }
 
+/** D-59 fix round 2 (WARNING 2): `documentation_url` (and, from the pnp path, the equivalent check in `pnpUseCase.ts`) must be an http(s) URL -- a `javascript:`/`data:`/anything-else scheme, or a non-string value, is a warning and `null` at parse/preview time (D-04), never a write-time 400 the caller only sees on apply. */
+const HTTP_URL_RE = /^https?:\/\//i;
+
+function parseHttpUrl(value: unknown, path: string, warnings: string[]): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== 'string' || !value.trim()) {
+    if (value !== '') warnings.push(`${path} must be a string; ignored.`);
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!HTTP_URL_RE.test(trimmed)) {
+    warnings.push(`${path} "${trimmed}" is not an http:// or https:// URL; ignored.`);
+    return null;
+  }
+  return trimmed;
+}
+
 function parseTemplate(index: number, raw: unknown, seenCodes: Set<string>, warnings: string[]): LibraryTemplate | null {
   const path = `templates[${index}]`;
   if (!isPlainObject(raw)) {
@@ -368,7 +385,7 @@ function parseTemplate(index: number, raw: unknown, seenCodes: Set<string>, warn
     prerequisites: parseStringList(raw.prerequisites, `templates[code=${code}].prerequisites`, warnings),
     expected_assets: parseExpectedAssets(raw.expected_assets, `templates[code=${code}].expected_assets`, warnings),
     source: parseSource(raw.source, `templates[code=${code}].source`, warnings),
-    documentation_url: typeof raw.documentation_url === 'string' && raw.documentation_url.trim() ? raw.documentation_url.trim() : null,
+    documentation_url: parseHttpUrl(raw.documentation_url, `templates[code=${code}].documentation_url`, warnings),
     internal_notes: typeof raw.internal_notes === 'string' && raw.internal_notes.trim() ? raw.internal_notes.trim() : null,
     internal_url: typeof raw.internal_url === 'string' && raw.internal_url.trim() ? raw.internal_url.trim() : null,
   };

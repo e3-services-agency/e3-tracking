@@ -88,6 +88,62 @@ describe('use case library import/export routes', () => {
   });
 });
 
+describe('D-59 fix round 2 (ERROR 1): POST /import/preview never 500s on a malformed pnp_usecase body', () => {
+  const base = (template: Record<string, unknown>) => ({
+    template_id: 'x',
+    template: { type: 'pnp_usecase', ...template },
+  });
+
+  const malformedBodies: [string, unknown][] = [
+    ['a null requirement item', base({ requirements: [null] })],
+    ['a numeric event_name', base({ requirements: [{ type: 'event', event_name: 123 }] })],
+    ['a null property', base({ requirements: [{ type: 'event', event_name: 'purchase', properties: [null] }] })],
+    ['a numeric text requirement name', base({ requirements: [{ type: 'text', name: 42 }] })],
+    ['a null category', base({ requirements: [{ type: 'text', categories: [null] }] })],
+    ['a numeric template_id', { template_id: 42, template: { type: 'pnp_usecase', requirements: [] } }],
+    ['a numeric documentation_link', base({ requirements: [], documentation_link: 42 })],
+    ['nested nonsense', base({ requirements: [{ type: 'event', event_name: { nested: true } }] })],
+  ];
+
+  it.each(malformedBodies)('never 500s for: %s', async (_label, body) => {
+    const res = await fetch(`${baseUrl}/api/use-case-templates/import/preview`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    expect(res.status).not.toBe(500);
+    expect(res.status).toBeLessThan(500);
+  });
+});
+
+describe('D-59 fix round 2 (WARNING 1): PATCH /api/use-case-templates/:id rejects a non-string internal_notes/internal_url (400, never 500)', () => {
+  it('a numeric internal_notes 400s; a numeric internal_url 400s; a valid string still works', async () => {
+    const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-PATCH-GUARD', name: 'Patch guard', type: 'marketing' });
+
+    const badNotes = await fetch(`${baseUrl}/api/use-case-templates/${template.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ internal_notes: 123 }),
+    });
+    expect(badNotes.status).toBe(400);
+
+    const badUrl = await fetch(`${baseUrl}/api/use-case-templates/${template.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ internal_url: 123 }),
+    });
+    expect(badUrl.status).toBe(400);
+
+    const ok = await fetch(`${baseUrl}/api/use-case-templates/${template.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ internal_notes: 'a real note' }),
+    });
+    expect(ok.status).toBe(200);
+    expect((await ok.json()).internal_notes).toBe('a real note');
+  });
+});
+
 describe('DELETE /api/use-case-templates/:id', () => {
   it('409s TEMPLATE_IN_USE while a use case still references the template', async () => {
     const template = UseCaseTemplateDAL.createUseCaseTemplate({ code: 'UC-DELROUTE', name: 'In use', type: 'marketing' });

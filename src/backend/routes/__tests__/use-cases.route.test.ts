@@ -510,3 +510,36 @@ describe('T-3-06: from-template code, unresolved_count, and the resolve preview'
     expect(after.length).toBe(before.length);
   });
 });
+
+describe('D-59 fix round 2 (WARNING 1): PATCH /use-cases/:id rejects a non-string internal_notes/internal_url (400, never 500)', () => {
+  it('a numeric internal_notes 400s; a numeric internal_url 400s; a valid string still works', async () => {
+    const createRes = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Internal-fields guard' }),
+    });
+    const { id: guardUseCaseId } = await createRes.json();
+
+    const badNotes = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${guardUseCaseId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ internal_notes: 123 }),
+    });
+    expect(badNotes.status).toBe(400);
+
+    const badUrl = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${guardUseCaseId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ internal_url: 123 }),
+    });
+    expect(badUrl.status).toBe(400);
+
+    const ok = await fetch(`${baseUrl}/api/projects/${projectId}/use-cases/${guardUseCaseId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ internal_notes: 'a real note' }),
+    });
+    expect(ok.status).toBe(200);
+    expect((await ok.json()).internal_notes).toBe('a real note');
+  });
+});

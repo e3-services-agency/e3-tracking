@@ -24,3 +24,17 @@ export function normalizeHttpUrl(value: unknown, field: string): string | null {
   }
   return trimmed;
 }
+
+/**
+ * D-59 fix round 2 (WARNING 1): the third field of the same "Internal" PATCH surface --
+ * `internal_notes` is free text, not a URL, but a non-string value (`{"internal_notes": 123}`) must
+ * still 400 rather than crash `?.trim()` with a 500. `null`/`undefined`/`''` clear the field.
+ */
+export function normalizeOptionalText(value: unknown, field: string): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== 'string') {
+    throw new ValidationError(`${field} must be a string.`, field);
+  }
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}

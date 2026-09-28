@@ -4,7 +4,16 @@
  * literal shape of `.claude/team/samples/br-pnp/*.json`) -- into `e3-use-case-library` v1
  * templates (`src/domain/import/useCaseLibrary.ts#LibraryTemplate`). Pure, no DB/Express import
  * (domain-model skill); strict-but-forgiving like every other Bloomreach parser: a malformed piece
- * becomes a warning and is dropped or noted, never a thrown exception.
+ * becomes a warning and is dropped or noted, never a thrown exception -- enforced by construction,
+ * not by convention: every scalar field this converter reads goes through `str()` (non-string,
+ * including `null`/a number/an object, becomes `null`, never a bare `.trim()`), and every array
+ * whose items are meant to be objects goes through `asObjectArray()` (a non-array is a warning and
+ * an empty list, same as a plain array `filter`, and a non-object *item* inside an otherwise-valid
+ * array -- `requirements: [null]`, `properties: [42]` -- is its own warning and is skipped, not a
+ * `TypeError` on the next line that reads a property off it). D-59 fix round 2 (reviewer FAIL
+ * 2026-09-28 17:53, ERROR 1): the first fix round's `asArray()` alone guarded the array shape but
+ * not its items' shape, so a malformed *item* inside a well-formed array still reached a bare
+ * property read and threw; `pnpUseCase.test.ts`'s fuzz table now covers both levels.
  *
  * Mapping (D-59, verbatim from the decision):
  *  - `mapped_event` -> a `standard_event` requirement (`target_kind: 'event'`).
@@ -116,6 +125,19 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * D-59 fix round 2 (reviewer FAIL 2026-09-28 17:53, ERROR 1): the *one* place every scalar field
+ * read off a pnp document goes through. `?.trim()` alone is not a guard -- it throws the moment the
+ * field is present but not a string (a number, `null` inside an array item, a nested object).
+ * Returns the trimmed string, or `null` for anything that is not a non-blank string (including
+ * `undefined`/`null`/numbers/objects/arrays) -- never throws, whatever `value` is.
+ */
+function str(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+/**
  * True when `json` looks like a pnp_usecase document (bare, `{data: {...}}`-wrapped, or an array of
  * either) -- used by `useCaseLibraryImport.service.ts` to decide whether to convert before parsing
  * as the native library format. Never throws.
@@ -147,6 +169,9 @@ export function isMalformedPnpAttempt(json: unknown): boolean {
   if (Array.isArray(json)) return json.some(check);
   return check(json);
 }
+
+/** D-59 fix round 2 (WARNING 2): shared with `useCaseLibrary.ts`'s own `documentation_url` check (kept as a separate, domain-pure copy -- this module never imports the backend `urlValidation.ts` DAL helper). */
+const HTTP_URL_RE = /^https?:\/\//i;
 
 const INTEGRATION_LABELS: Record<string, string> = {
   email_integration: 'an email integration',
@@ -196,15 +221,6 @@ function levelFor(requirementOptional: boolean | undefined, propertyOptional: bo
 }
 
 /**
- * D-59 fix round (reviewer FAIL 2026-09-28 17:12, ERROR 3): every array-typed field on a pnp
- * document is attacker/author-controlled JSON, not a TypeScript-checked shape -- a string, number
- * or plain object where an array is expected must never throw (`(value ?? []).forEach`/`for...of`
- * throws on a non-iterable, and a string is iterable by character, silently producing garbage
- * instead of the warning the "never throws" contract promises). Non-array, non-nullish input
- * becomes a warning and an empty array; `null`/`undefined` is silently empty (nothing to warn
- * about -- the field was simply omitted).
- */
-/**
  * D-59 fix round (WARNING 7, D-59 amendment 3): the corpus names the cart event `cart_update`
  * (Bloomreach's own default event name), not the standard-event catalog key `add_to_cart` --
  * literal-name resolution alone (D-55 step 2) then misses a project whose mapping renames it. This
@@ -223,6 +239,15 @@ function standardEventFor(eventName: string, properties: PnpProperty[]): string 
   return isKnownStandardEvent(eventName) ? eventName : undefined;
 }
 
+/**
+ * D-59 fix round (reviewer FAIL 2026-09-28 17:12, ERROR 3): every array-typed field on a pnp
+ * document is attacker/author-controlled JSON, not a TypeScript-checked shape -- a string, number
+ * or plain object where an array is expected must never throw (`(value ?? []).forEach`/`for...of`
+ * throws on a non-iterable, and a string is iterable by character, silently producing garbage
+ * instead of the warning the "never throws" contract promises). Non-array, non-nullish input
+ * becomes a warning and an empty array; `null`/`undefined` is silently empty (nothing to warn
+ * about -- the field was simply omitted).
+ */
 function asArray<T>(value: unknown, path: string, warnings: string[]): T[] {
   if (value === undefined || value === null) return [];
   if (!Array.isArray(value)) {
@@ -230,6 +255,30 @@ function asArray<T>(value: unknown, path: string, warnings: string[]): T[] {
     return [];
   }
   return value as T[];
+}
+
+/**
+ * D-59 fix round 2 (reviewer FAIL 2026-09-28 17:53, ERROR 1): `asArray`'s guard stops at "is this
+ * an array" -- an array that *itself* contains `null`, a number, or another array (e.g.
+ * `requirements: [null]`, `properties: [123]`) still reached a bare property read
+ * (`req.type`/`prop.property_name?.trim()`) downstream and threw. Every list this converter reads
+ * whose items are meant to be objects (`requirements`, `properties`, `fields`, `fulfillments`,
+ * `categories`) goes through this instead of `asArray`: a non-array is still a warning and an empty
+ * list (delegated to `asArray`), and each item that is not itself a plain object is *additionally*
+ * dropped with its own warning, one per bad item, so a `[null, {...valid...}]` list still yields the
+ * one valid item plus one warning, not zero items or a throw.
+ */
+function asObjectArray<T>(value: unknown, path: string, warnings: string[]): T[] {
+  const items = asArray<unknown>(value, path, warnings);
+  const out: T[] = [];
+  items.forEach((item, index) => {
+    if (!isPlainObject(item)) {
+      warnings.push(`${path}[${index}] must be an object; skipped.`);
+      return;
+    }
+    out.push(item as T);
+  });
+  return out;
 }
 
 interface ConvertCtx {
@@ -244,12 +293,12 @@ function pushRequirement(ctx: ConvertCtx, req: LibraryRequirement): void {
 }
 
 function convertEventRequirement(ctx: ConvertCtx, req: PnpRequirement, index: number): void {
-  const eventName = req.event_name?.trim();
+  const eventName = str(req.event_name);
   if (!eventName) {
     ctx.warnings.push(`${ctx.templateCode}.requirements[${index}] (type "event") is missing event_name; skipped.`);
     return;
   }
-  const properties = asArray<PnpProperty>(req.properties, `${ctx.templateCode}.requirements[${index}].properties`, ctx.warnings);
+  const properties = asObjectArray<PnpProperty>(req.properties, `${ctx.templateCode}.requirements[${index}].properties`, ctx.warnings);
   const standardEvent = standardEventFor(eventName, properties);
   const standardFields = standardEvent ? getStandardEventFields(standardEvent) : undefined;
   if (properties.length === 0) {
@@ -258,7 +307,7 @@ function convertEventRequirement(ctx: ConvertCtx, req: PnpRequirement, index: nu
     return;
   }
   for (const prop of properties) {
-    const propertyName = prop.property_name?.trim();
+    const propertyName = str(prop.property_name);
     if (!propertyName) {
       ctx.warnings.push(`${ctx.templateCode}.requirements[${index}] has a property with no property_name; skipped.`);
       continue;
@@ -300,7 +349,7 @@ function convertEventRequirement(ctx: ConvertCtx, req: PnpRequirement, index: nu
 }
 
 function convertConsentRequirement(ctx: ConvertCtx, req: PnpRequirement, index: number): void {
-  for (const prop of asArray<PnpProperty>(req.properties, `${ctx.templateCode}.requirements[${index}].properties`, ctx.warnings)) {
+  for (const prop of asObjectArray<PnpProperty>(req.properties, `${ctx.templateCode}.requirements[${index}].properties`, ctx.warnings)) {
     const constant = equalsConstant(prop.property_constraint);
     if (constant === null) {
       ctx.warnings.push(`${ctx.templateCode}.requirements[${index}] (type "consent") has no equals constant constraint; skipped.`);
@@ -315,8 +364,8 @@ function convertConsentRequirement(ctx: ConvertCtx, req: PnpRequirement, index: 
 }
 
 function convertCustomerPropertyRequirement(ctx: ConvertCtx, req: PnpRequirement, index: number): void {
-  for (const prop of asArray<PnpProperty>(req.properties, `${ctx.templateCode}.requirements[${index}].properties`, ctx.warnings)) {
-    const propertyName = prop.property_name?.trim();
+  for (const prop of asObjectArray<PnpProperty>(req.properties, `${ctx.templateCode}.requirements[${index}].properties`, ctx.warnings)) {
+    const propertyName = str(prop.property_name);
     if (!propertyName) {
       ctx.warnings.push(`${ctx.templateCode}.requirements[${index}] (type "customer_property") has a property with no property_name; skipped.`);
       continue;
@@ -330,8 +379,8 @@ function convertCustomerPropertyRequirement(ctx: ConvertCtx, req: PnpRequirement
 }
 
 function convertCatalogRequirement(ctx: ConvertCtx, req: PnpRequirement, index: number): void {
-  for (const field of asArray<PnpField>(req.fields, `${ctx.templateCode}.requirements[${index}].fields`, ctx.warnings)) {
-    const fieldName = field.field_name?.trim();
+  for (const field of asObjectArray<PnpField>(req.fields, `${ctx.templateCode}.requirements[${index}].fields`, ctx.warnings)) {
+    const fieldName = str(field.field_name);
     if (!fieldName) {
       ctx.warnings.push(`${ctx.templateCode}.requirements[${index}] (type "catalog") has a field with no field_name; skipped.`);
       continue;
@@ -342,20 +391,24 @@ function convertCatalogRequirement(ctx: ConvertCtx, req: PnpRequirement, index: 
       level: levelFor(req.is_optional, field.is_optional),
     });
   }
-  if (req.catalog_name) ctx.prerequisites.push(`Catalog "${req.catalog_name}" is expected to be the project's main catalog.`);
+  const catalogName = str(req.catalog_name);
+  if (catalogName) ctx.prerequisites.push(`Catalog "${catalogName}" is expected to be the project's main catalog.`);
 }
 
 function convertTextRequirement(ctx: ConvertCtx, req: PnpRequirement): void {
   const parts: string[] = [];
-  if (req.name) parts.push(req.name.trim());
-  for (const cat of asArray<{ name?: string; items?: string[] }>(req.categories, `${ctx.templateCode}.requirements.categories`, ctx.warnings)) {
-    const items = asArray<string>(cat.items, `${ctx.templateCode}.requirements.categories.items`, ctx.warnings)
-      .filter((i) => typeof i === 'string' && i.trim())
-      .map((i) => i.trim());
-    if (cat.name || items.length > 0) parts.push([cat.name?.trim(), ...items].filter(Boolean).join(': '));
+  const reqName = str(req.name);
+  if (reqName) parts.push(reqName);
+  for (const cat of asObjectArray<{ name?: string; items?: unknown }>(req.categories, `${ctx.templateCode}.requirements.categories`, ctx.warnings)) {
+    const items = asArray<unknown>(cat.items, `${ctx.templateCode}.requirements.categories.items`, ctx.warnings)
+      .map((i) => str(i))
+      .filter((i): i is string => i !== null);
+    const catName = str(cat.name);
+    if (catName || items.length > 0) parts.push([catName, ...items].filter(Boolean).join(': '));
   }
-  for (const item of asArray<string>(req.items, `${ctx.templateCode}.requirements.items`, ctx.warnings)) {
-    if (typeof item === 'string' && item.trim()) parts.push(item.trim());
+  for (const item of asArray<unknown>(req.items, `${ctx.templateCode}.requirements.items`, ctx.warnings)) {
+    const trimmed = str(item);
+    if (trimmed) parts.push(trimmed);
   }
   if (parts.length > 0) ctx.prerequisites.push(parts.join(' — '));
 }
@@ -363,7 +416,7 @@ function convertTextRequirement(ctx: ConvertCtx, req: PnpRequirement): void {
 function convertRequirement(ctx: ConvertCtx, req: PnpRequirement, index: number): void {
   switch (req.type) {
     case 'mapped_event': {
-      const eventName = req.event_name?.trim();
+      const eventName = str(req.event_name);
       if (!eventName) {
         ctx.warnings.push(`${ctx.templateCode}.requirements[${index}] (type "mapped_event") is missing event_name; skipped.`);
         return;
@@ -396,22 +449,25 @@ function convertRequirement(ctx: ConvertCtx, req: PnpRequirement, index: number)
       ctx.prerequisites.push('Requires the project\'s main catalog to be configured.');
       return;
     default: {
-      if (req.type && req.type in INTEGRATION_LABELS) {
-        ctx.prerequisites.push(`Requires ${INTEGRATION_LABELS[req.type]} configured in Bloomreach.`);
+      const typeStr = str(req.type);
+      if (typeStr && typeStr in INTEGRATION_LABELS) {
+        ctx.prerequisites.push(`Requires ${INTEGRATION_LABELS[typeStr]} configured in Bloomreach.`);
         return;
       }
-      ctx.warnings.push(`${ctx.templateCode}.requirements[${index}] has an unhandled requirement type "${String(req.type)}"; noted as a prerequisite.`);
-      ctx.prerequisites.push(`Unhandled requirement type "${String(req.type)}"; verify manually.`);
+      const label = typeStr ?? String(req.type);
+      ctx.warnings.push(`${ctx.templateCode}.requirements[${index}] has an unhandled requirement type "${label}"; noted as a prerequisite.`);
+      ctx.prerequisites.push(`Unhandled requirement type "${label}"; verify manually.`);
     }
   }
 }
 
 function convertFulfillments(fulfillments: unknown, templateCode: string, warnings: string[]): LibraryExpectedAsset[] {
   const out: LibraryExpectedAsset[] = [];
-  for (const f of asArray<PnpFulfillment>(fulfillments, `${templateCode}.fulfillments`, warnings)) {
-    const headline = f.headline?.trim();
+  for (const f of asObjectArray<PnpFulfillment>(fulfillments, `${templateCode}.fulfillments`, warnings)) {
+    const headline = str(f.headline);
     if (!headline) continue;
-    out.push({ type: f.item_reference?.type?.trim() || 'other', headline });
+    const itemReference = isPlainObject(f.item_reference) ? f.item_reference : null;
+    out.push({ type: (itemReference && str(itemReference.type)) || 'other', headline });
   }
   return out;
 }
@@ -422,20 +478,22 @@ function convertOne(doc: PnpDocument, warnings: string[]): LibraryTemplate | nul
     warnings.push('A pnp_usecase document is missing "template"; skipped.');
     return null;
   }
-  const rawCode = doc.template_id?.trim();
+  const rawCode = str(doc.template_id);
   if (!rawCode) {
     warnings.push('A pnp_usecase document is missing "template_id"; skipped.');
     return null;
   }
   const code = rawCode.toUpperCase();
-  const name = doc.name?.trim() || rawCode;
+  const name = str(doc.name) || rawCode;
 
   const ctx: ConvertCtx = { requirements: [], prerequisites: [], warnings, templateCode: code };
-  asArray<PnpRequirement>(t.requirements, `${code}.requirements`, warnings).forEach((req, index) =>
+  asObjectArray<PnpRequirement>(t.requirements, `${code}.requirements`, warnings).forEach((req, index) =>
     convertRequirement(ctx, req, index)
   );
 
-  const usecaseTags = asArray<string>(t.usecase_tags, `${code}.usecase_tags`, warnings);
+  const usecaseTags = asArray<unknown>(t.usecase_tags, `${code}.usecase_tags`, warnings)
+    .map((v) => str(v))
+    .filter((v): v is string => v !== null);
   const tags = {
     channels: normalizeTagList(t.channels, CHANNEL_ALIASES),
     goals: normalizeTagList(t.goal ? [t.goal] : [], GOAL_ALIASES),
@@ -445,11 +503,34 @@ function convertOne(doc: PnpDocument, warnings: string[]): LibraryTemplate | nul
   };
   const flags = { new: false, popular: usecaseTags.includes('popular') };
 
+  // D-59 fix round 2 (ERROR 2): every string copied into `source`/`documentation_url` goes through
+  // `str()` too, so a padded `documentation_link`/`callout` in the raw pnp file never round-trips
+  // differently through this converter than through `useCaseLibrary.ts`'s own parser (which trims
+  // on read) -- both now agree on the same trimmed value, keeping a pnp-path import/export/re-import
+  // cycle clean (D-04, D-22).
+  const documentationLink = str(t.documentation_link);
+  const callout = str(t.callout);
+
+  // D-59 fix round 2 (WARNING 2): a non-http(s) documentation_link (or a native template's own
+  // documentation_url, see useCaseLibrary.ts's equivalent check) never becomes the resolvable
+  // `documentation_url` field -- D-04 says every import shows what it is about to do, so this is a
+  // warning at parse/preview time, not a 400 the caller only discovers on apply. `source.
+  // documentation_link` still keeps the raw value verbatim (it is the record of what the export
+  // said, not a field this app renders as a clickable link).
+  let documentationUrl: string | null = null;
+  if (documentationLink) {
+    if (HTTP_URL_RE.test(documentationLink)) {
+      documentationUrl = documentationLink;
+    } else {
+      warnings.push(`${code}.template.documentation_link "${documentationLink}" is not an http:// or https:// URL; documentation_url left empty.`);
+    }
+  }
+
   return {
     code,
     name,
     type: 'marketing',
-    description: doc.description?.trim() || null,
+    description: str(doc.description),
     narrative_template: null,
     tags,
     flags,
@@ -459,10 +540,10 @@ function convertOne(doc: PnpDocument, warnings: string[]): LibraryTemplate | nul
     source: {
       kind: 'pnp_usecase',
       template_id: rawCode,
-      ...(t.documentation_link ? { documentation_link: t.documentation_link } : {}),
-      ...(t.callout ? { callout: t.callout } : {}),
+      ...(documentationLink ? { documentation_link: documentationLink } : {}),
+      ...(callout ? { callout: callout } : {}),
     },
-    documentation_url: t.documentation_link?.trim() || null,
+    documentation_url: documentationUrl,
     internal_notes: null,
     internal_url: null,
   };

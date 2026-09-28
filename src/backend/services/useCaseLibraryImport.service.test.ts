@@ -166,3 +166,54 @@ describe('D-59 fix round: pnp_usecase detection/conversion and its rulings', () 
     expect(() => previewUseCaseLibrary(fixture)).not.toThrow();
   });
 });
+
+describe('D-59 fix round 2 (ERROR 2): every raw br-pnp file applies then exports then re-previews clean', () => {
+  it('all 98 corpus files: apply, export, preview -> every item unchanged (no source_json whitespace drift)', () => {
+    const dir = path.resolve(__dirname, '../../../.claude/team/samples/br-pnp');
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));
+    for (const file of files) {
+      const doc = JSON.parse(fs.readFileSync(path.join(dir, file), 'utf-8'));
+      const preview = previewUseCaseLibrary(doc);
+      applyUseCaseLibrary(doc, preview.payload_hash, preview.items.map((i) => i.id));
+    }
+
+    const exported = exportUseCaseLibrary();
+    const rePreview = previewUseCaseLibrary(exported);
+    const notUnchanged = rePreview.items.filter((i) => i.op !== 'unchanged');
+    expect(notUnchanged).toEqual([]);
+  });
+});
+
+describe('D-59 fix round 2 (WARNING 2): an invalid documentation_url in an imported file previews with a warning, apply writes the template without it', () => {
+  it('a pnp doc with a javascript: documentation_link previews create with a warning, applies without throwing, and the stored template has no documentation_url', () => {
+    const doc = {
+      template_id: 'bad-url-template',
+      name: 'Bad url template',
+      template: { type: 'pnp_usecase', requirements: [], documentation_link: 'javascript:alert(1)' },
+    };
+    const preview = previewUseCaseLibrary(doc);
+    expect(preview.items).toHaveLength(1);
+    expect(preview.items[0].op).toBe('create');
+    expect(preview.warnings.some((w) => w.includes('is not an http:// or https:// URL'))).toBe(true);
+
+    const summary = applyUseCaseLibrary(doc, preview.payload_hash, preview.items.map((i) => i.id));
+    expect(summary.applied).toHaveLength(1);
+
+    const row = UseCaseTemplateDAL.listUseCaseTemplates().find((r) => r.code === 'BAD-URL-TEMPLATE')!;
+    expect(row).toBeDefined();
+    expect(row.documentation_url).toBeNull();
+  });
+
+  it('a native template with a non-http(s) documentation_url previews with a warning and applies without a 400', () => {
+    const doc = {
+      format: 'e3-use-case-library',
+      version: 1,
+      templates: [{ code: 'UC-BAD-URL', name: 'Bad url', type: 'marketing', documentation_url: 'javascript:alert(1)', default_requirements: [] }],
+    };
+    const preview = previewUseCaseLibrary(doc);
+    expect(preview.warnings.some((w) => w.includes('is not an http:// or https:// URL'))).toBe(true);
+    expect(() => applyUseCaseLibrary(doc, preview.payload_hash, preview.items.map((i) => i.id))).not.toThrow();
+    const row = UseCaseTemplateDAL.listUseCaseTemplates().find((r) => r.code === 'UC-BAD-URL')!;
+    expect(row.documentation_url).toBeNull();
+  });
+});

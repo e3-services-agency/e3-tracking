@@ -2471,3 +2471,6 @@ Per-scenario table:
 | 8 | Regression (Use cases, Requirements matrix, exports, console, network) | PASS |
 
 Artifacts saved: `.claude/team/reports/qa/T-4-08/lwef-welcome-flow-preview.json`, `tracking-document.json`, `documentation.html`.
+
+### 2026-09-28 21:56 | supervisor | STATUS | T-4-08 DONE; T-4-01 QA starts
+qa-tester PASS (21:52). Merged (migration list ordered 0021, 0022): 1296 tests (106 files), tsc clean. The main tree now carries the 99-template seed. QA tester notes recorded: browser form_input mangles JSON-object strings (use type), project-create modal once ignored the first submit (watch item for T-4-09).

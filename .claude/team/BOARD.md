@@ -2624,3 +2624,6 @@ Per the coordinator's note, the malformed-escape URL finding (scenario 5) is rul
 Evidence saved: `.claude/team/reports/qa/T-4-03/shared-tracking-document-2.json`, `shared-documentation-2.html` (this re-check's downloads). Share link revoked; both processes stopped; 3001 and 3010 confirmed free.
 
 Verdict: PASS. Both findings from the previous round are resolved; no new issues found.
+
+### 2026-09-28 23:53 | supervisor | MERGE | T-4-03 merged into agent-setup (f4b9cab) — DONE
+QA re-check PASS (Page URL input, javascript: blocked client-side, shared view still clean). Merge clean; merged tree: tsc clean, 1426 tests / 122 files. T-4-04 (comments in both views) starts now.

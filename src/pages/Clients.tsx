@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { useClients, type ClientRow } from '@/src/features/clients/hooks/useClients';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
+import { RestoreBackupForm } from '@/src/features/clients/components/RestoreBackupForm';
 
 export function Clients() {
   const { clients, isLoading, error, createClient, updateClient, deleteClient } = useClients();
@@ -84,6 +85,8 @@ export function Clients() {
             }
           />
         )}
+
+        <RestoreBackupForm clients={clients} />
       </div>
     </div>
   );

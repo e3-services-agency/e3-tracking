@@ -283,7 +283,8 @@ router.patch('/:id/variants/:variantId', (req: Request, res: Response) => {
 
 router.delete('/:id/variants/:variantId', (req: Request, res: Response) => {
   try {
-    VariantDAL.deleteVariant(req.projectId!, req.params.id, req.params.variantId);
+    const force = req.query.force === 'true';
+    VariantDAL.deleteVariant(req.projectId!, req.params.id, req.params.variantId, { force });
     res.status(204).end();
   } catch (err) {
     handleRouteError(err, res);

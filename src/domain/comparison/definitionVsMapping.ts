@@ -67,7 +67,12 @@ export function runDefinitionVsMapping(definition: DefinitionVsMappingInput, map
   const mappingByKey = new Map(mapping.standardEvents.map((se) => [se.key, se]));
   const customEvents = definition.events.filter((e) => e.class === 'custom');
 
-  // ---- unmapped_standard_event: a discriminator value hinting at a standard event key that is not mapped ----
+  // ---- unmapped_standard_event: a discriminator value hinting at a standard event key that is not
+  // mapped, or is mapped to this same event with an empty filter (T-3-07 follow-up on T-2-05
+  // review): an empty-filter mapping matches *every* occurrence of the event, including ones that
+  // don't carry the hinted discriminator value (e.g. `cart_update` with no `action=add` filter also
+  // matches `action=remove`), so it is functionally as unmapped as no mapping at all for that
+  // specific standard key.
   const seenHintKeys = new Set<string>();
   for (const event of customEvents) {
     for (const prop of event.properties) {
@@ -75,8 +80,13 @@ export function runDefinitionVsMapping(definition: DefinitionVsMappingInput, map
       for (const hint of prop.allowed_value_hints) {
         if (!hint.standard_event || seenHintKeys.has(hint.standard_event)) continue;
         const se = mappingByKey.get(hint.standard_event);
-        if (se && se.eventType) continue; // mapped
+        const mappedToThisEventWithEmptyFilter =
+          !!se && se.eventType === event.name && se.filter.length === 0;
+        if (se && se.eventType && !mappedToThisEventWithEmptyFilter) continue; // mapped, and filtered when it needs to be
         seenHintKeys.add(hint.standard_event);
+        const message = mappedToThisEventWithEmptyFilter
+          ? `Standard event "${hint.standard_event}" maps to "${event.name}" with an empty filter, so it does not distinguish "${prop.name}=${hint.value}" from the event's other discriminator values.`
+          : `Standard event "${hint.standard_event}" (hinted by property "${prop.name}"'s allowed value "${hint.value}") has no mapping.`;
         findings.push({
           comparison: COMPARISON,
           kind: 'unmapped_standard_event',
@@ -87,7 +97,7 @@ export function runDefinitionVsMapping(definition: DefinitionVsMappingInput, map
           observation_id: null,
           expected_json: { standard_event: hint.standard_event },
           actual_json: null,
-          message: `Standard event "${hint.standard_event}" (hinted by property "${prop.name}"'s allowed value "${hint.value}") has no mapping.`,
+          message,
           fingerprint: fp('unmapped_standard_event', event.id, prop.property_id, hint.standard_event),
         });
       }

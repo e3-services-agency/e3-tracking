@@ -37,7 +37,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-2-EXIT | 2 | Phase 2 exit: qa-roundtrip 1 to 8 plus MCP smoke on merged agent-setup, report to user | supervisor | T-2-13 | DONE | see below |
 | T-3-00 | 3 | Phase 3 and 4 plan: model deltas, contracts, task lists, decision records | architect | T-2-EXIT | DONE | see below |
 | T-3-01 | 3 | ChangeLog table, actor context, DAL write helper; wired into event, event property, property and variant mutations; history API | implementer | T-3-00 | DONE | see below |
-| T-3-02 | 3 | ChangeLog on every other entity, import batch tagging, MCP actor, History panels and History page | implementer | T-3-01 | IN_PROGRESS | see below |
+| T-3-02 | 3 | ChangeLog on every other entity, import batch tagging, MCP actor, History panels and History page | implementer | T-3-01 | REVIEW | see below |
 | T-3-03 | 3 | CSV export per entity: csv.ts headers, service, routes, Settings export block | implementer | T-3-00 | DONE | see below |
 | T-3-04 | 3 | Full JSON backup export with embedded files | implementer | T-3-01 | QA | see below |
 | T-3-05 | 3 | Restore backup as new project: preview/apply, id remap, files, template re-link, UI | implementer | T-3-04 | IN_PROGRESS | see below |

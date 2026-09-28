@@ -55,6 +55,7 @@ import {
   type EventCardProperty,
   type EventCardRule,
   type EventCardStandardEventMapping,
+  type EventCardTrigger,
   type EventCardVariant,
   type FindingSeverityCounts,
   type TrackingDocument,
@@ -89,6 +90,30 @@ function tallySeverityOnly(findings: FindingRow[]): FindingSeverityCounts {
   const counts = emptySeverityCounts();
   for (const f of findings) counts[f.severity] += 1;
   return counts;
+}
+
+/** D-50 (T-4-03): `Event.triggers_json` raw shape (`title`, `description`, `image_path`, `source`
+ * -- `source` is the page the screenshot was captured on, exposed as `page_url` below), the same
+ * shape `export.service.ts`'s `TriggerEntry`/`pages/Events.tsx` read and write. */
+interface RawTriggerEntry {
+  title?: string | null;
+  description?: string | null;
+  image_path?: string | null;
+  source?: string | null;
+  order?: number;
+}
+
+function toEventCardTriggers(raw: unknown): EventCardTrigger[] {
+  if (!Array.isArray(raw)) return [];
+  return (raw as RawTriggerEntry[])
+    .slice()
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .map((t) => ({
+      title: t.title?.trim() || null,
+      description: t.description?.trim() || null,
+      image_path: t.image_path?.trim() || null,
+      page_url: t.source?.trim() || null,
+    }));
 }
 
 function sampleFromAttached(attached: AttachedPropertyForCodegen[]): Record<string, unknown> {
@@ -595,6 +620,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
     variants: variants.map((v) => toEventCardVariant(v, properties, propertyNameById, standardEventByVariantId)),
     standard_event_mappings: standardEventMappings,
     contexts,
+    triggers: toEventCardTriggers(event.triggers_json),
     coverage,
     rules,
     derived_metrics: event.derived_metrics_json,

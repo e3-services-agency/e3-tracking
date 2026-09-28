@@ -110,6 +110,28 @@ describe('buildEventCard', () => {
     const certification = computeEventCertification(projectId, event.id);
     expect(certification).toEqual({ applicable: false, certified: false, reasons: ['not_applicable'] });
   });
+
+  it('D-50 (T-4-03): maps triggers_json to EventCard.triggers, ordered, with source exposed as page_url', () => {
+    const event = EventDAL.createEvent(projectId, {
+      name: 'checkout',
+      class: 'custom',
+      triggers_json: [
+        { title: 'Second', description: 'later step', image_path: 'proj/event_trigger/b.png', source: 'https://shop.example/checkout/2', order: 1 },
+        { title: 'First', description: 'first step', image_path: 'proj/event_trigger/a.png', source: 'https://shop.example/checkout/1', order: 0 },
+      ],
+    });
+    const card = buildEventCard(projectId, event.id);
+    expect(card.triggers).toEqual([
+      { title: 'First', description: 'first step', image_path: 'proj/event_trigger/a.png', page_url: 'https://shop.example/checkout/1' },
+      { title: 'Second', description: 'later step', image_path: 'proj/event_trigger/b.png', page_url: 'https://shop.example/checkout/2' },
+    ]);
+  });
+
+  it('D-50: an event with no triggers_json carries an empty triggers array', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'no_triggers', class: 'custom' });
+    const card = buildEventCard(projectId, event.id);
+    expect(card.triggers).toEqual([]);
+  });
 });
 
 describe('certification flip when total_price is marked required', () => {

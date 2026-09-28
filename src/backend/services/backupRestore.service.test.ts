@@ -154,6 +154,13 @@ function maskIdsAndTimestamps(value: unknown): unknown {
         // brand-new project); only the identity block is masked here, everything else (events,
         // properties, findings, ...) must still match verbatim.
         out[k] = '<project>';
+      } else if (k === 'image_path' && typeof v === 'string') {
+        // T-4-03 (D-50): `EventCard.triggers[].image_path` is now part of the tracking document.
+        // Restore always writes the file under a fresh `<new_project_id>/.../<new_random_name>`
+        // path (`backupRestore.service.ts`'s file rewrite, T-3-05), so the path itself always
+        // differs between source and restored project even though the underlying bytes match
+        // (asserted separately above, by content); only its presence/absence is compared here.
+        out[k] = v ? '<image_path>' : v;
       } else {
         out[k] = maskIdsAndTimestamps(v);
       }

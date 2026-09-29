@@ -2946,3 +2946,6 @@ Supervisor ruling: fix W1, W2, L1, L2 (quantity_field = source field in items; o
 
 ### 2026-09-29 17:44 | supervisor | PLAN | T-4-19 shared view content polish (user review of the sandbox link, round 3)
 User: findings message and field-map cells truncated; array examples show escaped JSON ([{"value":"\"2023\""}]) -- likely double-encoded example values from the Data Manager import, investigate at the source; standard event mappings table hard to read; findings summary too humble; sdk/platform badges should carry the Bloomreach accent #FFD500; some event property tables scroll horizontally even on wide screens. Starts after T-4-17 merges (EventCardView overlap).
+
+### 2026-09-29 17:49 | reviewer | REVIEW | T-4-17 re-review PASS (6b997ab)
+All eight fix items verified at file:line; 1540 / 132, build, tsc, lint, merge-tree clean; snapshot delta only the empty sdk_default_properties lines. Open non-blocking: W3 catalog lookup-key check (backlog with T-4-11), refund heuristic, identity push mention. Browser QA running; merge on PASS.

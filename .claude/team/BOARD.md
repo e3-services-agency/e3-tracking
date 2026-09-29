@@ -2933,3 +2933,6 @@ Minor observation: the "Events" section H2 is 40px tall vs 32px group header; on
 ### 2026-09-29 16:53 | reviewer | REVIEW | T-4-18 PASS (2 warnings, 4 low); QA PASS on the same commit
 Sticky stacking, offsets (56/88/92 consistent with h-14 and inline heights), global/local toggle pairs, nav label button, no regressions verified. W1 aria-label "Expand all all rows". W2 SHARING.md says the label is disabled while filtering (it is a plain link). L1 offset test only re-derives constants. L2 group label no longer navigates on desktop (accepted deviation). L3 highlight edge after clearing a filter. L4 rounded-t-lg on the sticky section header shows transparent corners.
 Supervisor ruling: implementer lands W1, W2, L4 in one commit; supervisor runs gates and merges (no further review round).
+
+### 2026-09-29 17:01 | supervisor | MERGE | T-4-18 merged into agent-setup — DONE
+Fix commit dad6158 (aria labels, SHARING.md wording, sticky header corners). Merged tree: tsc, lint clean, 1492 tests / 127 files. Shared view now: one global expand/collapse pair + local pairs, nav labels toggle, sticky section/group/event headers. Open: T-4-17 codegen v2 (in progress), T-4-11 (user), T-4-06 (gated), phase 5 (user).

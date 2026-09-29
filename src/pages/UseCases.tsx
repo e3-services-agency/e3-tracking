@@ -4,6 +4,7 @@
  * sections UseCase and Requirement; T-1-07). Simplified UI (D-07): list -> detail, no dialogs
  * beyond the create Sheet.
  */
+import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Loader2, ArrowUp, ArrowDown, ArrowLeft, Sparkles, RefreshCw } from 'lucide-react';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
@@ -191,7 +192,7 @@ export function UseCases() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="p-8 border-b bg-white flex items-center justify-between">
+      <PageHeader className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Use cases</h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -223,9 +224,9 @@ export function UseCases() {
             <Plus className="w-4 h-4" /> Add use case
           </Button>
         </div>
-      </div>
+      </PageHeader>
 
-      <div className="p-8 flex-1">
+      <PageBody>
         {fromTemplateError && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {fromTemplateError}
@@ -265,7 +266,7 @@ export function UseCases() {
             </tbody>
           </table>
         </div>
-      </div>
+      </PageBody>
 
       <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title="Create use case">
         <UseCaseCreateForm
@@ -650,7 +651,7 @@ function UseCaseDetail({
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="p-8 border-b bg-white">
+      <PageHeader>
         <button type="button" onClick={onBack} className="text-sm text-gray-500 hover:text-gray-900 flex items-center gap-1 mb-3">
           <ArrowLeft className="w-4 h-4" /> Back to use cases
         </button>
@@ -662,9 +663,9 @@ function UseCaseDetail({
             {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Delete
           </Button>
         </div>
-      </div>
+      </PageHeader>
 
-      <div className="p-8 space-y-8">
+      <PageBody className="space-y-8">
         {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{saveError}</div>}
 
         <div className="bg-white rounded-lg border shadow-sm p-6 grid grid-cols-2 gap-4">
@@ -953,7 +954,7 @@ function UseCaseDetail({
         </div>
 
         <HistorySection projectId={projectId ?? ''} entityType="use_case" entityId={useCaseId} parentEntityId={useCaseId} />
-      </div>
+      </PageBody>
     </div>
   );
 }

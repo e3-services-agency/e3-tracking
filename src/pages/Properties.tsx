@@ -4,6 +4,7 @@
  * customer-property mapping select and the data type / format / priority / status selects that
  * `src/domain/enums.ts` and `src/domain/bloomreach.ts` define.
  */
+import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
@@ -137,7 +138,7 @@ export function Properties() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="p-8 border-b bg-white flex items-center justify-between">
+      <PageHeader className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Properties</h1>
           <p className="text-sm text-gray-500 mt-1">Event and customer properties (D-24). Each property has one or more named <GlossaryTerm glossaryKey="definition">definitions</GlossaryTerm>.</p>
@@ -145,9 +146,9 @@ export function Properties() {
         <Button onClick={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); setOrderFrozen(true); }} className="gap-2">
           <Plus className="w-4 h-4" /> Add Property
         </Button>
-      </div>
+      </PageHeader>
 
-      <div className="p-8 flex-1">
+      <PageBody>
         <div className="mb-6 flex gap-2">
           <select value={scopeFilter} onChange={(e) => setScopeFilter(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">All scopes</option>
@@ -202,7 +203,7 @@ export function Properties() {
             </tbody>
           </table>
         </div>
-      </div>
+      </PageBody>
 
       <Sheet
         isOpen={isSheetOpen}

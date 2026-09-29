@@ -4,7 +4,7 @@
  * `CONFIG_ERROR` code and message, distinguishable from the generic 500 `INTERNAL_ERROR` fallback,
  * and must never leak a stack trace.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Response } from 'express';
 import { handleRouteError } from './routeErrors';
 import { ConfigError } from '../errors';
@@ -17,6 +17,10 @@ function mockResponse(): Response {
 }
 
 describe('handleRouteError: ConfigError (W3 fix round)', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
   it('maps to 500 with code CONFIG_ERROR and the message, no stack', () => {
     const res = mockResponse();
     handleRouteError(new ConfigError('The bundled sandbox backup is missing.'), res);

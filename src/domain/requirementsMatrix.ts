@@ -74,11 +74,13 @@ export function deriveTargetParts(input: TargetPartsInput): { group_label: strin
   const quoted = extractQuotedNames(input.note);
   const parsed = parseGapNote(input.note);
   const keywordHit = parsed.event !== null || parsed.property !== null;
-  const positional = keywordHit ? null : quoted[0] ?? null;
+  // A note naming only the variant-condition discriminator must never become the target.
+  const conditionOnly = /to match the variant condition/.test(input.note ?? '');
+  const positional = keywordHit || conditionOnly ? null : quoted[0] ?? null;
   const unresolved = '(unresolved)';
   const parentAndProperty = (parentName: string | null) => {
     const group = parentName ?? parsed.event ?? (parsed.property === null ? positional : null) ?? '(unresolved event)';
-    const leaf = input.propertyName ?? parsed.property ?? (parentName !== null ? positional : null) ?? '(unresolved property)';
+    const leaf = input.propertyName ?? parsed.property ?? (parentName !== null ? positional : null) ?? unresolved;
     return { group_label: group, leaf_label: leaf };
   };
   switch (input.target_kind) {

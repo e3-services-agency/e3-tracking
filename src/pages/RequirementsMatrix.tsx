@@ -4,6 +4,7 @@
  * T-4-12: rows grouped by event / variant, the target shown as written (a gap gets a marker and its
  * note on hover / in the expanded row, never as the label), legend, use case filter, gaps-only toggle.
  */
+import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
@@ -91,15 +92,15 @@ export function RequirementsMatrix() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="p-8 border-b bg-white">
+      <PageHeader>
         <h1 className="text-2xl font-bold text-gray-900">Requirements matrix</h1>
         <p className="text-sm text-gray-500 mt-1">
           Computed from every use case requirement: rows are targets grouped by event or variant, columns are use cases,
           cells show the <GlossaryTerm glossaryKey="requirement_level">requirement level</GlossaryTerm>.
         </p>
-      </div>
+      </PageHeader>
 
-      <div className="p-8 flex-1 space-y-4">
+      <PageBody className="space-y-4">
         {error && <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>}
         {loading ? (
           <div className="text-sm text-gray-500">Loading…</div>
@@ -164,7 +165,7 @@ export function RequirementsMatrix() {
                       return (
                         <React.Fragment key={row.key}>
                           <tr className="hover:bg-gray-50">
-                            <td className="px-4 py-2 font-medium text-gray-900 sticky left-0 bg-white whitespace-nowrap">
+                            <td className="px-4 py-2 font-medium text-gray-900 sticky left-0 bg-inherit whitespace-nowrap">
                               <button
                                 type="button"
                                 className="flex items-center gap-2 text-left"
@@ -212,7 +213,7 @@ export function RequirementsMatrix() {
             </div>
           </>
         )}
-      </div>
+      </PageBody>
     </div>
   );
 }

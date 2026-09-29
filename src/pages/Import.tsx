@@ -6,6 +6,7 @@
  * and its apply lands on the Findings page filtered to the new run. Export buttons below download
  * the two data-mapping/expiration-settings formats as `.json`.
  */
+import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -520,14 +521,14 @@ export function Import() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="p-8 border-b bg-white">
+      <PageHeader>
         <h1 className="text-2xl font-bold text-gray-900">Import</h1>
         <p className="text-sm text-gray-500 mt-1">
           Paste a Bloomreach JSON export, preview the diff, select what to apply (D-04, D-22).
         </p>
-      </div>
+      </PageHeader>
 
-      <div className="p-8 flex-1 space-y-6">
+      <PageBody className="space-y-6">
         <ImportBox format="data-mapping" title="Data mapping" projectId={activeProjectId} />
         <ImportBox format="expiration-settings" title="Expiration settings" projectId={activeProjectId} />
         <ImportBox format="data-manager-customers" title="Data Manager customers" projectId={activeProjectId} />
@@ -564,7 +565,7 @@ export function Import() {
             </a>
           </div>
         </div>
-      </div>
+      </PageBody>
     </div>
   );
 }

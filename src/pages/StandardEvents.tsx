@@ -3,6 +3,7 @@
  * project's `standard_event_additions_json`, D-26) with its mapping to a project Event (+ optional
  * Variant) and a field map editor (T-1-05). "Add standard event" appends a project addition.
  */
+import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -161,14 +162,14 @@ export function StandardEvents() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="p-8 border-b bg-white">
+      <PageHeader>
         <h1 className="text-2xl font-bold text-gray-900">Standard events</h1>
         <p className="text-sm text-gray-500 mt-1">
           Bloomreach standard events (seed + project additions, D-26) mapped to a project event and variant.
         </p>
-      </div>
+      </PageHeader>
 
-      <div className="p-8 flex-1 space-y-6">
+      <PageBody className="space-y-6">
         <div className="bg-white rounded-lg border shadow-sm p-4 flex items-end gap-2">
           <div className="flex-1 space-y-1">
             <label className="text-sm font-medium text-gray-700">Key</label>
@@ -211,7 +212,7 @@ export function StandardEvents() {
             </tbody>
           </table>
         </div>
-      </div>
+      </PageBody>
 
       <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title={`Map "${selectedKey ?? ''}"`}>
         {selectedKey && activeProjectId && (

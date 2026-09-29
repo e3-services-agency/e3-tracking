@@ -5,6 +5,7 @@
  * editors. Trigger images upload through the local FileStore (D-14) and render from
  * `GET /api/projects/:id/files/*`.
  */
+import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, Loader2, Upload, FileDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -174,7 +175,7 @@ export function Events() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="p-8 border-b bg-white flex items-center justify-between">
+      <PageHeader className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Events</h1>
           <p className="text-sm text-gray-500 mt-1">Tracking plan events and their <GlossaryTerm glossaryKey="variant">variants</GlossaryTerm>.</p>
@@ -202,9 +203,9 @@ export function Events() {
             <Plus className="w-4 h-4" /> Add Event
           </Button>
         </div>
-      </div>
+      </PageHeader>
 
-      <div className="p-8 flex-1 space-y-4">
+      <PageBody className="space-y-4">
         <div className="flex items-center gap-2">
           <label className="text-xs font-medium text-gray-500">Class</label>
           <select
@@ -275,7 +276,7 @@ export function Events() {
             </tbody>
           </table>
         </div>
-      </div>
+      </PageBody>
 
       <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title={isCreating ? 'Create Event' : 'Edit Event'}>
         <EventEditor

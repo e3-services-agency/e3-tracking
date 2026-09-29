@@ -3,6 +3,7 @@
  * filters (entity type, actor, source, batch), grouped by batch (an import apply or a restore),
  * paged via `next_cursor`. Enums (entity type) come from `src/domain/enums.ts`, never hardcoded.
  */
+import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
@@ -154,12 +155,12 @@ export function History() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="p-8 border-b bg-white">
+      <PageHeader>
         <h1 className="text-2xl font-bold text-gray-900">History</h1>
         <p className="text-sm text-gray-500 mt-1">Every definition change (D-44): who, when, from where, and what changed.</p>
-      </div>
+      </PageHeader>
 
-      <div className="p-8 flex-1 space-y-4">
+      <PageBody className="space-y-4">
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
         )}
@@ -274,7 +275,7 @@ export function History() {
             </button>
           </div>
         )}
-      </div>
+      </PageBody>
     </div>
   );
 }

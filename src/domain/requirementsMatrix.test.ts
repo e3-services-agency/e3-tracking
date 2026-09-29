@@ -115,7 +115,7 @@ describe('real DAL gap notes (T-4-12 fix round)', () => {
       note: 'No property named "action" to match the variant condition.',
       ...noIds,
     });
-    expect(cond.leaf_label).not.toBe('action');
+    expect(cond).toEqual({ group_label: '(unresolved event)', leaf_label: '(unresolved)' });
   });
 
   it('labels catalog attribute and consent rows by their leaf only', () => {

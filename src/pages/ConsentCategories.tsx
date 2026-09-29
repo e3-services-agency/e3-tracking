@@ -4,6 +4,7 @@
  * `bloomreach.ts` seed plus this project's `consent_key_additions_json` (D-26); the "add standard
  * consent key" form below the picker appends to that project column.
  */
+import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -107,7 +108,7 @@ export function ConsentCategories() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="p-8 border-b bg-white flex items-center justify-between">
+      <PageHeader className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Consent categories</h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -117,9 +118,9 @@ export function ConsentCategories() {
         <Button onClick={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }} className="gap-2">
           <Plus className="w-4 h-4" /> Add Consent Category
         </Button>
-      </div>
+      </PageHeader>
 
-      <div className="p-8 flex-1 space-y-6">
+      <PageBody className="space-y-6">
         <div className="bg-white rounded-lg border shadow-sm p-4 flex items-end gap-2">
           <div className="flex-1 space-y-1">
             <label className="text-sm font-medium text-gray-700">Add a standard consent key</label>
@@ -177,7 +178,7 @@ export function ConsentCategories() {
             </tbody>
           </table>
         </div>
-      </div>
+      </PageBody>
 
       <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title={isCreating ? 'Create Consent Category' : 'Edit Consent Category'}>
         <ConsentCategoryEditor

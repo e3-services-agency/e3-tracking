@@ -19,6 +19,7 @@
  * below matches those exact strings the service always emits for a missing event/property/use case;
  * a removed *requirement* is handled separately, by whether `use_case_id` could be recovered at all).
  */
+import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Loader2, Trash2 } from 'lucide-react';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
@@ -178,12 +179,12 @@ export function Comments() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="p-8 border-b bg-white">
+      <PageHeader>
         <h1 className="text-2xl font-bold text-gray-900">Comments</h1>
         <p className="text-sm text-gray-500 mt-1">Client and team discussion on events, properties, use cases and requirements (D-49).</p>
-      </div>
+      </PageHeader>
 
-      <div className="p-8 flex-1 space-y-4">
+      <PageBody className="space-y-4">
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
         )}
@@ -290,7 +291,7 @@ export function Comments() {
             </div>
           )}
         </div>
-      </div>
+      </PageBody>
     </div>
   );
 }

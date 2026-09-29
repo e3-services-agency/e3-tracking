@@ -52,21 +52,14 @@
   --annotation-5: #C084FC;
 }
 
-/* T-4-12 (L8): header bars and bodies span the full width of main, but their content is capped at
-   1400px (PAGE_MAX_WIDTH_CLASS in PageShell.tsx) and stays left-aligned. */
-.page-shell > div > .p-8 {
-  padding-left: 2rem;
-  padding-right: max(2rem, calc(100% - 1400px));
-}
-
 /* T-4-12: one zebra rule for every table body (utilities such as hover:bg-* still win, being unlayered-order later). */
 @layer components {
   tbody > tr:nth-child(even) {
     background-color: var(--surface-zebra);
   }
-  /* sticky cells must stay opaque; match the stripe so there is no white seam */
-  tbody > tr:nth-child(even) > td.sticky {
-    background-color: var(--surface-zebra);
+  /* odd rows are opaque too, so a sticky cell with bg-inherit never shows scrolled content through */
+  tbody > tr:nth-child(odd) {
+    background-color: var(--surface-panel);
   }
 }
 

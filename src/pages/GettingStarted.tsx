@@ -6,7 +6,7 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Circle, Loader2 } from 'lucide-react';
-import { FORM_CARD_WIDTH_CLASS } from '@/src/components/layout/PageShell';
+import { FORM_CARD_WIDTH_CLASS, PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
 import { Button } from '@/src/components/ui/Button';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
@@ -63,13 +63,13 @@ export function GettingStarted({ setActiveTab }: { setActiveTab: (tab: string) =
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="p-8 border-b bg-white">
+      <PageHeader>
         <h1 className="text-2xl font-bold text-gray-900">Getting started</h1>
         <p className="text-sm text-gray-500 mt-1">
           A short checklist to get this project fully documented, <GlossaryTerm glossaryKey="certified">certified</GlossaryTerm> and shareable. Unsure how it works? Try a <GlossaryTerm glossaryKey="sandbox">sandbox</GlossaryTerm> project from the Clients page.
         </p>
-      </div>
-      <div className="p-8 flex-1 space-y-3">
+      </PageHeader>
+      <PageBody className="space-y-3">
         {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</div>}
         {loading && (
           <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -102,7 +102,7 @@ export function GettingStarted({ setActiveTab }: { setActiveTab: (tab: string) =
               )}
             </div>
           ))}
-      </div>
+      </PageBody>
     </div>
   );
 }

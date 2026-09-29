@@ -4,6 +4,7 @@
  * with its observations, archive/finish actions, and a "Run comparison" button (D-21: comparison
  * always recomputes over the whole project; this button is a convenience trigger after a run).
  */
+import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
@@ -107,14 +108,14 @@ export function QaRuns() {
 
   return (
     <div className="flex-1 flex flex-col">
-      <div className="p-8 border-b bg-white">
+      <PageHeader>
         <h1 className="text-2xl font-bold text-gray-900">QA runs</h1>
         <p className="text-sm text-gray-500 mt-1">
           Runs group <GlossaryTerm glossaryKey="observation">observations</GlossaryTerm> in <GlossaryTerm glossaryKey="batch">batches</GlossaryTerm> (customer events exports; agent sessions in a later phase).
         </p>
-      </div>
+      </PageHeader>
 
-      <div className="p-8 flex-1 space-y-4">
+      <PageBody className="space-y-4">
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
         )}
@@ -166,7 +167,7 @@ export function QaRuns() {
             </tbody>
           </table>
         </div>
-      </div>
+      </PageBody>
 
       <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title="QA run">
         {selectedId && (

@@ -246,7 +246,7 @@ function LayoutInner() {
     );
 
   return (
-    <div className="flex h-screen font-sans">
+    <div className="flex h-screen overflow-hidden font-sans">
       <Sidebar
         activeTab={activeTab}
         setActiveTab={(tab) => setActiveTab(tab)}

@@ -157,7 +157,9 @@ export function RequirementsMatrix() {
                   <tbody key={group.key} className="divide-y">
                     <tr className="bg-gray-100">
                       <th colSpan={colSpan} className="px-4 py-2 text-xs font-semibold text-gray-700 text-left">
-                        {group.label} <span className="font-normal text-gray-500">({group.kind})</span>
+                        {group.label}{(group.kind === 'event' || group.kind === 'variant') && (
+                          <span className="font-normal text-gray-500"> ({group.kind})</span>
+                        )}
                       </th>
                     </tr>
                     {group.rows.map((row) => {
@@ -173,7 +175,7 @@ export function RequirementsMatrix() {
                                 aria-expanded={expanded}
                               >
                                 <span className="text-gray-400 text-xs">{expanded ? '▾' : '▸'}</span>
-                                <span>{formatTargetLabel(row)}</span>
+                                <span title={formatTargetLabel(row)}>{row.leaf_label}</span>
                                 {row.is_gap && (
                                   <span className="text-amber-600 font-bold" title={row.gap_note ?? 'Gap'}>
                                     !

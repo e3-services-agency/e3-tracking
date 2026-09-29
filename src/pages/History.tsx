@@ -217,7 +217,7 @@ export function History() {
                   </span>
                 </button>
                 {isOpen && (
-                  <table className="w-full text-left text-xs mt-3">
+                  <div className="overflow-x-auto"><table className="w-full text-left text-xs mt-3">
                     <thead className="text-gray-500">
                       <tr>
                         <th className="py-1 pr-3 font-medium">Type</th>
@@ -247,7 +247,7 @@ export function History() {
                         ));
                       })}
                     </tbody>
-                  </table>
+                  </table></div>
                 )}
               </div>
             );

@@ -119,7 +119,7 @@ export function QaRuns() {
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
         )}
-        <div className="bg-white rounded-lg border shadow-sm">
+        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
@@ -473,7 +473,7 @@ function QaRunDetail({
         {obsError && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 mb-2">{obsError}</div>
         )}
-        <div className="border rounded-md overflow-hidden">
+        <div className="border rounded-md overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-gray-50 border-b">
               <tr>

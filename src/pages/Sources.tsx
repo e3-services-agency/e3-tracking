@@ -99,7 +99,7 @@ export function Sources() {
           />
         </div>
 
-        <div className="bg-white rounded-lg border shadow-sm">
+        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>

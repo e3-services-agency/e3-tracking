@@ -186,7 +186,7 @@ export function StandardEvents() {
         {addKeyError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{addKeyError}</div>}
         {loadError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{loadError}</div>}
 
-        <div className="bg-white rounded-lg border shadow-sm">
+        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>

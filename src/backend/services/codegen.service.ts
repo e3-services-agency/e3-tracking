@@ -620,9 +620,10 @@ export function buildCodegenV2(
       note: SDK_AUTO_NOTE,
     };
   }
-  const dlName = resolveOutputEventName(safeCanonical, 'dataLayer', overrides);
+  // The Bloomreach event name (bloomreach.event, the tag's track call) uses the SDK override; the
+  // site's dataLayer event is dl_event_name (D-63), never the dataLayer name override.
   const sdkName = resolveOutputEventName(safeCanonical, 'bloomreachSdk', overrides);
-  const names = { bloomreach: dlName, dataLayer: options.dlEventName ?? null };
+  const names = { bloomreach: sdkName, dataLayer: options.dlEventName ?? null };
   const datalayer = buildDataLayerV2(names, model);
   const gtm_template = buildGtmTemplate(names, model);
   return {

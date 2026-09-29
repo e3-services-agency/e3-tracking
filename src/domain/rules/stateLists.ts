@@ -8,8 +8,9 @@
  * - `type`: ids are typed consistently (all strings or all numbers) across the lists.
  * - `add_missing`: on `action = add` the interacted id (the payload property named like the
  *   `id_field`, e.g. `product_id`) is in the lists.
- * - `remove_present`: on `action = remove` with an explicit `quantity` of 0 the interacted id is
- *   absent from the lists (a remove that leaves quantity above 0 may keep it).
+ * - `remove_present`: on `action = remove` with an explicit quantity of 0 the interacted id is
+ *   absent from the lists (a remove that leaves quantity above 0 may keep it). The quantity is read
+ *   from the payload property named by the list's `quantity_field` (the source field on items).
  *
  * Totals (`sum` derivations) are not checked here; the money rules cover those. One finding per
  * `(event, property, detail)`, anchored on the first offending observation, same convention as the
@@ -74,6 +75,13 @@ function extractIds(ref: StateListRef, raw: unknown): unknown[] | null {
   return raw.map((entry) =>
     entry && typeof entry === 'object' ? (entry as Record<string, unknown>)[ref.id_field] : undefined
   );
+}
+
+/** True only for the number 0 or a numeric string equal to 0; never for null, '' or absent. */
+function isZeroQuantity(v: unknown): boolean {
+  if (typeof v === 'number') return v === 0;
+  if (typeof v === 'string') return v.trim() !== '' && Number(v) === 0;
+  return false;
 }
 
 function typeOf(v: unknown): string {
@@ -165,7 +173,7 @@ export function runStateListChecks(checks: StateListCheck[], observations: Engin
               }
             );
           }
-        } else if (action === 'remove' && Number(obs.properties[anchor.quantity_field]) === 0 && obs.properties[anchor.quantity_field] !== undefined) {
+        } else if (action === 'remove' && isZeroQuantity(obs.properties[anchor.quantity_field])) {
           const present = group.filter((g) => inList(g));
           if (present.length > 0) {
             const detail = `remove_present:${idField}`;

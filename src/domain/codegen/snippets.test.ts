@@ -168,6 +168,16 @@ describe('buildDataLayerV2', () => {
   });
 });
 
+describe('items entry samples (W2)', () => {
+  it('falls back to a same-named property of any kind before the generic sample', () => {
+    const model = buildDataLayerModel([
+      prop('product_id', 'event', '15062099820869'),
+      list('product_ids', 'product_id', 'ids'),
+    ]);
+    expect(model.payload.product_ids).toEqual(['15062099820869']);
+  });
+});
+
 describe('buildGtmTemplate and brPayload', () => {
   const model = buildDataLayerModel(WISHLIST);
   const text = buildGtmTemplate({ bloomreach: 'add_to_wishlist', dataLayer: 'add_to_wishlist' }, model);
@@ -198,6 +208,15 @@ describe('buildGtmTemplate and brPayload', () => {
     expect(runSource(multi, rules)).toEqual(computeBrPayload(multi, rules));
     expect(runSource(null, rules)).toEqual({});
     expect(runSource({}, rules)).toEqual(computeBrPayload({}, rules));
+    // A stored 'price*' (empty term) must not zero the total in either implementation.
+    const trailing = [{ name: 'total_price', sum: 'price*' }];
+    expect(runSource(multi, trailing)).toEqual(computeBrPayload(multi, trailing));
+    expect((runSource(multi, trailing) as Record<string, unknown>).total_price).toBe(16.5);
+    // quantity_field names the source field; the output key is always quantity.
+    const qty = [{ name: 'product_list', form: 'id_quantity', id_field: 'product_id', quantity_field: 'qty' }];
+    const qtyBr = { items: [{ product_id: 'a', qty: 3 }] };
+    expect(runSource(qtyBr, qty)).toEqual({ product_list: [{ product_id: 'a', quantity: 3 }] });
+    expect(computeBrPayload(qtyBr, qty as never)).toEqual({ product_list: [{ product_id: 'a', quantity: 3 }] });
   });
 
   it('computes lists from items, sums totals, and lets a supplied value win', () => {
@@ -259,8 +278,8 @@ describe('sdk_auto helpers', () => {
       { name: 'store_language', sample: 'de' },
       { name: 'store_country', sample: 'DE' },
     ]);
-    expect(t).toContain("  store_country: 'DE',\n  store_language: 'de',");
-    expect(buildSdkDefaultProperties([])).toMatch(/No context properties/);
+    expect(t).toContain("track: {\n  default_properties: {\n    store_country: 'DE',\n    store_language: 'de',");
+    expect(buildSdkDefaultProperties([])).toBe('');
   });
 });
 
@@ -271,7 +290,8 @@ describe('derivation helpers', () => {
     expect(validateDerivation({ source: 'items', sum: 'price*quantity' })).toBeNull();
     expect(validateDerivation({ source: 'cart', sum: 'price' })).toMatch(/source/);
     expect(validateDerivation({ source: 'items', id_field: 'product_id', form: 'set' })).toMatch(/form/);
-    expect(validateDerivation({ source: 'items', sum: 'price*' })).toBeNull(); // trailing empty term ignored
+    expect(validateDerivation({ source: 'items', sum: 'price*' })).toMatch(/sum/); // empty term rejected
+    expect(validateDerivation({ source: 'items', sum: '*price' })).toMatch(/sum/);
     expect(validateDerivation({ source: 'items', sum: 'price*1x' })).toMatch(/sum/);
     expect(validateDerivation('x')).toMatch(/object/);
   });

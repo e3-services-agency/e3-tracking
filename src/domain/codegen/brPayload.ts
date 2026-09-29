@@ -49,7 +49,7 @@ export function computeBrPayload(br: BloomreachDataLayer | null | undefined, rul
       const q = r.quantity_field || 'quantity';
       out[r.name] = items
         .filter((i) => defined(i[r.id_field]))
-        .map((i) => ({ [r.id_field]: i[r.id_field], [q]: i[q] }));
+        .map((i) => ({ [r.id_field]: i[r.id_field], quantity: i[q] })); // output key is always `quantity`
     }
   }
   return out;
@@ -68,11 +68,11 @@ export const BR_PAYLOAD_SOURCE = `function brPayload(br, rules) {
   (rules || []).forEach(function (r) {
     if (defined(props[r.name])) return; // a supplied value wins over the computed one
     if (r.sum) {
-      var fields = r.sum.split('*');
+      var fields = r.sum.split('*').map(function (f) { return f.trim(); }).filter(Boolean);
       var total = 0;
       items.forEach(function (it) {
         var product = 1;
-        fields.forEach(function (f) { product *= Number(it[f.trim()]) || 0; });
+        fields.forEach(function (f) { product *= Number(it[f]) || 0; });
         total += product;
       });
       out[r.name] = Math.round(total * 1e6) / 1e6;
@@ -83,7 +83,7 @@ export const BR_PAYLOAD_SOURCE = `function brPayload(br, rules) {
       out[r.name] = items.filter(function (i) { return defined(i[r.id_field]); }).map(function (i) {
         var o = {};
         o[r.id_field] = i[r.id_field];
-        o[q] = i[q];
+        o.quantity = i[q]; // output key is always quantity
         return o;
       });
     }

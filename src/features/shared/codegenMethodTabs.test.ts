@@ -44,4 +44,11 @@ describe('codegenTabsFor (D-63)', () => {
     expect(hasCodegen({ gtm: '', web_sdk: '', tracking_api: '' }, 'client_web')).toBe(false);
     expect(hasCodegen(full, 'client_web')).toBe(true);
   });
+
+  it('sdk_auto without default properties hides the block (shared view); with them it shows', () => {
+    const none: CodegenData = { gtm: '', web_sdk: '', tracking_api: '', sdk_emits: 'e', sdk_default_properties: '', note: 'n' };
+    expect(hasCodegen(none, 'sdk_auto')).toBe(false);
+    expect(codegenTabsFor(none, 'sdk_auto').map((t) => t.key)).toEqual(['sdk_emits']); // internal card still renders
+    expect(hasCodegen({ ...none, sdk_default_properties: 'd' }, 'sdk_auto')).toBe(true);
+  });
 });

@@ -136,6 +136,14 @@ describe('runStateListChecks', () => {
     expect(gone).toEqual([]);
   });
 
+  it('remove_present needs a numeric 0: null, empty string and absent quantity never flag; "0" does', () => {
+    const base = { action: 'remove', product_id: 'a', product_ids: ['a'], product_list: [{ product_id: 'a', quantity: 1 }] };
+    for (const q of [null, '', undefined]) {
+      expect(runStateListChecks(checks, [obs({ ...base, quantity: q })])).toEqual([]);
+    }
+    expect(runStateListChecks(checks, [obs({ ...base, quantity: '0' })])).toHaveLength(1);
+  });
+
   it('coerces ids for the interacted comparison (number vs string) and ignores absent lists', () => {
     expect(
       runStateListChecks(checks, [obs({ action: 'add', product_id: 7, product_ids: ['7'], product_list: [{ product_id: '7', quantity: 1 }] })])

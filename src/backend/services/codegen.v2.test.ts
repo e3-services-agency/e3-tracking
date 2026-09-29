@@ -7,7 +7,7 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { closeDb } from '../db';
+import { closeDb, getDb } from '../db';
 import { createApp } from '../app';
 import * as ClientDAL from '../dal/client.dal';
 import * as ProjectDAL from '../dal/project.dal';
@@ -151,6 +151,18 @@ describe('event card codegen per implementation method', () => {
     expect(c.web_sdk).toBe('');
     expect(c.gtm).toBe('');
     expect(c.note).toMatch(/no tracking snippet/);
+  });
+});
+
+describe('event name overrides (L4)', () => {
+  it('uses the SDK override for bloomreach.event and the tag, never the dataLayer one', () => {
+    const { event } = setUpWishlist();
+    getDb().prepare('UPDATE events SET codegen_event_name_overrides_json = ? WHERE id = ?').run(JSON.stringify({ dataLayer: 'dl_name', bloomreachSdk: 'sdk_name' }), event.id);
+    const c = buildEventCard(projectId, event.id).codegen;
+    expect(c.datalayer).toContain("    event: 'sdk_name',");
+    expect(c.datalayer).toContain("  event: 'add_to_wishlist',");
+    expect(c.datalayer).not.toContain('dl_name');
+    expect(c.gtm_template).toContain("bloomreach.track('sdk_name'");
   });
 });
 

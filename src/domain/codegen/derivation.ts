@@ -3,8 +3,8 @@
  * `bloomreach.items` collection of the dataLayer object. Pure, no server imports.
  *
  * - List: `{source: 'items', id_field: 'product_id', form: 'ids'}` gives `['a', 'b']`;
- *   `form: 'id_quantity'` (with `quantity_field`, default `quantity`) gives
- *   `[{product_id: 'a', quantity: 1}, ...]`.
+ *   `form: 'id_quantity'` gives `[{product_id: 'a', quantity: 1}, ...]`. `quantity_field` (default
+ *   `quantity`) names the SOURCE field on each item; the output entry key is always `quantity`.
  * - Total: `{source: 'items', sum: 'price*quantity'}` sums the product of the named item fields
  *   over all items (`sum: 'quantity'` is a plain sum).
  */
@@ -51,8 +51,9 @@ export function validateDerivation(value: unknown): string | null {
   if (d.source !== 'items') return 'derivation_json.source must be "items".';
   if ('sum' in d) {
     if (typeof d.sum !== 'string' || d.sum.trim() === '') return 'derivation_json.sum must be a non-empty string.';
-    const fields = sumFields(d.sum);
-    if (fields.length === 0 || fields.some((f) => !FIELD_NAME.test(f))) {
+    // Every term must be a field name: an empty term ("price*") is rejected, never silently dropped.
+    const terms = d.sum.split('*').map((t) => t.trim());
+    if (terms.some((f) => !FIELD_NAME.test(f))) {
       return 'derivation_json.sum must be item field names joined by "*", e.g. "price*quantity".';
     }
     return null;

@@ -39,27 +39,6 @@ export function eventForHash<T extends { name: string }>(hash: string, events: T
   return i >= 0 ? events[i] : null;
 }
 
-export type CodegenTabKey = 'gtm' | 'web_sdk' | 'tracking_api';
-
-export const CODEGEN_TABS: { key: CodegenTabKey; label: string; language: 'javascript' | 'json' | 'typescript' }[] = [
-  { key: 'gtm', label: 'GTM / dataLayer', language: 'javascript' },
-  { key: 'web_sdk', label: 'Web SDK', language: 'javascript' },
-  { key: 'tracking_api', label: 'Tracking API', language: 'typescript' },
-];
-
-/** Default implementation method until a project-level method exists (D-62 pending). */
-export const DEFAULT_CODEGEN_TAB: CodegenTabKey = 'gtm';
-
-/** The tab to show first: `preferred` when it has code, else the first tab that does, else `preferred`. */
-export function selectCodegenTab(
-  codegen: Partial<Record<CodegenTabKey, string>>,
-  preferred: CodegenTabKey = DEFAULT_CODEGEN_TAB
-): CodegenTabKey {
-  if ((codegen[preferred] ?? '').trim()) return preferred;
-  const firstWithCode = CODEGEN_TABS.find((t) => (codegen[t.key] ?? '').trim());
-  return firstWithCode ? firstWithCode.key : preferred;
-}
-
 /** True for `null`, `undefined`, blank strings, empty arrays and empty objects. */
 export function isEmptyValue(value: unknown): boolean {
   if (value === null || value === undefined) return true;

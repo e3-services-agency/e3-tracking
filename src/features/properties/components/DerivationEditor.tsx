@@ -94,6 +94,7 @@ export function DerivationEditor({
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Quantity field</label>
                   <Input value={draft.quantityField} onChange={(e) => patch({ quantityField: e.target.value })} placeholder="quantity" />
+                  <p className="text-xs text-gray-500">The item field the quantity is read from. The list entries always use the key quantity.</p>
                 </div>
               )}
             </div>

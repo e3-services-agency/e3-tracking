@@ -62,5 +62,8 @@ export function codegenTabsFor(codegen: CodegenData, method: string | null | und
 
 /** True when any tab would have code (drives whether the shared view renders the block at all). */
 export function hasCodegen(codegen: CodegenData, method?: string | null): boolean {
+  // An sdk_auto event with no default properties has nothing to implement: the shared view hides
+  // the block (the internal card still renders it, with the note).
+  if (normalizeMethod(method) === 'sdk_auto') return (codegen.sdk_default_properties ?? '').trim() !== '';
   return codegenTabsFor(codegen, method).length > 0;
 }

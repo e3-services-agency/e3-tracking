@@ -49,6 +49,28 @@ export type OriginType = (typeof ORIGIN_TYPES)[number];
 export const EVENT_CLASSES = ['custom', 'sdk', 'platform'] as const;
 export type EventClass = (typeof EVENT_CLASSES)[number];
 
+// ----- Implementation method (D-63, T-4-17) -----
+// How an event reaches Bloomreach: client_web (dataLayer + GTM template or Web SDK), server_api
+// (Tracking API; purchase, purchase_item, refunds, consent), sdk_auto (emitted by the SDK or the
+// platform itself, no tracking snippet).
+export const IMPLEMENTATION_METHODS = ['client_web', 'server_api', 'sdk_auto'] as const;
+export type ImplementationMethod = (typeof IMPLEMENTATION_METHODS)[number];
+export const DEFAULT_IMPLEMENTATION_METHOD: ImplementationMethod = 'client_web';
+
+// ----- Property kind (D-63, T-4-17) -----
+// event: an ordinary event-level attribute (dataLayer bloomreach.properties.x). item: an attribute
+// of the one item interacted with (bloomreach.item.x). state_list: computed from bloomreach.items
+// by a derivation rule (product_ids, product_list, totals). context: a project-wide context / SDK
+// default property.
+export const PROPERTY_KINDS = ['event', 'item', 'state_list', 'context'] as const;
+export type PropertyKind = (typeof PROPERTY_KINDS)[number];
+export const DEFAULT_PROPERTY_KIND: PropertyKind = 'event';
+
+// derivation_json.form for a list derivation: ids = array of ids, id_quantity = array of
+// {<id_field>, quantity} objects.
+export const DERIVATION_FORMS = ['ids', 'id_quantity'] as const;
+export type DerivationForm = (typeof DERIVATION_FORMS)[number];
+
 // ----- EventProperty role (D-03, D-16) -----
 export const EVENT_PROPERTY_ROLES = ['normal', 'discriminator', 'context'] as const;
 export type EventPropertyRole = (typeof EVENT_PROPERTY_ROLES)[number];
@@ -137,6 +159,8 @@ export const FINDING_KINDS = [
   'rule_violation',
   'item_schema_violation',
   'bound_violation',
+  // D-63 (T-4-17): state lists (product_ids / product_list / totals) disagree with each other or with the interacted id.
+  'state_list_mismatch',
 ] as const;
 export type FindingKind = (typeof FINDING_KINDS)[number];
 

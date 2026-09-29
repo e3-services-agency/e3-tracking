@@ -16,7 +16,8 @@
  * requests an older version; the previous version is kept servable for one phase behind current
  * (see `docs/TRACKING-DOCUMENT.md`).
  */
-import type { ComparisonId, EventClass, FindingKind, FindingSeverity } from '../enums';
+import type { ComparisonId, EventClass, FindingKind, FindingSeverity, ImplementationMethod, PropertyKind } from '../enums';
+import type { PropertyDerivation } from '../codegen/derivation';
 
 export const TRACKING_DOCUMENT_FORMAT = 'e3-tracking-document' as const;
 export const TRACKING_DOCUMENT_VERSION = 1;
@@ -90,6 +91,14 @@ export interface EventCardProperty {
    * defensive fallback, every link is resolved to a real definition by the DAL. */
   definition_id: string | null;
   definition_name: string | null;
+  /** D-63 (T-4-17), additive: `event` | `item` | `state_list` | `context`. */
+  kind: PropertyKind;
+  /** D-63: for a `state_list`, the rule computing it from the items; else `null`. */
+  derivation: PropertyDerivation | null;
+  /** D-63: where the value lives in the dataLayer (`bloomreach.properties.x`, `bloomreach.item.x`, `computed from items`). */
+  datalayer_path: string;
+  /** D-63: names of the property bundle(s) this property belongs to, comma-joined; `null` when in none. */
+  bundle: string | null;
 }
 
 export interface EventCardVariantCondition {
@@ -204,9 +213,19 @@ export interface EventCardQuality {
 }
 
 export interface EventCardCodegen {
+  /** `datalayer` + `gtm_template` (D-63: was the flat dataLayer push before T-4-17). */
   gtm: string;
+  /** New Web SDK, `bloomreach.track(event, payload)` (D-63). */
   web_sdk: string;
   tracking_api: string;
+  /** D-63 (T-4-17), additive; empty string when not applicable for the event's implementation method. */
+  datalayer?: string;
+  gtm_template?: string;
+  web_sdk_legacy?: string;
+  sdk_emits?: string;
+  sdk_default_properties?: string;
+  /** One line on why some tabs are absent (`server_api`, `sdk_auto`). */
+  note?: string;
 }
 
 export interface EventCard {
@@ -214,6 +233,11 @@ export interface EventCard {
   name: string;
   business_name: string | null;
   class: EventClass;
+  /** D-63 (T-4-17), additive (optional in the type so older documents and fixtures stay valid; the
+   * builder always sets it): how the event reaches Bloomreach. Absent means `client_web`. */
+  implementation_method?: ImplementationMethod;
+  /** D-63: the site's dataLayer event carrying this Bloomreach event, `null` when not recorded. */
+  dl_event_name?: string | null;
   description: string | null;
   purpose: string | null;
   page: string | null;

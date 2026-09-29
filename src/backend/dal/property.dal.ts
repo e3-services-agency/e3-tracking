@@ -16,7 +16,11 @@ import {
   ORIGIN_TYPES,
   PRIORITIES,
   ENTITY_STATUSES,
+  PROPERTY_KINDS,
+  DEFAULT_PROPERTY_KIND,
+  type PropertyKind,
 } from '../../domain/enums';
+import { validateDerivation } from '../../domain/codegen/derivation';
 import { STANDARD_CUSTOMER_PROPERTIES, isKnownStandardEvent, type StandardEventSeed } from '../../domain/bloomreach';
 import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
 import { isValidItemSchemaShape } from '../../domain/rules/itemSchema';
@@ -51,6 +55,10 @@ export interface PropertyRow {
   /** D-30 ItemSchema (T-2-06): `[{field, data_type, data_formats[], required}]`, only meaningful
    * when `data_type = 'array'`; validated per item by the rules evaluator. */
   item_schema_json: unknown;
+  /** D-63 (T-4-17): `event` | `item` | `state_list` | `context`. */
+  kind: PropertyKind;
+  /** D-63: for a `state_list`, how it is computed from the items (`domain/codegen/derivation.ts`); else `null`. */
+  derivation_json: unknown;
   bloomreach_customer_property: string | null;
   priority: string | null;
   status: string | null;
@@ -79,6 +87,7 @@ type PropertyDbRow = Omit<
   | 'value_schema_json'
   | 'object_child_property_refs_json'
   | 'item_schema_json'
+  | 'derivation_json'
   | 'bloomreach_meta_json'
   | 'pii'
   | 'bundle_ids'
@@ -95,6 +104,7 @@ function mapPropertyRow(row: PropertyDbRow): PropertyRow {
     value_schema_json: parseJsonColumn(raw.value_schema_json, null),
     object_child_property_refs_json: parseJsonColumn(raw.object_child_property_refs_json, null),
     item_schema_json: parseJsonColumn(raw.item_schema_json, null),
+    derivation_json: parseJsonColumn(raw.derivation_json, null),
     bloomreach_meta_json: parseJsonColumn(raw.bloomreach_meta_json, null),
   };
 }
@@ -114,6 +124,8 @@ export interface PropertyInput {
   value_schema_json?: unknown;
   object_child_property_refs_json?: unknown;
   item_schema_json?: unknown;
+  kind?: string;
+  derivation_json?: unknown;
   bloomreach_customer_property?: string | null;
   priority?: string | null;
   status?: string | null;
@@ -290,6 +302,21 @@ function validateItemSchema(itemSchema: unknown, resolvedDataType: string): void
         throw new BadRequestError(`item_schema_json field "${field.field}" has an unknown data format.`, 'item_schema_json');
       }
     }
+  }
+}
+
+/**
+ * D-63 (T-4-17): `kind` against `PROPERTY_KINDS`; `derivation_json` must be a valid rule and only
+ * exists on a `state_list` (`resolvedKind` is the value the write ends up with).
+ */
+function validateKindAndDerivation(kind: string | undefined, derivation: unknown, resolvedKind: string): void {
+  if (kind !== undefined && !(PROPERTY_KINDS as readonly string[]).includes(kind)) {
+    throw new BadRequestError(`kind must be one of: ${PROPERTY_KINDS.join(', ')}.`, 'kind');
+  }
+  const problem = validateDerivation(derivation);
+  if (problem) throw new BadRequestError(problem, 'derivation_json');
+  if (derivation !== undefined && derivation !== null && resolvedKind !== 'state_list') {
+    throw new BadRequestError('derivation_json is only valid when kind is "state_list".', 'derivation_json');
   }
 }
 
@@ -526,6 +553,7 @@ export function createProperty(projectId: string, input: PropertyInput): Propert
   validatePropertyFields(projectId, input, input.scope);
   validateCatalogRefs(projectId, input.mapped_catalog_id, input.mapped_catalog_field_id);
   validateItemSchema(input.item_schema_json, input.data_type || DEFAULT_DATA_TYPE);
+  validateKindAndDerivation(input.kind, input.derivation_json, input.kind || DEFAULT_PROPERTY_KIND);
 
   const db = getDb();
   const existing = db
@@ -545,13 +573,13 @@ export function createProperty(projectId: string, input: PropertyInput): Propert
         `INSERT INTO properties (
           id, project_id, scope, name, description, category, notes, data_type, data_formats_json,
           pii, property_type, allowed_values_json, example_values_json, value_schema_json,
-          object_child_property_refs_json, item_schema_json, bloomreach_customer_property, priority, status,
+          object_child_property_refs_json, item_schema_json, kind, derivation_json, bloomreach_customer_property, priority, status,
           mapped_catalog_id, mapped_catalog_field_id, mapping_type, bloomreach_meta_json,
           created_at, updated_at, deleted_at
         ) VALUES (
           @id, @project_id, @scope, @name, @description, @category, @notes, @data_type, @data_formats_json,
           @pii, @property_type, @allowed_values_json, @example_values_json, @value_schema_json,
-          @object_child_property_refs_json, @item_schema_json, @bloomreach_customer_property, @priority, @status,
+          @object_child_property_refs_json, @item_schema_json, @kind, @derivation_json, @bloomreach_customer_property, @priority, @status,
           @mapped_catalog_id, @mapped_catalog_field_id, @mapping_type, @bloomreach_meta_json,
           @created_at, @updated_at, NULL
         )`
@@ -572,6 +600,8 @@ export function createProperty(projectId: string, input: PropertyInput): Propert
         value_schema_json: toJsonColumn(input.value_schema_json ?? null),
         object_child_property_refs_json: toJsonColumn(input.object_child_property_refs_json ?? null),
         item_schema_json: toJsonColumn(input.item_schema_json ?? null),
+        kind: input.kind || DEFAULT_PROPERTY_KIND,
+        derivation_json: toJsonColumn(input.derivation_json ?? null),
         bloomreach_customer_property: input.bloomreach_customer_property?.trim() || null,
         priority: input.priority ?? null,
         status: input.status ?? null,
@@ -660,6 +690,9 @@ export function updateProperty(
     validateItemSchema(updates.item_schema_json, updates.data_type ?? current.data_type);
   }
 
+  const resolvedKind = updates.kind ?? current.kind;
+  validateKindAndDerivation(updates.kind, updates.derivation_json, resolvedKind);
+
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (updates.scope !== undefined) patch.scope = updates.scope;
   if (updates.name !== undefined) patch.name = updates.name.trim();
@@ -687,6 +720,13 @@ export function updateProperty(
     // left the old item schema in place (validateItemSchema only re-checks a schema the caller
     // actually sent); clear it so a non-array property can't carry a stale item schema.
     patch.item_schema_json = null;
+  }
+  if (updates.kind !== undefined) patch.kind = updates.kind;
+  if (updates.derivation_json !== undefined) {
+    patch.derivation_json = toJsonColumn(updates.derivation_json);
+  } else if (resolvedKind !== 'state_list' && current.derivation_json !== null) {
+    // A derivation only exists on a state list: moving the kind away clears the stale rule.
+    patch.derivation_json = null;
   }
   if (updates.bloomreach_customer_property !== undefined) {
     patch.bloomreach_customer_property = updates.bloomreach_customer_property?.trim() || null;

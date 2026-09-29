@@ -2731,3 +2731,7 @@ Supervisor ruling: fix W2, W3 (reuse the app sampler), M4-M9, I10 now; W1 after 
 
 ### 2026-09-29 13:46 | supervisor | HANDOFF | T-4-13 follow-ups part 1 (06fabe9) — waits for T-4-12 merge
 1455 tests / 124 files, tsc, build, lint green. W2 guide covers Internal only and share_comments; W3 no-variant payload uses every property's card example plus a required-keys line (sampler not moved); M4 Definition column; M5 node prop; M6 malformed slug -> null; M7 comment; M8 rehype-raw removed; M9 wording; I10 external links new tab; I12 helpContent tests. Part 2 (merge agent-setup, EventCard.tsx conflict, Help.tsx layout rule) after T-4-12 merges.
+
+### 2026-09-29 13:52 | reviewer | REVIEW | T-4-12 re-review PASS (2 warnings)
+1457 / 124 green; stack trace identified as routeErrors.test.ts's expected console.error (not a failure). E1 verified against every DAL note string; W1 residual: 'No property named "action" to match the variant condition' still yields group "action" via the positional fallback. W2: the sticky-cell zebra rule is dead CSS (components layer loses to the bg-white utility); fix is bg-inherit on the td. L8: the `.page-shell > div > .p-8` selector works for all 20 routed pages but is fragile (utility-name and DOM-depth coupling, PAGE_MAX_WIDTH_CLASS now dead); sound approach is PageHeader/PageBody components with one width constant.
+Supervisor ruling: final round before QA: W1, W2, and replace the structural selector with PageHeader/PageBody (one constant); then browser QA at 1440 and 1920.

@@ -36,7 +36,7 @@ The local SQLite database and uploaded files live under `data/` (gitignored). Se
 - Product context and decisions: [`.claude/team/CONTEXT.md`](.claude/team/CONTEXT.md), [`.claude/team/DECISIONS.md`](.claude/team/DECISIONS.md)
 - QA setup for local runs: [`docs/QA-LOCAL.md`](docs/QA-LOCAL.md)
 - Entity model in plain words: [`docs/DOMAIN.md`](docs/DOMAIN.md)
-- User-facing guides: [`public/docs/user-manual/`](public/docs/user-manual/)
+- User-facing guides: [`docs/guide/`](docs/guide/) (also shown in the app under Help)
 
 ## License and usage
 

@@ -190,3 +190,11 @@ Two different chains produce two different, both-correct baselines on the merged
 - **Full chain, both Data Manager files also applied** (`data-manager-customers.json` and `data-manager-events.json`, scenario 8, comparison 4 joining comparisons 1–3): **77 or 78 open findings (40 error / 37 or 38 warning; one missing_event warning varies with the Data Manager apply order)**.
 
 The `qa-roundtrip` skill's scenario 4 text must state both chains with their counts (35/11/4/20 without Data Manager, 77/40/37 with it), not a single number.
+
+## Help and Copy as Markdown recipe (T-4-13)
+
+1. Open the Help sidebar entry. There is no Documentation entry; `/tracking-plan/documentation` redirects to Help. The left navigation shows Guide, Reference and Glossary groups, the current page highlighted; clicking a page changes the URL to `/help/<slug>` and a reload keeps the page.
+2. Guide, "Catalogs": the Events versus catalogs table renders as a real table (no raw pipes). Reference pages with tables (DOMAIN, EXPORTS) also render as tables.
+3. "Copy as Markdown" on a Help page copies that page's Markdown source; the button shows "Copied" for two seconds.
+4. Event card page: "Copy as Markdown" copies a text with the header, certification, a properties table, variants, triggers with page URLs, an expected payload JSON block and a findings summary.
+5. Use case page: "Copy as Markdown" copies the narrative and a requirements table with level and status.

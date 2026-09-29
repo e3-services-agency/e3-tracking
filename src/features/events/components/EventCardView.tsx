@@ -19,6 +19,9 @@
  * `EventCard.coverage` summary counts, same as this component does when `grid` is omitted.
  */
 import React from 'react';
+import { summarizeCertification } from '@/src/domain/certification';
+import { anyNameDiffersFromKey } from '@/src/domain/payloadKey';
+import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
 
 export interface EventCardData {
   id: string;
@@ -141,6 +144,23 @@ export function CertificationBadge({ certification }: { certification: EventCard
   );
 }
 
+export function CertificationBlock({ certification }: { certification: EventCardData['certification'] }) {
+  const summary = summarizeCertification(certification);
+  return (
+    <Section title={<GlossaryTerm glossaryKey="certified">Certification</GlossaryTerm>}>
+      <p className="text-sm font-medium text-gray-900">Status: {summary.status}</p>
+      {summary.reasons.length > 0 && (
+        <ul className="list-disc pl-5 mt-1 text-sm text-gray-700 space-y-0.5">
+          {summary.reasons.map((r) => (
+            <li key={r}>{r}</li>
+          ))}
+        </ul>
+      )}
+      <p className="text-sm text-gray-500 mt-2">{summary.change}</p>
+    </Section>
+  );
+}
+
 export interface EventCardViewProps {
   card: EventCardData;
   /** Resolves a stored file path (`triggers[].image_path`) to a fetchable URL: the internal page
@@ -151,9 +171,12 @@ export interface EventCardViewProps {
   grid?: CoverageGridData | null;
   /** T-4-04 `CommentsPanel`; rendered once near the header. `undefined` renders nothing. */
   commentsSlot?: React.ReactNode;
+  /** `shared` (public view) keeps only the header badge; the operator-facing Certification block is internal. Default `internal`. */
+  mode?: 'internal' | 'shared';
 }
 
-export function EventCardView({ card, fileUrl, grid, commentsSlot }: EventCardViewProps) {
+export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'internal' }: EventCardViewProps) {
+  const showNames = anyNameDiffersFromKey(card.properties);
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -163,6 +186,8 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot }: EventCardVi
         </div>
         <CertificationBadge certification={card.certification} />
       </div>
+
+      {mode === 'internal' && <CertificationBlock certification={card.certification} />}
 
       {commentsSlot}
 
@@ -222,10 +247,14 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot }: EventCardVi
 
       <Section title={`Properties (${card.properties.length})`}>
         <Table
-          head={['Name', 'Payload key', 'Type', 'Formats', 'Role', 'Required', 'Allowed values', 'PII', 'Description', 'Example']}
+          head={[
+            'Payload key',
+            ...(showNames ? ['Name'] : []),
+            'Type', 'Formats', 'Role', 'Required', 'Allowed values', 'PII', 'Description', 'Example',
+          ]}
           rows={card.properties.map((p) => [
-            p.name,
             p.payload_key,
+            ...(showNames ? [p.name] : []),
             p.data_type,
             p.data_formats.join(', ') || '—',
             p.role,
@@ -404,7 +433,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot }: EventCardVi
   );
 }
 
-export function Section({ title, children }: { title: string; children: React.ReactNode }) {
+export function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="bg-white rounded-lg border shadow-sm p-4">
       <h2 className="text-sm font-semibold text-gray-900 mb-3">{title}</h2>

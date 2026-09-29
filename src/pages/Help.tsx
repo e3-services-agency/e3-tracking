@@ -3,11 +3,15 @@
  * three groups -- Guide (how-to pages), Reference (the repo docs) and Glossary -- and a "Copy as
  * Markdown" button that copies the current page's Markdown source. The current page lives in the
  * URL (`/help/<slug>`, `helpSlugFromPathname`), so a page can be linked and survives a reload.
+ *
+ * Layout rule (T-4-12): no scroll containers here; only `<main>` scrolls. The navigation is
+ * `position: sticky` inside `<main>`, and the article uses the full `PageBody` width so wide
+ * documentation tables are not squeezed into a narrow column.
  */
 import React, { useEffect, useState } from 'react';
-import { BookOpen } from 'lucide-react';
 import { MarkdownView } from '@/src/components/ui/MarkdownView';
 import { CopyMarkdownButton } from '@/src/components/ui/CopyMarkdownButton';
+import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import { helpPathForSlug, helpSlugFromPathname } from '@/src/components/layout/mainRoute';
 import { DEFAULT_HELP_SLUG, HELP_ARTICLES, HELP_GROUPS, findHelpArticle } from './helpContent';
 
@@ -37,12 +41,13 @@ export function Help() {
   };
 
   return (
-    <div className="flex-1 flex h-full overflow-hidden">
-      <nav aria-label="Help sections" className="w-64 shrink-0 border-r bg-white p-4 overflow-y-auto">
-        <div className="sticky top-0 space-y-4">
-          <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <BookOpen className="w-5 h-5" /> Help
-          </h1>
+    <div className="flex-1 flex flex-col">
+      <PageHeader className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Help</h1>
+        <CopyMarkdownButton getMarkdown={() => active.markdown} />
+      </PageHeader>
+      <PageBody className="flex items-start gap-8">
+        <nav aria-label="Help sections" className="w-56 shrink-0 sticky top-8 self-start space-y-4">
           {HELP_GROUPS.map((group) => (
             <div key={group} className="space-y-1">
               <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3">{group}</h2>
@@ -61,16 +66,11 @@ export function Help() {
               ))}
             </div>
           ))}
-        </div>
-      </nav>
-      <div className="flex-1 overflow-y-auto p-8">
-        <div className="max-w-3xl">
-          <div className="flex justify-end mb-4">
-            <CopyMarkdownButton getMarkdown={() => active.markdown} />
-          </div>
+        </nav>
+        <article className="flex-1 min-w-0">
           <MarkdownView source={active.markdown} />
-        </div>
-      </div>
+        </article>
+      </PageBody>
     </div>
   );
 }

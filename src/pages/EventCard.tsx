@@ -4,6 +4,7 @@
  * the coverage grid, then hands them to `EventCardView` with a `fileUrl` resolver pointing at this
  * project's authenticated file route (trigger screenshots, D-50).
  */
+import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { useStore } from '@/src/store';
@@ -68,15 +69,15 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full">
-      <div className="p-8 border-b bg-white flex items-center justify-between">
+    <div className="flex-1 flex flex-col">
+      <PageHeader className="flex items-center justify-between">
         <button type="button" onClick={handleBack} className="text-sm text-[var(--brand-primary)] hover:underline">
           &larr; Back to Events
         </button>
         {card && <CopyMarkdownButton getMarkdown={() => eventCardToMarkdown(card as unknown as EventCardDocument)} />}
-      </div>
+      </PageHeader>
 
-      <div className="p-8 flex-1 overflow-y-auto">
+      <PageBody>
         {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 mb-4">{error}</div>}
         {loading && <div className="text-sm text-gray-400">Loading…</div>}
 
@@ -88,7 +89,7 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
             commentsSlot={<CommentsPanel entityType="event" entityId={card.id} api={{ mode: 'internal', projectId: activeProjectId }} />}
           />
         )}
-      </div>
+      </PageBody>
     </div>
   );
 }

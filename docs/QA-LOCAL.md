@@ -84,11 +84,11 @@ Restore always creates a new project — there is no "restore into an existing p
 On the fixture project (data mapping applied, so `add_to_cart`/`purchase`/`purchase_item`/`view_item` standard event mappings exist):
 
 1. Use case templates page (sidebar): paste `.claude/team/samples/use-case-library-sample.json` into the import box; preview shows three `create` items (`UC-01`, `UC-02`, `UC-03`); Apply.
-2. Instantiate `UC-01` into the fixture project: its requirements resolve to `cart_update[action=add]` (via the fixture's `add_to_cart` standard event mapping), `product_id`, `total_price`, `checkout` (optional), and customer property `email`; a narrative is generated.
-3. Instantiate `UC-02`: resolves fully against the fixture's `purchase`/`purchase_item` mappings, including the `catalog_attribute` requirement (`image`, resolved against the project's main catalog fields by name — `gap` if the fixture's main catalog has no `image` field) and the `consent` requirement (`newsletter`, resolved against consent categories by name).
-4. Instantiate `UC-03`: the `wishlist_add` event requirement has `status: gap` with its note (no matching event in the fixture, and it is not a Bloomreach standard event).
+2. Add `UC-01` to the fixture project (from the templates page): its requirements resolve to `cart_update[action=add]` (via the fixture's `add_to_cart` standard event mapping), `product_id`, `total_price`, `checkout` (optional), and customer property `email`; a narrative is generated.
+3. Add `UC-02` to the project: resolves fully against the fixture's `purchase`/`purchase_item` mappings, including the `catalog_attribute` requirement (`image`, resolved against the project's main catalog fields by name — `gap` if the fixture's main catalog has no `image` field) and the `consent` requirement (`newsletter`, resolved against consent categories by name).
+4. Add `UC-03` to the project: the `wishlist_add` event requirement has `status: gap` with its note (no matching event in the fixture, and it is not a Bloomreach standard event).
 5. Re-paste the same file: preview shows every item `unchanged`.
-6. Mapping-step extension: rename the fixture's `purchase` event to `transactions` — a rename alone does **not** unresolve the mapping, since a `StandardEventMapping` resolves by event id, not by name. On the Standard events page, delete the `purchase` standard event mapping (the one that now points at the renamed `transactions` event) so `purchase` genuinely has no mapping. Then instantiate `UC-02` again under a new code — the preview now returns `purchase`'s targets as unresolved with candidates; pick `transactions` (and its variant/properties) in the dialog; apply. The requirement resolves, a new `StandardEventMapping` for `purchase` -> `transactions` appears on the Standard events page, and the exported `data-mapping.json` carries it.
+6. Mapping-step extension: rename the fixture's `purchase` event to `transactions` — a rename alone does **not** unresolve the mapping, since a `StandardEventMapping` resolves by event id, not by name. On the Standard events page, delete the `purchase` standard event mapping (the one that now points at the renamed `transactions` event) so `purchase` genuinely has no mapping. Then add `UC-02` to the project again under a new code — the preview now returns `purchase`'s targets as unresolved with candidates; pick `transactions` (and its variant/properties) in the dialog; apply. The requirement resolves, a new `StandardEventMapping` for `purchase` -> `transactions` appears on the Standard events page, and the exported `data-mapping.json` carries it.
 
 ## History checks (`qa-roundtrip` scenario 9)
 
@@ -109,7 +109,7 @@ On the fixture project (after the phase 1 round-trip recipe above):
 
 1. Set a marker value on an internal-only field so a leak is easy to spot later — e.g.
    `agent_instructions` on `purchase`, `identity_note` on any event, `owner_business`/
-   `owner_technical`, or `use_case.internal_notes`/`internal_url` on an instantiated use case.
+   `owner_technical`, or `use_case.internal_notes`/`internal_url` on a use case added from a template.
 2. Settings page, "Share" block: Generate a link with access `read`. Copy the URL
    (`http://127.0.0.1:<vite-port>/tracking-plan/shared/<token>`).
 3. Open that URL in a **private/incognito window** (no cookies, no session — `AUTH_MODE=local` has
@@ -175,7 +175,7 @@ step immediately on next load:
 6. Capture observations.
 7. Run a comparison — coarse: any finding row at all (open or resolved) counts, there is no
    separate "last run at" timestamp.
-8. Instantiate a use case.
+8. Add a use case from a template.
 9. Create a share link.
 
 Each step's "Go" link switches directly to the relevant sidebar tab. The checklist itself is on its

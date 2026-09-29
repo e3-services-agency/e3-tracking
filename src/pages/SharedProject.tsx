@@ -190,6 +190,7 @@ export function SharedProject({ token }: { token: string }) {
             <EventCardView
               card={event as unknown as EventCardData}
               fileUrl={fileUrl}
+              mode="shared"
               commentsSlot={
                 <CommentsPanel
                   entityType="event"

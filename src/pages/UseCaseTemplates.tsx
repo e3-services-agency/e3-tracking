@@ -5,6 +5,7 @@
  * Export, per-template Instantiate, multi-select "Add to project", and a template detail panel
  * with the prerequisites card (resolve status per group for the current project).
  */
+import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -351,12 +352,12 @@ export function UseCaseTemplates() {
   const detailTemplate = detailId ? templates.find((t) => t.id === detailId) ?? null : null;
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-y-auto">
-      <div className="p-8 border-b bg-white flex items-center justify-between">
+    <div className="flex-1 flex flex-col">
+      <PageHeader className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Use case templates</h1>
           <p className="text-sm text-gray-500 mt-1">
-            The shared library (D-06): import, filter, and instantiate into the current project.
+            The shared library (D-06): import, filter, and add use cases to the current project.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -367,9 +368,9 @@ export function UseCaseTemplates() {
             Add {selectedIds.size || ''} to project
           </Button>
         </div>
-      </div>
+      </PageHeader>
 
-      <div className="p-8 space-y-6">
+      <PageBody className="space-y-6">
         {actionError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{actionError}</div>}
         {actionMessage && <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">{actionMessage}</div>}
 
@@ -421,7 +422,7 @@ export function UseCaseTemplates() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg border shadow-sm">
+        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
@@ -475,7 +476,7 @@ export function UseCaseTemplates() {
                     <td className="px-4 py-2 text-gray-500">{t.default_requirements_json?.length ?? 0}</td>
                     <td className="px-4 py-2 text-right">
                       <Button size="sm" variant="outline" onClick={() => void openInstantiate(t.id)} disabled={!activeProjectId}>
-                        Instantiate
+                        Add to project
                       </Button>
                     </td>
                   </tr>
@@ -522,7 +523,7 @@ export function UseCaseTemplates() {
             }}
           />
         )}
-      </div>
+      </PageBody>
     </div>
   );
 }
@@ -579,7 +580,7 @@ function InstantiateMappingDialog({
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-8">
       <div className="bg-white rounded-lg border shadow-lg max-w-3xl w-full max-h-[85vh] overflow-y-auto p-6 space-y-4">
         <div className="flex items-start justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Map unresolved requirements</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Add use case to project</h2>
           <button type="button" onClick={onClose} className="text-sm text-gray-400 hover:text-gray-900">
             Close
           </button>

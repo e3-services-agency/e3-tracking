@@ -103,8 +103,8 @@ export function getGettingStarted(projectId: string): GettingStartedResult {
     },
     {
       key: 'use_case_instantiated',
-      label: 'Instantiate a use case',
-      sentence: 'Pick a template from the use case library and instantiate it against your events and properties.',
+      label: 'Add a use case',
+      sentence: 'Pick a template from the use case library and add it to your project, matching it to your events and properties.',
       done: useCases.length > 0,
       tab: 'useCaseTemplates',
     },

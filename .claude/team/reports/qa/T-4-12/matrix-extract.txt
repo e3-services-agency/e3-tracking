@@ -1,0 +1,4 @@
+Groups in order: Customer properties (customer), checkout (event), purchase_item (event), view_item (event), wishlist_add (event), cart_update[action=add] (variant), purchase[purchase_status=success] (variant), Catalog attributes (catalog), Consent (consent).
+wishlist_add gap: label "wishlist_add", "!" marker with title "No event named "wishlist_add" in this project. Deliberately unresolvable ..."; expanded detail "Kind: event  Gap: <note>".
+image gap: label "image", "!" marker with title note. Legend and "Gaps only" present; UC checkboxes filter columns and rows.
+After adding template UC-QA4 (event_property purchase.coupon, skipped in mapping dialog): row "purchase.coupon !" under group "purchase (event)"; no "coupon (event)" group.

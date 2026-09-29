@@ -28,6 +28,7 @@
   --surface-panel: #FFFFFF;
   --border-default: #E5E7EB;
   --surface-disabled: #C1C3C8;
+  --surface-zebra: #F9FAFB; /* alternate table row (T-4-12) */
 
   /* Code surfaces (system utility, repeated) */
   --surface-code: #1e293b;
@@ -49,6 +50,17 @@
   --annotation-3: #F87171;
   --annotation-4: #34D399;
   --annotation-5: #C084FC;
+}
+
+/* T-4-12: one zebra rule for every table body (utilities such as hover:bg-* still win, being unlayered-order later). */
+@layer components {
+  tbody > tr:nth-child(even) {
+    background-color: var(--surface-zebra);
+  }
+  /* odd rows are opaque too, so a sticky cell with bg-inherit never shows scrolled content through */
+  tbody > tr:nth-child(odd) {
+    background-color: var(--surface-panel);
+  }
 }
 
 body {

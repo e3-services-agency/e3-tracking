@@ -2895,3 +2895,12 @@ Supervisor ruling: fix E2 (clear on the first real scroll after the programmatic
 
 ### 2026-09-29 16:20 | supervisor | HANDOFF | T-4-16 fix round (9153223) — RE-REVIEW + QA re-check
 1490 / 127, tsc, build, lint green. E2 scroll settle 150 ms then the first real scroll clears the click highlight; M3 keydown listener removed; M4 collapsed event: expand + ensure thread open; M1 use case rows/headers get the count button in both views (always-open panels gone); L5 bottom rule wins in the observer callback; L6 chevron disabled while filtering; L8 comments; L9 single toggleInSet. SHARING.md updated.
+
+### 2026-09-29 16:30 | qa-tester | PASS | T-4-16 fix round re-check (9153223)
+Same setup (API 3002, Vite 3010, throwaway config removed, QA db removed, 3000/3001 untouched). Note for future runs: the Browser pane must be opened with preview_start (url) or requestAnimationFrame-based scrolling (the nav click) never fires on a hidden pane, which looks like a dead link but is a tooling artifact.
+1. Findings click then scrollTo(0,0) after settle: highlight moves to the on-screen section (Opt_in_proof); click Use cases, then Tab/typing in the filter: highlight stays (Use cases). PASS
+2. cart_update: open thread, collapse with chevron (thread form gone), click bubble: event expanded and thread open. PASS
+3. Use cases: shared rows show "Comments on use case <name>: 0" bubbles, internal header shows "Comments on this use case"; no always-open "No comments yet" block (only opened threads show it); post updates count 0 to 1 (shared) and 1 to 2 (internal, thread shows via share link). PASS
+4. Filter active: group chevrons disabled; clearing restores prior collapse state (29 visible nav links before and after). PASS
+5. Bottom of page in one motion and in 400px steps: highlight is Findings (last section on screen) both times. PASS
+Console: no new errors beyond HMR noise and favicon 404.

@@ -2876,3 +2876,15 @@ User found: nav group rows (Events, Custom events) not collapsible; Consents/Map
 
 ### 2026-09-29 16:06 | supervisor | HANDOFF | T-4-16 shared view follow-ups (4be1454) — REVIEW + QA in parallel
 1490 tests / 127 files, tsc, build, lint green; not browser-checked. Root cause of the dead section links: ids matched, but the last short sections never reach the scroll-spy band and the page cannot scroll further; fixed with click-sets-active (cleared on wheel/touch/key) and an at-bottom spy fallback (pickActiveAtBottom); one helper (SECTION_IDS, eventGroupId) feeds nav index and rendered ids with a parity test. Nav groups collapsible (chevron, toggleInSet, filter forces open). CommentCountButton on event title rows, requirement rows (shared and UseCases page) and the event card header (headerActions prop); threads open inline with the page-level rows. Deviation: the use-case-level comments block is unchanged (to add in the fix round). SHARING.md updated.
+
+### 2026-09-29 16:20 | qa-tester | PASS | T-4-16 shared view follow-ups (4be1454), browser QA
+Worktree t416, API 3002, Vite 3010 (throwaway config, removed; QA db removed; 3000/3001 untouched). Setup deviation: sandbox and comment-access share link created via API (POST /api/projects/sandbox, POST /projects/:id/share) instead of the UI; everything else through the UI. Extracts: `.claude/team/reports/qa/T-4-16/extracts.md`.
+| # | Scenario | Result |
+|---|---|---|
+| 1 | Nav groups collapse/expand (Events, Custom, SDK, Platform chevrons), filter forces open, clearing restores | PASS |
+| 2 | Section links Properties, Use cases, Consents, Mapping, Findings: highlight set on click, held until wheel, wheel returns to on-screen section; 0 dead links | PASS (Catalogs/Identity/Sources are not in nav or DOM on the sandbox: empty sections hidden) |
+| 3 | Shared comment bubbles: event rows, collapsed-event bubble expands and opens thread, post as Client QA gives count 1 at once; UC-01 Comments column, requirement thread posts, no always-open requirement blocks; one comments list request per load | PASS |
+| 4 | Internal: card header bubble 1, "via share link" badge; requirement bubbles on Use cases page; Internal only comments absent from shared API and DOM | PASS |
+| 5 | T-4-14 regression: collapsed rows, expand/collapse all (62/0), #event-cart_update anchor opens and sticks, spy, codegen tabs (GTM / Web SDK / Tracking API), lightbox, hidden empty sections, 4-column findings table (Severity/Kind/Property/Message) | PASS |
+| 6 | Observation only: use-case-level "Comments / No comments yet" block still renders always-open under the expanded UC-01 (follow-up planned) | OBSERVATION |
+Console/network: only Vite HMR websocket noise and a favicon 404; no 500s. Tool logs list each request twice (dev StrictMode or tool duplication), consistent across all requests. Note: a test typed name field doubled ("Client QAClient QA") via the browser type action, a tool artifact, not reproduced in app code.

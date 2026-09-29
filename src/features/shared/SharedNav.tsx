@@ -54,25 +54,40 @@ export function SharedNav({
           ) : (
             <span className="shrink-0 w-[18px]" aria-hidden="true" />
           )}
-          <a
-            href={`#${item.id}`}
-            ref={item.id === activeId ? activeRef : undefined}
-            onClick={(e) => {
-              e.preventDefault();
-              onNavigate(item.id);
-            }}
-            aria-current={item.id === activeId ? 'location' : undefined}
-            className={`block min-w-0 flex-1 truncate rounded py-1 pl-1 pr-2 text-sm ${
-              item.id === activeId
-                ? 'bg-gray-100 font-semibold text-gray-900 border-l-2 border-[var(--color-info)]'
-                : depth === 0
-                  ? 'font-medium text-gray-800 hover:bg-gray-50'
-                  : 'text-gray-600 hover:bg-gray-50'
-            }`}
-            title={item.label}
-          >
-            {item.label}
-          </a>
+          {hasChildren && !filtering ? (
+            // A group label toggles the group exactly like its chevron (T-4-18); a native button
+            // gives Enter/Space for free. While filtering the group is pinned open, so the label
+            // navigates instead.
+            <button
+              type="button"
+              onClick={() => setCollapsed((prev) => toggleInSet(prev, item.id))}
+              aria-expanded={isOpen}
+              className="block min-w-0 flex-1 truncate rounded py-1 pl-1 pr-2 text-left text-sm font-medium text-gray-800 hover:bg-gray-50"
+              title={item.label}
+            >
+              {item.label}
+            </button>
+          ) : (
+            <a
+              href={`#${item.id}`}
+              ref={item.id === activeId ? activeRef : undefined}
+              onClick={(e) => {
+                e.preventDefault();
+                onNavigate(item.id);
+              }}
+              aria-current={item.id === activeId ? 'location' : undefined}
+              className={`block min-w-0 flex-1 truncate rounded py-1 pl-1 pr-2 text-sm ${
+                item.id === activeId
+                  ? 'bg-gray-100 font-semibold text-gray-900 border-l-2 border-[var(--color-info)]'
+                  : depth === 0
+                    ? 'font-medium text-gray-800 hover:bg-gray-50'
+                    : 'text-gray-600 hover:bg-gray-50'
+              }`}
+              title={item.label}
+            >
+              {item.label}
+            </a>
+          )}
         </div>
         {hasChildren && isOpen && <ul>{item.children!.map((c) => renderItem(c, depth + 1))}</ul>}
       </li>

@@ -278,3 +278,31 @@ export function lightboxStep(index: number, delta: number, length: number): numb
   if (length <= 0) return 0;
   return (((index + delta) % length) + length) % length;
 }
+
+/** Sticky stack (T-4-18): the page header (Tailwind `h-14`) plus one shared offset for every
+ * section, group and event-title header. They all stick at the same offset and hand over to each
+ * other by z-order (event title over group header over section header), so nothing ever stacks. */
+export const STICKY_PX = { pageHeader: 56, sectionHeader: 40, groupHeader: 32 } as const;
+
+/** `scroll-margin-top` for an anchor target, so it lands below the sticky headers that cover its
+ * position: sections and groups start with their own sticky header (page header only); an event
+ * sits below its group header, which stays visible while the event is collapsed. */
+export function stickyScrollMarginPx(kind: 'section' | 'group' | 'event'): number {
+  return kind === 'event' ? STICKY_PX.pageHeader + STICKY_PX.groupHeader : STICKY_PX.pageHeader;
+}
+
+/** Top of the scroll-spy band: just below the deepest sticky stack (an event under its group header). */
+export function spyTopOffsetPx(): number {
+  return stickyScrollMarginPx('event') + 4;
+}
+
+/** New set with every id in `ids` added (`expanded`) or removed; `current` is not mutated. Used by
+ * the global and per-section Expand all / Collapse all buttons. */
+export function setExpanded(current: ReadonlySet<string>, ids: readonly string[], expanded: boolean): Set<string> {
+  const next = new Set(current);
+  for (const id of ids) {
+    if (expanded) next.add(id);
+    else next.delete(id);
+  }
+  return next;
+}

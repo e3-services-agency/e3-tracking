@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildSharedViewModel, sharedFileUrl, eventAnchor, eventAnchors, eventForHash, selectCodegenTab, isEmptyValue, derivedMetricsText,
-  eventCardVisibility, oneLineDescription, sectionPresence, buildSectionIndex, filterNav, flattenNav, pickActiveId, lightboxStep,
+  eventCardVisibility, oneLineDescription, sectionPresence, buildSectionIndex, filterNav, flattenNav, pickActiveId, lightboxStep, scrollTopToReveal,
 } from './sharedViewModel';
 import type { TrackingDocument } from '../domain/document/trackingDocument';
 
@@ -196,6 +196,13 @@ describe('T-4-14 view helpers', () => {
     const ids = flat.map((f) => f.id);
     expect(pickActiveId(ids, new Set(['event-cart-update', 'event-purchase']))).toBe('event-purchase');
     expect(pickActiveId(ids, new Set())).toBeNull();
+  });
+
+  it('scrollTopToReveal moves only when the item is outside the view', () => {
+    expect(scrollTopToReveal(100, 200, 150, 20)).toBe(100);
+    expect(scrollTopToReveal(100, 200, 40, 20)).toBe(40);
+    expect(scrollTopToReveal(100, 200, 290, 20)).toBe(110);
+    expect(scrollTopToReveal(0, 200, -5, 20)).toBe(0);
   });
 
   it('lightboxStep wraps in both directions', () => {

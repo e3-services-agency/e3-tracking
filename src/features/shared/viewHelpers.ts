@@ -208,6 +208,15 @@ export function pickActiveId(orderedIds: string[], visible: ReadonlySet<string>)
   return orderedIds.find((id) => visible.has(id)) ?? null;
 }
 
+/** New scrollTop for a scroll container so an item (top and height measured inside the container
+ * content) is visible; unchanged when it already is. Used instead of scrollIntoView, which also
+ * scrolls the window. */
+export function scrollTopToReveal(scrollTop: number, viewHeight: number, itemTop: number, itemHeight: number): number {
+  if (itemTop < scrollTop) return Math.max(0, itemTop);
+  if (itemTop + itemHeight > scrollTop + viewHeight) return Math.max(0, itemTop + itemHeight - viewHeight);
+  return scrollTop;
+}
+
 /** Wrap-around step through a gallery of `length` images. */
 export function lightboxStep(index: number, delta: number, length: number): number {
   if (length <= 0) return 0;

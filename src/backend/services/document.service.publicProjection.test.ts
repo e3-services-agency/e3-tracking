@@ -58,7 +58,7 @@ describe('toPublicTrackingDocument (D-48 amendment)', () => {
 
     expect(publicEvent.identity_note).toBeNull();
     expect(publicEvent.owners).toEqual({ business: null, technical: null });
-    expect(publicEvent.agent_instructions).toBeNull();
+    expect('agent_instructions' in publicEvent).toBe(false);
     expect(publicEvent.not_suitable_for).toBe('Not suitable for X (client-facing)');
   });
 

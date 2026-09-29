@@ -3,7 +3,7 @@
  * a dropdown below 1024px. The item whose target is on screen is highlighted (`activeId`).
  */
 import React, { useEffect, useRef } from 'react';
-import { flattenNav, type NavItem } from './viewHelpers';
+import { flattenNav, scrollTopToReveal, type NavItem } from './viewHelpers';
 
 export function SharedNav({
   items,
@@ -21,8 +21,13 @@ export function SharedNav({
   onNavigate: (id: string) => void;
 }) {
   const activeRef = useRef<HTMLAnchorElement | null>(null);
+  const navRef = useRef<HTMLElement | null>(null);
+  // Scroll only the nav container itself, never the window (scrollIntoView would move both).
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ block: 'nearest' });
+    const container = navRef.current;
+    const link = activeRef.current;
+    if (!container || !link) return;
+    container.scrollTop = scrollTopToReveal(container.scrollTop, container.clientHeight, link.offsetTop, link.offsetHeight);
   }, [activeId]);
 
   const renderItem = (item: NavItem, depth: number): React.ReactNode => (
@@ -72,8 +77,8 @@ export function SharedNav({
           ))}
         </select>
       </div>
-      <aside className="hidden lg:block w-64 shrink-0">
-        <nav aria-label="Contents" className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pr-1">
+      <aside className="hidden lg:block w-64 shrink-0 self-stretch">
+        <nav ref={navRef} aria-label="Contents" className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pr-1">
           <input
             type="search"
             value={query}

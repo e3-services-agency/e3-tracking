@@ -874,11 +874,11 @@ export function toPublicTrackingDocument(doc: TrackingDocument): TrackingDocumen
   return {
     ...stripped,
     project: { ...stripped.project, bloomreach_project_url: null },
-    events: stripped.events.map((event) => ({
+    // agent_instructions is deleted, not nulled: the key does not exist in the public document.
+    events: stripped.events.map(({ agent_instructions: _dropped, ...event }) => ({
       ...event,
       identity_note: null,
       owners: { business: null, technical: null },
-      agent_instructions: null,
-    })),
+    })) as unknown as TrackingDocument['events'],
   };
 }

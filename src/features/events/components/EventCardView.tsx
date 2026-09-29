@@ -203,23 +203,30 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
 
       <Section title="Overview">
         <dl className="grid grid-cols-2 gap-3 text-sm">
-          <Field label="Class" value={card.class} />
-          <Field label="Status" value={card.status} />
-          <Field label="Priority" value={card.priority ?? '—'} />
-          <Field label="Grain" value={card.grain ?? '—'} />
-          <Field label="Page" value={card.page ?? '—'} />
-          <Field label="Trigger" value={card.trigger ?? '—'} />
-          {!shared && <Field label="Identity note" value={card.identity_note ?? '—'} />}
-          {!shared && <Field label="Owner (business)" value={card.owners.business ?? '—'} />}
-          {!shared && <Field label="Owner (technical)" value={card.owners.technical ?? '—'} />}
-          <Field label="Purpose" value={card.purpose ?? '—'} />
-          <Field label="Expiration" value={expirationSummary(card.expiration)} />
-          <Field
-            label="Freshness"
-            value={`${card.freshness.observation_count} observation(s)${
-              card.freshness.last_observation_at ? `, last ${new Date(card.freshness.last_observation_at * 1000).toLocaleString()}` : ''
-            }`}
-          />
+          {[
+            ['Class', card.class, true],
+            ['Status', card.status, true],
+            ['Priority', card.priority ?? '—', true],
+            ['Grain', card.grain ?? '—', true],
+            ['Page', card.page ?? '—', true],
+            ['Trigger', card.trigger ?? '—', true],
+            ['Identity note', card.identity_note ?? '—', !shared],
+            ['Owner (business)', card.owners.business ?? '—', !shared],
+            ['Owner (technical)', card.owners.technical ?? '—', !shared],
+            ['Purpose', card.purpose ?? '—', true],
+            ['Expiration', expirationSummary(card.expiration), true],
+            [
+              'Freshness',
+              `${card.freshness.observation_count} observation(s)${
+                card.freshness.last_observation_at ? `, last ${new Date(card.freshness.last_observation_at * 1000).toLocaleString()}` : ''
+              }`,
+              true,
+            ],
+          ]
+            .filter(([, value, show]) => show && !(shared && value === '—'))
+            .map(([label, value]) => (
+              <Field key={label as string} label={label as string} value={value as string} />
+            ))}
         </dl>
         {card.description && <p className="text-sm text-gray-700 mt-3">{card.description}</p>}
         {card.agent_instructions && (
@@ -233,6 +240,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
         </Section>
       )}
 
+      {(!shared || card.properties.length > 0) && (
       <Section title={`Properties (${card.properties.length})`}>
         <Table
           head={[
@@ -254,6 +262,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
           ])}
         />
       </Section>
+      )}
 
       {card.properties.some((p) => p.item_schema) && (
         <Section title="Item schemas">
@@ -283,8 +292,12 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             <p className="text-xs text-gray-500 mb-2">
               {v.conditions.map((c) => `${c.property_name} ${c.operator} ${c.values.join('/')}`).join(', ')}
             </p>
-            <p className="text-xs text-gray-500 mb-1">Required keys: {v.required_keys.join(', ') || '—'}</p>
-            <p className="text-xs text-gray-500 mb-1">Expiration: {expirationSummary(v.expiration)}</p>
+            {(!shared || v.required_keys.length > 0) && (
+              <p className="text-xs text-gray-500 mb-1">Required keys: {v.required_keys.join(', ') || '—'}</p>
+            )}
+            {(!shared || expirationSummary(v.expiration) !== '—') && (
+              <p className="text-xs text-gray-500 mb-1">Expiration: {expirationSummary(v.expiration)}</p>
+            )}
             <p className="text-xs font-semibold text-gray-700 mb-1">Expected payload</p>
             <CodeBlock code={JSON.stringify(v.expected_payload, null, 2)} language="json" />
           </div>
@@ -403,6 +416,17 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
         {card.findings.length === 0 && <p className="text-sm text-gray-500 mt-3">No open findings.</p>}
         {card.findings.length > 0 && (
           <div className="mt-3">
+            {shared ? (
+              <Table
+                head={['Severity', 'Kind', 'Property / variant', 'Message']}
+                rows={card.findings.map((f) => [
+                  f.severity,
+                  f.kind,
+                  [f.property, f.variant].filter(Boolean).join(' / ') || '—',
+                  f.message ?? '—',
+                ])}
+              />
+            ) : (
             <Table
               head={['Severity', 'Kind', 'Comparison', 'Rule', 'Property', 'Variant', 'Message', 'Expected', 'Actual', 'QA run', 'First seen', 'Last seen']}
               rows={card.findings.map((f) => [
@@ -420,14 +444,17 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
                 new Date(f.last_seen).toLocaleString(),
               ])}
             />
+            )}
           </div>
         )}
       </Section>
       )}
 
+      {(!shared || Object.values(card.codegen).some((code) => code.trim() !== '')) && (
       <Section title="Implementation">
         <CodegenTabs codegen={card.codegen} defaultOpen={!shared} />
       </Section>
+      )}
 
       {(!shared || visible.sdkDefaultProperties) && (
       <Section title="SDK default properties">

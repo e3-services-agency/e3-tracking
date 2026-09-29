@@ -2,8 +2,9 @@
  * Left navigation of the shared view (T-4-14): a sticky column with a filter box on wide screens,
  * a dropdown below 1024px. The item whose target is on screen is highlighted (`activeId`).
  */
-import React, { useEffect, useRef } from 'react';
-import { flattenNav, scrollTopToReveal, type NavItem } from './viewHelpers';
+import React, { useEffect, useRef, useState } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import { flattenNav, scrollTopToReveal, toggleInSet, type NavItem } from './viewHelpers';
 
 export function SharedNav({
   items,
@@ -20,6 +21,8 @@ export function SharedNav({
   onQuery: (q: string) => void;
   onNavigate: (id: string) => void;
 }) {
+  // Group rows (Events, Custom events, ...) start expanded; a filter shows matches regardless.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const activeRef = useRef<HTMLAnchorElement | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
   // Scroll only the nav container itself, never the window (scrollIntoView would move both).
@@ -30,31 +33,51 @@ export function SharedNav({
     container.scrollTop = scrollTopToReveal(container.scrollTop, container.clientHeight, link.offsetTop, link.offsetHeight);
   }, [activeId]);
 
-  const renderItem = (item: NavItem, depth: number): React.ReactNode => (
-    <li key={item.id}>
-      <a
-        href={`#${item.id}`}
-        ref={item.id === activeId ? activeRef : undefined}
-        onClick={(e) => {
-          e.preventDefault();
-          onNavigate(item.id);
-        }}
-        aria-current={item.id === activeId ? 'location' : undefined}
-        style={{ paddingLeft: `${0.5 + depth * 0.75}rem` }}
-        className={`block truncate rounded py-1 pr-2 text-sm ${
-          item.id === activeId
-            ? 'bg-gray-100 font-semibold text-gray-900 border-l-2 border-[var(--color-info)]'
-            : depth === 0
-              ? 'font-medium text-gray-800 hover:bg-gray-50'
-              : 'text-gray-600 hover:bg-gray-50'
-        }`}
-        title={item.label}
-      >
-        {item.label}
-      </a>
-      {item.children && <ul>{item.children.map((c) => renderItem(c, depth + 1))}</ul>}
-    </li>
-  );
+  const renderItem = (item: NavItem, depth: number): React.ReactNode => {
+    const hasChildren = !!item.children && item.children.length > 0;
+    const filtering = query.trim() !== '';
+    const isOpen = filtering || !collapsed.has(item.id);
+    return (
+      <li key={item.id}>
+        <div className="flex items-center" style={{ paddingLeft: `${depth * 0.75}rem` }}>
+          {hasChildren ? (
+            <button
+              type="button"
+              onClick={() => setCollapsed((prev) => toggleInSet(prev, item.id))}
+              aria-expanded={isOpen}
+              disabled={filtering}
+              aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${item.label}`}
+              className="shrink-0 rounded p-0.5 text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent"
+            >
+              {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </button>
+          ) : (
+            <span className="shrink-0 w-[18px]" aria-hidden="true" />
+          )}
+          <a
+            href={`#${item.id}`}
+            ref={item.id === activeId ? activeRef : undefined}
+            onClick={(e) => {
+              e.preventDefault();
+              onNavigate(item.id);
+            }}
+            aria-current={item.id === activeId ? 'location' : undefined}
+            className={`block min-w-0 flex-1 truncate rounded py-1 pl-1 pr-2 text-sm ${
+              item.id === activeId
+                ? 'bg-gray-100 font-semibold text-gray-900 border-l-2 border-[var(--color-info)]'
+                : depth === 0
+                  ? 'font-medium text-gray-800 hover:bg-gray-50'
+                  : 'text-gray-600 hover:bg-gray-50'
+            }`}
+            title={item.label}
+          >
+            {item.label}
+          </a>
+        </div>
+        {hasChildren && isOpen && <ul>{item.children!.map((c) => renderItem(c, depth + 1))}</ul>}
+      </li>
+    );
+  };
 
   return (
     <>

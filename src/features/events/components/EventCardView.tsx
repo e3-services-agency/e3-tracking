@@ -11,8 +11,9 @@
  * resolver so the same component renders the internal event card page
  * (`/api/projects/:id/files/*`) and the public shared view (`/api/shared/:token/files/*`,
  * `src/pages/SharedProject.tsx`). `commentsSlot` is an optional render prop for T-4-04's
- * `CommentsPanel`, rendered once near the header; `undefined` renders nothing (today, on both
- * callers, until T-4-04 wires it in).
+ * `CommentsPanel`, rendered once near the header; `undefined` renders nothing (the internal event
+ * card page passes it only while the thread is open; the shared view mounts its own panel outside
+ * this component). `headerActions` (T-4-16) sits next to the certification badge, e.g. the comment count button.
  *
  * The internal `coverage` grid detail (row/column/cell breakdown, `GET /events/:id/coverage`) is a
  * separate, optional prop (`grid`) -- the shared view has no equivalent route and only shows the
@@ -179,9 +180,11 @@ export interface EventCardViewProps {
   mode?: 'internal' | 'shared';
   /** Skips the name/badge header; the shared view renders its own (collapsible, sticky) title row. */
   hideHeader?: boolean;
+  /** Rendered next to the certification badge in the header (T-4-16: the comment count button). */
+  headerActions?: React.ReactNode;
 }
 
-export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'internal', hideHeader = false }: EventCardViewProps) {
+export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'internal', hideHeader = false, headerActions }: EventCardViewProps) {
   const showNames = anyNameDiffersFromKey(card.properties);
   const shared = mode === 'shared';
   const visible = eventCardVisibility(card);
@@ -193,7 +196,10 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
           <h1 className="text-2xl font-bold text-gray-900">{card.name}</h1>
           {card.business_name && <p className="text-sm text-gray-500 mt-1">{card.business_name}</p>}
         </div>
-        <CertificationBadge certification={card.certification} />
+        <div className="flex items-center gap-2">
+          {headerActions}
+          <CertificationBadge certification={card.certification} />
+        </div>
       </div>
       )}
 

@@ -15,9 +15,9 @@
  * ordering and file-path resolution are unit-testable without `@testing-library/react`, which this
  * repo does not depend on (D-20 uses plain-Node vitest, no jsdom).
  *
- * T-4-04 (D-49): `CommentsPanel` is mounted on each event card (`commentsSlot`), on the use case
- * section and on each requirement row, in `shared` mode (`{token, access: header.access}`); the add
- * form hides itself when `access !== 'comment'`. One `GET /comments` without filters is fetched once
+ * T-4-04 (D-49), T-4-16: comments are a `CommentCountButton` (icon + count) on each event title row,
+ * use case row and requirement row; clicking it mounts a `CommentsPanel` inline, in `shared` mode
+ * (`{token, access: header.access}`); the add form hides itself when `access !== 'comment'`. One `GET /comments` without filters is fetched once
  * (W1 fix round) and filtered client-side per panel (`commentsFor`); `reloadComments` is every
  * panel's `onChanged`.
  *
@@ -34,6 +34,7 @@ import { API_BASE } from '@/src/config/env';
 import { PAGE_MAX_WIDTH_CLASS } from '@/src/components/layout/PageShell';
 import { EventCardView, CertificationBadge, type EventCardData } from '@/src/features/events/components/EventCardView';
 import { CommentsPanel, type CommentPanelRow } from '@/src/features/comments/CommentsPanel';
+import { CommentCountButton } from '@/src/features/comments/CommentCountButton';
 import { CopyLinkButton } from '@/src/features/shared/CopyLinkButton';
 import { SharedNav } from '@/src/features/shared/SharedNav';
 import { useActiveSection } from '@/src/features/shared/useActiveSection';
@@ -48,6 +49,9 @@ import {
   eventForHash,
   oneLineDescription,
   EVENT_CLASS_GROUPS,
+  SECTION_IDS,
+  eventGroupId,
+  toggleInSet,
   type NavItem,
 } from './sharedViewModel';
 
@@ -55,6 +59,9 @@ export { sharedFileUrl, buildSharedViewModel };
 
 /** Height of the sticky page header (Tailwind `h-14`); sticky event titles sit right below it. */
 const HEADER_TOP_CLASS = 'top-14';
+
+/** Quiet time after the last scroll event before a scroll counts as the reader's own. */
+const SETTLE_MS = 150;
 
 interface ShareHeader {
   project: { name: string; client_logo_path: string | null };
@@ -136,6 +143,9 @@ export function SharedProject({ token }: { token: string }) {
   const [openEvents, setOpenEvents] = useState<Set<string>>(new Set());
   const [openUseCases, setOpenUseCases] = useState<Set<string>>(new Set());
   const [navQuery, setNavQuery] = useState('');
+  const [openThreads, setOpenThreads] = useState<Set<string>>(new Set());
+  // A nav click wins over the scroll spy until the reader scrolls again (the last sections can never reach the spy band).
+  const [clickedId, setClickedId] = useState<string | null>(null);
 
   const reloadComments = useCallback(async () => {
     try {
@@ -197,7 +207,35 @@ export function SharedProject({ token }: { token: string }) {
   }, [doc]);
   const nav = useMemo(() => (doc ? buildSectionIndex(doc) : []), [doc]);
   const filteredNav = useMemo(() => filterNav(nav, navQuery), [nav, navQuery]);
-  const activeId = useActiveSection(useMemo(() => leafIds(nav), [nav]));
+  const spyId = useActiveSection(useMemo(() => leafIds(nav), [nav]));
+  const activeId = clickedId ?? spyId;
+  useEffect(() => {
+    if (!clickedId) return;
+    // The click's own (smooth or instant) scroll must not clear it: scroll events are ignored until
+    // they have stopped for SETTLE_MS; the first scroll after that (wheel, scrollbar drag, autoscroll)
+    // clears the click highlight. No keydown listener: Tab through the nav or typing in the filter
+    // must keep it.
+    let settled = false;
+    let timer = window.setTimeout(() => (settled = true), SETTLE_MS);
+    const onScroll = () => {
+      if (settled) {
+        setClickedId(null);
+        return;
+      }
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => (settled = true), SETTLE_MS);
+    };
+    const clear = () => setClickedId(null);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('wheel', clear, { passive: true });
+    window.addEventListener('touchmove', clear, { passive: true });
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('wheel', clear);
+      window.removeEventListener('touchmove', clear);
+    };
+  }, [clickedId]);
 
   /** Expands the event a hash points at (if any) and scrolls to the hash target once rendered. */
   const goToHash = useCallback(
@@ -232,6 +270,7 @@ export function SharedProject({ token }: { token: string }) {
   const navigateTo = useCallback(
     (id: string) => {
       window.history.replaceState(null, '', `#${id}`);
+      setClickedId(id);
       goToHash(id);
     },
     [goToHash]
@@ -255,13 +294,8 @@ export function SharedProject({ token }: { token: string }) {
   const fileUrl = (path: string) => sharedFileUrl(token, path);
   const present = sectionPresence(doc);
   const api = { mode: 'shared' as const, token, access: header.access };
-  const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, id: string) =>
-    setter((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, id: string) => setter((prev) => toggleInSet(prev, id));
+  const toggleThread = (key: string) => setOpenThreads((prev) => toggleInSet(prev, key));
   const expandAllEvents = () => setOpenEvents(new Set(doc.events.map((e) => e.id)));
   const collapseAllEvents = () => setOpenEvents(new Set());
   const expandAllUseCases = () => setOpenUseCases(new Set(doc.use_cases.map((u) => u.id)));
@@ -320,13 +354,13 @@ export function SharedProject({ token }: { token: string }) {
           </div>
 
           {present.events && (
-            <section id="events" className="scroll-mt-20 space-y-4">
+            <section id={SECTION_IDS.events} className="scroll-mt-20 space-y-4">
               <h2 className="text-lg font-semibold text-gray-900">Events ({doc.events.length})</h2>
               {EVENT_CLASS_GROUPS.map(({ cls, label }) => {
                 const inGroup = doc.events.filter((e) => e.class === cls);
                 if (inGroup.length === 0) return null;
                 return (
-                  <div key={cls} id={`events-${cls}`} className="scroll-mt-20 space-y-3">
+                  <div key={cls} id={eventGroupId(cls)} className="scroll-mt-20 space-y-3">
                     <h3 className="text-sm font-semibold text-gray-700">
                       {label} ({inGroup.length})
                     </h3>
@@ -360,16 +394,23 @@ export function SharedProject({ token }: { token: string }) {
                                 </span>
                               )}
                             </button>
+                            <CommentCountButton
+                              count={commentsFor('event', event.id).length}
+                              open={openThreads.has(`event:${event.id}`)}
+                              label={`event ${event.name}`}
+                              onClick={() => {
+                                if (!expanded) {
+                                  setOpenEvents((prev) => new Set(prev).add(event.id));
+                                  setOpenThreads((prev) => new Set(prev).add(`event:${event.id}`));
+                                } else toggleThread(`event:${event.id}`);
+                              }}
+                            />
                             <CopyLinkButton anchor={anchor} label={event.name} />
                           </div>
                           {expanded && (
                             <div className="p-4">
-                              <EventCardView
-                                card={event as unknown as EventCardData}
-                                fileUrl={fileUrl}
-                                mode="shared"
-                                hideHeader
-                                commentsSlot={
+                              {openThreads.has(`event:${event.id}`) && (
+                                <div className="mb-4">
                                   <CommentsPanel
                                     entityType="event"
                                     entityId={event.id}
@@ -377,7 +418,13 @@ export function SharedProject({ token }: { token: string }) {
                                     rows={commentsFor('event', event.id)}
                                     onChanged={reloadComments}
                                   />
-                                }
+                                </div>
+                              )}
+                              <EventCardView
+                                card={event as unknown as EventCardData}
+                                fileUrl={fileUrl}
+                                mode="shared"
+                                hideHeader
                               />
                             </div>
                           )}
@@ -391,7 +438,7 @@ export function SharedProject({ token }: { token: string }) {
           )}
 
           {present.properties && (
-            <SectionCard id="properties" title={`Properties (${doc.properties.length})`}>
+            <SectionCard id={SECTION_IDS.properties} title={`Properties (${doc.properties.length})`}>
               {doc.properties.map((p) => (
                 <div key={p.property_id} className="mb-4">
                   <h4 className="text-sm font-semibold text-gray-800">
@@ -414,7 +461,7 @@ export function SharedProject({ token }: { token: string }) {
 
           {present.useCases && (
             <SectionCard
-              id="use-cases"
+              id={SECTION_IDS.useCases}
               title={
                 <span className="flex items-center justify-between gap-2">
                   <span>Use cases ({doc.use_cases.length})</span>
@@ -440,6 +487,17 @@ export function SharedProject({ token }: { token: string }) {
                             {uc.name}
                           </span>
                         </button>
+                        <CommentCountButton
+                          count={commentsFor('use_case', uc.id).length}
+                          open={openThreads.has(`use_case:${uc.id}`)}
+                          label={`use case ${uc.name}`}
+                          onClick={() => {
+                            if (!expanded) {
+                              setOpenUseCases((prev) => new Set(prev).add(uc.id));
+                              setOpenThreads((prev) => new Set(prev).add(`use_case:${uc.id}`));
+                            } else toggleThread(`use_case:${uc.id}`);
+                          }}
+                        />
                         {uc.documentation_url && (
                           <a href={uc.documentation_url} target="_blank" rel="noreferrer" className={`text-xs ${linkClass}`}>
                             Documentation
@@ -457,6 +515,7 @@ export function SharedProject({ token }: { token: string }) {
                                     <th className="px-3 py-2 font-medium text-gray-500">Target</th>
                                     <th className="px-3 py-2 font-medium text-gray-500">Level</th>
                                     <th className="px-3 py-2 font-medium text-gray-500">Status</th>
+                                    <th className="px-3 py-2 font-medium text-gray-500 text-right">Comments</th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y">
@@ -466,32 +525,44 @@ export function SharedProject({ token }: { token: string }) {
                                         <td className="px-3 py-2">{r.target_label}</td>
                                         <td className="px-3 py-2">{r.level}</td>
                                         <td className="px-3 py-2">{r.status ?? '—'}</td>
-                                      </tr>
-                                      <tr>
-                                        <td colSpan={3} className="px-3 pb-2">
-                                          <CommentsPanel
-                                            entityType="requirement"
-                                            entityId={r.id}
-                                            api={api}
-                                            title="Comments on this requirement"
-                                            rows={commentsFor('requirement', r.id)}
-                                            onChanged={reloadComments}
+                                        <td className="px-3 py-2 text-right">
+                                          <CommentCountButton
+                                            count={commentsFor('requirement', r.id).length}
+                                            open={openThreads.has(`requirement:${r.id}`)}
+                                            label="this requirement"
+                                            onClick={() => toggleThread(`requirement:${r.id}`)}
                                           />
                                         </td>
                                       </tr>
+                                      {openThreads.has(`requirement:${r.id}`) && (
+                                        <tr>
+                                          <td colSpan={4} className="px-3 pb-2">
+                                            <CommentsPanel
+                                              entityType="requirement"
+                                              entityId={r.id}
+                                              api={api}
+                                              title="Comments on this requirement"
+                                              rows={commentsFor('requirement', r.id)}
+                                              onChanged={reloadComments}
+                                            />
+                                          </td>
+                                        </tr>
+                                      )}
                                     </React.Fragment>
                                   ))}
                                 </tbody>
                               </table>
                             </div>
                           )}
-                          <CommentsPanel
-                            entityType="use_case"
-                            entityId={uc.id}
-                            api={api}
-                            rows={commentsFor('use_case', uc.id)}
-                            onChanged={reloadComments}
-                          />
+                          {openThreads.has(`use_case:${uc.id}`) && (
+                            <CommentsPanel
+                              entityType="use_case"
+                              entityId={uc.id}
+                              api={api}
+                              rows={commentsFor('use_case', uc.id)}
+                              onChanged={reloadComments}
+                            />
+                          )}
                         </div>
                       )}
                     </div>
@@ -502,7 +573,7 @@ export function SharedProject({ token }: { token: string }) {
           )}
 
           {present.identity && (
-            <SectionCard id="identity" title={`Identity rules (${doc.identity_rules.length})`}>
+            <SectionCard id={SECTION_IDS.identity} title={`Identity rules (${doc.identity_rules.length})`}>
               <SimpleTable
                 head={['Name', 'Identifier', 'Type', 'SDK call', 'Transformations', 'Trigger']}
                 rows={doc.identity_rules.map((r) => [
@@ -518,7 +589,7 @@ export function SharedProject({ token }: { token: string }) {
           )}
 
           {present.consents && (
-            <SectionCard id="consents" title={`Consent categories (${doc.consent_categories.length})`}>
+            <SectionCard id={SECTION_IDS.consents} title={`Consent categories (${doc.consent_categories.length})`}>
               <SimpleTable
                 head={['Name', 'Standard key', 'Status']}
                 rows={doc.consent_categories.map((c) => [c.name, c.standard_key ?? '—', c.status ?? '—'])}
@@ -527,7 +598,7 @@ export function SharedProject({ token }: { token: string }) {
           )}
 
           {present.catalogs && (
-            <SectionCard id="catalogs" title={`Catalogs (${doc.catalogs.length})`}>
+            <SectionCard id={SECTION_IDS.catalogs} title={`Catalogs (${doc.catalogs.length})`}>
               <SimpleTable
                 head={['Name', 'Mapping role', 'Status']}
                 rows={doc.catalogs.map((c) => [c.name, c.mapping_role ?? '—', c.status ?? '—'])}
@@ -536,7 +607,7 @@ export function SharedProject({ token }: { token: string }) {
           )}
 
           {present.mapping && (
-            <SectionCard id="mapping" title={`Standard event mappings (${doc.standard_event_mappings.length})`}>
+            <SectionCard id={SECTION_IDS.mapping} title={`Standard event mappings (${doc.standard_event_mappings.length})`}>
               <SimpleTable
                 head={['Standard event', 'Event', 'Variant', 'Field map']}
                 rows={doc.standard_event_mappings.map((m) => [
@@ -552,7 +623,7 @@ export function SharedProject({ token }: { token: string }) {
           )}
 
           {present.findings && (
-            <SectionCard id="findings" title="Findings summary">
+            <SectionCard id={SECTION_IDS.findings} title="Findings summary">
               <p className="text-sm text-gray-700">
                 Open — error {doc.findings_summary.open.error}, warning {doc.findings_summary.open.warning}, info{' '}
                 {doc.findings_summary.open.info}

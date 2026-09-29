@@ -131,6 +131,23 @@ export const EVENT_CLASS_GROUPS: { cls: 'custom' | 'sdk' | 'platform'; label: st
   { cls: 'platform', label: 'Platform events' },
 ];
 
+/** DOM ids of the top-level sections; the nav index and the rendered `<section id>` both use these. */
+export const SECTION_IDS = {
+  events: 'events',
+  properties: 'properties',
+  useCases: 'use-cases',
+  identity: 'identity',
+  consents: 'consents',
+  catalogs: 'catalogs',
+  mapping: 'mapping',
+  findings: 'findings',
+} as const;
+
+/** DOM id of an event class group inside the Events section. */
+export function eventGroupId(cls: string): string {
+  return `events-${cls}`;
+}
+
 /** Which top-level document sections have content; an empty one is not rendered or listed. */
 export function sectionPresence(doc: NavDocInput) {
   const open = doc.findings_summary.open;
@@ -158,21 +175,60 @@ export function buildSectionIndex(doc: NavDocInput): NavItem[] {
       const inGroup = doc.events.filter((e) => e.class === cls);
       if (inGroup.length === 0) continue;
       groups.push({
-        id: `events-${cls}`,
+        id: eventGroupId(cls),
         label: `${label} (${inGroup.length})`,
         children: inGroup.map((e) => ({ id: anchorByEvent.get(e) as string, label: e.name })),
       });
     }
-    items.push({ id: 'events', label: `Events (${doc.events.length})`, children: groups });
+    items.push({ id: SECTION_IDS.events, label: `Events (${doc.events.length})`, children: groups });
   }
-  if (present.properties) items.push({ id: 'properties', label: 'Properties' });
-  if (present.useCases) items.push({ id: 'use-cases', label: 'Use cases' });
-  if (present.identity) items.push({ id: 'identity', label: 'Identity' });
-  if (present.consents) items.push({ id: 'consents', label: 'Consents' });
-  if (present.catalogs) items.push({ id: 'catalogs', label: 'Catalogs' });
-  if (present.mapping) items.push({ id: 'mapping', label: 'Mapping' });
-  if (present.findings) items.push({ id: 'findings', label: 'Findings' });
+  if (present.properties) items.push({ id: SECTION_IDS.properties, label: 'Properties' });
+  if (present.useCases) items.push({ id: SECTION_IDS.useCases, label: 'Use cases' });
+  if (present.identity) items.push({ id: SECTION_IDS.identity, label: 'Identity' });
+  if (present.consents) items.push({ id: SECTION_IDS.consents, label: 'Consents' });
+  if (present.catalogs) items.push({ id: SECTION_IDS.catalogs, label: 'Catalogs' });
+  if (present.mapping) items.push({ id: SECTION_IDS.mapping, label: 'Mapping' });
+  if (present.findings) items.push({ id: SECTION_IDS.findings, label: 'Findings' });
   return items;
+}
+
+/** Every DOM id the shared page renders as a navigation target, in document order: the same
+ * decisions (`sectionPresence`, `EVENT_CLASS_GROUPS`, `eventAnchors`) the page uses to render. */
+export function renderedSectionIds(doc: NavDocInput): string[] {
+  const present = sectionPresence(doc);
+  const ids: string[] = [];
+  if (present.events) {
+    ids.push(SECTION_IDS.events);
+    const anchors = eventAnchors(doc.events.map((e) => e.name));
+    for (const { cls } of EVENT_CLASS_GROUPS) {
+      const idx = doc.events.map((e, i) => (e.class === cls ? i : -1)).filter((i) => i >= 0);
+      if (idx.length === 0) continue;
+      ids.push(eventGroupId(cls), ...idx.map((i) => anchors[i]));
+    }
+  }
+  for (const key of ['properties', 'useCases', 'identity', 'consents', 'catalogs', 'mapping', 'findings'] as const) {
+    if (present[key]) ids.push(SECTION_IDS[key]);
+  }
+  return ids;
+}
+
+/** Returns a new set with `id` added when absent, removed when present (group collapse state). */
+export function toggleInSet(set: ReadonlySet<string>, id: string): Set<string> {
+  const next = new Set(set);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  return next;
+}
+
+/** When the page is scrolled to its very end the last sections can never reach the scroll-spy band;
+ * then the active entry is the last one whose top is inside the viewport. `tops` are viewport-relative. */
+export function pickActiveAtBottom(orderedIds: string[], tops: ReadonlyMap<string, number>, viewportHeight: number): string | null {
+  let found: string | null = null;
+  for (const id of orderedIds) {
+    const top = tops.get(id);
+    if (top !== undefined && top < viewportHeight) found = id;
+  }
+  return found;
 }
 
 /** Case-insensitive filter: keeps an item when its label matches (with all its children) or when a

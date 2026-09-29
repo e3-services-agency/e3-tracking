@@ -30,6 +30,8 @@ import { useCaseToMarkdown } from '@/src/domain/document/markdown';
 import type { TrackingDocument } from '@/src/domain/document/trackingDocument';
 import { HistorySection } from '@/src/features/history/HistorySection';
 import { CommentsPanel, type CommentPanelRow } from '@/src/features/comments/CommentsPanel';
+import { toggleInSet } from '@/src/features/shared/viewHelpers';
+import { CommentCountButton } from '@/src/features/comments/CommentCountButton';
 
 interface UseCaseRow {
   id: string;
@@ -382,6 +384,7 @@ function UseCaseDetail({
   // every `CommentsPanel` mounted below (a panel per requirement row plus the use-case-level one --
   // 18 requests on the sandbox project's largest use case before this).
   const [comments, setComments] = useState<CommentPanelRow[]>([]);
+  const [openReqThreads, setOpenReqThreads] = useState<Set<string>>(new Set());
 
   const reloadComments = useCallback(async () => {
     if (!projectId) return;
@@ -834,14 +837,25 @@ function UseCaseDetail({
           );
         })()}
 
-        <div className="bg-white rounded-lg border shadow-sm p-6">
-          <CommentsPanel
-            entityType="use_case"
-            entityId={useCaseId}
-            api={{ mode: 'internal', projectId: projectId ?? '' }}
-            rows={commentsFor('use_case', useCaseId)}
-            onChanged={reloadComments}
-          />
+        <div className="bg-white rounded-lg border shadow-sm px-6 py-3 space-y-3">
+          <div className="flex items-center gap-2 text-sm text-gray-700">
+            <CommentCountButton
+              count={commentsFor('use_case', useCaseId).length}
+              open={openReqThreads.has(useCaseId)}
+              label="this use case"
+              onClick={() => setOpenReqThreads((prev) => toggleInSet(prev, useCaseId))}
+            />
+            <span>Comments on this use case</span>
+          </div>
+          {openReqThreads.has(useCaseId) && (
+            <CommentsPanel
+              entityType="use_case"
+              entityId={useCaseId}
+              api={{ mode: 'internal', projectId: projectId ?? '' }}
+              rows={commentsFor('use_case', useCaseId)}
+              onChanged={reloadComments}
+            />
+          )}
         </div>
 
         <div className="bg-white rounded-lg border shadow-sm">
@@ -937,12 +951,22 @@ function UseCaseDetail({
                     />
                   </td>
                   <td className="px-4 py-2">
-                    <button type="button" onClick={() => removeRow(index)} className="text-gray-400 hover:text-red-600">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {!req.id.startsWith('new-') && (
+                        <CommentCountButton
+                          count={commentsFor('requirement', req.id).length}
+                          open={openReqThreads.has(req.id)}
+                          label="this requirement"
+                          onClick={() => setOpenReqThreads((prev) => toggleInSet(prev, req.id))}
+                        />
+                      )}
+                      <button type="button" onClick={() => removeRow(index)} className="text-gray-400 hover:text-red-600">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
-                {!req.id.startsWith('new-') && (
+                {!req.id.startsWith('new-') && openReqThreads.has(req.id) && (
                   <tr>
                     <td colSpan={7} className="px-4 pb-3 bg-gray-50/50">
                       <CommentsPanel

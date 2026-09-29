@@ -11,7 +11,8 @@ import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { EventCardView, type EventCardData, type CoverageGridData } from '@/src/features/events/components/EventCardView';
-import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
+import { CommentsPanel, type CommentPanelRow } from '@/src/features/comments/CommentsPanel';
+import { CommentCountButton } from '@/src/features/comments/CommentCountButton';
 import { CopyMarkdownButton } from '@/src/components/ui/CopyMarkdownButton';
 import { eventCardToMarkdown } from '@/src/domain/document/markdown';
 import type { EventCard as EventCardDocument } from '@/src/domain/document/trackingDocument';
@@ -27,6 +28,24 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
   const [grid, setGrid] = useState<CoverageGridData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [comments, setComments] = useState<CommentPanelRow[]>([]);
+  const [threadOpen, setThreadOpen] = useState(false);
+
+  const reloadComments = useCallback(async () => {
+    if (!activeProjectId || !eventId) return;
+    try {
+      const params = new URLSearchParams({ entity_type: 'event', entity_id: eventId });
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/comments?${params.toString()}`);
+      const data = await parseJson(res);
+      if (res.ok && Array.isArray(data)) setComments(data);
+    } catch {
+      // best-effort; the panel reports its own post errors
+    }
+  }, [activeProjectId, eventId]);
+
+  useEffect(() => {
+    void reloadComments();
+  }, [reloadComments]);
 
   const load = useCallback(async () => {
     if (!hasValidProjectContext || !activeProjectId || !eventId) {
@@ -86,7 +105,20 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
             card={card}
             grid={grid}
             fileUrl={(path) => `${API_BASE}/api/projects/${activeProjectId}/files/${path}`}
-            commentsSlot={<CommentsPanel entityType="event" entityId={card.id} api={{ mode: 'internal', projectId: activeProjectId }} />}
+            headerActions={
+              <CommentCountButton count={comments.length} open={threadOpen} label="this event" onClick={() => setThreadOpen((o) => !o)} />
+            }
+            commentsSlot={
+              threadOpen ? (
+                <CommentsPanel
+                  entityType="event"
+                  entityId={card.id}
+                  api={{ mode: 'internal', projectId: activeProjectId }}
+                  rows={comments}
+                  onChanged={reloadComments}
+                />
+              ) : undefined
+            }
           />
         )}
       </PageBody>

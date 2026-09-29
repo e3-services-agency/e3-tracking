@@ -8,6 +8,7 @@ import {
   renderPropertiesSection,
   renderRequirementsMatrixSection,
   renderStandardEventMappingsSection,
+  renderFindingsSummarySection,
   renderUseCasesSection,
   renderVariantsSubsection,
   renderCertificationBadge,
@@ -329,21 +330,58 @@ describe('renderStandardEventMappingsSection', () => {
     expect(html).toContain('id="standard-event-mappings"');
   });
 
-  it('renders the mapped event/variant and a field map summary, dropping unmapped fields', () => {
+  it('renders one block per mapping: heading, count, mapped fields first, unmapped as "not mapped"', () => {
     const mappings: StandardEventMappingForDocs[] = [
       {
         standard_event: 'add_to_cart',
         event_name: 'cart_update',
         variant_name: 'cart_update[action=add]',
-        field_map: { product_id: 'product_id', total_price: null },
+        field_map: { total_price: null, product_id: 'product_id' },
       },
     ];
     const html = renderStandardEventMappingsSection(mappings);
-    expect(html).toContain('add_to_cart');
-    expect(html).toContain('cart_update');
-    expect(html).toContain('cart_update[action=add]');
-    expect(html).toContain('product_id → product_id');
-    expect(html).not.toContain('total_price →');
+    expect(html).toContain('add_to_cart → cart_update (cart_update[action=add])');
+    expect(html).toContain('1 of 2 fields mapped');
+    expect(html).not.toContain('→ —');
+    expect(html.indexOf('product_id')).toBeLessThan(html.indexOf('total_price'));
+    expect(html).toContain('<td class="muted">not mapped</td>');
+  });
+});
+
+describe('renderFindingsSummarySection (T-4-19)', () => {
+  const summary = {
+    total: 3,
+    bySeverity: { error: 2, warning: 1, info: 0 },
+    byComparison: [{ comparison: 'definition_vs_observations', error: 2, warning: 1, info: 0, total: 3 }],
+    topEvents: [{ id: 'e1', name: 'purchase', errors: 2, total: 3 }],
+    acknowledged: { error: 1, warning: 0, info: 0, total: 1 },
+  };
+  it('renders severity, comparison, linked top events and acknowledged count', () => {
+    const html = renderFindingsSummarySection(summary, (id) => 'event-' + id);
+    expect(html).toContain('3 open');
+    expect(html).toContain('definition_vs_observations');
+    expect(html).toContain('<a href="#event-e1">purchase</a>');
+    expect(html).toContain('Acknowledged: error 1');
+  });
+  it('renders nothing when there is nothing to summarise', () => {
+    const empty = { ...summary, total: 0, byComparison: [], topEvents: [], acknowledged: { error: 0, warning: 0, info: 0, total: 0 } };
+    expect(renderFindingsSummarySection(empty, () => null)).toBe('');
+  });
+});
+
+describe('renderPropertiesSection examples (T-4-19)', () => {
+  it('prints stored examples as readable values, not escaped JSON', () => {
+    const html = renderPropertiesSection([
+      {
+        name: 'year',
+        data_type: 'array',
+        pii: false,
+        description: null,
+        definitions: [{ name: 'general', description: null, allowed_values: null, formats: [], example_values: [{ value: '2023' }, { value: '2024' }] }],
+      } as unknown as PropertyForDocs,
+    ]);
+    expect(html).toContain('2023, 2024');
+    expect(html).not.toContain('&quot;value&quot;');
   });
 });
 

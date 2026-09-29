@@ -41,6 +41,7 @@ import {
   renderConsentCategoriesSection,
   renderVariantsSubsection,
   renderStandardEventMappingsSection,
+  renderFindingsSummarySection,
   renderUseCasesSection,
   renderRequirementsMatrixSection,
   renderCertificationBadge,
@@ -55,6 +56,8 @@ import {
 } from './docs/sections';
 import * as PropertyDefinitionDAL from '../dal/property-definition.dal';
 import { escapeHtml } from './htmlEscape';
+import { displaySampleValue } from '../../domain/examples';
+import { computeFindingsSummary } from '../../domain/document/findingsSummary';
 import { PROPERTY_DEFINITION_DEFAULT_NAME } from '../../domain/enums';
 import { buildEventCard, buildEventCardContext, buildUnattachedFindings, type EventCardBuildContext } from './document.service';
 
@@ -66,6 +69,13 @@ interface TriggerEntry {
   image_path?: string | null;
   source?: string | null;
   order?: number;
+}
+
+/** Readable example cell (T-4-19): scalars as text, objects pretty-printed in a code span. */
+function renderExampleHtml(value: unknown): string {
+  const d = displaySampleValue(value);
+  if (d.text === '') return '—';
+  return d.block ? `<pre class="example"><code>${escapeHtml(d.text)}</code></pre>` : `<code>${escapeHtml(d.text)}</code>`;
 }
 
 /**
@@ -93,6 +103,7 @@ export function buildPropertyDetailsTable(properties: EventPropertyWithDetails[]
         <td>${escapeHtml(link.property.kind ?? 'event')}</td>
         <td>${method === 'client_web' ? escapeHtml(dataLayerPath(link.property.kind ?? 'event', link.payload_key?.trim() || link.property.name, parseDerivation(link.property.derivation_json))) : 'n/a'}</td>
         <td>${escapeHtml(description)}</td>
+        <td>${renderExampleHtml(jsonSampleValueForProperty(toAttachedPropertyForCodegen(link)))}</td>
       </tr>`;
     })
     .join('\n');
@@ -107,6 +118,7 @@ export function buildPropertyDetailsTable(properties: EventPropertyWithDetails[]
         <th>Kind</th>
         <th>dataLayer path</th>
         <th>Description</th>
+        <th>Example</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
@@ -198,7 +210,7 @@ async function buildEventSectionHtml(
   standardEventByVariantId: Map<string, string>,
   cardCtx: EventCardBuildContext,
   publicView: boolean
-): Promise<string> {
+): Promise<{ html: string; card: ReturnType<typeof buildEventCard> }> {
   const triggersHtml = await buildTriggersHtml(projectId, (event.triggers_json as TriggerEntry[]) ?? []);
   const propertyNameById = new Map(properties.map((link) => [link.property_id, link.property.name]));
 
@@ -239,11 +251,11 @@ async function buildEventSectionHtml(
     })
     .join('\n');
 
-  return `<section class="event" id="event-${escapeHtml(event.id)}">
+  const html = `<section class="event" id="event-${escapeHtml(event.id)}">
     <h2>${escapeHtml(event.name)}</h2>
     <dl class="event-meta">
       ${event.business_name ? `<dt>Business name</dt><dd>${escapeHtml(event.business_name)}</dd>` : ''}
-      <dt>Class</dt><dd>${escapeHtml(event.class)}</dd>
+      <dt>Class</dt><dd><span class="class-badge ${escapeHtml(event.class)}">${escapeHtml(event.class)}</span></dd>
       <dt>Implementation method</dt><dd>${escapeHtml(event.implementation_method)}</dd>
       ${event.dl_event_name ? `<dt>dataLayer event</dt><dd>${escapeHtml(event.dl_event_name)}</dd>` : ''}
       <dt>Status</dt><dd>${escapeHtml(event.status)}</dd>
@@ -267,6 +279,7 @@ async function buildEventSectionHtml(
     ${coverageSummaryHtml}
     ${findingsHtml}
   </section>`;
+  return { html, card };
 }
 
 const DOCUMENT_STYLE = `
@@ -284,6 +297,14 @@ const DOCUMENT_STYLE = `
   dl.event-meta dt { font-weight: 600; color: #52606d; }
   pre { background: #0b1120; color: #e5e7eb; padding: 0.75rem 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.8rem; }
   .codegen { display: flex; flex-direction: column; gap: 0.75rem; }
+  td.muted { color: #9aa5b1; font-style: italic; }
+  .class-badge { display: inline-block; padding: 0 0.4rem; border: 1px solid #e4e7eb; border-radius: 4px; font-size: 0.8rem; }
+  .class-badge.sdk, .class-badge.platform { background: #FFD500; border-color: #FFD500; color: #1A1E38; font-weight: 600; }
+  td, th { overflow-wrap: anywhere; }
+  pre.example { margin: 0; padding: 0.4rem 0.6rem; font-size: 0.75rem; }
+  .mapping-block { margin: 0.5rem 0 1rem; }
+  .mapping-block table { border-collapse: collapse; width: 100%; }
+  .mapping-block th, .mapping-block td { border: 1px solid #e4e7eb; padding: 0.3rem 0.6rem; text-align: left; font-size: 0.875rem; }
   .trigger-image { max-width: 320px; display: block; margin-top: 0.5rem; border: 1px solid #e4e7eb; border-radius: 4px; }
 `;
 
@@ -439,6 +460,14 @@ export async function generateProjectDocumentationHtml(
   // too -- one table after the per-event sections, sharing `cardCtx` (no second findings query).
   const unattachedFindingsHtml = renderFindingsTable(buildUnattachedFindings(cardCtx), 'Open findings without an event');
 
+  const findingsSummaryHtml = renderFindingsSummarySection(
+    computeFindingsSummary(
+      sections.map((x) => x.card),
+      buildUnattachedFindings(cardCtx)
+    ),
+    (eventId) => (events.some((e) => e.id === eventId) ? `event-${eventId}` : null)
+  );
+
   const propertiesHtml = buildPropertiesSectionHtml(projectId);
   const identityAndConsentHtml = buildIdentityAndConsentSectionsHtml(projectId, publicView);
   const useCasesHtml = buildUseCasesSectionHtml(projectId, publicView);
@@ -482,7 +511,8 @@ export async function generateProjectDocumentationHtml(
   <h1>${escapeHtml(project.name)}</h1>
   <p class="subtitle">${escapeHtml(project.client?.name ?? '')} · Generated ${escapeHtml(generatedAt)}</p>
   <nav class="toc">${toc || '<p>No events defined yet.</p>'}</nav>
-  ${sections.join('\n')}
+  ${findingsSummaryHtml}
+  ${sections.map((x) => x.html).join('\n')}
   ${unattachedFindingsHtml}
   ${propertiesHtml}
   ${identityAndConsentHtml}

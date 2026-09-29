@@ -3003,3 +3003,24 @@ Re-review PASS (inference shared and applied on create/import/restore without ov
 ### 2026-09-29 19:28 | reviewer | REVIEW | T-4-19 PASS (2 low, 3 info)
 1566 / 135 green, merge-tree clean. Examples parser verified on every fixture string; both planners normalise; export round-trips byte-equivalent (raw fallback while stored equals unwrapped); migration 0026 idempotent and safe on edge shapes; rendering, wrapping, mapping block, findings summary (public fields only, collision-safe anchors), ClassBadge variables, per-view columns, sandbox counts unchanged, docs accurate. L1 exampleValueStrings re-parses stored values at render and keeps only token [0], so a stored `"a","b"` renders as `a` and a literal `"hello"` loses its quotes. L2 0026 comment overstates parity; test lacks property_definitions and second-run cases. I3 shared view hides the summary at 0 open while HTML shows acknowledged. I4 EXPORTS.md lacks the HTML Example column and Findings summary. I5 pre-existing: customers import update path never proposes example changes.
 Supervisor ruling: fix L1 (render stored strings as-is), L2, I3 (consistent rule: show when open > 0 or acknowledged > 0), I4 in one commit; then merge after QA PASS.
+
+### 2026-09-29 19:50 | qa-tester | PASS | T-4-19 content polish (70f8158), 7 scenarios PASS, 3 low/info findings
+Setup: worktree t419, API 3002, Vite 3010 (throwaway config, removed), QA db and files removed, 3000/3001 untouched. Sandbox and `comment` share link via API. Extracts in `.claude/team/reports/qa/T-4-19/` (tracking-document.json, shared-tracking-document.json, documentation.html, shared-documentation.html, exported-data-manager-events.json, exported-data-manager-customers.json).
+
+| # | Scenario | Result |
+|---|----------|--------|
+| 1 | Wrapping (purchase findings Message, mapping field maps) | PASS |
+| 2 | Clean examples (shared, card, Markdown, HTML, editor); DM import + export | PASS (F1, F2) |
+| 3 | Mapping blocks (shared, card, HTML) | PASS |
+| 4 | Findings summary (shared, HTML) | PASS |
+| 5 | sdk/platform badge rgb(255, 213, 0), text rgb(26, 30, 56) | PASS |
+| 6 | Shared property columns at 1440, no scroller; internal card full set in scroller | PASS |
+| 7 | Regression | PASS |
+
+Detail. 1: purchase findings table Message cells `break-words`, full text, no ellipsis; mapping section has zero `.truncate` elements. 2: sponsoring_years -> "2023", tags -> "2023_Attendee" (shared Properties, JSON, HTML); no `[{"value"` or `\"` in any example cell; definition editor shows 2023; card and Copy as Markdown show "2023" for an array example I set on product_ids. Fresh project: data-manager-events import then export is deep-equal to the fixture (isDeepStrictEqual true); same for data-manager-customers (the only fixture with array examples; the events fixture has none, and customers has only two, tags and sponsoring_years). 3: "standard -> event (variant)", "n of m fields mapped", mapped first, "not mapped" muted (lighter colour), zero "-> --" in the DOM, HTML (6 blocks) and card. 4: counts by comparison table, top 5 events (cart_update 6, checkout 4, purchase_item 4, purchase 3, view_item 3) as `#event-*` links; the link click lands the card at the top; acknowledged error 1 shown; same in documentation.html (67 event anchors). 6: at 1440 all 60 expanded event tables fit (scrollWidth == clientWidth); secondary lines Role/Allowed values present; internal session_start card has 12 columns inside `overflow-x: auto` (995/655). 7: sticky event title, Show implementation snippets tabs (GTM / dataLayer, Web SDK, Web SDK (legacy), Tracking API), hash anchor auto-expands, comment bubble opens the form, console shows only the HMR WebSocket error, no 500 from the app.
+
+Findings
+F1 (info). data-manager-events export is deep-equal but not string-identical to the fixture (different indentation/key order; sha256 differs). Same as earlier phases' "deep-equal" criterion, not a regression as far as I can tell.
+F2 (low, likely pre-existing). Expected payload / Markdown payload of an array property that has an example prints a scalar: `"product_ids": "2023"` (and cart_update snippet) instead of `["2023"]`. T-4-19 did not touch expected-payload generation.
+F3 (info). Descriptions that come quoted from the Data Manager fixture stay quoted (`"2022"`, `"Loyal"`); same text in the fixture. The Formats secondary line could not be seen in a browser (the sandbox has no formats), only unit-covered.
+F4 (info). POST data-manager-events/apply with a body lacking `payload` returns 500 INTERNAL_ERROR instead of 400 (my malformed test request).

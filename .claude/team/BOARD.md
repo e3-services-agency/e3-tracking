@@ -2949,3 +2949,38 @@ User: findings message and field-map cells truncated; array examples show escape
 
 ### 2026-09-29 17:49 | reviewer | REVIEW | T-4-17 re-review PASS (6b997ab)
 All eight fix items verified at file:line; 1540 / 132, build, tsc, lint, merge-tree clean; snapshot delta only the empty sdk_default_properties lines. Open non-blocking: W3 catalog lookup-key check (backlog with T-4-11), refund heuristic, identity push mention. Browser QA running; merge on PASS.
+
+### 2026-09-29 18:00 | qa-tester | FAIL | T-4-17 codegen v2 (6b997ab), 1 scenario FAIL (backfill on sandbox), 2 medium and 4 low findings
+Setup: worktree t417, API 3002, Vite 3010 (throwaway config, removed), QA db removed, 3000/3001 untouched. Sandbox created via API. Extracts in `.claude/team/reports/qa/T-4-17/` (tracking-document.json, shared-tracking-document.json, documentation.html, shared-documentation.html, events.csv, properties.csv). Browser pane was hidden (screenshots time out), so verification was DOM/JS based.
+
+| # | Scenario | Result |
+|---|----------|--------|
+| 1 | Backfill on sandbox | FAIL (F1) |
+| 2 | cart_update dl name, card tabs, copy | PASS (F2, F3) |
+| 3 | purchase / session_start / shared | PASS |
+| 4 | item kind, quantity field, invalid derivation | PASS (F3) |
+| 5 | Bundle picker, from-bundle | PASS (F5) |
+| 6 | state_list_mismatch | PASS |
+| 7 | Markdown, JSON, shared JSON, HTML, CSV | PASS |
+| 8 | Regression | PASS with limits (F6) |
+
+Findings
+F1 (scenario 1, FAIL). The migration 0025 backfill does not reach the sandbox. Steps: 1. POST /api/projects/sandbox. 2. GET /events and /properties. Expected: purchase, purchase_item `server_api`, session_start `sdk_auto`, cart_update `client_web`; product_ids/product_list/total_price `state_list` with derivations. Actual: every event `client_web` (session_start, page_visit, consent too), every property `kind: event`, derivation null. Cause: the backfill is SQL inside the migration, the sandbox is restored after migrations, and restore inserts column defaults. The 0025 unit test passes, so the migration SQL itself is fine. Impact: a fresh sandbox shows sdk events with tracking snippets and purchase with a dataLayer snippet, and no state lists. Suggest rebuilding the bundled sandbox backup with `scripts/build-sandbox-backup.mjs` (or applying the same defaults in backupRestore). I set methods and kinds via PATCH to continue.
+F2 (medium). Discriminator sample in snippets is the placeholder. cart_update dataLayer, Web SDK, legacy and Tracking API snippets carry `action: 'string'` under "Optional:" although the variant is `action=add` (Expected payload shows "add"). Same for purchase (`purchase_status: 'string'`). The final payload would not resolve to the variant. Expected `action: 'add'`.
+F3 (low). Custom `quantity_field` (set "qty" on product_list) puts `qty: 'string'` in items and `quantity: 'string'` in the Web SDK product_list; expected numeric sample (1). With the default field name it is `1`.
+F4 (low). Property table shows `dataLayer path` `bloomreach.properties.*` for server_api and sdk_auto events (purchase, session_start), which have no dataLayer. Suggest "n/a".
+F5 (info). No UI to create a bundle exists anywhere (Properties page only assigns properties to existing bundles by checkbox, and only when a bundle exists); the scenario step "create bundle on Properties page" needed POST /bundles. The Add bundle picker appears only when editing an existing event (not in the create form), same as the attach picker.
+F6 (info). Branch predates T-4-18 (not an ancestor), so sticky table headers and its shared-view behaviour could not be regression-tested here; retest after merge. Findings page table has 9 columns (Severity, Kind, Rule, Comparison, Event, Message, Status, Last seen, Actions); the "4-column" check applies to no table I found on this branch.
+
+Verified in detail
+2: dl name add_to_cart saved via editor; card Overview shows method client_web and dataLayer event add_to_cart; Implementation expanded by default ("Hide implementation snippets"); tabs GTM / dataLayer, Web SDK, Web SDK (legacy), Tracking API; dataLayer push `{ bloomreach: null }` then push with `event: 'add_to_cart'`, `bloomreach.event: 'cart_update'`, `properties`, `item` (once product_id is kind item), `items`, header comment on recommended practice and Bloomreach-payload validation; brPayload, BR_RULES and GTM setup steps present; Web SDK uses `bloomreach.track`, legacy `exponea.track`, both with product_ids/product_list/total_price derived. Copy buttons write the snippet to the clipboard. Item uses real sample once example value set (`{value:"102589"}`; a plain string array is ignored, so the earlier 'string' was my input).
+3: purchase card: Tracking API tab only plus server-side note; session_start: "Emitted by" and "SDK default properties" tabs, snippet `track: { default_properties: { browser, os } }` when context properties exist. Shared view: purchase only Tracking API; session_start shows the SDK note when context properties exist and no Implementation block when there are none.
+4: product_id kind item moves it under `item`; state list quantity_field respected; sum `price*` and `*` return 400 "derivation_json.sum must be item field names joined by "*"..." both by API and in the editor.
+5: bundle "Product item" (price, product_id, variant_id) added in the editor of new event view_wishlist; card Bundle column filled; from-bundle returns 201 with `attached`, second call 201 with `attached: []` and 3 `skipped_property_ids`; unknown bundle 404.
+6: bad observation (product_ids 1 vs product_list 2, X missing) gives two error `state_list_mismatch` findings (length disagreement, missing X); consistent observation gives none.
+7: Markdown copy has Kind, dataLayer path, Bundle columns and method lines; tracking-document.json events carry implementation_method and dl_event_name, properties kind, derivation, datalayer_path, bundle; shared JSON has the same fields and no marker leaks (agent_instructions, identity_note, owner_business markers: 0 occurrences in shared JSON and HTML; keys owners/identity_note stay as nulls); documentation.html has per-method blocks; events.csv and properties.csv headers match docs/EXPORTS.md, 63 event rows, 648 property rows.
+Console: only the expected 400 from the invalid-derivation test; no 500s.
+
+### 2026-09-29 17:55 | supervisor | RULING | T-4-17 QA FAIL (F1) + 3 small findings
+Passed: card tabs and snippets, copy, server_api/sdk_auto cards and shared view, derivation validation, bundle route, state_list_mismatch findings, exports and leak check. F1: the method/kind backfill is SQL in migration 0025 only, so a restored backup (the sandbox) or imported properties get client_web/event defaults. F2: discriminator sample prints 'string' instead of the variant's value ('add', 'success'). F3: a custom quantity_field renders 'string' samples instead of a number. F4: dataLayer path column shows bloomreach.properties.* for server_api/sdk_auto events. F5: no UI to create a bundle (only assignment); Add bundle only when editing. F6: branch predates T-4-18 (retest sticky headers after merge).
+Ruling: fix F1 by moving the inference into a shared function (src/domain/codegen/defaults.ts) applied on event/property create, on every import planner and on backup restore when the incoming row has no method/kind, and regenerate the bundled sandbox backup; F2, F3, F4 in the same round; F5 -> backlog (create-bundle form on the Properties page, Add bundle in the create form); then QA re-check of scenario 1 and 2, then merge.

@@ -3024,3 +3024,6 @@ F1 (info). data-manager-events export is deep-equal but not string-identical to 
 F2 (low, likely pre-existing). Expected payload / Markdown payload of an array property that has an example prints a scalar: `"product_ids": "2023"` (and cart_update snippet) instead of `["2023"]`. T-4-19 did not touch expected-payload generation.
 F3 (info). Descriptions that come quoted from the Data Manager fixture stay quoted (`"2022"`, `"Loyal"`); same text in the fixture. The Formats secondary line could not be seen in a browser (the sandbox has no formats), only unit-covered.
 F4 (info). POST data-manager-events/apply with a body lacking `payload` returns 500 INTERNAL_ERROR instead of 400 (my malformed test request).
+
+### 2026-09-29 19:38 | supervisor | MERGE | T-4-19 merged into agent-setup — DONE; nothing running
+Fix commit 41299d8 (stored examples rendered as-is, 0026 comment/tests, findings section shown when open or acknowledged > 0, EXPORTS.md + HTML TOC). QA PASS on 7 scenarios (Data Manager round trip deep-equal). Merged tree: tsc, lint clean, 1567 tests / 136 files. All post-exit tasks T-4-10, T-4-12..T-4-19 merged. Open, waiting on the user: T-4-11 (D-61 catalogs, D-62 sources, consent list), T-4-06 (samples/br-initiatives/), phase 5 (D-09).

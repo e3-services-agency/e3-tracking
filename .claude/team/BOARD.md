@@ -2822,3 +2822,9 @@ F1 PASS: pushState to /help/%E0%A4%A then sidebar Help renders the default artic
 
 ### 2026-09-29 15:10 | supervisor | HANDOFF | T-4-14 fix round (c9b0869) — RE-REVIEW + QA in parallel
 1473 / 125, tsc, build, lint green. W1 lightbox focus trap, focus return, body scroll lock; W2 eventAnchors with -2/-3 suffixes used by wrappers, nav and hash (test with colliding names); W3 src/components/ui/clipboard.ts copyText (secure-context clipboard, textarea fallback) with Copied/Copy failed in CodeBlock and CopyLinkButton; L1 CodegenTabs defaultOpen = !shared, font size reverted; L2 shared mode hides identity note/owner rows and empty Coverage/Open findings blocks; L3 SHARING.md updated.
+
+### 2026-09-29 15:20 | supervisor | MERGE | T-4-13 merged into agent-setup — DONE
+Re-review #3 PASS (every fix verified at file:line), QA re-check PASS (malformed slug, external link, plain-word reasons, stale client error). Merge clean; main node_modules reinstalled (remark-gfm added; my `npm ci` wiped it mid-way and the T-4-14 QA was told to restart); merged tree: tsc, lint clean, 1474 tests / 127 files.
+
+### 2026-09-29 15:20 | reviewer | REVIEW | T-4-14 re-review PASS (c9b0869)
+All six fixes verified at file:line; 1473 / 125; merge-tree clean against agent-setup and T-4-13. Note: on the internal card the body scroll lock has no effect (main is the scroller), informational only. T-4-14 -> QA (running).

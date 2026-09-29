@@ -2816,3 +2816,9 @@ Supervisor ruling: fix W1, W2, W3 (shared clipboard helper with textarea fallbac
 
 ### 2026-09-29 15:07 | supervisor | HANDOFF | T-4-13 fix commits fb79082, 550799f — RE-REVIEW + QA re-check in parallel
 Diff 07ad325..550799f: mainRoute.ts try/catch + test (M6/F1), MarkdownView node prop and external link target/rel (M5, I10/F2), Events.tsx comment (M7), markdown.ts `?? null` and required-keys test, plain-word certification reasons (M1), NewProjectModal stale client error cleared (M3). Implementer report not received; verified from git.
+
+### 2026-09-29 16:05 | qa-tester | QA | T-4-13 re-check at 550799f: PASS
+F1 PASS: pushState to /help/%E0%A4%A then sidebar Help renders the default article (Getting started, highlighted) with sidebar intact, no error boundary. F2 PASS: MCP link has target="_blank" rel="noopener noreferrer". M1 PASS: copied purchase card says "Not certified. Reasons: 7 open error finding(s)." M3 PASS: after creating a client inline (Enter with name and key) the client is selected and the "Choose a client" error is gone (only the expected Name/Key required messages remain). Processes stopped, QA db and throwaway vite config removed; 3000/3001 untouched.
+
+### 2026-09-29 15:10 | supervisor | HANDOFF | T-4-14 fix round (c9b0869) — RE-REVIEW + QA in parallel
+1473 / 125, tsc, build, lint green. W1 lightbox focus trap, focus return, body scroll lock; W2 eventAnchors with -2/-3 suffixes used by wrappers, nav and hash (test with colliding names); W3 src/components/ui/clipboard.ts copyText (secure-context clipboard, textarea fallback) with Copied/Copy failed in CodeBlock and CopyLinkButton; L1 CodegenTabs defaultOpen = !shared, font size reverted; L2 shared mode hides identity note/owner rows and empty Coverage/Open findings blocks; L3 SHARING.md updated.

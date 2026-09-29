@@ -2776,3 +2776,6 @@ Processes stopped, QA db and vite.qa.config.mjs removed; 3000/3001 untouched.
 
 ### 2026-09-29 14:46 | supervisor | MERGE | T-4-12 merged into agent-setup — DONE; T-4-14 started
 Re-QA PASS on D1-D4. Merge clean; tsc, lint green; vitest 1461 / 125 (first run had 1 intermittent failure, second run fully green; same flake the implementer saw once -- backlog: identify the flaky test). T-4-13 part 2 (merge agent-setup, Help.tsx layout rule) running; T-4-14 shared view UX started on task/T-4-14-shared-view-ux. Scenario 8 (T-4-15 modal) still to be browser-checked on the merged tree at the next QA.
+
+### 2026-09-29 14:50 | supervisor | HANDOFF | T-4-13 part 2 (merge 07ad325 on top of the T-4-12 merge) — RE-REVIEW + QA in parallel
+1473 tests / 127 files, tsc, build, lint green on the merged branch. Conflict only in EventCard.tsx (PageHeader/PageBody kept, Copy as Markdown in the header). Help.tsx uses PageHeader/PageBody, no own overflow, sticky w-56 nav (top-8, self-start), article flex-1 at full PageBody width; QA-LOCAL.md and MCP.md wording. Not browser-checked by the implementer.

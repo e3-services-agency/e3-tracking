@@ -10,7 +10,7 @@ import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
-import { EXPIRATION_UNITS, LIBRARY_INDUSTRIES, SHARE_ACCESS } from '@/src/domain/enums';
+import { EXPIRATION_UNITS, LIBRARY_INDUSTRIES, SHARE_ACCESS, SHARE_COMMENT_VISIBILITIES } from '@/src/domain/enums';
 
 /** T-3-10 QA fix (ERROR 1, 2026-09-28 10:22): sentinel select values distinct from any real industry string. */
 const INDUSTRY_NOT_SET = '';
@@ -41,6 +41,7 @@ interface ProjectDetail {
 interface ShareState {
   share_token: string | null;
   share_access: string | null;
+  share_comments?: string;
   share_created_at: string | null;
   url: string | null;
 }
@@ -210,6 +211,29 @@ export function ProjectSettings() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setShareError(typeof data?.error === 'string' ? data.error : 'Failed to update access');
+        return;
+      }
+      setShare(data as ShareState);
+    } catch (e) {
+      setShareError(e instanceof Error ? e.message : 'Network error');
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const handleShareCommentsChange = async (share_comments: string) => {
+    if (!activeProjectId || !share?.share_token) return;
+    setShareLoading(true);
+    setShareError(null);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/share`, {
+        method: 'PATCH',
+        headers: { Accept: 'application/json' },
+        body: JSON.stringify({ share_comments }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setShareError(typeof data?.error === 'string' ? data.error : 'Failed to update comment visibility');
         return;
       }
       setShare(data as ShareState);
@@ -411,6 +435,26 @@ export function ProjectSettings() {
           </div>
         )}
         {!share?.share_token && <div className="text-xs text-gray-500">No share link yet.</div>}
+        {share?.share_token && (
+          <div className="space-y-1 max-w-md">
+            <label className="block text-xs font-medium text-gray-700">Show internal comments on the shared view</label>
+            <select
+              value={share.share_comments ?? SHARE_COMMENT_VISIBILITIES[0]}
+              onChange={(e) => void handleShareCommentsChange(e.target.value)}
+              disabled={shareLoading}
+              className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+            >
+              {SHARE_COMMENT_VISIBILITIES.map((v) => (
+                <option key={v} value={v}>
+                  {v === 'all' ? 'All comments' : 'Only comments posted through the link'}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500">
+              Comments marked "Internal only" are never shown on the shared view, whatever this is set to.
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="space-y-2 border-t pt-4">

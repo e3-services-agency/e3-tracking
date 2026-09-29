@@ -46,6 +46,7 @@ interface CommentRow {
   use_case_id: string | null;
   author_name: string;
   via_share: boolean;
+  internal_only: boolean;
   body: string;
   created_at: string;
   resolved_at: string | null;
@@ -57,12 +58,14 @@ async function parseJson(res: Response): Promise<any> {
 }
 
 type ResolvedFilter = '' | 'true' | 'false';
+type InternalFilter = '' | 'true' | 'false';
 
 export function Comments() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
   const [rows, setRows] = useState<CommentRow[]>([]);
   const [entityType, setEntityType] = useState('');
   const [resolvedFilter, setResolvedFilter] = useState<ResolvedFilter>('false');
+  const [internalFilter, setInternalFilter] = useState<InternalFilter>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -111,6 +114,7 @@ export function Comments() {
       const params = new URLSearchParams();
       if (entityType) params.set('entity_type', entityType);
       if (resolvedFilter) params.set('resolved', resolvedFilter);
+      if (internalFilter) params.set('internal_only', internalFilter);
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/comments?${params.toString()}`);
       const data = await parseJson(res);
       if (!res.ok) {
@@ -125,7 +129,7 @@ export function Comments() {
     } finally {
       setLoading(false);
     }
-  }, [hasValidProjectContext, activeProjectId, entityType, resolvedFilter]);
+  }, [hasValidProjectContext, activeProjectId, entityType, resolvedFilter, internalFilter]);
 
   useEffect(() => {
     void load();
@@ -203,6 +207,18 @@ export function Comments() {
               <option value="">All</option>
             </select>
           </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-gray-500">Visibility</label>
+            <select
+              value={internalFilter}
+              onChange={(e) => setInternalFilter(e.target.value as InternalFilter)}
+              className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm"
+            >
+              <option value="">All</option>
+              <option value="true">Internal only</option>
+              <option value="false">Not internal only</option>
+            </select>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg border shadow-sm divide-y">
@@ -227,6 +243,11 @@ export function Comments() {
                   {row.via_share && (
                     <span className="rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-[10px] font-medium">
                       via share
+                    </span>
+                  )}
+                  {row.internal_only && (
+                    <span className="rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 text-[10px] font-medium">
+                      Internal only
                     </span>
                   )}
                   <span>·</span>

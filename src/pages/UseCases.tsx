@@ -25,6 +25,9 @@ import {
   REQUIREMENT_STATUSES,
   type RequirementTargetKind,
 } from '@/src/domain/enums';
+import { CopyMarkdownButton } from '@/src/components/ui/CopyMarkdownButton';
+import { useCaseToMarkdown } from '@/src/domain/document/markdown';
+import type { TrackingDocument } from '@/src/domain/document/trackingDocument';
 import { HistorySection } from '@/src/features/history/HistorySection';
 import { CommentsPanel, type CommentPanelRow } from '@/src/features/comments/CommentsPanel';
 
@@ -646,6 +649,16 @@ function UseCaseDetail({
     }
   };
 
+  /** T-4-13: reads the use case from the tracking document (the canonical shape, with resolved target labels and no internal fields) at click time. */
+  const copyUseCaseMarkdown = async (): Promise<string> => {
+    const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/export/tracking-document.json`);
+    if (!res.ok) throw new Error('Failed to load the tracking document.');
+    const doc = (await res.json()) as TrackingDocument;
+    const uc = doc.use_cases.find((u) => u.id === useCaseId);
+    if (!uc) throw new Error('Use case not found in the tracking document.');
+    return useCaseToMarkdown(uc);
+  };
+
   if (loading) return <div className="p-8 text-sm text-gray-500">Loading…</div>;
   if (!useCase) return <div className="p-8 text-sm text-gray-500">Use case not found.</div>;
 
@@ -659,9 +672,12 @@ function UseCaseDetail({
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{useCase.code ? `${useCase.code} — ${useCase.name}` : useCase.name}</h1>
           </div>
-          <Button variant="destructive" onClick={() => void handleDelete()} disabled={deleting} className="gap-2">
-            {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Delete
-          </Button>
+          <div className="flex items-center gap-2">
+            <CopyMarkdownButton getMarkdown={copyUseCaseMarkdown} />
+            <Button variant="destructive" onClick={() => void handleDelete()} disabled={deleting} className="gap-2">
+              {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />} Delete
+            </Button>
+          </div>
         </div>
       </PageHeader>
 

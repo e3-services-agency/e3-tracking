@@ -139,7 +139,7 @@ export function Events() {
 
   // D-34, T-2-08 ("the Documentation page gets 'Download tracking document JSON'"): this project's
   // documentation export lives on the Events page header (there is no separate per-project
-  // "Documentation" page -- `src/pages/Documentation.tsx` is the static Knowledge Base viewer), same
+  // "Documentation" page; the old static viewer was merged into the Help page in T-4-13), same
   // place as the HTML documentation download above.
   const handleDownloadTrackingDocument = useCallback(async () => {
     if (!activeProjectId) return;

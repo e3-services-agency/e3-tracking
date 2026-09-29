@@ -65,6 +65,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-4-15 | 4 | Backlog fixes: strip share_token from the backup export, create-project modal validation message | implementer | T-4-10 | DONE | see board 2026-09-29 |
 | T-4-16 | 4 | Shared view follow-ups: collapsible nav groups, section links that work, per-row comment counts with on-demand threads (requirements, event cards) | implementer | T-4-14 | DONE | see board 2026-09-29 |
 | T-4-17 | 4 | Codegen v2 (D-63 pending): namespaced dataLayer object with reset-before-push and event/items shape, GTM tag mapping, Web SDK new vs legacy tabs, SDK events show emitting call + default properties snippet instead of a tracking snippet | implementer | T-4-16 | BLOCKED (user: namespace key, items attribute set) | see board 2026-09-29 |
+| T-4-18 | 4 | Shared view polish: one global expand/collapse pair plus per-section toggles, nav group rows toggle on label click, sticky section and group headers with handover | implementer | T-4-16 | IN_PROGRESS | see board 2026-09-29 |
 | T-4-EXIT | 4 | Phase 4 exit: qa-roundtrip 1 to 13 plus MCP smoke on merged agent-setup, report to user | supervisor | T-4-05 | DONE | see below |
 
 Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktrees after T-1-02 merges. Everything else is sequential per the dependency column.

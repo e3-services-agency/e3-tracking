@@ -394,3 +394,11 @@ Consequences: Folded into T-4-09 (button, flag, checklist entry); the curated ba
 
 ## D-49 amendment (2026-09-29): comments are one shared thread
 Comments attached to an event, property, use case or requirement form one thread shown in both the internal and the shared view. Internal replies are visible to anyone with the share link; private notes belong in the internal fields the public projection strips (use case internal_notes/internal_url, agent_instructions, owners, identity_note). The internal panel states the visibility next to the form. Resolved state and via_share origin stay internal. Open for the user's confirmation at the phase 4 review.
+
+## D-49 amendment 2 (2026-09-29): internal-only comments and a per-link comment visibility setting
+Date: 2026-09-29  Status: accepted (user)
+Decision: A comment posted internally may be flagged internal_only (checkbox "Internal only", default off). Internal-only comments never leave the internal view: the public shared routes filter them server-side, they carry a badge internally, and backup/CSV keep the flag. The share settings gain "Show internal comments on the shared view": all (default, D-49 amendment 1 behaviour) or via_share_only (the shared view lists only comments posted through the link). Both are enforced in routes/shared.ts, never only in the UI. Migration 0024: comments.internal_only INTEGER NOT NULL DEFAULT 0, projects.share_comments TEXT NOT NULL DEFAULT 'all'. Task T-4-10, does not wait for phase 5.
+
+## D-53 amendment 5 (2026-09-29): 0024 T-4-10 internal-only comments and share_comments; 0020 stays reserved for T-4-06.
+
+## D-56 amendment 2 (2026-09-29): the T-4-06 gate is the folder .claude/team/samples/br-initiatives/ (the user provides about 20 initiative exports from the E3 P&P backup); the task designs against five diverse ones and uses all as regression fixtures.

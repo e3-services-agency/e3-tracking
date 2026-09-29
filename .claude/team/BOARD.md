@@ -2670,3 +2670,6 @@ Phase 3+4 exit QA on merged agent-setup (HEAD 8cccbf8): PASS. All 16 required qa
 
 ### 2026-09-29 01:36 | supervisor | PHASE | T-4-EXIT DONE — phase 4 complete except gated T-4-06; waiting for the user
 Exit QA PASS (scenarios 1-16, MCP 19 tools), 1433 tests / 122 files, tsc, build, lint green; finding baseline 78 (40 error / 38 warning). Sandbox backup now embeds a trigger screenshot (placeholder PNG, 634f7e3). qa-roundtrip wording fixed for the three exit-QA notes (scenario 4 second mapping apply, scenario 11 variant_id, scenario 15 custom-class events). Exit report: reports/PHASE4-EXIT-2026-09-29.md (real-client review script, phase 5 swap points, decisions to confirm: D-49 amendment). Phase 5 needs the user's approval (D-09). T-4-06 starts when samples/bloomreach-initiative-export.json arrives.
+
+### 2026-09-29 11:51 | supervisor | DECISION | D-49 amendment 2, D-53 amendment 5, D-56 amendment 2; T-4-10 starts
+User confirmed after the phase 4 exit: internal-only comment flag plus a per-link "show internal comments" setting, enforced server-side (T-4-10, migration 0024, not waiting for phase 5). T-4-06 gate changed to the folder samples/br-initiatives/ (about 20 exports, no client data). Phase 5 approval still open; real-client review is on the user.

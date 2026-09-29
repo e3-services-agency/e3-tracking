@@ -3,19 +3,11 @@ import { X } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { useProjectShell } from '../context/ProjectShellContext';
+import { slugify } from '@/src/domain/slug';
 import { useClients } from '@/src/features/clients/hooks/useClients';
 
 const SPACE_BLUE = 'var(--e3-space-blue)';
 const E3_WHITE = 'var(--e3-white)';
-
-function slugify(value: string): string {
-  return value
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
 
 export interface NewProjectModalProps {
   isOpen: boolean;
@@ -60,7 +52,7 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
   // Fresh installs have zero clients and zero projects; Clients used to be reachable only from
   // inside a project's shell, deadlocking onboarding (fix round finding #1). Creating a client
   // inline here, instead of only linking to the Clients page, keeps project creation a single flow.
-  const handleCreateClient = async (e: React.FormEvent) => {
+  const handleCreateClient = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     const trimmedName = newClientName.trim();
     const trimmedKey = newClientKey.trim();
@@ -84,7 +76,7 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
     const trimmedName = name.trim();
     const trimmedKey = key.trim();
     const nextErrors: { client?: string; name?: string; key?: string } = {};
-    if (!clientId) nextErrors.client = 'Choose a client';
+    if (!clientId || creatingClient) nextErrors.client = 'Choose a client';
     if (!trimmedName) nextErrors.name = 'Name is required';
     if (!trimmedKey) nextErrors.key = 'Key is required';
     setErrors(nextErrors);
@@ -135,7 +127,7 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                 ))}
               </select>
             )}
-            {errors.client && !creatingClient && <p className="text-xs text-red-600 mt-1">{errors.client}</p>}
+            {errors.client && <p className="text-xs text-red-600 mt-1">{creatingClient ? 'Finish creating the client first' : errors.client}</p>}
             {!creatingClient && (
               <p className="text-xs text-gray-500 mt-1">
                 {clients.length === 0 ? 'No clients yet — ' : ''}
@@ -158,6 +150,8 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                     id="new-client-name"
                     type="text"
                     value={newClientName}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleCreateClient(e); } }}
+                    
                     onChange={(e) => setNewClientName(e.target.value)}
                     placeholder="Acme Corp"
                     className="w-full font-sans"
@@ -171,6 +165,8 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                     id="new-client-key"
                     type="text"
                     value={newClientKey}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleCreateClient(e); } }}
+                    
                     onChange={(e) => setNewClientKey(e.target.value)}
                     placeholder="acme"
                     className="w-full font-mono"

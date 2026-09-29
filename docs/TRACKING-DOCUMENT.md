@@ -67,12 +67,13 @@ field list is present:
 
 | Field | Notes |
 |---|---|
+| `implementation_method`, `dl_event_name` | D-63 (T-4-17), additive: how the event reaches Bloomreach (`client_web` | `server_api` | `sdk_auto`; absent on an older document means `client_web`) and the site's dataLayer event that carries it (`null` when not recorded). Kept in the public projection. |
 | `name`, `business_name`, `class`, `description`, `purpose`, `page`, `trigger`, `grain`, `identity_note` | Straight from the `Event` row. |
 | `owners` | `{business, technical}`. |
 | `priority`, `status` | `PRIORITIES`/`EVENT_STATUSES` (`src/domain/enums.ts`). |
 | `certification` | `{applicable, certified, reasons[]}` — see below (D-05). |
 | `expiration` | `{effective, source: 'event' \| 'project' \| null}` — the event's own expiration, else the project default, else `null`. |
-| `properties[]` | Every linked property: `payload_key`, `data_type`, `data_formats`, `required`, `role`, `allowed_values` (with `label`/`standard_event` hints), `item_schema` (D-30, array properties only), a generated `example`, `description`, `pii`, `definition_id`/`definition_name` (D-58, T-4-00). `allowed_values`/`data_formats`/`description`/`example` are read from this link's own named definition (`property_definitions`), not the shared property, so the same property attached to two events can validate and document differently (e.g. `action` allows `add`/`remove` on `cart_update` but `accept`/`reject` on `consent`); a property with a single (`general`) definition behaves exactly as before this table existed. |
+| `properties[]` | Every linked property: `payload_key`, `data_type`, `data_formats`, `required`, `role`, `allowed_values` (with `label`/`standard_event` hints), `item_schema` (D-30, array properties only), a generated `example`, `description`, `pii`, `kind`/`derivation`/`datalayer_path`/`bundle` (D-63, T-4-17, additive: `kind` is `event` | `item` | `state_list` | `context`; `derivation` is the state list's rule, `{source: 'items', id_field, form: 'ids' | 'id_quantity', quantity_field?}` or `{source: 'items', sum: 'price*quantity'}`, else `null`; `datalayer_path` is `bloomreach.properties.x`, `bloomreach.item.x` or `computed from items`; `bundle` is the comma-joined name(s) of the property bundle(s) it belongs to, else `null`), `definition_id`/`definition_name` (D-58, T-4-00). `allowed_values`/`data_formats`/`description`/`example` are read from this link's own named definition (`property_definitions`), not the shared property, so the same property attached to two events can validate and document differently (e.g. `action` allows `add`/`remove` on `cart_update` but `accept`/`reject` on `consent`); a property with a single (`general`) definition behaves exactly as before this table existed. |
 | `variants[]` | `id`, `name`, `conditions` (discriminator property names resolved), `standard_event` it maps to (if any), `expected_payload` (a sample JSON payload with the variant's discriminator values as literals), `required_keys` (the `expected_payload` keys that are required, fix round), `expiration` (this variant's own override, or `null` when it follows the event/project value, fix round). |
 | `standard_event_mappings[]` | This event's `StandardEventMapping` rows, `field_map` resolved to property names. |
 | `contexts[]` | `context`-role properties, their `payload_key` (the key `context_values_json`/the raw observation payload actually carries — may differ from the display name `property`, fix round) and their allowed values (D-03: contexts never create variants). |
@@ -84,7 +85,7 @@ field list is present:
 | `freshness` | `{last_observation_at, observation_count}`, live-resolved against current definitions (not the observation's stored `event_id`/`variant_id`, which only refresh on a comparison recompute). |
 | `quality` | `{open: {error, warning, info}, acknowledged: {error, warning, info}, by_comparison}` — open `Finding` counts for this event, across every comparison; `acknowledged` (D-42, T-2-09 fix round) is the same breakdown for findings a person resolved by hand whose fingerprint still reproduced as of the last recompute (excluded from `open`/`findings[]`, but still counted by `certification`). |
 | `findings[]` | Every currently-open `Finding` for this event, across every comparison and severity, **uncapped** (D-40 Q9, fix round): `id`, `comparison`, `kind`, `severity`, `property_id`/`property` (resolved name), `variant_id`/`variant`, `rule` (the originating rule's name, for a `rule_violation`/`bound_violation` finding; `null` otherwise), `message`, `expected`, `actual`, `qa_run_id`, `first_seen`, `last_seen`. |
-| `codegen` | `{gtm, web_sdk, tracking_api}` snippets (same generator as the docs export). |
+| `codegen` | Snippets per implementation method (same generator as the docs export, D-63, T-4-17). Original keys stay: `gtm` (the dataLayer push plus the GTM template, `datalayer` + `gtm_template`), `web_sdk` (now the new Web SDK, `bloomreach.track(event, payload)`), `tracking_api`. Additive keys: `datalayer` (the reset push `{ bloomreach: null }` and the namespaced push, `bloomreach.event` / `properties` / `item` / `items`, with a header comment stating this is E3's recommended practice and validation always runs on the Bloomreach payload), `gtm_template` (the fixed `brPayload` transformation, the event's state-list rules and the GTM custom template setup), `web_sdk_legacy` (`exponea.track`), `sdk_emits` and `sdk_default_properties` (`sdk_auto` events only), `note` (one line on why tabs are absent for `server_api`/`sdk_auto`). Keys that do not apply to the event's `implementation_method` are empty strings: `client_web` has the dataLayer, GTM, both Web SDK snippets and the Tracking API; `server_api` only `tracking_api` plus `note`; `sdk_auto` only `sdk_emits`, `sdk_default_properties` and `note`. |
 | `sdk_default_properties` | The fixed `SDK_DEFAULT_PROPERTIES` list (`os`, `browser`, `device`, `location`) — attributes the Bloomreach SDK attaches automatically, never flagged as unexpected. |
 
 ### Property definitions (D-58, T-4-00)
@@ -229,10 +230,12 @@ reopened) reopens the finding as an ordinary open finding, exactly as if it had 
       "id": "…",
       "name": "cart_update",
       "class": "custom",
+      "implementation_method": "client_web",
+      "dl_event_name": "cart_update",
       "status": "planned",
       "certification": { "applicable": true, "certified": false, "reasons": ["no_observations"] },
       "properties": [
-        { "name": "total_price", "payload_key": "total_price", "data_type": "number", "data_formats": ["money"], "required": false, "role": "normal", "pii": false }
+        { "name": "total_price", "payload_key": "total_price", "data_type": "number", "data_formats": ["money"], "required": false, "role": "normal", "pii": false, "kind": "state_list", "derivation": { "source": "items", "sum": "price*quantity" }, "datalayer_path": "computed from items", "bundle": null }
       ],
       "variants": [
         {
@@ -249,7 +252,7 @@ reopened) reopens the finding as an ordinary open finding, exactly as if it had 
       "rules": [],
       "quality": { "open": { "error": 0, "warning": 0, "info": 0 }, "acknowledged": { "error": 0, "warning": 0, "info": 0 }, "by_comparison": {} },
       "findings": [],
-      "codegen": { "gtm": "…", "web_sdk": "…", "tracking_api": "…" },
+      "codegen": { "gtm": "…", "datalayer": "…", "gtm_template": "…", "web_sdk": "…", "web_sdk_legacy": "…", "tracking_api": "…", "sdk_emits": "", "sdk_default_properties": "", "note": "" },
       "sdk_default_properties": ["os", "browser", "device", "location"]
     }
   ],

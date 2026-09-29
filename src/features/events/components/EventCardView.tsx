@@ -25,6 +25,7 @@ import { anyNameDiffersFromKey } from '@/src/domain/payloadKey';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
 import { CodeBlock } from '@/src/components/ui/CodeBlock';
 import { CodegenTabs } from '@/src/features/shared/CodegenTabs';
+import { hasCodegen, type CodegenData } from '@/src/features/shared/codegenMethodTabs';
 import { TriggersBlock } from '@/src/features/shared/TriggersBlock';
 import { derivedMetricsText, eventCardVisibility } from '@/src/features/shared/viewHelpers';
 
@@ -33,6 +34,9 @@ export interface EventCardData {
   name: string;
   business_name: string | null;
   class: string;
+  /** D-63 (T-4-17): absent on older documents, treated as `client_web`. */
+  implementation_method?: string;
+  dl_event_name?: string | null;
   description: string | null;
   purpose: string | null;
   page: string | null;
@@ -57,6 +61,11 @@ export interface EventCardData {
     example: unknown;
     description: string | null;
     pii: boolean;
+    /** D-63 (T-4-17), additive: property kind, where it lives in the dataLayer, its bundle name(s). */
+    kind?: string;
+    derivation?: unknown;
+    datalayer_path?: string;
+    bundle?: string | null;
   }[];
   variants: {
     id: string;
@@ -114,7 +123,7 @@ export interface EventCardData {
     last_seen: string;
   }[];
   agent_instructions: string | null;
-  codegen: { gtm: string; web_sdk: string; tracking_api: string };
+  codegen: CodegenData;
   sdk_default_properties: string[];
 }
 
@@ -211,6 +220,8 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
         <dl className="grid grid-cols-2 gap-3 text-sm">
           {[
             ['Class', card.class, true],
+            ['Implementation method', card.implementation_method ?? 'client_web', true],
+            ['dataLayer event', card.dl_event_name ?? '—', true],
             ['Status', card.status, true],
             ['Priority', card.priority ?? '—', true],
             ['Grain', card.grain ?? '—', true],
@@ -252,7 +263,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
           head={[
             'Payload key',
             ...(showNames ? ['Name'] : []),
-            'Type', 'Formats', 'Role', 'Required', 'Allowed values', 'PII', 'Description', 'Example',
+            'Type', 'Formats', 'Role', 'Kind', 'dataLayer path', 'Bundle', 'Required', 'Allowed values', 'PII', 'Description', 'Example',
           ]}
           rows={card.properties.map((p) => [
             p.payload_key,
@@ -260,6 +271,9 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             p.data_type,
             p.data_formats.join(', ') || '—',
             p.role,
+            p.kind ?? 'event',
+            p.datalayer_path ?? '—',
+            p.bundle ?? '—',
             p.required ? 'yes' : 'no',
             p.allowed_values ? p.allowed_values.map((v) => v.value).join(', ') : '—',
             p.pii ? 'yes' : 'no',
@@ -456,9 +470,9 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
       </Section>
       )}
 
-      {(!shared || Object.values(card.codegen).some((code) => code.trim() !== '')) && (
+      {(!shared || hasCodegen(card.codegen, card.implementation_method)) && (
       <Section title="Implementation">
-        <CodegenTabs codegen={card.codegen} defaultOpen={!shared} />
+        <CodegenTabs codegen={card.codegen} method={card.implementation_method} defaultOpen={!shared} />
       </Section>
       )}
 

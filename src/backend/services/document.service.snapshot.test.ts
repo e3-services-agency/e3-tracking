@@ -23,6 +23,7 @@ import { previewDataManagerEvents, applyDataManagerEvents } from './dataManagerE
 import { previewCustomerEventsExport, applyCustomerEventsExport } from './customerEventsExportImport.service';
 import { runComparison } from './comparison.service';
 import { buildTrackingDocument } from './document.service';
+import { BR_PAYLOAD_SOURCE } from '../../domain/codegen/brPayload';
 
 const samplesDir = path.resolve(__dirname, '../../../.claude/team/samples');
 const dataMappingFixture = JSON.parse(fs.readFileSync(path.join(samplesDir, 'data-mapping.json'), 'utf-8'));
@@ -88,6 +89,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 // insert time (`nowIso()`, `finding.dal.ts`), so they vary run to run just like `generated_at`.
 const ISO_TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 
+// D-63 (T-4-17): every client_web event's `codegen.gtm`/`gtm_template` embeds the shared `brPayload`
+// source; it is asserted once in `domain/codegen/snippets.test.ts`, so the snapshot keeps a marker.
 function normalize(value: unknown, idMap: Map<string, string>, counter: { n: number }): unknown {
   if (Array.isArray(value)) return value.map((v) => normalize(v, idMap, counter));
   if (value && typeof value === 'object') {
@@ -106,6 +109,7 @@ function normalize(value: unknown, idMap: Map<string, string>, counter: { n: num
     return placeholder;
   }
   if (typeof value === 'string' && ISO_TIMESTAMP_RE.test(value)) return 'TIMESTAMP';
+  if (typeof value === 'string' && value.includes(BR_PAYLOAD_SOURCE)) return value.split(BR_PAYLOAD_SOURCE).join('<BR_PAYLOAD_SOURCE>');
   return value;
 }
 

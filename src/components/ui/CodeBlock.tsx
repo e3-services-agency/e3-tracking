@@ -44,14 +44,14 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
 
   return (
     <div
-      className={`relative rounded-md overflow-hidden border border-gray-200 group ${className}`}
+      className={`relative rounded-md overflow-hidden border border-gray-200 ${className}`}
       style={{ backgroundColor: 'var(--syntax-code-bg)' }}
     >
-      {/* Copy Button Overlay */}
+      {/* Copy button, always visible so touch and keyboard users find it (T-4-14) */}
       <button
         type="button"
         onClick={handleCopy}
-        className="absolute top-2 right-2 p-1.5 rounded-md bg-white border border-gray-200 text-gray-500 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-gray-50 hover:text-gray-900 transition-all z-10"
+        className="absolute top-2 right-2 p-1.5 rounded-md bg-white border border-gray-200 text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-all z-10"
         aria-label="Copy code"
       >
         {copied ? <Check size={16} className="text-green-600" /> : <Copy size={16} />}
@@ -64,7 +64,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
         customStyle={{
           margin: 0,
           padding: '1.25rem',
-          fontSize: '0.875rem',
+          fontSize: '0.8125rem',
           lineHeight: '1.5',
           backgroundColor: 'transparent',
         }}

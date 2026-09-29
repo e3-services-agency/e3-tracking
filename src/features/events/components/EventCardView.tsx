@@ -22,6 +22,10 @@ import React from 'react';
 import { summarizeCertification } from '@/src/domain/certification';
 import { anyNameDiffersFromKey } from '@/src/domain/payloadKey';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
+import { CodeBlock } from '@/src/components/ui/CodeBlock';
+import { CodegenTabs } from '@/src/features/shared/CodegenTabs';
+import { TriggersBlock } from '@/src/features/shared/TriggersBlock';
+import { derivedMetricsText, eventCardVisibility } from '@/src/features/shared/viewHelpers';
 
 export interface EventCardData {
   id: string;
@@ -126,7 +130,7 @@ export function expirationSummary(exp: EventCardData['expiration'] | null): stri
   return `${exp.effective.count} ${exp.effective.units} (${exp.source ?? '—'})`;
 }
 
-export function CertificationBadge({ certification }: { certification: EventCardData['certification'] }) {
+export function CertificationBadge({ certification, compact = false }: { certification: EventCardData['certification']; compact?: boolean }) {
   const label = !certification.applicable ? 'n/a' : certification.certified ? 'certified' : 'not certified';
   const color = !certification.applicable
     ? 'bg-gray-100 text-gray-600 border-gray-200'
@@ -139,7 +143,7 @@ export function CertificationBadge({ certification }: { certification: EventCard
       title={certification.reasons.length > 0 ? certification.reasons.join(', ') : undefined}
     >
       {label}
-      {certification.reasons.length > 0 ? ` (${certification.reasons.join(', ')})` : ''}
+      {!compact && certification.reasons.length > 0 ? ` (${certification.reasons.join(', ')})` : ''}
     </span>
   );
 }
@@ -173,12 +177,17 @@ export interface EventCardViewProps {
   commentsSlot?: React.ReactNode;
   /** `shared` (public view) keeps only the header badge; the operator-facing Certification block is internal. Default `internal`. */
   mode?: 'internal' | 'shared';
+  /** Skips the name/badge header; the shared view renders its own (collapsible, sticky) title row. */
+  hideHeader?: boolean;
 }
 
-export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'internal' }: EventCardViewProps) {
+export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'internal', hideHeader = false }: EventCardViewProps) {
   const showNames = anyNameDiffersFromKey(card.properties);
+  const shared = mode === 'shared';
+  const visible = eventCardVisibility(card);
   return (
     <div className="space-y-6">
+      {!hideHeader && (
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{card.name}</h1>
@@ -186,6 +195,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
         </div>
         <CertificationBadge certification={card.certification} />
       </div>
+      )}
 
       {mode === 'internal' && <CertificationBlock certification={card.certification} />}
 
@@ -219,29 +229,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
 
       {card.triggers.length > 0 && (
         <Section title={`Triggers (${card.triggers.length})`}>
-          <div className="space-y-4">
-            {card.triggers.map((trigger, i) => (
-              <div key={i} className="border rounded-md p-3">
-                {trigger.title && <h4 className="text-sm font-semibold text-gray-800">{trigger.title}</h4>}
-                {trigger.description && <p className="text-sm text-gray-700 mt-1">{trigger.description}</p>}
-                {trigger.page_url && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Page:{' '}
-                    <a href={trigger.page_url} target="_blank" rel="noreferrer" className="text-[var(--brand-primary)] hover:underline">
-                      {trigger.page_url}
-                    </a>
-                  </p>
-                )}
-                {trigger.image_path && (
-                  <img
-                    src={fileUrl(trigger.image_path)}
-                    alt={trigger.title ?? 'Trigger screenshot'}
-                    className="mt-2 max-w-md border rounded"
-                  />
-                )}
-              </div>
-            ))}
-          </div>
+          <TriggersBlock triggers={card.triggers} fileUrl={fileUrl} />
         </Section>
       )}
 
@@ -283,6 +271,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
         </Section>
       )}
 
+      {(!shared || visible.variants) && (
       <Section title={`Variants (${card.variants.length})`}>
         {card.variants.length === 0 && <p className="text-sm text-gray-500">No variants.</p>}
         {card.variants.map((v) => (
@@ -296,11 +285,14 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             </p>
             <p className="text-xs text-gray-500 mb-1">Required keys: {v.required_keys.join(', ') || '—'}</p>
             <p className="text-xs text-gray-500 mb-1">Expiration: {expirationSummary(v.expiration)}</p>
-            <pre className="bg-gray-50 border rounded p-2 text-xs overflow-x-auto">{JSON.stringify(v.expected_payload, null, 2)}</pre>
+            <p className="text-xs font-semibold text-gray-700 mb-1">Expected payload</p>
+            <CodeBlock code={JSON.stringify(v.expected_payload, null, 2)} language="json" />
           </div>
         ))}
       </Section>
+      )}
 
+      {(!shared || visible.standardEventMappings) && (
       <Section title={`Standard event mappings (${card.standard_event_mappings.length})`}>
         {card.standard_event_mappings.length === 0 && <p className="text-sm text-gray-500">Not mapped to a standard event.</p>}
         {card.standard_event_mappings.length > 0 && (
@@ -316,6 +308,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
           />
         )}
       </Section>
+      )}
 
       {card.contexts.length > 0 && (
         <Section title="Contexts">
@@ -346,6 +339,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
         )}
       </Section>
 
+      {(!shared || visible.rules) && (
       <Section title={`Rules (${card.rules.length})`}>
         {card.rules.length === 0 && <p className="text-sm text-gray-500">No rules.</p>}
         {card.rules.length > 0 && (
@@ -363,20 +357,27 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
           />
         )}
       </Section>
+      )}
 
+      {(!shared || visible.derivedMetrics || visible.notSuitableFor) && (
       <Section title="Derived metrics / not suitable for">
-        <Field label="Derived metrics" value={card.derived_metrics ? JSON.stringify(card.derived_metrics) : '—'} />
-        <div className="mt-2">
-          <Field label="Not suitable for" value={card.not_suitable_for ?? '—'} />
-        </div>
+        {(!shared || visible.derivedMetrics) && <Field label="Derived metrics" value={derivedMetricsText(card.derived_metrics)} />}
+        {(!shared || visible.notSuitableFor) && (
+          <div className="mt-2">
+            <Field label="Not suitable for" value={card.not_suitable_for ?? '—'} />
+          </div>
+        )}
       </Section>
+      )}
 
+      {(!shared || visible.useCases) && (
       <Section title={`Use cases (${card.use_cases.length})`}>
         {card.use_cases.length === 0 && <p className="text-sm text-gray-500">Not referenced by any use case.</p>}
         {card.use_cases.length > 0 && (
           <Table head={['Code', 'Name', 'Level']} rows={card.use_cases.map((u) => [u.code ?? '—', u.name, u.level])} />
         )}
       </Section>
+      )}
 
       <Section
         title={`Open findings (${card.findings.length}) — error ${card.quality.open.error}, warning ${card.quality.open.warning}, info ${card.quality.open.info}${
@@ -420,15 +421,15 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
         )}
       </Section>
 
-      <Section title="Codegen">
-        <CodeBlock label="GTM / dataLayer" code={card.codegen.gtm} />
-        <CodeBlock label="Bloomreach Web SDK" code={card.codegen.web_sdk} />
-        <CodeBlock label="Bloomreach Tracking API" code={card.codegen.tracking_api} />
+      <Section title="Implementation">
+        <CodegenTabs codegen={card.codegen} />
       </Section>
 
+      {(!shared || visible.sdkDefaultProperties) && (
       <Section title="SDK default properties">
         <p className="text-sm text-gray-700">{card.sdk_default_properties.join(', ') || '—'}</p>
       </Section>
+      )}
     </div>
   );
 }
@@ -483,15 +484,6 @@ export function Table({ head, rows }: { head: string[]; rows: (string | number)[
           )}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-export function CodeBlock({ label, code }: { label: string; code: string }) {
-  return (
-    <div className="mb-3">
-      <h4 className="text-xs font-semibold text-gray-700 mb-1">{label}</h4>
-      <pre className="bg-gray-50 border rounded p-2 text-xs overflow-x-auto whitespace-pre-wrap">{code}</pre>
     </div>
   );
 }

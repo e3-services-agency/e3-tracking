@@ -1,0 +1,6 @@
+T-4-18 QA extracts (394105b), sandbox comment share link, Browser pane via preview_start.
+Toolbar: visible global pair aria "Expand/Collapse all all rows" (a second md-hidden pair, offsetParent null at 1280). Expand: 8 -> 73 expanded (62 events + 3 use cases); Collapse -> 8. Local pairs: custom 8->50 (42), sdk +5, use cases +3. At 700px iframe: one global pair at y=148, works (73).
+Sticky stack (top 56): section H2 z10, group z15, expanded event title z20; at any scroll group covers section, expanded title covers both (elementFromPoint TOP), bg opaque (white / gray-50). Properties/Use cases/Consents/Mapping/Findings z10 headers stick at 56 then hand over. Checked 1024x768, 1280x720, 1440x900.
+Anchor #event-cart_update fresh: scroll-margin 88px, event top 87px, title visible below group header. Nav Findings: header visible (page bottom).
+Spy: collapsed wheel scroll matched last event above 92px in 8 samples incl. group boundaries; expanded cart_update held through body, moved to flyer after; click hold on Use cases cleared by scrollbar drag.
+Regression: no console errors, all /api/shared 200, findings columns Severity|Kind|Property / variant|Message, codegen (GTM/Web SDK/Tracking API) shows, comment posted -> bubble 1.

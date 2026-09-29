@@ -2916,3 +2916,16 @@ Namespaced `bloomreach` object with reset push on the unchanged site event; even
 
 ### 2026-09-29 16:38 | supervisor | HANDOFF | T-4-18 shared view polish (394105b) — REVIEW + QA in parallel
 1492 / 127, tsc, build, lint green; not browser-checked. One global Expand/Collapse all pair (also below md), local pairs on the Use cases header and event group headers; nav group labels are buttons that toggle (Enter/Space); sticky headers for every section and group at top-14 with z-order section < group < expanded event title, anchors with scroll-margin 56/88, spy offset 92 (STICKY_PX constants, tests). Deviations: label toggles only (no jump); label stays a link while filtering; aria-label wording "Expand all all rows" to fix.
+
+### 2026-09-29 17:10 | qa-tester | PASS | T-4-18 shared view polish (394105b)
+Browser pane opened with preview_start; API 3002, Vite 3010 (throwaway config, removed), sandbox with comment share link. Extracts: `.claude/team/reports/qa/T-4-18/extracts.md`.
+| # | Scenario | Result |
+|---|----------|--------|
+| 1 | One visible global pair; expands/collapses 62 events + 3 use cases; local pairs on Custom/SDK/Platform groups and Use cases affect only their section; at 700px one global pair reachable | PASS |
+| 2 | Label click toggles group, click again expands; Tab+Enter and Space toggle; filter active: chevron disabled, label stays a link (documented deviation) | PASS |
+| 3 | Sticky stack section < group < expanded event title at 1024x768, 1280x720, 1440x900; Properties/Use cases/Consents/Mapping/Findings stick and hand over; opaque; bubble and copy-link clickable in sticky title row | PASS (Identity and Catalogs sections absent in sandbox, so not exercised) |
+| 4 | #event-cart_update fresh lands with title under group header (top 87 vs header bottom 88); Findings nav click shows its header | PASS |
+| 5 | Spy correct collapsed and with expanded event; click hold persists, cleared by scrollbar drag | PASS |
+| 6 | Bubbles/counts (post -> 1), hidden empty sections, 4-column findings table, codegen tabs, no console errors, no non-200 API | PASS (lightbox not testable: sandbox has no screenshots) |
+| 7 | Observation: global pair aria-label reads "Expand all all rows" / "Collapse all all rows" (local pairs read fine, e.g. "Expand all custom events") | NOTE |
+Minor observation: the "Events" section H2 is 40px tall vs 32px group header; only visually hidden because the group sits over it and the event title is z20, no defect seen.

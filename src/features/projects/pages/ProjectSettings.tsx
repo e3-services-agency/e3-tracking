@@ -422,6 +422,13 @@ export function ProjectSettings() {
               <Button onClick={handleCopyShareLink} disabled={shareLoading} variant="secondary">
                 {shareCopied ? 'Copied' : 'Copy link'}
               </Button>
+              <Button
+                onClick={() => share.url && window.open(share.url, '_blank', 'noopener,noreferrer')}
+                disabled={shareLoading || !share.url}
+                variant="secondary"
+              >
+                Open shared view
+              </Button>
               <Button onClick={handleRevokeShare} disabled={shareLoading} variant="secondary">
                 Revoke
               </Button>

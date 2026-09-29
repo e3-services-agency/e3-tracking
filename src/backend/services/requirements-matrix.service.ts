@@ -13,6 +13,7 @@ import { listProperties } from '../dal/property.dal';
 import { listVariantsByProject } from '../dal/variant.dal';
 import { getMainCatalog, listCatalogFields } from '../dal/catalog.dal';
 import { listConsentCategories } from '../dal/consent-category.dal';
+import { deriveTargetParts } from '../../domain/requirementsMatrix';
 
 export interface RequirementsMatrixUseCase {
   id: string;
@@ -44,6 +45,14 @@ export interface RequirementsMatrixRow {
   key: string;
   /** Keyed by use case id; `null` when that use case has no requirement on this target. */
   cells: Record<string, string | null>;
+  /** T-4-12 (additive): true when any requirement on this row is a gap (unresolved or removed target). */
+  is_gap: boolean;
+  /** T-4-12 (additive): the gap requirements' notes joined with " | ", or null. Never used as the row label. */
+  gap_note: string | null;
+  /** T-4-12 (additive): the event / variant / heading this row belongs to (see `deriveTargetParts`). */
+  group_label: string;
+  /** T-4-12 (additive): the row's own name inside its group (property, field, category, or "(event)"/"(variant)"). */
+  leaf_label: string;
 }
 
 export interface RequirementsMatrix {
@@ -154,8 +163,24 @@ export function computeRequirementsMatrix(projectId: string): RequirementsMatrix
       const label = isGapRemoved
         ? `${labelFor(target)}: ${req.note?.trim() || `requirement #${req.sort_order + 1}`}`
         : labelFor(target);
-      row = { ...target, label, key, cells: {} };
+      const parts = deriveTargetParts({
+        target_kind: req.target_kind,
+        note: req.status === 'gap' ? req.note : null,
+        eventName: target.event_id ? labelFor({ ...target, target_kind: 'event' }) : null,
+        variantName: target.variant_id ? labelFor({ ...target, target_kind: 'variant' }) : null,
+        propertyName: target.property_id ? labelFor({ ...target, target_kind: 'customer_property' }) : null,
+        catalogFieldName: target.catalog_field_id ? labelFor({ ...target, target_kind: 'catalog_attribute' }) : null,
+        consentName: target.consent_category_id ? labelFor({ ...target, target_kind: 'consent' }) : null,
+      });
+      row = { ...target, label, key, cells: {}, is_gap: false, gap_note: null, ...parts };
       rowsByKey.set(key, row);
+    }
+    if (req.status === 'gap') {
+      row.is_gap = true;
+      const note = req.note?.trim();
+      if (note && !(row.gap_note ?? '').split(' | ').includes(note)) {
+        row.gap_note = row.gap_note ? row.gap_note + ' | ' + note : note;
+      }
     }
     row.cells[req.use_case_id] = req.level;
   }

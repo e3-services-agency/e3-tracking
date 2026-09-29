@@ -160,6 +160,10 @@ describe('computeRequirementsMatrix', () => {
     expect(gapRows[0].label).toBe(gapRows[1].label);
     // ...but distinct, stable keys.
     expect(gapRows[0].key).not.toBe(gapRows[1].key);
+    // T-4-12: the row exposes the template name and note separately from the label.
+    expect(gapRows[0].is_gap).toBe(true);
+    expect(gapRows[0].gap_note).toContain("wishlist_add");
+    expect(gapRows[0].group_label).toBe("wishlist_add");
     expect(new Set(gapRows.map((r) => r.key)).size).toBe(2);
   });
 

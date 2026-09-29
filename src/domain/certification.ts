@@ -56,3 +56,52 @@ export function computeCertification(input: CertificationInput): Certification {
 
   return { applicable: true, certified: reasons.length === 0, reasons };
 }
+
+/** Human wording for one `Certification.reasons[]` entry (T-4-12: event card Certification block). */
+export function describeCertificationReason(reason: string): string {
+  if (reason === 'not_applicable') return 'Only custom events are certified; SDK and platform events are not validated.';
+  if (reason === 'status_ignored') return 'The event status is "ignored".';
+  if (reason === 'no_observations') return 'No observation of this event exists in a non-archived QA run.';
+  const open = reason.match(/^open_errors: (\d+)$/);
+  if (open) return `${open[1]} open error finding(s).`;
+  const ack = reason.match(/^acknowledged_errors: (\d+)$/);
+  if (ack) return `${ack[1]} error finding(s) acknowledged by hand but still reproducing.`;
+  return reason;
+}
+
+export interface CertificationSummary {
+  status: 'certified' | 'not certified' | 'not applicable';
+  reasons: string[];
+  /** One sentence on what would change the status. */
+  change: string;
+}
+
+/** Pure view model for the event card's Certification block (T-4-12). */
+export function summarizeCertification(c: Certification): CertificationSummary {
+  if (!c.applicable) {
+    return {
+      status: 'not applicable',
+      reasons: c.reasons.map(describeCertificationReason),
+      change: 'Certification applies to custom events only, so this status changes only if the event class changes to custom.',
+    };
+  }
+  if (c.certified) {
+    return {
+      status: 'certified',
+      reasons: [],
+      change: 'It stays certified until an error finding opens, the event is set to ignored, or its observations are removed.',
+    };
+  }
+  const fixes: string[] = [];
+  for (const r of c.reasons) {
+    if (r === 'status_ignored') fixes.push('set the event status to something other than ignored');
+    else if (r.startsWith('open_errors')) fixes.push('fix or resolve the open error findings');
+    else if (r.startsWith('acknowledged_errors')) fixes.push('fix the acknowledged errors at their source');
+    else if (r === 'no_observations') fixes.push('import or submit at least one observation in a QA run');
+  }
+  return {
+    status: 'not certified',
+    reasons: c.reasons.map(describeCertificationReason),
+    change: fixes.length > 0 ? `To certify this event, ${fixes.join(', and ')}.` : 'Resolve the reasons above to certify this event.',
+  };
+}

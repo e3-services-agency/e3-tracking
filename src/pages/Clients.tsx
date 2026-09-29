@@ -7,6 +7,7 @@ import { useClients, type ClientRow } from '@/src/features/clients/hooks/useClie
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
+import { FORM_CARD_WIDTH_CLASS, PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import { RestoreBackupForm } from '@/src/features/clients/components/RestoreBackupForm';
 import { SandboxSection } from '@/src/features/clients/components/SandboxSection';
 import { NewProjectModal } from '@/src/features/projects/components/NewProjectModal';
@@ -23,16 +24,16 @@ export function Clients() {
   const [newProjectModalOpen, setNewProjectModalOpen] = useState(false);
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden">
-      <div className="p-8 border-b bg-white flex items-center justify-between">
+    <div className="flex-1 flex flex-col">
+      <PageHeader className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
           <p className="text-sm text-gray-500 mt-1">Bloomreach accounts. Each owns one or more projects.</p>
         </div>
         <Button onClick={() => { setCreating(true); setEditing(null); }}>Add client</Button>
-      </div>
+      </PageHeader>
 
-      <div className="p-8 flex-1 overflow-y-auto space-y-6">
+      <PageBody className="space-y-6">
         {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</div>}
 
         {!isLoading && projects.length === 0 && (
@@ -109,7 +110,7 @@ export function Clients() {
         <SandboxSection projects={projects} activeProjectId={activeProjectId} onChanged={fetchProjects} />
 
         <RestoreBackupForm clients={clients} />
-      </div>
+      </PageBody>
 
       <NewProjectModal
         isOpen={newProjectModalOpen}
@@ -157,7 +158,7 @@ function ClientForm({
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg border shadow-sm space-y-4 max-w-lg">
+    <div className={`bg-white p-6 rounded-lg border shadow-sm space-y-4 ${FORM_CARD_WIDTH_CLASS}`}>
       <h2 className="text-lg font-semibold text-gray-900">{client ? 'Edit client' : 'New client'}</h2>
       <div className="space-y-2">
         <label className="block text-sm font-medium text-gray-700">Name</label>

@@ -68,11 +68,11 @@ export function Sidebar({
 
   return (
     <div
-      className={`bg-white border-r h-screen flex flex-col transition-[width] duration-200 ${
+      className={`bg-white border-r h-screen flex-shrink-0 overflow-hidden flex flex-col transition-[width] duration-200 ${
         isCollapsed ? 'w-[72px]' : 'w-64'
       }`}
     >
-      <div className={`flex items-center justify-between ${isCollapsed ? 'p-4' : 'p-6'}`}>
+      <div className={`flex-shrink-0 flex items-center justify-between ${isCollapsed ? 'p-4' : 'p-6'}`}>
         <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
           <div className="w-6 h-6 bg-[var(--color-info)] rounded-md flex items-center justify-center">
             <span className="text-white text-xs font-bold">A</span>
@@ -90,7 +90,7 @@ export function Sidebar({
         </button>
       </div>
 
-      <nav className={`${isCollapsed ? 'flex-1 px-2 space-y-1' : 'flex-1 px-4 space-y-1'}`}>
+      <nav className={`${isCollapsed ? 'flex-1 px-2 space-y-1' : 'flex-1 px-4 space-y-1'} min-h-0 overflow-y-auto`}>
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -114,7 +114,7 @@ export function Sidebar({
         })}
       </nav>
 
-      <div className={`${isCollapsed ? 'p-2' : 'p-4'} border-t space-y-1`}>
+      <div className={`${isCollapsed ? 'p-2' : 'p-4'} border-t space-y-1 flex-shrink-0`}>
         {bottomNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -138,7 +138,7 @@ export function Sidebar({
         })}
       </div>
 
-      <div className={`${isCollapsed ? 'p-2' : 'p-4'} border-t mt-auto`}>
+      <div className={`${isCollapsed ? 'p-2' : 'p-4'} border-t mt-auto flex-shrink-0`}>
         {isCollapsed ? (
           <button
             type="button"

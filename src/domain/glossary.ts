@@ -59,6 +59,12 @@ export const GLOSSARY: GlossaryEntry[] = [
       'How necessary a use case requirement is: R (required), O (optional), or N (nice to have) -- used on the requirements matrix and coverage summaries.',
   },
   {
+    key: 'observation',
+    term: 'Observation',
+    definition:
+      'One event as actually seen in the data (from a customer events export or an agent submission), stored in a QA run and compared against the definition.',
+  },
+  {
     key: 'batch',
     term: 'Batch',
     definition:

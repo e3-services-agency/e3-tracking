@@ -4,8 +4,10 @@
  * with its observations, archive/finish actions, and a "Run comparison" button (D-21: comparison
  * always recomputes over the whole project; this button is a convenience trigger after a run).
  */
+import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
+import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
 import { Button } from '@/src/components/ui/Button';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
@@ -105,19 +107,19 @@ export function QaRuns() {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full">
-      <div className="p-8 border-b bg-white">
+    <div className="flex-1 flex flex-col">
+      <PageHeader>
         <h1 className="text-2xl font-bold text-gray-900">QA runs</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Observation batches (customer events exports; agent sessions in a later phase).
+          Runs group <GlossaryTerm glossaryKey="observation">observations</GlossaryTerm> in <GlossaryTerm glossaryKey="batch">batches</GlossaryTerm> (customer events exports; agent sessions in a later phase).
         </p>
-      </div>
+      </PageHeader>
 
-      <div className="p-8 flex-1 overflow-y-auto space-y-4">
+      <PageBody className="space-y-4">
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
         )}
-        <div className="bg-white rounded-lg border shadow-sm">
+        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
@@ -165,7 +167,7 @@ export function QaRuns() {
             </tbody>
           </table>
         </div>
-      </div>
+      </PageBody>
 
       <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title="QA run">
         {selectedId && (
@@ -471,7 +473,7 @@ function QaRunDetail({
         {obsError && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 mb-2">{obsError}</div>
         )}
-        <div className="border rounded-md overflow-hidden">
+        <div className="border rounded-md overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-gray-50 border-b">
               <tr>

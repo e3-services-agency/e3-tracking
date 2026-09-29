@@ -2,6 +2,7 @@
  * Catalogs: table + plain editor with nested fields against
  * `/api/projects/:projectId/catalogs` (kept, extended per the plan).
  */
+import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -60,8 +61,8 @@ export function Catalogs() {
   }, [load]);
 
   return (
-    <div className="flex-1 flex flex-col h-full">
-      <div className="p-8 border-b bg-white flex items-center justify-between">
+    <div className="flex-1 flex flex-col">
+      <PageHeader className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Catalogs</h1>
           <p className="text-sm text-gray-500 mt-1">Product and lookup catalogs.</p>
@@ -69,10 +70,10 @@ export function Catalogs() {
         <Button onClick={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }} className="gap-2">
           <Plus className="w-4 h-4" /> Add Catalog
         </Button>
-      </div>
+      </PageHeader>
 
-      <div className="p-8 flex-1 overflow-y-auto">
-        <div className="bg-white rounded-lg border shadow-sm">
+      <PageBody>
+        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
@@ -100,7 +101,7 @@ export function Catalogs() {
             </tbody>
           </table>
         </div>
-      </div>
+      </PageBody>
 
       <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title={isCreating ? 'Create Catalog' : 'Edit Catalog'}>
         <CatalogEditor

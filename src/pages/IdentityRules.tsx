@@ -3,6 +3,7 @@
  * (plan "Target data model" section IdentityRule; T-1-06). Simplified UI (D-07): a single
  * sheet form with every field, plus move up/down for `sort_order`.
  */
+import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -112,8 +113,8 @@ export function IdentityRules() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full">
-      <div className="p-8 border-b bg-white flex items-center justify-between">
+    <div className="flex-1 flex flex-col">
+      <PageHeader className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Identity rules</h1>
           <p className="text-sm text-gray-500 mt-1">
@@ -123,13 +124,13 @@ export function IdentityRules() {
         <Button onClick={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }} className="gap-2">
           <Plus className="w-4 h-4" /> Add Identity Rule
         </Button>
-      </div>
+      </PageHeader>
 
-      <div className="p-8 flex-1 overflow-y-auto">
+      <PageBody>
         {reorderError && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{reorderError}</div>
         )}
-        <div className="bg-white rounded-lg border shadow-sm">
+        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
@@ -192,7 +193,7 @@ export function IdentityRules() {
             </div>
           </div>
         )}
-      </div>
+      </PageBody>
 
       <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title={isCreating ? 'Create Identity Rule' : 'Edit Identity Rule'}>
         <IdentityRuleEditor

@@ -2,6 +2,7 @@
  * Sources: plain table + create/edit form against `/api/projects/:projectId/sources` (D-15).
  * Simplified UI (D-07).
  */
+import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Search, Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -76,8 +77,8 @@ export function Sources() {
   const selectedSource = selectedSourceId ? sources.find((s) => s.id === selectedSourceId) : null;
 
   return (
-    <div className="flex-1 flex flex-col h-full">
-      <div className="p-8 border-b bg-white flex items-center justify-between">
+    <div className="flex-1 flex flex-col">
+      <PageHeader className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Sources</h1>
           <p className="text-sm text-gray-500 mt-1">Platforms where events are tracked.</p>
@@ -85,9 +86,9 @@ export function Sources() {
         <Button onClick={handleCreateNew} className="gap-2">
           <Plus className="w-4 h-4" /> Add Source
         </Button>
-      </div>
+      </PageHeader>
 
-      <div className="p-8 flex-1 overflow-y-auto">
+      <PageBody>
         <div className="mb-6 relative">
           <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <Input
@@ -98,7 +99,7 @@ export function Sources() {
           />
         </div>
 
-        <div className="bg-white rounded-lg border shadow-sm">
+        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
@@ -129,7 +130,7 @@ export function Sources() {
             </tbody>
           </table>
         </div>
-      </div>
+      </PageBody>
 
       <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title={isCreating ? 'Create Source' : 'Edit Source'}>
         <SourceEditor

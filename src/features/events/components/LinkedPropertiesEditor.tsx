@@ -5,6 +5,7 @@
  * and show their allowed values inline (the linked definition's own, falling back to the
  * property's) with the standard-event hint per value (D-03).
  */
+import { effectivePayloadKey } from '@/src/domain/payloadKey';
 import React from 'react';
 import { Trash2 } from 'lucide-react';
 import { Input } from '@/src/components/ui/Input';
@@ -82,7 +83,10 @@ export function LinkedPropertiesEditor({
           <div key={link.property_id} className="border rounded-md p-3 space-y-2 bg-gray-50">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="font-medium text-sm text-gray-900">{link.property.name}</span>
+                <span className="font-medium text-sm text-gray-900 font-mono">{effectivePayloadKey(link.property.name, link.payload_key)}</span>
+                {effectivePayloadKey(link.property.name, link.payload_key) !== link.property.name && (
+                  <span className="text-xs text-gray-500">name: {link.property.name}</span>
+                )}
                 {badgeStyle && (
                   <span className={`inline-flex items-center rounded-full text-xs px-2 py-0.5 border ${badgeStyle}`}>
                     {link.role}

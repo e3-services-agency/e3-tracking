@@ -142,7 +142,7 @@ old id ever appears anywhere in a restored row (id remap is total, not partial).
 three templates (`UC-01 Abandoned cart`, `UC-02 Purchase confirmation`, `UC-03 Back in stock`) that
 resolve against the `data-mapping.json` fixture, tagged with the D-57 facets and including one
 `catalog_attribute` and one `consent` requirement (on `UC-02`) and one deliberately unresolvable
-`event_name` requirement (`UC-03`'s `wishlist_add`, which instantiates as a `gap`).
+`event_name` requirement (`UC-03`'s `wishlist_add`, which is added to the project as a `gap`).
 
 ```
 {
@@ -183,8 +183,8 @@ resolve against the `data-mapping.json` fixture, tagged with the D-57 facets and
   one transaction. Templates are global (no `project_id`); import/export is never written to
   `change_log` (library maintenance, not a project change, D-44).
 - `DELETE /api/use-case-templates/:id` returns 409 `TEMPLATE_IN_USE` (with the live reference count)
-  while any non-deleted use case still instantiates it.
-- Instantiating (`POST /api/projects/:id/use-cases/from-template/:templateId`, optional `{code?}`,
+  while any non-deleted use case was added from it.
+- Adding a template to a project (`POST /api/projects/:id/use-cases/from-template/:templateId`, optional `{code?}`,
   defaulting to the template's own code with a `-2`/`-3` suffix on conflict) resolves each
   requirement through the project's standard event mappings first, then an exact name match, then a
   mapping-step dialog for whatever is still unresolved (`.../preview` returns

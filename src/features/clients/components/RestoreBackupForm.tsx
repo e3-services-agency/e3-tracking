@@ -20,6 +20,7 @@ import { API_BASE } from '@/src/config/env';
 import { useStore } from '@/src/store';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
+import { FORM_CARD_WIDTH_CLASS } from '@/src/components/layout/PageShell';
 import { pushPath } from '@/src/components/layout/pushPath';
 import type { ClientRow } from '@/src/features/clients/hooks/useClients';
 
@@ -145,7 +146,7 @@ export function RestoreBackupForm({ clients }: { clients: ClientRow[] }) {
 
   if (pendingApply) {
     return (
-      <div className="bg-white p-6 rounded-lg border shadow-sm space-y-4 max-w-2xl">
+      <div className={`bg-white p-6 rounded-lg border shadow-sm space-y-4 ${FORM_CARD_WIDTH_CLASS}`}>
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Restore backup</h2>
           <p className="text-sm text-gray-500">
@@ -165,7 +166,7 @@ export function RestoreBackupForm({ clients }: { clients: ClientRow[] }) {
   }
 
   return (
-    <div className="bg-white p-6 rounded-lg border shadow-sm space-y-4 max-w-2xl">
+    <div className={`bg-white p-6 rounded-lg border shadow-sm space-y-4 ${FORM_CARD_WIDTH_CLASS}`}>
       <div>
         <h2 className="text-lg font-semibold text-gray-900">Restore backup</h2>
         <p className="text-sm text-gray-500">

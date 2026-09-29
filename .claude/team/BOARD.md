@@ -2786,3 +2786,25 @@ Branch task/T-4-14-shared-view-ux (3ab7fb2, ba03f21, 21ffa01) off the T-4-12 mer
 ### 2026-09-29 14:58 | reviewer | REVIEW | T-4-13 re-review FAIL (process): four claimed fixes absent
 Gates 1473 / 127 green, merge-tree clean; Help.tsx layout, EventCard.tsx resolution, W2, W3, M4, M8, M9, I12 and docs wording verified. But the part 1 handoff claimed M5 (node prop on <code>), M6 (decodeURIComponent try/catch + test; /tracking-plan/help/%E0%A4%A still crashes to the ErrorBoundary), M7 (stale Documentation comment in Events.tsx), I10 (external links new tab) -- none is in 06fabe9 or 07ad325. Minor: no test for the "Required keys" line; `?? null` on example.
 Supervisor ruling: implementer lands M5, M6, M7, I10 and the two minors with an accurate report; the running browser QA continues on 07ad325 (its malformed-slug step will fail as expected and is re-checked afterwards).
+
+### 2026-09-29 15:30 | qa-tester | QA | T-4-13 FAIL (2 failures, 3 minor) at 07ad325
+Browser QA in worktree t413 (API 3002, Vite 3010, 1024x768 pane plus 1440 iframes). Extracts: `.claude/team/reports/qa/T-4-13/`.
+
+| # | Scenario | Result |
+|---|---|---|
+| 1 | Sidebar has no Documentation; /documentation lands on Help | PASS (minor: URL stays /documentation, content is Help, no URL rewrite to /help/...) |
+| 2 | Help nav (5 + 7 + Glossary), /help/<slug> URLs, reload, highlight, table render, one scroller, sticky nav, full width at 1440 (article 849 of 1169 main, nav 224 + gap), no page overflow | PASS except malformed slug |
+| 2b | Malformed slug /help/%E0%A4%A does not crash the shell | FAIL (F1) |
+| 3 | Guide content vs UI (nine steps, sandbox, Internal only, "Show internal comments on the shared view", "Create a sandbox", bulk delete only for sandboxes) | PASS, no contradictions found |
+| 4 | Copy as Markdown: Help page ("Copied", 11418 chars), purchase card (header, certification, properties table with Payload key/Definition, triggers with URL, payload JSON, findings), UC-01 (narrative, requirements table with statuses) | PASS (minor M1, M2) |
+| 5 | External link in Reference > MCP server opens in new tab | FAIL (F2) |
+| 6 | T-4-15 create-project modal | PASS (minor M3) |
+| 7 | Regression: Events, Requirements matrix, Settings, Getting started, event card, use cases: only main scrolls, main starts at x=256 full width; card header has back + Copy as Markdown; no 500s from the API | PASS |
+
+F1 malformed slug. Steps: 1) open any page, 2) `history.pushState({}, '', '/tracking-plan/help/%E0%A4%A')` then click sidebar Help (equivalent to loading that URL on a real host; the Vite dev server itself answers 500 for the raw URL, same known dev-only behaviour as /shared/%ZZ). Expected: Help renders the default page (or a not-found note) with the shell intact. Actual: whole app replaced by the "Something went wrong / URI malformed" error boundary. Cause: `helpSlugFromPathname` (src/components/layout/mainRoute.ts:67) calls `decodeURIComponent` unguarded; it runs in the `useState` initialiser in Help.tsx (currentSlug) and in the popstate handler (uncaught URIError). Fix: try/catch returning null.
+
+F2 external link. Steps: open /p/<key>/help/mcp, inspect the "Model Context Protocol" link in the article. Expected: target="_blank" rel="noopener noreferrer". Actual: href https://modelcontextprotocol.io with no target and no rel (opens in the same tab, leaving the app).
+
+Minor. M1 the copied event card Markdown says "Reasons: open_errors: 7." (raw reason code) while the page shows "7 open error finding(s)" in plain words. M2 sandbox UC-01 has no narrative and empty requirement statuses (data, not a bug); after Regenerate and setting a status the Markdown includes the narrative, Flow, Customer data and the status. M3 in the create-project modal, after creating a client inline the stale "Choose a client" error stays on screen although the client is now selected. Also: a 1024x768 pane makes PageHeader title wrap to one word per line on Use cases and the app sidebar nav scrolls (viewport height, not T-4-13).
+
+Scenario 6 detail: empty submit shows "Choose a client", "Name is required", "Key is required"; name "QA Test Shop" gave key qa-test-shop; edited key to qa-custom and changed the name: key kept; Enter in project name with the inline client form open showed "Finish creating the client first" and created nothing; Enter in the inline client name with an empty key did nothing, with a key created only the client (selected it) and no project; then one click on Create Project created qa-custom with all fields. Console: only HMR WebSocket noise (my Vite config on 127.0.0.1), the Vite 500 for the malformed URL, and F1's URIError. Stopped my processes, removed the QA db and vite.qa.config.mjs.

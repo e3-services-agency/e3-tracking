@@ -71,6 +71,18 @@ describe('eventCardToMarkdown', () => {
     expect(md).toContain('Open: 2 errors, 1 warnings, 0 info.');
   });
 
+  it('no-variant payload with one required and one optional property marks only the required key', () => {
+    const base = card();
+    const req = { ...base.properties[0], name: 'order_id', required: true, example: 'o1', definition_name: 'general' };
+    const opt = { ...base.properties[0], property_id: 'p3', name: 'coupon', required: false, example: 'X' };
+    const md = eventCardToMarkdown(card({ variants: [], properties: [req, opt] }));
+    expect(md).toContain('"order_id": "o1"');
+    expect(md).toContain('"coupon": "X"');
+    expect(md).toContain('Required keys: order_id.');
+    expect(md).not.toContain('Required keys: order_id, coupon');
+    expect(md).toContain('| general |');
+  });
+
   it('handles an event with no variants, no properties and a non-applicable certification', () => {
     const md = eventCardToMarkdown(
       card({ properties: [], variants: [], triggers: [], certification: { applicable: false, certified: false, reasons: ['not_applicable'] } })

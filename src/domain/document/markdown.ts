@@ -119,7 +119,7 @@ export function eventCardToMarkdown(card: EventCard): string {
     // Same sample the app builds per variant (document.service.ts sampleFromAttached): every
     // attached property keyed by name, valued by its `example` (jsonSampleValueForProperty).
     const payload: Record<string, unknown> = {};
-    for (const p of card.properties) payload[p.name] = p.example;
+    for (const p of card.properties) payload[p.name] = p.example ?? null;
     out.push(jsonBlock(payload));
     const required = card.properties.filter((p) => p.required).map((p) => p.name);
     out.push(`Required keys: ${required.length > 0 ? required.join(', ') : 'none'}.`);

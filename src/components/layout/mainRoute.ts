@@ -64,7 +64,12 @@ export function mainRouteStateFromRestPath(restPath: string): { tab: string; eve
 /** The Help page slug in a full browser pathname (`.../help/<slug>`), or `null`. */
 export function helpSlugFromPathname(pathname: string): string | null {
   const m = pathname.replace(/\/$/, '').match(/\/help\/([^/]+)$/);
-  return m ? decodeURIComponent(m[1]) : null;
+  if (!m) return null;
+  try {
+    return decodeURIComponent(m[1]);
+  } catch {
+    return null; // malformed percent-escape
+  }
 }
 
 /** The full pathname for a Help page: keeps any base and `/p/<key>` prefix, replaces the tail. */

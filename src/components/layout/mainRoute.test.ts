@@ -31,6 +31,7 @@ describe('T-4-13 Help deep links and the retired Documentation route', () => {
   it('reads the slug from a full pathname, with or without a project prefix', () => {
     expect(helpSlugFromPathname('/tracking-plan/p/acme/help/mcp')).toBe('mcp');
     expect(helpSlugFromPathname('/help')).toBeNull();
+    expect(helpSlugFromPathname('/tracking-plan/help/%E0%A4%A')).toBeNull();
   });
 
   it('builds the pathname for a slug, keeping the prefix', () => {

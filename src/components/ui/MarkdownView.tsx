@@ -25,7 +25,15 @@ export function MarkdownView({ source }: { source: string }) {
           pre({ children }) {
             return <>{children}</>;
           },
-          code({ className, children, ...props }: React.ComponentPropsWithoutRef<'code'>) {
+          a({ node: _node, href, children, ...props }) {
+            const external = typeof href === 'string' && /^https?:\/\//i.test(href);
+            return (
+              <a href={href} {...props} {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+                {children}
+              </a>
+            );
+          },
+          code({ node: _node, className, children, ...props }: React.ComponentPropsWithoutRef<'code'> & { node?: unknown }) {
             const match = /language-([\w-]+)/.exec(className || '');
             const text = String(children).replace(/\n$/, '');
             const isBlock = Boolean(match) || text.includes('\n');

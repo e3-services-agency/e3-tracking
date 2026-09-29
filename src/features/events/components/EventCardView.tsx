@@ -22,6 +22,10 @@ import React from 'react';
 import { summarizeCertification } from '@/src/domain/certification';
 import { anyNameDiffersFromKey } from '@/src/domain/payloadKey';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
+import { CodeBlock } from '@/src/components/ui/CodeBlock';
+import { CodegenTabs } from '@/src/features/shared/CodegenTabs';
+import { TriggersBlock } from '@/src/features/shared/TriggersBlock';
+import { derivedMetricsText, eventCardVisibility } from '@/src/features/shared/viewHelpers';
 
 export interface EventCardData {
   id: string;
@@ -126,7 +130,7 @@ export function expirationSummary(exp: EventCardData['expiration'] | null): stri
   return `${exp.effective.count} ${exp.effective.units} (${exp.source ?? '—'})`;
 }
 
-export function CertificationBadge({ certification }: { certification: EventCardData['certification'] }) {
+export function CertificationBadge({ certification, compact = false }: { certification: EventCardData['certification']; compact?: boolean }) {
   const label = !certification.applicable ? 'n/a' : certification.certified ? 'certified' : 'not certified';
   const color = !certification.applicable
     ? 'bg-gray-100 text-gray-600 border-gray-200'
@@ -139,7 +143,7 @@ export function CertificationBadge({ certification }: { certification: EventCard
       title={certification.reasons.length > 0 ? certification.reasons.join(', ') : undefined}
     >
       {label}
-      {certification.reasons.length > 0 ? ` (${certification.reasons.join(', ')})` : ''}
+      {!compact && certification.reasons.length > 0 ? ` (${certification.reasons.join(', ')})` : ''}
     </span>
   );
 }
@@ -173,12 +177,17 @@ export interface EventCardViewProps {
   commentsSlot?: React.ReactNode;
   /** `shared` (public view) keeps only the header badge; the operator-facing Certification block is internal. Default `internal`. */
   mode?: 'internal' | 'shared';
+  /** Skips the name/badge header; the shared view renders its own (collapsible, sticky) title row. */
+  hideHeader?: boolean;
 }
 
-export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'internal' }: EventCardViewProps) {
+export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'internal', hideHeader = false }: EventCardViewProps) {
   const showNames = anyNameDiffersFromKey(card.properties);
+  const shared = mode === 'shared';
+  const visible = eventCardVisibility(card);
   return (
     <div className="space-y-6">
+      {!hideHeader && (
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{card.name}</h1>
@@ -186,6 +195,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
         </div>
         <CertificationBadge certification={card.certification} />
       </div>
+      )}
 
       {mode === 'internal' && <CertificationBlock certification={card.certification} />}
 
@@ -193,23 +203,30 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
 
       <Section title="Overview">
         <dl className="grid grid-cols-2 gap-3 text-sm">
-          <Field label="Class" value={card.class} />
-          <Field label="Status" value={card.status} />
-          <Field label="Priority" value={card.priority ?? '—'} />
-          <Field label="Grain" value={card.grain ?? '—'} />
-          <Field label="Page" value={card.page ?? '—'} />
-          <Field label="Trigger" value={card.trigger ?? '—'} />
-          <Field label="Identity note" value={card.identity_note ?? '—'} />
-          <Field label="Owner (business)" value={card.owners.business ?? '—'} />
-          <Field label="Owner (technical)" value={card.owners.technical ?? '—'} />
-          <Field label="Purpose" value={card.purpose ?? '—'} />
-          <Field label="Expiration" value={expirationSummary(card.expiration)} />
-          <Field
-            label="Freshness"
-            value={`${card.freshness.observation_count} observation(s)${
-              card.freshness.last_observation_at ? `, last ${new Date(card.freshness.last_observation_at * 1000).toLocaleString()}` : ''
-            }`}
-          />
+          {[
+            ['Class', card.class, true],
+            ['Status', card.status, true],
+            ['Priority', card.priority ?? '—', true],
+            ['Grain', card.grain ?? '—', true],
+            ['Page', card.page ?? '—', true],
+            ['Trigger', card.trigger ?? '—', true],
+            ['Identity note', card.identity_note ?? '—', !shared],
+            ['Owner (business)', card.owners.business ?? '—', !shared],
+            ['Owner (technical)', card.owners.technical ?? '—', !shared],
+            ['Purpose', card.purpose ?? '—', true],
+            ['Expiration', expirationSummary(card.expiration), true],
+            [
+              'Freshness',
+              `${card.freshness.observation_count} observation(s)${
+                card.freshness.last_observation_at ? `, last ${new Date(card.freshness.last_observation_at * 1000).toLocaleString()}` : ''
+              }`,
+              true,
+            ],
+          ]
+            .filter(([, value, show]) => show && !(shared && value === '—'))
+            .map(([label, value]) => (
+              <Field key={label as string} label={label as string} value={value as string} />
+            ))}
         </dl>
         {card.description && <p className="text-sm text-gray-700 mt-3">{card.description}</p>}
         {card.agent_instructions && (
@@ -219,32 +236,11 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
 
       {card.triggers.length > 0 && (
         <Section title={`Triggers (${card.triggers.length})`}>
-          <div className="space-y-4">
-            {card.triggers.map((trigger, i) => (
-              <div key={i} className="border rounded-md p-3">
-                {trigger.title && <h4 className="text-sm font-semibold text-gray-800">{trigger.title}</h4>}
-                {trigger.description && <p className="text-sm text-gray-700 mt-1">{trigger.description}</p>}
-                {trigger.page_url && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Page:{' '}
-                    <a href={trigger.page_url} target="_blank" rel="noreferrer" className="text-[var(--brand-primary)] hover:underline">
-                      {trigger.page_url}
-                    </a>
-                  </p>
-                )}
-                {trigger.image_path && (
-                  <img
-                    src={fileUrl(trigger.image_path)}
-                    alt={trigger.title ?? 'Trigger screenshot'}
-                    className="mt-2 max-w-md border rounded"
-                  />
-                )}
-              </div>
-            ))}
-          </div>
+          <TriggersBlock triggers={card.triggers} fileUrl={fileUrl} />
         </Section>
       )}
 
+      {(!shared || card.properties.length > 0) && (
       <Section title={`Properties (${card.properties.length})`}>
         <Table
           head={[
@@ -266,6 +262,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
           ])}
         />
       </Section>
+      )}
 
       {card.properties.some((p) => p.item_schema) && (
         <Section title="Item schemas">
@@ -283,6 +280,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
         </Section>
       )}
 
+      {(!shared || visible.variants) && (
       <Section title={`Variants (${card.variants.length})`}>
         {card.variants.length === 0 && <p className="text-sm text-gray-500">No variants.</p>}
         {card.variants.map((v) => (
@@ -294,13 +292,20 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             <p className="text-xs text-gray-500 mb-2">
               {v.conditions.map((c) => `${c.property_name} ${c.operator} ${c.values.join('/')}`).join(', ')}
             </p>
-            <p className="text-xs text-gray-500 mb-1">Required keys: {v.required_keys.join(', ') || '—'}</p>
-            <p className="text-xs text-gray-500 mb-1">Expiration: {expirationSummary(v.expiration)}</p>
-            <pre className="bg-gray-50 border rounded p-2 text-xs overflow-x-auto">{JSON.stringify(v.expected_payload, null, 2)}</pre>
+            {(!shared || v.required_keys.length > 0) && (
+              <p className="text-xs text-gray-500 mb-1">Required keys: {v.required_keys.join(', ') || '—'}</p>
+            )}
+            {(!shared || expirationSummary(v.expiration) !== '—') && (
+              <p className="text-xs text-gray-500 mb-1">Expiration: {expirationSummary(v.expiration)}</p>
+            )}
+            <p className="text-xs font-semibold text-gray-700 mb-1">Expected payload</p>
+            <CodeBlock code={JSON.stringify(v.expected_payload, null, 2)} language="json" />
           </div>
         ))}
       </Section>
+      )}
 
+      {(!shared || visible.standardEventMappings) && (
       <Section title={`Standard event mappings (${card.standard_event_mappings.length})`}>
         {card.standard_event_mappings.length === 0 && <p className="text-sm text-gray-500">Not mapped to a standard event.</p>}
         {card.standard_event_mappings.length > 0 && (
@@ -316,6 +321,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
           />
         )}
       </Section>
+      )}
 
       {card.contexts.length > 0 && (
         <Section title="Contexts">
@@ -323,6 +329,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
         </Section>
       )}
 
+      {(!shared || card.coverage.observed_count + card.coverage.unobserved_count > 0) && (
       <Section title="Coverage">
         <p className="text-sm text-gray-700 mb-2">
           {card.coverage.observed_count} observed cell(s), {card.coverage.unobserved_count} unobserved.
@@ -345,7 +352,9 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
           />
         )}
       </Section>
+      )}
 
+      {(!shared || visible.rules) && (
       <Section title={`Rules (${card.rules.length})`}>
         {card.rules.length === 0 && <p className="text-sm text-gray-500">No rules.</p>}
         {card.rules.length > 0 && (
@@ -363,21 +372,29 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
           />
         )}
       </Section>
+      )}
 
+      {(!shared || visible.derivedMetrics || visible.notSuitableFor) && (
       <Section title="Derived metrics / not suitable for">
-        <Field label="Derived metrics" value={card.derived_metrics ? JSON.stringify(card.derived_metrics) : '—'} />
-        <div className="mt-2">
-          <Field label="Not suitable for" value={card.not_suitable_for ?? '—'} />
-        </div>
+        {(!shared || visible.derivedMetrics) && <Field label="Derived metrics" value={derivedMetricsText(card.derived_metrics)} />}
+        {(!shared || visible.notSuitableFor) && (
+          <div className="mt-2">
+            <Field label="Not suitable for" value={card.not_suitable_for ?? '—'} />
+          </div>
+        )}
       </Section>
+      )}
 
+      {(!shared || visible.useCases) && (
       <Section title={`Use cases (${card.use_cases.length})`}>
         {card.use_cases.length === 0 && <p className="text-sm text-gray-500">Not referenced by any use case.</p>}
         {card.use_cases.length > 0 && (
           <Table head={['Code', 'Name', 'Level']} rows={card.use_cases.map((u) => [u.code ?? '—', u.name, u.level])} />
         )}
       </Section>
+      )}
 
+      {(!shared || card.findings.length > 0) && (
       <Section
         title={`Open findings (${card.findings.length}) — error ${card.quality.open.error}, warning ${card.quality.open.warning}, info ${card.quality.open.info}${
           card.quality.acknowledged.error + card.quality.acknowledged.warning + card.quality.acknowledged.info > 0
@@ -399,6 +416,17 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
         {card.findings.length === 0 && <p className="text-sm text-gray-500 mt-3">No open findings.</p>}
         {card.findings.length > 0 && (
           <div className="mt-3">
+            {shared ? (
+              <Table
+                head={['Severity', 'Kind', 'Property / variant', 'Message']}
+                rows={card.findings.map((f) => [
+                  f.severity,
+                  f.kind,
+                  [f.property, f.variant].filter(Boolean).join(' / ') || '—',
+                  f.message ?? '—',
+                ])}
+              />
+            ) : (
             <Table
               head={['Severity', 'Kind', 'Comparison', 'Rule', 'Property', 'Variant', 'Message', 'Expected', 'Actual', 'QA run', 'First seen', 'Last seen']}
               rows={card.findings.map((f) => [
@@ -416,19 +444,23 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
                 new Date(f.last_seen).toLocaleString(),
               ])}
             />
+            )}
           </div>
         )}
       </Section>
+      )}
 
-      <Section title="Codegen">
-        <CodeBlock label="GTM / dataLayer" code={card.codegen.gtm} />
-        <CodeBlock label="Bloomreach Web SDK" code={card.codegen.web_sdk} />
-        <CodeBlock label="Bloomreach Tracking API" code={card.codegen.tracking_api} />
+      {(!shared || Object.values(card.codegen).some((code) => code.trim() !== '')) && (
+      <Section title="Implementation">
+        <CodegenTabs codegen={card.codegen} defaultOpen={!shared} />
       </Section>
+      )}
 
+      {(!shared || visible.sdkDefaultProperties) && (
       <Section title="SDK default properties">
         <p className="text-sm text-gray-700">{card.sdk_default_properties.join(', ') || '—'}</p>
       </Section>
+      )}
     </div>
   );
 }
@@ -483,15 +515,6 @@ export function Table({ head, rows }: { head: string[]; rows: (string | number)[
           )}
         </tbody>
       </table>
-    </div>
-  );
-}
-
-export function CodeBlock({ label, code }: { label: string; code: string }) {
-  return (
-    <div className="mb-3">
-      <h4 className="text-xs font-semibold text-gray-700 mb-1">{label}</h4>
-      <pre className="bg-gray-50 border rounded p-2 text-xs overflow-x-auto whitespace-pre-wrap">{code}</pre>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import ts from 'react-syntax-highlighter/dist/esm/languages/hljs/typescript';
 import json from 'react-syntax-highlighter/dist/esm/languages/hljs/json';
 import { googlecode } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import { Copy, Check } from 'lucide-react';
+import { copyText } from './clipboard';
 
 // Apply clarity overrides to fix googlecode's default overlapping colors. Colors come from the
 // `--syntax-*` CSS variables (src/index.css) rather than literal hex so this file passes
@@ -30,31 +31,29 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   language = 'typescript',
   className = '',
 }) => {
-  const [copied, setCopied] = useState(false);
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
 
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('[CodeBlock] copy failed', err);
-    }
+    const ok = await copyText(code);
+    setState(ok ? 'copied' : 'failed');
+    setTimeout(() => setState('idle'), 2000);
   };
 
   return (
     <div
-      className={`relative rounded-md overflow-hidden border border-gray-200 group ${className}`}
+      className={`relative rounded-md overflow-hidden border border-gray-200 ${className}`}
       style={{ backgroundColor: 'var(--syntax-code-bg)' }}
     >
-      {/* Copy Button Overlay */}
+      {/* Copy button, always visible so touch and keyboard users find it (T-4-14) */}
       <button
         type="button"
         onClick={handleCopy}
-        className="absolute top-2 right-2 p-1.5 rounded-md bg-white border border-gray-200 text-gray-500 opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-gray-50 hover:text-gray-900 transition-all z-10"
+        className="absolute top-2 right-2 inline-flex items-center gap-1 p-1.5 rounded-md bg-white border border-gray-200 text-xs text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-all z-10"
         aria-label="Copy code"
       >
-        {copied ? <Check size={16} className="text-green-600" /> : <Copy size={16} />}
+        {state === 'copied' ? <Check size={16} className="text-green-600" /> : <Copy size={16} />}
+        {state === 'copied' && <span role="status">Copied</span>}
+        {state === 'failed' && <span role="status" className="text-red-700">Copy failed</span>}
       </button>
 
       {/* Syntax Highlighted Output */}

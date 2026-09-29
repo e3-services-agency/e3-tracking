@@ -5,11 +5,11 @@
  * `GET /api/shared/:token/tracking-document.json` (already the public projection,
  * `toPublicTrackingDocument`, D-48 amendment: no `agent_instructions`/`owners`/`identity_note`/
  * `bloomreach_project_url`/`internal_*` field) and renders the whole document read-only, reusing
- * `EventCardView` per custom event (D-50) with `fileUrl` pointing at `/api/shared/:token/files/*`.
+ * `EventCardView` per event (D-50) with `fileUrl` pointing at `/api/shared/:token/files/*`.
  *
  * An unknown or revoked token (`GET /:token` 404 `SHARE_NOT_FOUND`) renders a plain "This link is
  * not valid" page instead of an error banner -- a share link is a client-facing URL, not an
- * authenticated one. `read` and `comment` access render identically here; comment forms are T-4-04.
+ * authenticated one. `read` and `comment` access render identically here.
  *
  * `buildSharedViewModel`/`sharedFileUrl` are exported as plain functions (no DOM) so the event
  * ordering and file-path resolution are unit-testable without `@testing-library/react`, which this
@@ -17,24 +17,44 @@
  *
  * T-4-04 (D-49): `CommentsPanel` is mounted on each event card (`commentsSlot`), on the use case
  * section and on each requirement row, in `shared` mode (`{token, access: header.access}`); the add
- * form hides itself when `access !== 'comment'` (`CommentsPanel`'s own `canComment` check).
+ * form hides itself when `access !== 'comment'`. One `GET /comments` without filters is fetched once
+ * (W1 fix round) and filtered client-side per panel (`commentsFor`); `reloadComments` is every
+ * panel's `onChanged`.
  *
- * Fix round (W1): this page can mount dozens of panels (one per event card, use case and
- * requirement row); each fetching its own list independently was 62 requests on the sandbox
- * project. `GET /api/shared/:token/comments` with no `entity_type`/`entity_id` filter returns every
- * comment for the project in one request, fetched once alongside the header/document and filtered
- * client-side per panel (`commentsFor`); `reloadComments` is passed as every panel's `onChanged` so
- * a post or (there is no resolve toggle in shared mode) refreshes this one list instead of each
- * panel re-fetching its own copy.
+ * T-4-14 (client view UX): every event and use case is a collapsed row that mounts its body (and
+ * its comment panels) only when expanded; `#event-<name>` anchors expand and scroll to an event; an
+ * expanded event's title row sticks under the page header (sticky inside its own wrapper, so the
+ * next event takes over); a sticky left navigation (a dropdown below 1024px) with a filter and a
+ * scroll spy; empty sections are not rendered. Width follows the T-4-12 constant. The pure
+ * decisions live in `src/features/shared/viewHelpers.ts`.
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { API_BASE } from '@/src/config/env';
-import { EventCardView, type EventCardData } from '@/src/features/events/components/EventCardView';
+import { PAGE_MAX_WIDTH_CLASS } from '@/src/components/layout/PageShell';
+import { EventCardView, CertificationBadge, type EventCardData } from '@/src/features/events/components/EventCardView';
 import { CommentsPanel, type CommentPanelRow } from '@/src/features/comments/CommentsPanel';
+import { CopyLinkButton } from '@/src/features/shared/CopyLinkButton';
+import { SharedNav } from '@/src/features/shared/SharedNav';
+import { useActiveSection } from '@/src/features/shared/useActiveSection';
 import type { TrackingDocument } from '@/src/domain/document/trackingDocument';
-import { sharedFileUrl, buildSharedViewModel } from './sharedViewModel';
+import {
+  sharedFileUrl,
+  buildSharedViewModel,
+  buildSectionIndex,
+  sectionPresence,
+  filterNav,
+  eventAnchors,
+  eventForHash,
+  oneLineDescription,
+  EVENT_CLASS_GROUPS,
+  type NavItem,
+} from './sharedViewModel';
 
 export { sharedFileUrl, buildSharedViewModel };
+
+/** Height of the sticky page header (Tailwind `h-14`); sticky event titles sit right below it. */
+const HEADER_TOP_CLASS = 'top-14';
 
 interface ShareHeader {
   project: { name: string; client_logo_path: string | null };
@@ -51,12 +71,71 @@ function downloadUrl(token: string, suffix: string): string {
   return `${API_BASE}/api/shared/${encodeURIComponent(token)}/${suffix}`;
 }
 
+function leafIds(items: NavItem[]): string[] {
+  return items.flatMap((i) => (i.children && i.children.length > 0 ? leafIds(i.children) : [i.id]));
+}
+
+function ExpandToggles({ onExpand, onCollapse, label }: { onExpand: () => void; onCollapse: () => void; label: string }) {
+  const btn = 'rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50';
+  return (
+    <span className="inline-flex items-center gap-1">
+      <button type="button" className={btn} onClick={onExpand} aria-label={`Expand all ${label}`}>
+        Expand all
+      </button>
+      <button type="button" className={btn} onClick={onCollapse} aria-label={`Collapse all ${label}`}>
+        Collapse all
+      </button>
+    </span>
+  );
+}
+
+function SectionCard({ id, title, children }: { id: string; title: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section id={id} className="scroll-mt-20 bg-white rounded-lg border shadow-sm p-4">
+      <h2 className="text-sm font-semibold text-gray-900 mb-3">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function SimpleTable({ head, rows }: { head: string[]; rows: React.ReactNode[][] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-left text-xs">
+        <thead className="bg-gray-50 border-b">
+          <tr>
+            {head.map((h) => (
+              <th key={h} className="px-3 py-2 font-medium text-gray-500">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {rows.map((row, i) => (
+            <tr key={i}>
+              {row.map((cell, j) => (
+                <td key={j} className="px-3 py-2 text-gray-700">
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function SharedProject({ token }: { token: string }) {
   const [header, setHeader] = useState<ShareHeader | null>(null);
   const [doc, setDoc] = useState<TrackingDocument | null>(null);
   const [comments, setComments] = useState<CommentPanelRow[]>([]);
   const [invalid, setInvalid] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [openEvents, setOpenEvents] = useState<Set<string>>(new Set());
+  const [openUseCases, setOpenUseCases] = useState<Set<string>>(new Set());
+  const [navQuery, setNavQuery] = useState('');
 
   const reloadComments = useCallback(async () => {
     try {
@@ -112,6 +191,52 @@ export function SharedProject({ token }: { token: string }) {
     };
   }, [token]);
 
+  const anchorById = useMemo(() => {
+    const list = doc ? eventAnchors(doc.events.map((e) => e.name)) : [];
+    return new Map((doc?.events ?? []).map((e, i) => [e.id, list[i]]));
+  }, [doc]);
+  const nav = useMemo(() => (doc ? buildSectionIndex(doc) : []), [doc]);
+  const filteredNav = useMemo(() => filterNav(nav, navQuery), [nav, navQuery]);
+  const activeId = useActiveSection(useMemo(() => leafIds(nav), [nav]));
+
+  /** Expands the event a hash points at (if any) and scrolls to the hash target once rendered. */
+  const goToHash = useCallback(
+    (hash: string) => {
+      if (!doc) return;
+      const id = hash.startsWith('#') ? hash.slice(1) : hash;
+      if (!id) return;
+      const event = eventForHash(id, doc.events);
+      if (event) setOpenEvents((prev) => (prev.has(event.id) ? prev : new Set(prev).add(event.id)));
+      requestAnimationFrame(() => {
+        let target: string;
+        try {
+          target = decodeURIComponent(id);
+        } catch {
+          target = id;
+        }
+        document.getElementById(target)?.scrollIntoView({ block: 'start' });
+      });
+    },
+    [doc]
+  );
+
+  // Opening the URL with a hash, and hand-edited hash changes.
+  useEffect(() => {
+    if (!doc) return;
+    goToHash(window.location.hash);
+    const onHash = () => goToHash(window.location.hash);
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, [doc, goToHash]);
+
+  const navigateTo = useCallback(
+    (id: string) => {
+      window.history.replaceState(null, '', `#${id}`);
+      goToHash(id);
+    },
+    [goToHash]
+  );
+
   if (invalid) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -128,312 +253,313 @@ export function SharedProject({ token }: { token: string }) {
   }
 
   const fileUrl = (path: string) => sharedFileUrl(token, path);
-  const { customEvents, otherEvents } = buildSharedViewModel(doc);
+  const present = sectionPresence(doc);
+  const api = { mode: 'shared' as const, token, access: header.access };
+  const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, id: string) =>
+    setter((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const expandAllEvents = () => setOpenEvents(new Set(doc.events.map((e) => e.id)));
+  const collapseAllEvents = () => setOpenEvents(new Set());
+  const expandAllUseCases = () => setOpenUseCases(new Set(doc.use_cases.map((u) => u.id)));
+  const collapseAllUseCases = () => setOpenUseCases(new Set());
+  const linkClass = 'text-[var(--color-info)] hover:underline';
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto p-8 space-y-6">
-        <header className="bg-white rounded-lg border shadow-sm p-6 flex items-center gap-4">
-          {header.project.client_logo_path && (
-            <img src={fileUrl(header.project.client_logo_path)} alt="" className="h-10 w-auto" />
-          )}
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{header.project.name}</h1>
-            {header.client.name && <p className="text-sm text-gray-500">{header.client.name}</p>}
+      <header className={`sticky top-0 z-30 h-14 border-b bg-white`}>
+        <div className={`${PAGE_MAX_WIDTH_CLASS} h-full px-8 flex items-center gap-4`}>
+          {header.project.client_logo_path && <img src={fileUrl(header.project.client_logo_path)} alt="" className="h-8 w-auto" />}
+          <div className="min-w-0">
+            <h1 className="text-base font-bold text-gray-900 truncate leading-tight">{header.project.name}</h1>
+            {header.client.name && <p className="text-xs text-gray-500 truncate leading-tight">{header.client.name}</p>}
           </div>
-        </header>
-
-        <nav className="bg-white rounded-lg border shadow-sm p-4">
-          <h2 className="text-sm font-semibold text-gray-900 mb-2">Contents</h2>
-          <ul className="text-sm space-y-1">
-            {customEvents.map((e) => (
-              <li key={e.id}>
-                <a href={`#event-${e.id}`} className="text-[var(--brand-primary)] hover:underline">
-                  {e.name}
-                </a>
-              </li>
-            ))}
-            <li>
-              <a href="#properties" className="text-[var(--brand-primary)] hover:underline">
-                Properties
-              </a>
-            </li>
-            <li>
-              <a href="#use-cases" className="text-[var(--brand-primary)] hover:underline">
-                Use cases
-              </a>
-            </li>
-            <li>
-              <a href="#identity" className="text-[var(--brand-primary)] hover:underline">
-                Identity rules
-              </a>
-            </li>
-            <li>
-              <a href="#findings" className="text-[var(--brand-primary)] hover:underline">
-                Findings summary
-              </a>
-            </li>
-          </ul>
-        </nav>
-
-        <div className="bg-white rounded-lg border shadow-sm p-4 flex gap-4 text-sm">
-          <a className="text-[var(--brand-primary)] hover:underline" href={downloadUrl(token, 'tracking-document.json')}>
-            Download tracking document (JSON)
-          </a>
-          <a className="text-[var(--brand-primary)] hover:underline" href={downloadUrl(token, 'documentation.html')}>
-            Download documentation (HTML)
-          </a>
+          <div className="ml-auto hidden md:flex items-center gap-4 text-xs">
+            {present.events && (
+              <span className="inline-flex items-center gap-1 text-gray-500">
+                Events <ExpandToggles label="events" onExpand={expandAllEvents} onCollapse={collapseAllEvents} />
+              </span>
+            )}
+            {present.useCases && (
+              <span className="inline-flex items-center gap-1 text-gray-500">
+                Use cases <ExpandToggles label="use cases" onExpand={expandAllUseCases} onCollapse={collapseAllUseCases} />
+              </span>
+            )}
+            <a className={linkClass} href={downloadUrl(token, 'tracking-document.json')}>
+              JSON
+            </a>
+            <a className={linkClass} href={downloadUrl(token, 'documentation.html')}>
+              HTML
+            </a>
+          </div>
         </div>
+      </header>
 
-        {customEvents.map((event) => (
-          <div key={event.id} id={`event-${event.id}`}>
-            <EventCardView
-              card={event as unknown as EventCardData}
-              fileUrl={fileUrl}
-              mode="shared"
-              commentsSlot={
-                <CommentsPanel
-                  entityType="event"
-                  entityId={event.id}
-                  api={{ mode: 'shared', token, access: header.access }}
-                  rows={commentsFor('event', event.id)}
-                  onChanged={reloadComments}
-                />
-              }
-            />
+      <div className={`${PAGE_MAX_WIDTH_CLASS} px-8 py-6 lg:flex lg:gap-8 lg:items-start`}>
+        <SharedNav
+          items={filteredNav}
+          allItems={nav}
+          activeId={activeId}
+          query={navQuery}
+          onQuery={setNavQuery}
+          onNavigate={navigateTo}
+        />
+
+        <main className="flex-1 min-w-0 space-y-6">
+          <div className="md:hidden flex flex-wrap gap-3 text-xs">
+            <ExpandToggles label="events" onExpand={expandAllEvents} onCollapse={collapseAllEvents} />
+            <a className={linkClass} href={downloadUrl(token, 'tracking-document.json')}>
+              Download JSON
+            </a>
+            <a className={linkClass} href={downloadUrl(token, 'documentation.html')}>
+              Download HTML
+            </a>
           </div>
-        ))}
 
-        {otherEvents.length > 0 && (
-          <details className="bg-white rounded-lg border shadow-sm p-4">
-            <summary className="text-sm font-semibold text-gray-900 cursor-pointer">
-              SDK / platform events ({otherEvents.length})
-            </summary>
-            <table className="w-full text-left text-xs mt-3">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-3 py-2 font-medium text-gray-500">Name</th>
-                  <th className="px-3 py-2 font-medium text-gray-500">Class</th>
-                  <th className="px-3 py-2 font-medium text-gray-500">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {otherEvents.map((e) => (
-                  <tr key={e.id}>
-                    <td className="px-3 py-2">{e.name}</td>
-                    <td className="px-3 py-2">{e.class}</td>
-                    <td className="px-3 py-2">{e.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </details>
-        )}
+          {present.events && (
+            <section id="events" className="scroll-mt-20 space-y-4">
+              <h2 className="text-lg font-semibold text-gray-900">Events ({doc.events.length})</h2>
+              {EVENT_CLASS_GROUPS.map(({ cls, label }) => {
+                const inGroup = doc.events.filter((e) => e.class === cls);
+                if (inGroup.length === 0) return null;
+                return (
+                  <div key={cls} id={`events-${cls}`} className="scroll-mt-20 space-y-3">
+                    <h3 className="text-sm font-semibold text-gray-700">
+                      {label} ({inGroup.length})
+                    </h3>
+                    {inGroup.map((event) => {
+                      const expanded = openEvents.has(event.id);
+                      const anchor = anchorById.get(event.id) as string;
+                      return (
+                        <div key={event.id} id={anchor} className="scroll-mt-16 bg-white rounded-lg border shadow-sm">
+                          <div
+                            className={`flex items-center gap-2 px-4 py-3 bg-white rounded-t-lg ${
+                              expanded ? `sticky ${HEADER_TOP_CLASS} z-20 border-b` : 'rounded-b-lg'
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => toggle(setOpenEvents, event.id)}
+                              aria-expanded={expanded}
+                              className="flex flex-1 min-w-0 items-center gap-2 text-left"
+                            >
+                              {expanded ? <ChevronDown size={16} className="shrink-0" /> : <ChevronRight size={16} className="shrink-0" />}
+                              <span className="font-semibold text-gray-900 truncate">{event.name}</span>
+                              <span className="shrink-0 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-xs text-gray-600">
+                                {event.class}
+                              </span>
+                              <span className="shrink-0">
+                                <CertificationBadge certification={event.certification} compact />
+                              </span>
+                              {!expanded && event.description && (
+                                <span className="hidden sm:block min-w-0 truncate text-sm text-gray-500">
+                                  {oneLineDescription(event.description)}
+                                </span>
+                              )}
+                            </button>
+                            <CopyLinkButton anchor={anchor} label={event.name} />
+                          </div>
+                          {expanded && (
+                            <div className="p-4">
+                              <EventCardView
+                                card={event as unknown as EventCardData}
+                                fileUrl={fileUrl}
+                                mode="shared"
+                                hideHeader
+                                commentsSlot={
+                                  <CommentsPanel
+                                    entityType="event"
+                                    entityId={event.id}
+                                    api={api}
+                                    rows={commentsFor('event', event.id)}
+                                    onChanged={reloadComments}
+                                  />
+                                }
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </section>
+          )}
 
-        <section id="properties" className="bg-white rounded-lg border shadow-sm p-4">
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Properties ({doc.properties.length})</h2>
-          {doc.properties.map((p) => (
-            <div key={p.property_id} className="mb-4">
-              <h4 className="text-sm font-semibold text-gray-800">
-                {p.name} <span className="text-xs font-normal text-gray-500">({p.data_type})</span>
-              </h4>
-              <table className="w-full text-left text-xs mt-1">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-3 py-2 font-medium text-gray-500">Definition</th>
-                    <th className="px-3 py-2 font-medium text-gray-500">Description</th>
-                    <th className="px-3 py-2 font-medium text-gray-500">Allowed values</th>
-                    <th className="px-3 py-2 font-medium text-gray-500">Formats</th>
-                    <th className="px-3 py-2 font-medium text-gray-500">Example</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {p.definitions.map((d) => (
-                    <tr key={d.id}>
-                      <td className="px-3 py-2">{d.name}</td>
-                      <td className="px-3 py-2">{d.description ?? '—'}</td>
-                      <td className="px-3 py-2">{d.allowed_values ? d.allowed_values.map((v) => v.value).join(', ') : '—'}</td>
-                      <td className="px-3 py-2">{d.formats.join(', ') || '—'}</td>
-                      <td className="px-3 py-2">{JSON.stringify(d.example_values ?? null)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ))}
-          {doc.properties.length === 0 && <p className="text-sm text-gray-500">No customer properties defined.</p>}
-        </section>
+          {present.properties && (
+            <SectionCard id="properties" title={`Properties (${doc.properties.length})`}>
+              {doc.properties.map((p) => (
+                <div key={p.property_id} className="mb-4">
+                  <h4 className="text-sm font-semibold text-gray-800">
+                    {p.name} <span className="text-xs font-normal text-gray-500">({p.data_type})</span>
+                  </h4>
+                  <SimpleTable
+                    head={['Definition', 'Description', 'Allowed values', 'Formats', 'Example']}
+                    rows={p.definitions.map((d) => [
+                      d.name,
+                      d.description ?? '—',
+                      d.allowed_values ? d.allowed_values.map((v) => v.value).join(', ') : '—',
+                      d.formats.join(', ') || '—',
+                      JSON.stringify(d.example_values ?? null),
+                    ])}
+                  />
+                </div>
+              ))}
+            </SectionCard>
+          )}
 
-        <section id="use-cases" className="bg-white rounded-lg border shadow-sm p-4">
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Use cases ({doc.use_cases.length})</h2>
-          {doc.use_cases.map((uc) => (
-            <div key={uc.id} className="mb-4 border rounded-md p-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold text-gray-800">
-                  {uc.code ? `${uc.code} — ` : ''}
-                  {uc.name}
-                </h4>
-                {uc.documentation_url && (
-                  <a href={uc.documentation_url} target="_blank" rel="noreferrer" className="text-xs text-[var(--brand-primary)] hover:underline">
-                    Documentation
-                  </a>
-                )}
+          {present.useCases && (
+            <SectionCard
+              id="use-cases"
+              title={
+                <span className="flex items-center justify-between gap-2">
+                  <span>Use cases ({doc.use_cases.length})</span>
+                  <ExpandToggles label="use cases" onExpand={expandAllUseCases} onCollapse={collapseAllUseCases} />
+                </span>
+              }
+            >
+              <div className="space-y-2">
+                {doc.use_cases.map((uc) => {
+                  const expanded = openUseCases.has(uc.id);
+                  return (
+                    <div key={uc.id} className="border rounded-md">
+                      <div className="flex items-center gap-2 px-3 py-2">
+                        <button
+                          type="button"
+                          onClick={() => toggle(setOpenUseCases, uc.id)}
+                          aria-expanded={expanded}
+                          className="flex flex-1 min-w-0 items-center gap-2 text-left"
+                        >
+                          {expanded ? <ChevronDown size={16} className="shrink-0" /> : <ChevronRight size={16} className="shrink-0" />}
+                          <span className="text-sm font-semibold text-gray-800 truncate">
+                            {uc.code ? `${uc.code} — ` : ''}
+                            {uc.name}
+                          </span>
+                        </button>
+                        {uc.documentation_url && (
+                          <a href={uc.documentation_url} target="_blank" rel="noreferrer" className={`text-xs ${linkClass}`}>
+                            Documentation
+                          </a>
+                        )}
+                      </div>
+                      {expanded && (
+                        <div className="px-3 pb-3">
+                          {uc.narrative && <p className="text-sm text-gray-700">{uc.narrative}</p>}
+                          {uc.requirements.length > 0 && (
+                            <div className="overflow-x-auto mt-2">
+                              <table className="w-full text-left text-xs">
+                                <thead className="bg-gray-50 border-b">
+                                  <tr>
+                                    <th className="px-3 py-2 font-medium text-gray-500">Target</th>
+                                    <th className="px-3 py-2 font-medium text-gray-500">Level</th>
+                                    <th className="px-3 py-2 font-medium text-gray-500">Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                  {uc.requirements.map((r) => (
+                                    <React.Fragment key={r.id}>
+                                      <tr>
+                                        <td className="px-3 py-2">{r.target_label}</td>
+                                        <td className="px-3 py-2">{r.level}</td>
+                                        <td className="px-3 py-2">{r.status ?? '—'}</td>
+                                      </tr>
+                                      <tr>
+                                        <td colSpan={3} className="px-3 pb-2">
+                                          <CommentsPanel
+                                            entityType="requirement"
+                                            entityId={r.id}
+                                            api={api}
+                                            title="Comments on this requirement"
+                                            rows={commentsFor('requirement', r.id)}
+                                            onChanged={reloadComments}
+                                          />
+                                        </td>
+                                      </tr>
+                                    </React.Fragment>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                          <CommentsPanel
+                            entityType="use_case"
+                            entityId={uc.id}
+                            api={api}
+                            rows={commentsFor('use_case', uc.id)}
+                            onChanged={reloadComments}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-              {uc.narrative && <p className="text-sm text-gray-700 mt-1">{uc.narrative}</p>}
-              {uc.requirements.length > 0 && (
-                <table className="w-full text-left text-xs mt-2">
-                  <thead className="bg-gray-50 border-b">
-                    <tr>
-                      <th className="px-3 py-2 font-medium text-gray-500">Target</th>
-                      <th className="px-3 py-2 font-medium text-gray-500">Level</th>
-                      <th className="px-3 py-2 font-medium text-gray-500">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {uc.requirements.map((r) => (
-                      <React.Fragment key={r.id}>
-                        <tr>
-                          <td className="px-3 py-2">{r.target_label}</td>
-                          <td className="px-3 py-2">{r.level}</td>
-                          <td className="px-3 py-2">{r.status ?? '—'}</td>
-                        </tr>
-                        <tr>
-                          <td colSpan={3} className="px-3 pb-2">
-                            <CommentsPanel
-                              entityType="requirement"
-                              entityId={r.id}
-                              api={{ mode: 'shared', token, access: header.access }}
-                              title="Comments on this requirement"
-                              rows={commentsFor('requirement', r.id)}
-                              onChanged={reloadComments}
-                            />
-                          </td>
-                        </tr>
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-              <CommentsPanel
-                entityType="use_case"
-                entityId={uc.id}
-                api={{ mode: 'shared', token, access: header.access }}
-                rows={commentsFor('use_case', uc.id)}
-                onChanged={reloadComments}
+            </SectionCard>
+          )}
+
+          {present.identity && (
+            <SectionCard id="identity" title={`Identity rules (${doc.identity_rules.length})`}>
+              <SimpleTable
+                head={['Name', 'Identifier', 'Type', 'SDK call', 'Transformations', 'Trigger']}
+                rows={doc.identity_rules.map((r) => [
+                  r.name,
+                  r.identifier_name,
+                  r.identity_type,
+                  r.sdk_call ?? '—',
+                  r.transformations.join(', ') || '—',
+                  r.trigger_text ?? '—',
+                ])}
               />
-            </div>
-          ))}
-          {doc.use_cases.length === 0 && <p className="text-sm text-gray-500">No use cases defined.</p>}
-        </section>
+            </SectionCard>
+          )}
 
-        <section id="identity" className="bg-white rounded-lg border shadow-sm p-4">
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Identity rules ({doc.identity_rules.length})</h2>
-          <table className="w-full text-left text-xs">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-3 py-2 font-medium text-gray-500">Name</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Identifier</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Type</th>
-                <th className="px-3 py-2 font-medium text-gray-500">SDK call</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Transformations</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Trigger</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {doc.identity_rules.map((r, i) => (
-                <tr key={i}>
-                  <td className="px-3 py-2">{r.name}</td>
-                  <td className="px-3 py-2">{r.identifier_name}</td>
-                  <td className="px-3 py-2">{r.identity_type}</td>
-                  <td className="px-3 py-2">{r.sdk_call ?? '—'}</td>
-                  <td className="px-3 py-2">{r.transformations.join(', ') || '—'}</td>
-                  <td className="px-3 py-2">{r.trigger_text ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {doc.identity_rules.length === 0 && <p className="text-sm text-gray-500 mt-2">No identity rules defined.</p>}
-        </section>
+          {present.consents && (
+            <SectionCard id="consents" title={`Consent categories (${doc.consent_categories.length})`}>
+              <SimpleTable
+                head={['Name', 'Standard key', 'Status']}
+                rows={doc.consent_categories.map((c) => [c.name, c.standard_key ?? '—', c.status ?? '—'])}
+              />
+            </SectionCard>
+          )}
 
-        <section className="bg-white rounded-lg border shadow-sm p-4">
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Consent categories ({doc.consent_categories.length})</h2>
-          <table className="w-full text-left text-xs">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-3 py-2 font-medium text-gray-500">Name</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Standard key</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {doc.consent_categories.map((c, i) => (
-                <tr key={i}>
-                  <td className="px-3 py-2">{c.name}</td>
-                  <td className="px-3 py-2">{c.standard_key ?? '—'}</td>
-                  <td className="px-3 py-2">{c.status ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
+          {present.catalogs && (
+            <SectionCard id="catalogs" title={`Catalogs (${doc.catalogs.length})`}>
+              <SimpleTable
+                head={['Name', 'Mapping role', 'Status']}
+                rows={doc.catalogs.map((c) => [c.name, c.mapping_role ?? '—', c.status ?? '—'])}
+              />
+            </SectionCard>
+          )}
 
-        <section className="bg-white rounded-lg border shadow-sm p-4">
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Catalogs ({doc.catalogs.length})</h2>
-          <table className="w-full text-left text-xs">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-3 py-2 font-medium text-gray-500">Name</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Mapping role</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {doc.catalogs.map((c, i) => (
-                <tr key={i}>
-                  <td className="px-3 py-2">{c.name}</td>
-                  <td className="px-3 py-2">{c.mapping_role ?? '—'}</td>
-                  <td className="px-3 py-2">{c.status ?? '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
+          {present.mapping && (
+            <SectionCard id="mapping" title={`Standard event mappings (${doc.standard_event_mappings.length})`}>
+              <SimpleTable
+                head={['Standard event', 'Event', 'Variant', 'Field map']}
+                rows={doc.standard_event_mappings.map((m) => [
+                  m.standard_event,
+                  m.event_name,
+                  m.variant_name ?? 'all',
+                  Object.entries(m.field_map)
+                    .map(([field, propertyName]) => `${field} -> ${propertyName ?? '—'}`)
+                    .join(', ') || '—',
+                ])}
+              />
+            </SectionCard>
+          )}
 
-        <section className="bg-white rounded-lg border shadow-sm p-4">
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Standard event mappings ({doc.standard_event_mappings.length})</h2>
-          <table className="w-full text-left text-xs">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-3 py-2 font-medium text-gray-500">Standard event</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Event</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Variant</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Field map</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {doc.standard_event_mappings.map((m, i) => (
-                <tr key={i}>
-                  <td className="px-3 py-2">{m.standard_event}</td>
-                  <td className="px-3 py-2">{m.event_name}</td>
-                  <td className="px-3 py-2">{m.variant_name ?? 'all'}</td>
-                  <td className="px-3 py-2">
-                    {Object.entries(m.field_map)
-                      .map(([field, propertyName]) => `${field} -> ${propertyName ?? '—'}`)
-                      .join(', ') || '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-
-        <section id="findings" className="bg-white rounded-lg border shadow-sm p-4">
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Findings summary</h2>
-          <p className="text-sm text-gray-700">
-            Open — error {doc.findings_summary.open.error}, warning {doc.findings_summary.open.warning}, info{' '}
-            {doc.findings_summary.open.info}
-          </p>
-        </section>
+          {present.findings && (
+            <SectionCard id="findings" title="Findings summary">
+              <p className="text-sm text-gray-700">
+                Open — error {doc.findings_summary.open.error}, warning {doc.findings_summary.open.warning}, info{' '}
+                {doc.findings_summary.open.info}
+              </p>
+            </SectionCard>
+          )}
+        </main>
       </div>
     </div>
   );

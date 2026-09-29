@@ -22526,7 +22526,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "description": ""High"",
           "example_values": [
             {
-              "value": ""A+"",
+              "value": "A+",
             },
           ],
           "formats": [],
@@ -22644,7 +22644,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "description": ""fr-FR"",
           "example_values": [
             {
-              "value": ""es"",
+              "value": "es",
             },
           ],
           "formats": [],
@@ -22705,7 +22705,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "description": ""Control"",
           "example_values": [
             {
-              "value": ""Treatment"",
+              "value": "Treatment",
             },
           ],
           "formats": [],
@@ -22975,7 +22975,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "description": ""2022"",
           "example_values": [
             {
-              "value": ""2023"]",
+              "value": "2023",
             },
           ],
           "formats": [],
@@ -22998,7 +22998,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "description": ""Loyal"",
           "example_values": [
             {
-              "value": ""2023_Attendee"]",
+              "value": "2023_Attendee",
             },
           ],
           "formats": [],
@@ -23097,7 +23097,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "description": ""1"",
           "example_values": [
             {
-              "value": ""yes"",
+              "value": "yes",
             },
           ],
           "formats": [],

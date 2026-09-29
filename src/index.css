@@ -19,6 +19,8 @@
 
   /* Product semantic tokens */
   --brand-primary: var(--e3-emerald); /* create/save/confirm */
+  --brand-bloomreach: #FFD500; /* Bloomreach accent: sdk and platform class badges (T-4-19) */
+  --brand-bloomreach-text: #1A1E38; /* readable text on --brand-bloomreach */
   --color-info: #0077E3; /* navigation / informational / interactive accents */
   --brand-destructive: #E35010; /* delete/remove */
   --brand-warning: #E3DA76; /* caution (sparingly) */

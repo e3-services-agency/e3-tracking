@@ -29,6 +29,10 @@
  * decisions live in `src/features/shared/viewHelpers.ts`.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ClassBadge } from '@/src/components/ui/ClassBadge';
+import { ExampleCell, StandardMappingBlock } from '@/src/features/events/components/EventCardView';
+import { formatExampleValues } from '@/src/domain/examples';
+import { computeFindingsSummary } from '@/src/domain/document/findingsSummary';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { API_BASE } from '@/src/config/env';
 import { PAGE_MAX_WIDTH_CLASS } from '@/src/components/layout/PageShell';
@@ -141,6 +145,55 @@ function SimpleTable({ head, rows }: { head: string[]; rows: React.ReactNode[][]
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function FindingsSummaryBlock({
+  summary,
+  anchorFor,
+}: {
+  summary: ReturnType<typeof computeFindingsSummary>;
+  anchorFor: (eventId: string) => string | undefined;
+}) {
+  const ack = summary.acknowledged;
+  return (
+    <div className="space-y-4 text-sm text-gray-700">
+      <p>
+        <span className="font-semibold text-gray-900">{summary.total} open</span> — error {summary.bySeverity.error}, warning{' '}
+        {summary.bySeverity.warning}, info {summary.bySeverity.info}
+        {ack.total > 0 && `. Acknowledged (resolved by hand, still reproducing): error ${ack.error}, warning ${ack.warning}, info ${ack.info}`}
+      </p>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div>
+          <h4 className="mb-1 text-xs font-semibold uppercase text-gray-500">By comparison</h4>
+          <SimpleTable
+            head={['Comparison', 'Error', 'Warning', 'Info']}
+            rows={summary.byComparison.map((c) => [c.comparison, c.error, c.warning, c.info])}
+          />
+        </div>
+        <div>
+          <h4 className="mb-1 text-xs font-semibold uppercase text-gray-500">Top events by open errors</h4>
+          {summary.topEvents.length === 0 ? (
+            <p className="text-xs text-gray-500">No event has an open error finding.</p>
+          ) : (
+            <SimpleTable
+              head={['Event', 'Errors', 'All open']}
+              rows={summary.topEvents.map((e) => [
+                anchorFor(e.id) ? (
+                  <a key={e.id} href={`#${anchorFor(e.id)}`} className="text-[var(--color-info)] hover:underline">
+                    {e.name}
+                  </a>
+                ) : (
+                  e.name
+                ),
+                e.errors,
+                e.total,
+              ])}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -408,9 +461,7 @@ export function SharedProject({ token }: { token: string }) {
                             >
                               {expanded ? <ChevronDown size={16} className="shrink-0" /> : <ChevronRight size={16} className="shrink-0" />}
                               <span className="font-semibold text-gray-900 truncate">{event.name}</span>
-                              <span className="shrink-0 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-xs text-gray-600">
-                                {event.class}
-                              </span>
+                              <ClassBadge eventClass={event.class} className="shrink-0" />
                               <span className="shrink-0">
                                 <CertificationBadge certification={event.certification} compact />
                               </span>
@@ -477,7 +528,7 @@ export function SharedProject({ token }: { token: string }) {
                       d.description ?? '—',
                       d.allowed_values ? d.allowed_values.map((v) => v.value).join(', ') : '—',
                       d.formats.join(', ') || '—',
-                      JSON.stringify(d.example_values ?? null),
+                      <ExampleCell key="ex" value={formatExampleValues(d.example_values)} />,
                     ])}
                   />
                 </div>
@@ -630,26 +681,18 @@ export function SharedProject({ token }: { token: string }) {
 
           {present.mapping && (
             <SectionCard id={SECTION_IDS.mapping} title={`Standard event mappings (${doc.standard_event_mappings.length})`}>
-              <SimpleTable
-                head={['Standard event', 'Event', 'Variant', 'Field map']}
-                rows={doc.standard_event_mappings.map((m) => [
-                  m.standard_event,
-                  m.event_name,
-                  m.variant_name ?? 'all',
-                  Object.entries(m.field_map)
-                    .map(([field, propertyName]) => `${field} -> ${propertyName ?? '—'}`)
-                    .join(', ') || '—',
-                ])}
-              />
+              {doc.standard_event_mappings.map((m, i) => (
+                <StandardMappingBlock key={i} mapping={m} eventName={m.event_name} />
+              ))}
             </SectionCard>
           )}
 
           {present.findings && (
             <SectionCard id={SECTION_IDS.findings} title="Findings summary">
-              <p className="text-sm text-gray-700">
-                Open — error {doc.findings_summary.open.error}, warning {doc.findings_summary.open.warning}, info{' '}
-                {doc.findings_summary.open.info}
-              </p>
+              <FindingsSummaryBlock
+                summary={computeFindingsSummary(doc.events, doc.unattached_findings)}
+                anchorFor={(eventId) => anchorById.get(eventId)}
+              />
             </SectionCard>
           )}
         </main>

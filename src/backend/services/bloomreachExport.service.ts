@@ -7,6 +7,7 @@
  * `success` has no data to reconstruct from and is always emitted as `true`.
  */
 import { getDb } from '../db';
+import { parseBloomreachExample } from '../../domain/examples';
 import * as EventDAL from '../dal/event.dal';
 import * as PropertyDAL from '../dal/property.dal';
 import * as VariantDAL from '../dal/variant.dal';
@@ -187,8 +188,15 @@ export function exportDataManagerCustomers(projectId: string): Record<string, un
     // support; joining/concatenating multiple values would not round-trip to any real Bloomreach
     // shape, so the fixture (which only ever has zero or one example value) is matched exactly by
     // taking the first entry and documenting the choice here rather than attempting to join.
+    // T-4-19: the import unwraps Bloomreach quoted text; while the first stored value still equals the
+    // unwrapped raw text, the raw text is written back so an untouched project stays byte-equivalent.
+    const rawExample = propMeta?.raw?.example_values ?? null;
     const example_values =
-      exampleValuesArr.length > 0 ? String(exampleValuesArr[0].value) : (propMeta?.raw?.example_values ?? null);
+      exampleValuesArr.length > 0
+        ? rawExample !== null && parseBloomreachExample(rawExample)[0] === String(exampleValuesArr[0].value)
+          ? rawExample
+          : String(exampleValuesArr[0].value)
+        : rawExample;
     const defaults = propMeta ? null : APP_BORN_CUSTOMER_DEFAULTS;
     return {
       deleting: propMeta?.deleting ?? defaults?.deleting ?? false,
@@ -310,6 +318,8 @@ function fieldUnchangedSinceImport(
   if (!lm) return true;
   const ref = field === 'description' ? lm.description_at_import : lm.example_values_at_import;
   if (ref === undefined) return true;
+  // T-4-19: references written before the example cleanup hold Bloomreach's raw quoted text.
+  if (field === 'example_values' && ref !== null) return ref === currentValue || parseBloomreachExample(ref)[0] === currentValue;
   return ref === currentValue;
 }
 

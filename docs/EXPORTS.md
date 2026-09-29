@@ -194,6 +194,19 @@ resolve against the `data-mapping.json` fixture, tagged with the D-57 facets and
   becomes a requirement with `status: gap`. See `docs/DOMAIN.md`'s "Use case library and templates"
   section for the full resolution-order narrative.
 
+## Documentation HTML export: examples and findings summary (T-4-19)
+
+Each event's property table in `GET /export/documentation.html` ends with an **Example** column:
+scalars and lists of scalars read as plain text (`2023, 2024`), objects are pretty-printed in a
+code block, never as escaped JSON. The project properties section lists stored example values
+comma separated. A **Findings summary** section sits before the event sections (and is the first
+link in the table of contents, `#findings-summary`): open counts by severity and by comparison,
+the top five events by open errors (linked to their event sections) and the acknowledged count.
+It is omitted when there are no open and no acknowledged findings. The standard event mappings
+section is one block per mapping ("standard event -> event (variant)", "n of m fields mapped",
+mapped fields first, the rest "not mapped"). The shared view shows the same summary and mapping
+blocks.
+
 ## Bloomreach bridge formats and the tracking document
 
 `data-mapping.json`, `expiration-settings.json`, `data-manager-customers.json`,

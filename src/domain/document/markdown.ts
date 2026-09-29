@@ -6,6 +6,14 @@
  */
 import { describeCertificationReason } from '../certification';
 import type { EventCard, TrackingDocumentUseCase } from './trackingDocument';
+import { displaySampleValue } from '../examples';
+import { groupFieldMap, mappingHeading } from './standardMappings';
+
+/** Readable example for a table cell: scalars as text, objects as a compact code span (never escaped-JSON noise). */
+function exampleCell(value: unknown): string {
+  const d = displaySampleValue(value);
+  return d.block ? '`' + JSON.stringify(value) + '`' : d.text;
+}
 
 /** Escapes a value for use inside a Markdown pipe-table cell. */
 export function mdCell(value: unknown): string {
@@ -84,7 +92,7 @@ export function eventCardToMarkdown(card: EventCard): string {
           p.datalayer_path === null ? 'n/a' : (p.datalayer_path ?? ''),
           p.bundle ?? '',
           p.allowed_values?.map((a) => a.value).join(', ') ?? '',
-          p.example ?? '',
+          exampleCell(p.example),
           p.description ?? '',
         ])
       )
@@ -106,6 +114,20 @@ export function eventCardToMarkdown(card: EventCard): string {
         ])
       )
     );
+  }
+
+  if (card.standard_event_mappings.length > 0) {
+    out.push('## Standard event mappings');
+    for (const m of card.standard_event_mappings) {
+      const g = groupFieldMap(m.field_map);
+      out.push(`### ${mappingHeading(m.standard_event, card.name, m.variant_name)} (${g.summary})`);
+      out.push(
+        table(
+          ['Bloomreach field', 'Project property'],
+          [...g.mapped.map((x) => [x.field, x.property]), ...g.unmapped.map((x) => [x, 'not mapped'])]
+        )
+      );
+    }
   }
 
   if (card.contexts.length > 0) {

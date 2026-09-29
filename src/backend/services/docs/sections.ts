@@ -7,6 +7,9 @@
  * `trigger_event_name`/`source_name` from ids before calling in.
  */
 import { escapeHtml } from '../htmlEscape';
+import { formatExampleValues } from '../../../domain/examples';
+import { groupFieldMap, mappingHeading } from '../../../domain/document/standardMappings';
+import type { FindingsSummaryView } from '../../../domain/document/findingsSummary';
 
 export { escapeHtml };
 
@@ -351,7 +354,7 @@ export function renderPropertiesSection(properties: PropertyForDocs[]): string {
             ${cell(definition.description)}
             ${cell(definition.allowed_values ? definition.allowed_values.map((v) => v.value).join(', ') : null)}
             ${cell(definition.formats && definition.formats.length > 0 ? definition.formats.join(', ') : null)}
-            ${cell(definition.example_values !== undefined && definition.example_values !== null ? JSON.stringify(definition.example_values) : null)}
+            ${cell(definition.example_values !== undefined && definition.example_values !== null ? formatExampleValues(definition.example_values) : null)}
           </tr>`
         )
         .join('\n');
@@ -413,30 +416,69 @@ export function renderStandardEventMappingsSection(mappings: StandardEventMappin
   if (mappings.length === 0) {
     return '<section id="standard-event-mappings"><h2>Standard event mappings</h2><p>No standard event mappings defined.</p></section>';
   }
-  const rows = mappings
+  const blocks = mappings
     .map((mapping) => {
-      const fieldMapText = Object.entries(mapping.field_map)
-        .filter(([, v]) => v)
-        .map(([field, v]) => `${field} → ${v}`)
-        .join(', ');
-      return `<tr>
-        ${cell(mapping.standard_event)}
-        ${cell(mapping.event_name)}
-        ${cell(mapping.variant_name)}
-        ${cell(fieldMapText)}
-      </tr>`;
+      const g = groupFieldMap(mapping.field_map);
+      const rows = [
+        ...g.mapped.map((m) => `<tr>${cell(m.field)}${cell(m.property)}</tr>`),
+        ...g.unmapped.map((field) => `<tr>${cell(field)}<td class="muted">not mapped</td></tr>`),
+      ].join('\n');
+      return `<div class="mapping-block">
+        <h3>${escapeHtml(mappingHeading(mapping.standard_event, mapping.event_name, mapping.variant_name))} <small>(${escapeHtml(g.summary)})</small></h3>
+        ${
+          g.total === 0
+            ? ''
+            : `<table>
+          <thead><tr><th>Bloomreach field</th><th>Project property</th></tr></thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>`
+        }
+      </div>`;
     })
     .join('\n');
   return `<section id="standard-event-mappings">
     <h2>Standard event mappings</h2>
-    <table>
-      <thead>
-        <tr><th>Standard event</th><th>Event</th><th>Variant</th><th>Field map</th></tr>
-      </thead>
-      <tbody>
-        ${rows}
-      </tbody>
-    </table>
+    ${blocks}
+  </section>`;
+}
+
+/**
+ * Renders the project "Findings summary" section (T-4-19): open counts by severity and by
+ * comparison, the top events by open errors (linked to their sections) and the acknowledged count.
+ * Input comes from `computeFindingsSummary`, so the shared view and this export agree.
+ */
+export function renderFindingsSummarySection(summary: FindingsSummaryView, eventAnchor: (eventId: string) => string | null): string {
+  if (summary.total === 0 && summary.acknowledged.total === 0) return '';
+  const cmpRows = summary.byComparison
+    .map((c) => `<tr>${cell(c.comparison)}${cell(String(c.error))}${cell(String(c.warning))}${cell(String(c.info))}</tr>`)
+    .join('\n');
+  const topRows = summary.topEvents
+    .map((e) => {
+      const anchor = eventAnchor(e.id);
+      const name = anchor ? `<a href="#${escapeHtml(anchor)}">${escapeHtml(e.name)}</a>` : escapeHtml(e.name);
+      return `<tr><td>${name}</td>${cell(String(e.errors))}${cell(String(e.total))}</tr>`;
+    })
+    .join('\n');
+  const ack = summary.acknowledged;
+  return `<section id="findings-summary">
+    <h2>Findings summary</h2>
+    <p><strong>${summary.total} open</strong>: error ${summary.bySeverity.error}, warning ${summary.bySeverity.warning}, info ${summary.bySeverity.info}${
+      ack.total > 0 ? `. Acknowledged: error ${ack.error}, warning ${ack.warning}, info ${ack.info}` : ''
+    }</p>
+    ${
+      summary.byComparison.length === 0
+        ? ''
+        : `<h3>By comparison</h3>
+    <table><thead><tr><th>Comparison</th><th>Error</th><th>Warning</th><th>Info</th></tr></thead><tbody>${cmpRows}</tbody></table>`
+    }
+    ${
+      summary.topEvents.length === 0
+        ? ''
+        : `<h3>Top events by open errors</h3>
+    <table><thead><tr><th>Event</th><th>Errors</th><th>All open</th></tr></thead><tbody>${topRows}</tbody></table>`
+    }
   </section>`;
 }
 

@@ -494,8 +494,9 @@ export async function generateProjectDocumentationHtml(
     }))
   );
 
-  const toc = events
-    .map((event) => `<a href="#event-${escapeHtml(event.id)}">${escapeHtml(event.name)}</a>`)
+  const toc = [findingsSummaryHtml ? '<a href="#findings-summary">Findings summary</a>' : '', ...events
+    .map((event) => `<a href="#event-${escapeHtml(event.id)}">${escapeHtml(event.name)}</a>`)]
+    .filter(Boolean)
     .join('\n');
 
   const generatedAt = new Date().toISOString();

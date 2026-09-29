@@ -94,7 +94,7 @@ export interface NavItem {
 }
 
 export interface NavDocInput {
-  events: { name: string; class: string }[];
+  events: { name: string; class: string; quality?: { acknowledged: { error: number; warning: number; info: number } } }[];
   properties: unknown[];
   use_cases: unknown[];
   identity_rules: unknown[];
@@ -130,6 +130,10 @@ export function eventGroupId(cls: string): string {
 /** Which top-level document sections have content; an empty one is not rendered or listed. */
 export function sectionPresence(doc: NavDocInput) {
   const open = doc.findings_summary.open;
+  const acknowledgedTotal = doc.events.reduce(
+    (n, e) => n + (e.quality ? e.quality.acknowledged.error + e.quality.acknowledged.warning + e.quality.acknowledged.info : 0),
+    0
+  );
   return {
     events: doc.events.length > 0,
     properties: doc.properties.length > 0,
@@ -138,7 +142,8 @@ export function sectionPresence(doc: NavDocInput) {
     consents: doc.consent_categories.length > 0,
     catalogs: doc.catalogs.length > 0,
     mapping: doc.standard_event_mappings.length > 0,
-    findings: open.error + open.warning + open.info > 0,
+    // Open or acknowledged findings: same condition as the HTML export's Findings summary (T-4-19).
+    findings: open.error + open.warning + open.info + acknowledgedTotal > 0,
   };
 }
 

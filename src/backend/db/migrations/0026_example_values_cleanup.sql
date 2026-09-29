@@ -2,8 +2,10 @@
 -- The Data Manager import stored Bloomreach's quoted/bracketed example text verbatim
 -- (`"2023"]`, `"yes"`), which the views then printed as escaped JSON. This unwraps a single quoted
 -- token (optionally with a leading `[` and/or trailing `]`) in every stored example value of
--- `properties` and `property_definitions`. Values that are not a single quoted token are untouched.
--- Same rule as `parseBloomreachExample` in src/domain/examples.ts.
+-- `properties` and `property_definitions`. Single tokens only: no multi-token split (`"a","b"` is
+-- left as is), no unescaping. Anything else is untouched, so a second run is a no-op. The import
+-- (`parseBloomreachExample` in src/domain/examples.ts) also splits multi-token lists; the SQL
+-- deliberately does not.
 
 UPDATE properties
 SET example_values_json = (

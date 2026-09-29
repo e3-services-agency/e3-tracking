@@ -36,10 +36,24 @@ describe('0026_example_values_cleanup.sql', () => {
       "INSERT INTO properties (id, project_id, name, scope, data_type, example_values_json, created_at, updated_at) VALUES (?, ?, ?, 'event', 'string', ?, ?, ?)"
     );
     for (const [name, before] of cases) ins.run(randomUUID(), projectId, name, JSON.stringify(before), ts, ts);
-    db.exec(fs.readFileSync(path.join(MIGRATIONS_DIR, '0026_example_values_cleanup.sql'), 'utf-8'));
+    const propId = (db.prepare('SELECT id FROM properties WHERE name = ?').get('a_quoted') as { id: string }).id;
+    db.prepare(
+      'INSERT INTO property_definitions (id, project_id, property_id, name, example_values_json, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 0, ?, ?)'
+    ).run(randomUUID(), projectId, propId, 'general', JSON.stringify([{ value: '"2023"]' }]), ts, ts);
+    const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, '0026_example_values_cleanup.sql'), 'utf-8');
+    const snapshot = () => ({
+      props: db!.prepare('SELECT name, example_values_json FROM properties ORDER BY name').all(),
+      defs: db!.prepare('SELECT example_values_json FROM property_definitions').all(),
+    });
+    db.exec(sql);
     for (const [name, , after] of cases) {
       const row = db.prepare('SELECT example_values_json AS e FROM properties WHERE name = ?').get(name) as { e: string };
       expect(JSON.parse(row.e), name).toEqual(after);
     }
+    const def = db.prepare('SELECT example_values_json AS e FROM property_definitions').get() as { e: string };
+    expect(JSON.parse(def.e)).toEqual([{ value: '2023' }]);
+    const once = snapshot();
+    db.exec(sql);
+    expect(snapshot()).toEqual(once);
   });
 });

@@ -17,11 +17,14 @@ describe('parseBloomreachExample', () => {
 
 describe('example rendering', () => {
   it('renders stored shapes readably, never escaped JSON', () => {
-    expect(formatExampleValues([{ value: '"2023"' }])).toBe('2023');
+    expect(formatExampleValues([{ value: '2023' }])).toBe('2023');
     expect(formatExampleValues([{ value: 'a' }, { value: 'b' }])).toBe('a, b');
     expect(formatExampleValues(['a', 'b'])).toBe('a, b');
     expect(formatExampleValues(null)).toBe('');
-    expect(exampleValueStrings('["x","y"]')).toEqual(['x', 'y']);
+    // stored strings render as stored: no re-parsing at render time
+    expect(formatExampleValues([{ value: '"hello"' }])).toBe('"hello"');
+    expect(exampleValueStrings([{ value: '"a","b"' }])).toEqual(['"a","b"']);
+    expect(exampleValueStrings('["x","y"]')).toEqual(['["x","y"]']);
   });
   it('display sample values', () => {
     expect(displaySampleValue('a')).toEqual({ text: 'a', block: false });

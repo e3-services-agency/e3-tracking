@@ -34,24 +34,20 @@ export function toExampleValuesJson(raw: string | null | undefined): { value: st
   return parseBloomreachExample(raw).map((value) => ({ value }));
 }
 
-/** Scalar strings out of any stored example shape (`{value}[]`, plain array, JSON text, string). */
+/**
+ * Scalar strings out of a stored example (`{value}[]`, plain array or single string), rendered
+ * as stored: no re-parsing at render time (the import and migration 0026 already normalise), so a
+ * literal `"hello"` keeps its quotes and a stored `"a","b"` renders as that text.
+ */
 export function exampleValueStrings(raw: unknown): string[] {
-  let v = raw;
-  if (typeof v === 'string') {
-    const t = v.trim();
-    if (t.startsWith('[')) {
-      try {
-        v = JSON.parse(t);
-      } catch {
-        return parseBloomreachExample(v as string);
-      }
-    } else return parseBloomreachExample(v);
-  }
-  if (!Array.isArray(v)) return v === null || v === undefined ? [] : [String(v)];
-  return v.map((item) => {
-    const x = item !== null && typeof item === 'object' && 'value' in (item as object) ? (item as { value: unknown }).value : item;
-    return typeof x === 'string' ? parseBloomreachExample(x)[0] ?? '' : x !== null && typeof x === 'object' ? JSON.stringify(x) : String(x ?? '');
-  }).filter((s) => s !== '');
+  if (raw === null || raw === undefined) return [];
+  if (!Array.isArray(raw)) return typeof raw === 'string' ? (raw === '' ? [] : [raw]) : [String(raw)];
+  return raw
+    .map((item) => {
+      const x = item !== null && typeof item === 'object' && 'value' in (item as object) ? (item as { value: unknown }).value : item;
+      return typeof x === 'string' ? x : x !== null && typeof x === 'object' ? JSON.stringify(x) : String(x ?? '');
+    })
+    .filter((v) => v !== '');
 }
 
 /** Readable one-line rendering of stored examples, comma separated. */

@@ -2828,3 +2828,31 @@ Re-review #3 PASS (every fix verified at file:line), QA re-check PASS (malformed
 
 ### 2026-09-29 15:20 | reviewer | REVIEW | T-4-14 re-review PASS (c9b0869)
 All six fixes verified at file:line; 1473 / 125; merge-tree clean against agent-setup and T-4-13. Note: on the internal card the body scroll lock has no effect (main is the scroller), informational only. T-4-14 -> QA (running).
+
+### 2026-09-29 15:30 | qa-tester | QA | T-4-14 shared view UX (c9b0869) — FAIL (1 blocker, 2 warnings)
+Env: sandbox project, share `comment`, API 3002, Vite 3010 (viewport 1024x768; 1440 and 900 checked via a same-origin iframe). Extracts: `.claude/team/reports/qa/T-4-14/` (tracking-document.json, documentation.html, both zero occurrences of the agent_instructions marker). Note: main-checkout node_modules lacks `rehype-raw` (branch package.json has it; main's does not) so Vite 500s on Documentation.tsx; I stubbed it only in a throwaway QA config. Needs `npm install` on the merge tree.
+
+| # | Scenario | Result |
+|---|---|---|
+| 1 | Collapsed default, expand purchase, expand/collapse all, request count | PASS (one comments GET per mount, x2 = React StrictMode dev; Expand all fires no comments burst, only file fetches) |
+| 2 | Anchors, copy link, hash open, unique ids | PASS |
+| 3 | Sticky title rows, left nav, scroll-spy, filter, 900px dropdown | FAIL (title rows, spy, filter, dropdown pass; nav not sticky and page scroll fight, see B1) |
+| 4 | Codegen tabs, copy, internal card open | PASS |
+| 5 | Triggers block and lightbox | PASS (real wheel: no scroll; Esc closes; focus returns to thumbnail) |
+| 6 | Layout and empty sections | PASS with warnings W1, W2 |
+| 7 | Leak check, comments | PASS |
+| 8 | Regression internal card and Events page | PASS (no 500s/errors from the app; only Vite HMR WebSocket noise) |
+
+**B1 (blocker) The left nav is not sticky, and the page cannot be scrolled with the wheel.**
+Steps: open the shared URL at 1024x768 (also reproduced at 1440x900), expand `cart_update` and `purchase`, scroll the wheel down 5-10 ticks.
+Expected: nav stays visible (sticky top-20) and highlights the current event; scrolling is free.
+Actual: (a) `aside nav` rect top goes to -574 at scrollY 653 (-1672 at 8000): the nav scrolls away. Cause: `SharedProject` flex row has `lg:items-start`, so the `<aside>` is only as tall as the nav (672px) and `sticky top-20` on the inner nav has no room to stick. (b) `SharedNav.tsx:16` `activeRef.current?.scrollIntoView({ block: 'nearest' })` runs on every activeId change; because the link is off-screen with the nav, it scrolls the WINDOW back: scroll events 262, 234, 734, 262, 234, 1234, 262, 234 for 5-10 wheel ticks, i.e. the page snaps back to ~234-262 and cannot be scrolled past the first events. Programmatic `scrollTo(3000)` also snaps back to 234 within 1.2 s. With scrollIntoView stubbed out, scrolling and the scroll-spy work (spy showed `purchase` at 1000-2500px into it).
+Fix hint: make the aside `self-stretch` (or put sticky on the aside) and scroll only the nav's own container (`nav.scrollTop`) instead of `scrollIntoView`.
+
+W1 (warning) Findings table on the event card has 12 columns: 2101px wide in a 981px wrapper (`overflow-x:auto`) at 1440, a mid-screen scroller against the layout rule. Other tables fill 981px (full content width; content column 1048px, left 320).
+W2 (warning) Empty sections still render: `Properties (0)` with an empty header table and `—` row on `submitted_nps_score` and `web_exit`; Overview lists 6 rows of `—` (Priority, Grain, Page, Trigger, Purpose); variant blocks show `Required keys: —` / `Expiration: —`. `SDK default properties` and `Implementation` appear on every event. None of the listed forbidden rows (No rules, raw `[]`, Not suitable for, Identity note, Owner, Coverage, Open findings (0)) appear. Public JSON keeps `agent_instructions: null` on all 62 events (key only, no value).
+Also: collapsed-row description works (optilyz_campaign is the only sandbox event with one).
+
+### 2026-09-29 15:23 | supervisor | RULING | T-4-14 QA FAIL (B1 blocker, 2 warnings)
+Passed: collapsed rows, expand/collapse all, one comments fetch, anchors and hash-open, codegen tabs and copy, lightbox focus/scroll/Esc, leak check, comments, regression. B1: the aside is only as tall as the nav (lg:items-start), so sticky has no room and the nav scrolls away; SharedNav's scrollIntoView on active change then drags the window back -> page stuck near the top. W1: event findings table (12 columns, 2101px) scrolls horizontally inside the card. W2: empty Properties (0) tables, dash-only Overview rows, "Required keys: —"/"Expiration: —", SDK default properties and Implementation shown on every event, agent_instructions: null key in the public JSON.
+Ruling: merge agent-setup (T-4-13 removed Documentation.tsx/rehype-raw) into the branch first; fix B1 (aside self-stretch or sticky on the aside; scroll the nav's own container via scrollTop, never scrollIntoView), W1 (shared findings table: fewer columns -- severity, kind, message, property/variant -- or the wide columns collapsed into the message; internal card may keep the full table with its own overflow-x-auto wrapper), W2 (hide empty tables, dash-only rows and empty labels in shared mode; drop the null agent_instructions key from the public projection). Then re-QA scenario 3 and 6, then merge.

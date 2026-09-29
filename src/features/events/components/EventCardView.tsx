@@ -209,9 +209,9 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
           <Field label="Grain" value={card.grain ?? '—'} />
           <Field label="Page" value={card.page ?? '—'} />
           <Field label="Trigger" value={card.trigger ?? '—'} />
-          <Field label="Identity note" value={card.identity_note ?? '—'} />
-          <Field label="Owner (business)" value={card.owners.business ?? '—'} />
-          <Field label="Owner (technical)" value={card.owners.technical ?? '—'} />
+          {!shared && <Field label="Identity note" value={card.identity_note ?? '—'} />}
+          {!shared && <Field label="Owner (business)" value={card.owners.business ?? '—'} />}
+          {!shared && <Field label="Owner (technical)" value={card.owners.technical ?? '—'} />}
           <Field label="Purpose" value={card.purpose ?? '—'} />
           <Field label="Expiration" value={expirationSummary(card.expiration)} />
           <Field
@@ -316,6 +316,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
         </Section>
       )}
 
+      {(!shared || card.coverage.observed_count + card.coverage.unobserved_count > 0) && (
       <Section title="Coverage">
         <p className="text-sm text-gray-700 mb-2">
           {card.coverage.observed_count} observed cell(s), {card.coverage.unobserved_count} unobserved.
@@ -338,6 +339,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
           />
         )}
       </Section>
+      )}
 
       {(!shared || visible.rules) && (
       <Section title={`Rules (${card.rules.length})`}>
@@ -379,6 +381,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
       </Section>
       )}
 
+      {(!shared || card.findings.length > 0) && (
       <Section
         title={`Open findings (${card.findings.length}) — error ${card.quality.open.error}, warning ${card.quality.open.warning}, info ${card.quality.open.info}${
           card.quality.acknowledged.error + card.quality.acknowledged.warning + card.quality.acknowledged.info > 0
@@ -420,9 +423,10 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
           </div>
         )}
       </Section>
+      )}
 
       <Section title="Implementation">
-        <CodegenTabs codegen={card.codegen} />
+        <CodegenTabs codegen={card.codegen} defaultOpen={!shared} />
       </Section>
 
       {(!shared || visible.sdkDefaultProperties) && (

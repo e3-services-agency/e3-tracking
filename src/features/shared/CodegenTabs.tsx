@@ -7,8 +7,9 @@ import React, { useState } from 'react';
 import { CodeBlock } from '@/src/components/ui/CodeBlock';
 import { CODEGEN_TABS, selectCodegenTab, type CodegenTabKey } from './viewHelpers';
 
-export function CodegenTabs({ codegen }: { codegen: Record<CodegenTabKey, string> }) {
-  const [open, setOpen] = useState(false);
+/** `defaultOpen`: the internal card starts expanded, the shared view collapsed. */
+export function CodegenTabs({ codegen, defaultOpen = false }: { codegen: Record<CodegenTabKey, string>; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   const [tab, setTab] = useState<CodegenTabKey>(() => selectCodegenTab(codegen));
   const active = CODEGEN_TABS.find((t) => t.key === tab) ?? CODEGEN_TABS[0];
   return (

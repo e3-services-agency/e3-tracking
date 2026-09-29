@@ -3,7 +3,7 @@
  * the title, the page URL as a link and the description, plus one image gallery whose thumbnails
  * open a plain overlay lightbox (no dependency; Escape closes, arrow keys step, wrap-around).
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { lightboxStep } from './viewHelpers';
 
 export interface TriggerData {
@@ -17,6 +17,45 @@ export function TriggersBlock({ triggers, fileUrl }: { triggers: TriggerData[]; 
   const images = triggers.filter((t) => t.image_path);
   const [open, setOpen] = useState<number | null>(null);
   const close = useCallback(() => setOpen(null), []);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const opener = useRef<HTMLElement | null>(null);
+  const isOpen = open !== null;
+
+  // Focus trap + body scroll lock while the lightbox is open; focus returns to the thumbnail.
+  useEffect(() => {
+    if (!isOpen) return;
+    opener.current = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const focusables = () =>
+      Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button, [href], [tabindex]:not([tabindex="-1"])') ?? []);
+    (focusables()[0] ?? dialogRef.current)?.focus();
+    const onTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const items = focusables();
+      if (items.length === 0) {
+        e.preventDefault();
+        dialogRef.current?.focus();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !dialogRef.current?.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !dialogRef.current?.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onTab);
+    return () => {
+      document.removeEventListener('keydown', onTab);
+      document.body.style.overflow = previousOverflow;
+      opener.current?.focus?.();
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (open === null) return;
@@ -62,6 +101,8 @@ export function TriggersBlock({ triggers, fileUrl }: { triggers: TriggerData[]; 
           role="dialog"
           aria-modal="true"
           aria-label="Trigger screenshot"
+          ref={dialogRef}
+          tabIndex={-1}
           className="fixed inset-0 z-50 bg-black/80 flex flex-col items-center justify-center p-6"
           onClick={close}
         >

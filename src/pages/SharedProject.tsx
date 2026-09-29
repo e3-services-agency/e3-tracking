@@ -44,7 +44,7 @@ import {
   buildSectionIndex,
   sectionPresence,
   filterNav,
-  eventAnchor,
+  eventAnchors,
   eventForHash,
   oneLineDescription,
   EVENT_CLASS_GROUPS,
@@ -191,6 +191,10 @@ export function SharedProject({ token }: { token: string }) {
     };
   }, [token]);
 
+  const anchorById = useMemo(() => {
+    const list = doc ? eventAnchors(doc.events.map((e) => e.name)) : [];
+    return new Map((doc?.events ?? []).map((e, i) => [e.id, list[i]]));
+  }, [doc]);
   const nav = useMemo(() => (doc ? buildSectionIndex(doc) : []), [doc]);
   const filteredNav = useMemo(() => filterNav(nav, navQuery), [nav, navQuery]);
   const activeId = useActiveSection(useMemo(() => leafIds(nav), [nav]));
@@ -328,7 +332,7 @@ export function SharedProject({ token }: { token: string }) {
                     </h3>
                     {inGroup.map((event) => {
                       const expanded = openEvents.has(event.id);
-                      const anchor = eventAnchor(event.name);
+                      const anchor = anchorById.get(event.id) as string;
                       return (
                         <div key={event.id} id={anchor} className="scroll-mt-16 bg-white rounded-lg border shadow-sm">
                           <div

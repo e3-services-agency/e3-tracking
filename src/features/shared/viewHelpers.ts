@@ -11,6 +11,19 @@ export function eventAnchor(name: string): string {
   return `event-${slug || 'unnamed'}`;
 }
 
+/** Unique anchors for a list of names, in order: a name whose slug is already taken gets `-2`, `-3`, ...
+ * so "ab test" / "ab-test" / "Kauf ä" / "Kauf ö" never share a DOM id. */
+export function eventAnchors(names: string[]): string[] {
+  const taken = new Set<string>();
+  return names.map((name) => {
+    const base = eventAnchor(name);
+    let id = base;
+    for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
+    taken.add(id);
+    return id;
+  });
+}
+
 /** Finds the event a URL hash (`#event-purchase`, with or without the `#`, possibly percent-encoded)
  * points at, or `null`. */
 export function eventForHash<T extends { name: string }>(hash: string, events: T[]): T | null {
@@ -21,7 +34,9 @@ export function eventForHash<T extends { name: string }>(hash: string, events: T
     // keep the raw text
   }
   if (!raw.startsWith('event-')) return null;
-  return events.find((e) => eventAnchor(e.name) === raw) ?? null;
+  const anchors = eventAnchors(events.map((e) => e.name));
+  const i = anchors.indexOf(raw);
+  return i >= 0 ? events[i] : null;
 }
 
 export type CodegenTabKey = 'gtm' | 'web_sdk' | 'tracking_api';
@@ -136,6 +151,8 @@ export function buildSectionIndex(doc: NavDocInput): NavItem[] {
   const present = sectionPresence(doc);
   const items: NavItem[] = [];
   if (present.events) {
+    const anchorList = eventAnchors(doc.events.map((e) => e.name));
+    const anchorByEvent = new Map(doc.events.map((e, i) => [e, anchorList[i]]));
     const groups: NavItem[] = [];
     for (const { cls, label } of EVENT_CLASS_GROUPS) {
       const inGroup = doc.events.filter((e) => e.class === cls);
@@ -143,7 +160,7 @@ export function buildSectionIndex(doc: NavDocInput): NavItem[] {
       groups.push({
         id: `events-${cls}`,
         label: `${label} (${inGroup.length})`,
-        children: inGroup.map((e) => ({ id: eventAnchor(e.name), label: e.name })),
+        children: inGroup.map((e) => ({ id: anchorByEvent.get(e) as string, label: e.name })),
       });
     }
     items.push({ id: 'events', label: `Events (${doc.events.length})`, children: groups });

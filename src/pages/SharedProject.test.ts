@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  buildSharedViewModel, sharedFileUrl, eventAnchor, eventForHash, selectCodegenTab, isEmptyValue, derivedMetricsText,
+  buildSharedViewModel, sharedFileUrl, eventAnchor, eventAnchors, eventForHash, selectCodegenTab, isEmptyValue, derivedMetricsText,
   eventCardVisibility, oneLineDescription, sectionPresence, buildSectionIndex, filterNav, flattenNav, pickActiveId, lightboxStep,
 } from './sharedViewModel';
 import type { TrackingDocument } from '../domain/document/trackingDocument';
@@ -103,6 +103,18 @@ describe('T-4-14 view helpers', () => {
     expect(eventAnchor('cart update / v2')).toBe('event-cart-update-v2');
     expect(eventAnchor('Cart_Update')).toBe('event-Cart_Update');
     expect(eventAnchor('  ')).toBe('event-unnamed');
+  });
+
+  it('eventAnchors makes colliding slugs unique with -2, -3 and nav, hash resolution use them', () => {
+    const names = ['ab test', 'ab-test', 'Kauf ä', 'Kauf ö', 'Kauf ü'];
+    const ids = eventAnchors(names);
+    expect(ids).toEqual(['event-ab-test', 'event-ab-test-2', 'event-Kauf', 'event-Kauf-2', 'event-Kauf-3']);
+    expect(new Set(ids).size).toBe(ids.length);
+    const events = names.map((name) => ({ name, class: 'custom' }));
+    expect(eventForHash('#event-ab-test-2', events)?.name).toBe('ab-test');
+    expect(eventForHash('#event-Kauf-3', events)?.name).toBe('Kauf ü');
+    const nav = buildSectionIndex({ ...baseDoc, events });
+    expect(nav[0].children![0].children!.map((c) => c.id)).toEqual(ids);
   });
 
   it('eventForHash resolves a hash to its event, also percent-encoded, and ignores others', () => {

@@ -2685,3 +2685,13 @@ Supervisor ruling: implementer fixes LOW 1-4 and adds the CLAUDE.md 0024 migrati
 
 ### 2026-09-29 12:14 | supervisor | HANDOFF | T-4-10 fix round (0fc3e12) — QA
 1443 tests / 122 files, tsc, build, lint green. EXPORTS.md header, SHARING/QA-LOCAL/scenario 13 wording plus two new steps, PATCH messages, CSV header test, CLAUDE.md 0024 entry and route bullets. Transaction wrapper skipped (optional). Browser QA next: scenario 13 with the new steps.
+
+### 2026-09-29 12:25 | qa-tester | QA | T-4-10 PASS (0fc3e12)
+Scenarios 1-7 PASS. Ran API on 3002 plus Vite 3010 via a throwaway config (vite.config.ts proxy is hard-coded to 3001, occupied by the user's server; the config was deleted after). Evidence in .claude/team/reports/qa/T-4-10/ (backup.json, comments.csv, shared-comments.json, shared-tracking-document.json, shared-documentation.html).
+- 2 UI: normal + Internal only comment on cart_update; note text switches to "Not visible on the share link."; badge shown; checkbox resets; Comments page Visibility filter isolates internal-only / not internal-only.
+- 3 shared: internal-only absent, normal + client comment ("Client QA", posted via UI) present; rows carry only id, entity_type, entity_id, author_name, via_share, body, created_at; POST internal_only -> 400 FIELD_NOT_ALLOWED (resolved too).
+- 4 via_share_only (set in Settings UI) hides the internal comment, keeps the client one, GET share returns share_comments via_share_only; back to all restores; revoke + regenerate preserves the setting (access resets to read unless passed).
+- 5 messages exactly "At least one of resolved or internal_only is required." / "At least one of access or share_comments is required."; bad values give clear 400s.
+- 6 CSV header ...,via_share,internal_only,body,...; backup comments carry internal_only; restore via API keeps internal_only/via_share and share_comments.
+- 7 agent_instructions marker: 1 in internal tracking doc, 0 in shared JSON/HTML/comments; no 500s; console errors are only my deliberate 400/404 probes.
+Observations (not failures): backup.json project block includes share_token (restored project gets token null but keeps share_created_at); the browser type tool lags but no app defect.

@@ -1,0 +1,5 @@
+﻿id,entity_type,entity_id,entity_label,author_name,via_share,internal_only,body,created_at,resolved_at,resolved_by
+a92ec75a-77e3-488a-9bb4-9b23061b1469,event,d84f5000-883a-4deb-bf33-58658a2e1670,cart_update,e3-services-agency,false,false,Team note visible,2026-09-29T10:17:06.723Z,,
+42db0400-7454-4a7c-a75f-3377ce04c6f3,event,d84f5000-883a-4deb-bf33-58658a2e1670,cart_update,e3-services-agency,false,false,Team note visible,2026-09-29T10:17:13.106Z,,
+1cb528d5-5c18-446b-8c2a-7da5a69788d8,event,d84f5000-883a-4deb-bf33-58658a2e1670,cart_update,e3-services-agency,false,true,Secret internal,2026-09-29T10:17:25.018Z,,
+38a947e4-ca25-4269-84f0-bb9a4856bfda,event,d84f5000-883a-4deb-bf33-58658a2e1670,cart_update,Client QA,true,false,Client says hello,2026-09-29T10:18:18.540Z,,

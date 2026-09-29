@@ -106,7 +106,7 @@ function SectionCard({ id, title, actions, children }: { id: string; title: Reac
     <section id={id} style={marginTop('section')} className="bg-white rounded-lg border shadow-sm">
       <div
         style={{ height: STICKY_PX.sectionHeader }}
-        className={`sticky ${HEADER_TOP_CLASS} z-10 flex items-center justify-between gap-2 rounded-t-lg border-b bg-white px-4`}
+        className={`sticky ${HEADER_TOP_CLASS} z-10 flex items-center justify-between gap-2 border-b bg-white px-4`}
       >
         <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
         {actions}
@@ -332,7 +332,7 @@ export function SharedProject({ token }: { token: string }) {
             {header.client.name && <p className="text-xs text-gray-500 truncate leading-tight">{header.client.name}</p>}
           </div>
           <div className="ml-auto hidden md:flex items-center gap-4 text-xs">
-            {(present.events || present.useCases) && <ExpandToggles label="all rows" onExpand={expandAll} onCollapse={collapseAll} />}
+            {(present.events || present.useCases) && <ExpandToggles label="rows" onExpand={expandAll} onCollapse={collapseAll} />}
             <a className={linkClass} href={downloadUrl(token, 'tracking-document.json')}>
               JSON
             </a>
@@ -355,7 +355,7 @@ export function SharedProject({ token }: { token: string }) {
 
         <main className="flex-1 min-w-0 space-y-6">
           <div className="md:hidden flex flex-wrap gap-3 text-xs">
-            {(present.events || present.useCases) && <ExpandToggles label="all rows" onExpand={expandAll} onCollapse={collapseAll} />}
+            {(present.events || present.useCases) && <ExpandToggles label="rows" onExpand={expandAll} onCollapse={collapseAll} />}
             <a className={linkClass} href={downloadUrl(token, 'tracking-document.json')}>
               Download JSON
             </a>

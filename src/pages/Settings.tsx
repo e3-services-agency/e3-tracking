@@ -14,15 +14,17 @@ import { useProjectShell } from '@/src/features/projects/context/ProjectShellCon
 export function Settings() {
   const { activeProjectId } = useProjectShell();
   return (
-    <div className="flex-1 p-8">
+    <div className="flex-1 flex flex-col">
+      <div className="p-8 border-b bg-white">
+        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+        <p className="text-sm text-gray-500 mt-1">Project and Bloomreach identifiers.</p>
+      </div>
+      <div className="p-8 flex-1">
       <div className={`space-y-8 ${FORM_CARD_WIDTH_CLASS}`}>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-          <p className="text-gray-500 mt-1">Project and Bloomreach identifiers.</p>
-        </div>
         <ProjectSettings />
         <CsvExportBlock projectId={activeProjectId} />
         <BackupExportBlock projectId={activeProjectId} />
+      </div>
       </div>
     </div>
   );

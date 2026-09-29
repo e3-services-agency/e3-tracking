@@ -112,7 +112,7 @@ export function RequirementsMatrix() {
           <>
             <div className="text-xs text-gray-600 flex flex-wrap items-center gap-x-4 gap-y-1">
               <span>
-                <GlossaryTerm glossaryKey="requirement_level">Legend</GlossaryTerm>: <b>R</b> required, <b>O</b> optional,{' '}
+                Legend: <b>R</b> required, <b>O</b> optional,{' '}
                 <b>N</b> nice to have, — no requirement
               </span>
               <span>

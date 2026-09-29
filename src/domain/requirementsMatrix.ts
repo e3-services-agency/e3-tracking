@@ -45,33 +45,59 @@ export interface TargetPartsInput {
   consentName: string | null;
 }
 
+export interface ParsedGapNote {
+  /** Event (or variant's event) named by keyword: `No event named "X"`, `linked to event "X"`, `variant for "X"`, `variant of "X"`. */
+  event: string | null;
+  /** Target property named by keyword: `No property named "p" is mapped ...`. */
+  property: string | null;
+}
+
 /**
- * The group (event / variant / kind heading) and leaf name of a target. An unresolved part falls
- * back to the name quoted in the gap note (the template's own wording) or "(unresolved)"; the
- * note itself is never the label.
+ * Parses the reasons `use-case-template.dal.ts` writes for an unresolved template requirement by
+ * keyword, never by position. `No property named "p" to match the variant condition` names the
+ * discriminator, not the target, so it is ignored here.
+ */
+export function parseGapNote(note: string | null | undefined): ParsedGapNote {
+  if (!note) return { event: null, property: null };
+  const event = note.match(/(?:event named|to event|variant for|variant of) "([^"]+)"/);
+  const conditionOnly = /to match the variant condition/.test(note);
+  const property = conditionOnly ? null : note.match(/property named "([^"]+)"/);
+  return { event: event?.[1] ?? null, property: property?.[1] ?? null };
+}
+
+/**
+ * The group (event / variant / kind heading) and leaf name of a target. An unresolved part is
+ * recovered from the gap note by keyword (`parseGapNote`), then, only when no keyword matched, by
+ * the first quoted name; else "(unresolved)". The note itself is never the label.
  */
 export function deriveTargetParts(input: TargetPartsInput): { group_label: string; leaf_label: string } {
   const quoted = extractQuotedNames(input.note);
-  const missing = quoted[0] ?? '(unresolved)';
+  const parsed = parseGapNote(input.note);
+  const keywordHit = parsed.event !== null || parsed.property !== null;
+  const positional = keywordHit ? null : quoted[0] ?? null;
+  const unresolved = '(unresolved)';
+  const parentAndProperty = (parentName: string | null) => {
+    const group = parentName ?? parsed.event ?? (parsed.property === null ? positional : null) ?? '(unresolved event)';
+    const leaf = input.propertyName ?? parsed.property ?? (parentName !== null ? positional : null) ?? '(unresolved property)';
+    return { group_label: group, leaf_label: leaf };
+  };
   switch (input.target_kind) {
     case 'customer_property':
-      return { group_label: 'Customer properties', leaf_label: input.propertyName ?? missing };
+      return { group_label: 'Customer properties', leaf_label: input.propertyName ?? parsed.property ?? quoted[0] ?? unresolved };
     case 'event':
-      return { group_label: input.eventName ?? missing, leaf_label: '(event)' };
+      return { group_label: input.eventName ?? parsed.event ?? quoted[0] ?? unresolved, leaf_label: '(event)' };
     case 'event_property':
-      if (!input.eventName) return { group_label: missing, leaf_label: input.propertyName ?? '(unresolved property)' };
-      return { group_label: input.eventName, leaf_label: input.propertyName ?? missing };
+      return parentAndProperty(input.eventName);
     case 'variant':
-      return { group_label: input.variantName ?? missing, leaf_label: '(variant)' };
+      return { group_label: input.variantName ?? parsed.event ?? quoted[0] ?? unresolved, leaf_label: '(variant)' };
     case 'variant_property':
-      if (!input.variantName) return { group_label: missing, leaf_label: input.propertyName ?? '(unresolved property)' };
-      return { group_label: input.variantName, leaf_label: input.propertyName ?? missing };
+      return parentAndProperty(input.variantName);
     case 'catalog_attribute':
-      return { group_label: 'Catalog attributes', leaf_label: input.catalogFieldName ?? missing };
+      return { group_label: 'Catalog attributes', leaf_label: input.catalogFieldName ?? quoted[0] ?? unresolved };
     case 'consent':
-      return { group_label: 'Consent', leaf_label: input.consentName ?? missing };
+      return { group_label: 'Consent', leaf_label: input.consentName ?? quoted[0] ?? unresolved };
     default:
-      return { group_label: 'Other', leaf_label: missing };
+      return { group_label: 'Other', leaf_label: quoted[0] ?? unresolved };
   }
 }
 
@@ -88,7 +114,9 @@ export interface MatrixRowLike {
 /** The target as written: `group.leaf`, or just the group for an event/variant itself. */
 export function formatTargetLabel(row: Pick<MatrixRowLike, 'target_kind' | 'group_label' | 'leaf_label'>): string {
   if (row.target_kind === 'event' || row.target_kind === 'variant') return row.group_label;
-  if (row.target_kind === 'customer_property') return row.leaf_label;
+  if (row.target_kind === 'customer_property' || row.target_kind === 'catalog_attribute' || row.target_kind === 'consent') {
+    return row.leaf_label;
+  }
   return `${row.group_label}.${row.leaf_label}`;
 }
 

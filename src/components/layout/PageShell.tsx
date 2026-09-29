@@ -6,10 +6,11 @@
  */
 import React from 'react';
 
+/** Documentation only: the 1400px cap is applied in `src/index.css` (`.page-shell`) so headers span the full width. */
 export const PAGE_MAX_WIDTH_CLASS = 'max-w-[1400px]';
 /** Width cap for forms and standalone cards; tables and matrices stay full width. */
 export const FORM_CARD_WIDTH_CLASS = 'w-full max-w-3xl';
 
 export function PageShell({ children }: { children: React.ReactNode }) {
-  return <div className={`w-full ${PAGE_MAX_WIDTH_CLASS} flex-1 flex flex-col`}>{children}</div>;
+  return <div className="page-shell w-full flex-1 flex flex-col">{children}</div>;
 }

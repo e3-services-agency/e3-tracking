@@ -171,9 +171,11 @@ export interface EventCardViewProps {
   grid?: CoverageGridData | null;
   /** T-4-04 `CommentsPanel`; rendered once near the header. `undefined` renders nothing. */
   commentsSlot?: React.ReactNode;
+  /** `shared` (public view) keeps only the header badge; the operator-facing Certification block is internal. Default `internal`. */
+  mode?: 'internal' | 'shared';
 }
 
-export function EventCardView({ card, fileUrl, grid, commentsSlot }: EventCardViewProps) {
+export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'internal' }: EventCardViewProps) {
   const showNames = anyNameDiffersFromKey(card.properties);
   return (
     <div className="space-y-6">
@@ -185,7 +187,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot }: EventCardVi
         <CertificationBadge certification={card.certification} />
       </div>
 
-      <CertificationBlock certification={card.certification} />
+      {mode === 'internal' && <CertificationBlock certification={card.certification} />}
 
       {commentsSlot}
 

@@ -76,3 +76,50 @@ describe('requirementsMatrix helpers', () => {
     expect(filterMatrixRows(rows, { useCaseIds: null, gapsOnly: true }).map((r) => r.key)).toEqual(['2']);
   });
 });
+
+describe('real DAL gap notes (T-4-12 fix round)', () => {
+  const noIds = { eventName: null, variantName: null, propertyName: null, catalogFieldName: null, consentName: null };
+
+  it('groups a missing event property under the event named in the note', () => {
+    const parts = deriveTargetParts({
+      target_kind: 'event_property',
+      note: 'No property named "coupon" is mapped (field_map) or linked to event "purchase".',
+      ...noIds,
+    });
+    expect(parts).toEqual({ group_label: 'purchase', leaf_label: 'coupon' });
+    expect(formatTargetLabel({ target_kind: 'event_property', ...parts })).toBe('purchase.coupon');
+  });
+
+  it('reads the event from a missing-event note', () => {
+    const parts = deriveTargetParts({ target_kind: 'event', note: 'No event named "wishlist_add" in this project.', ...noIds });
+    expect(parts.group_label).toBe('wishlist_add');
+  });
+
+  it('reads the event from variant notes and ignores the discriminator property', () => {
+    expect(
+      deriveTargetParts({
+        target_kind: 'variant',
+        note: 'No standard event mapping resolves a variant for "cart_update", and no condition was given to match one directly.',
+        ...noIds,
+      }).group_label
+    ).toBe('cart_update');
+    expect(
+      deriveTargetParts({
+        target_kind: 'variant',
+        note: 'No variant of "cart_update" has exactly the condition action=add (and no other condition).',
+        ...noIds,
+      }).group_label
+    ).toBe('cart_update');
+    const cond = deriveTargetParts({
+      target_kind: 'variant_property',
+      note: 'No property named "action" to match the variant condition.',
+      ...noIds,
+    });
+    expect(cond.leaf_label).not.toBe('action');
+  });
+
+  it('labels catalog attribute and consent rows by their leaf only', () => {
+    expect(formatTargetLabel({ target_kind: 'catalog_attribute', group_label: 'Catalog attributes', leaf_label: 'image' })).toBe('image');
+    expect(formatTargetLabel({ target_kind: 'consent', group_label: 'Consent', leaf_label: 'newsletter' })).toBe('newsletter');
+  });
+});

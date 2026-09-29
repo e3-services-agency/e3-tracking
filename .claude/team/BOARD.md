@@ -2904,3 +2904,6 @@ Same setup (API 3002, Vite 3010, throwaway config removed, QA db removed, 3000/3
 4. Filter active: group chevrons disabled; clearing restores prior collapse state (29 visible nav links before and after). PASS
 5. Bottom of page in one motion and in 400px steps: highlight is Findings (last section on screen) both times. PASS
 Console: no new errors beyond HMR noise and favicon 404.
+
+### 2026-09-29 16:29 | supervisor | MERGE | T-4-16 merged into agent-setup — DONE
+Re-review PASS (all eight items verified at file:line), QA re-check PASS (highlight behaviour, comment bubbles on events/use cases/requirements, chevrons, bottom rule). Merged tree: tsc, lint clean, 1490 tests / 127 files. Low notes to fold into the next docs pass: SHARING.md comment-button sentence, UseCases.tsx comment and openReqThreads name. QA note: open the Browser pane with preview_start before testing scroll behaviour (rAF does not fire on a hidden pane).

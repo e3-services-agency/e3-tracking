@@ -592,6 +592,110 @@ describe('public projection strips internal fields (fix round LOW 1, D-48 amendm
 });
 
 // T-4-04 (D-49): the public counterpart of `routes/comments.ts`.
+describe('comment visibility (D-49 amendment 2, T-4-10)', () => {
+  async function createShare(access: 'read' | 'comment'): Promise<string> {
+    const created = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access }),
+      })
+    ).json();
+    return created.share_token as string;
+  }
+
+  async function publicBodies(token: string, eventId: string): Promise<string[]> {
+    const res = await fetch(`${baseUrl}/api/shared/${token}/comments?entity_type=event&entity_id=${eventId}`);
+    expect(res.status).toBe(200);
+    const rows = (await res.json()) as Array<Record<string, unknown>>;
+    for (const row of rows) expect('internal_only' in row).toBe(false);
+    return rows.map((r) => r.body as string);
+  }
+
+  it('an internal-only comment is absent from the public GET but present internally', async () => {
+    const eventId = EventDAL.createEvent(projectId, { name: 't4_10_internal_event', class: 'custom' }).id;
+    const token = await createShare('comment');
+    const postRes = await fetch(`${baseUrl}/api/projects/${projectId}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entity_type: 'event', entity_id: eventId, author_name: 'Jan', body: 'secret', internal_only: true }),
+    });
+    expect(postRes.status).toBe(201);
+    expect((await postRes.json()).internal_only).toBe(true);
+    CommentDAL.createComment(projectId, { entity_type: 'event', entity_id: eventId, author_name: 'Jan', body: 'open' });
+
+    expect(await publicBodies(token, eventId)).toEqual(['open']);
+    const internal = await (
+      await fetch(`${baseUrl}/api/projects/${projectId}/comments?entity_type=event&entity_id=${eventId}`)
+    ).json();
+    expect(internal.map((c: { body: string }) => c.body).sort()).toEqual(['open', 'secret']);
+    const onlyInternal = await (await fetch(`${baseUrl}/api/projects/${projectId}/comments?internal_only=true`)).json();
+    expect(onlyInternal.every((c: { internal_only: boolean }) => c.internal_only)).toBe(true);
+    expect(onlyInternal.length).toBeGreaterThan(0);
+  });
+
+  it('PATCH toggles internal_only', async () => {
+    const eventId = EventDAL.createEvent(projectId, { name: 't4_10_toggle_event', class: 'custom' }).id;
+    const token = await createShare('read');
+    const c = CommentDAL.createComment(projectId, { entity_type: 'event', entity_id: eventId, author_name: 'Jan', body: 'toggle me' });
+    expect(await publicBodies(token, eventId)).toEqual(['toggle me']);
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/comments/${c.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ internal_only: true }),
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).internal_only).toBe(true);
+    expect(await publicBodies(token, eventId)).toEqual([]);
+  });
+
+  it('via_share_only hides internal non-flagged comments and keeps via-share ones', async () => {
+    const eventId = EventDAL.createEvent(projectId, { name: 't4_10_via_event', class: 'custom' }).id;
+    const token = await createShare('comment');
+    CommentDAL.createComment(projectId, { entity_type: 'event', entity_id: eventId, author_name: 'Jan', body: 'team note' });
+    CommentDAL.createComment(projectId, { entity_type: 'event', entity_id: eventId, author_name: 'Client', body: 'client note', via_share: true });
+    expect((await publicBodies(token, eventId)).sort()).toEqual(['client note', 'team note']);
+
+    const patch = await fetch(`${baseUrl}/api/projects/${projectId}/share`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ share_comments: 'via_share_only' }),
+    });
+    expect(patch.status).toBe(200);
+    expect((await patch.json()).share_comments).toBe('via_share_only');
+    expect((await (await fetch(`${baseUrl}/api/projects/${projectId}/share`)).json()).share_comments).toBe('via_share_only');
+    expect(await publicBodies(token, eventId)).toEqual(['client note']);
+
+    await fetch(`${baseUrl}/api/projects/${projectId}/share`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ share_comments: 'all' }),
+    });
+  });
+
+  it('internal_only through the share POST is 400 FIELD_NOT_ALLOWED', async () => {
+    const eventId = EventDAL.createEvent(projectId, { name: 't4_10_post_event', class: 'custom' }).id;
+    const token = await createShare('comment');
+    const res = await fetch(`${baseUrl}/api/shared/${token}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entity_type: 'event', entity_id: eventId, author_name: 'C', body: 'x', internal_only: true }),
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).code).toBe('FIELD_NOT_ALLOWED');
+  });
+
+  it.each([['nope'], [1], [null], [['all']]])('share PATCH with share_comments=%j -> 400', async (value) => {
+    await createShare('read');
+    const res = await fetch(`${baseUrl}/api/projects/${projectId}/share`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ share_comments: value }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('public GET/POST /api/shared/:token/comments (T-4-04, D-49)', () => {
   async function createShare(access: 'read' | 'comment'): Promise<string> {
     const created = await (

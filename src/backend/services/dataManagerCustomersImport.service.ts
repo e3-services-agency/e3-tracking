@@ -24,6 +24,7 @@
  * === null` as "no customers evidence yet", the same as a project that was never imported.
  */
 import { getDb } from '../db';
+import { toExampleValuesJson } from '../../domain/examples';
 import * as PropertyDAL from '../dal/property.dal';
 import * as ProjectDAL from '../dal/project.dal';
 import {
@@ -81,8 +82,8 @@ function normalizeDescription(raw: string | null): string | null {
 }
 
 function normalizeExampleValues(raw: string | null): { value: string }[] {
-  if (raw === null || raw === EMPTY_SENTINEL || raw === '') return [];
-  return [{ value: raw }];
+  if (raw === EMPTY_SENTINEL) return [];
+  return toExampleValuesJson(raw); // T-4-19: unwraps Bloomreach quoted/bracketed text
 }
 
 interface CustomerPropertyMeta {

@@ -41,6 +41,7 @@
  * at creation and this planner never writes to it again.
  */
 import { getDb } from '../db';
+import { toExampleValuesJson } from '../../domain/examples';
 import * as EventDAL from '../dal/event.dal';
 import * as PropertyDAL from '../dal/property.dal';
 import * as PropertyDefinitionDAL from '../dal/property-definition.dal';
@@ -104,8 +105,8 @@ function normalizeDescription(raw: string | null): string | null {
 }
 
 function normalizeExampleValues(raw: string | null): { value: string }[] {
-  if (raw === null || raw === EMPTY_SENTINEL || raw === '') return [];
-  return [{ value: raw }];
+  if (raw === EMPTY_SENTINEL) return [];
+  return toExampleValuesJson(raw); // T-4-19: unwraps Bloomreach quoted/bracketed text
 }
 
 interface EventOccurrence {

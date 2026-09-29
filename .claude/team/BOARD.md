@@ -2673,3 +2673,7 @@ Exit QA PASS (scenarios 1-16, MCP 19 tools), 1433 tests / 122 files, tsc, build,
 
 ### 2026-09-29 11:51 | supervisor | DECISION | D-49 amendment 2, D-53 amendment 5, D-56 amendment 2; T-4-10 starts
 User confirmed after the phase 4 exit: internal-only comment flag plus a per-link "show internal comments" setting, enforced server-side (T-4-10, migration 0024, not waiting for phase 5). T-4-06 gate changed to the folder samples/br-initiatives/ (about 20 exports, no client data). Phase 5 approval still open; real-client review is on the user.
+
+### 2026-09-29 11:58 | supervisor | HANDOFF | T-4-10 internal-only comments and share comment visibility — REVIEW
+Branch task/T-4-10-internal-only-comments, HEAD 1db6881, 3 commits off 100f403 (worktree .claude/worktrees/t410). Tests 1442/0 (122 files, +9), tsc, build, lint green.
+Migration 0024 (comments.internal_only, projects.share_comments all|via_share_only with CHECK), enum SHARE_COMMENT_VISIBILITIES, internal POST/PATCH/GET filter, share PATCH/GET share_comments via updateShareSettings, public GET filters in SQL (drops internal_only; via_share_only keeps via_share rows), projection strips internal_only, share POST rejects it. UI: checkbox + badge + note text in CommentsPanel, Comments page filter, share block select. CSV comments header gains internal_only; backup/restore round trip tested. docs/SHARING.md updated. Deviations: no row-level toggle of internal_only in the UI (API only); share_comments survives revoke/rotate; CLAUDE.md migration 0024 entry still needed (docs-writer).

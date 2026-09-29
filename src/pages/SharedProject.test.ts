@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildSharedViewModel, sharedFileUrl, eventAnchor, eventAnchors, eventForHash, selectCodegenTab, isEmptyValue, derivedMetricsText,
   eventCardVisibility, oneLineDescription, sectionPresence, buildSectionIndex, filterNav, flattenNav, pickActiveId, lightboxStep, scrollTopToReveal,
+  renderedSectionIds, toggleInSet, pickActiveAtBottom, SECTION_IDS,
 } from './sharedViewModel';
 import type { TrackingDocument } from '../domain/document/trackingDocument';
 
@@ -210,5 +211,35 @@ describe('T-4-14 view helpers', () => {
     expect(lightboxStep(2, 1, 3)).toBe(0);
     expect(lightboxStep(1, 1, 3)).toBe(2);
     expect(lightboxStep(0, 1, 0)).toBe(0);
+  });
+
+  it('nav index ids equal the set of rendered section ids (every section link has a target)', () => {
+    const all = {
+      ...baseDoc,
+      use_cases: [1],
+      identity_rules: [1],
+      catalogs: [1],
+      findings_summary: { open: { error: 1, warning: 0, info: 2 } },
+    };
+    for (const doc of [baseDoc, all, { ...baseDoc, events: [] }]) {
+      const navIds = flattenNav(buildSectionIndex(doc)).map((f) => f.id);
+      expect(navIds).toEqual(renderedSectionIds(doc));
+      expect(new Set(navIds).size).toBe(navIds.length);
+    }
+    expect(renderedSectionIds(all)).toEqual(expect.arrayContaining([SECTION_IDS.consents, SECTION_IDS.mapping, SECTION_IDS.findings]));
+  });
+
+  it('toggleInSet adds, removes and does not mutate its input (nav group collapse state)', () => {
+    const start = new Set(['events']);
+    const added = toggleInSet(start, 'events-custom');
+    expect([...added]).toEqual(['events', 'events-custom']);
+    expect([...toggleInSet(added, 'events')]).toEqual(['events-custom']);
+    expect([...start]).toEqual(['events']);
+  });
+
+  it('pickActiveAtBottom picks the last section whose top is inside the viewport', () => {
+    const tops = new Map([['catalogs', 100], ['consents', 300], ['findings', 650], ['mapping', 900]]);
+    expect(pickActiveAtBottom(['catalogs', 'consents', 'findings', 'mapping'], tops, 800)).toBe('findings');
+    expect(pickActiveAtBottom(['catalogs'], new Map(), 800)).toBeNull();
   });
 });

@@ -179,9 +179,11 @@ export interface EventCardViewProps {
   mode?: 'internal' | 'shared';
   /** Skips the name/badge header; the shared view renders its own (collapsible, sticky) title row. */
   hideHeader?: boolean;
+  /** Rendered next to the certification badge in the header (T-4-16: the comment count button). */
+  headerActions?: React.ReactNode;
 }
 
-export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'internal', hideHeader = false }: EventCardViewProps) {
+export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'internal', hideHeader = false, headerActions }: EventCardViewProps) {
   const showNames = anyNameDiffersFromKey(card.properties);
   const shared = mode === 'shared';
   const visible = eventCardVisibility(card);
@@ -193,7 +195,10 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
           <h1 className="text-2xl font-bold text-gray-900">{card.name}</h1>
           {card.business_name && <p className="text-sm text-gray-500 mt-1">{card.business_name}</p>}
         </div>
-        <CertificationBadge certification={card.certification} />
+        <div className="flex items-center gap-2">
+          {headerActions}
+          <CertificationBadge certification={card.certification} />
+        </div>
       </div>
       )}
 

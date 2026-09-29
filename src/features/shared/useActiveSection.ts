@@ -1,6 +1,6 @@
 /** Scroll spy (T-4-14): the id, out of `ids` (document order), that is currently on screen. */
 import { useEffect, useState } from 'react';
-import { pickActiveId } from './viewHelpers';
+import { pickActiveId, pickActiveAtBottom } from './viewHelpers';
 
 export function useActiveSection(ids: string[], topOffsetPx = 72): string | null {
   const [active, setActive] = useState<string | null>(null);
@@ -22,7 +22,23 @@ export function useActiveSection(ids: string[], topOffsetPx = 72): string | null
       const el = document.getElementById(id);
       if (el) observer.observe(el);
     }
-    return () => observer.disconnect();
+    // The last sections are shorter than the band below the header, so at the end of the page they
+    // never intersect it; fall back to the last section whose top is on screen.
+    const onScroll = () => {
+      const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+      if (!atBottom) return;
+      const tops = new Map<string, number>();
+      for (const id of ids) {
+        const el = document.getElementById(id);
+        if (el) tops.set(id, el.getBoundingClientRect().top);
+      }
+      setActive(pickActiveAtBottom(ids, tops, window.innerHeight));
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('scroll', onScroll);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, topOffsetPx]);
   return active;

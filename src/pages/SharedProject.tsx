@@ -15,9 +15,9 @@
  * ordering and file-path resolution are unit-testable without `@testing-library/react`, which this
  * repo does not depend on (D-20 uses plain-Node vitest, no jsdom).
  *
- * T-4-04 (D-49): `CommentsPanel` is mounted on each event card (`commentsSlot`), on the use case
- * section and on each requirement row, in `shared` mode (`{token, access: header.access}`); the add
- * form hides itself when `access !== 'comment'`. One `GET /comments` without filters is fetched once
+ * T-4-04 (D-49), T-4-16: comments are a `CommentCountButton` (icon + count) on each event title row,
+ * use case row and requirement row; clicking it mounts a `CommentsPanel` inline, in `shared` mode
+ * (`{token, access: header.access}`); the add form hides itself when `access !== 'comment'`. One `GET /comments` without filters is fetched once
  * (W1 fix round) and filtered client-side per panel (`commentsFor`); `reloadComments` is every
  * panel's `onChanged`.
  *
@@ -59,6 +59,9 @@ export { sharedFileUrl, buildSharedViewModel };
 
 /** Height of the sticky page header (Tailwind `h-14`); sticky event titles sit right below it. */
 const HEADER_TOP_CLASS = 'top-14';
+
+/** Quiet time after the last scroll event before a scroll counts as the reader's own. */
+const SETTLE_MS = 150;
 
 interface ShareHeader {
   project: { name: string; client_logo_path: string | null };
@@ -208,14 +211,29 @@ export function SharedProject({ token }: { token: string }) {
   const activeId = clickedId ?? spyId;
   useEffect(() => {
     if (!clickedId) return;
+    // The click's own (smooth or instant) scroll must not clear it: scroll events are ignored until
+    // they have stopped for SETTLE_MS; the first scroll after that (wheel, scrollbar drag, autoscroll)
+    // clears the click highlight. No keydown listener: Tab through the nav or typing in the filter
+    // must keep it.
+    let settled = false;
+    let timer = window.setTimeout(() => (settled = true), SETTLE_MS);
+    const onScroll = () => {
+      if (settled) {
+        setClickedId(null);
+        return;
+      }
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => (settled = true), SETTLE_MS);
+    };
     const clear = () => setClickedId(null);
+    window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('wheel', clear, { passive: true });
     window.addEventListener('touchmove', clear, { passive: true });
-    window.addEventListener('keydown', clear);
     return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('scroll', onScroll);
       window.removeEventListener('wheel', clear);
       window.removeEventListener('touchmove', clear);
-      window.removeEventListener('keydown', clear);
     };
   }, [clickedId]);
 
@@ -276,13 +294,7 @@ export function SharedProject({ token }: { token: string }) {
   const fileUrl = (path: string) => sharedFileUrl(token, path);
   const present = sectionPresence(doc);
   const api = { mode: 'shared' as const, token, access: header.access };
-  const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, id: string) =>
-    setter((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, id: string) => setter((prev) => toggleInSet(prev, id));
   const toggleThread = (key: string) => setOpenThreads((prev) => toggleInSet(prev, key));
   const expandAllEvents = () => setOpenEvents(new Set(doc.events.map((e) => e.id)));
   const collapseAllEvents = () => setOpenEvents(new Set());
@@ -387,8 +399,10 @@ export function SharedProject({ token }: { token: string }) {
                               open={openThreads.has(`event:${event.id}`)}
                               label={`event ${event.name}`}
                               onClick={() => {
-                                if (!expanded) setOpenEvents((prev) => new Set(prev).add(event.id));
-                                toggleThread(`event:${event.id}`);
+                                if (!expanded) {
+                                  setOpenEvents((prev) => new Set(prev).add(event.id));
+                                  setOpenThreads((prev) => new Set(prev).add(`event:${event.id}`));
+                                } else toggleThread(`event:${event.id}`);
                               }}
                             />
                             <CopyLinkButton anchor={anchor} label={event.name} />
@@ -473,6 +487,17 @@ export function SharedProject({ token }: { token: string }) {
                             {uc.name}
                           </span>
                         </button>
+                        <CommentCountButton
+                          count={commentsFor('use_case', uc.id).length}
+                          open={openThreads.has(`use_case:${uc.id}`)}
+                          label={`use case ${uc.name}`}
+                          onClick={() => {
+                            if (!expanded) {
+                              setOpenUseCases((prev) => new Set(prev).add(uc.id));
+                              setOpenThreads((prev) => new Set(prev).add(`use_case:${uc.id}`));
+                            } else toggleThread(`use_case:${uc.id}`);
+                          }}
+                        />
                         {uc.documentation_url && (
                           <a href={uc.documentation_url} target="_blank" rel="noreferrer" className={`text-xs ${linkClass}`}>
                             Documentation
@@ -529,13 +554,15 @@ export function SharedProject({ token }: { token: string }) {
                               </table>
                             </div>
                           )}
-                          <CommentsPanel
-                            entityType="use_case"
-                            entityId={uc.id}
-                            api={api}
-                            rows={commentsFor('use_case', uc.id)}
-                            onChanged={reloadComments}
-                          />
+                          {openThreads.has(`use_case:${uc.id}`) && (
+                            <CommentsPanel
+                              entityType="use_case"
+                              entityId={uc.id}
+                              api={api}
+                              rows={commentsFor('use_case', uc.id)}
+                              onChanged={reloadComments}
+                            />
+                          )}
                         </div>
                       )}
                     </div>

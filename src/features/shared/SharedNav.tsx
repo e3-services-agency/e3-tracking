@@ -35,7 +35,8 @@ export function SharedNav({
 
   const renderItem = (item: NavItem, depth: number): React.ReactNode => {
     const hasChildren = !!item.children && item.children.length > 0;
-    const isOpen = query.trim() !== '' || !collapsed.has(item.id);
+    const filtering = query.trim() !== '';
+    const isOpen = filtering || !collapsed.has(item.id);
     return (
       <li key={item.id}>
         <div className="flex items-center" style={{ paddingLeft: `${depth * 0.75}rem` }}>
@@ -44,8 +45,9 @@ export function SharedNav({
               type="button"
               onClick={() => setCollapsed((prev) => toggleInSet(prev, item.id))}
               aria-expanded={isOpen}
+              disabled={filtering}
               aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${item.label}`}
-              className="shrink-0 rounded p-0.5 text-gray-500 hover:bg-gray-100"
+              className="shrink-0 rounded p-0.5 text-gray-500 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent"
             >
               {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
             </button>

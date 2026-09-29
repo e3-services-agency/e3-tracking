@@ -30,6 +30,7 @@ import { useCaseToMarkdown } from '@/src/domain/document/markdown';
 import type { TrackingDocument } from '@/src/domain/document/trackingDocument';
 import { HistorySection } from '@/src/features/history/HistorySection';
 import { CommentsPanel, type CommentPanelRow } from '@/src/features/comments/CommentsPanel';
+import { toggleInSet } from '@/src/features/shared/viewHelpers';
 import { CommentCountButton } from '@/src/features/comments/CommentCountButton';
 
 interface UseCaseRow {
@@ -836,14 +837,25 @@ function UseCaseDetail({
           );
         })()}
 
-        <div className="bg-white rounded-lg border shadow-sm p-6">
-          <CommentsPanel
-            entityType="use_case"
-            entityId={useCaseId}
-            api={{ mode: 'internal', projectId: projectId ?? '' }}
-            rows={commentsFor('use_case', useCaseId)}
-            onChanged={reloadComments}
-          />
+        <div className="bg-white rounded-lg border shadow-sm px-6 py-3 space-y-3">
+          <div className="flex items-center gap-2 text-sm text-gray-700">
+            <CommentCountButton
+              count={commentsFor('use_case', useCaseId).length}
+              open={openReqThreads.has(useCaseId)}
+              label="this use case"
+              onClick={() => setOpenReqThreads((prev) => toggleInSet(prev, useCaseId))}
+            />
+            <span>Comments on this use case</span>
+          </div>
+          {openReqThreads.has(useCaseId) && (
+            <CommentsPanel
+              entityType="use_case"
+              entityId={useCaseId}
+              api={{ mode: 'internal', projectId: projectId ?? '' }}
+              rows={commentsFor('use_case', useCaseId)}
+              onChanged={reloadComments}
+            />
+          )}
         </div>
 
         <div className="bg-white rounded-lg border shadow-sm">
@@ -945,14 +957,7 @@ function UseCaseDetail({
                           count={commentsFor('requirement', req.id).length}
                           open={openReqThreads.has(req.id)}
                           label="this requirement"
-                          onClick={() =>
-                            setOpenReqThreads((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(req.id)) next.delete(req.id);
-                              else next.add(req.id);
-                              return next;
-                            })
-                          }
+                          onClick={() => setOpenReqThreads((prev) => toggleInSet(prev, req.id))}
                         />
                       )}
                       <button type="button" onClick={() => removeRow(index)} className="text-gray-400 hover:text-red-600">

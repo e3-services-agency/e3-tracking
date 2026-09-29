@@ -3080,16 +3080,22 @@ window.dataLayer.push({
     event: 'cart_update',
     properties: {
       // Optional:
-      action: 'string',
+      action: 'add',
       brand: 'string',
       product_id: 'string',
       product_ids: 'string',
       product_list: 'string',
       size: 'string',
       title: 'string',
-      total_price: 123,
-      total_quantity: 123,
     },
+    // Computed by brPayload from items: total_price, total_quantity
+    // (put a value in properties to override a computed one)
+    items: [ // the whole collection after the action, one entry per line
+      {
+        price: 123,
+        quantity: 1,
+      },
+    ],
   },
 });",
         "gtm": "// E3's recommended practice (D-63): one namespaced 'bloomreach' object on the site's existing
@@ -3103,16 +3109,22 @@ window.dataLayer.push({
     event: 'cart_update',
     properties: {
       // Optional:
-      action: 'string',
+      action: 'add',
       brand: 'string',
       product_id: 'string',
       product_ids: 'string',
       product_list: 'string',
       size: 'string',
       title: 'string',
-      total_price: 123,
-      total_quantity: 123,
     },
+    // Computed by brPayload from items: total_price, total_quantity
+    // (put a value in properties to override a computed one)
+    items: [ // the whole collection after the action, one entry per line
+      {
+        price: 123,
+        quantity: 1,
+      },
+    ],
   },
 });
 
@@ -3121,7 +3133,10 @@ window.dataLayer.push({
 <BR_PAYLOAD_SOURCE>
 
 // This event's state lists and totals (from the property kinds in the plan):
-var BR_RULES = [];
+var BR_RULES = [
+  {"name":"total_price","sum":"price*quantity"},
+  {"name":"total_quantity","sum":"quantity"},
+];
 
 // GTM custom template setup
 //  1. Trigger: Custom Event "cart_update", fires only when the Data Layer Variable "bloomreach" is defined.
@@ -3133,7 +3148,10 @@ var BR_RULES = [];
 <BR_PAYLOAD_SOURCE>
 
 // This event's state lists and totals (from the property kinds in the plan):
-var BR_RULES = [];
+var BR_RULES = [
+  {"name":"total_price","sum":"price*quantity"},
+  {"name":"total_quantity","sum":"quantity"},
+];
 
 // GTM custom template setup
 //  1. Trigger: Custom Event "cart_update", fires only when the Data Layer Variable "bloomreach" is defined.
@@ -3151,7 +3169,7 @@ var BR_RULES = [];
   },
   "event_type": "cart_update",
   "properties": {
-    "action": "string",
+    "action": "add",
     "brand": "string",
     "product_id": "string",
     "product_ids": "string",
@@ -3159,7 +3177,7 @@ var BR_RULES = [];
     "size": "string",
     "title": "string",
     "total_price": 123,
-    "total_quantity": 123
+    "total_quantity": 1
   }
 }
 
@@ -3167,11 +3185,11 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"cart_update","properties":{"action":"string","brand":"string","product_id":"string","product_ids":"string","product_list":"string","size":"string","title":"string","total_price":123,"total_quantity":123}}'",
+  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"cart_update","properties":{"action":"add","brand":"string","product_id":"string","product_ids":"string","product_list":"string","size":"string","title":"string","total_price":123,"total_quantity":1}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
 bloomreach.track('cart_update', {
   // Optional:
-  action: 'string',
+  action: 'add',
   brand: 'string',
   product_id: 'string',
   product_ids: 'string',
@@ -3179,12 +3197,12 @@ bloomreach.track('cart_update', {
   size: 'string',
   title: 'string',
   total_price: 123,
-  total_quantity: 123,
+  total_quantity: 1,
 });",
         "web_sdk_legacy": "// Final payload, as brPayload produces it from the dataLayer object.
 exponea.track('cart_update', {
   // Optional:
-  action: 'string',
+  action: 'add',
   brand: 'string',
   product_id: 'string',
   product_ids: 'string',
@@ -3192,7 +3210,7 @@ exponea.track('cart_update', {
   size: 'string',
   title: 'string',
   total_price: 123,
-  total_quantity: 123,
+  total_quantity: 1,
 });",
       },
       "contexts": [],
@@ -3387,7 +3405,7 @@ exponea.track('cart_update', {
           "definition_name": "general",
           "derivation": null,
           "description": null,
-          "example": "string",
+          "example": "add",
           "item_schema": null,
           "kind": "event",
           "name": "action",
@@ -3424,14 +3442,17 @@ exponea.track('cart_update', {
             "money",
           ],
           "data_type": "number",
-          "datalayer_path": "bloomreach.properties.total_price",
+          "datalayer_path": "computed from items",
           "definition_id": "id-215",
           "definition_name": "general",
-          "derivation": null,
+          "derivation": {
+            "source": "items",
+            "sum": "price*quantity",
+          },
           "description": null,
           "example": 123,
           "item_schema": null,
-          "kind": "event",
+          "kind": "state_list",
           "name": "total_price",
           "payload_key": "total_price",
           "pii": false,
@@ -3444,14 +3465,17 @@ exponea.track('cart_update', {
           "bundle": null,
           "data_formats": [],
           "data_type": "number",
-          "datalayer_path": "bloomreach.properties.total_quantity",
+          "datalayer_path": "computed from items",
           "definition_id": "id-216",
           "definition_name": "general",
-          "derivation": null,
+          "derivation": {
+            "source": "items",
+            "sum": "quantity",
+          },
           "description": null,
           "example": 123,
           "item_schema": null,
-          "kind": "event",
+          "kind": "state_list",
           "name": "total_quantity",
           "payload_key": "total_quantity",
           "pii": false,
@@ -3671,8 +3695,15 @@ window.dataLayer.push({
       // Optional:
       product_ids: 'string',
       product_list: 'string',
-      total_price: 123,
     },
+    // Computed by brPayload from items: total_price
+    // (put a value in properties to override a computed one)
+    items: [ // the whole collection after the action, one entry per line
+      {
+        price: 123,
+        quantity: 1,
+      },
+    ],
   },
 });",
         "gtm": "// E3's recommended practice (D-63): one namespaced 'bloomreach' object on the site's existing
@@ -3688,8 +3719,15 @@ window.dataLayer.push({
       // Optional:
       product_ids: 'string',
       product_list: 'string',
-      total_price: 123,
     },
+    // Computed by brPayload from items: total_price
+    // (put a value in properties to override a computed one)
+    items: [ // the whole collection after the action, one entry per line
+      {
+        price: 123,
+        quantity: 1,
+      },
+    ],
   },
 });
 
@@ -3698,7 +3736,9 @@ window.dataLayer.push({
 <BR_PAYLOAD_SOURCE>
 
 // This event's state lists and totals (from the property kinds in the plan):
-var BR_RULES = [];
+var BR_RULES = [
+  {"name":"total_price","sum":"price*quantity"},
+];
 
 // GTM custom template setup
 //  1. Trigger: Custom Event "checkout", fires only when the Data Layer Variable "bloomreach" is defined.
@@ -3710,7 +3750,9 @@ var BR_RULES = [];
 <BR_PAYLOAD_SOURCE>
 
 // This event's state lists and totals (from the property kinds in the plan):
-var BR_RULES = [];
+var BR_RULES = [
+  {"name":"total_price","sum":"price*quantity"},
+];
 
 // GTM custom template setup
 //  1. Trigger: Custom Event "checkout", fires only when the Data Layer Variable "bloomreach" is defined.
@@ -3934,14 +3976,17 @@ exponea.track('checkout', {
             "money",
           ],
           "data_type": "number",
-          "datalayer_path": "bloomreach.properties.total_price",
+          "datalayer_path": "computed from items",
           "definition_id": "id-215",
           "definition_name": "general",
-          "derivation": null,
+          "derivation": {
+            "source": "items",
+            "sum": "price*quantity",
+          },
           "description": null,
           "example": 123,
           "item_schema": null,
-          "kind": "event",
+          "kind": "state_list",
           "name": "total_price",
           "payload_key": "total_price",
           "pii": false,
@@ -8273,7 +8318,6 @@ window.dataLayer.push({
       is_referrer: true,
       is_therapist: true,
       is_women_health_interest: true,
-      item_ids: [],
       managed_endpoint_version: 'string',
       no_parcel_insert_180d: true,
       order_count: 123,
@@ -8290,6 +8334,13 @@ window.dataLayer.push({
       type: 'string',
       use_case: 'string',
     },
+    // Computed by brPayload from items: item_ids
+    // (put a value in properties to override a computed one)
+    items: [ // the whole collection after the action, one entry per line
+      {
+        item_id: 'string',
+      },
+    ],
   },
 });",
         "gtm": "// E3's recommended practice (D-63): one namespaced 'bloomreach' object on the site's existing
@@ -8314,7 +8365,6 @@ window.dataLayer.push({
       is_referrer: true,
       is_therapist: true,
       is_women_health_interest: true,
-      item_ids: [],
       managed_endpoint_version: 'string',
       no_parcel_insert_180d: true,
       order_count: 123,
@@ -8331,6 +8381,13 @@ window.dataLayer.push({
       type: 'string',
       use_case: 'string',
     },
+    // Computed by brPayload from items: item_ids
+    // (put a value in properties to override a computed one)
+    items: [ // the whole collection after the action, one entry per line
+      {
+        item_id: 'string',
+      },
+    ],
   },
 });
 
@@ -8339,7 +8396,9 @@ window.dataLayer.push({
 <BR_PAYLOAD_SOURCE>
 
 // This event's state lists and totals (from the property kinds in the plan):
-var BR_RULES = [];
+var BR_RULES = [
+  {"name":"item_ids","form":"ids","id_field":"item_id"},
+];
 
 // GTM custom template setup
 //  1. Trigger: Custom Event "parcel_insert", fires only when the Data Layer Variable "bloomreach" is defined.
@@ -8351,7 +8410,9 @@ var BR_RULES = [];
 <BR_PAYLOAD_SOURCE>
 
 // This event's state lists and totals (from the property kinds in the plan):
-var BR_RULES = [];
+var BR_RULES = [
+  {"name":"item_ids","form":"ids","id_field":"item_id"},
+];
 
 // GTM custom template setup
 //  1. Trigger: Custom Event "parcel_insert", fires only when the Data Layer Variable "bloomreach" is defined.
@@ -8380,7 +8441,9 @@ var BR_RULES = [];
     "is_referrer": true,
     "is_therapist": true,
     "is_women_health_interest": true,
-    "item_ids": [],
+    "item_ids": [
+      "string"
+    ],
     "managed_endpoint_version": "string",
     "no_parcel_insert_180d": true,
     "order_count": 123,
@@ -8403,7 +8466,7 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"parcel_insert","properties":{"ab_test_variant":"string","aov":123,"categories_string":"string","email":"string","has_purchased_sports":true,"in_preview":true,"inserted_item":"string","inserted_items":[],"is_referrer":true,"is_therapist":true,"is_women_health_interest":true,"item_ids":[],"managed_endpoint_version":"string","no_parcel_insert_180d":true,"order_count":123,"order_date":"string","order_value":123,"parcel_inserts_inactive_customer":true,"parcel_inserts_low_value":true,"payment_method":"string","purchase_id":"string","purchase_status":"string","purchased_aroma_lifetime":true,"shipping_country":"string","store_id":"string","type":"string","use_case":"string"}}'",
+  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"parcel_insert","properties":{"ab_test_variant":"string","aov":123,"categories_string":"string","email":"string","has_purchased_sports":true,"in_preview":true,"inserted_item":"string","inserted_items":[],"is_referrer":true,"is_therapist":true,"is_women_health_interest":true,"item_ids":["string"],"managed_endpoint_version":"string","no_parcel_insert_180d":true,"order_count":123,"order_date":"string","order_value":123,"parcel_inserts_inactive_customer":true,"parcel_inserts_low_value":true,"payment_method":"string","purchase_id":"string","purchase_status":"string","purchased_aroma_lifetime":true,"shipping_country":"string","store_id":"string","type":"string","use_case":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
 bloomreach.track('parcel_insert', {
   // Optional:
@@ -8418,7 +8481,7 @@ bloomreach.track('parcel_insert', {
   is_referrer: true,
   is_therapist: true,
   is_women_health_interest: true,
-  item_ids: [],
+  item_ids: ['string'],
   managed_endpoint_version: 'string',
   no_parcel_insert_180d: true,
   order_count: 123,
@@ -8449,7 +8512,7 @@ exponea.track('parcel_insert', {
   is_referrer: true,
   is_therapist: true,
   is_women_health_interest: true,
-  item_ids: [],
+  item_ids: ['string'],
   managed_endpoint_version: 'string',
   no_parcel_insert_180d: true,
   order_count: 123,
@@ -8615,14 +8678,18 @@ exponea.track('parcel_insert', {
           "bundle": null,
           "data_formats": [],
           "data_type": "array",
-          "datalayer_path": "bloomreach.properties.item_ids",
+          "datalayer_path": "computed from items",
           "definition_id": "id-395",
           "definition_name": "general",
-          "derivation": null,
+          "derivation": {
+            "form": "ids",
+            "id_field": "item_id",
+            "source": "items",
+          },
           "description": null,
           "example": [],
           "item_schema": null,
-          "kind": "event",
+          "kind": "state_list",
           "name": "item_ids",
           "payload_key": "item_ids",
           "pii": false,
@@ -9200,7 +9267,7 @@ exponea.track('parcel_insert', {
     "purchase_source_id": "string",
     "purchase_source_name": "string",
     "purchase_source_type": "string",
-    "purchase_status": "string",
+    "purchase_status": "success",
     "region": "string",
     "retailer": "string",
     "shipping_company": "string",
@@ -9210,7 +9277,7 @@ exponea.track('parcel_insert', {
     "source": "string",
     "total_price": 123,
     "total_price_local_currency": "string",
-    "total_quantity": 123,
+    "total_quantity": 1,
     "voucher_code": "string"
   }
 }
@@ -9219,7 +9286,7 @@ exponea.track('parcel_insert', {
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"purchase","properties":{"browser":"string","currency":"string","device":"string","has_voucher":"string","is_gift":"string","is_sample":"string","local_currency":"string","location":"string","os":"string","payment_method":"string","payment_type":"string","product_ids":"string","product_list":"string","purchase_id":"string","purchase_reason":"string","purchase_source_id":"string","purchase_source_name":"string","purchase_source_type":"string","purchase_status":"string","region":"string","retailer":"string","shipping_company":"string","shipping_cost":123,"shipping_country":"string","shipping_type":"string","source":"string","total_price":123,"total_price_local_currency":"string","total_quantity":123,"voucher_code":"string"}}'",
+  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"purchase","properties":{"browser":"string","currency":"string","device":"string","has_voucher":"string","is_gift":"string","is_sample":"string","local_currency":"string","location":"string","os":"string","payment_method":"string","payment_type":"string","product_ids":"string","product_list":"string","purchase_id":"string","purchase_reason":"string","purchase_source_id":"string","purchase_source_name":"string","purchase_source_type":"string","purchase_status":"success","region":"string","retailer":"string","shipping_company":"string","shipping_cost":123,"shipping_country":"string","shipping_type":"string","source":"string","total_price":123,"total_price_local_currency":"string","total_quantity":1,"voucher_code":"string"}}'",
         "web_sdk": "",
         "web_sdk_legacy": "",
       },
@@ -9433,12 +9500,12 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.purchase_status",
+          "datalayer_path": null,
           "definition_id": "id-423",
           "definition_name": "general",
           "derivation": null,
           "description": null,
-          "example": "string",
+          "example": "success",
           "item_schema": null,
           "kind": "event",
           "name": "purchase_status",
@@ -9453,7 +9520,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.product_ids",
+          "datalayer_path": null,
           "definition_id": "id-219",
           "definition_name": "general",
           "derivation": null,
@@ -9473,7 +9540,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.product_list",
+          "datalayer_path": null,
           "definition_id": "id-221",
           "definition_name": "general",
           "derivation": null,
@@ -9493,7 +9560,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.purchase_id",
+          "datalayer_path": null,
           "definition_id": "id-300",
           "definition_name": "general",
           "derivation": null,
@@ -9515,14 +9582,17 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
             "money",
           ],
           "data_type": "number",
-          "datalayer_path": "bloomreach.properties.total_price",
+          "datalayer_path": null,
           "definition_id": "id-215",
           "definition_name": "general",
-          "derivation": null,
+          "derivation": {
+            "source": "items",
+            "sum": "price*quantity",
+          },
           "description": null,
           "example": 123,
           "item_schema": null,
-          "kind": "event",
+          "kind": "state_list",
           "name": "total_price",
           "payload_key": "total_price",
           "pii": false,
@@ -9535,7 +9605,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.voucher_code",
+          "datalayer_path": null,
           "definition_id": "id-449",
           "definition_name": "general",
           "derivation": null,
@@ -9555,7 +9625,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.currency",
+          "datalayer_path": null,
           "definition_id": "id-451",
           "definition_name": "general",
           "derivation": null,
@@ -9575,7 +9645,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.payment_method",
+          "datalayer_path": null,
           "definition_id": "id-431",
           "definition_name": "general",
           "derivation": null,
@@ -9595,7 +9665,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.purchase_source_type",
+          "datalayer_path": null,
           "definition_id": "id-453",
           "definition_name": "general",
           "derivation": null,
@@ -9615,7 +9685,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.browser",
+          "datalayer_path": null,
           "definition_id": "id-320",
           "definition_name": "general",
           "derivation": null,
@@ -9635,7 +9705,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.device",
+          "datalayer_path": null,
           "definition_id": "id-322",
           "definition_name": "general",
           "derivation": null,
@@ -9655,7 +9725,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.location",
+          "datalayer_path": null,
           "definition_id": "id-324",
           "definition_name": "general",
           "derivation": null,
@@ -9675,7 +9745,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.os",
+          "datalayer_path": null,
           "definition_id": "id-326",
           "definition_name": "general",
           "derivation": null,
@@ -9695,7 +9765,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.payment_type",
+          "datalayer_path": null,
           "definition_id": "id-455",
           "definition_name": "general",
           "derivation": null,
@@ -9715,7 +9785,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.has_voucher",
+          "datalayer_path": null,
           "definition_id": "id-457",
           "definition_name": "general",
           "derivation": null,
@@ -9735,7 +9805,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.is_gift",
+          "datalayer_path": null,
           "definition_id": "id-459",
           "definition_name": "general",
           "derivation": null,
@@ -9755,7 +9825,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.is_sample",
+          "datalayer_path": null,
           "definition_id": "id-461",
           "definition_name": "general",
           "derivation": null,
@@ -9775,7 +9845,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.local_currency",
+          "datalayer_path": null,
           "definition_id": "id-463",
           "definition_name": "general",
           "derivation": null,
@@ -9795,7 +9865,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.purchase_reason",
+          "datalayer_path": null,
           "definition_id": "id-465",
           "definition_name": "general",
           "derivation": null,
@@ -9815,7 +9885,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.purchase_source_id",
+          "datalayer_path": null,
           "definition_id": "id-467",
           "definition_name": "general",
           "derivation": null,
@@ -9835,7 +9905,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.purchase_source_name",
+          "datalayer_path": null,
           "definition_id": "id-469",
           "definition_name": "general",
           "derivation": null,
@@ -9855,7 +9925,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.region",
+          "datalayer_path": null,
           "definition_id": "id-471",
           "definition_name": "general",
           "derivation": null,
@@ -9875,7 +9945,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.retailer",
+          "datalayer_path": null,
           "definition_id": "id-473",
           "definition_name": "general",
           "derivation": null,
@@ -9895,7 +9965,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.shipping_company",
+          "datalayer_path": null,
           "definition_id": "id-475",
           "definition_name": "general",
           "derivation": null,
@@ -9915,7 +9985,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "number",
-          "datalayer_path": "bloomreach.properties.shipping_cost",
+          "datalayer_path": null,
           "definition_id": "id-477",
           "definition_name": "general",
           "derivation": null,
@@ -9935,7 +10005,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.shipping_country",
+          "datalayer_path": null,
           "definition_id": "id-425",
           "definition_name": "general",
           "derivation": null,
@@ -9955,7 +10025,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.shipping_type",
+          "datalayer_path": null,
           "definition_id": "id-478",
           "definition_name": "general",
           "derivation": null,
@@ -9975,7 +10045,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.source",
+          "datalayer_path": null,
           "definition_id": "id-7",
           "definition_name": "general",
           "derivation": null,
@@ -9995,7 +10065,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.total_price_local_currency",
+          "datalayer_path": null,
           "definition_id": "id-480",
           "definition_name": "general",
           "derivation": null,
@@ -10015,14 +10085,17 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "number",
-          "datalayer_path": "bloomreach.properties.total_quantity",
+          "datalayer_path": null,
           "definition_id": "id-216",
           "definition_name": "general",
-          "derivation": null,
+          "derivation": {
+            "source": "items",
+            "sum": "quantity",
+          },
           "description": null,
           "example": 123,
           "item_schema": null,
-          "kind": "event",
+          "kind": "state_list",
           "name": "total_quantity",
           "payload_key": "total_quantity",
           "pii": false,
@@ -10364,7 +10437,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.category_level_1",
+          "datalayer_path": null,
           "definition_id": "id-491",
           "definition_name": "general",
           "derivation": null,
@@ -10384,7 +10457,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.category_level_2",
+          "datalayer_path": null,
           "definition_id": "id-493",
           "definition_name": "general",
           "derivation": null,
@@ -10404,7 +10477,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.category_level_3",
+          "datalayer_path": null,
           "definition_id": "id-495",
           "definition_name": "general",
           "derivation": null,
@@ -10424,7 +10497,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.product_id",
+          "datalayer_path": null,
           "definition_id": "id-21",
           "definition_name": "general",
           "derivation": null,
@@ -10444,7 +10517,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.purchase_id",
+          "datalayer_path": null,
           "definition_id": "id-300",
           "definition_name": "general",
           "derivation": null,
@@ -10464,7 +10537,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.size",
+          "datalayer_path": null,
           "definition_id": "id-222",
           "definition_name": "general",
           "derivation": null,
@@ -10486,7 +10559,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
             "money",
           ],
           "data_type": "number",
-          "datalayer_path": "bloomreach.properties.price",
+          "datalayer_path": null,
           "definition_id": "id-497",
           "definition_name": "general",
           "derivation": null,
@@ -10506,7 +10579,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "number",
-          "datalayer_path": "bloomreach.properties.quantity",
+          "datalayer_path": null,
           "definition_id": "id-498",
           "definition_name": "general",
           "derivation": null,
@@ -10526,7 +10599,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.brand",
+          "datalayer_path": null,
           "definition_id": "id-217",
           "definition_name": "general",
           "derivation": null,
@@ -10546,7 +10619,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.is_new",
+          "datalayer_path": null,
           "definition_id": "id-499",
           "definition_name": "general",
           "derivation": null,
@@ -10566,7 +10639,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.purchase_source_type",
+          "datalayer_path": null,
           "definition_id": "id-453",
           "definition_name": "general",
           "derivation": null,
@@ -10592,7 +10665,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.purchase_status",
+          "datalayer_path": null,
           "definition_id": "id-423",
           "definition_name": "general",
           "derivation": null,
@@ -10612,7 +10685,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.title",
+          "datalayer_path": null,
           "definition_id": "id-224",
           "definition_name": "general",
           "derivation": null,
@@ -10632,7 +10705,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "bundle": null,
           "data_formats": [],
           "data_type": "string",
-          "datalayer_path": "bloomreach.properties.color",
+          "datalayer_path": null,
           "definition_id": "id-501",
           "definition_name": "general",
           "derivation": null,

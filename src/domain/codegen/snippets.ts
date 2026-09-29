@@ -50,6 +50,11 @@ function defaultItemFieldSample(name: string): unknown {
   return 'string';
 }
 
+/** F3: a quantity field is numeric whatever it is called (`qty`, `units`), 1 unless a numeric sample exists. */
+function quantitySample(sample: unknown): number {
+  return typeof sample === 'number' ? sample : 1;
+}
+
 export function buildDataLayerModel(all: CodegenProperty[]): DataLayerModel {
   const sorted = [...all].sort(byRequiredThenName);
   const isComputed = (p: CodegenProperty) => p.kind === 'state_list' && p.derivation !== null;
@@ -71,10 +76,17 @@ export function buildDataLayerModel(all: CodegenProperty[]): DataLayerModel {
   for (const r of rules) if ('id_field' in r) add(r.id_field);
   for (const r of rules) if ('form' in r && r.form === 'id_quantity') add(r.quantity_field || 'quantity');
   for (const r of rules) if ('sum' in r) for (const f of sumFields(r.sum)) add(f);
-  const itemsEntry = fieldNames.map((name) => ({
-    name,
-    value: itemSampleByName.has(name) ? itemSampleByName.get(name) : defaultItemFieldSample(name),
-  }));
+  const quantityFields = new Set<string>(['quantity']);
+  for (const r of rules) if ('form' in r && r.form === 'id_quantity') quantityFields.add(r.quantity_field || 'quantity');
+  // Every field multiplied in a sum is numeric too.
+  const sumTerms = new Set<string>();
+  for (const r of rules) if ('sum' in r) for (const f of sumFields(r.sum)) sumTerms.add(f);
+  const itemsEntry = fieldNames.map((name) => {
+    const sample = itemSampleByName.get(name);
+    if (quantityFields.has(name)) return { name, value: quantitySample(sample) };
+    if (sumTerms.has(name)) return { name, value: typeof sample === 'number' ? sample : /quantity/i.test(name) ? 1 : 123 };
+    return { name, value: itemSampleByName.has(name) ? sample : defaultItemFieldSample(name) };
+  });
 
   const layer: BloomreachDataLayer = {
     properties: Object.fromEntries(properties.map((p) => [p.name, p.sample])),

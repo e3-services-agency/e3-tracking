@@ -72,7 +72,7 @@ interface TriggerEntry {
  * Renders the attached-property table for one event: name, required/optional, role, data type,
  * payload key, description. Exported so it can be unit-tested and reused (docs export contract).
  */
-export function buildPropertyDetailsTable(properties: EventPropertyWithDetails[]): string {
+export function buildPropertyDetailsTable(properties: EventPropertyWithDetails[], method: string = 'client_web'): string {
   if (properties.length === 0) {
     return '<p class="empty">No properties attached.</p>';
   }
@@ -91,7 +91,7 @@ export function buildPropertyDetailsTable(properties: EventPropertyWithDetails[]
         <td>${escapeHtml(link.property.data_type)}</td>
         <td>${escapeHtml(link.payload_key?.trim() || link.property.name)}</td>
         <td>${escapeHtml(link.property.kind ?? 'event')}</td>
-        <td>${escapeHtml(dataLayerPath(link.property.kind ?? 'event', link.payload_key?.trim() || link.property.name, parseDerivation(link.property.derivation_json)))}</td>
+        <td>${method === 'client_web' ? escapeHtml(dataLayerPath(link.property.kind ?? 'event', link.payload_key?.trim() || link.property.name, parseDerivation(link.property.derivation_json))) : 'n/a'}</td>
         <td>${escapeHtml(description)}</td>
       </tr>`;
     })
@@ -256,7 +256,7 @@ async function buildEventSectionHtml(
     ${event.purpose ? `<p class="purpose"><strong>Purpose:</strong> ${escapeHtml(event.purpose)}</p>` : ''}
     ${triggersHtml}
     <h3>Properties</h3>
-    ${buildPropertyDetailsTable(properties)}
+    ${buildPropertyDetailsTable(properties, event.implementation_method)}
     <h3>Sample payload</h3>
     ${buildPayloadDoc(properties)}
     <h3>Implementation</h3>

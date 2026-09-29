@@ -115,3 +115,51 @@ describe('0025_implementation_contract.sql backfill', () => {
     ).toThrow(/CHECK/);
   });
 });
+
+describe('0025 SQL and the shared TypeScript inference agree (F1)', () => {
+  it('produces the same method, kind and derivation as defaults.ts for the same names', async () => {
+    const { defaultImplementationMethod, inferPropertyKind } = await import('../../../domain/codegen/defaults');
+    db = new Database(':memory:');
+    db.pragma('foreign_keys = OFF');
+    const files = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
+    for (const file of files.filter((f) => f < '0025')) db.exec(fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf-8'));
+    const ts = new Date().toISOString();
+    const clientId = randomUUID();
+    db.prepare('INSERT INTO clients (id, key, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)').run(clientId, 'acme', 'Acme', ts, ts);
+    const projectId = randomUUID();
+    db.prepare('INSERT INTO projects (id, client_id, name, key, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').run(projectId, clientId, 'Acme', 'acme-a', ts, ts);
+
+    const events: [string, string][] = [
+      ['add_to_wishlist', 'custom'], ['purchase', 'custom'], ['purchase_item', 'custom'], ['order_refund', 'custom'],
+      ['refund', 'custom'], ['consent', 'platform'], ['session_start', 'sdk'], ['web_exit', 'sdk'], ['campaign', 'platform'],
+      ['cart_update', 'custom'], ['purchase_intent', 'custom'],
+    ];
+    const properties: [string, string, string][] = [
+      ['product_ids', 'array', 'event'], ['variant_ids', 'array', 'event'], ['sku_list', 'array', 'event'],
+      ['product_list', 'array', 'event'], ['_ids', 'array', 'event'], ['ids', 'array', 'event'], ['product_ids', 'string', 'event'],
+      ['total_price', 'number', 'event'], ['total_quantity', 'number', 'event'], ['total_price_local_currency', 'number', 'event'],
+      ['total_note', 'string', 'event'], ['total_', 'number', 'event'], ['store_country', 'string', 'event'],
+      ['language', 'string', 'event'], ['currency', 'string', 'event'], ['customer_ids', 'array', 'customer'],
+    ];
+    for (const [name, cls] of events) {
+      db.prepare(`INSERT INTO events (id, project_id, name, class, status, created_at, updated_at) VALUES (?, ?, ?, ?, 'planned', ?, ?)`).run(randomUUID(), projectId, name, cls, ts, ts);
+    }
+    properties.forEach(([name, dataType, scope], i) => {
+      // product_ids appears twice with different data types: keep names unique per scope with a suffix-less alias.
+      db!.prepare(`INSERT INTO properties (id, project_id, scope, name, data_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+        .run(randomUUID(), projectId, scope, i === 6 ? 'product_ids_str' : name, dataType, ts, ts);
+    });
+    db.exec(fs.readFileSync(path.join(MIGRATIONS_DIR, '0025_implementation_contract.sql'), 'utf-8'));
+
+    for (const [name, cls] of events) {
+      const row = db.prepare('SELECT implementation_method AS m FROM events WHERE name = ?').get(name) as { m: string };
+      expect(row.m, `event ${name}`).toBe(defaultImplementationMethod(name, cls));
+    }
+    properties.forEach(([name, dataType, scope], i) => {
+      const stored = i === 6 ? 'product_ids_str' : name;
+      const row = db!.prepare('SELECT kind, derivation_json AS d FROM properties WHERE name = ? AND scope = ?').get(stored, scope) as { kind: string; d: string | null };
+      const inferred = inferPropertyKind(stored, dataType, scope);
+      expect({ kind: row.kind, derivation: row.d ? JSON.parse(row.d) : null }, `property ${stored}`).toEqual(inferred);
+    });
+  });
+});

@@ -14,6 +14,7 @@ import * as ProjectDAL from '../dal/project.dal';
 import * as PropertyDAL from '../dal/property.dal';
 import * as EventDAL from '../dal/event.dal';
 import * as BundleDAL from '../dal/bundle.dal';
+import * as VariantDAL from '../dal/variant.dal';
 import * as QaRunDAL from '../dal/qa-run.dal';
 import * as ObservationDAL from '../dal/observation.dal';
 import * as FindingDAL from '../dal/finding.dal';
@@ -282,5 +283,80 @@ describe('POST /events/:id/properties/from-bundle and PATCH fields', () => {
     expect(okProp.status).toBe(200);
     expect(await okProp.json()).toMatchObject({ kind: 'state_list' });
     expect((await req('PATCH', `/api/projects/${projectId}/properties/${p.id}`, { kind: 'weird' })).status).toBe(400);
+  });
+});
+
+describe('F1: name-based defaults at every creation path', () => {
+  it('DAL create infers kind and derivation when the caller sets neither; an explicit kind wins', () => {
+    const ids = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'variant_ids', data_type: 'array' });
+    expect(ids).toMatchObject({ kind: 'state_list', derivation_json: { source: 'items', id_field: 'variant_id', form: 'ids' } });
+    const list = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'sku_list', data_type: 'array' });
+    expect(list.derivation_json).toEqual({ source: 'items', id_field: 'sku_id', form: 'id_quantity', quantity_field: 'quantity' });
+    const total = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'total_price', data_type: 'number' });
+    expect(total.derivation_json).toEqual({ source: 'items', sum: 'price*quantity' });
+    expect(PropertyDAL.createProperty(projectId, { scope: 'event', name: 'store_country', data_type: 'string' }).kind).toBe('event');
+    expect(PropertyDAL.createProperty(projectId, { scope: 'customer', name: 'customer_ids', data_type: 'array' }).kind).toBe('event');
+    const explicit = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'product_ids', data_type: 'array', kind: 'event' });
+    expect(explicit).toMatchObject({ kind: 'event', derivation_json: null });
+  });
+
+  it('retyping a plain event property to the inferred type applies the default (import creates first, retypes after)', () => {
+    const p = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'total_quantity', data_type: 'string' });
+    expect(p.kind).toBe('event');
+    const retyped = PropertyDAL.updateProperty(projectId, p.id, { data_type: 'number' });
+    expect(retyped).toMatchObject({ kind: 'state_list', derivation_json: { source: 'items', sum: 'quantity' } });
+  });
+
+  it('a data-mapping import gives purchase server_api and infers state lists', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const { previewDataMapping, applyDataMapping } = await import('./dataMappingImport.service');
+    const fixture = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../.claude/team/samples/data-mapping.json'), 'utf-8'));
+    const dm = previewDataMapping(projectId, fixture);
+    applyDataMapping(projectId, fixture, dm.payload_hash, dm.items.map((i) => i.id));
+    const events = EventDAL.listEvents(projectId);
+    expect(events.find((e) => e.name === 'purchase')?.implementation_method).toBe('server_api');
+    const props = PropertyDAL.listProperties(projectId, { scope: 'event' });
+    const kindOf = (n: string) => props.find((p) => p.name === n)?.kind;
+    // Whatever type the importer gave them, none of these may silently stay untouched if they are arrays.
+    for (const p of props.filter((x) => x.data_type === 'array' && /_(ids|list)$/.test(x.name))) expect(p.kind).toBe('state_list');
+    void kindOf;
+  });
+});
+
+describe('F2/F3/F4', () => {
+  it('F2: the card snippets show the first variant discriminator value; without variants the first allowed value', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'cart_update' });
+    const action = prop('action', { allowed_values_json: [{ value: 'add' }, { value: 'remove' }] });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: action.id, required: true, role: 'discriminator' });
+    let c = buildEventCard(projectId, event.id).codegen;
+    expect(c.datalayer).toContain("action: 'add'");
+    VariantDAL.createVariant(projectId, event.id, { conditions: [{ property_id: action.id, operator: 'equals', values: ['remove'] }] });
+    c = buildEventCard(projectId, event.id).codegen;
+    expect(c.datalayer).toContain("action: 'remove'");
+    expect(c.datalayer).not.toContain("action: 'string'");
+  });
+
+  it('F3: a custom quantity_field renders numeric samples and the list key stays quantity', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'cart_update' });
+    const list = prop('product_list', {
+      data_type: 'array',
+      kind: 'state_list',
+      derivation_json: { source: 'items', id_field: 'product_id', form: 'id_quantity', quantity_field: 'qty' },
+    });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: list.id, required: true });
+    const c = buildEventCard(projectId, event.id).codegen;
+    expect(c.datalayer).toContain('qty: 1,');
+    expect(c.web_sdk).toContain('quantity: 1');
+    expect(c.datalayer).not.toContain("qty: 'string'");
+  });
+
+  it('F4: no dataLayer path for server_api and sdk_auto events', () => {
+    const { event } = setUpWishlist();
+    expect(buildEventCard(projectId, event.id).properties.find((p) => p.name === 'placement')?.datalayer_path).toBe('bloomreach.properties.placement');
+    EventDAL.updateEvent(projectId, event.id, { implementation_method: 'server_api' });
+    const card = buildEventCard(projectId, event.id);
+    expect(card.properties.every((p) => p.datalayer_path === null)).toBe(true);
+    expect(eventCardToMarkdown(card)).toContain('n/a');
   });
 });

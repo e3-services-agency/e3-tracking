@@ -39,4 +39,4 @@ WHERE scope = 'event' AND name = 'total_quantity';
 UPDATE properties SET
   kind = 'state_list',
   derivation_json = json_object('source', 'items', 'sum', substr(name, 7) || '*quantity')
-WHERE scope = 'event' AND name LIKE 'total\_%' ESCAPE '\' AND name != 'total_quantity' AND data_type = 'number';
+WHERE scope = 'event' AND name LIKE 'total\_%' ESCAPE '\' AND name != 'total_quantity' AND length(name) > 6 AND data_type = 'number';

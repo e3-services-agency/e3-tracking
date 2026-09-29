@@ -439,7 +439,8 @@ function toEventCardFinding(
 
 function toEventCardProperty(
   link: EventPropertyWithDetailsExtended,
-  bundleNameByPropertyId?: Map<string, string>
+  bundleNameByPropertyId?: Map<string, string>,
+  method: string = 'client_web'
 ): EventCardProperty {
   const kind = link.property.kind ?? 'event';
   const derivation = parseDerivation(link.property.derivation_json);
@@ -490,7 +491,7 @@ function toEventCardProperty(
     definition_name: link.definition?.name ?? null,
     kind,
     derivation,
-    datalayer_path: dataLayerPath(kind, link.payload_key?.trim() || link.property.name, derivation),
+    datalayer_path: method === 'client_web' ? dataLayerPath(kind, link.payload_key?.trim() || link.property.name, derivation) : null,
     bundle: bundleNameByPropertyId?.get(link.property_id) ?? null,
   };
 }
@@ -639,7 +640,10 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
     })
     .filter((v): v is { code: string | null; name: string; level: string } => v !== null);
 
-  const attachedForCodegen = properties.map(toAttachedPropertyForCodegen);
+  // F2 (D-63): with variants, the card's snippets show the first variant's discriminator values
+  // as literals ('add', 'success'); without variants a discriminator falls back to its first allowed value.
+  const attachedForCodegen =
+    variants.length > 0 ? attachedPropertiesForVariant(properties, variants[0]) : properties.map(toAttachedPropertyForCodegen);
   const codegenSnippets = buildCodegenV2(
     event.name,
     attachedForCodegen,
@@ -670,7 +674,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
     status: event.status,
     certification,
     expiration: computeExpiration(event, project),
-    properties: properties.map((link) => toEventCardProperty(link, context.bundleNameByPropertyId)),
+    properties: properties.map((link) => toEventCardProperty(link, context.bundleNameByPropertyId, event.implementation_method)),
     variants: variants.map((v) => toEventCardVariant(v, properties, propertyNameById, standardEventByVariantId)),
     standard_event_mappings: standardEventMappings,
     contexts,

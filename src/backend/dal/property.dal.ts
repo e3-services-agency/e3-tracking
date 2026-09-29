@@ -21,6 +21,7 @@ import {
   type PropertyKind,
 } from '../../domain/enums';
 import { validateDerivation } from '../../domain/codegen/derivation';
+import { inferPropertyKind } from '../../domain/codegen/defaults';
 import { STANDARD_CUSTOMER_PROPERTIES, isKnownStandardEvent, type StandardEventSeed } from '../../domain/bloomreach';
 import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
 import { isValidItemSchemaShape } from '../../domain/rules/itemSchema';
@@ -553,7 +554,14 @@ export function createProperty(projectId: string, input: PropertyInput): Propert
   validatePropertyFields(projectId, input, input.scope);
   validateCatalogRefs(projectId, input.mapped_catalog_id, input.mapped_catalog_field_id);
   validateItemSchema(input.item_schema_json, input.data_type || DEFAULT_DATA_TYPE);
-  validateKindAndDerivation(input.kind, input.derivation_json, input.kind || DEFAULT_PROPERTY_KIND);
+  // D-63: a caller that sets neither kind nor derivation gets the name-based default (imports, MCP).
+  const inferred =
+    input.kind === undefined && input.derivation_json === undefined
+      ? inferPropertyKind(name, input.data_type || DEFAULT_DATA_TYPE, input.scope)
+      : null;
+  const createKind = input.kind || inferred?.kind || DEFAULT_PROPERTY_KIND;
+  const createDerivation = input.derivation_json !== undefined ? input.derivation_json : (inferred?.derivation ?? null);
+  validateKindAndDerivation(input.kind, createDerivation, createKind);
 
   const db = getDb();
   const existing = db
@@ -600,8 +608,8 @@ export function createProperty(projectId: string, input: PropertyInput): Propert
         value_schema_json: toJsonColumn(input.value_schema_json ?? null),
         object_child_property_refs_json: toJsonColumn(input.object_child_property_refs_json ?? null),
         item_schema_json: toJsonColumn(input.item_schema_json ?? null),
-        kind: input.kind || DEFAULT_PROPERTY_KIND,
-        derivation_json: toJsonColumn(input.derivation_json ?? null),
+        kind: createKind,
+        derivation_json: toJsonColumn(createDerivation),
         bloomreach_customer_property: input.bloomreach_customer_property?.trim() || null,
         priority: input.priority ?? null,
         status: input.status ?? null,
@@ -690,8 +698,24 @@ export function updateProperty(
     validateItemSchema(updates.item_schema_json, updates.data_type ?? current.data_type);
   }
 
-  const resolvedKind = updates.kind ?? current.kind;
-  validateKindAndDerivation(updates.kind, updates.derivation_json, resolvedKind);
+  // D-63: an import creates a property before its final data type is known (retyped right after);
+  // when the data type changes and the property is still a plain, unset `event`, apply the name-based
+  // default for the new type (`total_price` -> number -> sum).
+  const reinferred =
+    updates.data_type !== undefined &&
+    updates.kind === undefined &&
+    updates.derivation_json === undefined &&
+    current.kind === 'event' &&
+    current.derivation_json === null
+      ? inferPropertyKind((updates.name ?? current.name).trim(), updates.data_type, resolvedScope)
+      : null;
+  const applyReinferred = reinferred !== null && reinferred.kind !== 'event';
+  const resolvedKind = updates.kind ?? (applyReinferred ? reinferred!.kind : current.kind);
+  validateKindAndDerivation(
+    updates.kind,
+    updates.derivation_json !== undefined ? updates.derivation_json : applyReinferred ? reinferred!.derivation : undefined,
+    resolvedKind
+  );
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (updates.scope !== undefined) patch.scope = updates.scope;
@@ -722,7 +746,10 @@ export function updateProperty(
     patch.item_schema_json = null;
   }
   if (updates.kind !== undefined) patch.kind = updates.kind;
-  if (updates.derivation_json !== undefined) {
+  if (applyReinferred) {
+    patch.kind = reinferred!.kind;
+    patch.derivation_json = toJsonColumn(reinferred!.derivation);
+  } else if (updates.derivation_json !== undefined) {
     patch.derivation_json = toJsonColumn(updates.derivation_json);
   } else if (resolvedKind !== 'state_list' && current.derivation_json !== null) {
     // A derivation only exists on a state list: moving the kind away clears the stale rule.

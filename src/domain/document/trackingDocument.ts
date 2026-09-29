@@ -95,8 +95,8 @@ export interface EventCardProperty {
   kind: PropertyKind;
   /** D-63: for a `state_list`, the rule computing it from the items; else `null`. */
   derivation: PropertyDerivation | null;
-  /** D-63: where the value lives in the dataLayer (`bloomreach.properties.x`, `bloomreach.item.x`, `computed from items`). */
-  datalayer_path: string;
+  /** D-63: where the value lives in the dataLayer (`bloomreach.properties.x`, `bloomreach.item.x`, `computed from items`); `null` when the event is not `client_web` (server_api and sdk_auto events have no dataLayer). */
+  datalayer_path: string | null;
   /** D-63: names of the property bundle(s) this property belongs to, comma-joined; `null` when in none. */
   bundle: string | null;
 }

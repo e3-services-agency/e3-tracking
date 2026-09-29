@@ -64,7 +64,7 @@ export interface EventCardData {
     /** D-63 (T-4-17), additive: property kind, where it lives in the dataLayer, its bundle name(s). */
     kind?: string;
     derivation?: unknown;
-    datalayer_path?: string;
+    datalayer_path?: string | null;
     bundle?: string | null;
   }[];
   variants: {
@@ -272,7 +272,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             p.data_formats.join(', ') || '—',
             p.role,
             p.kind ?? 'event',
-            p.datalayer_path ?? '—',
+            p.datalayer_path === null ? 'n/a' : (p.datalayer_path ?? '—'),
             p.bundle ?? '—',
             p.required ? 'yes' : 'no',
             p.allowed_values ? p.allowed_values.map((v) => v.value).join(', ') : '—',

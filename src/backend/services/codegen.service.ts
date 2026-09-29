@@ -313,6 +313,14 @@ export function toAttachedPropertyForCodegen(
   const definitionExamples = Array.isArray(definition?.example_values_json)
     ? (definition!.example_values_json as PropertyExampleValue[])
     : null;
+  // F2 (D-63): a discriminator with no example still needs a real value, not 'string': fall back to
+  // its first allowed value (the variant-specific value is applied by `attachedPropertiesForVariant`).
+  const allowedRaw = Array.isArray(definition?.allowed_values_json) && (definition!.allowed_values_json as unknown[]).length > 0
+    ? (definition!.allowed_values_json as { value?: unknown }[])
+    : Array.isArray(link.property.allowed_values_json)
+      ? (link.property.allowed_values_json as { value?: unknown }[])
+      : [];
+  const firstAllowed = link.role === 'discriminator' ? allowedRaw.find((v) => typeof v?.value === 'string' && v.value !== '') : undefined;
   return {
     property_name: link.payload_key?.trim() || link.property.name,
     // D-16 dropped presence; codegen reads `EventProperty.required` directly (T-1-03/T-1-04
@@ -330,8 +338,10 @@ export function toAttachedPropertyForCodegen(
         : ((link.property.data_formats_json as string[] | null) ?? null),
     property_example_values_json:
       (definitionExamples && definitionExamples.length > 0 ? definitionExamples : null) ??
-      (link.property.example_values_json as AttachedPropertyForCodegen['property_example_values_json']) ??
-      null,
+      ((link.property.example_values_json as AttachedPropertyForCodegen['property_example_values_json']) ?.length
+        ? (link.property.example_values_json as AttachedPropertyForCodegen['property_example_values_json'])
+        : null) ??
+      (firstAllowed ? [{ value: firstAllowed.value as string }] : null),
     property_value_schema_json:
       (link.property.value_schema_json as AttachedPropertyForCodegen['property_value_schema_json']) ?? null,
   };

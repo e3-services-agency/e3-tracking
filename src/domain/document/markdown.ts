@@ -81,7 +81,7 @@ export function eventCardToMarkdown(card: EventCard): string {
           p.required ? 'yes' : 'no',
           p.role,
           p.kind ?? '',
-          p.datalayer_path ?? '',
+          p.datalayer_path === null ? 'n/a' : (p.datalayer_path ?? ''),
           p.bundle ?? '',
           p.allowed_values?.map((a) => a.value).join(', ') ?? '',
           p.example ?? '',

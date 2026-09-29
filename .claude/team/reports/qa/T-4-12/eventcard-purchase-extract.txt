@@ -1,0 +1,5 @@
+Header badge: "not certified (open_errors: 7)"
+Certification block: "Status: not certified / 7 open error finding(s). / To certify this event, fix or resolve the open error findings."
+Properties table columns: Payload key, Type, Formats, Role, Required, Allowed values, PII, Description, Example (no Name column; names equal payload keys).
+Shared view: badges only (e.g. "not certified (open_errors: 6)"); zero occurrences of "Certification" heading, "To certify", "open error finding".
+Settings share: Generate (window.confirm text: "This is a sandbox project; sharing is disabled by default. Create a share link on it anyway?"), then buttons Rotate, Copy link, Open shared view, Revoke. Open shared view calls window.open(<share url>, "_blank", "noopener,noreferrer").

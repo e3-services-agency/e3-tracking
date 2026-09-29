@@ -1,0 +1,6 @@
+T-4-12 QA layout measurements (iframe harness, main app at 1440x1100 and 1920x1100; sandbox-acme-eu; commit 6c0b0e1)
+1440: header bar 1169 (main minus 15px scrollbar) on scrolling pages, 1184 on non-scrolling; header inner and body inner both max-w 1400, left aligned at x=256.
+1920: header bar full width (1649/1664), inner capped 1400, body inner capped 1400, tables 1334 wide; Getting started cards 768, Settings form card 768, Clients restore card 768, Clients sandbox+client tables 1336.
+Findings: table 1377 wide inside card 1103 (1440) / 1334 (1920): table spills out of its card; main gets horizontal overflow of 240px at 1440 (main scrollWidth 1409 vs clientWidth 1169). Card has no overflow-x-auto.
+Height 900 viewport: document (html) scrollHeight 970 > 900 because the sidebar content (logo + 19 nav + footer Settings/Documentation/Help/Log out) is taller than h-screen and has no overflow handling -> second (page-level) vertical scrollbar next to main's. At 1100 tall: none. Sidebar.tsx is not touched by this branch (pre-existing).
+Zebra: rows alternate rgb(255,255,255)/rgb(249,250,251) on Events, Properties, Findings, Use cases, History; Matrix leaf rows alternate with sticky first cell bg identical to row (249/249, 255/255), group header rows grey.

@@ -2746,3 +2746,30 @@ Ruling: fix D1 (table wrapper overflow-x-auto inside the card, or column sizing)
 
 ### 2026-09-29 14:28 | supervisor | HANDOFF | T-4-12 QA fix round (288d3c2) — RE-QA
 D1 overflow-x-auto on every table card (11 pages, History expanded table, QA runs observations box); D2 root overflow-hidden, sidebar fixed height with only the nav list scrolling, bottom group pinned; D3 "Add a use case" step, DOMAIN/EXPORTS wording; D4 plain non-event group headers, leaf-only rows with full path in the tooltip. Gates on the final tree: tsc, lint, build, 1457 / 124 (one unexplained single failure in an earlier run, two green re-runs). Re-QA of the four items at 1440x900 and 1280x800.
+
+### 2026-09-29 14:30 | qa-tester | QA | T-4-12 (HEAD 6c0b0e1): FAIL (4 defects, rest PASS)
+Env: API 3002 + Vite 3010 (127.0.0.1 only), sandbox project; 1440 and 1920 widths measured via same-origin iframes (window resize tool unavailable). Extracts in `.claude/team/reports/qa/T-4-12/`.
+| # | Scenario | Result |
+|---|---|---|
+| 1 | Layout 1440/1920 | FAIL (D1, D2); rest PASS: header bar full width, inner and body capped 1400 left-aligned, tables full content width, Getting started/Settings/Clients restore cards 768, sandbox table full |
+| 2 | Zebra | PASS incl. matrix sticky cell (bg equals row bg, no seam) |
+| 3 | Matrix | PASS (D4 minor): groups, wishlist_add and image gap markers with note on hover and in expand row, legend, UC checkboxes, Gaps only; purchase.coupon lands under "purchase (event)" |
+| 4 | Add to project | FAIL (D3): CTA and dialog title correct, but Getting started step still reads "Instantiate a use case" |
+| 5 | Event card + shared | PASS: Certification block, badge, Payload key first, no Name column; shared view badge only |
+| 6 | Settings | PASS: same header, Open shared view calls window.open(url,"_blank","noopener,noreferrer"); button only rendered when a link exists (never visible-disabled) |
+| 7 | Glossary | PASS: title tooltips on definitions, variants, acknowledged, requirement level (once), gap, certified, sandbox |
+| 8 | Create-project modal | NOT TESTABLE: T-4-15 (5d34b64 lineage) is not an ancestor of this branch; modal has no auto-slug or messages, Create is disabled when empty. Plain create with all fields works. Re-test after merge |
+| 9 | Regression | PASS: no 500s, no 4xx on any page load, empty states on all list pages of an empty project |
+Defects:
+D1 Findings table overflows its card. Steps: sandbox, Findings, width 1440. Expected table inside card. Actual table 1377px in a 1103px card, main scrolls horizontally 240px (also 43px spill at 1920).
+D2 Second vertical scrollbar at viewport height below ~970: sidebar (19 items plus footer) is taller than h-screen, html scrolls beside main (Settings/Log out pushed below). Steps: any page, window height 900. Pre-existing (Sidebar.tsx untouched) but violates "exactly one scrollbar".
+D3 "Instantiate a use case" and "instantiate it against your events" in gettingStarted.service.ts (lines 106-107); also docs/DOMAIN.md and EXPORTS.md wording shown on Help.
+D4 (minor) group headers read "Consent (consent)" and "Customer properties (customer)" instead of "Consent groups"; leaf rows read "purchase.coupon" not "coupon".
+
+### 2026-09-29 15:10 | qa-tester | QA | T-4-12 fix round (288d3c2): PASS on D1-D4
+- D1 PASS: Findings at 1440, table 1377 scrolls inside its card (1103/1377), main 1169/1169 no horizontal scroll. Events, Properties, QA runs, History, matrix, Use cases fit their cards; History expanded wide table (2605) scrolls in its own card, main unaffected.
+- D2 PASS: 1440x900 and 1280x800 on Events and Findings: html 900/900 and 800/800 (no page scroll), main scrolls, sidebar nav overflow-y auto (596/526, 596/426), Getting started, Clients, Settings, Help, Log out all visible, logo header at top.
+- D3 PASS: step "Add a use case", sentence "Pick a template ... add it to your project, matching it to your events and properties."; Help Domain model only has the tool name instantiate_use_case_template; Exports has none. (Observation: Help tabs "Running QA locally" and "MCP server" still use "instantiate" as developer prose; outside the requested scope.)
+- D4 PASS: groups "Customer properties", "Catalog attributes", "Consent"; event/variant headers keep "(event)"/"(variant)"; coupon row reads "coupon" under "purchase (event)", tooltip includes "purchase.coupon".
+- Regression PASS: 10 sandbox pages, no 4xx/5xx or blank pages; console only HMR websocket noise (test Vite ran without HMR port).
+Processes stopped, QA db and vite.qa.config.mjs removed; 3000/3001 untouched.

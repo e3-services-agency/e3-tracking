@@ -126,6 +126,10 @@ On the fixture project (after the phase 1 round-trip recipe above):
    Comments page and on the event/use case editor's comments panel with a `via share` badge.
    Because comments are one shared thread (D-49 amendment), an internal reply posted from inside
    the app on the same anchor is visible back through the share link too — post one and confirm.
+   Then post an internal comment with "Internal only" checked: it must be absent from the shared
+   page and from `GET /api/shared/<token>/comments`. Finally set Settings, "Show internal comments
+   on the shared view", to "Only comments posted through the link": a plain internal reply
+   disappears from the shared page while the client's comment stays.
 5. Settings, "Revoke". Reload the same URL: "This link is not valid." (404 `SHARE_NOT_FOUND`).
 6. `E3_DB_PATH`: if running a scratch database for this recipe (recommended, so it does not disturb
    whatever project you were already exploring), set it before starting the API

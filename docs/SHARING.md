@@ -93,10 +93,12 @@ Comments attach to an `event`, `property`, `use_case`, or `requirement` (`entity
 /api/shared/:token/comments` returns every comment on the anchor — posted internally through
 `/api/projects/:id/comments` or through the same share link alike. An internal reply **is** visible
 to anyone holding the share link, by design (the point of the feature is a consultant answering a
-client's question where it was asked). A private, team-only note never belongs in a comment — it
+client's question where it was asked). A comment is visible unless it is flagged **Internal only**
+(see "Comment visibility controls" below); a private, team-only note either carries that flag or
 belongs in one of the internal-only fields the public projection strips (`use_case.internal_notes`/
 `internal_url`, `agent_instructions`, `owners`, `identity_note`). The internal `CommentsPanel`
-states this next to the form ("Visible to anyone with the share link").
+states the current visibility next to the form ("Visible to anyone with the share link", or "Not
+visible on the share link." once "Internal only" is checked).
 
 `via_share` (was this particular comment posted through a share link, not the same as "is this
 comment visible through a share link" — every comment is) stays visible on both sides so the

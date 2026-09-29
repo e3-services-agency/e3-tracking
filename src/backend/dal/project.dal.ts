@@ -628,7 +628,7 @@ export function updateShareAccess(id: string, access: unknown): ProjectRow {
 /** Changes `access` and/or `share_comments` (T-4-10) of an active share link; at least one is required. */
 export function updateShareSettings(id: string, settings: { access?: unknown; share_comments?: unknown }): ProjectRow {
   if (settings.access === undefined && settings.share_comments === undefined) {
-    assertShareAccess(settings.access);
+    throw new ValidationError('At least one of access or share_comments is required.', 'access');
   }
   if (settings.access !== undefined) assertShareAccess(settings.access);
   if (settings.share_comments !== undefined) assertShareComments(settings.share_comments);

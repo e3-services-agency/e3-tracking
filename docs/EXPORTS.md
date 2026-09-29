@@ -51,7 +51,7 @@ complete since T-3-03, each entity's export starting the moment its own task's m
 | `observations` | id, qa_run_id, source, event_type, event_name, variant_name, timestamp, timestamp_iso, page_url, properties_json, context_values_json, captured_at |
 | `findings` | id, comparison, kind, severity, status, event_name, variant_name, property_name, message, expected_json, actual_json, first_seen_at, last_seen_at, resolved_at, resolved_by |
 | `change_log` | id, changed_at, actor, source, batch_id, entity_type, entity_id, entity_label, action, diff_json |
-| `comments` (D-49) | id, entity_type, entity_id, entity_label, author_name, via_share, body, created_at, resolved_at, resolved_by |
+| `comments` (D-49) | id, entity_type, entity_id, entity_label, author_name, via_share, internal_only, body, created_at, resolved_at, resolved_by |
 
 Note on `observations.timestamp`: it is exported as the **raw epoch-seconds value** (e.g.
 `1778232949.3897672`), not an ISO string, so the CSV still joins with a raw

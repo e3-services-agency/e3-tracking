@@ -97,7 +97,7 @@ router.patch('/:id', (req: Request, res: Response) => {
     const body = req.body as Record<string, unknown>;
     const internalOnly = optionalBoolean(body, 'internal_only');
     if (body.resolved === undefined && internalOnly === undefined) {
-      throw new ValidationError('resolved must be a boolean.', 'resolved');
+      throw new ValidationError('At least one of resolved or internal_only is required.', 'resolved');
     }
     if (body.resolved !== undefined && typeof body.resolved !== 'boolean') {
       throw new ValidationError('resolved must be a boolean.', 'resolved');

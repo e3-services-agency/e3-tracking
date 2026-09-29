@@ -223,7 +223,9 @@ describe('public GET /api/shared/:token/* (no auth headers)', () => {
     const shared = await (await fetch(`${baseUrl}/api/shared/${created.share_token}/tracking-document.json`)).json();
     // `generated_at` is a fresh timestamp per build (each fetch calls buildTrackingDocument again);
     // everything else must be byte-identical.
-    expect({ ...shared, generated_at: null }).toEqual({ ...internal, generated_at: null });
+    // The public projection deletes the per-event agent_instructions key (T-4-14), so drop it from the internal side too.
+    const withoutAgent = (d: any) => ({ ...d, generated_at: null, events: d.events.map(({ agent_instructions: _a, ...e }: any) => e) });
+    expect(withoutAgent(shared)).toEqual(withoutAgent(internal));
     // T-4-08 will add internal_notes/internal_url to templates/use cases and keep them out of this
     // document per its plan section; assert now so a future regression there is caught here too.
     expect(JSON.stringify(shared)).not.toContain('internal_notes');
@@ -550,7 +552,7 @@ describe('public projection strips internal fields (fix round LOW 1, D-48 amendm
     const sharedEvent = shared.events.find((e: { name: string }) => e.name === 'public_projection_event');
     expect(sharedEvent.identity_note).toBeNull();
     expect(sharedEvent.owners).toEqual({ business: null, technical: null });
-    expect(sharedEvent.agent_instructions).toBeNull();
+    expect('agent_instructions' in sharedEvent).toBe(false);
     expect(sharedEvent.not_suitable_for).toBe('Not suitable for X (client-facing)');
     expect(shared.project.bloomreach_project_url).toBeNull();
     expect(JSON.stringify(shared)).not.toContain('secret-console');

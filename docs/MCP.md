@@ -24,7 +24,7 @@ QA round without going through the web UI.
   (`PLAN-PHASE2-2026-09-25.md` lines ~205-225) plus `get_tracking_document` (not in the plan table),
   three QA evidence tools added in T-3-07 (D-52: each mirrors the matching REST route and is followed
   by `run_comparison`), `list_use_case_templates`/`instantiate_use_case_template` (T-3-10, D-55: the
-  global use case template library and its instantiate/preview), and `get_history` (T-3-02, D-44:
+  global use case template library and its add-to-project and preview flow), and `get_history` (T-3-02, D-44:
   read-only access to a project's `change_log`).
   `instantiate_use_case_template` takes `project_key?`, `template_code`,
   `code?`, `mappings?` (`{index, event_id, variant_id?, property_id?}[]`, the mapping-step dialog's

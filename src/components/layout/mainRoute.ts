@@ -7,8 +7,10 @@
 
 /** Maps the path after optional `/p/:projectKey` to the main shell tab. `eventCardId` is set only
  * for `/events/:id/card` (T-2-09), read by `LayoutInner` to seed the store's `eventCardEventId`. */
-export function mainRouteStateFromRestPath(restPath: string): { tab: string; eventCardId?: string } {
+export function mainRouteStateFromRestPath(restPath: string): { tab: string; eventCardId?: string; helpSlug?: string } {
   const raw = (restPath.replace(/\/$/, '') || '/').trim() || '/';
+  const helpMatch = raw.match(/^\/help\/([^/]+)$/);
+  if (helpMatch) return { tab: 'help', helpSlug: helpMatch[1] };
   const cardMatch = raw.match(/^\/events\/([^/]+)\/card$/);
   if (cardMatch) return { tab: 'eventCard', eventCardId: cardMatch[1] };
   switch (raw) {
@@ -48,7 +50,8 @@ export function mainRouteStateFromRestPath(restPath: string): { tab: string; eve
     case '/settings':
       return { tab: 'settings' };
     case '/documentation':
-      return { tab: 'documentation' };
+      // T-4-13: the old Documentation page was merged into Help; the old route lands there.
+      return { tab: 'help' };
     case '/getting-started':
       return { tab: 'gettingStarted' };
     case '/help':
@@ -56,4 +59,22 @@ export function mainRouteStateFromRestPath(restPath: string): { tab: string; eve
     default:
       return { tab: 'events' };
   }
+}
+
+/** The Help page slug in a full browser pathname (`.../help/<slug>`), or `null`. */
+export function helpSlugFromPathname(pathname: string): string | null {
+  const m = pathname.replace(/\/$/, '').match(/\/help\/([^/]+)$/);
+  if (!m) return null;
+  try {
+    return decodeURIComponent(m[1]);
+  } catch {
+    return null; // malformed percent-escape
+  }
+}
+
+/** The full pathname for a Help page: keeps any base and `/p/<key>` prefix, replaces the tail. */
+export function helpPathForSlug(pathname: string, slug: string): string {
+  const trimmed = pathname.replace(/\/$/, '');
+  const prefix = trimmed.replace(/\/(help(\/[^/]+)?|documentation)$/, '');
+  return `${prefix}/help/${encodeURIComponent(slug)}`;
 }

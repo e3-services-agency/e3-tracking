@@ -2773,3 +2773,86 @@ D4 (minor) group headers read "Consent (consent)" and "Customer properties (cust
 - D4 PASS: groups "Customer properties", "Catalog attributes", "Consent"; event/variant headers keep "(event)"/"(variant)"; coupon row reads "coupon" under "purchase (event)", tooltip includes "purchase.coupon".
 - Regression PASS: 10 sandbox pages, no 4xx/5xx or blank pages; console only HMR websocket noise (test Vite ran without HMR port).
 Processes stopped, QA db and vite.qa.config.mjs removed; 3000/3001 untouched.
+
+### 2026-09-29 14:46 | supervisor | MERGE | T-4-12 merged into agent-setup — DONE; T-4-14 started
+Re-QA PASS on D1-D4. Merge clean; tsc, lint green; vitest 1461 / 125 (first run had 1 intermittent failure, second run fully green; same flake the implementer saw once -- backlog: identify the flaky test). T-4-13 part 2 (merge agent-setup, Help.tsx layout rule) running; T-4-14 shared view UX started on task/T-4-14-shared-view-ux. Scenario 8 (T-4-15 modal) still to be browser-checked on the merged tree at the next QA.
+
+### 2026-09-29 14:50 | supervisor | HANDOFF | T-4-13 part 2 (merge 07ad325 on top of the T-4-12 merge) — RE-REVIEW + QA in parallel
+1473 tests / 127 files, tsc, build, lint green on the merged branch. Conflict only in EventCard.tsx (PageHeader/PageBody kept, Copy as Markdown in the header). Help.tsx uses PageHeader/PageBody, no own overflow, sticky w-56 nav (top-8, self-start), article flex-1 at full PageBody width; QA-LOCAL.md and MCP.md wording. Not browser-checked by the implementer.
+
+### 2026-09-29 14:53 | supervisor | HANDOFF | T-4-14 shared view UX — REVIEW
+Branch task/T-4-14-shared-view-ux (3ab7fb2, ba03f21, 21ffa01) off the T-4-12 merge. 1472 tests / 125 files, tsc, build, lint green; not browser-checked. Collapsed event and use case rows (body mounts on expand), expand/collapse all, anchors #event-<slug> with copy-link and hash-open, sticky title row per event, Implementation section with codegen tabs (GTM default) and copy buttons on every CodeBlock (internal card too), sticky left nav with filter and scroll-spy (dropdown < 1024px), triggers block with gallery and lightbox on both views, PAGE_MAX_WIDTH_CLASS layout with full-width tables, empty sections hidden in shared mode, derived_metrics [] -> dash. Deviations: sdk/platform events now collapsed rows instead of a table; findings summary hidden at zero open; EventCardView gains hideHeader/compact props; local CodeBlock in EventCardView replaced by the ui one.
+
+### 2026-09-29 14:58 | reviewer | REVIEW | T-4-13 re-review FAIL (process): four claimed fixes absent
+Gates 1473 / 127 green, merge-tree clean; Help.tsx layout, EventCard.tsx resolution, W2, W3, M4, M8, M9, I12 and docs wording verified. But the part 1 handoff claimed M5 (node prop on <code>), M6 (decodeURIComponent try/catch + test; /tracking-plan/help/%E0%A4%A still crashes to the ErrorBoundary), M7 (stale Documentation comment in Events.tsx), I10 (external links new tab) -- none is in 06fabe9 or 07ad325. Minor: no test for the "Required keys" line; `?? null` on example.
+Supervisor ruling: implementer lands M5, M6, M7, I10 and the two minors with an accurate report; the running browser QA continues on 07ad325 (its malformed-slug step will fail as expected and is re-checked afterwards).
+
+### 2026-09-29 15:30 | qa-tester | QA | T-4-13 FAIL (2 failures, 3 minor) at 07ad325
+Browser QA in worktree t413 (API 3002, Vite 3010, 1024x768 pane plus 1440 iframes). Extracts: `.claude/team/reports/qa/T-4-13/`.
+
+| # | Scenario | Result |
+|---|---|---|
+| 1 | Sidebar has no Documentation; /documentation lands on Help | PASS (minor: URL stays /documentation, content is Help, no URL rewrite to /help/...) |
+| 2 | Help nav (5 + 7 + Glossary), /help/<slug> URLs, reload, highlight, table render, one scroller, sticky nav, full width at 1440 (article 849 of 1169 main, nav 224 + gap), no page overflow | PASS except malformed slug |
+| 2b | Malformed slug /help/%E0%A4%A does not crash the shell | FAIL (F1) |
+| 3 | Guide content vs UI (nine steps, sandbox, Internal only, "Show internal comments on the shared view", "Create a sandbox", bulk delete only for sandboxes) | PASS, no contradictions found |
+| 4 | Copy as Markdown: Help page ("Copied", 11418 chars), purchase card (header, certification, properties table with Payload key/Definition, triggers with URL, payload JSON, findings), UC-01 (narrative, requirements table with statuses) | PASS (minor M1, M2) |
+| 5 | External link in Reference > MCP server opens in new tab | FAIL (F2) |
+| 6 | T-4-15 create-project modal | PASS (minor M3) |
+| 7 | Regression: Events, Requirements matrix, Settings, Getting started, event card, use cases: only main scrolls, main starts at x=256 full width; card header has back + Copy as Markdown; no 500s from the API | PASS |
+
+F1 malformed slug. Steps: 1) open any page, 2) `history.pushState({}, '', '/tracking-plan/help/%E0%A4%A')` then click sidebar Help (equivalent to loading that URL on a real host; the Vite dev server itself answers 500 for the raw URL, same known dev-only behaviour as /shared/%ZZ). Expected: Help renders the default page (or a not-found note) with the shell intact. Actual: whole app replaced by the "Something went wrong / URI malformed" error boundary. Cause: `helpSlugFromPathname` (src/components/layout/mainRoute.ts:67) calls `decodeURIComponent` unguarded; it runs in the `useState` initialiser in Help.tsx (currentSlug) and in the popstate handler (uncaught URIError). Fix: try/catch returning null.
+
+F2 external link. Steps: open /p/<key>/help/mcp, inspect the "Model Context Protocol" link in the article. Expected: target="_blank" rel="noopener noreferrer". Actual: href https://modelcontextprotocol.io with no target and no rel (opens in the same tab, leaving the app).
+
+Minor. M1 the copied event card Markdown says "Reasons: open_errors: 7." (raw reason code) while the page shows "7 open error finding(s)" in plain words. M2 sandbox UC-01 has no narrative and empty requirement statuses (data, not a bug); after Regenerate and setting a status the Markdown includes the narrative, Flow, Customer data and the status. M3 in the create-project modal, after creating a client inline the stale "Choose a client" error stays on screen although the client is now selected. Also: a 1024x768 pane makes PageHeader title wrap to one word per line on Use cases and the app sidebar nav scrolls (viewport height, not T-4-13).
+
+Scenario 6 detail: empty submit shows "Choose a client", "Name is required", "Key is required"; name "QA Test Shop" gave key qa-test-shop; edited key to qa-custom and changed the name: key kept; Enter in project name with the inline client form open showed "Finish creating the client first" and created nothing; Enter in the inline client name with an empty key did nothing, with a key created only the client (selected it) and no project; then one click on Create Project created qa-custom with all fields. Console: only HMR WebSocket noise (my Vite config on 127.0.0.1), the Vite 500 for the malformed URL, and F1's URIError. Stopped my processes, removed the QA db and vite.qa.config.mjs.
+
+### 2026-09-29 15:04 | reviewer | REVIEW | T-4-14 PASS (3 warnings, 4 low)
+Gates 1472 / 125 (11 new tests, not 15), tsc, build, lint; merge-tree clean against agent-setup and against T-4-13 (no overlap). Public projection intact, bodies mount on expand, one comments fetch, sticky/scroll-spy sound on paper, tab fallback and hash parsing tested.
+W1 lightbox: no focus trap/return, no body scroll lock. W2 anchor slugs collide for names differing only in non-slug characters (duplicate ids/keys; second event unreachable). W3 CodeBlock/CopyLinkButton copy relies on navigator.clipboard with no fallback or failure state (silent on http://<lan-ip>). L1 snippets collapsed behind a toggle on the internal card too (previously visible); CodeBlock font size changed globally. L2 shared Overview still shows Identity note / Owner rows as dashes plus always-empty Coverage and Open findings (0) blocks. L3 SHARING.md nav list omits Properties, collapse toggle undocumented. L4 sticky nav has its own max-height scroller (accepted: page outside Layout).
+Supervisor ruling: fix W1, W2, W3 (shared clipboard helper with textarea fallback and a "Copied"/"Copy failed" state), L1 (internal card: snippets expanded by default, shared: collapsed), L2 (hide those rows/blocks in shared mode), L3; then browser QA.
+
+### 2026-09-29 15:07 | supervisor | HANDOFF | T-4-13 fix commits fb79082, 550799f — RE-REVIEW + QA re-check in parallel
+Diff 07ad325..550799f: mainRoute.ts try/catch + test (M6/F1), MarkdownView node prop and external link target/rel (M5, I10/F2), Events.tsx comment (M7), markdown.ts `?? null` and required-keys test, plain-word certification reasons (M1), NewProjectModal stale client error cleared (M3). Implementer report not received; verified from git.
+
+### 2026-09-29 16:05 | qa-tester | QA | T-4-13 re-check at 550799f: PASS
+F1 PASS: pushState to /help/%E0%A4%A then sidebar Help renders the default article (Getting started, highlighted) with sidebar intact, no error boundary. F2 PASS: MCP link has target="_blank" rel="noopener noreferrer". M1 PASS: copied purchase card says "Not certified. Reasons: 7 open error finding(s)." M3 PASS: after creating a client inline (Enter with name and key) the client is selected and the "Choose a client" error is gone (only the expected Name/Key required messages remain). Processes stopped, QA db and throwaway vite config removed; 3000/3001 untouched.
+
+### 2026-09-29 15:10 | supervisor | HANDOFF | T-4-14 fix round (c9b0869) — RE-REVIEW + QA in parallel
+1473 / 125, tsc, build, lint green. W1 lightbox focus trap, focus return, body scroll lock; W2 eventAnchors with -2/-3 suffixes used by wrappers, nav and hash (test with colliding names); W3 src/components/ui/clipboard.ts copyText (secure-context clipboard, textarea fallback) with Copied/Copy failed in CodeBlock and CopyLinkButton; L1 CodegenTabs defaultOpen = !shared, font size reverted; L2 shared mode hides identity note/owner rows and empty Coverage/Open findings blocks; L3 SHARING.md updated.
+
+### 2026-09-29 15:20 | supervisor | MERGE | T-4-13 merged into agent-setup — DONE
+Re-review #3 PASS (every fix verified at file:line), QA re-check PASS (malformed slug, external link, plain-word reasons, stale client error). Merge clean; main node_modules reinstalled (remark-gfm added; my `npm ci` wiped it mid-way and the T-4-14 QA was told to restart); merged tree: tsc, lint clean, 1474 tests / 127 files.
+
+### 2026-09-29 15:20 | reviewer | REVIEW | T-4-14 re-review PASS (c9b0869)
+All six fixes verified at file:line; 1473 / 125; merge-tree clean against agent-setup and T-4-13. Note: on the internal card the body scroll lock has no effect (main is the scroller), informational only. T-4-14 -> QA (running).
+
+### 2026-09-29 15:30 | qa-tester | QA | T-4-14 shared view UX (c9b0869) — FAIL (1 blocker, 2 warnings)
+Env: sandbox project, share `comment`, API 3002, Vite 3010 (viewport 1024x768; 1440 and 900 checked via a same-origin iframe). Extracts: `.claude/team/reports/qa/T-4-14/` (tracking-document.json, documentation.html, both zero occurrences of the agent_instructions marker). Note: main-checkout node_modules lacks `rehype-raw` (branch package.json has it; main's does not) so Vite 500s on Documentation.tsx; I stubbed it only in a throwaway QA config. Needs `npm install` on the merge tree.
+
+| # | Scenario | Result |
+|---|---|---|
+| 1 | Collapsed default, expand purchase, expand/collapse all, request count | PASS (one comments GET per mount, x2 = React StrictMode dev; Expand all fires no comments burst, only file fetches) |
+| 2 | Anchors, copy link, hash open, unique ids | PASS |
+| 3 | Sticky title rows, left nav, scroll-spy, filter, 900px dropdown | FAIL (title rows, spy, filter, dropdown pass; nav not sticky and page scroll fight, see B1) |
+| 4 | Codegen tabs, copy, internal card open | PASS |
+| 5 | Triggers block and lightbox | PASS (real wheel: no scroll; Esc closes; focus returns to thumbnail) |
+| 6 | Layout and empty sections | PASS with warnings W1, W2 |
+| 7 | Leak check, comments | PASS |
+| 8 | Regression internal card and Events page | PASS (no 500s/errors from the app; only Vite HMR WebSocket noise) |
+
+**B1 (blocker) The left nav is not sticky, and the page cannot be scrolled with the wheel.**
+Steps: open the shared URL at 1024x768 (also reproduced at 1440x900), expand `cart_update` and `purchase`, scroll the wheel down 5-10 ticks.
+Expected: nav stays visible (sticky top-20) and highlights the current event; scrolling is free.
+Actual: (a) `aside nav` rect top goes to -574 at scrollY 653 (-1672 at 8000): the nav scrolls away. Cause: `SharedProject` flex row has `lg:items-start`, so the `<aside>` is only as tall as the nav (672px) and `sticky top-20` on the inner nav has no room to stick. (b) `SharedNav.tsx:16` `activeRef.current?.scrollIntoView({ block: 'nearest' })` runs on every activeId change; because the link is off-screen with the nav, it scrolls the WINDOW back: scroll events 262, 234, 734, 262, 234, 1234, 262, 234 for 5-10 wheel ticks, i.e. the page snaps back to ~234-262 and cannot be scrolled past the first events. Programmatic `scrollTo(3000)` also snaps back to 234 within 1.2 s. With scrollIntoView stubbed out, scrolling and the scroll-spy work (spy showed `purchase` at 1000-2500px into it).
+Fix hint: make the aside `self-stretch` (or put sticky on the aside) and scroll only the nav's own container (`nav.scrollTop`) instead of `scrollIntoView`.
+
+W1 (warning) Findings table on the event card has 12 columns: 2101px wide in a 981px wrapper (`overflow-x:auto`) at 1440, a mid-screen scroller against the layout rule. Other tables fill 981px (full content width; content column 1048px, left 320).
+W2 (warning) Empty sections still render: `Properties (0)` with an empty header table and `—` row on `submitted_nps_score` and `web_exit`; Overview lists 6 rows of `—` (Priority, Grain, Page, Trigger, Purpose); variant blocks show `Required keys: —` / `Expiration: —`. `SDK default properties` and `Implementation` appear on every event. None of the listed forbidden rows (No rules, raw `[]`, Not suitable for, Identity note, Owner, Coverage, Open findings (0)) appear. Public JSON keeps `agent_instructions: null` on all 62 events (key only, no value).
+Also: collapsed-row description works (optilyz_campaign is the only sandbox event with one).
+
+### 2026-09-29 15:23 | supervisor | RULING | T-4-14 QA FAIL (B1 blocker, 2 warnings)
+Passed: collapsed rows, expand/collapse all, one comments fetch, anchors and hash-open, codegen tabs and copy, lightbox focus/scroll/Esc, leak check, comments, regression. B1: the aside is only as tall as the nav (lg:items-start), so sticky has no room and the nav scrolls away; SharedNav's scrollIntoView on active change then drags the window back -> page stuck near the top. W1: event findings table (12 columns, 2101px) scrolls horizontally inside the card. W2: empty Properties (0) tables, dash-only Overview rows, "Required keys: —"/"Expiration: —", SDK default properties and Implementation shown on every event, agent_instructions: null key in the public JSON.
+Ruling: merge agent-setup (T-4-13 removed Documentation.tsx/rehype-raw) into the branch first; fix B1 (aside self-stretch or sticky on the aside; scroll the nav's own container via scrollTop, never scrollIntoView), W1 (shared findings table: fewer columns -- severity, kind, message, property/variant -- or the wide columns collapsed into the message; internal card may keep the full table with its own overflow-x-auto wrapper), W2 (hide empty tables, dash-only rows and empty labels in shared mode; drop the null agent_instructions key from the public projection). Then re-QA scenario 3 and 6, then merge.

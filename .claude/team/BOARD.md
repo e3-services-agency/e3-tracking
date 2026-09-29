@@ -2695,3 +2695,7 @@ Scenarios 1-7 PASS. Ran API on 3002 plus Vite 3010 via a throwaway config (vite.
 - 6 CSV header ...,via_share,internal_only,body,...; backup comments carry internal_only; restore via API keeps internal_only/via_share and share_comments.
 - 7 agent_instructions marker: 1 in internal tracking doc, 0 in shared JSON/HTML/comments; no 500s; console errors are only my deliberate 400/404 probes.
 Observations (not failures): backup.json project block includes share_token (restored project gets token null but keeps share_created_at); the browser type tool lags but no app defect.
+
+### 2026-09-29 12:23 | supervisor | MERGE | T-4-10 merged into agent-setup — DONE
+QA PASS on 7 scenarios (checkbox and badge, public filter, via_share_only, messages, CSV/backup/restore, no leak). Merged tree: tsc clean, 1443 tests / 122 files. Backlog: backup.json carries the live share_token (restore nulls it, but the file itself exposes a working link) -- strip it from the backup or document.
+Next tasks wait for the user's confirmation of D-61 (catalogs per market) and D-62 (source system + method) and the consent list; then T-4-11 sandbox content, T-4-12 UI consistency, T-4-13 Help unification.

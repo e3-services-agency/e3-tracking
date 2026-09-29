@@ -39,6 +39,8 @@ export function eventCardToMarkdown(card: EventCard): string {
   const header = joinLines(
     bullet('Business name', card.business_name),
     bullet('Class', card.class),
+    bullet('Implementation method', card.implementation_method),
+    bullet('dataLayer event', card.dl_event_name),
     bullet('Status', card.status),
     bullet('Priority', card.priority),
     bullet('Business owner', card.owners?.business),
@@ -69,7 +71,7 @@ export function eventCardToMarkdown(card: EventCard): string {
   } else {
     out.push(
       table(
-        ['Payload key', 'Name', 'Definition', 'Type', 'Formats', 'Required', 'Role', 'Allowed values', 'Example', 'Description'],
+        ['Payload key', 'Name', 'Definition', 'Type', 'Formats', 'Required', 'Role', 'Kind', 'dataLayer path', 'Bundle', 'Allowed values', 'Example', 'Description'],
         card.properties.map((p) => [
           p.payload_key,
           p.name,
@@ -78,6 +80,9 @@ export function eventCardToMarkdown(card: EventCard): string {
           p.data_formats.join(', '),
           p.required ? 'yes' : 'no',
           p.role,
+          p.kind ?? '',
+          p.datalayer_path ?? '',
+          p.bundle ?? '',
           p.allowed_values?.map((a) => a.value).join(', ') ?? '',
           p.example ?? '',
           p.description ?? '',

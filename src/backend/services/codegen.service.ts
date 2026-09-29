@@ -13,9 +13,24 @@ import type {
   PropertyExampleValue,
   PropertyValueSchema,
 } from '../../types/schema';
-import type { PropertyDataFormat, IdentityTransformation } from '../../domain/enums';
+import type { PropertyDataFormat, IdentityTransformation, ImplementationMethod, PropertyKind } from '../../domain/enums';
+import { DEFAULT_PROPERTY_KIND } from '../../domain/enums';
+import { parseDerivation, type PropertyDerivation } from '../../domain/codegen/derivation';
+import {
+  buildDataLayerModel,
+  buildDataLayerV2,
+  buildGtmTemplate,
+  buildSdkDefaultProperties,
+  buildWebSdkLegacy,
+  buildWebSdkV2,
+  describeSdkEmits,
+  SDK_AUTO_NOTE,
+  SERVER_API_NOTE,
+  type CodegenProperty,
+} from '../../domain/codegen/snippets';
 import { IDENTITY_TRANSFORMATIONS } from '../../domain/enums';
 import { BLOOMREACH_SPECIAL_CUSTOMER_ATTRIBUTES } from '../../domain/bloomreach';
+import { jsLiteral } from '../../domain/codegen/literal';
 import type { EventPropertyWithDetails, EventPropertyWithDetailsExtended } from '../dal/event.dal';
 import type { VariantRow } from '../dal/variant.dal';
 
@@ -34,6 +49,10 @@ export interface AttachedPropertyForCodegen {
   property_value_schema_json?: PropertyValueSchema | null;
   property_object_child_property_refs_json?: Record<string, string> | null;
   object_child_snapshots_by_field?: Record<string, ObjectChildFieldSnapshot> | null;
+  /** D-63 (T-4-17): property kind, derivation rule and link role; default `event` / none / `normal`. */
+  kind?: PropertyKind;
+  derivation?: PropertyDerivation | null;
+  role?: string;
 }
 
 export interface CodegenSnippets {
@@ -247,42 +266,7 @@ function buildNestedObjectSampleFromSnapshots(
   return out;
 }
 
-/**
- * JS/TS literal text for object property values in dataLayer / SDK snippets.
- */
-function jsLiteralForSample(value: unknown, indent: string = '  '): string {
-  if (value === null) return 'null';
-  if (value === undefined) return 'undefined';
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  if (typeof value === 'string') {
-    // JS snippets: enforce single-quote string literals consistently.
-    // Escape backslash, single quote, and newlines/tabs to keep snippets copy/paste-safe.
-    const escaped = value
-      .replace(/\\/g, '\\\\')
-      .replace(/'/g, "\\'")
-      .replace(/\r/g, '\\r')
-      .replace(/\n/g, '\\n')
-      .replace(/\t/g, '\\t');
-    return `'${escaped}'`;
-  }
-  if (Array.isArray(value)) {
-    if (value.length === 0) return '[]';
-    const innerIndent = indent + '  ';
-    const parts = value.map((v) => jsLiteralForSample(v, innerIndent));
-    return `[${parts.join(', ')}]`;
-  }
-  if (typeof value === 'object') {
-    const o = value as Record<string, unknown>;
-    const keys = Object.keys(o).sort(compareFieldKeys);
-    if (keys.length === 0) return '{}';
-    const innerIndent = indent + '  ';
-    const lines = keys.map(
-      (k) => `${innerIndent}${k}: ${jsLiteralForSample(o[k], innerIndent)}`
-    );
-    return `{\n${lines.join(',\n')}\n${indent}}`;
-  }
-  return JSON.stringify(String(value));
-}
+const jsLiteralForSample = jsLiteral;
 
 function formatJsObjectBodyFromSchema(
   schema: PropertyValueSchema,
@@ -335,6 +319,9 @@ export function toAttachedPropertyForCodegen(
     // integration WARNING 4: this must stay `required`, never `presence`, or every property
     // silently renders as optional in the generated snippets/docs).
     required: link.required,
+    kind: (link.property.kind as PropertyKind) ?? DEFAULT_PROPERTY_KIND,
+    derivation: parseDerivation(link.property.derivation_json),
+    role: link.role,
     property_data_type: link.property.data_type,
     // Fix round ERROR 1: the definition's whole formats_json list, not a single scalar.
     property_data_formats:
@@ -516,7 +503,9 @@ function buildBloomreachApiSnippet(
   canonicalEventName: string,
   props: AttachedPropertyForCodegen[],
   overrides: CodegenEventNameOverrides | null | undefined,
-  projectConfig?: CodegenProjectConfig
+  projectConfig?: CodegenProjectConfig,
+  /** D-63: the final payload (state lists computed from items); default is each property's own sample. */
+  payload?: Record<string, unknown>
 ): string {
   const eventName = resolveOutputEventName(canonicalEventName, 'bloomreachApi', overrides);
   const rawKey =
@@ -526,7 +515,8 @@ function buildBloomreachApiSnippet(
   const customerIdKey = rawKey || 'registered';
   const properties: Record<string, unknown> = {};
   for (const p of props) {
-    properties[p.property_name] = jsonSampleValueForProperty(p);
+    properties[p.property_name] =
+      payload && p.property_name in payload ? payload[p.property_name] : jsonSampleValueForProperty(p);
   }
   const body = {
     customer_ids: { [customerIdKey]: '<customer_id>' },
@@ -545,6 +535,105 @@ function buildBloomreachApiSnippet(
     return `// Optional properties: ${optionalNames}\n\n${json}\n\n// cURL example:\n${curlExample}`;
   }
   return `${json}\n\n// cURL example:\n${curlExample}`;
+}
+
+/* --------------------------------------------------------------------------------------------
+ * Codegen v2 (D-63, T-4-17): snippets per implementation method. Additive to the three snippets
+ * above: `gtm`, `web_sdk` and `tracking_api` keep their names, new keys are added.
+ * ------------------------------------------------------------------------------------------ */
+
+export interface CodegenV2 {
+  /** `datalayer` + `gtm_template` together (the "GTM / dataLayer" tab). */
+  gtm: string;
+  datalayer: string;
+  gtm_template: string;
+  /** New Web SDK: `bloomreach.track(event, payload)`. */
+  web_sdk: string;
+  /** Legacy Web SDK: `exponea.track(event, payload)`. */
+  web_sdk_legacy: string;
+  tracking_api: string;
+  /** `sdk_auto` only: which SDK call or lifecycle emits the event. */
+  sdk_emits: string;
+  /** `sdk_auto` only: snippet setting the always-tracked default properties. */
+  sdk_default_properties: string;
+  /** One line on why some tabs are absent (`server_api` / `sdk_auto`), else empty. */
+  note: string;
+}
+
+export interface CodegenV2Options {
+  method: ImplementationMethod;
+  /** The site's dataLayer event carrying this Bloomreach event (`events.dl_event_name`). */
+  dlEventName?: string | null;
+  eventClass?: string | null;
+  /** Project-wide context properties (kind `context`), for the SDK default properties snippet. */
+  projectContext?: { name: string; sample: unknown }[];
+}
+
+export function toCodegenProperty(p: AttachedPropertyForCodegen): CodegenProperty {
+  return {
+    name: p.property_name,
+    kind: p.kind ?? DEFAULT_PROPERTY_KIND,
+    derivation: p.derivation ?? null,
+    required: p.required,
+    role: p.role,
+    sample: jsonSampleValueForProperty(p),
+  };
+}
+
+export function buildCodegenV2(
+  canonicalEventName: string,
+  attached: AttachedPropertyForCodegen[],
+  options: CodegenV2Options,
+  overrides?: CodegenEventNameOverrides | null,
+  projectConfig?: CodegenProjectConfig
+): CodegenV2 {
+  const safeCanonical = canonicalEventName?.trim() || 'event_name';
+  const props = orderCodegenPropsForSnippetDisplay(attached);
+  const model = buildDataLayerModel(props.map(toCodegenProperty));
+  const empty: CodegenV2 = {
+    gtm: '',
+    datalayer: '',
+    gtm_template: '',
+    web_sdk: '',
+    web_sdk_legacy: '',
+    tracking_api: '',
+    sdk_emits: '',
+    sdk_default_properties: '',
+    note: '',
+  };
+  const trackingApi = () =>
+    buildBloomreachApiSnippet(safeCanonical, props, overrides, projectConfig, model.payload);
+
+  if (options.method === 'server_api') {
+    return { ...empty, tracking_api: trackingApi(), note: SERVER_API_NOTE };
+  }
+  if (options.method === 'sdk_auto') {
+    const context = new Map<string, unknown>();
+    for (const c of options.projectContext ?? []) context.set(c.name, c.sample);
+    for (const p of attached) {
+      if (p.kind === 'context' || p.role === 'context') context.set(p.property_name, jsonSampleValueForProperty(p));
+    }
+    return {
+      ...empty,
+      sdk_emits: describeSdkEmits(safeCanonical, options.eventClass),
+      sdk_default_properties: buildSdkDefaultProperties([...context].map(([name, sample]) => ({ name, sample }))),
+      note: SDK_AUTO_NOTE,
+    };
+  }
+  const dlName = resolveOutputEventName(safeCanonical, 'dataLayer', overrides);
+  const sdkName = resolveOutputEventName(safeCanonical, 'bloomreachSdk', overrides);
+  const names = { bloomreach: dlName, dataLayer: options.dlEventName ?? null };
+  const datalayer = buildDataLayerV2(names, model);
+  const gtm_template = buildGtmTemplate(names, model);
+  return {
+    ...empty,
+    gtm: `${datalayer}\n\n${gtm_template}`,
+    datalayer,
+    gtm_template,
+    web_sdk: buildWebSdkV2(sdkName, model),
+    web_sdk_legacy: buildWebSdkLegacy(sdkName, model),
+    tracking_api: trackingApi(),
+  };
 }
 
 /* --------------------------------------------------------------------------------------------

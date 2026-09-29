@@ -17,14 +17,15 @@ import {
 import { listVariantsByProject, type VariantRow } from '../dal/variant.dal';
 import { listStandardEventMappings } from '../dal/standard-event-mapping.dal';
 import {
-  buildCodegenSnippets,
+  buildCodegenV2,
   buildIdentityCodegen,
   jsonSampleValueForProperty,
   toAttachedPropertyForCodegen,
   attachedPropertiesForVariant,
   type AttachedPropertyForCodegen,
-  type CodegenSnippets,
 } from './codegen.service';
+import type { EventCardCodegen } from '../../domain/document/trackingDocument';
+import { dataLayerPath, parseDerivation } from '../../domain/codegen/derivation';
 import { getFileStore } from '../files/FileStore';
 import type { CodegenEventNameOverrides } from '../../types/schema';
 import { listIdentityRules } from '../dal/identity-rule.dal';
@@ -89,6 +90,8 @@ export function buildPropertyDetailsTable(properties: EventPropertyWithDetails[]
         <td>${escapeHtml(link.role)}</td>
         <td>${escapeHtml(link.property.data_type)}</td>
         <td>${escapeHtml(link.payload_key?.trim() || link.property.name)}</td>
+        <td>${escapeHtml(link.property.kind ?? 'event')}</td>
+        <td>${escapeHtml(dataLayerPath(link.property.kind ?? 'event', link.payload_key?.trim() || link.property.name, parseDerivation(link.property.derivation_json)))}</td>
         <td>${escapeHtml(description)}</td>
       </tr>`;
     })
@@ -101,6 +104,8 @@ export function buildPropertyDetailsTable(properties: EventPropertyWithDetails[]
         <th>Role</th>
         <th>Data type</th>
         <th>Payload key</th>
+        <th>Kind</th>
+        <th>dataLayer path</th>
         <th>Description</th>
       </tr>
     </thead>
@@ -167,11 +172,21 @@ function codegenBlock(label: string, code: string): string {
   </div>`;
 }
 
-function buildCodegenHtml(snippets: CodegenSnippets): string {
+/** D-63 (T-4-17): only the snippets that apply to the event's implementation method (empty ones are skipped). */
+function buildCodegenHtml(codegen: EventCardCodegen): string {
+  const blocks: [string, string | undefined][] = [
+    ['dataLayer', codegen.datalayer],
+    ['GTM custom template', codegen.gtm_template],
+    ['Bloomreach Web SDK', codegen.web_sdk],
+    ['Bloomreach Web SDK (legacy)', codegen.web_sdk_legacy],
+    ['Bloomreach Tracking API', codegen.tracking_api],
+    ['SDK emits', codegen.sdk_emits],
+    ['SDK default properties', codegen.sdk_default_properties],
+  ];
+  const note = codegen.note?.trim() ? `<p class="codegen-note">${escapeHtml(codegen.note)}</p>` : '';
   return `<div class="codegen">
-    ${codegenBlock('dataLayer', snippets.dataLayer)}
-    ${codegenBlock('Bloomreach Web SDK', snippets.bloomreachSdk)}
-    ${codegenBlock('Bloomreach Tracking API', snippets.bloomreachApi)}
+    ${note}
+    ${blocks.filter(([, code]) => code && code.trim()).map(([label, code]) => codegenBlock(label, code as string)).join('\n')}
   </div>`;
 }
 
@@ -184,12 +199,6 @@ async function buildEventSectionHtml(
   cardCtx: EventCardBuildContext,
   publicView: boolean
 ): Promise<string> {
-  const attached = properties.map(toAttachedPropertyForCodegen);
-  const codegen = buildCodegenSnippets(
-    event.name,
-    attached,
-    event.codegen_event_name_overrides_json as CodegenEventNameOverrides | null
-  );
   const triggersHtml = await buildTriggersHtml(projectId, (event.triggers_json as TriggerEntry[]) ?? []);
   const propertyNameById = new Map(properties.map((link) => [link.property_id, link.property.name]));
 
@@ -217,9 +226,10 @@ async function buildEventSectionHtml(
   const variantCodegenHtml = variants
     .map((variant) => {
       const variantAttached = attachedPropertiesForVariant(properties, variant);
-      const variantCodegen = buildCodegenSnippets(
+      const variantCodegen = buildCodegenV2(
         event.name,
         variantAttached,
+        { method: event.implementation_method, dlEventName: event.dl_event_name, eventClass: event.class },
         event.codegen_event_name_overrides_json as CodegenEventNameOverrides | null
       );
       return `<div class="variant-codegen">
@@ -234,6 +244,8 @@ async function buildEventSectionHtml(
     <dl class="event-meta">
       ${event.business_name ? `<dt>Business name</dt><dd>${escapeHtml(event.business_name)}</dd>` : ''}
       <dt>Class</dt><dd>${escapeHtml(event.class)}</dd>
+      <dt>Implementation method</dt><dd>${escapeHtml(event.implementation_method)}</dd>
+      ${event.dl_event_name ? `<dt>dataLayer event</dt><dd>${escapeHtml(event.dl_event_name)}</dd>` : ''}
       <dt>Status</dt><dd>${escapeHtml(event.status)}</dd>
       ${event.page ? `<dt>Page</dt><dd>${escapeHtml(event.page)}</dd>` : ''}
       ${event.trigger_text ? `<dt>Trigger</dt><dd>${escapeHtml(event.trigger_text)}</dd>` : ''}
@@ -248,7 +260,7 @@ async function buildEventSectionHtml(
     <h3>Sample payload</h3>
     ${buildPayloadDoc(properties)}
     <h3>Implementation</h3>
-    ${buildCodegenHtml(codegen)}
+    ${buildCodegenHtml(card.codegen)}
     ${variantsHtml}
     ${variantCodegenHtml}
     ${rulesHtml}

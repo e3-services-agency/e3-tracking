@@ -75,6 +75,7 @@ import {
 import { runDefinitionVsMapping, type DefinitionVsMappingInput } from '../../domain/comparison/definitionVsMapping';
 import { runMappingVsObservations } from '../../domain/comparison/mappingVsObservations';
 import { toDataManagerDefinitionSnapshot, buildMappingSnapshotFromDefinition, type MappingSnapshot, type DefConsentCategory } from '../../domain/comparison/snapshot';
+import { buildStateListChecks, runStateListChecks } from '../../domain/rules/stateLists';
 import { runRules, runItemSchemaChecks, type ItemSchemaCheck, type RulesEngineRule } from '../../domain/rules/runRules';
 import { refKey } from '../../domain/rules/types';
 import type { ItemSchemaField, RulePropertyRef, RuleSnapshot } from '../../domain/rules/types';
@@ -147,6 +148,9 @@ export function buildDefinitionSnapshot(projectId: string): DefinitionSnapshot {
         item_schema: Array.isArray(link.property.item_schema_json)
           ? (link.property.item_schema_json as DefEventProperty['item_schema'])
           : null,
+        // D-63 (T-4-17): read by rules/stateLists.ts only.
+        kind: link.property.kind,
+        derivation: link.property.derivation_json,
       };
     });
     return {
@@ -472,6 +476,7 @@ export function runComparison(projectId: string): ComparisonSummary {
   const ruleSnapshot = buildRuleSnapshot(projectId, definition);
   const rulesEngineRules = buildRulesEngineRules(projectId, customEventIds);
   const itemSchemaChecks = buildItemSchemaChecks(definition, customEventIds);
+  const stateListChecks = buildStateListChecks(definition, customEventIds);
 
   const runs: EngineRun[] = [
     {
@@ -480,6 +485,7 @@ export function runComparison(projectId: string): ComparisonSummary {
         ...runDefinitionVsObservations(definition, observations),
         ...runRules(rulesEngineRules, observations, ruleSnapshot),
         ...runItemSchemaChecks(itemSchemaChecks, observations),
+        ...runStateListChecks(stateListChecks, observations),
       ],
       qaRunIdByObservationId,
     },

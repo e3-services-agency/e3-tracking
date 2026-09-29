@@ -68,10 +68,11 @@ export function eventCardToMarkdown(card: EventCard): string {
   } else {
     out.push(
       table(
-        ['Payload key', 'Name', 'Type', 'Formats', 'Required', 'Role', 'Allowed values', 'Example', 'Description'],
+        ['Payload key', 'Name', 'Definition', 'Type', 'Formats', 'Required', 'Role', 'Allowed values', 'Example', 'Description'],
         card.properties.map((p) => [
           p.payload_key,
           p.name,
+          p.definition_name ?? '',
           p.data_type,
           p.data_formats.join(', '),
           p.required ? 'yes' : 'no',
@@ -115,9 +116,13 @@ export function eventCardToMarkdown(card: EventCard): string {
 
   out.push('## Expected payload');
   if (card.variants.length === 0) {
+    // Same sample the app builds per variant (document.service.ts sampleFromAttached): every
+    // attached property keyed by name, valued by its `example` (jsonSampleValueForProperty).
     const payload: Record<string, unknown> = {};
-    for (const p of card.properties) if (p.required) payload[p.payload_key] = p.example ?? null;
+    for (const p of card.properties) payload[p.name] = p.example;
     out.push(jsonBlock(payload));
+    const required = card.properties.filter((p) => p.required).map((p) => p.name);
+    out.push(`Required keys: ${required.length > 0 ? required.join(', ') : 'none'}.`);
   } else {
     for (const v of card.variants) {
       out.push(`### ${v.name}`);

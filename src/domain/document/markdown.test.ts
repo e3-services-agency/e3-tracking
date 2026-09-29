@@ -64,7 +64,7 @@ describe('eventCardToMarkdown', () => {
     const md = eventCardToMarkdown(card());
     expect(md).toContain('# Event: cart_update');
     expect(md).toContain('Not certified. Reasons: open_errors: 2, no_observations.');
-    expect(md).toContain('| action | action | string |  | yes | discriminator | add, remove | add | a\\|b |');
+    expect(md).toContain('| action | action |  | string |  | yes | discriminator | add, remove | add | a\\|b |');
     expect(md).toContain('| cart_update[action=add] | action = add |');
     expect(md).toContain('https://shop.example/p/1');
     expect(md).toContain('```json\n{\n  "action": "add"\n}\n```');

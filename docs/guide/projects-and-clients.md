@@ -8,13 +8,13 @@ The **project switcher** in the header groups projects under their client. The U
 
 ## Creating things
 
-- **Clients** page: create a client, then create projects under it, or delete several at once.
-- **Create sandbox**: restores the bundled sample project under a "Sandboxes" client (or a client you pick). Sandboxes are badged in the switcher and in the Clients list, are meant for exploration, and refuse a share link unless you force it.
+- **Clients** page: create a client, then create projects under it. Bulk delete exists only for sandbox projects.
+- **Create a sandbox**: restores the bundled sample project under a "Sandboxes" client (or a client you pick). Sandboxes are badged in the switcher and in the Clients list, are meant for exploration, and refuse a share link unless you force it.
 - **Restore a backup**: a full JSON backup always restores as a brand-new project; it never merges into an existing one.
 
 ## Settings
 
-The **Settings** page holds project details, the money tolerance used by rounding checks, the default industry filter for the template library, and the share link block (see Sharing and access).
+The **Settings** page holds project details, the money tolerance used by rounding checks, the default industry filter for the template library, and the share link block (see Sharing and access), including how comments appear on the shared view.
 
 ## Backups and exports
 

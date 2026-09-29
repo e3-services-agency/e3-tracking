@@ -16,7 +16,7 @@ import libraryDoc from '../../docs/LIBRARY.md?raw';
 import sharingDoc from '../../docs/SHARING.md?raw';
 import mcpDoc from '../../docs/MCP.md?raw';
 import trackingDocumentDoc from '../../docs/TRACKING-DOCUMENT.md?raw';
-import { GLOSSARY } from '@/src/domain/glossary';
+import { GLOSSARY } from '../domain/glossary';
 
 export type HelpGroup = 'Guide' | 'Reference' | 'Glossary';
 

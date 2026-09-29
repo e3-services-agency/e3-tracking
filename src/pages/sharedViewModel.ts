@@ -27,3 +27,5 @@ export function buildSharedViewModel(doc: TrackingDocument): SharedViewModel {
     otherEvents: doc.events.filter((e) => e.class !== 'custom'),
   };
 }
+
+export * from '../features/shared/viewHelpers';

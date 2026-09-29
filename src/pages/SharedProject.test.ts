@@ -5,7 +5,10 @@
  * acceptance criteria call out.
  */
 import { describe, expect, it } from 'vitest';
-import { buildSharedViewModel, sharedFileUrl } from './sharedViewModel';
+import {
+  buildSharedViewModel, sharedFileUrl, eventAnchor, eventForHash, selectCodegenTab, isEmptyValue, derivedMetricsText,
+  eventCardVisibility, oneLineDescription, sectionPresence, buildSectionIndex, filterNav, flattenNav, pickActiveId, lightboxStep,
+} from './sharedViewModel';
 import type { TrackingDocument } from '../domain/document/trackingDocument';
 
 function emptyEventCard(overrides: Partial<TrackingDocument['events'][number]>): TrackingDocument['events'][number] {
@@ -79,5 +82,114 @@ describe('sharedFileUrl', () => {
   it('encodes the token but not the path segments', () => {
     const url = sharedFileUrl('has space', 'proj/kind/file.png');
     expect(url).toContain('/api/shared/has%20space/files/proj/kind/file.png');
+  });
+});
+
+describe('T-4-14 view helpers', () => {
+  const ev = (name: string, cls = 'custom') => ({ name, class: cls });
+  const baseDoc = {
+    events: [ev('purchase'), ev('cart update'), ev('session_start', 'sdk'), ev('consent', 'platform')],
+    properties: [1],
+    use_cases: [],
+    identity_rules: [],
+    consent_categories: [1],
+    catalogs: [],
+    standard_event_mappings: [1],
+    findings_summary: { open: { error: 0, warning: 0, info: 0 } },
+  };
+
+  it('eventAnchor slugs the name and is stable', () => {
+    expect(eventAnchor('purchase')).toBe('event-purchase');
+    expect(eventAnchor('cart update / v2')).toBe('event-cart-update-v2');
+    expect(eventAnchor('Cart_Update')).toBe('event-Cart_Update');
+    expect(eventAnchor('  ')).toBe('event-unnamed');
+  });
+
+  it('eventForHash resolves a hash to its event, also percent-encoded, and ignores others', () => {
+    const events = [ev('purchase'), ev('cart update')];
+    expect(eventForHash('#event-purchase', events)?.name).toBe('purchase');
+    expect(eventForHash('event-cart-update', events)?.name).toBe('cart update');
+    expect(eventForHash('#event-nope', events)).toBeNull();
+    expect(eventForHash('#use-cases', events)).toBeNull();
+    expect(eventForHash('#event-%E0%A4%A', events)).toBeNull();
+  });
+
+  it('selectCodegenTab defaults to GTM and falls back to the first tab with code', () => {
+    expect(selectCodegenTab({ gtm: 'a', web_sdk: 'b', tracking_api: 'c' })).toBe('gtm');
+    expect(selectCodegenTab({ gtm: '  ', web_sdk: 'b', tracking_api: 'c' })).toBe('web_sdk');
+    expect(selectCodegenTab({ gtm: '', web_sdk: '', tracking_api: 'c' })).toBe('tracking_api');
+    expect(selectCodegenTab({})).toBe('gtm');
+    expect(selectCodegenTab({ gtm: 'a', web_sdk: 'b' }, 'web_sdk')).toBe('web_sdk');
+  });
+
+  it('isEmptyValue and derivedMetricsText treat [] and {} as empty', () => {
+    for (const v of [null, undefined, '', '  ', [], {}]) expect(isEmptyValue(v)).toBe(true);
+    for (const v of [0, false, 'x', [1], { a: 1 }]) expect(isEmptyValue(v)).toBe(false);
+    expect(derivedMetricsText([])).toBe('\u2014');
+    expect(derivedMetricsText(['a', 'b'])).toBe('a, b');
+    expect(derivedMetricsText({ a: 1 })).toBe('{"a":1}');
+  });
+
+  it('eventCardVisibility flags each empty optional block', () => {
+    const empty = eventCardVisibility({
+      rules: [], derived_metrics: [], not_suitable_for: null, use_cases: [], variants: [],
+      standard_event_mappings: [], contexts: [], sdk_default_properties: [],
+    });
+    expect(Object.values(empty).every((v) => v === false)).toBe(true);
+    const full = eventCardVisibility({
+      rules: [1], derived_metrics: ['x'], not_suitable_for: 'y', use_cases: [1], variants: [1],
+      standard_event_mappings: [1], contexts: [1], sdk_default_properties: [1],
+    });
+    expect(Object.values(full).every((v) => v === true)).toBe(true);
+  });
+
+  it('oneLineDescription collapses whitespace and truncates', () => {
+    expect(oneLineDescription('a\n  b')).toBe('a b');
+    expect(oneLineDescription(null)).toBe('');
+    expect(oneLineDescription('x'.repeat(50), 10)).toHaveLength(10);
+    expect(oneLineDescription('x'.repeat(50), 10).endsWith('\u2026')).toBe(true);
+  });
+
+  it('sectionPresence and buildSectionIndex omit empty sections and group events by class', () => {
+    expect(sectionPresence(baseDoc)).toMatchObject({ useCases: false, identity: false, catalogs: false, findings: false, consents: true, mapping: true });
+    const nav = buildSectionIndex(baseDoc);
+    expect(nav.map((n) => n.id)).toEqual(['events', 'properties', 'consents', 'mapping']);
+    const groups = nav[0].children!;
+    expect(groups.map((g) => g.id)).toEqual(['events-custom', 'events-sdk', 'events-platform']);
+    expect(groups[0].children!.map((c) => c.id)).toEqual(['event-purchase', 'event-cart-update']);
+    const withFindings = buildSectionIndex({ ...baseDoc, findings_summary: { open: { error: 1, warning: 0, info: 0 } } });
+    expect(withFindings.at(-1)?.id).toBe('findings');
+  });
+
+  it('buildSectionIndex skips an empty event class group', () => {
+    const nav = buildSectionIndex({ ...baseDoc, events: [ev('a'), ev('b', 'platform')] });
+    expect(nav[0].children!.map((g) => g.id)).toEqual(['events-custom', 'events-platform']);
+  });
+
+  it('filterNav keeps matching leaves with their ancestors, and whole subtrees on a parent match', () => {
+    const nav = buildSectionIndex(baseDoc);
+    expect(filterNav(nav, '')).toBe(nav);
+    const f = filterNav(nav, 'CART');
+    expect(f).toHaveLength(1);
+    expect(f[0].children![0].children!.map((c) => c.label)).toEqual(['cart update']);
+    const parent = filterNav(nav, 'sdk events');
+    expect(parent[0].children!.map((g) => g.id)).toEqual(['events-sdk']);
+    expect(filterNav(nav, 'zzz')).toEqual([]);
+  });
+
+  it('flattenNav is document order with depth; pickActiveId takes the first visible', () => {
+    const flat = flattenNav(buildSectionIndex(baseDoc));
+    expect(flat[0]).toEqual({ id: 'events', label: 'Events (4)', depth: 0 });
+    expect(flat[2]).toMatchObject({ id: 'event-purchase', depth: 2 });
+    const ids = flat.map((f) => f.id);
+    expect(pickActiveId(ids, new Set(['event-cart-update', 'event-purchase']))).toBe('event-purchase');
+    expect(pickActiveId(ids, new Set())).toBeNull();
+  });
+
+  it('lightboxStep wraps in both directions', () => {
+    expect(lightboxStep(0, -1, 3)).toBe(2);
+    expect(lightboxStep(2, 1, 3)).toBe(0);
+    expect(lightboxStep(1, 1, 3)).toBe(2);
+    expect(lightboxStep(0, 1, 0)).toBe(0);
   });
 });

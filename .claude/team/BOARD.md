@@ -2773,3 +2773,6 @@ D4 (minor) group headers read "Consent (consent)" and "Customer properties (cust
 - D4 PASS: groups "Customer properties", "Catalog attributes", "Consent"; event/variant headers keep "(event)"/"(variant)"; coupon row reads "coupon" under "purchase (event)", tooltip includes "purchase.coupon".
 - Regression PASS: 10 sandbox pages, no 4xx/5xx or blank pages; console only HMR websocket noise (test Vite ran without HMR port).
 Processes stopped, QA db and vite.qa.config.mjs removed; 3000/3001 untouched.
+
+### 2026-09-29 14:46 | supervisor | MERGE | T-4-12 merged into agent-setup — DONE; T-4-14 started
+Re-QA PASS on D1-D4. Merge clean; tsc, lint green; vitest 1461 / 125 (first run had 1 intermittent failure, second run fully green; same flake the implementer saw once -- backlog: identify the flaky test). T-4-13 part 2 (merge agent-setup, Help.tsx layout rule) running; T-4-14 shared view UX started on task/T-4-14-shared-view-ux. Scenario 8 (T-4-15 modal) still to be browser-checked on the merged tree at the next QA.

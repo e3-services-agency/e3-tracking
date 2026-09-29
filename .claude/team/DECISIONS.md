@@ -416,3 +416,5 @@ Decision (recommended practice, published in the codegen; clients may deviate; v
 Reference fixture: the client's add_to_wishlist push provided by the user on 2026-09-29 (samples/datalayer-wishlist-legacy.js) and its D-63 form.
 
 ## D-53 amendment 6 (2026-09-29): 0025 T-4-17 implementation method, dataLayer event name, property kind and derivation rule.
+
+## D-53 amendment 7 (2026-09-29): 0026 T-4-19 example values cleanup.

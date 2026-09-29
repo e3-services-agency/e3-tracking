@@ -10,6 +10,8 @@ function card(over: Partial<EventCard> = {}): EventCard {
     name: 'cart_update',
     business_name: 'Cart update',
     class: 'custom',
+    implementation_method: 'client_web',
+    dl_event_name: 'cart_update',
     description: 'Fires on cart changes.',
     purpose: null,
     page: null,
@@ -26,6 +28,7 @@ function card(over: Partial<EventCard> = {}): EventCard {
         property_id: 'p1', name: 'action', payload_key: 'action', data_type: 'string', data_formats: [], required: true,
         role: 'discriminator', allowed_values: [{ value: 'add', label: null, standard_event: null }, { value: 'remove', label: null, standard_event: null }],
         item_schema: null, example: 'add', description: 'a|b', pii: false, definition_id: null, definition_name: null,
+        kind: 'event', derivation: null, datalayer_path: 'bloomreach.properties.action', bundle: 'Core',
       },
     ],
     variants: [
@@ -64,7 +67,9 @@ describe('eventCardToMarkdown', () => {
     const md = eventCardToMarkdown(card());
     expect(md).toContain('# Event: cart_update');
     expect(md).toContain('Not certified. Reasons: 2 open error finding(s). No observation of this event exists in a non-archived QA run.');
-    expect(md).toContain('| action | action |  | string |  | yes | discriminator | add, remove | add | a\\|b |');
+    expect(md).toContain('| action | action |  | string |  | yes | discriminator | event | bloomreach.properties.action | Core | add, remove | add | a\\|b |');
+    expect(md).toContain('- Implementation method: client_web');
+    expect(md).toContain('- dataLayer event: cart_update');
     expect(md).toContain('| cart_update[action=add] | action = add |');
     expect(md).toContain('https://shop.example/p/1');
     expect(md).toContain('```json\n{\n  "action": "add"\n}\n```');

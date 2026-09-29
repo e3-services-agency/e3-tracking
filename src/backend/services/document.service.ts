@@ -31,7 +31,7 @@ import { computeCertification } from '../../domain/certification';
 import { computeEventCoverage, type CoverageContextProperty, type CoverageObservation } from '../../domain/coverage';
 import { buildTargetLabelResolver } from './requirements-matrix.service';
 import {
-  buildCodegenSnippets,
+  buildCodegenV2,
   jsonSampleValueForProperty,
   toAttachedPropertyForCodegen,
   attachedPropertiesForVariant,
@@ -40,11 +40,13 @@ import {
 import { SDK_DEFAULT_PROPERTIES } from '../../domain/bloomreach';
 import type { EventPropertyWithDetails, EventPropertyWithDetailsExtended, EventRow } from '../dal/event.dal';
 import * as PropertyDefinitionDAL from '../dal/property-definition.dal';
+import * as BundleDAL from '../dal/bundle.dal';
+import { dataLayerPath, parseDerivation } from '../../domain/codegen/derivation';
 import type { VariantRow } from '../dal/variant.dal';
 import type { RuleRow } from '../dal/rule.dal';
 import type { FindingRow } from '../dal/finding.dal';
 import type { Operand, RuleExpression } from '../../domain/rules/types';
-import type { CodegenEventNameOverrides } from '../../types/schema';
+import type { CodegenEventNameOverrides, PropertyExampleValue } from '../../types/schema';
 import {
   TRACKING_DOCUMENT_FORMAT,
   TRACKING_DOCUMENT_VERSION,
@@ -262,6 +264,10 @@ export interface EventCardBuildContext {
    * once and passed to every `getEventWithProperties` call in this file so `buildEventCard`/
    * `buildTrackingDocument` never run one definition query per link. */
   definitionsById: Map<string, PropertyDefinitionDAL.PropertyDefinitionRow>;
+  /** D-63 (T-4-17): bundle names per property id (comma-joined), for `EventCardProperty.bundle`. */
+  bundleNameByPropertyId: Map<string, string>;
+  /** D-63: the project's `kind = 'context'` event properties, for the `sdk_auto` default properties snippet. */
+  projectContextProperties: { name: string; sample: unknown }[];
 }
 
 /** Exported for `export.service.ts`'s HTML documentation export, which also calls `buildEventCard`
@@ -299,6 +305,27 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
     else acknowledgedFindingsByEventId.set(f.event_id, [f]);
   }
 
+  const bundleNames = new Map<string, string[]>();
+  for (const bundle of BundleDAL.listBundles(projectId)) {
+    for (const propertyId of bundle.property_ids) {
+      const list = bundleNames.get(propertyId);
+      if (list) list.push(bundle.name);
+      else bundleNames.set(propertyId, [bundle.name]);
+    }
+  }
+  const projectContextProperties = PropertyDAL.listProperties(projectId, { scope: 'event' })
+    .filter((p) => p.kind === 'context')
+    .map((p) => ({
+      name: p.name,
+      sample: jsonSampleValueForProperty({
+        property_name: p.name,
+        required: false,
+        property_data_type: p.data_type,
+        property_data_formats: (p.data_formats_json as string[] | null) ?? null,
+        property_example_values_json: (p.example_values_json as PropertyExampleValue[] | null) ?? null,
+      }),
+    }));
+
   return {
     project,
     events,
@@ -311,6 +338,8 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
     acknowledgedFindingsByEventId,
     nameOf: buildPropertyNameResolver(projectId),
     definitionsById: PropertyDefinitionDAL.listAllDefinitionsById(projectId),
+    bundleNameByPropertyId: new Map([...bundleNames].map(([id, names]) => [id, names.join(', ')])),
+    projectContextProperties,
   };
 }
 
@@ -408,7 +437,13 @@ function toEventCardFinding(
 // EventCard
 // ---------------------------------------------------------------------------
 
-function toEventCardProperty(link: EventPropertyWithDetailsExtended): EventCardProperty {
+function toEventCardProperty(
+  link: EventPropertyWithDetailsExtended,
+  bundleNameByPropertyId?: Map<string, string>,
+  method: string = 'client_web'
+): EventCardProperty {
+  const kind = link.property.kind ?? 'event';
+  const derivation = parseDerivation(link.property.derivation_json);
   // D-58: allowed values, description and example are per-event, sourced from the link's own
   // definition (falling back to the shared Property's fields when the link carries no
   // definition -- defensive only, every link is resolved to a real definition by the DAL).
@@ -454,6 +489,10 @@ function toEventCardProperty(link: EventPropertyWithDetailsExtended): EventCardP
     pii: link.property.pii,
     definition_id: link.definition?.id ?? null,
     definition_name: link.definition?.name ?? null,
+    kind,
+    derivation,
+    datalayer_path: method === 'client_web' ? dataLayerPath(kind, link.payload_key?.trim() || link.property.name, derivation) : null,
+    bundle: bundleNameByPropertyId?.get(link.property_id) ?? null,
   };
 }
 
@@ -601,10 +640,19 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
     })
     .filter((v): v is { code: string | null; name: string; level: string } => v !== null);
 
-  const attachedForCodegen = properties.map(toAttachedPropertyForCodegen);
-  const codegenSnippets = buildCodegenSnippets(
+  // F2 (D-63): with variants, the card's snippets show the first variant's discriminator values
+  // as literals ('add', 'success'); without variants a discriminator falls back to its first allowed value.
+  const attachedForCodegen =
+    variants.length > 0 ? attachedPropertiesForVariant(properties, variants[0]) : properties.map(toAttachedPropertyForCodegen);
+  const codegenSnippets = buildCodegenV2(
     event.name,
     attachedForCodegen,
+    {
+      method: event.implementation_method,
+      dlEventName: event.dl_event_name,
+      eventClass: event.class,
+      projectContext: context.projectContextProperties,
+    },
     event.codegen_event_name_overrides_json as CodegenEventNameOverrides | null
   );
 
@@ -613,6 +661,8 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
     name: event.name,
     business_name: event.business_name,
     class: event.class,
+    implementation_method: event.implementation_method,
+    dl_event_name: event.dl_event_name,
     description: event.description,
     purpose: event.purpose,
     page: event.page,
@@ -624,7 +674,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
     status: event.status,
     certification,
     expiration: computeExpiration(event, project),
-    properties: properties.map(toEventCardProperty),
+    properties: properties.map((link) => toEventCardProperty(link, context.bundleNameByPropertyId, event.implementation_method)),
     variants: variants.map((v) => toEventCardVariant(v, properties, propertyNameById, standardEventByVariantId)),
     standard_event_mappings: standardEventMappings,
     contexts,
@@ -638,7 +688,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
     quality,
     findings,
     agent_instructions: event.agent_instructions,
-    codegen: { gtm: codegenSnippets.dataLayer, web_sdk: codegenSnippets.bloomreachSdk, tracking_api: codegenSnippets.bloomreachApi },
+    codegen: codegenSnippets,
     sdk_default_properties: [...SDK_DEFAULT_PROPERTIES],
   };
 }

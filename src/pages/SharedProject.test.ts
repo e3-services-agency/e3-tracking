@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  buildSharedViewModel, sharedFileUrl, eventAnchor, eventAnchors, eventForHash, selectCodegenTab, isEmptyValue, derivedMetricsText,
+  buildSharedViewModel, sharedFileUrl, eventAnchor, eventAnchors, eventForHash, isEmptyValue, derivedMetricsText,
   eventCardVisibility, oneLineDescription, sectionPresence, buildSectionIndex, filterNav, flattenNav, pickActiveId, lightboxStep, scrollTopToReveal,
   renderedSectionIds, toggleInSet, pickActiveAtBottom, SECTION_IDS, setExpanded, stickyScrollMarginPx, spyTopOffsetPx, STICKY_PX,
 } from './sharedViewModel';
@@ -125,14 +125,6 @@ describe('T-4-14 view helpers', () => {
     expect(eventForHash('#event-nope', events)).toBeNull();
     expect(eventForHash('#use-cases', events)).toBeNull();
     expect(eventForHash('#event-%E0%A4%A', events)).toBeNull();
-  });
-
-  it('selectCodegenTab defaults to GTM and falls back to the first tab with code', () => {
-    expect(selectCodegenTab({ gtm: 'a', web_sdk: 'b', tracking_api: 'c' })).toBe('gtm');
-    expect(selectCodegenTab({ gtm: '  ', web_sdk: 'b', tracking_api: 'c' })).toBe('web_sdk');
-    expect(selectCodegenTab({ gtm: '', web_sdk: '', tracking_api: 'c' })).toBe('tracking_api');
-    expect(selectCodegenTab({})).toBe('gtm');
-    expect(selectCodegenTab({ gtm: 'a', web_sdk: 'b' }, 'web_sdk')).toBe('web_sdk');
   });
 
   it('isEmptyValue and derivedMetricsText treat [] and {} as empty', () => {

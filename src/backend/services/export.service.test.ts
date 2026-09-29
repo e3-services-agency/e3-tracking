@@ -37,6 +37,8 @@ describe('generateProjectDocumentationHtml', () => {
 
     const purchase = EventDAL.createEvent(projectId, {
       name: 'purchase',
+      // D-63: purchase defaults to server_api (no dataLayer snippet); this test checks the dataLayer output.
+      implementation_method: 'client_web',
       description: 'Fires on order confirmation.',
       purpose: 'Track completed purchases.',
       trigger_text: 'Order confirmation page loads.',

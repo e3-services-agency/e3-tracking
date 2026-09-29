@@ -34,8 +34,8 @@ complete since T-3-03, each entity's export starting the moment its own task's m
 
 | entity | headers |
 |---|---|
-| `events` | id, name, business_name, class, category, status, certified, priority, description, purpose, page, trigger_text, grain, identity_note, owner_business, owner_technical, expiration_json, not_suitable_for, agent_instructions, derived_metrics_json, tags_json, property_count, variant_count, created_at, updated_at |
-| `properties` | id, scope, name, category, description, data_type, data_formats_json, pii, property_type, allowed_values_json, example_values_json, item_schema_json, bloomreach_customer_property, priority, status, notes, created_at, updated_at |
+| `events` | id, name, business_name, class, implementation_method, dl_event_name, category, status, certified, priority, description, purpose, page, trigger_text, grain, identity_note, owner_business, owner_technical, expiration_json, not_suitable_for, agent_instructions, derived_metrics_json, tags_json, property_count, variant_count, created_at, updated_at |
+| `properties` | id, scope, name, category, description, data_type, data_formats_json, pii, property_type, allowed_values_json, example_values_json, item_schema_json, kind, derivation_json, bloomreach_customer_property, priority, status, notes, created_at, updated_at |
 | `property_definitions` (D-58) | id, property_id, property_name, name, description, allowed_values_json, formats_json, example_values_json, using_events |
 | `event_properties` | event_id, event_name, property_id, property_name, role, required, payload_key, priority, status, source_id, source_name, definition_id, definition_name, sort_order |
 | `variants` | id, event_id, event_name, name, description, conditions_json, conditions_text, expiration_json, standard_event |

@@ -90,10 +90,12 @@ describe('D-25 required values', () => {
     const additions = ['missing_event', 'unexpected_event', 'unmapped_catalog'];
     // D-30 (T-2-06): the rules layer's three finding kinds.
     const ruleAdditions = ['rule_violation', 'item_schema_violation', 'bound_violation'];
-    for (const kind of [...skillKinds, ...additions, ...ruleAdditions]) {
+    // D-63 (T-4-17): the state list consistency finding.
+    const stateListAdditions = ['state_list_mismatch'];
+    for (const kind of [...skillKinds, ...additions, ...ruleAdditions, ...stateListAdditions]) {
       expect(FINDING_KINDS).toContain(kind);
     }
-    expect(FINDING_KINDS).toHaveLength(skillKinds.length + additions.length + ruleAdditions.length);
+    expect(FINDING_KINDS).toHaveLength(skillKinds.length + additions.length + ruleAdditions.length + stateListAdditions.length);
   });
 
   it('severities are error, warning, info', () => {

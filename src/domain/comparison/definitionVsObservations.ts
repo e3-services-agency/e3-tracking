@@ -55,6 +55,9 @@ export interface DefEventProperty {
    * `DefEventProperty` ignores this field, same convention as `allowed_value_hints`.
    */
   item_schema?: { field: string; data_type: string; data_formats?: string[]; required?: boolean }[] | null;
+  /** D-63 (T-4-17): property kind and derivation rule; only rules/stateLists.ts reads them. */
+  kind?: string;
+  derivation?: unknown;
 }
 
 export interface DefVariant {

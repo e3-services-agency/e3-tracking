@@ -38,6 +38,7 @@ import * as ClientDAL from '../dal/client.dal';
 import * as ProjectDAL from '../dal/project.dal';
 import * as UseCaseTemplateDAL from '../dal/use-case-template.dal';
 import type { UseCaseTemplateRow } from '../dal/use-case-template.dal';
+import { defaultImplementationMethod, inferPropertyKind } from '../../domain/codegen/defaults';
 import { recordChange } from '../dal/change-log.dal';
 import { runWithActor, getActor } from '../context/actor';
 import { getFileStore } from '../files/FileStore';
@@ -277,6 +278,25 @@ function deepRemapRow(row: BackupRow, idMap: Map<string, string>, pathMap: Map<s
 }
 
 /** Inserts `row` into `table` using only the live table's own columns (extra keys dropped, tracked in `unknownColsSeen`); `*_json`-suffixed columns are re-stringified. */
+/**
+ * D-63 (T-4-17): a backup from before migration 0025 has no `implementation_method`/`kind`; infer
+ * them with the same rules as the DAL create path instead of leaving the column defaults.
+ */
+function withInferredContract(table: string, row: BackupRow): BackupRow {
+  if (table === 'events' && !('implementation_method' in row) && typeof row.name === 'string') {
+    return { ...row, implementation_method: defaultImplementationMethod(row.name, typeof row.class === 'string' ? row.class : null) };
+  }
+  if (table === 'properties' && !('kind' in row) && typeof row.name === 'string') {
+    const { kind, derivation } = inferPropertyKind(
+      row.name,
+      typeof row.data_type === 'string' ? row.data_type : 'string',
+      typeof row.scope === 'string' ? row.scope : 'event'
+    );
+    return { ...row, kind, ...('derivation_json' in row ? {} : { derivation_json: derivation }) };
+  }
+  return row;
+}
+
 function insertGenericRow(
   table: string,
   row: BackupRow,
@@ -429,7 +449,7 @@ export async function applyRestore(
             // `project_id` column never gets one injected (which `insertGenericRow`'s unknown-column
             // tracking would otherwise misreport as a dropped column on every such row).
             const remapped = deepRemapRow(raw, idMap, pathMap);
-            insertGenericRow(table, remapped, unknownColsSeen);
+            insertGenericRow(table, withInferredContract(table, remapped), unknownColsSeen);
           }
           counts[table] = rows.length;
         }

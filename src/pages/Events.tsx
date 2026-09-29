@@ -15,7 +15,7 @@ import { useProjectShell } from '@/src/features/projects/context/ProjectShellCon
 import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
-import { PRIORITIES, EVENT_STATUSES, EVENT_CLASSES } from '@/src/domain/enums';
+import { PRIORITIES, EVENT_STATUSES, EVENT_CLASSES, IMPLEMENTATION_METHODS } from '@/src/domain/enums';
 import { isHttpUrl } from '@/src/domain/url';
 import { ExpirationEditor, type ExpirationValue } from '@/src/features/events/components/ExpirationEditor';
 import { DerivedMetricsEditor, type DerivedMetricRow } from '@/src/features/events/components/DerivedMetricsEditor';
@@ -39,6 +39,9 @@ interface EventRow {
   grain: string | null;
   identity_note: string | null;
   class: string;
+  /** D-63 (T-4-17). */
+  implementation_method?: string;
+  dl_event_name?: string | null;
   owner_business: string | null;
   owner_technical: string | null;
   priority: string | null;
@@ -313,6 +316,10 @@ function EventEditor({
   const [allSources, setAllSources] = useState<SourceRow[]>([]);
   const [standardEventByVariantId, setStandardEventByVariantId] = useState<Record<string, string>>({});
   const [addPropertyId, setAddPropertyId] = useState('');
+  // D-63 (T-4-17): "Add bundle" picker. Bundles are fetched once; adding one puts every property of
+  // the bundle into the (unsaved) link list below, saved together with the rest of the editor.
+  const [allBundles, setAllBundles] = useState<{ id: string; name: string; property_ids: string[] }[]>([]);
+  const [addBundleId, setAddBundleId] = useState('');
   // D-58 (T-4-00): every definition of every currently-linked property, fetched on demand so the
   // picker only shows up for a property that actually has more than one meaning.
   const [definitionsByPropertyId, setDefinitionsByPropertyId] = useState<Record<string, DefinitionOption[]>>({});
@@ -326,6 +333,9 @@ function EventEditor({
   const [grain, setGrain] = useState('');
   const [identityNote, setIdentityNote] = useState('');
   const [eventClass, setEventClass] = useState('custom');
+  // D-63 (T-4-17): '' = let the server default by name and class (new events only).
+  const [implementationMethod, setImplementationMethod] = useState('');
+  const [dlEventName, setDlEventName] = useState('');
   const [ownerBusiness, setOwnerBusiness] = useState('');
   const [ownerTechnical, setOwnerTechnical] = useState('');
   const [priority, setPriority] = useState('');
@@ -354,6 +364,10 @@ function EventEditor({
       const sourcesData = await parseJson(sourcesRes);
       if (sourcesRes.ok) setAllSources(Array.isArray(sourcesData) ? sourcesData : []);
 
+      const bundlesRes = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/bundles`);
+      const bundlesData = await parseJson(bundlesRes);
+      if (bundlesRes.ok) setAllBundles(Array.isArray(bundlesData) ? bundlesData : []);
+
       if (eventId) {
         const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/events/${eventId}`);
         const data = await parseJson(res);
@@ -369,6 +383,8 @@ function EventEditor({
           setGrain(ev.grain ?? '');
           setIdentityNote(ev.identity_note ?? '');
           setEventClass(ev.class);
+          setImplementationMethod(ev.implementation_method ?? 'client_web');
+          setDlEventName(ev.dl_event_name ?? '');
           setOwnerBusiness(ev.owner_business ?? '');
           setOwnerTechnical(ev.owner_technical ?? '');
           setPriority(ev.priority ?? '');
@@ -435,6 +451,19 @@ function EventEditor({
     setAddPropertyId('');
   };
 
+  const addBundle = () => {
+    const bundle = allBundles.find((b) => b.id === addBundleId);
+    if (!bundle) return;
+    const linked = new Set(links.map((l) => l.property_id));
+    const added = bundle.property_ids
+      .filter((id) => !linked.has(id))
+      .map((id) => allProperties.find((p) => p.id === id))
+      .filter((p): p is PropertyRow => !!p)
+      .map((property) => ({ property_id: property.id, required: false, role: 'normal', priority: null, status: null, source_id: null, payload_key: null, definition_id: null, property }));
+    setLinks((prev) => [...prev, ...added]);
+    setAddBundleId('');
+  };
+
   const addTrigger = () => setTriggers((prev) => [...prev, { title: '', description: '', order: prev.length }]);
   const updateTrigger = (index: number, patch: Partial<TriggerEntry>) =>
     setTriggers((prev) => prev.map((t, i) => (i === index ? { ...t, ...patch } : t)));
@@ -482,6 +511,8 @@ function EventEditor({
         identity_note: identityNote.trim() || null,
         triggers_json: triggers,
         class: eventClass,
+        ...(implementationMethod ? { implementation_method: implementationMethod } : {}),
+        dl_event_name: dlEventName.trim() || null,
         owner_business: ownerBusiness.trim() || null,
         owner_technical: ownerTechnical.trim() || null,
         priority: priority || null,
@@ -583,6 +614,19 @@ function EventEditor({
           </select>
         </div>
       </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Implementation method</label>
+          <select value={implementationMethod} onChange={(e) => setImplementationMethod(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+            {isCreating && <option value="">Automatic (by name and class)</option>}
+            {IMPLEMENTATION_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">dataLayer event name</label>
+          <Input value={dlEventName} onChange={(e) => setDlEventName(e.target.value)} placeholder="the site's event, e.g. add_to_wishlist" />
+        </div>
+      </div>
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">Description</label>
         <Input value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -675,6 +719,15 @@ function EventEditor({
             </select>
             <Button type="button" variant="outline" onClick={addLink} disabled={!addPropertyId}>Attach</Button>
           </div>
+          {allBundles.length > 0 && (
+            <div className="flex gap-2">
+              <select value={addBundleId} onChange={(e) => setAddBundleId(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm flex-1">
+                <option value="">Select a bundle to add…</option>
+                {allBundles.map((b) => <option key={b.id} value={b.id}>{b.name} ({b.property_ids.length})</option>)}
+              </select>
+              <Button type="button" variant="outline" onClick={addBundle} disabled={!addBundleId}>Add bundle</Button>
+            </div>
+          )}
         </div>
       )}
 

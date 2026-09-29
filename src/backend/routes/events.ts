@@ -59,6 +59,8 @@ function inputFromBody(body: Record<string, unknown>): Partial<EventDAL.EventInp
   if ('identity_note' in body) input.identity_note = body.identity_note as string | null;
   if ('triggers_json' in body) input.triggers_json = body.triggers_json;
   if (typeof body.class === 'string') input.class = body.class;
+  if (typeof body.implementation_method === 'string') input.implementation_method = body.implementation_method;
+  if ('dl_event_name' in body) input.dl_event_name = body.dl_event_name as string | null;
   if ('owner_business' in body) input.owner_business = body.owner_business as string | null;
   if ('owner_technical' in body) input.owner_technical = body.owner_technical as string | null;
   if ('priority' in body) input.priority = body.priority as string | null;
@@ -136,6 +138,20 @@ router.post('/:id/properties', (req: Request, res: Response) => {
   try {
     const link = EventDAL.attachPropertyToEvent(req.projectId!, req.params.id, linkInputFromBody(body));
     res.status(201).json(link);
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+/** D-63 (T-4-17): "Add bundle" — links every property of `bundle_id` to the event in one call. */
+router.post('/:id/properties/from-bundle', (req: Request, res: Response) => {
+  const body = req.body as Record<string, unknown>;
+  if (!body.bundle_id || typeof body.bundle_id !== 'string') {
+    res.status(400).json({ error: 'bundle_id is required.', code: 'BUNDLE_ID_REQUIRED', field: 'bundle_id' });
+    return;
+  }
+  try {
+    res.status(201).json(EventDAL.attachBundleToEvent(req.projectId!, req.params.id, body.bundle_id));
   } catch (err) {
     handleRouteError(err, res);
   }

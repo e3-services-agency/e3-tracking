@@ -12,6 +12,7 @@ import { closeDb } from '../db';
 import * as ClientDAL from '../dal/client.dal';
 import * as ProjectDAL from '../dal/project.dal';
 import * as EventDAL from '../dal/event.dal';
+import * as PropertyDAL from '../dal/property.dal';
 import { buildBackup } from './backup.service';
 import { createSandboxProject } from './sandbox.service';
 import { SandboxShareRefusedError } from '../errors';
@@ -66,6 +67,22 @@ describe('sandbox.service: createSandboxProject (D-60)', () => {
     const shared = ProjectDAL.createOrRotateShare(project.id, 'read', { force: true });
     expect(shared.share_token).toBeTruthy();
   });
+
+  it('the real bundled sandbox carries method, kind and derivation (D-63, T-4-17)', async () => {
+    delete process.env.E3_SANDBOX_BACKUP_PATH;
+    const { project } = await createSandboxProject({});
+    const events = EventDAL.listEvents(project.id);
+    const method = (n: string) => events.find((e) => e.name === n)?.implementation_method;
+    expect(method('purchase')).toBe('server_api');
+    expect(method('purchase_item')).toBe('server_api');
+    expect(method('session_start')).toBe('sdk_auto');
+    expect(method('cart_update')).toBe('client_web');
+    const props = PropertyDAL.listProperties(project.id, { scope: 'event' });
+    const prop = (n: string) => props.find((p) => p.name === n);
+    expect(prop('product_ids')).toMatchObject({ kind: 'state_list', derivation_json: { source: 'items', id_field: 'product_id', form: 'ids' } });
+    expect(prop('product_list')).toMatchObject({ kind: 'state_list', derivation_json: { form: 'id_quantity', id_field: 'product_id' } });
+    expect(prop('total_price')).toMatchObject({ kind: 'state_list', derivation_json: { sum: 'price*quantity' } });
+  }, 60_000);
 
   it('assigns distinct sandbox-<slug> keys when created twice', async () => {
     const first = await createSandboxProject({});

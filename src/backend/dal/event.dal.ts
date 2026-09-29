@@ -18,9 +18,20 @@ import {
   ValidationError,
 } from '../errors';
 import { getPropertyById, type PropertyRow } from './property.dal';
+import { getBundleOrThrow } from './bundle.dal';
 import { validateAsciiName, validateDerivedMetricsJson, validateExpirationJson, validateStringArray } from './validators';
-import { EVENT_PROPERTY_ROLES, EVENT_STATUSES, ENTITY_STATUSES, EVENT_CLASSES, PRIORITIES, type EventClass } from '../../domain/enums';
+import {
+  EVENT_PROPERTY_ROLES,
+  EVENT_STATUSES,
+  ENTITY_STATUSES,
+  EVENT_CLASSES,
+  IMPLEMENTATION_METHODS,
+  PRIORITIES,
+  type EventClass,
+  type ImplementationMethod,
+} from '../../domain/enums';
 import { BLOOMREACH_LIMITS } from '../../domain/bloomreach';
+import { defaultImplementationMethod } from '../../domain/codegen/defaults';
 import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
 import { markRequirementsGapForDetach, markRequirementsGapForEventRemoval, markRequirementsGapForVariantRemoval } from './requirement.dal';
 import * as ChangeLogDAL from './change-log.dal';
@@ -82,6 +93,8 @@ function validateTriggersJson(value: unknown, field: string): void {
  */
 function validateEventFields(fields: {
   class?: string;
+  implementation_method?: string;
+  dl_event_name?: string | null;
   priority?: string | null;
   status?: string;
   expiration_json?: unknown;
@@ -91,6 +104,18 @@ function validateEventFields(fields: {
 }): void {
   if (fields.class !== undefined && !(EVENT_CLASSES as readonly string[]).includes(fields.class)) {
     throw new BadRequestError(`class must be one of: ${EVENT_CLASSES.join(', ')}.`, 'class');
+  }
+  if (
+    fields.implementation_method !== undefined &&
+    !(IMPLEMENTATION_METHODS as readonly string[]).includes(fields.implementation_method)
+  ) {
+    throw new BadRequestError(
+      `implementation_method must be one of: ${IMPLEMENTATION_METHODS.join(', ')}.`,
+      'implementation_method'
+    );
+  }
+  if (fields.dl_event_name !== undefined && fields.dl_event_name !== null && typeof fields.dl_event_name !== 'string') {
+    throw new BadRequestError('dl_event_name must be a string.', 'dl_event_name');
   }
   if (
     fields.priority !== undefined &&
@@ -220,6 +245,10 @@ export interface EventRow {
   identity_note: string | null;
   triggers_json: unknown;
   class: EventClass;
+  /** D-63 (T-4-17): how the event reaches Bloomreach; drives which codegen tabs the card shows. */
+  implementation_method: ImplementationMethod;
+  /** D-63: the site's dataLayer event that carries this Bloomreach event; `null` = not recorded. */
+  dl_event_name: string | null;
   /** Data Manager group name (T-2-02/T-2-03, D-28); `null` = default group, symmetrical with `Property.category`. */
   category: string | null;
   owner_business: string | null;
@@ -273,6 +302,8 @@ export interface EventInput {
   identity_note?: string | null;
   triggers_json?: unknown;
   class?: string;
+  implementation_method?: string;
+  dl_event_name?: string | null;
   category?: string | null;
   owner_business?: string | null;
   owner_technical?: string | null;
@@ -404,13 +435,15 @@ export function createEvent(projectId: string, input: EventInput): EventRow {
       db.prepare(
         `INSERT INTO events (
           id, project_id, name, business_name, description, purpose, page, trigger_text, grain,
-          identity_note, triggers_json, class, category, owner_business, owner_technical, priority,
+          identity_note, triggers_json, class, implementation_method, dl_event_name, category, owner_business,
+          owner_technical, priority,
           status, expiration_json, not_suitable_for, agent_instructions, derived_metrics_json,
           tags_json, codegen_event_name_overrides_json, bloomreach_meta_json, created_at, updated_at,
           deleted_at
         ) VALUES (
           @id, @project_id, @name, @business_name, @description, @purpose, @page, @trigger_text, @grain,
-          @identity_note, @triggers_json, @class, @category, @owner_business, @owner_technical, @priority,
+          @identity_note, @triggers_json, @class, @implementation_method, @dl_event_name, @category, @owner_business,
+          @owner_technical, @priority,
           @status, @expiration_json, @not_suitable_for, @agent_instructions, @derived_metrics_json,
           @tags_json, NULL, @bloomreach_meta_json, @created_at, @updated_at, NULL
         )`
@@ -427,6 +460,9 @@ export function createEvent(projectId: string, input: EventInput): EventRow {
         identity_note: input.identity_note?.trim() || null,
         triggers_json: toJsonColumn(input.triggers_json ?? []),
         class: input.class || DEFAULT_EVENT_CLASS,
+        implementation_method:
+          input.implementation_method || defaultImplementationMethod(name, input.class || DEFAULT_EVENT_CLASS),
+        dl_event_name: input.dl_event_name?.trim() || null,
         category: input.category?.trim() || null,
         owner_business: input.owner_business?.trim() || null,
         owner_technical: input.owner_technical?.trim() || null,
@@ -503,6 +539,8 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
   if (input.identity_note !== undefined) patch.identity_note = input.identity_note?.trim() || null;
   if (input.triggers_json !== undefined) patch.triggers_json = toJsonColumn(input.triggers_json ?? []);
   if (input.class !== undefined) patch.class = input.class;
+  if (input.implementation_method !== undefined) patch.implementation_method = input.implementation_method;
+  if (input.dl_event_name !== undefined) patch.dl_event_name = input.dl_event_name?.trim() || null;
   if (input.category !== undefined) patch.category = input.category?.trim() || null;
   if (input.owner_business !== undefined) patch.owner_business = input.owner_business?.trim() || null;
   if (input.owner_technical !== undefined) patch.owner_technical = input.owner_technical?.trim() || null;
@@ -963,6 +1001,42 @@ export function attachPropertyToEvent(
     .prepare('SELECT * FROM event_properties WHERE event_id = ? AND property_id = ?')
     .get(eventId, input.property_id) as EventPropertyDbRow;
   return mapEventPropertyRow(row);
+}
+
+/**
+ * D-63 (T-4-17): links every property of a bundle to the event in one call (role `normal`, the
+ * property's default definition, optional). Properties already linked are skipped and reported in
+ * `skipped_property_ids`; the whole call is one transaction, so a limit error (255 properties per
+ * event) leaves the event unchanged.
+ */
+export function attachBundleToEvent(
+  projectId: string,
+  eventId: string,
+  bundleId: string
+): { attached: EventPropertyRow[]; skipped_property_ids: string[] } {
+  getEventOrThrow(projectId, eventId);
+  const bundle = getBundleOrThrow(projectId, bundleId);
+  const db = getDb();
+  const run = db.transaction(() => {
+    const already = new Set(
+      (
+        db.prepare('SELECT property_id FROM event_properties WHERE event_id = ?').all(eventId) as {
+          property_id: string;
+        }[]
+      ).map((r) => r.property_id)
+    );
+    const attached: EventPropertyRow[] = [];
+    const skipped: string[] = [];
+    for (const propertyId of bundle.property_ids) {
+      if (already.has(propertyId)) {
+        skipped.push(propertyId);
+        continue;
+      }
+      attached.push(attachPropertyToEvent(projectId, eventId, { property_id: propertyId, role: DEFAULT_ROLE }));
+    }
+    return { attached, skipped_property_ids: skipped };
+  });
+  return run();
 }
 
 export function updateEventProperty(

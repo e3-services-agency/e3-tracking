@@ -171,6 +171,12 @@ async function main() {
       const p = byName.get(name);
       if (p) PropertyDAL.updateProperty(projectId, p.id, { data_type: 'number', data_format: null });
     }
+    // D-63 (T-4-17): the item collection lists are arrays (the import leaves them untyped); retyping
+    // lets PropertyDAL infer their state list kind and derivation.
+    for (const name of ['product_ids', 'product_list', 'variant_ids', 'variant_list']) {
+      const p = byName.get(name);
+      if (p) PropertyDAL.updateProperty(projectId, p.id, { data_type: 'array', data_format: null });
+    }
     const isNew = byName.get('is_new');
     if (isNew) PropertyDAL.updateProperty(projectId, isNew.id, { data_type: 'boolean', data_format: null });
 

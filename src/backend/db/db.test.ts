@@ -260,6 +260,7 @@ const ALL_MIGRATION_FILES = [
   '0022_use_case_template_source.sql',
   '0023_project_settings_json.sql',
   '0024_comment_visibility.sql',
+  '0025_implementation_contract.sql',
 ];
 
 describe('listMigrationFiles', () => {

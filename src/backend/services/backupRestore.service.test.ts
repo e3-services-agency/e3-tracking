@@ -415,6 +415,31 @@ describe('applyRestore', () => {
     expect(preview.warnings.some((w) => w.includes('properties') && w.includes('made_up_future_column'))).toBe(true);
   });
 
+  it('an older backup without the 0025 columns gets method, kind and derivation inferred on restore (D-63)', async () => {
+    EventDAL.createEvent(projectId, { name: 'purchase' });
+    EventDAL.createEvent(projectId, { name: 'session_start', class: 'sdk' });
+    PropertyDAL.createProperty(projectId, { scope: 'event', name: 'product_ids', data_type: 'array' });
+    PropertyDAL.createProperty(projectId, { scope: 'event', name: 'total_price', data_type: 'number' });
+    const backup = await buildBackup(projectId);
+    for (const e of backup.events) {
+      delete (e as Record<string, unknown>).implementation_method;
+      delete (e as Record<string, unknown>).dl_event_name;
+    }
+    for (const p of backup.properties) {
+      delete (p as Record<string, unknown>).kind;
+      delete (p as Record<string, unknown>).derivation_json;
+    }
+    const preview = previewRestore(backup);
+    const client = ClientDAL.createClient({ key: 'oldbk', name: 'Old Backup Co' });
+    const { project: restored } = await applyRestore(backup, preview.payload_hash, { name: 'Old', key: 'old-backup', client_id: client.id });
+    const events = EventDAL.listEvents(restored.id);
+    expect(events.find((e) => e.name === 'purchase')?.implementation_method).toBe('server_api');
+    expect(events.find((e) => e.name === 'session_start')?.implementation_method).toBe('sdk_auto');
+    const props = PropertyDAL.listProperties(restored.id, { scope: 'event' });
+    expect(props.find((p) => p.name === 'product_ids')).toMatchObject({ kind: 'state_list', derivation_json: { source: 'items', id_field: 'product_id', form: 'ids' } });
+    expect(props.find((p) => p.name === 'total_price')).toMatchObject({ kind: 'state_list', derivation_json: { source: 'items', sum: 'price*quantity' } });
+  });
+
   it('a failed apply removes every file it already wrote, leaving no orphan directory (fix round WARNING 1)', async () => {
     await applyAllFixtures();
     const backup = await buildBackup(projectId);

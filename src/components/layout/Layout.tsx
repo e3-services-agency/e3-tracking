@@ -8,7 +8,6 @@ import { Events } from '@/src/pages/Events';
 import { Properties } from '@/src/pages/Properties';
 import { Sources } from '@/src/pages/Sources';
 import { Settings } from '@/src/pages/Settings';
-import { Documentation } from '@/src/pages/Documentation';
 import { Clients } from '@/src/pages/Clients';
 import { resolveInitialProject } from './resolveInitialProject';
 import { BASE, pushPath } from './pushPath';
@@ -192,9 +191,11 @@ function LayoutInner() {
     if (activeTab === 'comments') pushPath('/comments', activeProjectKey);
     if (activeTab === 'clients') pushPath('/clients', activeProjectKey);
     if (activeTab === 'settings') pushPath('/settings', activeProjectKey);
-    if (activeTab === 'documentation') pushPath('/documentation', activeProjectKey);
     if (activeTab === 'gettingStarted') pushPath('/getting-started', activeProjectKey);
-    if (activeTab === 'help') pushPath('/help', activeProjectKey);
+    // Help owns its own `/help/<slug>` deep links (T-4-13); only push the bare route when the URL is not already under /help.
+    if (activeTab === 'help' && !parseProjectFromPath(window.location.pathname).restPath.startsWith('/help')) {
+      pushPath('/help', activeProjectKey);
+    }
     if (activeTab === 'eventCard' && eventCardEventId) pushPath(`/events/${eventCardEventId}/card`, activeProjectKey);
   }, [activeTab, activeProjectKey, initializedFromUrl, eventCardEventId]);
 
@@ -236,7 +237,6 @@ function LayoutInner() {
         {activeTab === 'history' && <History />}
         {activeTab === 'comments' && <Comments />}
         {activeTab === 'settings' && <Settings />}
-        {activeTab === 'documentation' && <Documentation />}
         {activeTab === 'gettingStarted' && <GettingStarted setActiveTab={setActiveTab} />}
         {activeTab === 'eventCard' && eventCardEventId && (
           <EventCard eventId={eventCardEventId} onBack={() => setActiveTab('events')} />

@@ -1,73 +1,75 @@
 /**
- * Help page (sidebar, T-4-09): renders the repo's own reference docs and the glossary in-app, so
- * nobody has to leave the browser to read `docs/*.md`. Docs are loaded at build time via Vite's
- * `?raw` import (native support, `vite/client`'s `declare module '*?raw'`), not fetched at
- * runtime -- they are bundled with the app like any other source file.
+ * Help page (T-4-09, unified with the old Documentation page in T-4-13): one left navigation with
+ * three groups -- Guide (how-to pages), Reference (the repo docs) and Glossary -- and a "Copy as
+ * Markdown" button that copies the current page's Markdown source. The current page lives in the
+ * URL (`/help/<slug>`, `helpSlugFromPathname`), so a page can be linked and survives a reload.
  */
-import React, { useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import React, { useEffect, useState } from 'react';
 import { BookOpen } from 'lucide-react';
-import domainDoc from '../../docs/DOMAIN.md?raw';
-import exportsDoc from '../../docs/EXPORTS.md?raw';
-import qaLocalDoc from '../../docs/QA-LOCAL.md?raw';
-import libraryDoc from '../../docs/LIBRARY.md?raw';
-import mcpDoc from '../../docs/MCP.md?raw';
-import trackingDocumentDoc from '../../docs/TRACKING-DOCUMENT.md?raw';
-import { GLOSSARY } from '@/src/domain/glossary';
+import { MarkdownView } from '@/src/components/ui/MarkdownView';
+import { CopyMarkdownButton } from '@/src/components/ui/CopyMarkdownButton';
+import { helpPathForSlug, helpSlugFromPathname } from '@/src/components/layout/mainRoute';
+import { DEFAULT_HELP_SLUG, HELP_ARTICLES, HELP_GROUPS, findHelpArticle } from './helpContent';
 
-const ARTICLES = [
-  { id: 'domain', label: 'Domain model', content: domainDoc },
-  { id: 'exports', label: 'Exports', content: exportsDoc },
-  { id: 'qa-local', label: 'Running QA locally', content: qaLocalDoc },
-  { id: 'library', label: 'Use case library', content: libraryDoc },
-  { id: 'mcp', label: 'MCP server', content: mcpDoc },
-  { id: 'tracking-document', label: 'Tracking document', content: trackingDocumentDoc },
-  { id: 'glossary', label: 'Glossary', content: null },
-] as const;
-
-type ArticleId = (typeof ARTICLES)[number]['id'];
+function currentSlug(): string {
+  if (typeof window === 'undefined') return DEFAULT_HELP_SLUG;
+  return findHelpArticle(helpSlugFromPathname(window.location.pathname)).slug;
+}
 
 export function Help() {
-  const [activeId, setActiveId] = useState<ArticleId>('domain');
-  const active = ARTICLES.find((a) => a.id === activeId) ?? ARTICLES[0];
+  const [slug, setSlug] = useState<string>(currentSlug);
+  const active = findHelpArticle(slug);
+
+  useEffect(() => {
+    const onPop = () => setSlug(currentSlug());
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  const select = (next: string) => {
+    setSlug(next);
+    try {
+      const path = helpPathForSlug(window.location.pathname, next);
+      if (window.location.pathname !== path) window.history.pushState({}, '', path);
+    } catch {
+      // ignore: navigation state only
+    }
+  };
 
   return (
     <div className="flex-1 flex h-full overflow-hidden">
-      <div className="w-64 border-r bg-white p-4 space-y-1 overflow-y-auto">
-        <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2 mb-3">
-          <BookOpen className="w-5 h-5" /> Help
-        </h1>
-        {ARTICLES.map((a) => (
-          <button
-            key={a.id}
-            type="button"
-            onClick={() => setActiveId(a.id)}
-            className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium ${
-              activeId === a.id ? 'bg-[var(--color-info)]/10 text-[var(--color-info)]' : 'text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            {a.label}
-          </button>
-        ))}
-      </div>
-      <div className="flex-1 overflow-y-auto p-8">
-        {active.content !== null ? (
-          <article className="prose prose-sm max-w-3xl">
-            <ReactMarkdown>{active.content}</ReactMarkdown>
-          </article>
-        ) : (
-          <div className="max-w-3xl space-y-6">
-            <h2 className="text-xl font-bold text-gray-900">Glossary</h2>
-            <dl className="space-y-4">
-              {GLOSSARY.map((entry) => (
-                <div key={entry.key}>
-                  <dt className="font-semibold text-gray-900">{entry.term}</dt>
-                  <dd className="text-sm text-gray-600">{entry.definition}</dd>
-                </div>
+      <nav aria-label="Help sections" className="w-64 shrink-0 border-r bg-white p-4 overflow-y-auto">
+        <div className="sticky top-0 space-y-4">
+          <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <BookOpen className="w-5 h-5" /> Help
+          </h1>
+          {HELP_GROUPS.map((group) => (
+            <div key={group} className="space-y-1">
+              <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3">{group}</h2>
+              {HELP_ARTICLES.filter((a) => a.group === group).map((a) => (
+                <button
+                  key={a.slug}
+                  type="button"
+                  aria-current={a.slug === active.slug ? 'page' : undefined}
+                  onClick={() => select(a.slug)}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium ${
+                    a.slug === active.slug ? 'bg-[var(--color-info)]/10 text-[var(--color-info)]' : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {a.label}
+                </button>
               ))}
-            </dl>
+            </div>
+          ))}
+        </div>
+      </nav>
+      <div className="flex-1 overflow-y-auto p-8">
+        <div className="max-w-3xl">
+          <div className="flex justify-end mb-4">
+            <CopyMarkdownButton getMarkdown={() => active.markdown} />
           </div>
-        )}
+          <MarkdownView source={active.markdown} />
+        </div>
       </div>
     </div>
   );

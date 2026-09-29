@@ -11,6 +11,9 @@ import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { EventCardView, type EventCardData, type CoverageGridData } from '@/src/features/events/components/EventCardView';
 import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
+import { CopyMarkdownButton } from '@/src/components/ui/CopyMarkdownButton';
+import { eventCardToMarkdown } from '@/src/domain/document/markdown';
+import type { EventCard as EventCardDocument } from '@/src/domain/document/trackingDocument';
 
 async function parseJson(res: Response): Promise<any> {
   return res.json().catch(() => ({}));
@@ -66,10 +69,11 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <div className="p-8 border-b bg-white">
+      <div className="p-8 border-b bg-white flex items-center justify-between">
         <button type="button" onClick={handleBack} className="text-sm text-[var(--brand-primary)] hover:underline">
           &larr; Back to Events
         </button>
+        {card && <CopyMarkdownButton getMarkdown={() => eventCardToMarkdown(card as unknown as EventCardDocument)} />}
       </div>
 
       <div className="p-8 flex-1 overflow-y-auto">

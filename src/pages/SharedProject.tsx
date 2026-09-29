@@ -52,13 +52,18 @@ import {
   SECTION_IDS,
   eventGroupId,
   toggleInSet,
+  setExpanded,
+  stickyScrollMarginPx,
+  spyTopOffsetPx,
+  STICKY_PX,
   type NavItem,
 } from './sharedViewModel';
 
 export { sharedFileUrl, buildSharedViewModel };
 
-/** Height of the sticky page header (Tailwind `h-14`); sticky event titles sit right below it. */
+/** Height of the sticky page header (Tailwind `h-14`); every sticky header sits right below it (T-4-18). */
 const HEADER_TOP_CLASS = 'top-14';
+const marginTop = (kind: 'section' | 'group' | 'event') => ({ scrollMarginTop: stickyScrollMarginPx(kind) });
 
 /** Quiet time after the last scroll event before a scroll counts as the reader's own. */
 const SETTLE_MS = 150;
@@ -96,11 +101,17 @@ function ExpandToggles({ onExpand, onCollapse, label }: { onExpand: () => void; 
   );
 }
 
-function SectionCard({ id, title, children }: { id: string; title: React.ReactNode; children: React.ReactNode }) {
+function SectionCard({ id, title, actions, children }: { id: string; title: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section id={id} className="scroll-mt-20 bg-white rounded-lg border shadow-sm p-4">
-      <h2 className="text-sm font-semibold text-gray-900 mb-3">{title}</h2>
-      {children}
+    <section id={id} style={marginTop('section')} className="bg-white rounded-lg border shadow-sm">
+      <div
+        style={{ height: STICKY_PX.sectionHeader }}
+        className={`sticky ${HEADER_TOP_CLASS} z-10 flex items-center justify-between gap-2 rounded-t-lg border-b bg-white px-4`}
+      >
+        <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
+        {actions}
+      </div>
+      <div className="p-4">{children}</div>
     </section>
   );
 }
@@ -207,7 +218,7 @@ export function SharedProject({ token }: { token: string }) {
   }, [doc]);
   const nav = useMemo(() => (doc ? buildSectionIndex(doc) : []), [doc]);
   const filteredNav = useMemo(() => filterNav(nav, navQuery), [nav, navQuery]);
-  const spyId = useActiveSection(useMemo(() => leafIds(nav), [nav]));
+  const spyId = useActiveSection(useMemo(() => leafIds(nav), [nav]), spyTopOffsetPx());
   const activeId = clickedId ?? spyId;
   useEffect(() => {
     if (!clickedId) return;
@@ -296,10 +307,19 @@ export function SharedProject({ token }: { token: string }) {
   const api = { mode: 'shared' as const, token, access: header.access };
   const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, id: string) => setter((prev) => toggleInSet(prev, id));
   const toggleThread = (key: string) => setOpenThreads((prev) => toggleInSet(prev, key));
-  const expandAllEvents = () => setOpenEvents(new Set(doc.events.map((e) => e.id)));
-  const collapseAllEvents = () => setOpenEvents(new Set());
-  const expandAllUseCases = () => setOpenUseCases(new Set(doc.use_cases.map((u) => u.id)));
-  const collapseAllUseCases = () => setOpenUseCases(new Set());
+  const allEventIds = doc.events.map((e) => e.id);
+  const allUseCaseIds = doc.use_cases.map((u) => u.id);
+  const setEvents = (ids: string[], expanded: boolean) => setOpenEvents((prev) => setExpanded(prev, ids, expanded));
+  const setUseCases = (ids: string[], expanded: boolean) => setOpenUseCases((prev) => setExpanded(prev, ids, expanded));
+  // One global pair (toolbar) covers every collapsible row; the section headers keep a local pair.
+  const expandAll = () => {
+    setEvents(allEventIds, true);
+    setUseCases(allUseCaseIds, true);
+  };
+  const collapseAll = () => {
+    setEvents(allEventIds, false);
+    setUseCases(allUseCaseIds, false);
+  };
   const linkClass = 'text-[var(--color-info)] hover:underline';
 
   return (
@@ -312,16 +332,7 @@ export function SharedProject({ token }: { token: string }) {
             {header.client.name && <p className="text-xs text-gray-500 truncate leading-tight">{header.client.name}</p>}
           </div>
           <div className="ml-auto hidden md:flex items-center gap-4 text-xs">
-            {present.events && (
-              <span className="inline-flex items-center gap-1 text-gray-500">
-                Events <ExpandToggles label="events" onExpand={expandAllEvents} onCollapse={collapseAllEvents} />
-              </span>
-            )}
-            {present.useCases && (
-              <span className="inline-flex items-center gap-1 text-gray-500">
-                Use cases <ExpandToggles label="use cases" onExpand={expandAllUseCases} onCollapse={collapseAllUseCases} />
-              </span>
-            )}
+            {(present.events || present.useCases) && <ExpandToggles label="all rows" onExpand={expandAll} onCollapse={collapseAll} />}
             <a className={linkClass} href={downloadUrl(token, 'tracking-document.json')}>
               JSON
             </a>
@@ -344,7 +355,7 @@ export function SharedProject({ token }: { token: string }) {
 
         <main className="flex-1 min-w-0 space-y-6">
           <div className="md:hidden flex flex-wrap gap-3 text-xs">
-            <ExpandToggles label="events" onExpand={expandAllEvents} onCollapse={collapseAllEvents} />
+            {(present.events || present.useCases) && <ExpandToggles label="all rows" onExpand={expandAll} onCollapse={collapseAll} />}
             <a className={linkClass} href={downloadUrl(token, 'tracking-document.json')}>
               Download JSON
             </a>
@@ -354,21 +365,36 @@ export function SharedProject({ token }: { token: string }) {
           </div>
 
           {present.events && (
-            <section id={SECTION_IDS.events} className="scroll-mt-20 space-y-4">
-              <h2 className="text-lg font-semibold text-gray-900">Events ({doc.events.length})</h2>
+            <section id={SECTION_IDS.events} style={marginTop('section')} className="space-y-3">
+              <h2
+                style={{ height: STICKY_PX.sectionHeader }}
+                className={`sticky ${HEADER_TOP_CLASS} z-10 flex items-center bg-gray-50 text-lg font-semibold text-gray-900`}
+              >
+                Events ({doc.events.length})
+              </h2>
               {EVENT_CLASS_GROUPS.map(({ cls, label }) => {
                 const inGroup = doc.events.filter((e) => e.class === cls);
                 if (inGroup.length === 0) return null;
                 return (
-                  <div key={cls} id={eventGroupId(cls)} className="scroll-mt-20 space-y-3">
-                    <h3 className="text-sm font-semibold text-gray-700">
-                      {label} ({inGroup.length})
-                    </h3>
+                  <div key={cls} id={eventGroupId(cls)} style={marginTop('group')} className="space-y-3">
+                    <div
+                      style={{ height: STICKY_PX.groupHeader }}
+                      className={`sticky ${HEADER_TOP_CLASS} z-[15] flex items-center justify-between gap-2 bg-gray-50`}
+                    >
+                      <h3 className="text-sm font-semibold text-gray-700">
+                        {label} ({inGroup.length})
+                      </h3>
+                      <ExpandToggles
+                        label={label.toLowerCase()}
+                        onExpand={() => setEvents(inGroup.map((e) => e.id), true)}
+                        onCollapse={() => setEvents(inGroup.map((e) => e.id), false)}
+                      />
+                    </div>
                     {inGroup.map((event) => {
                       const expanded = openEvents.has(event.id);
                       const anchor = anchorById.get(event.id) as string;
                       return (
-                        <div key={event.id} id={anchor} className="scroll-mt-16 bg-white rounded-lg border shadow-sm">
+                        <div key={event.id} id={anchor} style={marginTop('event')} className="bg-white rounded-lg border shadow-sm">
                           <div
                             className={`flex items-center gap-2 px-4 py-3 bg-white rounded-t-lg ${
                               expanded ? `sticky ${HEADER_TOP_CLASS} z-20 border-b` : 'rounded-b-lg'
@@ -462,12 +488,8 @@ export function SharedProject({ token }: { token: string }) {
           {present.useCases && (
             <SectionCard
               id={SECTION_IDS.useCases}
-              title={
-                <span className="flex items-center justify-between gap-2">
-                  <span>Use cases ({doc.use_cases.length})</span>
-                  <ExpandToggles label="use cases" onExpand={expandAllUseCases} onCollapse={collapseAllUseCases} />
-                </span>
-              }
+              title={`Use cases (${doc.use_cases.length})`}
+              actions={<ExpandToggles label="use cases" onExpand={() => setUseCases(allUseCaseIds, true)} onCollapse={() => setUseCases(allUseCaseIds, false)} />}
             >
               <div className="space-y-2">
                 {doc.use_cases.map((uc) => {

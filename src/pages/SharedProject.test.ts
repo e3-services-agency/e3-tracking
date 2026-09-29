@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildSharedViewModel, sharedFileUrl, eventAnchor, eventAnchors, eventForHash, selectCodegenTab, isEmptyValue, derivedMetricsText,
   eventCardVisibility, oneLineDescription, sectionPresence, buildSectionIndex, filterNav, flattenNav, pickActiveId, lightboxStep, scrollTopToReveal,
-  renderedSectionIds, toggleInSet, pickActiveAtBottom, SECTION_IDS,
+  renderedSectionIds, toggleInSet, pickActiveAtBottom, SECTION_IDS, setExpanded, stickyScrollMarginPx, spyTopOffsetPx, STICKY_PX,
 } from './sharedViewModel';
 import type { TrackingDocument } from '../domain/document/trackingDocument';
 
@@ -241,5 +241,21 @@ describe('T-4-14 view helpers', () => {
     const tops = new Map([['catalogs', 100], ['consents', 300], ['findings', 650], ['mapping', 900]]);
     expect(pickActiveAtBottom(['catalogs', 'consents', 'findings', 'mapping'], tops, 800)).toBe('findings');
     expect(pickActiveAtBottom(['catalogs'], new Map(), 800)).toBeNull();
+  });
+
+  it('setExpanded adds or removes a batch of ids without mutating (global and per-section Expand/Collapse all)', () => {
+    const open = new Set(['e1']);
+    expect([...setExpanded(open, ['e2', 'e3'], true)].sort()).toEqual(['e1', 'e2', 'e3']);
+    expect([...setExpanded(open, ['e1', 'zz'], false)]).toEqual([]);
+    expect([...open]).toEqual(['e1']);
+    // A local group toggle leaves other groups' rows alone.
+    expect([...setExpanded(new Set(['a', 'b']), ['a'], false)]).toEqual(['b']);
+  });
+
+  it('sticky offsets: sections and groups clear the page header, an event also clears its group header', () => {
+    expect(stickyScrollMarginPx('section')).toBe(STICKY_PX.pageHeader);
+    expect(stickyScrollMarginPx('group')).toBe(STICKY_PX.pageHeader);
+    expect(stickyScrollMarginPx('event')).toBe(STICKY_PX.pageHeader + STICKY_PX.groupHeader);
+    expect(spyTopOffsetPx()).toBeGreaterThanOrEqual(stickyScrollMarginPx('event'));
   });
 });

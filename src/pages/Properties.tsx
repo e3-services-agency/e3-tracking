@@ -6,6 +6,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
+import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
@@ -135,18 +136,18 @@ export function Properties() {
   }, [selectedItemIdToEdit, properties, setSelectedItemIdToEdit]);
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col">
       <div className="p-8 border-b bg-white flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Properties</h1>
-          <p className="text-sm text-gray-500 mt-1">Event and customer properties (D-24).</p>
+          <p className="text-sm text-gray-500 mt-1">Event and customer properties (D-24). Each property has one or more named <GlossaryTerm glossaryKey="definition">definitions</GlossaryTerm>.</p>
         </div>
         <Button onClick={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); setOrderFrozen(true); }} className="gap-2">
           <Plus className="w-4 h-4" /> Add Property
         </Button>
       </div>
 
-      <div className="p-8 flex-1 overflow-y-auto">
+      <div className="p-8 flex-1">
         <div className="mb-6 flex gap-2">
           <select value={scopeFilter} onChange={(e) => setScopeFilter(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">All scopes</option>

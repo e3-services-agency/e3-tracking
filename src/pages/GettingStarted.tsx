@@ -6,6 +6,8 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Circle, Loader2 } from 'lucide-react';
+import { FORM_CARD_WIDTH_CLASS } from '@/src/components/layout/PageShell';
+import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
 import { Button } from '@/src/components/ui/Button';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
@@ -60,14 +62,14 @@ export function GettingStarted({ setActiveTab }: { setActiveTab: (tab: string) =
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden">
+    <div className="flex-1 flex flex-col">
       <div className="p-8 border-b bg-white">
         <h1 className="text-2xl font-bold text-gray-900">Getting started</h1>
         <p className="text-sm text-gray-500 mt-1">
-          A short checklist to get this project fully documented and shareable.
+          A short checklist to get this project fully documented, <GlossaryTerm glossaryKey="certified">certified</GlossaryTerm> and shareable. Unsure how it works? Try a <GlossaryTerm glossaryKey="sandbox">sandbox</GlossaryTerm> project from the Clients page.
         </p>
       </div>
-      <div className="p-8 flex-1 overflow-y-auto space-y-3 max-w-2xl">
+      <div className="p-8 flex-1 space-y-3">
         {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</div>}
         {loading && (
           <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -81,7 +83,7 @@ export function GettingStarted({ setActiveTab }: { setActiveTab: (tab: string) =
         )}
         {!loading &&
           data?.steps.map((step) => (
-            <div key={step.key} className="bg-white rounded-lg border shadow-sm p-4 flex items-start gap-3">
+            <div key={step.key} className={`bg-white rounded-lg border shadow-sm p-4 flex items-start gap-3 ${FORM_CARD_WIDTH_CLASS}`}>
               {step.done ? (
                 <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
               ) : (

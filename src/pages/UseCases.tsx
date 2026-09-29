@@ -6,6 +6,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Loader2, ArrowUp, ArrowDown, ArrowLeft, Sparkles, RefreshCw } from 'lucide-react';
+import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
@@ -189,12 +190,12 @@ export function UseCases() {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col">
       <div className="p-8 border-b bg-white flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Use cases</h1>
           <p className="text-sm text-gray-500 mt-1">
-            What data each use case needs, required or optional (CONTEXT.md 3.2).
+            What data each use case needs, required or optional (CONTEXT.md 3.2). A requirement that resolves to nothing in the project is a <GlossaryTerm glossaryKey="gap">gap</GlossaryTerm>.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -224,7 +225,7 @@ export function UseCases() {
         </div>
       </div>
 
-      <div className="p-8 flex-1 overflow-y-auto">
+      <div className="p-8 flex-1">
         {fromTemplateError && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
             {fromTemplateError}
@@ -256,7 +257,7 @@ export function UseCases() {
               {useCases.length === 0 && (
                 <EmptyState
                   colSpan={6}
-                  message="No use cases yet. Instantiate one from the use case template library, or add one by hand."
+                  message="No use cases yet. Add one from the use case template library, or add one by hand."
                   actionLabel="Browse templates"
                   onAction={() => setRequestedTab('useCaseTemplates')}
                 />
@@ -648,7 +649,7 @@ function UseCaseDetail({
   if (!useCase) return <div className="p-8 text-sm text-gray-500">Use case not found.</div>;
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-y-auto">
+    <div className="flex-1 flex flex-col">
       <div className="p-8 border-b bg-white">
         <button type="button" onClick={onBack} className="text-sm text-gray-500 hover:text-gray-900 flex items-center gap-1 mb-3">
           <ArrowLeft className="w-4 h-4" /> Back to use cases

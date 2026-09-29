@@ -160,7 +160,7 @@ export function StandardEvents() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col">
       <div className="p-8 border-b bg-white">
         <h1 className="text-2xl font-bold text-gray-900">Standard events</h1>
         <p className="text-sm text-gray-500 mt-1">
@@ -168,7 +168,7 @@ export function StandardEvents() {
         </p>
       </div>
 
-      <div className="p-8 flex-1 overflow-y-auto space-y-6">
+      <div className="p-8 flex-1 space-y-6">
         <div className="bg-white rounded-lg border shadow-sm p-4 flex items-end gap-2">
           <div className="flex-1 space-y-1">
             <label className="text-sm font-medium text-gray-700">Key</label>

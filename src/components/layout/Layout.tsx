@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { ProjectGateBanner } from './ProjectGateBanner';
+import { PageShell } from './PageShell';
 import { ProjectShellProvider, useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { useStore } from '@/src/store';
 import { Events } from '@/src/pages/Events';
@@ -255,7 +256,9 @@ function LayoutInner() {
       <div className="flex-1 overflow-hidden flex flex-col bg-[var(--surface-default)] text-gray-900">
         <Header />
         <ProjectGateBanner suppress={showFullPageProjectGate} />
-        <main className="flex-1 overflow-hidden flex flex-col">{mainContent}</main>
+        <main className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+          <PageShell>{mainContent}</PageShell>
+        </main>
       </div>
     </div>
   );

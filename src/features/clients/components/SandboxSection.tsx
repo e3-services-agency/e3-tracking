@@ -112,7 +112,7 @@ export function SandboxSection({
   };
 
   return (
-    <div className="bg-white rounded-lg border shadow-sm p-6 space-y-4 max-w-2xl">
+    <div className="bg-white rounded-lg border shadow-sm p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-gray-900">Sandboxes</h2>

@@ -519,7 +519,7 @@ export function Import() {
   const downloadUrl = (path: string) => `${API_BASE}/api/projects/${activeProjectId}/${path}`;
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col">
       <div className="p-8 border-b bg-white">
         <h1 className="text-2xl font-bold text-gray-900">Import</h1>
         <p className="text-sm text-gray-500 mt-1">
@@ -527,7 +527,7 @@ export function Import() {
         </p>
       </div>
 
-      <div className="p-8 flex-1 overflow-y-auto space-y-6">
+      <div className="p-8 flex-1 space-y-6">
         <ImportBox format="data-mapping" title="Data mapping" projectId={activeProjectId} />
         <ImportBox format="expiration-settings" title="Expiration settings" projectId={activeProjectId} />
         <ImportBox format="data-manager-customers" title="Data Manager customers" projectId={activeProjectId} />

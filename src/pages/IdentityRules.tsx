@@ -112,7 +112,7 @@ export function IdentityRules() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col">
       <div className="p-8 border-b bg-white flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Identity rules</h1>
@@ -125,7 +125,7 @@ export function IdentityRules() {
         </Button>
       </div>
 
-      <div className="p-8 flex-1 overflow-y-auto">
+      <div className="p-8 flex-1">
         {reorderError && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{reorderError}</div>
         )}

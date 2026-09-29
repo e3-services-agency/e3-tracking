@@ -173,11 +173,11 @@ export function Events() {
   }, [loadEvents]);
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col">
       <div className="p-8 border-b bg-white flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Events</h1>
-          <p className="text-sm text-gray-500 mt-1">Tracking plan events.</p>
+          <p className="text-sm text-gray-500 mt-1">Tracking plan events and their <GlossaryTerm glossaryKey="variant">variants</GlossaryTerm>.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -204,7 +204,7 @@ export function Events() {
         </div>
       </div>
 
-      <div className="p-8 flex-1 overflow-y-auto space-y-4">
+      <div className="p-8 flex-1 space-y-4">
         <div className="flex items-center gap-2">
           <label className="text-xs font-medium text-gray-500">Class</label>
           <select

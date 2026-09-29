@@ -76,7 +76,7 @@ export function Sources() {
   const selectedSource = selectedSourceId ? sources.find((s) => s.id === selectedSourceId) : null;
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col">
       <div className="p-8 border-b bg-white flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Sources</h1>
@@ -87,7 +87,7 @@ export function Sources() {
         </Button>
       </div>
 
-      <div className="p-8 flex-1 overflow-y-auto">
+      <div className="p-8 flex-1">
         <div className="mb-6 relative">
           <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <Input

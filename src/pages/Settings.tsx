@@ -5,6 +5,7 @@
  * comes back server-side in phase 3, T-3-03, D-46).
  */
 import React from 'react';
+import { FORM_CARD_WIDTH_CLASS } from '@/src/components/layout/PageShell';
 import { ProjectSettings } from '@/src/features/projects/pages/ProjectSettings';
 import { CsvExportBlock } from '@/src/features/projects/components/CsvExportBlock';
 import { BackupExportBlock } from '@/src/features/projects/components/BackupExportBlock';
@@ -13,8 +14,8 @@ import { useProjectShell } from '@/src/features/projects/context/ProjectShellCon
 export function Settings() {
   const { activeProjectId } = useProjectShell();
   return (
-    <div className="flex-1 overflow-auto bg-gray-50 p-8">
-      <div className="max-w-2xl mx-auto space-y-8">
+    <div className="flex-1 p-8">
+      <div className={`space-y-8 ${FORM_CARD_WIDTH_CLASS}`}>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
           <p className="text-gray-500 mt-1">Project and Bloomreach identifiers.</p>

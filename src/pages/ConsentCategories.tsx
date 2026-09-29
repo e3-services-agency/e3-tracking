@@ -106,7 +106,7 @@ export function ConsentCategories() {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col">
       <div className="p-8 border-b bg-white flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Consent categories</h1>
@@ -119,7 +119,7 @@ export function ConsentCategories() {
         </Button>
       </div>
 
-      <div className="p-8 flex-1 overflow-y-auto space-y-6">
+      <div className="p-8 flex-1 space-y-6">
         <div className="bg-white rounded-lg border shadow-sm p-4 flex items-end gap-2">
           <div className="flex-1 space-y-1">
             <label className="text-sm font-medium text-gray-700">Add a standard consent key</label>

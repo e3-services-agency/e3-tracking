@@ -60,7 +60,7 @@ export function Catalogs() {
   }, [load]);
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col">
       <div className="p-8 border-b bg-white flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Catalogs</h1>
@@ -71,7 +71,7 @@ export function Catalogs() {
         </Button>
       </div>
 
-      <div className="p-8 flex-1 overflow-y-auto">
+      <div className="p-8 flex-1">
         <div className="bg-white rounded-lg border shadow-sm">
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">

@@ -6,6 +6,7 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
+import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
 import { Button } from '@/src/components/ui/Button';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
@@ -105,15 +106,15 @@ export function QaRuns() {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col">
       <div className="p-8 border-b bg-white">
         <h1 className="text-2xl font-bold text-gray-900">QA runs</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Observation batches (customer events exports; agent sessions in a later phase).
+          Runs group <GlossaryTerm glossaryKey="observation">observations</GlossaryTerm> in <GlossaryTerm glossaryKey="batch">batches</GlossaryTerm> (customer events exports; agent sessions in a later phase).
         </p>
       </div>
 
-      <div className="p-8 flex-1 overflow-y-auto space-y-4">
+      <div className="p-8 flex-1 space-y-4">
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
         )}

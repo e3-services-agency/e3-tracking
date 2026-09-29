@@ -7,6 +7,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
+import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
 import { Button } from '@/src/components/ui/Button';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { useStore } from '@/src/store';
@@ -208,11 +209,11 @@ export function Findings() {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col">
       <div className="p-8 border-b bg-white flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Findings</h1>
-          <p className="text-sm text-gray-500 mt-1">Definition vs mapping (1), mapping vs observations (2), definition vs observations (3) and definition vs Data Manager (4, D-21/D-28).</p>
+          <p className="text-sm text-gray-500 mt-1">Definition vs mapping (1), mapping vs observations (2), definition vs observations (3) and definition vs Data Manager (4, D-21/D-28). A finding resolved by hand while it still reproduces is <GlossaryTerm glossaryKey="acknowledged">acknowledged</GlossaryTerm>.</p>
         </div>
         <Button type="button" onClick={() => void runComparison()} disabled={running} className="gap-2">
           {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
@@ -220,7 +221,7 @@ export function Findings() {
         </Button>
       </div>
 
-      <div className="p-8 flex-1 overflow-y-auto space-y-4">
+      <div className="p-8 flex-1 space-y-4">
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
         )}

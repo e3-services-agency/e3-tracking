@@ -17,6 +17,8 @@ import * as QaRunDAL from '../dal/qa-run.dal';
 import * as ObservationDAL from '../dal/observation.dal';
 import { previewDataMapping, applyDataMapping } from './dataMappingImport.service';
 import { previewExpirationSettings, applyExpirationSettings } from './expirationSettingsImport.service';
+import { CSV_ENTITIES } from '../../domain/csv';
+import * as CommentDAL from '../dal/comment.dal';
 import { buildCsvRows, listCsvEntityCounts } from './csvExport.service';
 
 const dataMappingFixture = JSON.parse(
@@ -53,6 +55,24 @@ beforeAll(() => {
 afterAll(() => {
   closeDb();
   delete process.env.E3_DB_PATH;
+});
+
+describe('comments.csv header (T-4-10)', () => {
+  it('declares internal_only right after via_share and every row carries it', () => {
+    const headers = CSV_ENTITIES.comments.headers as readonly string[];
+    expect(headers.indexOf('internal_only')).toBe(headers.indexOf('via_share') + 1);
+    const eventId = EventDAL.listEvents(projectId)[0].id;
+    CommentDAL.createComment(projectId, {
+      entity_type: 'event',
+      entity_id: eventId,
+      author_name: 'Jan',
+      body: 'x',
+      internal_only: true,
+    });
+    const rows = buildCsvRows(projectId, 'comments');
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows[0].internal_only).toBeTruthy();
+  });
 });
 
 describe('statement counts (D-46 pre-QA fix, WARNING 1)', () => {

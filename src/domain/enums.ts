@@ -388,6 +388,12 @@ export type ChangeLogAction = (typeof CHANGE_LOG_ACTIONS)[number];
 export const SHARE_ACCESS = ['read', 'comment'] as const;
 export type ShareAccess = (typeof SHARE_ACCESS)[number];
 
+/** Which comments the shared view shows (D-49 amendment 2, T-4-10): `all` = every comment not marked
+ * internal-only, `via_share_only` = only comments posted through the link. Internal-only comments
+ * are never shown either way. */
+export const SHARE_COMMENT_VISIBILITIES = ['all', 'via_share_only'] as const;
+export type ShareCommentVisibility = (typeof SHARE_COMMENT_VISIBILITIES)[number];
+
 // ----- Backup (D-45, T-3-04) -----
 /** Full-project JSON backup format tag/version (`backup.service.ts#buildBackup`). Every table as
  * full rows including soft-deleted ones, files embedded as base64, referenced `use_case_templates`

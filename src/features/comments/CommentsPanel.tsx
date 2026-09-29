@@ -57,6 +57,8 @@ export interface CommentPanelRow {
   entity_id?: string;
   author_name: string;
   via_share: boolean;
+  /** Internal mode only; the public route never returns it (D-49 amendment 2, T-4-10). */
+  internal_only?: boolean;
   body: string;
   created_at: string;
   resolved_at: string | null;
@@ -119,6 +121,7 @@ export function CommentsPanel({
   const [error, setError] = useState<string | null>(null);
   const [body, setBody] = useState('');
   const [authorName, setAuthorName] = useState(() => (api.mode === 'shared' ? readStoredAuthor() : ''));
+  const [internalOnly, setInternalOnly] = useState(false);
   const [posting, setPosting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -167,6 +170,7 @@ export function CommentsPanel({
     try {
       const payload: Record<string, unknown> = { entity_type: entityType, entity_id: entityId, body };
       if (api.mode === 'shared') payload.author_name = authorName;
+      else payload.internal_only = internalOnly;
       const res = await doFetch(api, postUrl(api), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -179,6 +183,7 @@ export function CommentsPanel({
       }
       if (api.mode === 'shared') storeAuthor(authorName.trim());
       setBody('');
+      setInternalOnly(false);
       await refresh();
     } catch {
       // L4 fix round: a network failure (server down, offline) must surface, not disappear as an
@@ -237,6 +242,11 @@ export function CommentsPanel({
                     via share link
                   </span>
                 )}
+                {api.mode === 'internal' && row.internal_only && (
+                  <span className="rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 text-[10px] font-medium">
+                    Internal only
+                  </span>
+                )}
                 <span>·</span>
                 <span>{new Date(row.created_at).toLocaleString()}</span>
                 {row.resolved_at && (
@@ -264,7 +274,15 @@ export function CommentsPanel({
       {canComment && (
         <form onSubmit={(e) => void submit(e)} className="space-y-2">
           {api.mode === 'internal' && (
-            <p className="text-[11px] text-gray-400">Visible to anyone with the share link.</p>
+            <div className="space-y-1">
+              <label className="flex items-center gap-2 text-xs text-gray-700">
+                <input type="checkbox" checked={internalOnly} onChange={(e) => setInternalOnly(e.target.checked)} />
+                Internal only
+              </label>
+              <p className="text-[11px] text-gray-400">
+                {internalOnly ? 'Not visible on the share link.' : 'Visible to anyone with the share link.'}
+              </p>
+            </div>
           )}
           {api.mode === 'shared' && (
             <input

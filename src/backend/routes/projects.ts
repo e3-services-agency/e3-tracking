@@ -145,6 +145,7 @@ function shareResponse(req: Request, project: ProjectDAL.ProjectRow) {
   return {
     share_token: project.share_token,
     share_access: project.share_access,
+    share_comments: project.share_comments,
     share_created_at: project.share_created_at,
     url: project.share_token ? shareUrl(req, project.share_token) : null,
   };
@@ -178,9 +179,11 @@ router.post('/:id/share', (req: Request, res: Response) => {
 
 router.patch('/:id/share', (req: Request, res: Response) => {
   const body = (req.body ?? {}) as Record<string, unknown>;
-  const access = body.access;
   try {
-    const project = ProjectDAL.updateShareAccess(req.params.id, access);
+    const project = ProjectDAL.updateShareSettings(req.params.id, {
+      access: body.access,
+      share_comments: body.share_comments,
+    });
     res.status(200).json(shareResponse(req, project));
   } catch (err) {
     handleRouteError(err, res);

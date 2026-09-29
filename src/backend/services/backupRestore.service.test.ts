@@ -493,8 +493,31 @@ describe('applyRestore', () => {
     expect(restoredComments).toHaveLength(1);
     expect(restoredComments[0].entity_id).toBe(restoredPurchase.id);
     expect(restoredComments[0].body).toBe('Confirm this before go-live.');
+    expect(restoredComments[0].internal_only).toBe(false);
     // The old event id survives nowhere in the restored comment.
     expect(restoredComments[0].entity_id).not.toBe(purchaseEvent.id);
+  });
+
+  it('the internal_only comment flag survives a backup/restore round trip (T-4-10, D-49 amendment 2)', async () => {
+    await applyAllFixtures();
+    const purchaseEvent = EventDAL.listEvents(projectId).find((e) => e.name === 'purchase')!;
+    CommentDAL.createComment(projectId, {
+      entity_type: 'event',
+      entity_id: purchaseEvent.id,
+      author_name: 'Jan',
+      body: 'Team only.',
+      internal_only: true,
+    });
+    const backup = await buildBackup(projectId);
+    const client = ClientDAL.createClient({ key: 'internalonlyrestore', name: 'Internal Only Restore Co' });
+    const result = await applyRestore(backup, previewRestore(backup).payload_hash, {
+      name: 'Internal only restore',
+      key: 'internal-only-restore',
+      client_id: client.id,
+    });
+    const restored = CommentDAL.listComments(result.project.id);
+    expect(restored).toHaveLength(1);
+    expect(restored[0].internal_only).toBe(true);
   });
 
   // Fix round (qa-tester FAIL 2026-09-28 17:03): before 0021 was fixed to generate dashed UUIDs,

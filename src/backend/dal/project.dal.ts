@@ -16,7 +16,7 @@ import {
 import { getClientOrThrow, type ClientRow } from './client.dal';
 import { validateExpirationJson } from './validators';
 import { STANDARD_EVENTS } from '../../domain/bloomreach';
-import { SHARE_ACCESS, type ShareAccess } from '../../domain/enums';
+import { SHARE_ACCESS, SHARE_COMMENT_VISIBILITIES, type ShareAccess, type ShareCommentVisibility } from '../../domain/enums';
 import * as ChangeLogDAL from './change-log.dal';
 import { payloadHash } from '../../domain/diff/hash';
 
@@ -56,6 +56,8 @@ export interface ProjectRow {
   data_manager_events_json: unknown;
   share_token: string | null;
   share_access: string | null;
+  /** D-49 amendment 2, T-4-10: which non-internal comments the shared view shows. */
+  share_comments: ShareCommentVisibility;
   /** When the current `share_token` was created or last rotated (D-48, T-4-01); `null` when no
    * share link has ever been generated, or after a revoke clears all three share columns. */
   share_created_at: string | null;
@@ -568,6 +570,15 @@ function assertShareAccess(access: unknown): asserts access is ShareAccess {
   }
 }
 
+function assertShareComments(value: unknown): asserts value is ShareCommentVisibility {
+  if (typeof value !== 'string' || !(SHARE_COMMENT_VISIBILITIES as readonly string[]).includes(value)) {
+    throw new ValidationError(
+      `share_comments must be one of: ${SHARE_COMMENT_VISIBILITIES.join(', ')}.`,
+      'share_comments'
+    );
+  }
+}
+
 /** 32 random bytes, base64url (D-48): 43 characters, URL-safe (`[A-Za-z0-9_-]`, no padding). */
 function generateShareToken(): string {
   return randomBytes(32).toString('base64url');
@@ -611,7 +622,16 @@ export function createOrRotateShare(id: string, access: unknown, options: { forc
 
 /** Changes the access level (`read`/`comment`) of an already-active share link, without rotating the token. */
 export function updateShareAccess(id: string, access: unknown): ProjectRow {
-  assertShareAccess(access);
+  return updateShareSettings(id, { access });
+}
+
+/** Changes `access` and/or `share_comments` (T-4-10) of an active share link; at least one is required. */
+export function updateShareSettings(id: string, settings: { access?: unknown; share_comments?: unknown }): ProjectRow {
+  if (settings.access === undefined && settings.share_comments === undefined) {
+    throw new ValidationError('At least one of access or share_comments is required.', 'access');
+  }
+  if (settings.access !== undefined) assertShareAccess(settings.access);
+  if (settings.share_comments !== undefined) assertShareComments(settings.share_comments);
   const before = getProjectOrThrow(id);
   if (!before.share_token) {
     throw new NotFoundError('No active share link for this project.', 'share');
@@ -619,7 +639,12 @@ export function updateShareAccess(id: string, access: unknown): ProjectRow {
   const db = getDb();
   const now = nowIso();
   const run = db.transaction(() => {
-    db.prepare('UPDATE projects SET share_access = ?, updated_at = ? WHERE id = ?').run(access, now, id);
+    db.prepare('UPDATE projects SET share_access = ?, share_comments = ?, updated_at = ? WHERE id = ?').run(
+      settings.access ?? before.share_access,
+      settings.share_comments ?? before.share_comments,
+      now,
+      id
+    );
     const after = getProjectOrThrow(id);
     ChangeLogDAL.recordChange({
       projectId: id,

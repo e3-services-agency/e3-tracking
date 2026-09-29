@@ -566,6 +566,7 @@ function buildCommentsRows(projectId: string): CsvRow[] {
     entity_label: textCell(c.entity_label),
     author_name: c.author_name,
     via_share: boolCell(c.via_share),
+    internal_only: boolCell(c.internal_only),
     body: c.body,
     created_at: c.created_at,
     resolved_at: textCell(c.resolved_at),

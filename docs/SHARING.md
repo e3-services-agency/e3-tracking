@@ -93,10 +93,12 @@ Comments attach to an `event`, `property`, `use_case`, or `requirement` (`entity
 /api/shared/:token/comments` returns every comment on the anchor — posted internally through
 `/api/projects/:id/comments` or through the same share link alike. An internal reply **is** visible
 to anyone holding the share link, by design (the point of the feature is a consultant answering a
-client's question where it was asked). A private, team-only note never belongs in a comment — it
+client's question where it was asked). A comment is visible unless it is flagged **Internal only**
+(see "Comment visibility controls" below); a private, team-only note either carries that flag or
 belongs in one of the internal-only fields the public projection strips (`use_case.internal_notes`/
 `internal_url`, `agent_instructions`, `owners`, `identity_note`). The internal `CommentsPanel`
-states this next to the form ("Visible to anyone with the share link").
+states the current visibility next to the form ("Visible to anyone with the share link", or "Not
+visible on the share link." once "Internal only" is checked).
 
 `via_share` (was this particular comment posted through a share link, not the same as "is this
 comment visible through a share link" — every comment is) stays visible on both sides so the
@@ -115,6 +117,30 @@ stripped from the public `GET` response (`toPublicComment`).
 - A per-token rate limit of 60 posts per 10 minutes (in-memory, reset on process restart) returns
   429 `RATE_LIMITED` past the limit — a cheap guard against a script hammering a leaked link, not
   real rate limiting (see "Phase 5" below).
+
+### Comment visibility controls (D-49 amendment 2, T-4-10)
+
+Two controls narrow the "one shared thread" default. Both are enforced server-side in
+`GET /api/shared/:token/comments` (`routes/shared.ts`), never by the UI alone.
+
+- **Per comment: "Internal only"** (`comments.internal_only`, migration `0024`). The internal
+  `CommentsPanel` has an "Internal only" checkbox next to the form (default off; the note reads "Not
+  visible on the share link" when checked), `POST /api/projects/:id/comments` accepts
+  `internal_only: boolean`, and `PATCH /comments/:id {internal_only}` toggles it later. An
+  internal-only comment is **never** returned by the public `GET`, whatever the link settings, and
+  the public projection never carries the `internal_only` key. `POST /api/shared/:token/comments`
+  keeps `internal_only` outside its allowed body keys (400 `FIELD_NOT_ALLOWED`), so a client can
+  never post one. The Comments page shows an "Internal only" badge and has a visibility filter
+  (`GET /comments?internal_only=true|false`).
+- **Per link: "Show internal comments on the shared view"** (`projects.share_comments`, migration
+  `0024`, values `all` | `via_share_only`, `SHARE_COMMENT_VISIBILITIES` in `src/domain/enums.ts`).
+  `all` (default) shows every comment that is not internal-only. `via_share_only` shows only the
+  comments posted through the link (`via_share = 1`), hiding comments the team posted internally.
+  Set from Settings > Share link, saved through `PATCH /api/projects/:id/share {share_comments}`
+  (400 for any other value; `GET /:id/share` returns it). The setting belongs to the project, so it
+  survives rotating or revoking the link.
+
+Both columns are picked up by the JSON backup/restore and the `comments` CSV (`internal_only`).
 
 There is no edit, on either side — only resolve (internal-only,
 `PATCH /api/projects/:id/comments/:id {resolved}`) and delete (internal-only,

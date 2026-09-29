@@ -18,6 +18,13 @@ function parseResolvedParam(raw: unknown): boolean | undefined {
   throw new ValidationError('resolved must be "true" or "false".', 'resolved');
 }
 
+function parseBoolParam(raw: unknown, name: string): boolean | undefined {
+  if (raw === undefined) return undefined;
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  throw new ValidationError(`${name} must be "true" or "false".`, name);
+}
+
 router.get('/', (req: Request, res: Response) => {
   try {
     const { entity_type, entity_id, resolved } = req.query;
@@ -31,6 +38,7 @@ router.get('/', (req: Request, res: Response) => {
       entity_type: entity_type as string | undefined,
       entity_id: entity_id as string | undefined,
       resolved: parseResolvedParam(resolved),
+      internalOnly: parseBoolParam(req.query.internal_only, 'internal_only'),
     });
     res.status(200).json(withEntityLabels(req.projectId!, comments));
   } catch (err) {
@@ -57,9 +65,17 @@ function stringOrUndefined(body: Record<string, unknown>, key: string): string |
   return value;
 }
 
+function optionalBoolean(body: Record<string, unknown>, key: string): boolean | undefined {
+  const value = body[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== 'boolean') throw new ValidationError(`${key} must be a boolean.`, key);
+  return value;
+}
+
 router.post('/', (req: Request, res: Response) => {
   try {
     const body = req.body as Record<string, unknown>;
+    const internalOnly = optionalBoolean(body, 'internal_only');
     const authorName = stringOrUndefined(body, 'author_name');
     const comment = CommentDAL.createComment(req.projectId!, {
       entity_type: stringOrUndefined(body, 'entity_type') ?? '',
@@ -67,6 +83,7 @@ router.post('/', (req: Request, res: Response) => {
       author_name: authorName ?? req.userName ?? '',
       body: stringOrUndefined(body, 'body') ?? '',
       via_share: false,
+      internal_only: internalOnly ?? false,
     });
     const entity = resolveCommentEntity(req.projectId!, comment);
     res.status(201).json({ ...comment, use_case_id: entity.use_case_id, entity_label: entity.label });
@@ -78,10 +95,20 @@ router.post('/', (req: Request, res: Response) => {
 router.patch('/:id', (req: Request, res: Response) => {
   try {
     const body = req.body as Record<string, unknown>;
-    if (typeof body.resolved !== 'boolean') {
+    const internalOnly = optionalBoolean(body, 'internal_only');
+    if (body.resolved === undefined && internalOnly === undefined) {
+      throw new ValidationError('At least one of resolved or internal_only is required.', 'resolved');
+    }
+    if (body.resolved !== undefined && typeof body.resolved !== 'boolean') {
       throw new ValidationError('resolved must be a boolean.', 'resolved');
     }
-    const comment = CommentDAL.setCommentResolved(req.projectId!, req.params.id, body.resolved, req.userName ?? 'system');
+    let comment = CommentDAL.getCommentOrThrow(req.projectId!, req.params.id);
+    if (internalOnly !== undefined) {
+      comment = CommentDAL.setCommentInternalOnly(req.projectId!, req.params.id, internalOnly);
+    }
+    if (typeof body.resolved === 'boolean') {
+      comment = CommentDAL.setCommentResolved(req.projectId!, req.params.id, body.resolved, req.userName ?? 'system');
+    }
     const entity = resolveCommentEntity(req.projectId!, comment);
     res.status(200).json({ ...comment, use_case_id: entity.use_case_id, entity_label: entity.label });
   } catch (err) {

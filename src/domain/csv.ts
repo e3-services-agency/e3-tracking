@@ -301,7 +301,7 @@ export const CSV_ENTITIES = {
   },
   // T-4-02 (0019_comments.sql) adds the table this reads from (`csvExport.service.ts#buildCommentRows`).
   comments: {
-    headers: ['id', 'entity_type', 'entity_id', 'entity_label', 'author_name', 'via_share', 'body', 'created_at', 'resolved_at', 'resolved_by'],
+    headers: ['id', 'entity_type', 'entity_id', 'entity_label', 'author_name', 'via_share', 'internal_only', 'body', 'created_at', 'resolved_at', 'resolved_by'],
   },
 } as const satisfies Record<string, CsvEntityDefinition>;
 

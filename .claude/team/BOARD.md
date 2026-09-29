@@ -2728,3 +2728,6 @@ Supervisor ruling: fix W2, W3 (reuse the app sampler), M4-M9, I10 now; W1 after 
 
 ### 2026-09-29 13:44 | supervisor | HANDOFF | T-4-12 fix round (f10efb8) — RE-REVIEW
 1457 tests / 124 files (dot reporter; a stack trace appeared before the summary, unexplained), tsc, build, lint green. E1 parseGapNote keyword parsing with the real DAL note strings; W2 leaf-only labels for catalog/consent; L4 EventCardView mode internal|shared (shared: badge only); L5 Settings header bar; L6 single tooltip; L7 CSS rule for sticky zebra cells; L8 PageShell uncapped, a `.page-shell > div > .p-8` CSS rule caps content at 1400px inside full-width bars (structural selector, flagged for review).
+
+### 2026-09-29 13:46 | supervisor | HANDOFF | T-4-13 follow-ups part 1 (06fabe9) — waits for T-4-12 merge
+1455 tests / 124 files, tsc, build, lint green. W2 guide covers Internal only and share_comments; W3 no-variant payload uses every property's card example plus a required-keys line (sampler not moved); M4 Definition column; M5 node prop; M6 malformed slug -> null; M7 comment; M8 rehype-raw removed; M9 wording; I10 external links new tab; I12 helpContent tests. Part 2 (merge agent-setup, EventCard.tsx conflict, Help.tsx layout rule) after T-4-12 merges.

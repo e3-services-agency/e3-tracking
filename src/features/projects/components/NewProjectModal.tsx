@@ -63,6 +63,7 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
     setClientSubmitting(false);
     if (result.success) {
       setClientId(result.client.id);
+      setErrors((prev) => ({ ...prev, client: undefined }));
       setCreatingClient(false);
       setNewClientName('');
       setNewClientKey('');
@@ -118,7 +119,10 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
               <select
                 id="project-client"
                 value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
+                onChange={(e) => {
+                  setClientId(e.target.value);
+                  if (e.target.value) setErrors((prev) => ({ ...prev, client: undefined }));
+                }}
                 className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
               >
                 <option value="">Select a client…</option>

@@ -4,6 +4,7 @@
  * pasted into an AI assistant or a ticket, so it favours plain headings, pipe tables and fenced
  * JSON. No DOM, server or database import, so the MCP server can reuse these later.
  */
+import { describeCertificationReason } from '../certification';
 import type { EventCard, TrackingDocumentUseCase } from './trackingDocument';
 
 /** Escapes a value for use inside a Markdown pipe-table cell. */
@@ -59,7 +60,7 @@ export function eventCardToMarkdown(card: EventCard): string {
       ? 'Not applicable (the event is not a custom event, or is ignored).'
       : cert.certified
         ? 'Certified.'
-        : `Not certified. Reasons: ${cert.reasons.join(', ') || 'none recorded'}.`
+        : `Not certified. Reasons: ${cert.reasons.map(describeCertificationReason).join(' ') || 'none recorded.'}`
   );
 
   out.push('## Properties');

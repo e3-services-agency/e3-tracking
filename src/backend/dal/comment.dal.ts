@@ -26,16 +26,18 @@ export interface CommentRow {
   entity_id: string;
   author_name: string;
   via_share: boolean;
+  /** D-49 amendment 2, T-4-10: never returned by the public share routes. */
+  internal_only: boolean;
   body: string;
   created_at: string;
   resolved_at: string | null;
   resolved_by: string | null;
 }
 
-type CommentDbRow = Omit<CommentRow, 'via_share'> & { via_share: number };
+type CommentDbRow = Omit<CommentRow, 'via_share' | 'internal_only'> & { via_share: number; internal_only: number };
 
 function mapCommentRow(row: CommentDbRow): CommentRow {
-  return { ...row, via_share: !!row.via_share };
+  return { ...row, via_share: !!row.via_share, internal_only: !!row.internal_only };
 }
 
 export interface CommentInput {
@@ -44,6 +46,7 @@ export interface CommentInput {
   author_name: string;
   body: string;
   via_share?: boolean;
+  internal_only?: boolean;
 }
 
 export interface ListCommentsFilter {
@@ -51,6 +54,12 @@ export interface ListCommentsFilter {
   entity_id?: string;
   /** `true`/`false` filters resolved vs. open; omitted lists both. */
   resolved?: boolean;
+  /** Public share route (T-4-10): drop internal-only rows. */
+  excludeInternalOnly?: boolean;
+  /** Public share route (T-4-10): keep only rows posted through a share link. */
+  viaShareOnly?: boolean;
+  /** Comments page filter: only internal-only rows (true) or only non-internal rows (false). */
+  internalOnly?: boolean;
 }
 
 function validateEntityType(entityType: string): asserts entityType is CommentEntityType {
@@ -98,6 +107,9 @@ export function listComments(projectId: string, filter: ListCommentsFilter = {})
   if (filter.resolved !== undefined) {
     conditions.push(filter.resolved ? 'resolved_at IS NOT NULL' : 'resolved_at IS NULL');
   }
+  if (filter.excludeInternalOnly) conditions.push('internal_only = 0');
+  if (filter.viaShareOnly) conditions.push('via_share = 1');
+  if (filter.internalOnly !== undefined) conditions.push(filter.internalOnly ? 'internal_only = 1' : 'internal_only = 0');
   const rows = getDb()
     .prepare(`SELECT * FROM comments WHERE ${conditions.join(' AND ')} ORDER BY created_at, id`)
     .all(...params) as CommentDbRow[];
@@ -134,9 +146,9 @@ export function createComment(projectId: string, input: CommentInput): CommentRo
   const id = newId();
   const now = nowIso();
   db.prepare(
-    `INSERT INTO comments (id, project_id, entity_type, entity_id, author_name, via_share, body, created_at, resolved_at, resolved_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)`
-  ).run(id, projectId, input.entity_type, entityId, authorName, input.via_share ? 1 : 0, body, now);
+    `INSERT INTO comments (id, project_id, entity_type, entity_id, author_name, via_share, internal_only, body, created_at, resolved_at, resolved_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)`
+  ).run(id, projectId, input.entity_type, entityId, authorName, input.via_share ? 1 : 0, input.internal_only ? 1 : 0, body, now);
   return getCommentOrThrow(projectId, id);
 }
 
@@ -160,7 +172,16 @@ export function setCommentResolved(projectId: string, id: string, resolved: bool
   return getCommentOrThrow(projectId, id);
 }
 
-/** Internal-only (D-49); there is no edit, only resolve and delete. */
+/** Internal-only toggle (T-4-10): flips whether the comment may ever appear on the shared view. */
+export function setCommentInternalOnly(projectId: string, id: string, internalOnly: boolean): CommentRow {
+  getCommentOrThrow(projectId, id);
+  getDb()
+    .prepare('UPDATE comments SET internal_only = ? WHERE id = ? AND project_id = ?')
+    .run(internalOnly ? 1 : 0, id, projectId);
+  return getCommentOrThrow(projectId, id);
+}
+
+/** Internal-only (D-49); there is no edit, only resolve, the internal-only toggle, and delete. */
 export function deleteComment(projectId: string, id: string): void {
   getCommentOrThrow(projectId, id);
   getDb().prepare('DELETE FROM comments WHERE id = ? AND project_id = ?').run(id, projectId);

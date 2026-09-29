@@ -55,6 +55,7 @@ import { TRACKING_DOCUMENT_VERSION } from '../../domain/document/trackingDocumen
 import { BadRequestError, FieldNotAllowedError, RateLimitedError, ShareReadOnlyError, ValidationError } from '../errors';
 import { handleRouteError } from './routeErrors';
 import * as CommentDAL from '../dal/comment.dal';
+import * as ProjectDAL from '../dal/project.dal';
 import type { CommentRow } from '../dal/comment.dal';
 
 const router = Router();
@@ -150,8 +151,16 @@ router.get('/:token/files/*', requireShare, async (req: Request, res: Response) 
  * the flag itself is not private, and the internal Comments page and event/use-case panels still
  * want to tell a share-posted comment apart from one posted internally.
  */
-function toPublicComment(comment: CommentRow): Omit<CommentRow, 'project_id' | 'resolved_by' | 'resolved_at'> {
-  const { project_id: _projectId, resolved_by: _resolvedBy, resolved_at: _resolvedAt, ...rest } = comment;
+function toPublicComment(
+  comment: CommentRow
+): Omit<CommentRow, 'project_id' | 'resolved_by' | 'resolved_at' | 'internal_only'> {
+  const {
+    project_id: _projectId,
+    resolved_by: _resolvedBy,
+    resolved_at: _resolvedAt,
+    internal_only: _internalOnly,
+    ...rest
+  } = comment;
   return rest;
 }
 
@@ -214,9 +223,14 @@ router.get('/:token/comments', requireShare, (req: Request, res: Response) => {
     if (entity_id !== undefined && typeof entity_id !== 'string') {
       throw new ValidationError('entity_id must be a single string value.', 'entity_id');
     }
+    // D-49 amendment 2 (T-4-10): enforced here, server-side. Internal-only rows never leave; a
+    // `via_share_only` link additionally hides comments posted internally.
+    const project = ProjectDAL.getProjectOrThrow(req.projectId!);
     const comments = CommentDAL.listComments(req.projectId!, {
       entity_type: entity_type as string | undefined,
       entity_id: entity_id as string | undefined,
+      excludeInternalOnly: true,
+      viaShareOnly: project.share_comments === 'via_share_only',
     });
     res.status(200).json(comments.map(toPublicComment));
   } catch (err) {

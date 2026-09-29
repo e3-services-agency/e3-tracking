@@ -259,6 +259,7 @@ const ALL_MIGRATION_FILES = [
   '0021_property_definitions.sql',
   '0022_use_case_template_source.sql',
   '0023_project_settings_json.sql',
+  '0024_comment_visibility.sql',
 ];
 
 describe('listMigrationFiles', () => {

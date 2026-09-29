@@ -6,6 +6,7 @@
  * `GET /api/projects/:id/files/*`.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { ClassBadge } from '@/src/components/ui/ClassBadge';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, Loader2, Upload, FileDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -243,7 +244,7 @@ export function Events() {
                 .map((ev) => (
                   <tr key={ev.id} onClick={() => { setSelectedId(ev.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
                     <td className="px-6 py-4 font-medium text-gray-900">{ev.name}</td>
-                    <td className="px-6 py-4 text-gray-500">{ev.class}</td>
+                    <td className="px-6 py-4"><ClassBadge eventClass={ev.class} /></td>
                     <td className="px-6 py-4 text-gray-500">{ev.status}</td>
                     <td className="px-6 py-4 text-gray-500" title={(ev.certified_reasons ?? []).join(', ') || undefined}>
                       {ev.certified ?? 'n/a'}

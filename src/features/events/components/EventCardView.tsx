@@ -28,6 +28,10 @@ import { CodegenTabs } from '@/src/features/shared/CodegenTabs';
 import { hasCodegen, type CodegenData } from '@/src/features/shared/codegenMethodTabs';
 import { TriggersBlock } from '@/src/features/shared/TriggersBlock';
 import { derivedMetricsText, eventCardVisibility } from '@/src/features/shared/viewHelpers';
+import { ClassBadge } from '@/src/components/ui/ClassBadge';
+import { displaySampleValue } from '@/src/domain/examples';
+import { groupFieldMap, mappingHeading } from '@/src/domain/document/standardMappings';
+import { SHARED_PROPERTY_HEAD, secondaryPropertyLines } from '@/src/domain/document/propertyColumns';
 
 export interface EventCardData {
   id: string;
@@ -219,7 +223,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
       <Section title="Overview">
         <dl className="grid grid-cols-2 gap-3 text-sm">
           {[
-            ['Class', card.class, true],
+            ['Class', <ClassBadge key="c" eventClass={card.class} />, true],
             ['Implementation method', card.implementation_method ?? 'client_web', true],
             ['dataLayer event', card.dl_event_name ?? '—', true],
             ['Status', card.status, true],
@@ -242,7 +246,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
           ]
             .filter(([, value, show]) => show && !(shared && value === '—'))
             .map(([label, value]) => (
-              <Field key={label as string} label={label as string} value={value as string} />
+              <Field key={label as string} label={label as string} value={value as React.ReactNode} />
             ))}
         </dl>
         {card.description && <p className="text-sm text-gray-700 mt-3">{card.description}</p>}
@@ -259,6 +263,20 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
 
       {(!shared || card.properties.length > 0) && (
       <Section title={`Properties (${card.properties.length})`}>
+        {shared ? (
+          <Table
+            head={[...SHARED_PROPERTY_HEAD]}
+            wideColumns={[4]}
+            rows={card.properties.map((p) => [
+              p.payload_key,
+              p.data_type,
+              p.kind ?? 'event',
+              p.required ? 'yes' : 'no',
+              <DescriptionCell key="d" description={p.description} lines={secondaryPropertyLines(p)} />,
+              <ExampleCell key="e" value={p.example} />,
+            ])}
+          />
+        ) : (
         <Table
           head={[
             'Payload key',
@@ -278,9 +296,10 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             p.allowed_values ? p.allowed_values.map((v) => v.value).join(', ') : '—',
             p.pii ? 'yes' : 'no',
             p.description ?? '—',
-            JSON.stringify(p.example ?? null),
+            <ExampleCell key="e" value={p.example} />,
           ])}
         />
+        )}
       </Section>
       )}
 
@@ -328,18 +347,9 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
       {(!shared || visible.standardEventMappings) && (
       <Section title={`Standard event mappings (${card.standard_event_mappings.length})`}>
         {card.standard_event_mappings.length === 0 && <p className="text-sm text-gray-500">Not mapped to a standard event.</p>}
-        {card.standard_event_mappings.length > 0 && (
-          <Table
-            head={['Standard event', 'Variant', 'Field map']}
-            rows={card.standard_event_mappings.map((m) => [
-              m.standard_event,
-              m.variant_name ?? 'all',
-              Object.entries(m.field_map)
-                .map(([field, propertyName]) => `${field} -> ${propertyName ?? '—'}`)
-                .join(', ') || '—',
-            ])}
-          />
-        )}
+        {card.standard_event_mappings.map((m, i) => (
+          <StandardMappingBlock key={i} mapping={m} eventName={card.name} />
+        ))}
       </Section>
       )}
 
@@ -439,6 +449,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             {shared ? (
               <Table
                 head={['Severity', 'Kind', 'Property / variant', 'Message']}
+                wideColumns={[3]}
                 rows={card.findings.map((f) => [
                   f.severity,
                   f.kind,
@@ -449,6 +460,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             ) : (
             <Table
               head={['Severity', 'Kind', 'Comparison', 'Rule', 'Property', 'Variant', 'Message', 'Expected', 'Actual', 'QA run', 'First seen', 'Last seen']}
+              wideColumns={[6]}
               rows={card.findings.map((f) => [
                 f.severity,
                 f.kind,
@@ -494,7 +506,7 @@ export function Section({ title, children }: { title: React.ReactNode; children:
   );
 }
 
-export function Field({ label, value }: { label: string; value: string }) {
+export function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
       <dt className="text-gray-500">{label}</dt>
@@ -503,14 +515,78 @@ export function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function Table({ head, rows }: { head: string[]; rows: (string | number)[][] }) {
+/** Readable example cell (T-4-19): scalars and scalar lists as text, objects pretty-printed in a code span. */
+export function ExampleCell({ value }: { value: unknown }) {
+  const d = displaySampleValue(value);
+  if (d.text === '') return <span className="text-gray-400">—</span>;
+  return <code className={`rounded bg-gray-50 px-1 font-mono text-[11px] break-words ${d.block ? 'block whitespace-pre-wrap' : ''}`}>{d.text}</code>;
+}
+
+/** Description with small secondary lines (shared view property table). */
+export function DescriptionCell({ description, lines }: { description: string | null; lines: string[] }) {
+  return (
+    <div>
+      <div>{description ?? '—'}</div>
+      {lines.map((l) => (
+        <div key={l} className="text-[11px] text-gray-500">
+          {l}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** One standard event mapping (T-4-19, item 3): heading, "n of m fields mapped", mapped fields first, unmapped muted. */
+export function StandardMappingBlock({
+  mapping,
+  eventName,
+}: {
+  mapping: { standard_event: string; variant_name: string | null; field_map: Record<string, string | null> };
+  eventName: string | null;
+}) {
+  const g = groupFieldMap(mapping.field_map);
+  return (
+    <div className="mb-3 rounded-md border p-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h4 className="text-sm font-semibold text-gray-800">{mappingHeading(mapping.standard_event, eventName, mapping.variant_name)}</h4>
+        <span className="text-xs text-gray-500">{g.summary}</span>
+      </div>
+      {g.total > 0 && (
+        <table className="mt-2 w-full text-left text-xs">
+          <thead className="border-b bg-gray-50">
+            <tr>
+              <th className="w-1/2 px-3 py-1.5 font-medium text-gray-500">Bloomreach field</th>
+              <th className="px-3 py-1.5 font-medium text-gray-500">Project property</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {g.mapped.map((m) => (
+              <tr key={m.field}>
+                <td className="px-3 py-1.5 text-gray-700 break-words">{m.field}</td>
+                <td className="px-3 py-1.5 text-gray-900 break-words">{m.property}</td>
+              </tr>
+            ))}
+            {g.unmapped.map((field) => (
+              <tr key={field}>
+                <td className="px-3 py-1.5 text-gray-700 break-words">{field}</td>
+                <td className="px-3 py-1.5 text-gray-400 italic">not mapped</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+export function Table({ head, rows, wideColumns = [] }: { head: string[]; rows: React.ReactNode[][]; wideColumns?: number[] }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-xs">
         <thead className="bg-gray-50 border-b">
           <tr>
-            {head.map((h) => (
-              <th key={h} className="px-3 py-2 font-medium text-gray-500">
+            {head.map((h, j) => (
+              <th key={h} className={`px-3 py-2 font-medium text-gray-500 ${wideColumns.includes(j) ? 'w-full' : ''}`}>
                 {h}
               </th>
             ))}
@@ -520,7 +596,7 @@ export function Table({ head, rows }: { head: string[]; rows: (string | number)[
           {rows.map((row, i) => (
             <tr key={i}>
               {row.map((cell, j) => (
-                <td key={j} className="px-3 py-2 text-gray-700 max-w-xs truncate" title={String(cell)}>
+                <td key={j} className="px-3 py-2 align-top text-gray-700 break-words">
                   {cell}
                 </td>
               ))}

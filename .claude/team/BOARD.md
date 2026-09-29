@@ -2910,3 +2910,6 @@ Re-review PASS (all eight items verified at file:line), QA re-check PASS (highli
 
 ### 2026-09-29 16:32 | supervisor | PLAN | T-4-18 shared view polish (user review of T-4-16 on the sandbox link)
 User: separate Events/Use cases expand-collapse toggles are redundant; clicking a nav group label should toggle it, not only the chevron; Properties, Use cases, Consents, Mapping, Findings need sticky headers like events for orientation. Starts now.
+
+### 2026-09-29 16:36 | supervisor | DECISION | D-63 recorded (user chose option A as the recommended practice); T-4-17 starts
+Namespaced `bloomreach` object with reset push on the unchanged site event; event / properties / item / items; E3-owned GTM template + brPayload helper compute the state lists; property kinds with derivation rules validated on Bloomreach payloads only; implementation method per event (client_web / server_api / sdk_auto); Web SDK new vs legacy; SDK events show default properties; bundle picker restored. Migration 0025 (D-53 amendment 6). Fixture: samples/datalayer-wishlist-legacy.js.

@@ -8,6 +8,15 @@ import { useClients } from '@/src/features/clients/hooks/useClients';
 const SPACE_BLUE = 'var(--e3-space-blue)';
 const E3_WHITE = 'var(--e3-white)';
 
+function slugify(value: string): string {
+  return value
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 export interface NewProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -18,6 +27,8 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
   const [clientId, setClientId] = useState('');
   const [name, setName] = useState('');
   const [key, setKey] = useState('');
+  const [keyTouched, setKeyTouched] = useState(false);
+  const [errors, setErrors] = useState<{ client?: string; name?: string; key?: string }>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -35,6 +46,8 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
       fetchClients();
       setName('');
       setKey('');
+      setKeyTouched(false);
+      setErrors({});
       setClientId('');
       setSubmitError(null);
       setCreatingClient(false);
@@ -70,7 +83,12 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
     e.preventDefault();
     const trimmedName = name.trim();
     const trimmedKey = key.trim();
-    if (!trimmedName || !trimmedKey || !clientId) return;
+    const nextErrors: { client?: string; name?: string; key?: string } = {};
+    if (!clientId) nextErrors.client = 'Choose a client';
+    if (!trimmedName) nextErrors.name = 'Name is required';
+    if (!trimmedKey) nextErrors.key = 'Key is required';
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
     setSubmitting(true);
     setSubmitError(null);
     const result = await createProject({ client_id: clientId, key: trimmedKey, name: trimmedName });
@@ -99,7 +117,7 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
             <X className="w-5 h-5" />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
           <div>
             <label htmlFor="project-client" className="block text-sm font-medium text-gray-700 mb-1">
               Client <span className="text-red-500">*</span>
@@ -110,7 +128,6 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
                 className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
-                required
               >
                 <option value="">Select a client…</option>
                 {clients.map((c) => (
@@ -118,6 +135,7 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                 ))}
               </select>
             )}
+            {errors.client && !creatingClient && <p className="text-xs text-red-600 mt-1">{errors.client}</p>}
             {!creatingClient && (
               <p className="text-xs text-gray-500 mt-1">
                 {clients.length === 0 ? 'No clients yet — ' : ''}
@@ -179,20 +197,27 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
             <label htmlFor="project-name" className="block text-sm font-medium text-gray-700 mb-1">
               Project Name <span className="text-red-500">*</span>
             </label>
-            <Input id="project-name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Acme EU" className="w-full font-sans" required autoFocus />
+            <Input id="project-name" type="text" value={name} onChange={(e) => {
+                const v = e.target.value;
+                setName(v);
+                if (!keyTouched) setKey(slugify(v));
+              }}
+              placeholder="e.g. Acme EU" className="w-full font-sans" autoFocus />
+            {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
           </div>
           <div>
             <label htmlFor="project-key" className="block text-sm font-medium text-gray-700 mb-1">
               Key (URL-safe) <span className="text-red-500">*</span>
             </label>
-            <Input id="project-key" type="text" value={key} onChange={(e) => setKey(e.target.value)} placeholder="acme-eu" className="w-full font-mono" required />
+            <Input id="project-key" type="text" value={key} onChange={(e) => { setKeyTouched(true); setKey(e.target.value); }} placeholder="acme-eu" className="w-full font-mono" />
+            {errors.key && <p className="text-xs text-red-600 mt-1">{errors.key}</p>}
           </div>
           {submitError && (
             <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-md">{submitError}</p>
           )}
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
-            <Button type="submit" disabled={!name.trim() || !key.trim() || !clientId || submitting} className="flex-1 bg-[var(--brand-primary)] text-white hover:opacity-90">
+            <Button type="submit" disabled={submitting} className="flex-1 bg-[var(--brand-primary)] text-white hover:opacity-90">
               {submitting ? 'Creating…' : 'Create Project'}
             </Button>
           </div>

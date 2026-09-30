@@ -8,7 +8,8 @@
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
-import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
+import { GlossaryTerm, FindingTerm } from '@/src/components/ui/GlossaryTerm';
+import { comparisonLabel, kindLabel } from '@/src/domain/findingsCatalog';
 import { Button } from '@/src/components/ui/Button';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { useStore } from '@/src/store';
@@ -231,14 +232,14 @@ export function Findings() {
             <label className="text-xs font-medium text-gray-500">Comparison</label>
             <select value={comparison} onChange={(e) => setComparison(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
-              {COMPARISON_IDS.map((c) => <option key={c} value={c}>{c}</option>)}
+              {COMPARISON_IDS.map((c) => <option key={c} value={c}>{comparisonLabel(c)}</option>)}
             </select>
           </div>
           <div className="space-y-1">
             <label className="text-xs font-medium text-gray-500">Kind</label>
             <select value={kind} onChange={(e) => setKind(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
-              {FINDING_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
+              {FINDING_KINDS.map((k) => <option key={k} value={k}>{kindLabel(k)}</option>)}
             </select>
           </div>
           <div className="space-y-1">
@@ -292,9 +293,9 @@ export function Findings() {
                       {f.severity}
                     </span>
                   </td>
-                  <td className="px-6 py-4 font-mono text-xs text-gray-700">{f.kind}</td>
+                  <td className="px-6 py-4 text-xs text-gray-700"><FindingTerm kind={f.kind} /></td>
                   <td className="px-6 py-4 text-gray-700 text-xs">{ruleNameOf(f) ?? '—'}</td>
-                  <td className="px-6 py-4 text-gray-500 text-xs">{f.comparison}</td>
+                  <td className="px-6 py-4 text-gray-500 text-xs"><FindingTerm comparison={f.comparison} /></td>
                   <td className="px-6 py-4 text-gray-900">
                     {f.event_id ? (
                       <button

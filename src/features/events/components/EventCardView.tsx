@@ -22,7 +22,7 @@
 import React from 'react';
 import { summarizeCertification } from '@/src/domain/certification';
 import { anyNameDiffersFromKey } from '@/src/domain/payloadKey';
-import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
+import { GlossaryTerm, FindingTerm } from '@/src/components/ui/GlossaryTerm';
 import { CodeBlock } from '@/src/components/ui/CodeBlock';
 import { CodegenTabs } from '@/src/features/shared/CodegenTabs';
 import { hasCodegen, type CodegenData } from '@/src/features/shared/codegenMethodTabs';
@@ -436,7 +436,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
           <Table
             head={['Comparison', 'Error', 'Warning', 'Info']}
             rows={Object.entries(card.quality.by_comparison).map(([comparison, counts]) => [
-              comparison,
+              <FindingTerm key={comparison} comparison={comparison} />,
               counts.error,
               counts.warning,
               counts.info,
@@ -452,7 +452,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
                 wideColumns={[3]}
                 rows={card.findings.map((f) => [
                   f.severity,
-                  f.kind,
+                  <FindingTerm key="k" kind={f.kind} />,
                   [f.property, f.variant].filter(Boolean).join(' / ') || '—',
                   f.message ?? '—',
                 ])}
@@ -463,8 +463,8 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
               wideColumns={[6]}
               rows={card.findings.map((f) => [
                 f.severity,
-                f.kind,
-                f.comparison,
+                <FindingTerm key="k" kind={f.kind} />,
+                <FindingTerm key="c" comparison={f.comparison} />,
                 f.rule ?? '—',
                 f.property ?? '—',
                 f.variant ?? '—',

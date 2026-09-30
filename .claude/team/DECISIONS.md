@@ -430,3 +430,5 @@ Decision:
 5. The shared page reuses the sidebar icon set on section headers and in its navigation.
 
 ## D-53 amendment 8 (2026-09-30): 0027 T-4-20 property category override.
+
+## D-64 amendment (2026-09-30): the override column is `properties.category_override` (properties.category already carries the Data Manager group name since 0001). D-53 amendment 8 refers to that column.

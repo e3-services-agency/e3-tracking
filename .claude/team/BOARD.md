@@ -3027,3 +3027,6 @@ F4 (info). POST data-manager-events/apply with a body lacking `payload` returns 
 
 ### 2026-09-29 19:38 | supervisor | MERGE | T-4-19 merged into agent-setup — DONE; nothing running
 Fix commit 41299d8 (stored examples rendered as-is, 0026 comment/tests, findings section shown when open or acknowledged > 0, EXPORTS.md + HTML TOC). QA PASS on 7 scenarios (Data Manager round trip deep-equal). Merged tree: tsc, lint clean, 1567 tests / 136 files. All post-exit tasks T-4-10, T-4-12..T-4-19 merged. Open, waiting on the user: T-4-11 (D-61 catalogs, D-62 sources, consent list), T-4-06 (samples/br-initiatives/), phase 5 (D-09).
+
+### 2026-09-30 14:42 | supervisor | DECISION | D-64 property categories, system customer formats, catalogs section, shared icons; T-4-20 starts
+User review of the shared Properties section: categorise like events (system customer, customer, SDK default, event by kind), system list email/phone/first_name/last_name/country/language/timezone with recommended formats (email, E.164, Title Case, ISO 3166-1 alpha-2, ISO 639-1/BCP 47, IANA), dedicated Catalogs section on the shared page, sidebar icons reused on the shared page. Migration 0027.

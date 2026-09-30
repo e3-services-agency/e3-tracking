@@ -418,3 +418,15 @@ Reference fixture: the client's add_to_wishlist push provided by the user on 202
 ## D-53 amendment 6 (2026-09-29): 0025 T-4-17 implementation method, dataLayer event name, property kind and derivation rule.
 
 ## D-53 amendment 7 (2026-09-29): 0026 T-4-19 example values cleanup.
+
+## D-64 Property categories, system customer properties with recommended formats, catalogs section, shared icons
+Date: 2026-09-30  Status: accepted (user)
+Context: The shared view lists properties flat while events are grouped; Bloomreach treats a few customer attributes specially (email, phone, name, country, language, timezone) and the SDK adds default properties to every event; catalog fields have no place on the client view; the shared page lacks the sidebar's icons.
+Decision:
+1. Every property gets a derived category (pure `classifyProperty` in the domain layer) with an optional override column `properties.category` (migration 0027, D-53 amendment 8): `system_customer` (customer scope and name in the reserved list), `customer`, `sdk_default` (event scope and name in the SDK default list; implies kind `context`), `event` (everything else, sub-grouped by the D-63 kind). Definitions inherit their property's category and are nested under it.
+2. Reserved system customer properties and recommended formats, stored as data_formats hints and validated by comparison 3 on observed values: email = valid email; phone = E.164; first_name/last_name = Title Case (recommendation, no finding); country = ISO 3166-1 alpha-2; language = ISO 639-1, region allowed as BCP 47; timezone = IANA name.
+3. The category is a field on the tracking document and CSV, a grouped section on the shared view (System customer / Customer / SDK default / Event with kind subheaders; same collapsible groups and sticky headers as events), a filter on the internal Properties page, grouping in the HTML export and the Markdown copy.
+4. The shared page gets a Catalogs section: one card per catalog with fields (type, lookup key, searchable) and the event properties that look up into it; grows market/language/version columns with D-61.
+5. The shared page reuses the sidebar icon set on section headers and in its navigation.
+
+## D-53 amendment 8 (2026-09-30): 0027 T-4-20 property category override.

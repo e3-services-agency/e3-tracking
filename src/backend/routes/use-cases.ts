@@ -80,9 +80,11 @@ router.post('/from-template/:templateId', (req: Request, res: Response) => {
             property_id: typeof m.property_id === 'string' && m.property_id.trim() ? (m.property_id as string) : null,
           }))
       : undefined;
+    const type = typeof body.type === 'string' && body.type.trim() ? body.type.trim() : undefined;
     let useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(req.projectId!, req.params.templateId, {
       code,
       mappings,
+      type,
     });
     const requirements = RequirementDAL.listRequirements(req.projectId!, useCase.id);
     const unresolved_count = requirements.filter((r) => r.status === 'gap').length;

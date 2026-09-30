@@ -14,8 +14,10 @@ import { EmptyState } from '@/src/components/ui/EmptyState';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
+import { suggestUseCaseType } from '@/src/domain/useCaseType';
 import {
   LIBRARY_CHANNELS,
+  USE_CASE_TYPES,
   LIBRARY_GOALS,
   LIBRARY_TIERS,
   LIBRARY_KPIS,
@@ -281,7 +283,11 @@ export function UseCaseTemplates() {
   };
 
   /** Fast path: no mapping step needed, or the user chose to skip it entirely. */
-  const instantiate = async (templateId: string, mappings?: { index: number; event_id: string; variant_id?: string; property_id?: string }[]) => {
+  const instantiate = async (
+    templateId: string,
+    mappings?: { index: number; event_id: string; variant_id?: string; property_id?: string }[],
+    type?: string
+  ) => {
     if (!activeProjectId) {
       setActionError('Select a project first.');
       return;
@@ -290,7 +296,7 @@ export function UseCaseTemplates() {
     setActionMessage(null);
     const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/use-cases/from-template/${templateId}`, {
       method: 'POST',
-      body: mappings ? JSON.stringify({ mappings }) : undefined,
+      body: mappings || type ? JSON.stringify({ ...(mappings ? { mappings } : {}), ...(type ? { type } : {}) }) : undefined,
     });
     const data = await parseJson(res);
     if (!res.ok) {
@@ -314,11 +320,8 @@ export function UseCaseTemplates() {
       method: 'POST',
     });
     const data = (await parseJson(res)) as ResolvePreviewResult;
-    if (!res.ok || !Array.isArray(data.unresolved) || data.unresolved.length === 0) {
-      await instantiate(templateId);
-      return;
-    }
-    setInstantiateDialogPreview(data);
+    // T-4-21: the dialog always opens (Type step); its mapping table only shows unresolved rows.
+    setInstantiateDialogPreview(res.ok && Array.isArray(data.unresolved) ? data : ({ ...data, unresolved: [] } as ResolvePreviewResult));
     setInstantiateDialogTemplateId(templateId);
   };
 
@@ -335,6 +338,7 @@ export function UseCaseTemplates() {
       const template = templates.find((t) => t.id === id);
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/use-cases/from-template/${id}`, {
         method: 'POST',
+        body: template ? JSON.stringify({ type: suggestUseCaseType({ type: template.type, name: template.name, channels: template.tags_json?.channels }) }) : undefined,
       });
       if (res.ok) {
         created += 1;
@@ -512,12 +516,16 @@ export function UseCaseTemplates() {
         {instantiateDialogTemplateId && activeProjectId && instantiateDialogPreview && (
           <InstantiateMappingDialog
             preview={instantiateDialogPreview}
+            defaultType={(() => {
+              const t = templates.find((x) => x.id === instantiateDialogTemplateId);
+              return t ? suggestUseCaseType({ type: t.type, name: t.name, channels: t.tags_json?.channels }) : 'marketing';
+            })()}
             onClose={() => {
               setInstantiateDialogTemplateId(null);
               setInstantiateDialogPreview(null);
             }}
-            onInstantiate={async (mappings) => {
-              await instantiate(instantiateDialogTemplateId, mappings);
+            onInstantiate={async (mappings, type) => {
+              await instantiate(instantiateDialogTemplateId, mappings, type);
               setInstantiateDialogTemplateId(null);
               setInstantiateDialogPreview(null);
             }}
@@ -540,13 +548,17 @@ export function UseCaseTemplates() {
  */
 function InstantiateMappingDialog({
   preview,
+  defaultType,
   onClose,
   onInstantiate,
 }: {
   preview: ResolvePreviewResult;
+  /** T-4-21: suggested type from the template's channels and name; the user can change it. */
+  defaultType: string;
   onClose: () => void;
-  onInstantiate: (mappings: { index: number; event_id: string; variant_id?: string; property_id?: string }[]) => Promise<void>;
+  onInstantiate: (mappings: { index: number; event_id: string; variant_id?: string; property_id?: string }[], type: string) => Promise<void>;
 }) {
+  const [useCaseType, setUseCaseType] = useState(defaultType);
   const [rowEventId, setRowEventId] = useState<Record<number, string>>({});
   const [rowVariantId, setRowVariantId] = useState<Record<number, string>>({});
   const [rowPropertyId, setRowPropertyId] = useState<Record<number, string>>({});
@@ -570,7 +582,7 @@ function InstantiateMappingDialog({
           variant_id: rowVariantId[item.index] || undefined,
           property_id: rowPropertyId[item.index] || undefined,
         }));
-      await onInstantiate(mappings);
+      await onInstantiate(mappings, useCaseType);
     } finally {
       setSubmitting(false);
     }
@@ -585,11 +597,34 @@ function InstantiateMappingDialog({
             Close
           </button>
         </div>
-        <p className="text-sm text-gray-500">
-          These requirements did not resolve against this project. Pick an event (and, where needed, a variant and
-          property) for each, or leave it as Skip to create it as a gap.
-        </p>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-gray-500" htmlFor="instantiate-type">
+            Type
+          </label>
+          <select
+            id="instantiate-type"
+            value={useCaseType}
+            onChange={(e) => setUseCaseType(e.target.value)}
+            className="block h-9 rounded-md border border-gray-300 bg-white px-2 text-sm"
+          >
+            {USE_CASE_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500">Marketing or transactional; suggested from the template's channels and name.</p>
+        </div>
+        {preview.unresolved.length === 0 ? (
+          <p className="text-sm text-gray-500">Every requirement resolves against this project.</p>
+        ) : (
+          <p className="text-sm text-gray-500">
+            These requirements did not resolve against this project. Pick an event (and, where needed, a variant and
+            property) for each, or leave it as Skip to create it as a gap.
+          </p>
+        )}
 
+        {preview.unresolved.length > 0 && (
         <table className="w-full text-left text-xs border rounded-md overflow-hidden">
             <thead className="bg-gray-50 border-b">
               <tr>
@@ -671,6 +706,7 @@ function InstantiateMappingDialog({
               })}
             </tbody>
           </table>
+        )}
 
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={onClose} disabled={submitting}>

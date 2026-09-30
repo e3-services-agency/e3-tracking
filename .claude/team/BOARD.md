@@ -3033,3 +3033,6 @@ User review of the shared Properties section: categorise like events (system cus
 
 ### 2026-09-30 14:51 | supervisor | PLAN | T-4-21 shared view sections and findings explanations (user review round 4)
 User: use cases, consents, mapping and findings deserve the events treatment (nav groups with leaves, sticky headers); use cases split marketing/transactional; findings summary still humble and unexplained (what is definition_vs_mapping); the arithmetic and other issue categories from the rules layer are not visible. Plan: use case category derived from template tags with override, consents by channel, mapping and findings leaves, findings-by-kind-family table with labels/explanations/next steps, glossary tooltips on the shared page. Starts after T-4-20 merges. Pending user confirmation of the use case categories and the consent grouping (non-blocking).
+
+### 2026-09-30 14:54 | supervisor | CORRECTION | T-4-21 uses the existing use_cases.type
+Supervisor error corrected: use cases already carry type marketing | transactional (USE_CASE_TYPES, CONTEXT.md 3.1/3.2). T-4-21 groups by it, no new category field; the add-to-project dialog gains a type step (pnp templates all import as marketing). Consent grouping by channel still pending the user's confirmation (non-blocking).

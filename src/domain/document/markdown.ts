@@ -7,8 +7,8 @@
 import { describeCertificationReason } from '../certification';
 import type { EventCard, TrackingDocumentCustomerProperty, TrackingDocumentUseCase } from './trackingDocument';
 import type { PropertyKind } from '../enums';
-import { groupPropertiesByCategory } from '../propertyCategory';
-import { displaySampleValue } from '../examples';
+import { groupPropertiesByCategory, formatDisplayName } from '../propertyCategory';
+import { displaySampleValue, formatExampleValues } from '../examples';
 import { groupFieldMap, mappingHeading } from './standardMappings';
 
 /** Readable example for a table cell: scalars as text, objects as a compact code span (never escaped-JSON noise). */
@@ -87,7 +87,7 @@ export function eventCardToMarkdown(card: EventCard): string {
           p.name,
           p.definition_name ?? '',
           p.data_type,
-          p.data_formats.join(', '),
+          p.data_formats.map(formatDisplayName).join(', '),
           p.required ? 'yes' : 'no',
           p.role,
           p.kind ?? '',
@@ -229,8 +229,8 @@ export function propertiesToMarkdown(
           d.name,
           d.description ?? '',
           d.allowed_values ? d.allowed_values.map((v) => v.value).join(', ') : '',
-          d.formats.join(', '),
-          exampleCell(d.example_values),
+          d.formats.map(formatDisplayName).join(', '),
+          formatExampleValues(d.example_values),
         ])
       )
     );

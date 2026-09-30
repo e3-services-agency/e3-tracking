@@ -33,6 +33,7 @@ import {
   type DataManagerCustomersModel,
 } from '../../domain/import/dataManagerCustomers';
 import { toAppType, toDataManagerType, formatsCompatibleWithType } from '../../domain/bloomreach/dataManagerTypes';
+import { recommendedFormatsFor } from '../../domain/propertyCategory';
 import type { PropertyDataFormat } from '../../domain/enums';
 import { payloadHash } from '../../domain/diff/hash';
 import type { DiffItem, DiffItemChange } from '../../domain/diff/types';
@@ -138,7 +139,12 @@ function buildPlan(projectId: string, model: DataManagerCustomersModel, rawJson:
         entity_key: prop.property,
         changes: [],
         default_selected: true,
-        note: `Create customer property "${prop.property}" (${typeLabel}).`,
+        note:
+          `Create customer property "${prop.property}" (${typeLabel}).` +
+          // D-64: createProperty attaches the recommended format when a system customer property has none.
+          (appType.data_formats.length === 0 && recommendedFormatsFor({ scope: 'customer', name: prop.property }).length > 0
+            ? ` Recommended format ${recommendedFormatsFor({ scope: 'customer', name: prop.property }).join(', ')} will be attached.`
+            : ''),
       });
       steps.push({
         id,

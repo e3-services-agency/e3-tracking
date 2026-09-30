@@ -43,7 +43,7 @@ import { CopyLinkButton } from '@/src/features/shared/CopyLinkButton';
 import { CopyMarkdownButton } from '@/src/components/ui/CopyMarkdownButton';
 import { SHARED_SECTION_ICONS } from '@/src/components/layout/navIcons';
 import { propertiesToMarkdown } from '@/src/domain/document/markdown';
-import { propertyGroupId, propertyKindGroupId, PROPERTY_CATEGORY_LABELS } from '@/src/domain/propertyCategory';
+import { propertyGroupId, propertyKindGroupId, PROPERTY_CATEGORY_LABELS, formatDisplayName } from '@/src/domain/propertyCategory';
 import { SharedNav } from '@/src/features/shared/SharedNav';
 import { useActiveSection } from '@/src/features/shared/useActiveSection';
 import type {
@@ -190,7 +190,7 @@ function PropertyRow({ property, expanded, onToggle }: { property: PropertyItem;
       {expanded && (
         <div className="border-t px-4 py-3 space-y-2">
           {property.description && <p className="text-sm text-gray-700">{property.description}</p>}
-          {property.data_formats.length > 0 && <p className="text-xs text-gray-500">Formats: {property.data_formats.join(', ')}</p>}
+          {property.data_formats.length > 0 && <p className="text-xs text-gray-500">Formats: {property.data_formats.map(formatDisplayName).join(', ')}</p>}
           {usedIn.length > 0 && <p className="text-xs text-gray-500">Used in: {usedIn.join(', ')}</p>}
           <SimpleTable
             head={['Definition', 'Description', 'Allowed values', 'Formats', 'Example']}
@@ -198,7 +198,7 @@ function PropertyRow({ property, expanded, onToggle }: { property: PropertyItem;
               d.name,
               d.description ?? '—',
               d.allowed_values ? d.allowed_values.map((v) => v.value).join(', ') : '—',
-              d.formats.join(', ') || '—',
+              d.formats.map(formatDisplayName).join(', ') || '—',
               <ExampleCell key="ex" value={formatExampleValues(d.example_values)} />,
             ])}
           />
@@ -619,7 +619,7 @@ export function SharedProject({ token }: { token: string }) {
                     </div>
                     {group.subgroups.length > 0
                       ? group.subgroups.map((sub) => (
-                          <div key={sub.kind} id={propertyKindGroupId(sub.kind)} style={marginTop('group')} className="space-y-2">
+                          <div key={sub.kind} id={propertyKindGroupId(sub.kind)} style={marginTop('event')} className="space-y-2">
                             <h4 className="text-xs font-semibold uppercase text-gray-500">
                               {sub.label} ({sub.items.length})
                             </h4>

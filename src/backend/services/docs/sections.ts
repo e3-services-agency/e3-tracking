@@ -10,7 +10,7 @@ import { escapeHtml } from '../htmlEscape';
 import { formatExampleValues } from '../../../domain/examples';
 import { groupFieldMap, mappingHeading } from '../../../domain/document/standardMappings';
 import type { FindingsSummaryView } from '../../../domain/document/findingsSummary';
-import { groupPropertiesByCategory, propertyGroupId, propertyKindGroupId, type PropertyCategory } from '../../../domain/propertyCategory';
+import { formatDisplayName, groupPropertiesByCategory, propertyGroupId, propertyKindGroupId, type PropertyCategory } from '../../../domain/propertyCategory';
 import type { PropertyKind } from '../../../domain/enums';
 
 export { escapeHtml };
@@ -358,7 +358,7 @@ export function renderPropertiesSection(properties: PropertyForDocs[]): string {
             ${cell(definition.name)}
             ${cell(definition.description)}
             ${cell(definition.allowed_values ? definition.allowed_values.map((v) => v.value).join(', ') : null)}
-            ${cell(definition.formats && definition.formats.length > 0 ? definition.formats.join(', ') : null)}
+            ${cell(definition.formats && definition.formats.length > 0 ? definition.formats.map(formatDisplayName).join(', ') : null)}
             ${cell(definition.example_values !== undefined && definition.example_values !== null ? formatExampleValues(definition.example_values) : null)}
           </tr>`
       )

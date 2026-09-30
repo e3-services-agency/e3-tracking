@@ -133,3 +133,8 @@ export function groupPropertiesByCategory<T extends PropertyGroupItem>(items: re
   }
   return groups;
 }
+
+/** Display text for a data format id: `title_case` is a recommendation, not a rule (D-64). */
+export function formatDisplayName(format: string): string {
+  return format === 'title_case' ? 'Title Case (recommended)' : format;
+}

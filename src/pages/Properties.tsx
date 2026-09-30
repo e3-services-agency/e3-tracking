@@ -34,6 +34,7 @@ import {
   PROPERTY_CATEGORIES,
   PROPERTY_CATEGORY_LABELS,
   classifyProperty,
+  formatDisplayName,
   isPropertyCategory,
   type PropertyCategory,
 } from '@/src/domain/propertyCategory';
@@ -225,8 +226,12 @@ export function Properties() {
               })}
               {visibleProperties.length === 0 && (
                 <EmptyState
-                  colSpan={6}
-                  message="No properties yet. Import a data mapping from the Import page, or add one by hand."
+                  colSpan={7}
+                  message={
+                    properties.length > 0 || scopeFilter || categoryFilter
+                      ? 'No properties match the filter.'
+                      : 'No properties yet. Import a data mapping from the Import page, or add one by hand.'
+                  }
                   actionLabel="Add Property"
                   onAction={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); setOrderFrozen(true); }}
                 />
@@ -415,7 +420,7 @@ function PropertyEditor({
           {PROPERTY_DATA_FORMATS.map((fmt) => (
             <label key={fmt} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1">
               <input type="checkbox" checked={dataFormats.includes(fmt)} onChange={() => toggleFormat(fmt)} />
-              {fmt}
+              {formatDisplayName(fmt)}
             </label>
           ))}
         </div>
@@ -719,7 +724,7 @@ function DefinitionEditor({
           {PROPERTY_DATA_FORMATS.map((fmt) => (
             <label key={fmt} className="flex items-center gap-1 text-xs bg-white border rounded px-2 py-1">
               <input type="checkbox" checked={formats.includes(fmt)} onChange={() => toggleFormat(fmt)} />
-              {fmt}
+              {formatDisplayName(fmt)}
             </label>
           ))}
         </div>

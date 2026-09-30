@@ -188,6 +188,7 @@ Detailed acceptance criteria per task live in `reports/PLAN-PHASE2-2026-09-25.md
 - Flaky test: full vitest runs on agent-setup occasionally report 1 failure (1460/1461, 1456/1457) with a clean re-run; identify the test (run with the default reporter until it reproduces) and fix the isolation issue.
 - (closed, T-4-13 QA) T-4-15 modal browser check PASS on the merged tree.
 - Sandbox data (for T-4-11): UC-01..03 in the bundled backup have no narrative and blank requirement statuses; the generator should regenerate narratives and run coverage so the sandbox use cases look finished.
+- From T-4-20 QA: the property editor has no control to map an event property to a catalog field (only the API PATCH mapped_catalog_id / mapped_catalog_field_id works); add the picker with T-4-11 / D-61 catalogs.
 - From T-4-19 QA: an array property with an example prints a scalar in the expected payload ("product_ids": "2023" instead of ["2023"]); `POST .../import/data-manager-events/apply` with a body missing `payload` returns 500 INTERNAL_ERROR instead of 400; descriptions imported quoted from the Data Manager stay quoted ("Loyal").
 - From T-4-17 re-review: name-based inference is case-sensitive in TS but SQL LIKE is not (PRODUCT_IDS backfilled by 0025, not inferred at create); docs/TRACKING-DOCUMENT.md must say datalayer_path is null for non-client_web events.
 - From T-4-17 QA: no UI to create a property bundle (Properties page only assigns to existing bundles); the Add bundle picker is missing from the event create form.

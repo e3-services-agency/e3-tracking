@@ -48,7 +48,8 @@ There is only one version today (`1`); `?version=1` and the unqualified request 
   generated_at: string,      // ISO timestamp, current time on every fetch (not cached)
   project: { key, name, client, bloomreach_project_url, money_tolerance: { percent, floor } },
   events: EventCard[],       // custom events first, then sdk/platform events
-  properties: [...],         // customer-scope properties, each with definitions[] (D-58)
+  properties: [...],         // customer-scope properties, each with category and definitions[] (D-58, D-64)
+  event_properties: [...],   // event-scope properties with category and kind (D-64)
   identity_rules: [...],
   consent_categories: [...],
   catalogs: [...],
@@ -97,9 +98,13 @@ formats ticked at once, e.g. `email` and `uri`, checks every one of them per eve
 from `property_definitions`. A property with one definition (the common case, named `general`) has
 a one-element array; a property whose event links diverge (different events, different named
 definitions) lists every one of them here, independent of which event card is looking at it.
-Event-scope properties do not get their own top-level list in this document — their definitions
-show up per event, inline on `EventCard.properties[]` (`definition_id`/`definition_name`, plus the
+Event-scope properties are listed in the additive top-level `event_properties[]` (D-64, below); their definitions
+also show up per event, inline on `EventCard.properties[]` (`definition_id`/`definition_name`, plus the
 allowed values/formats/example/description already resolved from that link's own definition).
+
+### Property categories, `event_properties[]` and catalogs (D-64, T-4-20)
+
+Additive (no version bump). Every entry of `properties[]` gains `category` (`system_customer` | `customer` | `sdk_default` | `event`, the derived value or the `properties.category_override` when set). A new top-level `event_properties[]` lists the event-scope properties (`property_id`, `category`, `kind`, `name`, `data_type`, `data_formats`, `description`, `used_in_events[]` (event names, sorted), `definitions[]`); `properties[]` stays customer-scope only, so existing consumers keep working. `catalogs[]` entries gain `id`, `description`, `source_system`, `sync_method`, `update_frequency`, `catalog_type`, `purpose`, `fields[]` (`name`, `description`, `data_type`, `is_lookup_key`, `is_searchable`, `is_required`) and `mapped_properties[]` (`property_name`, `scope`, `field_name`, `mapping_type`). A catalog's `owner`, `client_name` and `priority` are never included, so the public projection needs no extra stripping for them.
 
 ### Top-level `use_cases[]` fields
 

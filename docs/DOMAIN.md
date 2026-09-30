@@ -94,6 +94,32 @@ Every property gets one `general` definition seeded from its own fields at creat
 
 The migration backfill (and, on import, the Data Manager events planner's `definition_create`/`definition_update` preview items) names an override definition after the first event it was linked to; when that name would collide with the property's own `general` definition (an event literally named `general`, or a definition already named that), it is renamed `"<event> (event)"`, with a numeric `-2`/`-3` suffix on any further collision.
 
+## Property categories and system customer properties (D-64, T-4-20, phase 4)
+
+Every property has a **category**, derived at read time by the pure `classifyProperty` (`src/domain/propertyCategory.ts`, the one definition module for `PROPERTY_CATEGORIES`):
+
+| Category | Rule |
+| --- | --- |
+| `system_customer` | customer scope and the name is one of the reserved list below |
+| `customer` | any other customer-scope property |
+| `sdk_default` | event scope and the name is one of `os`, `browser`, `device`, `location` (`SDK_DEFAULT_PROPERTIES`); such a property is kind `context` unless a kind was set explicitly |
+| `event` | everything else; on the shared view, the Markdown copy and the HTML export it is sub-grouped by the D-63 kind (event, item, state list, context) |
+
+`properties.category_override` (migration `0027`, nullable, CHECK on the four values) is a manual override that wins over the derivation; there is no backfill. It is **not** `properties.category`, which has existed since `0001` and holds the Bloomreach Data Manager group name (free text, round-tripped by the Data Manager customers import and export). The Properties page has a Category column, a category filter and a "Property category" select ("Automatic" or one of the four). A definition inherits its property's category and is nested under it.
+
+Reserved system customer properties and the format hint each gets when it is created or imported with no formats (stored in `data_formats`, so comparison 3 checks observed values against it like any other format):
+
+| Property | Recommended format | Format id | Checked |
+| --- | --- | --- | --- |
+| `email` | a valid email address | `email` | yes |
+| `phone` | E.164 (`+421900123456`) | `e164_phone` | yes |
+| `first_name`, `last_name` | Title Case | `title_case` | no, recommendation only: shown, never a finding |
+| `country` | ISO 3166-1 alpha-2, upper case (`SK`) | `country_code` | yes |
+| `language` | ISO 639-1, lower case; a BCP 47 region is allowed (`en`, `pt-BR`) | `language_tag` | yes |
+| `timezone` | IANA time zone name (`Europe/Bratislava`) | `iana_timezone` | yes |
+
+`language_tag`, `iana_timezone` and `title_case` were added to the data formats. Comparison 3 reads observed *event* payloads (there is no observation channel for customer attribute values), so the checks run on an event property that carries one of these formats, and on the `item_schema` fields that name them. Sources for the reserved names: `.claude/team/samples/br-docs/data-and-assets/data-structure/customers/customers.md` (`first_name`, `last_name`, `email`) and `.claude/team/samples/br-docs/reference/bloomreach-identity-reference.md` (`email`, `phone` E.164 with plus, `language`, `first_name`, `last_name`); the SDK defaults come from `.../data-structure/custom-events.md`. The docs do not list `country` or `timezone` as reserved; they are here because D-64 names them.
+
 ## Share link and the public documentation view (D-48, D-50, phase 4)
 
 A project has at most one share link (`share_token`, `share_access: read | comment`,

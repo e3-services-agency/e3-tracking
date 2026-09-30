@@ -425,13 +425,16 @@ export function SharedProject({ token }: { token: string }) {
   const setEvents = (ids: string[], expanded: boolean) => setOpenEvents((prev) => setExpanded(prev, ids, expanded));
   const setUseCases = (ids: string[], expanded: boolean) => setOpenUseCases((prev) => setExpanded(prev, ids, expanded));
   // One global pair (toolbar) covers every collapsible row; the section headers keep a local pair.
+  const allPropertyIds = [...doc.properties, ...(doc.event_properties ?? [])].map((p) => p.property_id);
   const expandAll = () => {
     setEvents(allEventIds, true);
     setUseCases(allUseCaseIds, true);
+    setOpenProperties((prev) => setExpanded(prev, allPropertyIds, true));
   };
   const collapseAll = () => {
     setEvents(allEventIds, false);
     setUseCases(allUseCaseIds, false);
+    setOpenProperties((prev) => setExpanded(prev, allPropertyIds, false));
   };
   const linkClass = 'text-[var(--color-info)] hover:underline';
 

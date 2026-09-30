@@ -4,6 +4,7 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { SHARED_SECTION_ICONS } from '@/src/components/layout/navIcons';
 import { flattenNav, scrollTopToReveal, toggleInSet, type NavItem } from './viewHelpers';
 
 export function SharedNav({
@@ -37,6 +38,9 @@ export function SharedNav({
     const hasChildren = !!item.children && item.children.length > 0;
     const filtering = query.trim() !== '';
     const isOpen = filtering || !collapsed.has(item.id);
+    // D-64: the sidebar's icon on each top-level section entry.
+    const Icon = depth === 0 ? SHARED_SECTION_ICONS[item.id] : undefined;
+    const icon = Icon ? <Icon size={14} className="mr-1.5 shrink-0 text-gray-500" aria-hidden="true" /> : null;
     return (
       <li key={item.id}>
         <div className="flex items-center" style={{ paddingLeft: `${depth * 0.75}rem` }}>
@@ -62,10 +66,11 @@ export function SharedNav({
               type="button"
               onClick={() => setCollapsed((prev) => toggleInSet(prev, item.id))}
               aria-expanded={isOpen}
-              className="block min-w-0 flex-1 truncate rounded py-1 pl-1 pr-2 text-left text-sm font-medium text-gray-800 hover:bg-gray-50"
+              className="flex min-w-0 flex-1 items-center rounded py-1 pl-1 pr-2 text-left text-sm font-medium text-gray-800 hover:bg-gray-50"
               title={item.label}
             >
-              {item.label}
+              {icon}
+              <span className="truncate">{item.label}</span>
             </button>
           ) : (
             <a
@@ -76,7 +81,7 @@ export function SharedNav({
                 onNavigate(item.id);
               }}
               aria-current={item.id === activeId ? 'location' : undefined}
-              className={`block min-w-0 flex-1 truncate rounded py-1 pl-1 pr-2 text-sm ${
+              className={`flex min-w-0 flex-1 items-center rounded py-1 pl-1 pr-2 text-sm ${
                 item.id === activeId
                   ? 'bg-gray-100 font-semibold text-gray-900 border-l-2 border-[var(--color-info)]'
                   : depth === 0
@@ -85,7 +90,8 @@ export function SharedNav({
               }`}
               title={item.label}
             >
-              {item.label}
+              {icon}
+              <span className="truncate">{item.label}</span>
             </a>
           )}
         </div>

@@ -6,6 +6,7 @@ import {
   renderIdentityCodegenSection,
   renderNarrativeHtml,
   renderPropertiesSection,
+  renderCatalogsSection,
   renderRequirementsMatrixSection,
   renderStandardEventMappingsSection,
   renderFindingsSummarySection,
@@ -246,7 +247,7 @@ describe('renderConsentCategoriesSection', () => {
 describe('renderPropertiesSection (T-4-00 review follow-up / T-4-03)', () => {
   it('renders a placeholder when there are no customer properties', () => {
     const html = renderPropertiesSection([]);
-    expect(html).toContain('No customer properties defined.');
+    expect(html).toContain('No properties defined.');
     expect(html).toContain('id="properties"');
   });
 
@@ -549,5 +550,49 @@ describe('renderRequirementsMatrixSection', () => {
     expect(html).toMatch(/<td>O<\/td>/);
     // uc2 has no requirement on "email": its cell renders as an em dash, not "undefined".
     expect(html).not.toContain('undefined');
+  });
+});
+
+// D-64 (T-4-20): grouped Properties section and the Catalogs section.
+describe('renderPropertiesSection grouped by category (D-64)', () => {
+  const def = [{ name: 'general', formats: [] as string[], allowed_values: null, example_values: null }];
+  it('groups System customer / Customer / SDK default / Event with kind subgroups, in that order', () => {
+    const html = renderPropertiesSection([
+      { name: 'product_id', category: 'event', kind: 'event', data_type: 'string', definitions: def },
+      { name: 'items', category: 'event', kind: 'item', data_type: 'array', definitions: def },
+      { name: 'browser', category: 'sdk_default', kind: 'context', data_type: 'string', definitions: def },
+      { name: 'loyalty', category: 'customer', data_type: 'string', definitions: def },
+      { name: 'email', category: 'system_customer', data_type: 'string', definitions: def },
+    ]);
+    const order = ['System customer (1)', 'Customer (1)', 'SDK default (1)', 'Event (2)'].map((h) => html.indexOf(h));
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(html).toContain('id="properties-system_customer"');
+    expect(html).toContain('id="properties-event-item"');
+    expect(html).toContain('Item (1)');
+    expect(html.indexOf('email')).toBeLessThan(html.indexOf('loyalty'));
+  });
+});
+
+describe('renderCatalogsSection (D-64)', () => {
+  it('renders nothing for no catalogs', () => {
+    expect(renderCatalogsSection([])).toBe('');
+  });
+  it('renders fields and mapped properties, escaped', () => {
+    const html = renderCatalogsSection([
+      {
+        name: 'products <x>',
+        mapping_role: 'main',
+        source_system: 'PIM',
+        fields: [{ name: 'item_id', data_type: 'string', is_lookup_key: true, is_searchable: false }],
+        mapped_properties: [{ property_name: 'product_id', scope: 'event', field_name: 'item_id' }],
+      },
+    ]);
+    expect(html).toContain('id="catalogs"');
+    expect(html).toContain('products &lt;x&gt;');
+    expect(html).toContain('mapping role: main');
+    expect(html).toContain('item_id');
+    expect(html).toContain('Properties that look up into this catalog');
+    expect(html).not.toContain('owner');
   });
 });

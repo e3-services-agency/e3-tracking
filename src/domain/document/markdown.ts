@@ -5,7 +5,9 @@
  * JSON. No DOM, server or database import, so the MCP server can reuse these later.
  */
 import { describeCertificationReason } from '../certification';
-import type { EventCard, TrackingDocumentUseCase } from './trackingDocument';
+import type { EventCard, TrackingDocumentCustomerProperty, TrackingDocumentUseCase } from './trackingDocument';
+import type { PropertyKind } from '../enums';
+import { groupPropertiesByCategory } from '../propertyCategory';
 import { displaySampleValue } from '../examples';
 import { groupFieldMap, mappingHeading } from './standardMappings';
 
@@ -201,6 +203,48 @@ export function useCaseToMarkdown(useCase: TrackingDocumentUseCase): string {
     out.push('No requirements.');
   } else {
     out.push(table(['#', 'Target', 'Level', 'Status'], useCase.requirements.map((r, i) => [i + 1, r.target_label, r.level, r.status ?? ''])));
+  }
+  return out.join('\n\n') + '\n';
+}
+
+/**
+ * Project properties as Markdown, grouped like the shared view and the HTML export (D-64, T-4-20):
+ * System customer / Customer / SDK default / Event (Event split by kind), each property with its
+ * named definitions nested under it.
+ */
+export function propertiesToMarkdown(
+  properties: Array<Pick<TrackingDocumentCustomerProperty, 'category' | 'name' | 'data_type' | 'definitions'> & { kind?: PropertyKind | null }>
+): string {
+  const out: string[] = ['# Properties'];
+  if (properties.length === 0) {
+    out.push('No properties defined.');
+    return out.join('\n\n') + '\n';
+  }
+  const renderOne = (p: (typeof properties)[number], level: string): void => {
+    out.push(`${level} ${p.name} (${p.data_type})`);
+    out.push(
+      table(
+        ['Definition', 'Description', 'Allowed values', 'Formats', 'Example'],
+        p.definitions.map((d) => [
+          d.name,
+          d.description ?? '',
+          d.allowed_values ? d.allowed_values.map((v) => v.value).join(', ') : '',
+          d.formats.join(', '),
+          exampleCell(d.example_values),
+        ])
+      )
+    );
+  };
+  for (const group of groupPropertiesByCategory(properties)) {
+    out.push(`## ${group.label} (${group.items.length})`);
+    if (group.subgroups.length > 0) {
+      for (const sub of group.subgroups) {
+        out.push(`### ${sub.label} (${sub.items.length})`);
+        for (const p of sub.items) renderOne(p, '####');
+      }
+    } else {
+      for (const p of group.items) renderOne(p, '###');
+    }
   }
   return out.join('\n\n') + '\n';
 }

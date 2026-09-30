@@ -262,6 +262,7 @@ const ALL_MIGRATION_FILES = [
   '0024_comment_visibility.sql',
   '0025_implementation_contract.sql',
   '0026_example_values_cleanup.sql',
+  '0027_property_category.sql',
 ];
 
 describe('listMigrationFiles', () => {

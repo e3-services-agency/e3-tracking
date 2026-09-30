@@ -59,6 +59,8 @@ export const CSV_ENTITIES = {
       'scope',
       'name',
       'category',
+      'property_category',
+      'category_override',
       'description',
       'data_type',
       'data_formats_json',

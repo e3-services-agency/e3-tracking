@@ -53,6 +53,24 @@ export function isE164Phone(value: unknown): boolean {
   return digits.length >= 8 && digits.length <= 15;
 }
 
+/** `iana_timezone` (D-64): a name the runtime's IANA database accepts (`Europe/Bratislava`, `UTC`). */
+export function isIanaTimezone(value: string): boolean {
+  if (!/^[A-Za-z][A-Za-z0-9_+-]*(\/[A-Za-z0-9_+-]+)*$/.test(value)) return false;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Formats shown as a recommendation but never checked (D-64): no `FORMAT_CHECKS` entry, so they can
+ * never produce a `format_violation`. `title_case` (first_name/last_name) is the one today; real
+ * names (`McDonald`, `van der Berg`) would make a check noisy.
+ */
+export const RECOMMENDATION_ONLY_FORMATS: ReadonlyArray<string> = ['title_case'];
+
 /**
  * Format checks for `format_violation` (event-level, string values only), against
  * `src/domain/enums.ts`'s `PROPERTY_DATA_FORMATS`: `email`, `uri`, `uuid`, `iso8601_date`,
@@ -83,6 +101,8 @@ export const FORMAT_CHECKS: Record<string, (value: string) => boolean> = {
   country_code: (v) => /^[A-Z]{2}$/.test(v),
   language_code: (v) => /^[a-z]{2}$/.test(v),
   e164_phone: (v) => isE164Phone(v),
+  language_tag: (v) => /^[a-z]{2}(-[A-Z]{2})?$/.test(v),
+  iana_timezone: (v) => isIanaTimezone(v),
 };
 
 /** Minimal per-`data_type` shape check for one item-schema field value (T-2-06, moved here T-2-05). */

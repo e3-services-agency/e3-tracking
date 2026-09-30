@@ -10,6 +10,8 @@ import { escapeHtml } from '../htmlEscape';
 import { formatExampleValues } from '../../../domain/examples';
 import { groupFieldMap, mappingHeading } from '../../../domain/document/standardMappings';
 import type { FindingsSummaryView } from '../../../domain/document/findingsSummary';
+import { groupPropertiesByCategory, propertyGroupId, propertyKindGroupId, type PropertyCategory } from '../../../domain/propertyCategory';
+import type { PropertyKind } from '../../../domain/enums';
 
 export { escapeHtml };
 
@@ -213,6 +215,10 @@ export interface PropertyDefinitionForDocs {
  * table), matching `TrackingDocument.properties[].definitions[]`. */
 export interface PropertyForDocs {
   name: string;
+  /** D-64 (T-4-20): group in the Properties section; absent = `customer`. */
+  category?: PropertyCategory;
+  /** D-63 kind, sub-groups the `event` category; absent = `event`. */
+  kind?: PropertyKind;
   data_type: string;
   pii?: boolean;
   description?: string | null;
@@ -343,23 +349,22 @@ export function renderConsentCategoriesSection(categories: ConsentCategoryForDoc
  */
 export function renderPropertiesSection(properties: PropertyForDocs[]): string {
   if (properties.length === 0) {
-    return '<section id="properties"><h2>Properties</h2><p>No customer properties defined.</p></section>';
+    return '<section id="properties"><h2>Properties</h2><p>No properties defined.</p></section>';
   }
-  const blocks = properties
-    .map((property) => {
-      const rows = property.definitions
-        .map(
-          (definition) => `<tr>
+  const renderBlock = (property: PropertyForDocs): string => {
+    const rows = property.definitions
+      .map(
+        (definition) => `<tr>
             ${cell(definition.name)}
             ${cell(definition.description)}
             ${cell(definition.allowed_values ? definition.allowed_values.map((v) => v.value).join(', ') : null)}
             ${cell(definition.formats && definition.formats.length > 0 ? definition.formats.join(', ') : null)}
             ${cell(definition.example_values !== undefined && definition.example_values !== null ? formatExampleValues(definition.example_values) : null)}
           </tr>`
-        )
-        .join('\n');
-      return `<div class="property-block">
-        <h3>${escapeHtml(property.name)} <small>(${escapeHtml(property.data_type)}${property.pii ? ', PII' : ''})</small></h3>
+      )
+      .join('\n');
+    return `<div class="property-block">
+        <h4>${escapeHtml(property.name)} <small>(${escapeHtml(property.data_type)}${property.pii ? ', PII' : ''})</small></h4>
         ${property.description ? `<p>${escapeHtml(property.description)}</p>` : ''}
         <table>
           <thead>
@@ -370,10 +375,86 @@ export function renderPropertiesSection(properties: PropertyForDocs[]): string {
           </tbody>
         </table>
       </div>`;
+  };
+  // D-64: System customer / Customer / SDK default / Event, Event split by D-63 kind.
+  const groups = groupPropertiesByCategory(
+    properties.map((p) => ({ ...p, category: p.category ?? ('customer' as PropertyCategory), kind: p.kind ?? ('event' as PropertyKind) }))
+  );
+  const blocks = groups
+    .map((group) => {
+      const inner =
+        group.subgroups.length > 0
+          ? group.subgroups
+              .map(
+                (sub) => `<div id="${propertyKindGroupId(sub.kind)}"><h4 class="property-subgroup">${escapeHtml(sub.label)} (${sub.items.length})</h4>
+      ${sub.items.map(renderBlock).join('\n')}</div>`
+              )
+              .join('\n')
+          : group.items.map(renderBlock).join('\n');
+      return `<div id="${propertyGroupId(group.category)}" class="property-group">
+      <h3>${escapeHtml(group.label)} (${group.items.length})</h3>
+      ${inner}
+    </div>`;
     })
     .join('\n');
   return `<section id="properties">
     <h2>Properties</h2>
+    ${blocks}
+  </section>`;
+}
+
+/** D-64 (T-4-20): a catalog for the project-wide "Catalogs" section. `owner`/`client_name` are not part of this shape. */
+export interface CatalogForDocs {
+  name: string;
+  description?: string | null;
+  mapping_role?: string | null;
+  status?: string | null;
+  source_system?: string | null;
+  sync_method?: string | null;
+  update_frequency?: string | null;
+  fields: { name: string; data_type?: string | null; is_lookup_key: boolean; is_searchable: boolean; description?: string | null }[];
+  mapped_properties: { property_name: string; scope: string; field_name: string | null }[];
+}
+
+/** Renders the "Catalogs" section: one block per catalog with its fields and the properties that look up into it (D-64). Empty string when there are no catalogs. */
+export function renderCatalogsSection(catalogs: CatalogForDocs[]): string {
+  if (catalogs.length === 0) return '';
+  const yes = (v: boolean): string => (v ? 'yes' : '—');
+  const blocks = catalogs
+    .map((catalog) => {
+      const meta = [
+        catalog.mapping_role ? `mapping role: ${catalog.mapping_role}` : '',
+        catalog.status ?? '',
+        catalog.source_system ? `source: ${catalog.source_system}` : '',
+        catalog.sync_method ? `sync: ${catalog.sync_method}` : '',
+        catalog.update_frequency ? `updates: ${catalog.update_frequency}` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+      const fieldRows = catalog.fields
+        .map((f) => `<tr>${cell(f.name)}${cell(f.data_type)}<td>${yes(f.is_lookup_key)}</td><td>${yes(f.is_searchable)}</td>${cell(f.description)}</tr>`)
+        .join('\n');
+      const mappedRows = catalog.mapped_properties
+        .map((m) => `<tr>${cell(m.property_name)}${cell(m.scope)}${cell(m.field_name)}</tr>`)
+        .join('\n');
+      return `<div class="catalog-block">
+        <h3>${escapeHtml(catalog.name)}${meta ? ` <small>(${escapeHtml(meta)})</small>` : ''}</h3>
+        ${catalog.description ? `<p>${escapeHtml(catalog.description)}</p>` : ''}
+        ${
+          catalog.fields.length === 0
+            ? '<p class="muted">No fields defined.</p>'
+            : `<table><thead><tr><th>Field</th><th>Type</th><th>Lookup key</th><th>Searchable</th><th>Description</th></tr></thead><tbody>${fieldRows}</tbody></table>`
+        }
+        ${
+          catalog.mapped_properties.length === 0
+            ? ''
+            : `<h4>Properties that look up into this catalog</h4><table><thead><tr><th>Property</th><th>Scope</th><th>Catalog field</th></tr></thead><tbody>${mappedRows}</tbody></table>`
+        }
+      </div>`;
+    })
+    .join('\n');
+  return `<section id="catalogs">
+    <h2>Catalogs</h2>
     ${blocks}
   </section>`;
 }

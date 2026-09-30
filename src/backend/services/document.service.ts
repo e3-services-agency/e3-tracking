@@ -38,6 +38,7 @@ import {
   type AttachedPropertyForCodegen,
 } from './codegen.service';
 import { SDK_DEFAULT_PROPERTIES } from '../../domain/bloomreach';
+import { classifyProperty } from '../../domain/propertyCategory';
 import type { EventPropertyWithDetails, EventPropertyWithDetailsExtended, EventRow } from '../dal/event.dal';
 import * as PropertyDefinitionDAL from '../dal/property-definition.dal';
 import * as BundleDAL from '../dal/bundle.dal';
@@ -773,14 +774,13 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
   const orderedEventIds = [...events.filter((e) => e.class === 'custom'), ...events.filter((e) => e.class !== 'custom')].map((e) => e.id);
   const eventCards = orderedEventIds.map((id) => buildEventCard(projectId, id, ctx));
 
-  const customerPropertyRows = PropertyDAL.listProperties(projectId, { scope: 'customer' });
+  const allPropertyRows = PropertyDAL.listProperties(projectId);
+  const customerPropertyRows = allPropertyRows.filter((p) => p.scope === 'customer');
+  const eventPropertyRows = allPropertyRows.filter((p) => p.scope === 'event');
   // Fix round WARNING 3: one batched query for every customer property's definitions, not one
   // `listDefinitions` call per property.
   const customerDefinitionsByPropertyId = new Map<string, PropertyDefinitionDAL.PropertyDefinitionRow[]>();
-  for (const [, def] of PropertyDefinitionDAL.listDefinitionsByPropertyIds(
-    projectId,
-    customerPropertyRows.map((p) => p.id)
-  )) {
+  for (const [, def] of PropertyDefinitionDAL.listAllDefinitionsById(projectId)) {
     const list = customerDefinitionsByPropertyId.get(def.property_id) ?? [];
     list.push(def);
     customerDefinitionsByPropertyId.set(def.property_id, list);
@@ -789,15 +789,8 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
     list.sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
   }
 
-  const customerProperties = customerPropertyRows.map((p) => ({
-    property_id: p.id,
-    name: p.name,
-    data_type: p.data_type,
-    data_formats: Array.isArray(p.data_formats_json) ? (p.data_formats_json as string[]) : [],
-    bloomreach_customer_property: p.bloomreach_customer_property,
-    pii: p.pii,
-    description: p.description,
-    definitions: (customerDefinitionsByPropertyId.get(p.id) ?? []).map((d) => ({
+  const definitionsOf = (propertyId: string) =>
+    (customerDefinitionsByPropertyId.get(propertyId) ?? []).map((d) => ({
       id: d.id,
       name: d.name,
       description: d.description,
@@ -810,7 +803,39 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
         : null,
       formats: Array.isArray(d.formats_json) ? (d.formats_json as string[]) : [],
       example_values: d.example_values_json,
-    })),
+    }));
+
+  const usedInEvents = new Map<string, Set<string>>();
+  for (const card of eventCards) {
+    for (const link of card.properties) {
+      const set = usedInEvents.get(link.property_id) ?? new Set<string>();
+      set.add(card.name);
+      usedInEvents.set(link.property_id, set);
+    }
+  }
+
+  const eventProperties = eventPropertyRows.map((p) => ({
+    property_id: p.id,
+    category: classifyProperty(p),
+    kind: p.kind,
+    name: p.name,
+    data_type: p.data_type,
+    data_formats: Array.isArray(p.data_formats_json) ? (p.data_formats_json as string[]) : [],
+    description: p.description,
+    used_in_events: [...(usedInEvents.get(p.id) ?? [])].sort((a, b) => a.localeCompare(b)),
+    definitions: definitionsOf(p.id),
+  }));
+
+  const customerProperties = customerPropertyRows.map((p) => ({
+    property_id: p.id,
+    category: classifyProperty(p),
+    name: p.name,
+    data_type: p.data_type,
+    data_formats: Array.isArray(p.data_formats_json) ? (p.data_formats_json as string[]) : [],
+    bloomreach_customer_property: p.bloomreach_customer_property,
+    pii: p.pii,
+    description: p.description,
+    definitions: definitionsOf(p.id),
   }));
 
   const identityRules = IdentityRuleDAL.listIdentityRules(projectId).map((r) => ({
@@ -828,7 +853,41 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
     status: c.status,
   }));
 
-  const catalogs = CatalogDAL.listCatalogs(projectId).map((c) => ({ name: c.name, mapping_role: c.mapping_role, status: c.status }));
+  // D-64 (T-4-20): a catalog with its fields and the properties that look up into it. `owner`,
+  // `client_name` and `priority` are left out; `source_system`/`sync_method` stay (client-facing).
+  const catalogFieldNameById = new Map<string, string>();
+  const catalogs = CatalogDAL.listCatalogs(projectId).map((c) => {
+    const fields = CatalogDAL.listCatalogFields(projectId, c.id);
+    for (const f of fields) catalogFieldNameById.set(f.id, f.name);
+    return {
+      id: c.id,
+      name: c.name,
+      mapping_role: c.mapping_role,
+      status: c.status,
+      description: c.description,
+      source_system: c.source_system,
+      sync_method: c.sync_method,
+      update_frequency: c.update_frequency,
+      catalog_type: c.catalog_type,
+      purpose: c.purpose,
+      fields: fields.map((f) => ({
+        name: f.name,
+        description: f.description,
+        data_type: f.data_type,
+        is_lookup_key: f.is_lookup_key,
+        is_searchable: f.is_searchable,
+        is_required: f.is_required,
+      })),
+      mapped_properties: allPropertyRows
+        .filter((p) => p.mapped_catalog_id === c.id)
+        .map((p) => ({
+          property_name: p.name,
+          scope: p.scope,
+          field_name: p.mapped_catalog_field_id ? (catalogFieldNameById.get(p.mapped_catalog_field_id) ?? null) : null,
+          mapping_type: p.mapping_type,
+        })),
+    };
+  });
 
   const labelFor = buildTargetLabelResolver(projectId);
   const useCases = UseCaseDAL.listUseCases(projectId).map((uc) => {
@@ -874,6 +933,7 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
     },
     events: eventCards,
     properties: customerProperties,
+    event_properties: eventProperties,
     identity_rules: identityRules,
     consent_categories: consentCategories,
     catalogs,

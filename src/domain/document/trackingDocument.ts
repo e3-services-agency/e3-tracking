@@ -18,6 +18,7 @@
  */
 import type { ComparisonId, EventClass, FindingKind, FindingSeverity, ImplementationMethod, PropertyKind } from '../enums';
 import type { PropertyDerivation } from '../codegen/derivation';
+import type { PropertyCategory } from '../propertyCategory';
 
 export const TRACKING_DOCUMENT_FORMAT = 'e3-tracking-document' as const;
 export const TRACKING_DOCUMENT_VERSION = 1;
@@ -292,6 +293,8 @@ export interface TrackingDocumentPropertyDefinition {
 
 export interface TrackingDocumentCustomerProperty {
   property_id: string;
+  /** D-64 (T-4-20): additive -- derived category (`classifyProperty`), the override when set. */
+  category: PropertyCategory;
   name: string;
   data_type: string;
   data_formats: string[];
@@ -300,6 +303,21 @@ export interface TrackingDocumentCustomerProperty {
   description: string | null;
   /** D-58: every definition this property carries (additive; a property with one definition looks
    * as today -- one row named `general`). */
+  definitions: TrackingDocumentPropertyDefinition[];
+}
+
+/** D-64 (T-4-20): an event-scope property of the project (additive `event_properties[]`; `properties[]`
+ * stays customer-scope only). `category` is `event` or `sdk_default` (or the override). */
+export interface TrackingDocumentEventProperty {
+  property_id: string;
+  category: PropertyCategory;
+  kind: PropertyKind;
+  name: string;
+  data_type: string;
+  data_formats: string[];
+  description: string | null;
+  /** Names of the events that link this property, sorted. */
+  used_in_events: string[];
   definitions: TrackingDocumentPropertyDefinition[];
 }
 
@@ -318,10 +336,40 @@ export interface TrackingDocumentConsentCategory {
   status: string | null;
 }
 
+/** One catalog field (D-64, T-4-20). */
+export interface TrackingDocumentCatalogField {
+  name: string;
+  description: string | null;
+  data_type: string | null;
+  is_lookup_key: boolean;
+  is_searchable: boolean;
+  is_required: boolean;
+}
+
+/** An event/customer property that looks up into a catalog field (`mapped_catalog_field_id`). */
+export interface TrackingDocumentCatalogMappedProperty {
+  property_name: string;
+  scope: string;
+  field_name: string | null;
+  mapping_type: string | null;
+}
+
+/** `owner`, `client_name` and `priority` are deliberately not part of the document (D-64): the
+ * same shape serves the public projection. `source_system`/`sync_method` are kept. */
 export interface TrackingDocumentCatalog {
+  id?: string;
   name: string;
   mapping_role: string | null;
   status: string | null;
+  /** D-64 additive fields below. */
+  description?: string | null;
+  source_system?: string | null;
+  sync_method?: string | null;
+  update_frequency?: string | null;
+  catalog_type?: string | null;
+  purpose?: string | null;
+  fields?: TrackingDocumentCatalogField[];
+  mapped_properties?: TrackingDocumentCatalogMappedProperty[];
 }
 
 export interface TrackingDocumentRequirement {
@@ -365,6 +413,8 @@ export interface TrackingDocument {
   project: TrackingDocumentProject;
   events: EventCard[];
   properties: TrackingDocumentCustomerProperty[];
+  /** D-64 (T-4-20), additive: event-scope properties with category and kind. */
+  event_properties: TrackingDocumentEventProperty[];
   identity_rules: TrackingDocumentIdentityRule[];
   consent_categories: TrackingDocumentConsentCategory[];
   catalogs: TrackingDocumentCatalog[];

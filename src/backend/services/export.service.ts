@@ -31,6 +31,8 @@ import type { CodegenEventNameOverrides } from '../../types/schema';
 import { listIdentityRules } from '../dal/identity-rule.dal';
 import { listProperties } from '../dal/property.dal';
 import { listConsentCategories } from '../dal/consent-category.dal';
+import { listCatalogs, listCatalogFields } from '../dal/catalog.dal';
+import { classifyProperty, PROPERTY_CATEGORY_LABELS, groupPropertiesByCategory, propertyGroupId } from '../../domain/propertyCategory';
 import { listSources } from '../dal/source.dal';
 import { listUseCases } from '../dal/use-case.dal';
 import { listRequirements } from '../dal/requirement.dal';
@@ -49,6 +51,8 @@ import {
   renderCoverageSummary,
   renderFindingsTable,
   renderPropertiesSection,
+  renderCatalogsSection,
+  type CatalogForDocs,
   type VariantForDocs,
   type StandardEventMappingForDocs,
   type UseCaseForDocs,
@@ -350,12 +354,9 @@ function buildIdentityAndConsentSectionsHtml(projectId: string, publicView: bool
  * `buildPropertyDetailsTable` above.
  */
 function buildPropertiesSectionHtml(projectId: string): string {
-  const customerPropertyRows = listProperties(projectId, { scope: 'customer' });
+  const customerPropertyRows = listProperties(projectId);
   const definitionsByPropertyId = new Map<string, PropertyDefinitionDAL.PropertyDefinitionRow[]>();
-  for (const [, def] of PropertyDefinitionDAL.listDefinitionsByPropertyIds(
-    projectId,
-    customerPropertyRows.map((p) => p.id)
-  )) {
+  for (const [, def] of PropertyDefinitionDAL.listAllDefinitionsById(projectId)) {
     const list = definitionsByPropertyId.get(def.property_id) ?? [];
     list.push(def);
     definitionsByPropertyId.set(def.property_id, list);
@@ -365,6 +366,8 @@ function buildPropertiesSectionHtml(projectId: string): string {
   }
   const properties: PropertyForDocs[] = customerPropertyRows.map((p) => ({
     name: p.name,
+    category: classifyProperty(p),
+    kind: p.kind,
     data_type: p.data_type,
     pii: p.pii,
     description: p.description,
@@ -379,6 +382,53 @@ function buildPropertiesSectionHtml(projectId: string): string {
     })),
   }));
   return renderPropertiesSection(properties);
+}
+
+/** D-64 (T-4-20): the "Catalogs" section (empty string when the project has no catalogs). No `owner`/`client_name`. */
+function buildCatalogsSectionHtml(projectId: string): string {
+  const allProperties = listProperties(projectId);
+  const catalogs: CatalogForDocs[] = listCatalogs(projectId).map((c) => {
+    const fields = listCatalogFields(projectId, c.id);
+    const fieldNameById = new Map(fields.map((f) => [f.id, f.name]));
+    return {
+      name: c.name,
+      description: c.description,
+      mapping_role: c.mapping_role,
+      status: c.status,
+      source_system: c.source_system,
+      sync_method: c.sync_method,
+      update_frequency: c.update_frequency,
+      fields: fields.map((f) => ({
+        name: f.name,
+        data_type: f.data_type,
+        is_lookup_key: f.is_lookup_key,
+        is_searchable: f.is_searchable,
+        description: f.description,
+      })),
+      mapped_properties: allProperties
+        .filter((p) => p.mapped_catalog_id === c.id)
+        .map((p) => ({
+          property_name: p.name,
+          scope: p.scope,
+          field_name: p.mapped_catalog_field_id ? (fieldNameById.get(p.mapped_catalog_field_id) ?? null) : null,
+        })),
+    };
+  });
+  return renderCatalogsSection(catalogs);
+}
+
+/** Table-of-contents links for the Properties (with its category groups) and Catalogs sections. */
+function propertiesAndCatalogsToc(projectId: string, hasCatalogs: boolean): string[] {
+  const links: string[] = [];
+  const props = listProperties(projectId);
+  if (props.length > 0) {
+    links.push('<a href="#properties">Properties</a>');
+    for (const g of groupPropertiesByCategory(props.map((p) => ({ name: p.name, category: classifyProperty(p) })))) {
+      links.push('<a href="#' + propertyGroupId(g.category) + '">&nbsp;&nbsp;' + escapeHtml(PROPERTY_CATEGORY_LABELS[g.category]) + ' (' + g.items.length + ')</a>');
+    }
+  }
+  if (hasCatalogs) links.push('<a href="#catalogs">Catalogs</a>');
+  return links;
 }
 
 /**
@@ -469,6 +519,7 @@ export async function generateProjectDocumentationHtml(
   );
 
   const propertiesHtml = buildPropertiesSectionHtml(projectId);
+  const catalogsHtml = buildCatalogsSectionHtml(projectId);
   const identityAndConsentHtml = buildIdentityAndConsentSectionsHtml(projectId, publicView);
   const useCasesHtml = buildUseCasesSectionHtml(projectId, publicView);
   const requirementsMatrixHtml = renderRequirementsMatrixSection(computeRequirementsMatrix(projectId));
@@ -495,7 +546,7 @@ export async function generateProjectDocumentationHtml(
   );
 
   const toc = [findingsSummaryHtml ? '<a href="#findings-summary">Findings summary</a>' : '', ...events
-    .map((event) => `<a href="#event-${escapeHtml(event.id)}">${escapeHtml(event.name)}</a>`)]
+    .map((event) => `<a href="#event-${escapeHtml(event.id)}">${escapeHtml(event.name)}</a>`), ...propertiesAndCatalogsToc(projectId, catalogsHtml !== '')]
     .filter(Boolean)
     .join('\n');
 
@@ -516,6 +567,7 @@ export async function generateProjectDocumentationHtml(
   ${sections.map((x) => x.html).join('\n')}
   ${unattachedFindingsHtml}
   ${propertiesHtml}
+  ${catalogsHtml}
   ${identityAndConsentHtml}
   ${standardEventMappingsHtml}
   ${useCasesHtml}

@@ -10,6 +10,8 @@ import type { PropertyKind } from '../enums';
 import { groupPropertiesByCategory, formatDisplayName } from '../propertyCategory';
 import { displaySampleValue, formatExampleValues } from '../examples';
 import { groupFieldMap, mappingHeading } from './standardMappings';
+import type { FindingsSummaryView } from './findingsSummary';
+import { FAMILY_INFO, comparisonLabel, kindLabel } from '../findingsCatalog';
 
 /** Readable example for a table cell: scalars as text, objects as a compact code span (never escaped-JSON noise). */
 function exampleCell(value: unknown): string {
@@ -245,6 +247,42 @@ export function propertiesToMarkdown(
     } else {
       for (const p of group.items) renderOne(p, '###');
     }
+  }
+  return out.join('\n\n') + '\n';
+}
+
+/** Findings summary (T-4-21): severity counts, the by-kind-family table with labels and next
+ * steps, the by-comparison table with human names, and the top events. Labels only; raw ids stay
+ * in the JSON/CSV exports. */
+export function findingsSummaryToMarkdown(summary: FindingsSummaryView): string {
+  const out: string[] = ['## Findings summary'];
+  const s = summary.bySeverity;
+  const a = summary.acknowledged;
+  out.push(
+    `${summary.total} open: ${s.error} errors, ${s.warning} warnings, ${s.info} info.` +
+      (a.total > 0 ? ` Acknowledged: ${a.error} errors, ${a.warning} warnings, ${a.info} info.` : '')
+  );
+  if (summary.byFamily.length > 0) {
+    out.push('### By kind of problem');
+    out.push(
+      table(
+        ['Family', 'Kinds', 'Open', 'Next step'],
+        summary.byFamily.map((f) => [
+          FAMILY_INFO[f.family].label,
+          f.kinds.map((k) => `${kindLabel(k.kind)} (${k.count})`).join(', '),
+          f.total,
+          FAMILY_INFO[f.family].next,
+        ])
+      )
+    );
+  }
+  if (summary.byComparison.length > 0) {
+    out.push('### By comparison');
+    out.push(table(['Comparison', 'Error', 'Warning', 'Info'], summary.byComparison.map((c) => [comparisonLabel(c.comparison), c.error, c.warning, c.info])));
+  }
+  if (summary.topEvents.length > 0) {
+    out.push('### Top events by open errors');
+    out.push(table(['Event', 'Errors', 'All open'], summary.topEvents.map((e) => [e.name, e.errors, e.total])));
   }
   return out.join('\n\n') + '\n';
 }

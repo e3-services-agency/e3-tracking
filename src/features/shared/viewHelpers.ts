@@ -10,7 +10,11 @@ import {
   propertyKindGroupId,
   type PropertyCategory,
 } from '../../domain/propertyCategory';
-import type { PropertyKind } from '../../domain/enums';
+import { USE_CASE_TYPES, type PropertyKind } from '../../domain/enums';
+import { CONSENT_CHANNELS, CONSENT_CHANNEL_LABELS, consentChannel } from '../../domain/consentChannel';
+import { mappingHeading } from '../../domain/document/standardMappings';
+import { computeFindingsSummary, type ComparisonFindingsGroup } from '../../domain/document/findingsSummary';
+import { comparisonLabel } from '../../domain/findingsCatalog';
 
 /** DOM id (and URL hash, without `#`) of an event: `event-<name>`; characters outside
  * `[A-Za-z0-9_.-]` become `-`. Stable across reloads because it derives from the name only. */
@@ -120,15 +124,23 @@ export function sharedPropertyGroups<T extends SharedPropertyInput, U extends Sh
 }
 
 export interface NavDocInput {
-  events: { name: string; class: string; quality?: { acknowledged: { error: number; warning: number; info: number } } }[];
+  events: {
+    id?: string;
+    name: string;
+    class: string;
+    quality?: { acknowledged: { error: number; warning: number; info: number } };
+    /** T-4-21: open findings, for the Findings groups; absent means none. */
+    findings?: { severity: string; comparison: string; kind?: string }[];
+  }[];
+  unattached_findings?: { severity: string; comparison: string; kind?: string }[];
   properties: unknown[];
   /** D-64: event-scope properties; absent in a document from before T-4-20. */
   event_properties?: unknown[];
-  use_cases: unknown[];
+  use_cases: { id?: string; name?: string; code?: string | null; type?: string | null }[];
   identity_rules: unknown[];
-  consent_categories: unknown[];
+  consent_categories: { name: string; standard_key?: string | null }[];
   catalogs: unknown[];
-  standard_event_mappings: unknown[];
+  standard_event_mappings: { standard_event?: string; event_name?: string | null; variant_name?: string | null }[];
   findings_summary: { open: { error: number; warning: number; info: number } };
 }
 
@@ -153,6 +165,82 @@ export const SECTION_IDS = {
 /** DOM id of an event class group inside the Events section. */
 export function eventGroupId(cls: string): string {
   return `events-${cls}`;
+}
+
+/** Unique DOM ids `<prefix>-<slug>` for a list of labels, in order (a taken slug gets -2, -3, ...). */
+export function slugAnchors(prefix: string, labels: string[]): string[] {
+  const taken = new Set<string>();
+  return labels.map((label) => {
+    const slug = label.trim().replace(/[^A-Za-z0-9_.-]+/g, '-').replace(/^-+|-+$/g, '') || 'unnamed';
+    const base = `${prefix}-${slug}`;
+    let id = base;
+    for (let n = 2; taken.has(id); n++) id = `${base}-${n}`;
+    taken.add(id);
+    return id;
+  });
+}
+
+export const USE_CASE_TYPE_LABELS: Record<string, string> = { marketing: 'Marketing', transactional: 'Transactional', other: 'Other' };
+
+/** Groups of the Use cases, Consents, Mapping and Findings sections (T-4-21): one decision shared
+ * by the page, the nav and the rendered-id list. Empty groups are dropped. */
+export function sharedSectionGroups(doc: NavDocInput) {
+  // Use cases by their `type` (marketing | transactional; anything else lands in Other).
+  const ucIds = slugAnchors('use-case', doc.use_cases.map((u) => u.code || u.name || u.id || 'use-case'));
+  const known = USE_CASE_TYPES as readonly string[];
+  const useCaseGroups = [...USE_CASE_TYPES, 'other' as const]
+    .map((type) => ({
+      type: type as string,
+      id: `use-cases-${type}`,
+      label: USE_CASE_TYPE_LABELS[type],
+      items: doc.use_cases
+        .map((uc, i) => ({ uc, id: ucIds[i], index: i }))
+        .filter(({ uc }) => (known.includes(uc.type ?? '') ? uc.type === type : type === 'other')),
+    }))
+    .filter((g) => g.items.length > 0);
+
+  // Consents by derived channel (`consentChannel`).
+  const consentIds = slugAnchors('consent', doc.consent_categories.map((c) => c.name));
+  const consentGroups = CONSENT_CHANNELS.map((channel) => ({
+    channel,
+    id: `consents-${channel}`,
+    label: CONSENT_CHANNEL_LABELS[channel],
+    items: doc.consent_categories.map((c, i) => ({ category: c, id: consentIds[i], index: i })).filter(({ category }) => consentChannel(category) === channel),
+  })).filter((g) => g.items.length > 0);
+
+  // Mapping: one leaf per standard event mapping.
+  const mappingLabels = doc.standard_event_mappings.map((m) => mappingHeading(m.standard_event ?? '', m.event_name ?? null, m.variant_name ?? null));
+  const mappingIds = slugAnchors('mapping', mappingLabels);
+  const mappingLeaves = doc.standard_event_mappings.map((mapping, i) => ({ mapping, id: mappingIds[i], label: mappingLabels[i], index: i }));
+
+  // Findings: one group per comparison, leaves = affected events (linking to their cards).
+  const eventAnchorList = eventAnchors(doc.events.map((e) => e.name));
+  const anchorByEventId = new Map<string, string>();
+  doc.events.forEach((e, i) => {
+    if (e.id) anchorByEventId.set(e.id, eventAnchorList[i]);
+  });
+  const summary = computeFindingsSummary(
+    doc.events.map((e) => ({
+      id: e.id ?? e.name,
+      name: e.name,
+      findings: e.findings ?? [],
+      quality: e.quality ?? { acknowledged: { error: 0, warning: 0, info: 0 } },
+    })),
+    doc.unattached_findings ?? []
+  );
+  const findingGroups = summary.byComparisonEvents.map((g: ComparisonFindingsGroup) => {
+    const id = `findings-${g.comparison}`;
+    const leaves: { id: string; label: string; count: number; cardAnchor: string | null }[] = g.events.map((e) => ({
+      id: `${id}-${anchorByEventId.get(e.id) ?? e.id}`,
+      label: e.name,
+      count: e.count,
+      cardAnchor: anchorByEventId.get(e.id) ?? null,
+    }));
+    if (g.unattached > 0) leaves.push({ id: `${id}-project`, label: 'Not tied to an event', count: g.unattached, cardAnchor: null });
+    return { comparison: g.comparison, id, label: comparisonLabel(g.comparison), total: g.total, leaves };
+  });
+
+  return { useCaseGroups, consentGroups, mappingLeaves, findingGroups, summary };
 }
 
 /** Which top-level document sections have content; an empty one is not rendered or listed. */
@@ -207,12 +295,49 @@ export function buildSectionIndex(doc: NavDocInput): NavItem[] {
       })),
     });
   }
-  if (present.useCases) items.push({ id: SECTION_IDS.useCases, label: 'Use cases' });
+  const groups = sharedSectionGroups(doc);
+  if (present.useCases) {
+    items.push({
+      id: SECTION_IDS.useCases,
+      label: `Use cases (${doc.use_cases.length})`,
+      children: groups.useCaseGroups.map((g) => ({
+        id: g.id,
+        label: `${g.label} (${g.items.length})`,
+        children: g.items.map(({ uc, id }) => ({ id, label: uc.code ? `${uc.code} — ${uc.name ?? ''}` : (uc.name ?? id) })),
+      })),
+    });
+  }
   if (present.identity) items.push({ id: SECTION_IDS.identity, label: 'Identity' });
-  if (present.consents) items.push({ id: SECTION_IDS.consents, label: 'Consents' });
+  if (present.consents) {
+    items.push({
+      id: SECTION_IDS.consents,
+      label: `Consents (${doc.consent_categories.length})`,
+      children: groups.consentGroups.map((g) => ({
+        id: g.id,
+        label: `${g.label} (${g.items.length})`,
+        children: g.items.map(({ category, id }) => ({ id, label: category.name })),
+      })),
+    });
+  }
   if (present.catalogs) items.push({ id: SECTION_IDS.catalogs, label: 'Catalogs' });
-  if (present.mapping) items.push({ id: SECTION_IDS.mapping, label: 'Mapping' });
-  if (present.findings) items.push({ id: SECTION_IDS.findings, label: 'Findings' });
+  if (present.mapping) {
+    items.push({
+      id: SECTION_IDS.mapping,
+      label: `Mapping (${doc.standard_event_mappings.length})`,
+      children: groups.mappingLeaves.map((l) => ({ id: l.id, label: l.label })),
+    });
+  }
+  if (present.findings) {
+    items.push({
+      id: SECTION_IDS.findings,
+      label: 'Findings',
+      children: groups.findingGroups.map((g) => ({
+        id: g.id,
+        label: `${g.label} (${g.total})`,
+        children: g.leaves.map((l) => ({ id: l.id, label: `${l.label} (${l.count})` })),
+      })),
+    });
+  }
   return items;
 }
 
@@ -220,6 +345,7 @@ export function buildSectionIndex(doc: NavDocInput): NavItem[] {
  * decisions (`sectionPresence`, `EVENT_CLASS_GROUPS`, `eventAnchors`) the page uses to render. */
 export function renderedSectionIds(doc: NavDocInput): string[] {
   const present = sectionPresence(doc);
+  const groups = sharedSectionGroups(doc);
   const ids: string[] = [];
   if (present.events) {
     ids.push(SECTION_IDS.events);
@@ -238,6 +364,10 @@ export function renderedSectionIds(doc: NavDocInput): string[] {
         ids.push(propertyGroupId(g.category), ...g.subgroups.map((s) => propertyKindGroupId(s.kind)));
       }
     }
+    if (key === 'useCases') for (const g of groups.useCaseGroups) ids.push(g.id, ...g.items.map((i) => i.id));
+    if (key === 'consents') for (const g of groups.consentGroups) ids.push(g.id, ...g.items.map((i) => i.id));
+    if (key === 'mapping') ids.push(...groups.mappingLeaves.map((l) => l.id));
+    if (key === 'findings') for (const g of groups.findingGroups) ids.push(g.id, ...g.leaves.map((l) => l.id));
   }
   return ids;
 }

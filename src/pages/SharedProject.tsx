@@ -32,7 +32,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ClassBadge } from '@/src/components/ui/ClassBadge';
 import { ExampleCell, StandardMappingBlock } from '@/src/features/events/components/EventCardView';
 import { formatExampleValues } from '@/src/domain/examples';
-import { computeFindingsSummary } from '@/src/domain/document/findingsSummary';
+import type { FindingsSummaryView } from '@/src/domain/document/findingsSummary';
+import { FindingTerm } from '@/src/components/ui/GlossaryTerm';
+import { FAMILY_INFO } from '@/src/domain/findingsCatalog';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { API_BASE } from '@/src/config/env';
 import { PAGE_MAX_WIDTH_CLASS } from '@/src/components/layout/PageShell';
@@ -42,7 +44,7 @@ import { CommentCountButton } from '@/src/features/comments/CommentCountButton';
 import { CopyLinkButton } from '@/src/features/shared/CopyLinkButton';
 import { CopyMarkdownButton } from '@/src/components/ui/CopyMarkdownButton';
 import { SHARED_SECTION_ICONS } from '@/src/components/layout/navIcons';
-import { propertiesToMarkdown } from '@/src/domain/document/markdown';
+import { propertiesToMarkdown, findingsSummaryToMarkdown } from '@/src/domain/document/markdown';
 import { propertyGroupId, propertyKindGroupId, PROPERTY_CATEGORY_LABELS, formatDisplayName } from '@/src/domain/propertyCategory';
 import { SharedNav } from '@/src/features/shared/SharedNav';
 import { useActiveSection } from '@/src/features/shared/useActiveSection';
@@ -57,6 +59,7 @@ import {
   buildSectionIndex,
   sectionPresence,
   sharedPropertyGroups,
+  sharedSectionGroups,
   filterNav,
   eventAnchors,
   eventForHash,
@@ -142,6 +145,19 @@ function SectionCard({ id, title, actions, children }: { id: string; title: Reac
   );
 }
 
+/** Sticky group header inside a section card (T-4-21): same offset as the section header, above it by z-order. */
+function GroupHeader({ label, actions }: { label: React.ReactNode; actions?: React.ReactNode }) {
+  return (
+    <div
+      style={{ height: STICKY_PX.groupHeader }}
+      className={`sticky ${HEADER_TOP_CLASS} z-[15] flex items-center justify-between gap-2 bg-white`}
+    >
+      <h3 className="text-sm font-semibold text-gray-700">{label}</h3>
+      {actions}
+    </div>
+  );
+}
+
 function SimpleTable({ head, rows }: { head: string[]; rows: React.ReactNode[][] }) {
   return (
     <div className="overflow-x-auto">
@@ -212,7 +228,7 @@ function FindingsSummaryBlock({
   summary,
   anchorFor,
 }: {
-  summary: ReturnType<typeof computeFindingsSummary>;
+  summary: FindingsSummaryView;
   anchorFor: (eventId: string) => string | undefined;
 }) {
   const ack = summary.acknowledged;
@@ -223,12 +239,35 @@ function FindingsSummaryBlock({
         {summary.bySeverity.warning}, info {summary.bySeverity.info}
         {ack.total > 0 && `. Acknowledged (resolved by hand, still reproducing): error ${ack.error}, warning ${ack.warning}, info ${ack.info}`}
       </p>
+      {summary.byFamily.length > 0 && (
+        <div>
+          <h4 className="mb-1 text-xs font-semibold uppercase text-gray-500">By kind of problem</h4>
+          <SimpleTable
+            head={['Family', 'Kinds', 'Open', 'Next step']}
+            rows={summary.byFamily.map((f) => [
+              <span key={f.family} title={FAMILY_INFO[f.family].explanation} className="border-b border-dotted border-gray-400 cursor-help">
+                {FAMILY_INFO[f.family].label}
+              </span>,
+              <span key="k">
+                {f.kinds.map((k, i) => (
+                  <React.Fragment key={k.kind}>
+                    {i > 0 && ', '}
+                    <FindingTerm kind={k.kind} /> ({k.count})
+                  </React.Fragment>
+                ))}
+              </span>,
+              f.total,
+              FAMILY_INFO[f.family].next,
+            ])}
+          />
+        </div>
+      )}
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <h4 className="mb-1 text-xs font-semibold uppercase text-gray-500">By comparison</h4>
           <SimpleTable
             head={['Comparison', 'Error', 'Warning', 'Info']}
-            rows={summary.byComparison.map((c) => [c.comparison, c.error, c.warning, c.info])}
+            rows={summary.byComparison.map((c) => [<FindingTerm key={c.comparison} comparison={c.comparison} />, c.error, c.warning, c.info])}
           />
         </div>
         <div>
@@ -330,6 +369,7 @@ export function SharedProject({ token }: { token: string }) {
     return new Map((doc?.events ?? []).map((e, i) => [e.id, list[i]]));
   }, [doc]);
   const nav = useMemo(() => (doc ? buildSectionIndex(doc) : []), [doc]);
+  const groups = useMemo(() => (doc ? sharedSectionGroups(doc) : null), [doc]);
   const filteredNav = useMemo(() => filterNav(nav, navQuery), [nav, navQuery]);
   const spyId = useActiveSection(useMemo(() => leafIds(nav), [nav]), spyTopOffsetPx());
   const activeId = clickedId ?? spyId;
@@ -369,6 +409,8 @@ export function SharedProject({ token }: { token: string }) {
       if (!id) return;
       const event = eventForHash(id, doc.events);
       if (event) setOpenEvents((prev) => (prev.has(event.id) ? prev : new Set(prev).add(event.id)));
+      const ucItem = groups?.useCaseGroups.flatMap((g) => g.items).find((i) => i.id === id);
+      if (ucItem) setOpenUseCases((prev) => new Set(prev).add(doc.use_cases[ucItem.index].id));
       requestAnimationFrame(() => {
         let target: string;
         try {
@@ -379,7 +421,7 @@ export function SharedProject({ token }: { token: string }) {
         document.getElementById(target)?.scrollIntoView({ block: 'start' });
       });
     },
-    [doc]
+    [doc, groups]
   );
 
   // Opening the URL with a hash, and hand-edited hash changes.
@@ -417,6 +459,7 @@ export function SharedProject({ token }: { token: string }) {
 
   const fileUrl = (path: string) => sharedFileUrl(token, path);
   const present = sectionPresence(doc);
+  if (!groups) return null;
   const api = { mode: 'shared' as const, token, access: header.access };
   const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, id: string) => setter((prev) => toggleInSet(prev, id));
   const toggleThread = (key: string) => setOpenThreads((prev) => toggleInSet(prev, key));
@@ -639,11 +682,24 @@ export function SharedProject({ token }: { token: string }) {
               title={`Use cases (${doc.use_cases.length})`}
               actions={<ExpandToggles label="use cases" onExpand={() => setUseCases(allUseCaseIds, true)} onCollapse={() => setUseCases(allUseCaseIds, false)} />}
             >
-              <div className="space-y-2">
-                {doc.use_cases.map((uc) => {
+              <div className="space-y-4">
+                {groups.useCaseGroups.map((g) => (
+                  <div key={g.id} id={g.id} style={marginTop('group')} className="space-y-2">
+                    <GroupHeader
+                      label={`${g.label} (${g.items.length})`}
+                      actions={
+                        <ExpandToggles
+                          label={g.label.toLowerCase()}
+                          onExpand={() => setUseCases(g.items.map((i) => i.uc.id as string), true)}
+                          onCollapse={() => setUseCases(g.items.map((i) => i.uc.id as string), false)}
+                        />
+                      }
+                    />
+                {g.items.map(({ index, id: ucAnchor }) => {
+                  const uc = doc.use_cases[index];
                   const expanded = openUseCases.has(uc.id);
                   return (
-                    <div key={uc.id} className="border rounded-md">
+                    <div key={uc.id} id={ucAnchor} style={marginTop('event')} className="border rounded-md">
                       <div className="flex items-center gap-2 px-3 py-2">
                         <button
                           type="button"
@@ -738,6 +794,8 @@ export function SharedProject({ token }: { token: string }) {
                     </div>
                   );
                 })}
+                  </div>
+                ))}
               </div>
             </SectionCard>
           )}
@@ -760,10 +818,23 @@ export function SharedProject({ token }: { token: string }) {
 
           {present.consents && (
             <SectionCard id={SECTION_IDS.consents} title={`Consent categories (${doc.consent_categories.length})`}>
-              <SimpleTable
-                head={['Name', 'Standard key', 'Status']}
-                rows={doc.consent_categories.map((c) => [c.name, c.standard_key ?? '—', c.status ?? '—'])}
-              />
+              <div className="space-y-4">
+                {groups.consentGroups.map((g) => (
+                  <div key={g.id} id={g.id} style={marginTop('group')} className="space-y-2">
+                    <GroupHeader label={`${g.label} (${g.items.length})`} />
+                    <SimpleTable
+                      head={['Name', 'Standard key', 'Status']}
+                      rows={g.items.map(({ category: c, id }) => [
+                        <span key={id} id={id} style={marginTop('event')}>
+                          {c.name}
+                        </span>,
+                        c.standard_key ?? '—',
+                        (c as { status?: string | null }).status ?? '—',
+                      ])}
+                    />
+                  </div>
+                ))}
+              </div>
             </SectionCard>
           )}
 
@@ -815,18 +886,55 @@ export function SharedProject({ token }: { token: string }) {
 
           {present.mapping && (
             <SectionCard id={SECTION_IDS.mapping} title={`Standard event mappings (${doc.standard_event_mappings.length})`}>
-              {doc.standard_event_mappings.map((m, i) => (
-                <StandardMappingBlock key={i} mapping={m} eventName={m.event_name} />
+              {groups.mappingLeaves.map(({ index, id }) => (
+                <div key={id} id={id} style={marginTop('event')}>
+                  <StandardMappingBlock mapping={doc.standard_event_mappings[index]} eventName={doc.standard_event_mappings[index].event_name} />
+                </div>
               ))}
             </SectionCard>
           )}
 
           {present.findings && (
-            <SectionCard id={SECTION_IDS.findings} title="Findings summary">
-              <FindingsSummaryBlock
-                summary={computeFindingsSummary(doc.events, doc.unattached_findings)}
-                anchorFor={(eventId) => anchorById.get(eventId)}
-              />
+            <SectionCard
+              id={SECTION_IDS.findings}
+              title="Findings summary"
+              actions={<CopyMarkdownButton getMarkdown={() => findingsSummaryToMarkdown(groups.summary)} label="Copy findings as Markdown" />}
+            >
+              <FindingsSummaryBlock summary={groups.summary} anchorFor={(eventId) => anchorById.get(eventId)} />
+              <div className="mt-4 space-y-4">
+                {groups.findingGroups.map((g) => (
+                  <div key={g.id} id={g.id} style={marginTop('group')} className="space-y-2">
+                    <GroupHeader
+                      label={
+                        <>
+                          <FindingTerm comparison={g.comparison} /> ({g.total})
+                        </>
+                      }
+                    />
+                    <ul className="divide-y rounded-md border text-sm">
+                      {g.leaves.map((l) => (
+                        <li key={l.id} id={l.id} style={marginTop('event')} className="flex items-center justify-between gap-2 px-3 py-2">
+                          {l.cardAnchor ? (
+                            <a
+                              href={`#${l.cardAnchor}`}
+                              className={linkClass}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                navigateTo(l.cardAnchor as string);
+                              }}
+                            >
+                              {l.label}
+                            </a>
+                          ) : (
+                            <span className="text-gray-700">{l.label}</span>
+                          )}
+                          <span className="text-xs text-gray-500">{l.count} open</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             </SectionCard>
           )}
         </main>

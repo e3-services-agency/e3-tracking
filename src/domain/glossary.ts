@@ -87,10 +87,12 @@ export const GLOSSARY: GlossaryEntry[] = [
   },
 ];
 
-const GLOSSARY_BY_KEY = new Map(GLOSSARY.map((entry) => [entry.key, entry]));
+// Built lazily: the generated comparison/family/kind entries are pushed after this point.
+let glossaryByKey: Map<string, GlossaryEntry> | null = null;
 
 export function getGlossaryEntry(key: string): GlossaryEntry | undefined {
-  return GLOSSARY_BY_KEY.get(key);
+  glossaryByKey ??= new Map(GLOSSARY.map((entry) => [entry.key, entry]));
+  return glossaryByKey.get(key);
 }
 
 // T-4-21: the comparison names, finding kinds and kind families, generated from the findings

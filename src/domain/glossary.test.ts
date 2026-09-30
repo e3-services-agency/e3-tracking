@@ -37,3 +37,15 @@ describe('glossary (T-4-09)', () => {
     expect(getGlossaryEntry('nope')).toBeUndefined();
   });
 });
+
+describe('generated finding entries (T-4-21)', () => {
+  it('resolves comparison and kind keys with label and explanation', () => {
+    const kind = getGlossaryEntry('kind:type_mismatch');
+    expect(kind?.term).toBe('Type mismatch');
+    expect(kind?.definition).toContain('Next:');
+    const cmp = getGlossaryEntry('comparison:definition_vs_mapping');
+    expect(cmp?.term).toBe('Tracking plan vs Bloomreach mapping');
+    expect(cmp?.definition.length).toBeGreaterThan(10);
+    expect(getGlossaryEntry('family:schema')).toBeDefined();
+  });
+});

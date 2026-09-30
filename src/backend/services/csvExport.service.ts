@@ -26,6 +26,7 @@ import * as StandardEventMappingDAL from '../dal/standard-event-mapping.dal';
 import * as IdentityRuleDAL from '../dal/identity-rule.dal';
 import * as CatalogDAL from '../dal/catalog.dal';
 import * as ConsentCategoryDAL from '../dal/consent-category.dal';
+import { classifyProperty } from '../../domain/propertyCategory';
 import * as UseCaseDAL from '../dal/use-case.dal';
 import * as RequirementDAL from '../dal/requirement.dal';
 import * as RuleDAL from '../dal/rule.dal';
@@ -124,6 +125,8 @@ function buildPropertiesRows(projectId: string): CsvRow[] {
     scope: p.scope,
     name: p.name,
     category: textCell(p.category),
+    property_category: classifyProperty(p),
+    category_override: textCell(p.category_override),
     description: textCell(p.description),
     data_type: p.data_type,
     data_formats_json: jsonCell(p.data_formats_json),

@@ -1,27 +1,6 @@
 import React from 'react';
-import {
-  Activity,
-  Database,
-  LayoutDashboard,
-  LayoutList,
-  Settings,
-  BookOpen,
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
-  Fingerprint,
-  ShieldCheck,
-  GitBranch,
-  ListChecks,
-  Grid3x3,
-  UploadCloud,
-  ClipboardCheck,
-  AlertTriangle,
-  History,
-  MessageSquare,
-  Rocket,
-  HelpCircle,
-} from 'lucide-react';
+import { LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { NAV_ICONS } from './navIcons';
 import { useAuth } from '@/src/contexts/AuthContext';
 
 interface SidebarProps {
@@ -40,28 +19,28 @@ export function Sidebar({
   const { signOut } = useAuth();
 
   const navItems = [
-    { id: 'events', label: 'Events', icon: Activity },
-    { id: 'properties', label: 'Properties', icon: Database },
-    { id: 'catalogs', label: 'Catalogs', icon: LayoutList },
-    { id: 'identityRules', label: 'Identity rules', icon: Fingerprint },
-    { id: 'consentCategories', label: 'Consent categories', icon: ShieldCheck },
-    { id: 'standardEvents', label: 'Standard events', icon: GitBranch },
-    { id: 'useCases', label: 'Use cases', icon: ListChecks },
-    { id: 'useCaseTemplates', label: 'Use case templates', icon: BookOpen },
-    { id: 'requirementsMatrix', label: 'Requirements matrix', icon: Grid3x3 },
-    { id: 'sources', label: 'Sources', icon: LayoutDashboard },
-    { id: 'import', label: 'Import', icon: UploadCloud },
-    { id: 'qaRuns', label: 'QA runs', icon: ClipboardCheck },
-    { id: 'findings', label: 'Findings', icon: AlertTriangle },
-    { id: 'history', label: 'History', icon: History },
-    { id: 'comments', label: 'Comments', icon: MessageSquare },
+    { id: 'events', label: 'Events', icon: NAV_ICONS.events },
+    { id: 'properties', label: 'Properties', icon: NAV_ICONS.properties },
+    { id: 'catalogs', label: 'Catalogs', icon: NAV_ICONS.catalogs },
+    { id: 'identityRules', label: 'Identity rules', icon: NAV_ICONS.identityRules },
+    { id: 'consentCategories', label: 'Consent categories', icon: NAV_ICONS.consentCategories },
+    { id: 'standardEvents', label: 'Standard events', icon: NAV_ICONS.standardEvents },
+    { id: 'useCases', label: 'Use cases', icon: NAV_ICONS.useCases },
+    { id: 'useCaseTemplates', label: 'Use case templates', icon: NAV_ICONS.useCaseTemplates },
+    { id: 'requirementsMatrix', label: 'Requirements matrix', icon: NAV_ICONS.requirementsMatrix },
+    { id: 'sources', label: 'Sources', icon: NAV_ICONS.sources },
+    { id: 'import', label: 'Import', icon: NAV_ICONS.import },
+    { id: 'qaRuns', label: 'QA runs', icon: NAV_ICONS.qaRuns },
+    { id: 'findings', label: 'Findings', icon: NAV_ICONS.findings },
+    { id: 'history', label: 'History', icon: NAV_ICONS.history },
+    { id: 'comments', label: 'Comments', icon: NAV_ICONS.comments },
   ];
 
   const bottomNavItems = [
-    { id: 'gettingStarted', label: 'Getting started', icon: Rocket },
-    { id: 'clients', label: 'Clients', icon: Database },
-    { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'help', label: 'Help', icon: HelpCircle },
+    { id: 'gettingStarted', label: 'Getting started', icon: NAV_ICONS.gettingStarted },
+    { id: 'clients', label: 'Clients', icon: NAV_ICONS.clients },
+    { id: 'settings', label: 'Settings', icon: NAV_ICONS.settings },
+    { id: 'help', label: 'Help', icon: NAV_ICONS.help },
   ];
   const BASE = (typeof import.meta !== 'undefined' && (import.meta as { env?: { BASE_URL?: string } }).env?.BASE_URL) ? String((import.meta as { env: { BASE_URL: string } }).env.BASE_URL).replace(/\/$/, '') : '';
 

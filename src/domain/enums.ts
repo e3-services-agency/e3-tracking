@@ -183,6 +183,9 @@ export type PropertyDataType = (typeof PROPERTY_DATA_TYPES)[number];
 // total; checked by `src/domain/rules/valueChecks.ts`'s `isE164Phone`.
 // `long_text` is new (T-2-02, D-37): marks a Bloomreach `long text` string property so
 // `src/domain/bloomreach/dataManagerTypes.ts` can reverse the mapping on export.
+// `language_tag`, `iana_timezone`, `title_case` are new (D-64, T-4-20): ISO 639-1 with an optional
+// BCP 47 region (`en`, `pt-BR`), an IANA time zone name, and a Title Case recommendation (the last
+// is recommendation-only: shown, never checked, so it never produces a finding).
 export const PROPERTY_DATA_FORMATS = [
   'uuid',
   'iso8601_datetime',
@@ -197,6 +200,9 @@ export const PROPERTY_DATA_FORMATS = [
   'money',
   'e164_phone',
   'long_text',
+  'language_tag',
+  'iana_timezone',
+  'title_case',
 ] as const;
 export type PropertyDataFormat = (typeof PROPERTY_DATA_FORMATS)[number];
 

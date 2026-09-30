@@ -22,6 +22,7 @@ import {
 } from '../../domain/enums';
 import { validateDerivation } from '../../domain/codegen/derivation';
 import { inferPropertyKind } from '../../domain/codegen/defaults';
+import { PROPERTY_CATEGORIES, classifyProperty, isPropertyCategory, recommendedFormatsFor } from '../../domain/propertyCategory';
 import { STANDARD_CUSTOMER_PROPERTIES, isKnownStandardEvent, type StandardEventSeed } from '../../domain/bloomreach';
 import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
 import { isValidItemSchemaShape } from '../../domain/rules/itemSchema';
@@ -43,7 +44,10 @@ export interface PropertyRow {
   scope: 'event' | 'customer';
   name: string;
   description: string | null;
+  /** Bloomreach Data Manager group name (free text); not the D-64 property category. */
   category: string | null;
+  /** D-64 (T-4-20): manual override of the derived property category (`classifyProperty`), or `null`. */
+  category_override: string | null;
   notes: string | null;
   data_type: string;
   data_formats_json: unknown;
@@ -115,6 +119,7 @@ export interface PropertyInput {
   name: string;
   description?: string | null;
   category?: string | null;
+  category_override?: string | null;
   notes?: string | null;
   data_type: string;
   data_formats_json?: unknown;
@@ -318,6 +323,13 @@ function validateKindAndDerivation(kind: string | undefined, derivation: unknown
   if (problem) throw new BadRequestError(problem, 'derivation_json');
   if (derivation !== undefined && derivation !== null && resolvedKind !== 'state_list') {
     throw new BadRequestError('derivation_json is only valid when kind is "state_list".', 'derivation_json');
+  }
+}
+
+function validateCategoryOverride(value: unknown): void {
+  if (value === undefined || value === null) return;
+  if (!isPropertyCategory(value)) {
+    throw new BadRequestError(`category_override must be one of: ${PROPERTY_CATEGORIES.join(', ')}.`, 'category_override');
   }
 }
 
@@ -552,6 +564,7 @@ export function createProperty(projectId: string, input: PropertyInput): Propert
   validateAsciiName(name, 'name');
 
   validatePropertyFields(projectId, input, input.scope);
+  validateCategoryOverride(input.category_override);
   validateCatalogRefs(projectId, input.mapped_catalog_id, input.mapped_catalog_field_id);
   validateItemSchema(input.item_schema_json, input.data_type || DEFAULT_DATA_TYPE);
   // D-63: a caller that sets neither kind nor derivation gets the name-based default (imports, MCP).
@@ -559,7 +572,15 @@ export function createProperty(projectId: string, input: PropertyInput): Propert
     input.kind === undefined && input.derivation_json === undefined
       ? inferPropertyKind(name, input.data_type || DEFAULT_DATA_TYPE, input.scope)
       : null;
-  const createKind = input.kind || inferred?.kind || DEFAULT_PROPERTY_KIND;
+  let createKind = input.kind || inferred?.kind || DEFAULT_PROPERTY_KIND;
+  // D-64: a property whose category is sdk_default (derived, or by override) is `context` unless a kind was given.
+  const createCategoryInput = { scope: input.scope, name, category_override: input.category_override ?? null };
+  if (!input.kind && createKind === DEFAULT_PROPERTY_KIND && classifyProperty(createCategoryInput) === 'sdk_default' && input.derivation_json === undefined) {
+    createKind = 'context';
+  }
+  // D-64: a system customer property created with no formats gets its recommended format(s) as a hint.
+  const hasFormats = Array.isArray(input.data_formats_json) && input.data_formats_json.length > 0;
+  const createFormats = hasFormats ? input.data_formats_json : [...recommendedFormatsFor(createCategoryInput)];
   const createDerivation = input.derivation_json !== undefined ? input.derivation_json : (inferred?.derivation ?? null);
   validateKindAndDerivation(input.kind, createDerivation, createKind);
 
@@ -579,13 +600,13 @@ export function createProperty(projectId: string, input: PropertyInput): Propert
     try {
       db.prepare(
         `INSERT INTO properties (
-          id, project_id, scope, name, description, category, notes, data_type, data_formats_json,
+          id, project_id, scope, name, description, category, category_override, notes, data_type, data_formats_json,
           pii, property_type, allowed_values_json, example_values_json, value_schema_json,
           object_child_property_refs_json, item_schema_json, kind, derivation_json, bloomreach_customer_property, priority, status,
           mapped_catalog_id, mapped_catalog_field_id, mapping_type, bloomreach_meta_json,
           created_at, updated_at, deleted_at
         ) VALUES (
-          @id, @project_id, @scope, @name, @description, @category, @notes, @data_type, @data_formats_json,
+          @id, @project_id, @scope, @name, @description, @category, @category_override, @notes, @data_type, @data_formats_json,
           @pii, @property_type, @allowed_values_json, @example_values_json, @value_schema_json,
           @object_child_property_refs_json, @item_schema_json, @kind, @derivation_json, @bloomreach_customer_property, @priority, @status,
           @mapped_catalog_id, @mapped_catalog_field_id, @mapping_type, @bloomreach_meta_json,
@@ -598,9 +619,10 @@ export function createProperty(projectId: string, input: PropertyInput): Propert
         name,
         description: input.description?.trim() || null,
         category: input.category?.trim() || null,
+        category_override: input.category_override || null,
         notes: input.notes?.trim() || null,
         data_type: input.data_type || DEFAULT_DATA_TYPE,
-        data_formats_json: toJsonColumn(input.data_formats_json ?? []),
+        data_formats_json: toJsonColumn(createFormats),
         pii: toSqliteBool(input.pii),
         property_type: input.property_type || DEFAULT_PROPERTY_TYPE,
         allowed_values_json: toJsonColumn(input.allowed_values_json ?? []),
@@ -638,7 +660,7 @@ export function createProperty(projectId: string, input: PropertyInput): Propert
     PropertyDefinitionDAL.seedDefaultDefinition(projectId, id, {
       description: input.description?.trim() || null,
       allowed_values_json: input.allowed_values_json ?? [],
-      data_formats_json: input.data_formats_json ?? [],
+      data_formats_json: createFormats,
       example_values_json: input.example_values_json ?? [],
     });
 
@@ -689,6 +711,7 @@ export function updateProperty(
   const current = getPropertyOrThrow(projectId, id);
   const resolvedScope = updates.scope ?? current.scope;
   validatePropertyFields(projectId, updates, resolvedScope);
+  validateCategoryOverride(updates.category_override);
 
   if (updates.allowed_values_json !== undefined) {
     assertAllowedValuesNotRemovedWhileInUse(projectId, id, current.allowed_values_json, updates.allowed_values_json);
@@ -710,7 +733,11 @@ export function updateProperty(
       ? inferPropertyKind((updates.name ?? current.name).trim(), updates.data_type, resolvedScope)
       : null;
   const applyReinferred = reinferred !== null && reinferred.kind !== 'event';
-  const resolvedKind = updates.kind ?? (applyReinferred ? reinferred!.kind : current.kind);
+  let resolvedKind = updates.kind ?? (applyReinferred ? reinferred!.kind : current.kind);
+  // D-64: moving a property to the sdk_default category (override) makes a still-default kind `context`.
+  const becomesSdkDefault =
+    updates.category_override === 'sdk_default' && current.category_override !== 'sdk_default' && updates.kind === undefined && resolvedKind === DEFAULT_PROPERTY_KIND && current.derivation_json === null;
+  if (becomesSdkDefault) resolvedKind = 'context';
   validateKindAndDerivation(
     updates.kind,
     updates.derivation_json !== undefined ? updates.derivation_json : applyReinferred ? reinferred!.derivation : undefined,
@@ -745,7 +772,9 @@ export function updateProperty(
     // actually sent); clear it so a non-array property can't carry a stale item schema.
     patch.item_schema_json = null;
   }
+  if (updates.category_override !== undefined) patch.category_override = updates.category_override || null;
   if (updates.kind !== undefined) patch.kind = updates.kind;
+  else if (becomesSdkDefault && !applyReinferred) patch.kind = 'context';
   if (applyReinferred) {
     patch.kind = reinferred!.kind;
     patch.derivation_json = toJsonColumn(reinferred!.derivation);

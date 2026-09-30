@@ -25,6 +25,7 @@ function inputFromBody(body: Record<string, unknown>): Partial<PropertyDAL.Prope
   if (typeof body.name === 'string') input.name = body.name;
   if ('description' in body) input.description = body.description as string | null;
   if ('category' in body) input.category = body.category as string | null;
+  if ('category_override' in body) input.category_override = body.category_override as string | null;
   if ('notes' in body) input.notes = body.notes as string | null;
   if (typeof body.data_type === 'string') input.data_type = body.data_type;
   if ('data_formats_json' in body) input.data_formats_json = body.data_formats_json;

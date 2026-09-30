@@ -40,14 +40,23 @@ import { EventCardView, CertificationBadge, type EventCardData } from '@/src/fea
 import { CommentsPanel, type CommentPanelRow } from '@/src/features/comments/CommentsPanel';
 import { CommentCountButton } from '@/src/features/comments/CommentCountButton';
 import { CopyLinkButton } from '@/src/features/shared/CopyLinkButton';
+import { CopyMarkdownButton } from '@/src/components/ui/CopyMarkdownButton';
+import { SHARED_SECTION_ICONS } from '@/src/components/layout/navIcons';
+import { propertiesToMarkdown } from '@/src/domain/document/markdown';
+import { propertyGroupId, propertyKindGroupId, PROPERTY_CATEGORY_LABELS, formatDisplayName } from '@/src/domain/propertyCategory';
 import { SharedNav } from '@/src/features/shared/SharedNav';
 import { useActiveSection } from '@/src/features/shared/useActiveSection';
-import type { TrackingDocument } from '@/src/domain/document/trackingDocument';
+import type {
+  TrackingDocument,
+  TrackingDocumentCustomerProperty,
+  TrackingDocumentEventProperty,
+} from '@/src/domain/document/trackingDocument';
 import {
   sharedFileUrl,
   buildSharedViewModel,
   buildSectionIndex,
   sectionPresence,
+  sharedPropertyGroups,
   filterNav,
   eventAnchors,
   eventForHash,
@@ -105,6 +114,17 @@ function ExpandToggles({ onExpand, onCollapse, label }: { onExpand: () => void; 
   );
 }
 
+/** Section title with the sidebar's icon for that section (D-64, `navIcons.ts`). */
+function SectionTitle({ id, children }: { id: string; children: React.ReactNode }) {
+  const Icon = SHARED_SECTION_ICONS[id];
+  return (
+    <span className="inline-flex items-center gap-2">
+      {Icon && <Icon size={16} className="shrink-0 text-gray-500" aria-hidden="true" />}
+      {children}
+    </span>
+  );
+}
+
 function SectionCard({ id, title, actions, children }: { id: string; title: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section id={id} style={marginTop('section')} className="bg-white rounded-lg border shadow-sm">
@@ -112,7 +132,9 @@ function SectionCard({ id, title, actions, children }: { id: string; title: Reac
         style={{ height: STICKY_PX.sectionHeader }}
         className={`sticky ${HEADER_TOP_CLASS} z-10 flex items-center justify-between gap-2 border-b bg-white px-4`}
       >
-        <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
+        <h2 className="text-sm font-semibold text-gray-900">
+          <SectionTitle id={id}>{title}</SectionTitle>
+        </h2>
         {actions}
       </div>
       <div className="p-4">{children}</div>
@@ -145,6 +167,43 @@ function SimpleTable({ head, rows }: { head: string[]; rows: React.ReactNode[][]
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+type PropertyItem = TrackingDocumentCustomerProperty | TrackingDocumentEventProperty;
+
+/** One property as a collapsed row (name, type, one-line description); expanded it shows its
+ * named definitions (D-58) nested under it and, for an event property, the events that use it. */
+function PropertyRow({ property, expanded, onToggle }: { property: PropertyItem; expanded: boolean; onToggle: () => void }) {
+  const usedIn = 'used_in_events' in property ? property.used_in_events : [];
+  return (
+    <div className="bg-white rounded-lg border shadow-sm">
+      <button type="button" onClick={onToggle} aria-expanded={expanded} className="flex w-full min-w-0 items-center gap-2 px-4 py-2 text-left">
+        {expanded ? <ChevronDown size={16} className="shrink-0" /> : <ChevronRight size={16} className="shrink-0" />}
+        <span className="font-semibold text-gray-900 truncate">{property.name}</span>
+        <span className="shrink-0 text-xs text-gray-500">({property.data_type})</span>
+        {!expanded && property.description && (
+          <span className="hidden sm:block min-w-0 truncate text-sm text-gray-500">{oneLineDescription(property.description)}</span>
+        )}
+      </button>
+      {expanded && (
+        <div className="border-t px-4 py-3 space-y-2">
+          {property.description && <p className="text-sm text-gray-700">{property.description}</p>}
+          {property.data_formats.length > 0 && <p className="text-xs text-gray-500">Formats: {property.data_formats.map(formatDisplayName).join(', ')}</p>}
+          {usedIn.length > 0 && <p className="text-xs text-gray-500">Used in: {usedIn.join(', ')}</p>}
+          <SimpleTable
+            head={['Definition', 'Description', 'Allowed values', 'Formats', 'Example']}
+            rows={property.definitions.map((d) => [
+              d.name,
+              d.description ?? '—',
+              d.allowed_values ? d.allowed_values.map((v) => v.value).join(', ') : '—',
+              d.formats.map(formatDisplayName).join(', ') || '—',
+              <ExampleCell key="ex" value={formatExampleValues(d.example_values)} />,
+            ])}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -206,6 +265,7 @@ export function SharedProject({ token }: { token: string }) {
   const [loading, setLoading] = useState(true);
   const [openEvents, setOpenEvents] = useState<Set<string>>(new Set());
   const [openUseCases, setOpenUseCases] = useState<Set<string>>(new Set());
+  const [openProperties, setOpenProperties] = useState<Set<string>>(new Set());
   const [navQuery, setNavQuery] = useState('');
   const [openThreads, setOpenThreads] = useState<Set<string>>(new Set());
   // A nav click wins over the scroll spy until the reader scrolls again (the last sections can never reach the spy band).
@@ -365,13 +425,16 @@ export function SharedProject({ token }: { token: string }) {
   const setEvents = (ids: string[], expanded: boolean) => setOpenEvents((prev) => setExpanded(prev, ids, expanded));
   const setUseCases = (ids: string[], expanded: boolean) => setOpenUseCases((prev) => setExpanded(prev, ids, expanded));
   // One global pair (toolbar) covers every collapsible row; the section headers keep a local pair.
+  const allPropertyIds = [...doc.properties, ...(doc.event_properties ?? [])].map((p) => p.property_id);
   const expandAll = () => {
     setEvents(allEventIds, true);
     setUseCases(allUseCaseIds, true);
+    setOpenProperties((prev) => setExpanded(prev, allPropertyIds, true));
   };
   const collapseAll = () => {
     setEvents(allEventIds, false);
     setUseCases(allUseCaseIds, false);
+    setOpenProperties((prev) => setExpanded(prev, allPropertyIds, false));
   };
   const linkClass = 'text-[var(--color-info)] hover:underline';
 
@@ -423,7 +486,7 @@ export function SharedProject({ token }: { token: string }) {
                 style={{ height: STICKY_PX.sectionHeader }}
                 className={`sticky ${HEADER_TOP_CLASS} z-10 flex items-center bg-gray-50 text-lg font-semibold text-gray-900`}
               >
-                Events ({doc.events.length})
+                <SectionTitle id={SECTION_IDS.events}>Events ({doc.events.length})</SectionTitle>
               </h2>
               {EVENT_CLASS_GROUPS.map(({ cls, label }) => {
                 const inGroup = doc.events.filter((e) => e.class === cls);
@@ -514,27 +577,61 @@ export function SharedProject({ token }: { token: string }) {
             </section>
           )}
 
-          {present.properties && (
-            <SectionCard id={SECTION_IDS.properties} title={`Properties (${doc.properties.length})`}>
-              {doc.properties.map((p) => (
-                <div key={p.property_id} className="mb-4">
-                  <h4 className="text-sm font-semibold text-gray-800">
-                    {p.name} <span className="text-xs font-normal text-gray-500">({p.data_type})</span>
-                  </h4>
-                  <SimpleTable
-                    head={['Definition', 'Description', 'Allowed values', 'Formats', 'Example']}
-                    rows={p.definitions.map((d) => [
-                      d.name,
-                      d.description ?? '—',
-                      d.allowed_values ? d.allowed_values.map((v) => v.value).join(', ') : '—',
-                      d.formats.join(', ') || '—',
-                      <ExampleCell key="ex" value={formatExampleValues(d.example_values)} />,
-                    ])}
+          {present.properties && (() => {
+            const groups = sharedPropertyGroups<PropertyItem>(doc as unknown as { properties: PropertyItem[]; event_properties?: PropertyItem[] });
+            const totalProperties = doc.properties.length + (doc.event_properties?.length ?? 0);
+            const setProperties = (ids: string[], expanded: boolean) => setOpenProperties((prev) => setExpanded(prev, ids, expanded));
+            const renderRows = (items: PropertyItem[]) =>
+              items.map((p) => (
+                <PropertyRow
+                  key={p.property_id}
+                  property={p}
+                  expanded={openProperties.has(p.property_id)}
+                  onToggle={() => toggle(setOpenProperties, p.property_id)}
+                />
+              ));
+            return (
+              <section id={SECTION_IDS.properties} style={marginTop('section')} className="space-y-3">
+                <h2
+                  style={{ height: STICKY_PX.sectionHeader }}
+                  className={`sticky ${HEADER_TOP_CLASS} z-10 flex items-center justify-between gap-2 bg-gray-50 text-lg font-semibold text-gray-900`}
+                >
+                  <SectionTitle id={SECTION_IDS.properties}>Properties ({totalProperties})</SectionTitle>
+                  <CopyMarkdownButton
+                    getMarkdown={() => propertiesToMarkdown([...doc.properties, ...(doc.event_properties ?? [])])}
+                    label="Copy properties as Markdown"
                   />
-                </div>
-              ))}
-            </SectionCard>
-          )}
+                </h2>
+                {groups.map((group) => (
+                  <div key={group.category} id={propertyGroupId(group.category)} style={marginTop('group')} className="space-y-3">
+                    <div
+                      style={{ height: STICKY_PX.groupHeader }}
+                      className={`sticky ${HEADER_TOP_CLASS} z-[15] flex items-center justify-between gap-2 bg-gray-50`}
+                    >
+                      <h3 className="text-sm font-semibold text-gray-700">
+                        {PROPERTY_CATEGORY_LABELS[group.category]} ({group.items.length})
+                      </h3>
+                      <ExpandToggles
+                        label={PROPERTY_CATEGORY_LABELS[group.category].toLowerCase()}
+                        onExpand={() => setProperties(group.items.map((p) => p.property_id), true)}
+                        onCollapse={() => setProperties(group.items.map((p) => p.property_id), false)}
+                      />
+                    </div>
+                    {group.subgroups.length > 0
+                      ? group.subgroups.map((sub) => (
+                          <div key={sub.kind} id={propertyKindGroupId(sub.kind)} style={marginTop('event')} className="space-y-2">
+                            <h4 className="text-xs font-semibold uppercase text-gray-500">
+                              {sub.label} ({sub.items.length})
+                            </h4>
+                            {renderRows(sub.items)}
+                          </div>
+                        ))
+                      : renderRows(group.items)}
+                  </div>
+                ))}
+              </section>
+            );
+          })()}
 
           {present.useCases && (
             <SectionCard
@@ -672,10 +769,47 @@ export function SharedProject({ token }: { token: string }) {
 
           {present.catalogs && (
             <SectionCard id={SECTION_IDS.catalogs} title={`Catalogs (${doc.catalogs.length})`}>
-              <SimpleTable
-                head={['Name', 'Mapping role', 'Status']}
-                rows={doc.catalogs.map((c) => [c.name, c.mapping_role ?? '—', c.status ?? '—'])}
-              />
+              <div className="space-y-4">
+                {doc.catalogs.map((c) => {
+                  const meta = [
+                    c.mapping_role ? `mapping role: ${c.mapping_role}` : '',
+                    c.status ?? '',
+                    c.source_system ? `source: ${c.source_system}` : '',
+                    c.sync_method ? `sync: ${c.sync_method}` : '',
+                    c.update_frequency ? `updates: ${c.update_frequency}` : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ');
+                  const fields = c.fields ?? [];
+                  const mapped = c.mapped_properties ?? [];
+                  return (
+                    <div key={c.name} className="rounded-lg border p-4">
+                      <h3 className="text-sm font-semibold text-gray-900">{c.name}</h3>
+                      {meta && <p className="text-xs text-gray-500">{meta}</p>}
+                      {c.description && <p className="mt-1 text-sm text-gray-700">{c.description}</p>}
+                      {fields.length === 0 ? (
+                        <p className="mt-2 text-xs text-gray-500">No fields defined.</p>
+                      ) : (
+                        <div className="mt-2">
+                          <SimpleTable
+                            head={['Field', 'Type', 'Lookup key', 'Searchable', 'Description']}
+                            rows={fields.map((f) => [f.name, f.data_type ?? '—', f.is_lookup_key ? 'yes' : '—', f.is_searchable ? 'yes' : '—', f.description ?? '—'])}
+                          />
+                        </div>
+                      )}
+                      {mapped.length > 0 && (
+                        <div className="mt-3">
+                          <h4 className="mb-1 text-xs font-semibold uppercase text-gray-500">Properties that look up into this catalog</h4>
+                          <SimpleTable
+                            head={['Property', 'Scope', 'Catalog field']}
+                            rows={mapped.map((m) => [m.property_name, m.scope, m.field_name ?? '—'])}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </SectionCard>
           )}
 

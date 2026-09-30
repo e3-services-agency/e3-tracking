@@ -69,7 +69,7 @@ export function toAppType(dmType: string): ToAppTypeResult {
  * they can be kept, while formats tied to the *old* type are dropped.
  */
 const FORMATS_COMPATIBLE_WITH_TYPE: Record<PropertyDataType, readonly PropertyDataFormat[]> = {
-  string: ['uuid', 'email', 'uri', 'currency_code', 'country_code', 'language_code', 'long_text'],
+  string: ['uuid', 'email', 'uri', 'currency_code', 'country_code', 'language_code', 'language_tag', 'iana_timezone', 'title_case', 'e164_phone', 'long_text'],
   number: ['money'],
   boolean: [],
   timestamp: ['iso8601_datetime', 'iso8601_date', 'unix_seconds', 'unix_milliseconds'],

@@ -54,6 +54,8 @@ describe('CSV_ENTITIES (D-46, T-3-03)', () => {
       'scope',
       'name',
       'category',
+      'property_category',
+      'category_override',
       'description',
       'data_type',
       'data_formats_json',

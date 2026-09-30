@@ -1,3 +1,4 @@
+import { SDK_DEFAULT_PROPERTIES } from '../bloomreach';
 import type { ImplementationMethod, PropertyKind } from '../enums';
 import type { PropertyDerivation } from './derivation';
 
@@ -30,6 +31,8 @@ export function inferPropertyKind(
 ): { kind: PropertyKind; derivation: PropertyDerivation | null } {
   const plain = { kind: 'event' as const, derivation: null };
   if (scope !== 'event') return plain;
+  // D-64: the SDK default properties (os, browser, device, location) are context.
+  if (SDK_DEFAULT_PROPERTIES.includes(name)) return { kind: 'context', derivation: null };
   if (dataType === 'array' && name.endsWith('_ids') && name.length > 4) {
     return { kind: 'state_list', derivation: { source: 'items', id_field: `${name.slice(0, -4)}_id`, form: 'ids' } };
   }

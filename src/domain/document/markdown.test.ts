@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { eventCardToMarkdown, mdCell, useCaseToMarkdown } from './markdown';
+import { eventCardToMarkdown, mdCell, propertiesToMarkdown, useCaseToMarkdown } from './markdown';
 import type { EventCard, TrackingDocumentUseCase } from './trackingDocument';
 
 const sev = { error: 0, warning: 0, info: 0 };
@@ -116,5 +116,24 @@ describe('useCaseToMarkdown', () => {
     const md = useCaseToMarkdown({ ...uc, narrative: null, requirements: [] });
     expect(md).toContain('No narrative yet.');
     expect(md).toContain('No requirements.');
+  });
+});
+
+describe('propertiesToMarkdown (D-64)', () => {
+  const def = [{ id: 'd', name: 'general', description: 'Desc', allowed_values: null, formats: ['email'], example_values: 'a@b.co' }];
+  it('groups by category with event kind subgroups and nests definitions', () => {
+    const md = propertiesToMarkdown([
+      { category: 'event', kind: 'state_list', name: 'product_ids', data_type: 'array', definitions: def },
+      { category: 'system_customer', name: 'email', data_type: 'string', definitions: def },
+    ]);
+    expect(md.indexOf('## System customer (1)')).toBeGreaterThan(-1);
+    expect(md.indexOf('## System customer (1)')).toBeLessThan(md.indexOf('## Event (1)'));
+    expect(md).toContain('### State list (1)');
+    expect(md).toContain('### email (string)');
+    expect(md).toContain('#### product_ids (array)');
+    expect(md).toContain('| general | Desc |');
+  });
+  it('says so when there are none', () => {
+    expect(propertiesToMarkdown([])).toContain('No properties defined.');
   });
 });

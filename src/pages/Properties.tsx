@@ -30,6 +30,14 @@ import { AllowedValuesEditor, type AllowedValueRow } from '@/src/features/proper
 import { ItemSchemaEditor, type ItemSchemaFieldRow } from '@/src/features/properties/components/ItemSchemaEditor';
 import { DerivationEditor, draftFromDerivation, derivationFromDraft, type DerivationDraft } from '@/src/features/properties/components/DerivationEditor';
 import { mergeFrozenOrder } from '@/src/domain/propertyOrder';
+import {
+  PROPERTY_CATEGORIES,
+  PROPERTY_CATEGORY_LABELS,
+  classifyProperty,
+  formatDisplayName,
+  isPropertyCategory,
+  type PropertyCategory,
+} from '@/src/domain/propertyCategory';
 import { HistorySection } from '@/src/features/history/HistorySection';
 import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
 
@@ -39,7 +47,10 @@ interface PropertyRow {
   scope: string;
   name: string;
   description: string | null;
+  /** Bloomreach Data Manager group name (free text). */
   category: string | null;
+  /** D-64 (T-4-20): manual override of the derived property category; `null` = derived. */
+  category_override?: string | null;
   notes: string | null;
   data_type: string;
   data_formats_json: string[];
@@ -72,6 +83,7 @@ export function Properties() {
   const [bundles, setBundles] = useState<BundleRow[]>([]);
   const [standardEventAdditions, setStandardEventAdditions] = useState<StandardEventSeed[] | null>(null);
   const [scopeFilter, setScopeFilter] = useState<string>('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -129,6 +141,11 @@ export function Properties() {
     orderRef.current = order;
     return order.map((id) => byId.get(id)!);
   }, [properties, orderFrozen]);
+  // D-64: the category filter applies to the (possibly frozen) display order, client-side.
+  const visibleProperties = useMemo(
+    () => (categoryFilter ? displayProperties.filter((p) => classifyProperty(p) === categoryFilter) : displayProperties),
+    [displayProperties, categoryFilter]
+  );
 
   useEffect(() => {
     if (selectedItemIdToEdit && properties.some((p) => p.id === selectedItemIdToEdit)) {
@@ -160,6 +177,12 @@ export function Properties() {
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
+          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} aria-label="Filter by category" className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+            <option value="">All categories</option>
+            {PROPERTY_CATEGORIES.map((c) => (
+              <option key={c} value={c}>{PROPERTY_CATEGORY_LABELS[c]}</option>
+            ))}
+          </select>
         </div>
 
         <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
@@ -168,6 +191,7 @@ export function Properties() {
               <tr>
                 <th className="px-6 py-3 font-medium text-gray-500">Name</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Scope</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Category</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Data type</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Enum</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Priority</th>
@@ -175,12 +199,16 @@ export function Properties() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {displayProperties.map((p) => {
+              {visibleProperties.map((p) => {
                 const enumCount = Array.isArray(p.allowed_values_json) ? p.allowed_values_json.length : 0;
                 return (
                   <tr key={p.id} onClick={() => { setSelectedId(p.id); setIsCreating(false); setIsSheetOpen(true); setOrderFrozen(true); }} className="hover:bg-gray-50 cursor-pointer">
                     <td className="px-6 py-4 font-medium text-gray-900">{p.name}</td>
                     <td className="px-6 py-4 text-gray-500">{p.scope}</td>
+                    <td className="px-6 py-4 text-gray-500">
+                      {PROPERTY_CATEGORY_LABELS[classifyProperty(p)]}
+                      {isPropertyCategory(p.category_override) && <span className="ml-1 text-xs text-gray-400">(set)</span>}
+                    </td>
                     <td className="px-6 py-4 text-gray-500">{p.data_type}</td>
                     <td className="px-6 py-4">
                       {enumCount > 0 ? (
@@ -196,10 +224,14 @@ export function Properties() {
                   </tr>
                 );
               })}
-              {displayProperties.length === 0 && (
+              {visibleProperties.length === 0 && (
                 <EmptyState
-                  colSpan={6}
-                  message="No properties yet. Import a data mapping from the Import page, or add one by hand."
+                  colSpan={7}
+                  message={
+                    properties.length > 0 || scopeFilter || categoryFilter
+                      ? 'No properties match the filter.'
+                      : 'No properties yet. Import a data mapping from the Import page, or add one by hand.'
+                  }
                   actionLabel="Add Property"
                   onAction={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); setOrderFrozen(true); }}
                 />
@@ -251,6 +283,7 @@ function PropertyEditor({
   const [name, setName] = useState(property?.name ?? '');
   const [description, setDescription] = useState(property?.description ?? '');
   const [category, setCategory] = useState(property?.category ?? '');
+  const [categoryOverride, setCategoryOverride] = useState<string>(property?.category_override ?? '');
   const [notes, setNotes] = useState(property?.notes ?? '');
   const [dataType, setDataType] = useState(property?.data_type ?? 'string');
   const [dataFormats, setDataFormats] = useState<string[]>(property?.data_formats_json ?? []);
@@ -288,6 +321,7 @@ function PropertyEditor({
         name: trimmedName,
         description: description.trim() || null,
         category: category.trim() || null,
+        category_override: categoryOverride || null,
         notes: notes.trim() || null,
         data_type: dataType,
         data_formats_json: dataFormats,
@@ -295,7 +329,13 @@ function PropertyEditor({
           dataType === 'array'
             ? itemSchema.filter((f) => f.field.trim()).map((f) => ({ field: f.field.trim(), data_type: f.data_type, data_formats: f.data_formats ?? [], required: f.required ?? false }))
             : null,
-        kind: scope === 'event' ? kind : 'event',
+        // D-64: an SDK default property whose kind is still the default `event` is saved as `context`.
+        kind:
+          scope === 'event'
+            ? kind === 'event' && classifyProperty({ scope, name: trimmedName, category_override: categoryOverride || null }) === 'sdk_default'
+              ? 'context'
+              : kind
+            : 'event',
         derivation_json: scope === 'event' ? derivationFromDraft(kind, derivationDraft) : null,
         pii,
         property_type: propertyType,
@@ -380,7 +420,7 @@ function PropertyEditor({
           {PROPERTY_DATA_FORMATS.map((fmt) => (
             <label key={fmt} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1">
               <input type="checkbox" checked={dataFormats.includes(fmt)} onChange={() => toggleFormat(fmt)} />
-              {fmt}
+              {formatDisplayName(fmt)}
             </label>
           ))}
         </div>
@@ -393,6 +433,26 @@ function PropertyEditor({
       />
 
       {dataType === 'array' && <ItemSchemaEditor fields={itemSchema} onChange={setItemSchema} />}
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-gray-700" htmlFor="property-category-override">Property category</label>
+        <select
+          id="property-category-override"
+          value={categoryOverride}
+          onChange={(e) => {
+            setCategoryOverride(e.target.value);
+            // D-64: an SDK default property is a context property unless a kind was chosen.
+            if (e.target.value === 'sdk_default' && kind === 'event') setKind('context');
+          }}
+          className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+        >
+          <option value="">Automatic ({PROPERTY_CATEGORY_LABELS[classifyProperty({ scope, name: trimmedName })]})</option>
+          {PROPERTY_CATEGORIES.map((c: PropertyCategory) => (
+            <option key={c} value={c}>{PROPERTY_CATEGORY_LABELS[c]}</option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-500">Derived from the scope and name; set it only to override.</p>
+      </div>
 
       {scope === 'event' && (
         <DerivationEditor kind={kind} onKindChange={setKind} draft={derivationDraft} onDraftChange={setDerivationDraft} />
@@ -664,7 +724,7 @@ function DefinitionEditor({
           {PROPERTY_DATA_FORMATS.map((fmt) => (
             <label key={fmt} className="flex items-center gap-1 text-xs bg-white border rounded px-2 py-1">
               <input type="checkbox" checked={formats.includes(fmt)} onChange={() => toggleFormat(fmt)} />
-              {fmt}
+              {formatDisplayName(fmt)}
             </label>
           ))}
         </div>

@@ -4,6 +4,14 @@
  * (D-20); re-exported by `src/pages/sharedViewModel.ts`.
  */
 
+import {
+  groupPropertiesByCategory,
+  propertyGroupId,
+  propertyKindGroupId,
+  type PropertyCategory,
+} from '../../domain/propertyCategory';
+import type { PropertyKind } from '../../domain/enums';
+
 /** DOM id (and URL hash, without `#`) of an event: `event-<name>`; characters outside
  * `[A-Za-z0-9_.-]` become `-`. Stable across reloads because it derives from the name only. */
 export function eventAnchor(name: string): string {
@@ -93,9 +101,29 @@ export interface NavItem {
   children?: NavItem[];
 }
 
+/** A property as the shared Properties section lists it: customer-scope from `properties[]` or
+ * event-scope from `event_properties[]` (D-64), both already carrying their `category`. */
+export interface SharedPropertyInput {
+  category: PropertyCategory;
+  kind?: PropertyKind | null;
+  name: string;
+}
+
+/** The Properties section's groups (System customer / Customer / SDK default / Event, Event split
+ * by kind) over the customer and event property lists; one decision for the page, the nav and the
+ * rendered-id list. */
+export function sharedPropertyGroups<T extends SharedPropertyInput, U extends SharedPropertyInput = T>(doc: {
+  properties: readonly T[];
+  event_properties?: readonly U[];
+}) {
+  return groupPropertiesByCategory<T | U>([...doc.properties, ...(doc.event_properties ?? [])]);
+}
+
 export interface NavDocInput {
   events: { name: string; class: string; quality?: { acknowledged: { error: number; warning: number; info: number } } }[];
   properties: unknown[];
+  /** D-64: event-scope properties; absent in a document from before T-4-20. */
+  event_properties?: unknown[];
   use_cases: unknown[];
   identity_rules: unknown[];
   consent_categories: unknown[];
@@ -136,7 +164,7 @@ export function sectionPresence(doc: NavDocInput) {
   );
   return {
     events: doc.events.length > 0,
-    properties: doc.properties.length > 0,
+    properties: doc.properties.length + (doc.event_properties?.length ?? 0) > 0,
     useCases: doc.use_cases.length > 0,
     identity: doc.identity_rules.length > 0,
     consents: doc.consent_categories.length > 0,
@@ -166,7 +194,19 @@ export function buildSectionIndex(doc: NavDocInput): NavItem[] {
     }
     items.push({ id: SECTION_IDS.events, label: `Events (${doc.events.length})`, children: groups });
   }
-  if (present.properties) items.push({ id: SECTION_IDS.properties, label: 'Properties' });
+  if (present.properties) {
+    const groups = sharedPropertyGroups(doc as unknown as { properties: SharedPropertyInput[]; event_properties?: SharedPropertyInput[] });
+    const total = doc.properties.length + (doc.event_properties?.length ?? 0);
+    items.push({
+      id: SECTION_IDS.properties,
+      label: 'Properties (' + total + ')',
+      children: groups.map((g) => ({
+        id: propertyGroupId(g.category),
+        label: g.label + ' (' + g.items.length + ')',
+        children: g.subgroups.length > 0 ? g.subgroups.map((s) => ({ id: propertyKindGroupId(s.kind), label: s.label + ' (' + s.items.length + ')' })) : undefined,
+      })),
+    });
+  }
   if (present.useCases) items.push({ id: SECTION_IDS.useCases, label: 'Use cases' });
   if (present.identity) items.push({ id: SECTION_IDS.identity, label: 'Identity' });
   if (present.consents) items.push({ id: SECTION_IDS.consents, label: 'Consents' });
@@ -191,7 +231,13 @@ export function renderedSectionIds(doc: NavDocInput): string[] {
     }
   }
   for (const key of ['properties', 'useCases', 'identity', 'consents', 'catalogs', 'mapping', 'findings'] as const) {
-    if (present[key]) ids.push(SECTION_IDS[key]);
+    if (!present[key]) continue;
+    ids.push(SECTION_IDS[key]);
+    if (key === 'properties') {
+      for (const g of sharedPropertyGroups(doc as unknown as { properties: SharedPropertyInput[]; event_properties?: SharedPropertyInput[] })) {
+        ids.push(propertyGroupId(g.category), ...g.subgroups.map((s) => propertyKindGroupId(s.kind)));
+      }
+    }
   }
   return ids;
 }

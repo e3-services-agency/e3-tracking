@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { eventCardToMarkdown, mdCell, propertiesToMarkdown, useCaseToMarkdown } from './markdown';
+import { eventCardToMarkdown, findingsSummaryToMarkdown, mdCell, propertiesToMarkdown, useCaseToMarkdown } from './markdown';
+import { computeFindingsSummary } from './findingsSummary';
 import type { EventCard, TrackingDocumentUseCase } from './trackingDocument';
 
 const sev = { error: 0, warning: 0, info: 0 };
@@ -135,5 +136,26 @@ describe('propertiesToMarkdown (D-64)', () => {
   });
   it('says so when there are none', () => {
     expect(propertiesToMarkdown([])).toContain('No properties defined.');
+  });
+});
+
+describe('findingsSummaryToMarkdown (T-4-21)', () => {
+  const ack = { acknowledged: { error: 0, warning: 0, info: 0 } };
+  const summary = computeFindingsSummary(
+    [{ id: 'e1', name: 'purchase', quality: ack, findings: [
+      { severity: 'error', comparison: 'definition_vs_observations', kind: 'type_mismatch' },
+      { severity: 'warning', comparison: 'definition_vs_observations', kind: 'rounding_drift' },
+    ] }],
+    []
+  );
+  it('renders counts, the family table with labels and next steps, human comparison names and top events', () => {
+    const md = findingsSummaryToMarkdown(summary);
+    expect(md).toContain('2 open: 1 errors, 1 warnings, 0 info.');
+    expect(md).toContain('### By kind of problem');
+    expect(md).toContain('| Schema | Type mismatch (1) | 1 |');
+    expect(md).toContain('| Arithmetic | Rounding drift (1) | 1 |');
+    expect(md).toContain('Tracking plan vs observed data');
+    expect(md).not.toContain('definition_vs_observations');
+    expect(md).toContain('| purchase | 1 | 2 |');
   });
 });

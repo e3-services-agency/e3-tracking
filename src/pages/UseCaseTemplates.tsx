@@ -338,7 +338,8 @@ export function UseCaseTemplates() {
       const template = templates.find((t) => t.id === id);
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/use-cases/from-template/${id}`, {
         method: 'POST',
-        body: template ? JSON.stringify({ type: suggestUseCaseType({ type: template.type, name: template.name, channels: template.tags_json?.channels }) }) : undefined,
+        // No silent suggestion in the bulk add: the template's own type stands (the server default).
+        body: undefined,
       });
       if (res.ok) {
         created += 1;

@@ -17,7 +17,7 @@ export const COMPARISON_INFO: Record<ComparisonId, ComparisonInfo> = {
     id: 'definition_vs_mapping',
     label: 'Tracking plan vs Bloomreach mapping',
     explanation:
-      'Checks that the events, properties, catalogs and consents in the tracking plan appear in the Bloomreach data mapping (data-mapping.json) under the expected names.',
+      'Checks that the events, properties, catalogs and consents in the tracking plan appear in the Bloomreach data mapping under the expected names.',
   },
   mapping_vs_observations: {
     id: 'mapping_vs_observations',
@@ -29,7 +29,7 @@ export const COMPARISON_INFO: Record<ComparisonId, ComparisonInfo> = {
     id: 'definition_vs_observations',
     label: 'Tracking plan vs observed data',
     explanation:
-      'Checks the events actually sent (customer events export or agent submissions) against the tracking plan: required properties, types, formats, allowed values, rules and coverage.',
+      'Checks the events actually sent (customer events export) against the tracking plan: required properties, types, formats, allowed values, rules and coverage.',
   },
   data_manager: {
     id: 'data_manager',
@@ -39,7 +39,7 @@ export const COMPARISON_INFO: Record<ComparisonId, ComparisonInfo> = {
   },
 };
 
-export const FINDING_FAMILIES = ['schema', 'values', 'arithmetic', 'consistency', 'coverage', 'data_manager'] as const;
+export const FINDING_FAMILIES = ['schema', 'values', 'arithmetic', 'consistency', 'coverage', 'data_manager', 'other'] as const;
 export type FindingFamily = (typeof FINDING_FAMILIES)[number];
 
 export interface FamilyInfo {
@@ -79,6 +79,12 @@ export const FAMILY_INFO: Record<FindingFamily, FamilyInfo> = {
     label: 'Coverage',
     explanation: 'Something defined is not covered elsewhere: an event is never observed, or is not mapped.',
     next: 'Send or import the missing data, add the missing mapping, or mark the item as ignored.',
+  },
+  other: {
+    id: 'other',
+    label: 'Other',
+    explanation: 'A kind of finding this version does not classify yet.',
+    next: 'Open the finding and read its message.',
   },
   data_manager: {
     id: 'data_manager',
@@ -128,16 +134,16 @@ export const KIND_INFO: Record<FindingKind, KindInfo> = {
   ),
   unmapped_property: k(
     'unmapped_property',
-    'schema',
+    'coverage',
     'Unmapped property',
-    'A property in the definition has no counterpart in the Bloomreach mapping or Data Manager.',
+    'A property in the definition is not covered by the Bloomreach mapping or Data Manager.',
     'Map the property in Bloomreach, or remove it from the definition.'
   ),
   unknown_variant: k(
     'unknown_variant',
     'schema',
     'Unknown variant',
-    'An observed event matches no defined variant (its discriminator values are not covered by the definition).',
+    'An observed event matches no defined variant, or a mapped standard event filters on values no variant covers.',
     'Define the variant, or fix the discriminator value that is sent.'
   ),
   item_schema_violation: k(
@@ -200,7 +206,7 @@ export const KIND_INFO: Record<FindingKind, KindInfo> = {
     'rename_mismatch',
     'consistency',
     'Name mismatch',
-    'A name in the Bloomreach mapping differs from the name in the tracking plan (or a consent is not tagged).',
+    'A name in the Bloomreach mapping differs from the name in the tracking plan.',
     'Make the names identical in the mapping and the tracking plan.'
   ),
   expiration_mismatch: k(
@@ -244,7 +250,7 @@ export const KIND_INFO: Record<FindingKind, KindInfo> = {
  * (whatever its kind), otherwise the kind decides. */
 export function findingFamily(comparison: string, kind: string): FindingFamily {
   if (comparison === 'data_manager') return 'data_manager';
-  return (KIND_INFO as Record<string, KindInfo | undefined>)[kind]?.family ?? 'consistency';
+  return (KIND_INFO as Record<string, KindInfo | undefined>)[kind]?.family ?? 'other';
 }
 
 export function comparisonLabel(id: string): string {
@@ -263,4 +269,16 @@ export function kindLabel(kind: string): string {
 export function kindTooltip(kind: string): string {
   const info = (KIND_INFO as Record<string, KindInfo | undefined>)[kind];
   return info ? `${info.explanation} Next: ${info.next}` : kind;
+}
+
+/** What `FindingTerm` renders: the human label and the tooltip (explanation, plus next step for a
+ * kind); an unknown id renders as itself with no tooltip. */
+export function findingTermParts(target: { comparison?: string; kind?: string }): { label: string; tooltip: string | null } {
+  if (target.comparison) {
+    const info = (COMPARISON_INFO as Record<string, ComparisonInfo | undefined>)[target.comparison];
+    return info ? { label: info.label, tooltip: info.explanation } : { label: target.comparison, tooltip: null };
+  }
+  const kind = target.kind ?? '';
+  const info = (KIND_INFO as Record<string, KindInfo | undefined>)[kind];
+  return info ? { label: info.label, tooltip: `${info.explanation} Next: ${info.next}` } : { label: kind, tooltip: null };
 }

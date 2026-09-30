@@ -8,7 +8,7 @@ import type { UseCaseType } from './enums';
 
 const MESSAGE_CHANNELS = ['email', 'sms', 'browser_push', 'mobile_push', 'whatsapp', 'rcs'];
 const CONFIRMATION_LIKE =
-  /confirm|receipt|invoice|order status|shipping|shipment|delivery|dispatch|password|verification|verify|reset|welcome email|transactional|double opt|opt-in confirm|back in stock confirm|thank you/i;
+  /(order|shipping|shipment|booking|reservation|payment)\s+confirmation|receipt|invoice|password\s+reset|reset\s+password|verification\s+(code|email)|double\s+opt-?\s?in/i;
 
 export function suggestUseCaseType(template: { type?: string | null; name: string; channels?: string[] | null }): UseCaseType {
   if (template.type === 'transactional') return 'transactional';

@@ -10,6 +10,7 @@ import * as UseCaseTemplateDAL from '../dal/use-case-template.dal';
 import { regenerateNarrative } from '../services/useCaseNarrative.service';
 import { computeUseCaseCoverage } from '../services/useCaseCoverage.service';
 import { handleRouteError } from './routeErrors';
+import { ValidationError } from '../errors';
 
 const router = Router({ mergeParams: true });
 
@@ -80,6 +81,9 @@ router.post('/from-template/:templateId', (req: Request, res: Response) => {
             property_id: typeof m.property_id === 'string' && m.property_id.trim() ? (m.property_id as string) : null,
           }))
       : undefined;
+    if (body.type !== undefined && body.type !== null && typeof body.type !== 'string') {
+      throw new ValidationError('type must be a string (marketing or transactional).', 'type');
+    }
     const type = typeof body.type === 'string' && body.type.trim() ? body.type.trim() : undefined;
     let useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(req.projectId!, req.params.templateId, {
       code,

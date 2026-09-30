@@ -10,6 +10,9 @@ describe('consentChannel (T-4-21)', () => {
     expect(consentChannel({ name: 'Personalized browser notification', standard_key: 'personalized_browser_notification' })).toBe('push');
     expect(consentChannel({ name: 'Push messages' })).toBe('push');
     expect(consentChannel({ name: 'WhatsApp updates' })).toBe('whatsapp');
+    expect(consentChannel({ name: 'Email notifications' })).toBe('email');
+    expect(consentChannel({ name: 'Mobile app messages' })).toBe('push');
+    expect(consentChannel({ name: 'Notifications' })).toBe('push');
     expect(consentChannel({ name: 'Brand consent', standard_key: 'marketing' })).toBe('other');
     expect(consentChannel({ name: 'Classic' })).toBe('other');
   });

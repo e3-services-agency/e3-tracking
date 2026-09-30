@@ -38,3 +38,17 @@ describe('findings catalogue (T-4-21)', () => {
     expect(kindTooltip('type_mismatch')).toContain('Next:');
   });
 });
+
+describe('findingTermParts and families (T-4-21 review)', () => {
+  it('returns label and tooltip for comparisons and kinds, raw id without tooltip when unknown', async () => {
+    const { findingTermParts } = await import('./findingsCatalog');
+    expect(findingTermParts({ kind: 'type_mismatch' })).toMatchObject({ label: 'Type mismatch' });
+    expect(findingTermParts({ kind: 'type_mismatch' }).tooltip).toContain('Next:');
+    expect(findingTermParts({ comparison: 'data_manager' }).label).toBe('Tracking plan vs Data Manager');
+    expect(findingTermParts({ kind: 'nope' })).toEqual({ label: 'nope', tooltip: null });
+  });
+  it('unknown kinds fall into the other family; unmapped_property is Coverage', () => {
+    expect(findingFamily('definition_vs_observations', 'brand_new')).toBe('other');
+    expect(findingFamily('definition_vs_mapping', 'unmapped_property')).toBe('coverage');
+  });
+});

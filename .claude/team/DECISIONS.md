@@ -432,3 +432,9 @@ Decision:
 ## D-53 amendment 8 (2026-09-30): 0027 T-4-20 property category override.
 
 ## D-64 amendment (2026-09-30): the override column is `properties.category_override` (properties.category already carries the Data Manager group name since 0001). D-53 amendment 8 refers to that column.
+
+## D-65 Naming convention per project
+Date: 2026-09-30  Status: accepted (user)
+Decision: `projects.naming_convention` (migration 0028, D-53 amendment 9) with values snake_case (default), kebab_case, camel_case, chosen in Settings. It applies to custom events, their properties and customer properties. Excluded: sdk and platform class events, SDK default properties, the reserved system customer properties (D-64) and standard event keys (which stay snake_case as Bloomreach requires). Enforcement: an inline warning in the event and property editors when a name does not conform (saving is allowed), and a comparison-1 finding of kind `naming_violation` (Schema family, warning severity) so imported names surface as findings instead of blocking imports. The rule and the exclusions are shown on the shared page's Properties/Events group headers as a one-line note.
+
+## D-53 amendment 9 (2026-09-30): 0028 T-4-22 projects.naming_convention.

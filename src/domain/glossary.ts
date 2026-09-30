@@ -3,6 +3,9 @@
  * of a term in a page header or table column, and for the Help page's glossary list. Pure data,
  * no server/database import (domain-model skill).
  */
+import { COMPARISON_IDS, FINDING_KINDS } from './enums';
+import { COMPARISON_INFO, FAMILY_INFO, FINDING_FAMILIES, KIND_INFO } from './findingsCatalog';
+
 export interface GlossaryEntry {
   key: string;
   term: string;
@@ -89,3 +92,23 @@ const GLOSSARY_BY_KEY = new Map(GLOSSARY.map((entry) => [entry.key, entry]));
 export function getGlossaryEntry(key: string): GlossaryEntry | undefined {
   return GLOSSARY_BY_KEY.get(key);
 }
+
+// T-4-21: the comparison names, finding kinds and kind families, generated from the findings
+// catalogue so the Help page glossary and every tooltip read the same sentences.
+GLOSSARY.push(
+  ...COMPARISON_IDS.map((id) => ({
+    key: `comparison:${id}`,
+    term: COMPARISON_INFO[id].label,
+    definition: COMPARISON_INFO[id].explanation,
+  })),
+  ...FINDING_FAMILIES.map((f) => ({
+    key: `family:${f}`,
+    term: `${FAMILY_INFO[f].label} findings`,
+    definition: `${FAMILY_INFO[f].explanation} Next: ${FAMILY_INFO[f].next}`,
+  })),
+  ...FINDING_KINDS.map((kind) => ({
+    key: `kind:${kind}`,
+    term: KIND_INFO[kind].label,
+    definition: `${KIND_INFO[kind].explanation} Next: ${KIND_INFO[kind].next}`,
+  }))
+);

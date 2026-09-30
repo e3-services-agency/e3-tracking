@@ -15,3 +15,17 @@ export function GlossaryTerm({ glossaryKey, children }: { glossaryKey: string; c
     </span>
   );
 }
+
+/** T-4-21: a comparison id or finding kind rendered as its human label, the explanation (and next
+ * step) in the tooltip; the raw id stays in the exports. Unknown ids render as they are. */
+export function FindingTerm({ comparison, kind }: { comparison?: string; kind?: string }) {
+  const id = comparison ? `comparison:${comparison}` : `kind:${kind}`;
+  const entry = getGlossaryEntry(id);
+  const raw = comparison ?? kind ?? '';
+  if (!entry) return <>{raw}</>;
+  return (
+    <span title={entry.definition} className="border-b border-dotted border-gray-400 cursor-help">
+      {entry.term}
+    </span>
+  );
+}

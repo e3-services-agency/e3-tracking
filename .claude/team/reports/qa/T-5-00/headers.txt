@@ -1,0 +1,96 @@
+/tracking-plan/assets/index-Dcza8TZv.js
+/tracking-plan/assets/index-Bpk-iHuo.css
+--- asset /tracking-plan/assets/index-Dcza8TZv.js
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Vary: Origin
+Access-Control-Allow-Credentials: true
+Cache-Control: public, max-age=31536000, immutable
+Accept-Ranges: bytes
+Last-Modified: Mon, 05 Oct 2026 20:26:01 GMT
+ETag: W/"129e54-1a10dbea7a8"
+Content-Type: application/javascript; charset=UTF-8
+Content-Length: 1220180
+Date: Mon, 05 Oct 2026 20:39:37 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+--- index
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Vary: Origin
+Access-Control-Allow-Credentials: true
+Cache-Control: no-store
+Content-Type: text/html; charset=utf-8
+Content-Length: 1160
+ETag: W/"488-d0T8w3rGKAF5mlr6P+L4DREB3RE"
+Date: Mon, 05 Oct 2026 20:39:37 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+--- deep
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Vary: Origin
+Access-Control-Allow-Credentials: true
+Cache-Control: no-store
+Content-Type: text/html; charset=utf-8
+Content-Length: 1160
+ETag: W/"488-d0T8w3rGKAF5mlr6P+L4DREB3RE"
+Date: Mon, 05 Oct 2026 20:39:37 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+--- missing.png
+HTTP/1.1 404 Not Found
+X-Powered-By: Express
+Vary: Origin
+Access-Control-Allow-Credentials: true
+Content-Type: text/plain; charset=utf-8
+Content-Length: 10
+ETag: W/"a-8RJARPvfYzJdDi+ZdXbdTOYnAfo"
+Date: Mon, 05 Oct 2026 20:39:38 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+Not found.
+--- api nothing
+HTTP/1.1 404 Not Found
+X-Powered-By: Express
+Vary: Origin
+Access-Control-Allow-Credentials: true
+Content-Type: application/json; charset=utf-8
+Content-Length: 41
+ETag: W/"29-XRaUSZFCgVXibyA3jV5YxelzJyM"
+Date: Mon, 05 Oct 2026 20:39:38 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"error":"Not found.","code":"NOT_FOUND"}
+--- bad escape
+HTTP/1.1 400 Bad Request
+X-Powered-By: Express
+Vary: Origin
+Access-Control-Allow-Credentials: true
+Content-Type: text/plain; charset=utf-8
+Content-Length: 27
+ETag: W/"1b-pqi006OQN6gtACuSO5FO6g/0vJ8"
+Date: Mon, 05 Oct 2026 20:39:38 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+Bad request: malformed URL.
+--- bad escape api
+HTTP/1.1 404 Not Found
+X-Powered-By: Express
+Vary: Origin
+Access-Control-Allow-Credentials: true
+Cache-Control: no-store
+Content-Type: application/json; charset=utf-8
+Content-Length: 66
+ETag: W/"42-WLJDpdr7atijyg/Tv03UODVo1hk"
+Date: Mon, 05 Oct 2026 20:39:38 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"error":"This share link is not valid.","code":"SHARE_NOT_FOUND"}

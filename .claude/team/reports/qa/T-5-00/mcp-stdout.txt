@@ -1,0 +1,2 @@
+{"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{"listChanged":true}},"serverInfo":{"name":"e3-tracking","version":"1.0.0"}},"jsonrpc":"2.0","id":1}
+{"result":{"content":[{"type":"text","text":"[\n  {\n    \"client\": \"Sandboxes\",\n    \"projects\": [\n      {\n        \"key\": \"sandbox-acme-eu\",\n        \"name\": \"Acme EU (sandbox)\"\n      },\n      {\n        \"key\": \"sandbox-acme-eu-restored\",\n        \"name\": \"Acme EU (sandbox) (restored)\"\n      }\n    ]\n  }\n]"}]},"jsonrpc":"2.0","id":2}

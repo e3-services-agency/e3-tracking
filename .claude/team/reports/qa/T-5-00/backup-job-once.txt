@@ -1,0 +1,1 @@
+[e3-backup] wrote 1, pruned 0, failed 0 in /data/backups

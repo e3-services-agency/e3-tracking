@@ -1,0 +1,12 @@
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Vary: Origin
+Access-Control-Allow-Credentials: true
+Content-Type: application/json; charset=utf-8
+Content-Length: 100
+ETag: W/"64-Ghhp8F2YRmzzUsa/FES2eIEPfb0"
+Date: Mon, 05 Oct 2026 20:39:27 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"ok":true,"version":"0.0.0","schema_migration":"0029_catalogs_sources.sql","db_path_writable":true}

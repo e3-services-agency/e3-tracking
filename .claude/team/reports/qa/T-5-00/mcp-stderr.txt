@@ -1,0 +1,3 @@
+ Container e3-qa-mcp-run-380c8dfd7160 Creating 
+ Container e3-qa-mcp-run-380c8dfd7160 Created 
+[mcp] INFO e3-tracking MCP server ready on stdio

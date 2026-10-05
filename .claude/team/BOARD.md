@@ -3177,3 +3177,20 @@ Fix commits b8ef541, 57e9607 (lookup-key rule per the D-61 amendment with item_i
 
 ### 2026-10-05 22:37 | supervisor | HANDOFF | T-5-00 containerization (1ea165e..ae4ae6a) — REVIEW + QA in parallel
 1716 tests / 161 files (forks pool), tsc, build, lint green. src/backend/static.ts (dist under /tracking-plan/, immutable assets, no-store index, SPA fallback incl. shared route, malformed escape -> plain 400, API JSON 404, /tracking-plan/api rewrite, gated by SERVE_STATIC or production), GET /api/health, HOST + graceful shutdown, tsup entries app/server/mcp/backup-job, npm start, backup job (per-project nightly, keep 14, temp+rename), Dockerfile (bookworm-slim, non-root, HEALTHCHECK, sandbox backup copied in), docker-entrypoint.sh modes app/mcp/backup/backup-once, docker-compose (127.0.0.1:3020, volume e3_data at /data, backup service, mcp profile), .env.docker.example, docs/DEPLOY.md, CLAUDE.md. Local verification: health, sandbox 0.41 s, SPA, assets cache, share route, malformed 400, backup 1.7 s, restore preview, persistence across down/up, MCP initialize. Image 1.02 GB (frontend build tooling in dependencies). Leftover volume t500_e3_data to remove. vercel.json/api/index.ts untouched.
+
+### [qa-tester] T-5-00 containerization QA: FAIL (one minor defect, rest PASS) -- 2026-10-05
+Branch task/T-5-00-containerization @ ae4ae6a, project `e3-qa`, app on 127.0.0.1:3021. Extracts: `.claude/team/reports/qa/T-5-00/`.
+| # | Scenario | Result |
+|---|---|---|
+| 1 | build, up, health | PASS: healthy in 9 s (cached build 5 s); /api/health = ok, schema_migration 0029_catalogs_sources.sql, no paths/secrets |
+| 2 | fresh install + sandbox | PASS: sandbox 1.02 s via UI (incl. network); Getting started 9 steps, 4 done; 15 events, 50 properties, 4 catalogs, 2 sources, 15 open + 1 resolved findings; pages render, no console errors |
+| 3 | static serving | PASS: asset `public, max-age=31536000, immutable`; index `no-store`; deep route 200 SPA; missing.png plain 404; /api/nothing JSON 404; `/tracking-plan/shared/%E0%A4%A` plain 400 "Bad request: malformed URL." (no stack) |
+| 4 | share link | PASS: sandbox confirm prompt shown; shared page loads fresh; JSON/HTML 200; trigger PNG via /api/shared/<t>/files 200 image/png and renders; path traversal 404; public JSON drops agent_instructions, owners/identity_note/bloomreach_project_url nulled by design |
+| 5 | uploads + persistence | PASS: PNG uploaded via UI, saved; after down/up the file (200) and sandbox remain |
+| 6 | backup job | PASS: `--once` wrote /data/backups/backup-sandbox-acme-eu-2026-10-05.json (407798 B); restored via Clients form, counts identical (15/50/4/2/16 findings/3/5/4/1/4 comments), restored screenshot serves 200. Note: the new key came out `sandbox-acme-eu-restored`, my typed `qa-restore` was not picked up (probably a test-driver typing artefact, not confirmed as an app bug) |
+| 7 | MCP entrypoint | PASS: serverInfo e3-tracking; stdout holds only JSON-RPC lines (list_projects call works); logs on stderr |
+| 8 | import in container | PASS: data-mapping preview/apply on empty project 200, comparison 200, 8 findings, exported data-mapping.json deep-equals the fixture, app log has no errors/stack traces |
+| 9 | regression | PASS: no console errors from app pages; 142 copy buttons, 29 sticky elements and findings summary on the shared page |
+
+FAIL item (minor): the `backup` service inherits the image HEALTHCHECK, which probes the app port, but the backup container does not listen. Steps: 1. `docker compose up -d`. 2. wait ~2 min. 3. `docker compose ps`. Expected: backup running without a failing health state (or its own check). Actual: `e3-qa-backup-1 Up 2 minutes (unhealthy)`, FailingStreak 4, healthcheck exit 1. Suggested fix: `healthcheck: {disable: true}` on the backup and mcp services (or a file-based check). Functionally the job runs and writes backups.
+Other observations: image shared tag e3-tracking:local kept; volume e3-qa_e3_data removed with `down -v`; override file deleted.

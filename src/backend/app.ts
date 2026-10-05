@@ -42,6 +42,8 @@ import { actorContext } from './middleware/actor';
 import { requireProject } from './middleware/project';
 import { getDb } from './db';
 import { BadRequestError, ConfigError } from './errors';
+import { defaultDistDir, mountStatic, rewriteBaseApi, shouldServeStatic } from './static';
+import { healthReport } from './health';
 
 function getCorsOrigin(): string | string[] | boolean {
   const raw = process.env.CORS_ORIGIN;
@@ -49,7 +51,14 @@ function getCorsOrigin(): string | string[] | boolean {
   return raw.split(',').map((s) => s.trim()).filter(Boolean);
 }
 
-export function createApp(): express.Express {
+export interface CreateAppOptions {
+  /** Force static serving on/off (tests); default: `shouldServeStatic()` (D-66). */
+  serveStatic?: boolean;
+  /** Directory holding the Vite build; default `<root>/dist` or `E3_DIST_PATH`. */
+  distDir?: string;
+}
+
+export function createApp(options: CreateAppOptions = {}): express.Express {
   // Open the database and run pending migrations before the first request (D-12); safe to call
   // more than once (singleton connection), so `server.ts` calling `getDb()` too is a no-op.
   getDb();
@@ -69,6 +78,9 @@ export function createApp(): express.Express {
   // sends no auth headers and needs none -- `requireShare` (`middleware/share.ts`) never reads
   // `req.userId`/`req.userName`, so these routes work identically whether or not auth middleware
   // has run. Kept before the general `express.json()` parser too since every route here is a GET.
+  // D-66: the built frontend calls `/tracking-plan/api/...`; the Vite dev proxy rewrites that to
+  // `/api/...`, and in a container this does the same.
+  app.use(rewriteBaseApi);
   app.use('/api/shared', sharedRouter);
 
   app.use(optionalAuth);
@@ -130,8 +142,14 @@ export function createApp(): express.Express {
   // Simple health endpoint. Kept in Express so we don't need a separate Vercel function on the
   // Hobby plan.
   app.get('/api/health', (_req, res) => {
-    res.status(200).json({ ok: true });
+    const report = healthReport();
+    res.status(report.ok ? 200 : 503).json(report);
   });
+
+  // D-66, T-5-00: production/container mode serves dist/ under /tracking-plan/ with an SPA fallback.
+  if (options.serveStatic ?? shouldServeStatic()) {
+    mountStatic(app, options.distDir ?? defaultDistDir());
+  }
 
   // Global error handler: expose error.message (and error.stack only in development, D-48 amendment
   // fix round -- an unauthenticated caller on /api/shared/* must never see a server-path-bearing

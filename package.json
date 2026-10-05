@@ -13,6 +13,8 @@
     "lint:colors": "node ./scripts/lint-colors.mjs",
     "build:backend": "tsup",
     "mcp": "tsx src/mcp/server.ts",
+    "start": "node api/_backend/server.js",
+    "backup:once": "node api/_backend/backup-job.js --once",
     "clean": "npx rimraf dist api/_backend dist-backend",
     "test": "vitest run",
     "test:watch": "vitest"

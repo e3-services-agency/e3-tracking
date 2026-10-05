@@ -11,7 +11,14 @@ const MIGRATIONS_OUT_DIR = path.resolve('api/_backend/migrations');
  * (which are not present in the serverless bundle).
  */
 export default defineConfig({
-  entry: ['src/backend/app.ts'],
+  entry: {
+    app: 'src/backend/app.ts',
+    // D-66, T-5-00: container entry points, same bundle directory so the migrations lookup works.
+    server: 'src/backend/server.ts',
+    mcp: 'src/mcp/server.ts',
+    'backup-job': 'src/backend/backupJobMain.ts',
+  },
+  define: { __APP_VERSION__: JSON.stringify(JSON.parse(fs.readFileSync('package.json', 'utf8')).version) },
   format: ['esm'],
   platform: 'node',
   target: 'node20',

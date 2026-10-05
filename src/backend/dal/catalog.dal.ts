@@ -5,7 +5,15 @@
 import { getDb } from '../db';
 import { newId, nowIso, fromSqliteBool, toSqliteBool, mapWriteError } from '../db/util';
 import { NotFoundError, ValidationError } from '../errors';
-import { CATALOG_MAPPING_ROLES } from '../../domain/enums';
+import {
+  CATALOG_KINDS,
+  CATALOG_MAPPING_ROLES,
+  CATALOG_VERSIONS,
+  DEFAULT_CATALOG_VERSION,
+  type CatalogKind,
+  type CatalogVersion,
+} from '../../domain/enums';
+import { deriveCatalogKind, searchableFieldNames } from '../../domain/catalogs';
 import { CATALOG_MAIN_COLUMNS } from '../../domain/bloomreach';
 import { markRequirementsGapForCatalogFieldRemoval } from './requirement.dal';
 import * as ChangeLogDAL from './change-log.dal';
@@ -18,6 +26,15 @@ function validateMappingRole(mappingRole: string | null | undefined): void {
       `mapping_role must be one of ${CATALOG_MAPPING_ROLES.join(', ')} or null.`,
       'mapping_role'
     );
+  }
+}
+
+function validateKindAndVersion(kind: unknown, version: unknown): void {
+  if (kind !== undefined && !(CATALOG_KINDS as readonly unknown[]).includes(kind)) {
+    throw new ValidationError(`kind must be one of: ${CATALOG_KINDS.join(', ')}.`, 'kind');
+  }
+  if (version !== undefined && !(CATALOG_VERSIONS as readonly unknown[]).includes(version)) {
+    throw new ValidationError(`version must be one of: ${CATALOG_VERSIONS.join(', ')}.`, 'version');
   }
 }
 
@@ -36,9 +53,34 @@ export interface CatalogRow {
   purpose: string | null;
   priority: string | null;
   status: string | null;
+  /** D-61 (T-4-11B): product | variant | other; catalogs of one kind share one schema. */
+  kind: CatalogKind;
+  /** D-61: market code or name (e.g. `GB`, `CZ`); `null` = not recorded. */
+  market: string | null;
+  /** D-61: language tag (e.g. `en-GB`); `null` = not recorded. */
+  language: string | null;
+  /** D-61: v1 fixes the searchable set at go-live, v2 lets it change. */
+  version: CatalogVersion;
+  /** D-61: when the catalog was marked live; `null` = not live. */
+  live_at: string | null;
+  /** D-61: the sorted searchable field names at the moment it was marked live (the v1 rule); `null` when not live. */
+  searchable_snapshot_json: string[] | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+}
+
+function mapCatalogRow(row: Record<string, unknown>): CatalogRow {
+  let snapshot: string[] | null = null;
+  if (typeof row.searchable_snapshot_json === 'string') {
+    try {
+      const parsed = JSON.parse(row.searchable_snapshot_json) as unknown;
+      if (Array.isArray(parsed)) snapshot = parsed.filter((v): v is string => typeof v === 'string');
+    } catch {
+      snapshot = null;
+    }
+  }
+  return { ...(row as unknown as CatalogRow), searchable_snapshot_json: snapshot };
 }
 
 /**
@@ -93,17 +135,18 @@ function mapCatalogFieldRow(row: Record<string, unknown>): CatalogFieldRow {
 }
 
 export function listCatalogs(projectId: string): CatalogRow[] {
-  return getDb()
-    .prepare('SELECT * FROM catalogs WHERE project_id = ? AND deleted_at IS NULL ORDER BY name')
-    .all(projectId) as CatalogRow[];
+  return (
+    getDb()
+      .prepare('SELECT * FROM catalogs WHERE project_id = ? AND deleted_at IS NULL ORDER BY name')
+      .all(projectId) as Record<string, unknown>[]
+  ).map(mapCatalogRow);
 }
 
 export function getCatalogById(projectId: string, catalogId: string): CatalogRow | null {
-  return (
-    (getDb()
-      .prepare('SELECT * FROM catalogs WHERE id = ? AND project_id = ? AND deleted_at IS NULL')
-      .get(catalogId, projectId) as CatalogRow | undefined) ?? null
-  );
+  const row = getDb()
+    .prepare('SELECT * FROM catalogs WHERE id = ? AND project_id = ? AND deleted_at IS NULL')
+    .get(catalogId, projectId) as Record<string, unknown> | undefined;
+  return row ? mapCatalogRow(row) : null;
 }
 
 export function getCatalogOrThrow(projectId: string, catalogId: string): CatalogRow {
@@ -125,12 +168,18 @@ export interface CatalogInput {
   purpose?: string | null;
   priority?: string | null;
   status?: string | null;
+  /** D-61 (T-4-11B): defaults from `mapping_role`/`catalog_type` when derivable, else `other`. */
+  kind?: string;
+  market?: string | null;
+  language?: string | null;
+  version?: string;
 }
 
 export function createCatalog(projectId: string, input: CatalogInput): CatalogRow {
   const name = input.name.trim();
   if (!name) throw new ValidationError('Catalog name is required.', 'name');
   validateMappingRole(input.mapping_role);
+  validateKindAndVersion(input.kind, input.version);
   const id = newId();
   const now = nowIso();
   const db = getDb();
@@ -139,9 +188,11 @@ export function createCatalog(projectId: string, input: CatalogInput): CatalogRo
       db.prepare(
         `INSERT INTO catalogs (
           id, project_id, name, description, owner, source_system, sync_method, update_frequency,
-          catalog_type, mapping_role, client_name, purpose, priority, status, created_at, updated_at, deleted_at
+          catalog_type, mapping_role, client_name, purpose, priority, status, kind, market, language, version,
+          created_at, updated_at, deleted_at
         ) VALUES (@id, @project_id, @name, @description, @owner, @source_system, @sync_method, @update_frequency,
-          @catalog_type, @mapping_role, @client_name, @purpose, @priority, @status, @created_at, @updated_at, NULL)`
+          @catalog_type, @mapping_role, @client_name, @purpose, @priority, @status, @kind, @market, @language, @version,
+          @created_at, @updated_at, NULL)`
       )
         .run({
           id,
@@ -158,6 +209,10 @@ export function createCatalog(projectId: string, input: CatalogInput): CatalogRo
           purpose: input.purpose?.trim() || null,
           priority: input.priority ?? null,
           status: input.status ?? null,
+          kind: input.kind ?? deriveCatalogKind(input.mapping_role, input.catalog_type),
+          market: input.market?.trim() || null,
+          language: input.language?.trim() || null,
+          version: input.version ?? DEFAULT_CATALOG_VERSION,
           created_at: now,
           updated_at: now,
         });
@@ -193,6 +248,7 @@ export function updateCatalog(
     throw new ValidationError('Catalog name is required.', 'name');
   }
   if (input.mapping_role !== undefined) validateMappingRole(input.mapping_role);
+  validateKindAndVersion(input.kind, input.version);
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (input.name !== undefined) patch.name = input.name.trim();
   if (input.description !== undefined) patch.description = input.description?.trim() || null;
@@ -206,6 +262,10 @@ export function updateCatalog(
   if (input.purpose !== undefined) patch.purpose = input.purpose?.trim() || null;
   if (input.priority !== undefined) patch.priority = input.priority;
   if (input.status !== undefined) patch.status = input.status;
+  if (input.kind !== undefined) patch.kind = input.kind;
+  if (input.market !== undefined) patch.market = input.market?.trim() || null;
+  if (input.language !== undefined) patch.language = input.language?.trim() || null;
+  if (input.version !== undefined) patch.version = input.version;
 
   const setClause = Object.keys(patch)
     .map((k) => `${k} = @${k}`)
@@ -220,6 +280,47 @@ export function updateCatalog(
         err,
         'Another catalog already has this mapping role in the project.',
         `Failed to update catalog: ${(err as Error).message}`
+      );
+    }
+    const after = getCatalogOrThrow(projectId, catalogId);
+    ChangeLogDAL.recordChange({
+      projectId,
+      entityType: 'catalog',
+      entityId: catalogId,
+      entityLabel: after.name,
+      action: 'update',
+      before: before as unknown as Record<string, unknown>,
+      after: after as unknown as Record<string, unknown>,
+    });
+  });
+  run();
+  return getCatalogOrThrow(projectId, catalogId);
+}
+
+/**
+ * D-61 (T-4-11B): marks a catalog live (`live: true`, the default) -- sets `live_at` and stores the
+ * current searchable field set as `searchable_snapshot_json`, the baseline the v1 rule compares
+ * against -- or takes it off live (`live: false`, clears both). Recorded in the change log.
+ */
+export function setCatalogLive(projectId: string, catalogId: string, live: boolean): CatalogRow {
+  const before = getCatalogOrThrow(projectId, catalogId);
+  const db = getDb();
+  const now = nowIso();
+  const run = db.transaction(() => {
+    if (live) {
+      const snapshot = searchableFieldNames(listCatalogFields(projectId, catalogId));
+      db.prepare('UPDATE catalogs SET live_at = ?, searchable_snapshot_json = ?, updated_at = ? WHERE id = ? AND project_id = ?').run(
+        now,
+        JSON.stringify(snapshot),
+        now,
+        catalogId,
+        projectId
+      );
+    } else {
+      db.prepare('UPDATE catalogs SET live_at = NULL, searchable_snapshot_json = NULL, updated_at = ? WHERE id = ? AND project_id = ?').run(
+        now,
+        catalogId,
+        projectId
       );
     }
     const after = getCatalogOrThrow(projectId, catalogId);
@@ -473,11 +574,10 @@ export function deleteCatalogField(projectId: string, catalogId: string, fieldId
  * its exact `name` on that catalog. `null` when the project has no main catalog yet.
  */
 export function getMainCatalog(projectId: string): CatalogRow | null {
-  return (
-    (getDb()
-      .prepare("SELECT * FROM catalogs WHERE project_id = ? AND mapping_role = 'main' AND deleted_at IS NULL")
-      .get(projectId) as CatalogRow | undefined) ?? null
-  );
+  const row = getDb()
+    .prepare("SELECT * FROM catalogs WHERE project_id = ? AND mapping_role = 'main' AND deleted_at IS NULL")
+    .get(projectId) as Record<string, unknown> | undefined;
+  return row ? mapCatalogRow(row) : null;
 }
 
 /** A field of the project's main catalog by exact name, or `null` if there is no main catalog or no such field. */

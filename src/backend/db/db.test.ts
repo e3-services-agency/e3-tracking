@@ -264,6 +264,7 @@ const ALL_MIGRATION_FILES = [
   '0026_example_values_cleanup.sql',
   '0027_property_category.sql',
   '0028_project_naming_convention.sql',
+  '0029_catalogs_sources.sql',
 ];
 
 describe('listMigrationFiles', () => {

@@ -37,6 +37,12 @@ export const COMPARISON_INFO: Record<ComparisonId, ComparisonInfo> = {
     explanation:
       'Checks the tracking plan against the live Bloomreach Data Manager schema (event and property types) imported from Bloomreach.',
   },
+  catalogs: {
+    id: 'catalogs',
+    label: 'Catalogs',
+    explanation:
+      'Checks the catalogs themselves (searchable fields, lookup keys, the same schema in every market) and that properties linked to catalog fields agree with them.',
+  },
 };
 
 export const FINDING_FAMILIES = ['schema', 'values', 'arithmetic', 'consistency', 'coverage', 'data_manager', 'other'] as const;
@@ -201,6 +207,55 @@ export const KIND_INFO: Record<FindingKind, KindInfo> = {
     'Name breaks the naming convention',
     'An event or property name does not follow the project naming convention (system items are exempt).',
     'Rename it to match the convention, or change the convention in Project settings.'
+  ),
+  catalog_searchable_limit: k(
+    'catalog_searchable_limit',
+    'schema',
+    'Too many searchable catalog fields',
+    'A catalog has 40 or more searchable fields: a warning at 40, an error above (Bloomreach limit).',
+    'Turn searchable off for fields that are never searched in Bloomreach.'
+  ),
+  catalog_searchable_changed: k(
+    'catalog_searchable_changed',
+    'consistency',
+    'Searchable fields changed after go-live',
+    'A live v1 catalog has a different set of searchable fields than when it was marked live. On v1 the set is fixed in advance.',
+    'Restore the original searchable set, or move the catalog to v2 and mark it live again.'
+  ),
+  catalog_lookup_key: k(
+    'catalog_lookup_key',
+    'schema',
+    'Catalog lookup key missing or not unique',
+    'A catalog has no lookup key field, or more than one.',
+    'Mark exactly one field (the item id) as the lookup key.'
+  ),
+  catalog_lookup_property: k(
+    'catalog_lookup_property',
+    'schema',
+    'Lookup key is not a catalog property',
+    'The lookup key is not available as a catalog field, but Jinja can only read catalog properties, not the key itself.',
+    'Add the lookup key as a property (field) of the catalog as well.'
+  ),
+  catalog_schema_drift: k(
+    'catalog_schema_drift',
+    'consistency',
+    'Catalog schema differs between markets',
+    'Catalogs of the same kind do not share one schema: a field exists in one market and not another, or its type or searchable flag differs.',
+    'Align the field names, types and searchable flags in every market.'
+  ),
+  catalog_type_mismatch: k(
+    'catalog_type_mismatch',
+    'schema',
+    'Property type differs from catalog field',
+    'A property linked to a catalog field has a different data type than that field.',
+    'Change the property type or the catalog field type so they match.'
+  ),
+  catalog_link_missing: k(
+    'catalog_link_missing',
+    'coverage',
+    'Id property not linked to the catalog key',
+    'An event property named like a catalog id (product_id, variant_id, item_id) is not linked to the lookup key of the matching catalog kind.',
+    'Link the property to the catalog lookup key so ids are validated against the catalog.'
   ),
   shape_inconsistent: k(
     'shape_inconsistent',

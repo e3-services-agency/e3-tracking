@@ -25,6 +25,7 @@ import {
   EVENT_STATUSES,
   ENTITY_STATUSES,
   EVENT_CLASSES,
+  DEFAULT_IMPLEMENTATION_METHOD,
   IMPLEMENTATION_METHODS,
   PRIORITIES,
   type EventClass,
@@ -32,6 +33,7 @@ import {
 } from '../../domain/enums';
 import { BLOOMREACH_LIMITS } from '../../domain/bloomreach';
 import { defaultImplementationMethod } from '../../domain/codegen/defaults';
+import { implementationMethodForSourceMethod } from '../../domain/sources';
 import { buildConditionsKey, generateVariantName, normalizeConditions, type VariantCondition } from '../../domain/variants';
 import { markRequirementsGapForDetach, markRequirementsGapForEventRemoval, markRequirementsGapForVariantRemoval } from './requirement.dal';
 import * as ChangeLogDAL from './change-log.dal';
@@ -406,6 +408,25 @@ function assertSourceInProject(projectId: string, sourceId: string | null | unde
   if (!row) throw new BadRequestError('source_id does not belong to this project.', 'source_id');
 }
 
+/**
+ * D-62 (T-4-11B): a linked source's collection method defaults the event's D-63 implementation method,
+ * but only while the event still has the plain default (`client_web`) -- an explicit choice (`server_api`,
+ * `sdk_auto`, or one passed in the same request) is never overridden. Returns the method to set, or `null`.
+ */
+function implementationMethodFromSources(projectId: string, currentMethod: string, sourceIds: string[]): string | null {
+  if (currentMethod !== DEFAULT_IMPLEMENTATION_METHOD || sourceIds.length === 0) return null;
+  const placeholders = sourceIds.map(() => '?').join(', ');
+  const rows = getDb()
+    .prepare(`SELECT id, method FROM sources WHERE project_id = ? AND id IN (${placeholders})`)
+    .all(projectId, ...sourceIds) as { id: string; method: string | null }[];
+  const byId = new Map(rows.map((r) => [r.id, r.method]));
+  for (const id of sourceIds) {
+    const implied = implementationMethodForSourceMethod(byId.get(id));
+    if (implied && implied !== currentMethod) return implied;
+  }
+  return null;
+}
+
 export function listEventSourceIds(projectId: string, eventId: string): string[] {
   getEventOrThrow(projectId, eventId);
   return (
@@ -485,8 +506,15 @@ export function createEvent(projectId: string, input: EventInput): EventRow {
       );
     }
 
-    if (input.source_ids !== undefined && input.source_ids !== null) {
-      replaceEventSources(projectId, id, input.source_ids);
+    // D-62: a project default source is applied to a new event that names no sources of its own.
+    const defaultSourceId = (db.prepare('SELECT default_source_id FROM projects WHERE id = ?').get(projectId) as { default_source_id: string | null } | undefined)?.default_source_id;
+    const createSourceIds = input.source_ids ?? (defaultSourceId ? [defaultSourceId] : null);
+    if (createSourceIds !== null) {
+      replaceEventSources(projectId, id, createSourceIds);
+      if (!input.implementation_method) {
+        const implied = implementationMethodFromSources(projectId, getEventOrThrow(projectId, id).implementation_method, createSourceIds);
+        if (implied) db.prepare('UPDATE events SET implementation_method = ? WHERE id = ?').run(implied, id);
+      }
     }
 
     const created = getEventOrThrow(projectId, id);
@@ -583,6 +611,11 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
 
     if (input.source_ids !== undefined) {
       replaceEventSources(projectId, eventId, input.source_ids ?? []);
+      if (input.implementation_method === undefined) {
+        const added = (input.source_ids ?? []).filter((s) => !beforeSourceIds.includes(s));
+        const implied = implementationMethodFromSources(projectId, before.implementation_method, added);
+        if (implied) db.prepare('UPDATE events SET implementation_method = ? WHERE id = ?').run(implied, eventId);
+      }
     }
 
     if (input.name !== undefined) {

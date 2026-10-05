@@ -21,6 +21,10 @@ function catalogInputFromBody(body: Record<string, unknown>): Partial<CatalogDAL
   if ('purpose' in body) input.purpose = body.purpose as string | null;
   if ('priority' in body) input.priority = body.priority as string | null;
   if ('status' in body) input.status = body.status as string | null;
+  if ('kind' in body) input.kind = body.kind as string;
+  if ('market' in body) input.market = body.market as string | null;
+  if ('language' in body) input.language = body.language as string | null;
+  if ('version' in body) input.version = body.version as string;
   return input;
 }
 
@@ -65,6 +69,16 @@ router.patch('/:id', (req: Request, res: Response) => {
       catalogInputFromBody(req.body as Record<string, unknown>)
     );
     res.status(200).json(catalog);
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+// D-61 (T-4-11B): mark the catalog live (sets live_at and the searchable snapshot) or take it off live.
+router.post('/:id/live', (req: Request, res: Response) => {
+  const body = (req.body ?? {}) as { live?: unknown };
+  try {
+    res.status(200).json(CatalogDAL.setCatalogLive(req.projectId!, req.params.id, body.live !== false));
   } catch (err) {
     handleRouteError(err, res);
   }

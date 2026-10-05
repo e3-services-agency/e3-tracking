@@ -4,6 +4,7 @@
 import { getDb } from '../db';
 import { newId, nowIso, mapWriteError } from '../db/util';
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
+import { DEFAULT_SOURCE_SYSTEM, SOURCE_METHODS, SOURCE_SYSTEMS, type SourceMethod, type SourceSystem } from '../../domain/enums';
 import * as ChangeLogDAL from './change-log.dal';
 
 export interface SourceRow {
@@ -11,8 +12,21 @@ export interface SourceRow {
   project_id: string;
   name: string;
   color: string | null;
+  /** D-62 (T-4-11B): what the source is (`SOURCE_SYSTEMS`), default `other`. */
+  system: SourceSystem;
+  /** D-62: how its data is collected (`SOURCE_METHODS`); `null` = not recorded. */
+  method: SourceMethod | null;
   created_at: string;
   updated_at: string;
+}
+
+function validateSystemAndMethod(system: unknown, method: unknown): void {
+  if (system !== undefined && !(SOURCE_SYSTEMS as readonly unknown[]).includes(system)) {
+    throw new ValidationError(`system must be one of: ${SOURCE_SYSTEMS.join(', ')}.`, 'system');
+  }
+  if (method !== undefined && method !== null && !(SOURCE_METHODS as readonly unknown[]).includes(method)) {
+    throw new ValidationError(`method must be one of: ${SOURCE_METHODS.join(', ')} or null.`, 'method');
+  }
 }
 
 export interface SourceUsageRow {
@@ -40,10 +54,11 @@ export function getSourceOrThrow(projectId: string, id: string): SourceRow {
 
 export function createSource(
   projectId: string,
-  input: { name: string; color?: string | null }
+  input: { name: string; color?: string | null; system?: string; method?: string | null }
 ): SourceRow {
   const name = input.name.trim();
   if (!name) throw new ValidationError('Source name is required.', 'name');
+  validateSystemAndMethod(input.system, input.method);
 
   const db = getDb();
   const existing = db
@@ -56,8 +71,8 @@ export function createSource(
   const run = db.transaction(() => {
     try {
       db.prepare(
-        'INSERT INTO sources (id, project_id, name, color, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
-      ).run(id, projectId, name, input.color ?? null, now, now);
+        'INSERT INTO sources (id, project_id, name, color, system, method, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+      ).run(id, projectId, name, input.color ?? null, input.system ?? DEFAULT_SOURCE_SYSTEM, input.method ?? null, now, now);
     } catch (err) {
       mapWriteError(err, 'A source with that name already exists.', `Failed to create source: ${(err as Error).message}`);
     }
@@ -79,10 +94,11 @@ export function createSource(
 export function updateSource(
   projectId: string,
   id: string,
-  input: { name?: string; color?: string | null }
+  input: { name?: string; color?: string | null; system?: string; method?: string | null }
 ): SourceRow {
   const before = getSourceOrThrow(projectId, id);
   const db = getDb();
+  validateSystemAndMethod(input.system, input.method);
 
   const patch: Record<string, unknown> = {};
   if (input.name !== undefined) {
@@ -95,6 +111,8 @@ export function updateSource(
     patch.name = trimmed;
   }
   if (input.color !== undefined) patch.color = input.color;
+  if (input.system !== undefined) patch.system = input.system;
+  if (input.method !== undefined) patch.method = input.method;
 
   if (Object.keys(patch).length === 0) return getSourceOrThrow(projectId, id);
 

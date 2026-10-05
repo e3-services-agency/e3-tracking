@@ -78,6 +78,8 @@ export interface ProjectRow {
   industry: string | null;
   /** D-65 (T-4-22): naming convention for custom events and properties (system items exempt). */
   naming_convention: NamingConvention;
+  /** D-62 (T-4-11B): the source applied to new events that name none; `null` = none (SET NULL when the source is deleted). */
+  default_source_id: string | null;
   /** T-4-09 (D-60): free-form per-project flags, `{is_sandbox?: boolean}` today. */
   settings_json: unknown;
   /** Derived from `settings_json.is_sandbox` (T-4-09, D-60); not a real column. */
@@ -289,6 +291,8 @@ export interface UpdateProjectInput {
   industry?: string | null;
   /** D-65 (T-4-22). */
   naming_convention?: unknown;
+  /** D-62 (T-4-11B): a source of this project, or `null` to clear. */
+  default_source_id?: string | null;
 }
 
 /** Range validation for the D-30 money tolerance fields (T-2-06 plan: "range validation"). */
@@ -472,7 +476,13 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
     throw new ValidationError(`naming_convention must be one of: ${NAMING_CONVENTIONS.join(', ')}.`, 'naming_convention');
   }
 
+  if (updates.default_source_id !== undefined && updates.default_source_id !== null) {
+    const src = db.prepare('SELECT id FROM sources WHERE id = ? AND project_id = ?').get(updates.default_source_id, id);
+    if (!src) throw new ValidationError('default_source_id must be a source of this project.', 'default_source_id');
+  }
+
   const patch: Record<string, unknown> = { updated_at: nowIso() };
+  if (updates.default_source_id !== undefined) patch.default_source_id = updates.default_source_id;
   if (updates.naming_convention !== undefined) patch.naming_convention = updates.naming_convention;
   if (updates.name !== undefined) patch.name = updates.name.trim();
   if (updates.key !== undefined) patch.key = updates.key.trim();

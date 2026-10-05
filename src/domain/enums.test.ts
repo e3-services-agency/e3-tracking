@@ -94,10 +94,20 @@ describe('D-25 required values', () => {
     const stateListAdditions = ['state_list_mismatch'];
     // D-65 (T-4-22): the naming convention finding.
     const namingAdditions = ['naming_violation'];
-    for (const kind of [...skillKinds, ...additions, ...ruleAdditions, ...stateListAdditions, ...namingAdditions]) {
+    // D-61 (T-4-11B): the catalog checks.
+    const catalogAdditions = [
+      'catalog_searchable_limit',
+      'catalog_searchable_changed',
+      'catalog_lookup_key',
+      'catalog_lookup_property',
+      'catalog_schema_drift',
+      'catalog_type_mismatch',
+      'catalog_link_missing',
+    ];
+    for (const kind of [...skillKinds, ...additions, ...ruleAdditions, ...stateListAdditions, ...namingAdditions, ...catalogAdditions]) {
       expect(FINDING_KINDS).toContain(kind);
     }
-    expect(FINDING_KINDS).toHaveLength(skillKinds.length + additions.length + ruleAdditions.length + stateListAdditions.length + namingAdditions.length);
+    expect(FINDING_KINDS).toHaveLength(skillKinds.length + additions.length + ruleAdditions.length + stateListAdditions.length + namingAdditions.length + catalogAdditions.length);
   });
 
   it('severities are error, warning, info', () => {
@@ -124,5 +134,17 @@ describe('T-1-04 delta: property data type/format, event_sources.kind, QaRun.env
 
   it('QA_RUN_ENVIRONMENTS is production|staging|dev', () => {
     expect(QA_RUN_ENVIRONMENTS).toEqual(['production', 'staging', 'dev']);
+  });
+});
+
+describe('catalog and source enums (D-61, D-62)', () => {
+  it('lists the catalog kinds, versions and the source systems and methods', async () => {
+    const e = await import('./enums');
+    expect(e.CATALOG_KINDS).toEqual(['product', 'variant', 'other']);
+    expect(e.CATALOG_VERSIONS).toEqual(['v1', 'v2']);
+    expect(e.CATALOG_SEARCHABLE_LIMIT).toBe(40);
+    expect(e.SOURCE_SYSTEMS).toEqual(['shopify', 'magento', 'salesforce_commerce_cloud', 'custom_backend', 'mobile_app', 'crm', 'erp', 'other']);
+    expect(e.SOURCE_METHODS).toEqual(['web_sdk_gtm_datalayer', 'web_sdk_direct', 'tracking_api', 'bloomreach_integration', 'file_import']);
+    expect(e.COMPARISON_IDS).toContain('catalogs');
   });
 });

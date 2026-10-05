@@ -3112,3 +3112,6 @@ Same setup (API 3012, Vite 3010 throwaway config removed, QA db removed, 3000/30
 
 ### 2026-10-05 13:09 | supervisor | PLAN | T-4-11 part A: lean sandbox (user: the sandbox is unnecessarily huge; keep Bloomreach required and recommended events and properties)
 Current sandbox = restored QA fixture chain (62 events, 648 properties, 1832 history rows, 5.9 MB). Part A replaces it with a hand-written seed (~15 events, ~80 properties, use cases, consents, identity, comments, screenshots, a QA run with findings per family), target < 1 MB. Fixtures stay in tests; QA skill counts updated. Part B waits for D-61/D-62/consent list. Subagents now launched on Sonnet (user request, 2026-10-05).
+
+### 2026-10-05 13:17 | supervisor | MERGE | T-4-21 merged into agent-setup — DONE; T-4-22 starts
+Re-review PASS (Sonnet reviewer): all fixes verified; the "1 error" seen with the forks pool is a vitest worker RPC timeout under load, not a test; one low note (Voicemail matches the email regex, word boundary suggested -> folded into T-4-22). QA final re-check PASS. Merged tree: tsc, lint clean, 1619 tests / 144 files.

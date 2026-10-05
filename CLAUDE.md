@@ -31,6 +31,8 @@ Frontend: React 19, TypeScript, Vite 6, Tailwind CSS 4, Zustand. Backend: Expres
 6. Environment variables (see `.env.example`): `PORT` (API port, default 3001), `E3_DB_PATH` (SQLite file path, `:memory:` for ephemeral), `E3_FILES_PATH` (uploaded file root), `AUTH_MODE` (`local` only, default), `E3_LOCAL_USER_NAME` (local actor display name), `E3_PROJECT_KEY` (MCP default project, phase 2).
 7. The `.claude/launch.json` entry `e3-tracking` runs `npm run dev` on port 3000 for the qa-tester agent (D-25 Q9).
 
+8. Container (D-66, T-5-00): `docker compose build && docker compose up -d` serves the production build at `http://127.0.0.1:3020/tracking-plan/` (host port 3020, never 3000/3001), data on the named volume `e3_data`; see `docs/DEPLOY.md`. `HOST` (listen address, default `0.0.0.0` in production) and `SERVE_STATIC=1` (serve `dist/` from the API process outside production) are the new env vars; `npm start` runs the built `api/_backend/server.js`.
+
 ## Test and lint
 - `npm test` (`vitest run`) — unit and DAL tests, including `:memory:` SQLite DAL tests and fixture-based engine tests (D-20).
 - `npx tsc --noEmit` — type-check the whole repo. Passes only after `npm run build:backend` (tsup) has produced `api/_backend/app.js`, since `api/index.ts` imports the built bundle; run `npm run build` first if `tsc` reports that import missing.

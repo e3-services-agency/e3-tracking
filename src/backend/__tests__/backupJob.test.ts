@@ -28,7 +28,8 @@ describe('selectBackupsToDelete', () => {
 
 describe('naming and schedule', () => {
   it('builds a dated, sanitized file name', () => {
-    expect(backupFileName('a/b c', new Date('2026-10-05T10:00:00Z'))).toBe('backup-a_b_c-2026-10-05.json');
+    expect(backupFileName('a/b c', new Date('2026-10-05T10:00:00Z'))).toMatch(/^backup-a_b_c_[0-9a-f]{6}-2026-10-05.json$/);
+    expect(backupFileName('a/b_c', new Date('2026-10-05T10:00:00Z'))).not.toBe(backupFileName('a/b c', new Date('2026-10-05T10:00:00Z')));
   });
   it('computes the wait to the next run hour', () => {
     expect(msUntilNextRun(new Date('2026-10-05T01:00:00Z'), 2)).toBe(3600_000);
@@ -54,6 +55,7 @@ describe('runBackupOnce', () => {
   it('writes one file per project and prunes old ones', async () => {
     fs.writeFileSync(path.join(dir, 'backup-acme-eu-2026-01-01.json'), '{}');
     fs.writeFileSync(path.join(dir, 'backup-acme-eu-2026-01-02.json'), '{}');
+    fs.writeFileSync(path.join(dir, 'backup-acme-eu-2026-01-03.json.tmp'), '{');
     const r = await runBackupOnce(dir, 2, new Date('2026-10-05T02:00:00Z'));
     expect(r.failed).toEqual([]);
     expect(r.written).toEqual(['backup-acme-eu-2026-10-05.json']);

@@ -35,7 +35,7 @@ COPY --from=build /app/api/_backend ./api/_backend
 COPY --from=build /app/dist ./dist
 COPY .claude/team/samples/sandbox-project-backup.json ./samples/sandbox-project-backup.json
 COPY docker-entrypoint.sh ./docker-entrypoint.sh
-RUN chmod +x docker-entrypoint.sh && mkdir -p /data && chown node:node /data
+RUN sed -i 's/$//' docker-entrypoint.sh && chmod +x docker-entrypoint.sh && mkdir -p /data && chown node:node /data
 USER node
 VOLUME ["/data"]
 EXPOSE 3001

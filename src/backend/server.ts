@@ -8,7 +8,7 @@
  * production and unset (dual-stack) in dev so the Vite proxy to `localhost` keeps working.
  */
 import { createApp } from './app';
-import { getDb } from './db';
+import { closeDb, getDb } from './db';
 
 const PORT = Number(process.env.PORT) || 3001;
 const HOST = process.env.HOST?.trim() || (process.env.NODE_ENV === 'production' ? '0.0.0.0' : undefined);
@@ -25,7 +25,10 @@ const server = HOST ? app.listen(PORT, HOST, onListening) : app.listen(PORT, onL
 
 for (const sig of ['SIGTERM', 'SIGINT'] as const) {
   process.on(sig, () => {
-    server.close(() => process.exit(0));
+    server.close(() => {
+      closeDb(); // checkpoints and removes the WAL on a clean close
+      process.exit(0);
+    });
     setTimeout(() => process.exit(0), 5000).unref();
   });
 }

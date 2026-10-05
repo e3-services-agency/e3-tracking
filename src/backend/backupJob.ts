@@ -4,6 +4,7 @@
  * `POST /api/projects/restore-backup/preview|apply`) into a directory and keeps the newest
  * `keep` files per project. The pure helpers are unit-tested; `backupJobMain.ts` is the scheduler.
  */
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { listProjects } from './dal/project.dal';
@@ -12,8 +13,11 @@ import { buildBackup } from './services/backup.service';
 export const DEFAULT_KEEP = 14;
 const NAME_RE = /^backup-(.+)-(\d{4}-\d{2}-\d{2})\.json$/;
 
+/** Filename-safe key; when sanitising changed it, a short hash of the raw key keeps distinct keys from colliding. */
 export function sanitizeKey(key: string): string {
-  return key.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const clean = key.replace(/[^a-zA-Z0-9_-]/g, '_');
+  if (clean === key) return clean;
+  return `${clean}_${crypto.createHash('sha1').update(key).digest('hex').slice(0, 6)}`;
 }
 
 export function backupFileName(projectKey: string, date: Date): string {
@@ -47,6 +51,9 @@ export interface BackupRunResult {
 export async function runBackupOnce(dir: string, keep: number = DEFAULT_KEEP, now: Date = new Date()): Promise<BackupRunResult> {
   fs.mkdirSync(dir, { recursive: true });
   const result: BackupRunResult = { written: [], deleted: [], failed: [] };
+  for (const f of fs.readdirSync(dir)) {
+    if (f.startsWith('backup-') && f.endsWith('.json.tmp')) fs.unlinkSync(path.join(dir, f)); // leftovers of an interrupted run
+  }
   for (const project of listProjects()) {
     try {
       const backup = await buildBackup(project.id);

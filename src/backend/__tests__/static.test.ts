@@ -87,6 +87,13 @@ describe('static serving', () => {
     expect(r.body).not.toContain('    at ');
   });
 
+  it('answers a malformed escape on an API path with 400 and on the share API with the identical 404', async () => {
+    const api = await raw('/api/projects/%E0%A4%A');
+    expect(api.status).toBe(400);
+    const shared = await raw('/api/shared/%E0%A4%A');
+    expect(shared.status).toBe(404);
+  });
+
   it('redirects / to the base path', async () => {
     const res = await fetch(`${origin}/`, { redirect: 'manual' });
     expect(res.status).toBe(302);

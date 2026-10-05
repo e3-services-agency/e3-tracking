@@ -42,7 +42,7 @@ import { actorContext } from './middleware/actor';
 import { requireProject } from './middleware/project';
 import { getDb } from './db';
 import { BadRequestError, ConfigError } from './errors';
-import { defaultDistDir, mountStatic, rewriteBaseApi, shouldServeStatic } from './static';
+import { defaultDistDir, mountStatic, rejectBadEscape, rewriteBaseApi, shouldServeStatic } from './static';
 import { healthReport } from './health';
 
 function getCorsOrigin(): string | string[] | boolean {
@@ -82,6 +82,8 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   // `/api/...`, and in a container this does the same.
   app.use(rewriteBaseApi);
   app.use('/api/shared', sharedRouter);
+  // M3: a malformed percent-escape elsewhere is a plain 400 (the share router keeps its identical 404).
+  app.use(rejectBadEscape);
 
   app.use(optionalAuth);
   // D-44, T-3-01: every request runs inside an actor context (AsyncLocalStorage) so

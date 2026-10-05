@@ -28,7 +28,7 @@ Stop and start without losing data: `docker compose down` then `docker compose u
 
 `ENTRYPOINT_MODE` (or the first argument) selects the mode in `docker-entrypoint.sh`: `app`, `mcp`, `backup`, `backup-once`.
 
-Static serving is on when `NODE_ENV=production` (set by the image) or `SERVE_STATIC=1`, so `npm run dev` is unchanged. Hashed assets under `/tracking-plan/assets/` are cached for a year; `index.html` is `no-store`. Unknown routes without a file extension return the app (including `/tracking-plan/shared/:token`); a malformed percent-escape returns a plain 400.
+Static serving is on when `NODE_ENV=production` (set by the image) or `SERVE_STATIC=1`, so `npm run dev` is unchanged. Hashed assets under `/tracking-plan/assets/` are cached for a year; `index.html` is `no-store`. Unknown routes without a file extension return the app (including `/tracking-plan/shared/:token`); a malformed percent-escape returns a plain 400 on every path except `/api/shared/*`, which keeps its identical 404.
 
 ## Environment variables
 
@@ -56,7 +56,7 @@ Copy `.env.docker.example` to `.env.docker` (gitignored; optional, compose has d
 
 The named volume `e3_data` (compose project `e3-tracking`) is mounted at `/data`: `e3-tracking.sqlite` (plus WAL files), `files/`, `backups/`.
 
-The backup job writes `/data/backups/backup-<project-key>-<YYYY-MM-DD>.json` for every project (the full JSON backup of D-45, uploaded files embedded) and keeps the newest 14 per project. Run one by hand: `docker compose exec backup node api/_backend/backup-job.js --once`.
+The backup job writes `/data/backups/backup-<project-key>-<YYYY-MM-DD>.json` for every project (the full JSON backup of D-45, uploaded files embedded) and keeps the newest 14 per project. A key that needed sanitising gets a short hash suffix so distinct keys never share a file; leftover `.tmp` files from an interrupted run are removed at the start of each run. Run one by hand: `docker compose exec backup node api/_backend/backup-job.js --once`.
 
 Copy a file out: `docker compose cp app:/data/backups/backup-<key>-<date>.json .`
 
@@ -70,6 +70,8 @@ curl -X POST http://127.0.0.1:3020/api/projects/restore-backup/preview -H 'Conte
 The backup does not contain the other projects or the global use case template library; it protects project definitions. For a whole-volume copy, stop the stack and archive the volume (`docker run --rm -v e3-tracking_e3_data:/data -v "$PWD":/out alpine tar czf /out/e3_data.tgz -C /data .`).
 
 ## Health and logs
+
+The `app` service has the healthcheck; `backup` and `mcp` have none (no HTTP port), so `docker compose ps` shows them without a health status. Stopping the stack closes the database cleanly (WAL checkpointed, no `-wal` file left on the volume). Line endings: `.gitattributes` forces LF for `*.sh` and `Dockerfile`, and the Dockerfile strips any CR from the entrypoint, so a Windows checkout builds correctly.
 
 `GET /api/health` returns `{ok, version, schema_migration, db_path_writable}` (503 when the database or its directory is not usable; no secrets). The image and compose `HEALTHCHECK` call it. Logs: `docker compose logs -f app` and `docker compose logs backup`.
 

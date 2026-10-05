@@ -41,6 +41,19 @@ function hasBadEscape(rawUrl: string): boolean {
   }
 }
 
+/** Plain 400 for a malformed percent-escape on any non-share path (mounted early by `createApp`, never a 500). */
+export function rejectBadEscape(req: express.Request, res: express.Response, next: express.NextFunction): void {
+  if (hasBadEscape(req.originalUrl)) {
+    if (req.originalUrl.startsWith('/api/')) {
+      res.status(400).json({ error: 'Malformed URL.', code: 'INVALID_PATH' });
+    } else {
+      res.status(400).type('text/plain').send('Bad request: malformed URL.');
+    }
+    return;
+  }
+  next();
+}
+
 /** Rewrites `/tracking-plan/api/...` to `/api/...` (the same mapping the Vite dev proxy applies). */
 export function rewriteBaseApi(req: express.Request, _res: express.Response, next: express.NextFunction): void {
   if (
@@ -59,14 +72,6 @@ export function mountStatic(app: express.Express, distDir: string): boolean {
     console.warn(`[e3-tracking] static serving requested but ${indexFile} does not exist; skipping`);
     return false;
   }
-
-  app.use((req, res, next) => {
-    if (hasBadEscape(req.originalUrl)) {
-      res.status(400).type('text/plain').send('Bad request: malformed URL.');
-      return;
-    }
-    next();
-  });
 
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: 'Not found.', code: 'NOT_FOUND' });

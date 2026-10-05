@@ -39,6 +39,8 @@ services:
       - e3_data:/data
     <<: *env
     restart: unless-stopped
+    healthcheck:
+      disable: true # no HTTP port; the image HEALTHCHECK targets the app
 
   # `docker compose run -T --rm mcp` -- stdio MCP server against the same DB file (D-33).
   mcp:
@@ -49,6 +51,8 @@ services:
     volumes:
       - e3_data:/data
     <<: *env
+    healthcheck:
+      disable: true
 
 volumes:
   e3_data:

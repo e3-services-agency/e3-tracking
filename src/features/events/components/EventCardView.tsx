@@ -33,6 +33,7 @@ import { CategoryBadge } from '@/src/components/ui/CategoryBadge';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import type { PropertyCategory } from '@/src/domain/propertyCategory';
 import { displaySampleValue } from '@/src/domain/examples';
+import { sourceViaLabel } from '@/src/domain/sources';
 import { groupFieldMap, mappingHeading } from '@/src/domain/document/standardMappings';
 import { SHARED_PROPERTY_HEAD, secondaryPropertyLines } from '@/src/domain/document/propertyColumns';
 
@@ -43,6 +44,8 @@ export interface EventCardData {
   class: string;
   /** D-63 (T-4-17): absent on older documents, treated as `client_web`. */
   implementation_method?: string;
+  /** D-62 (T-4-11B), additive. */
+  sources?: { id: string; name: string; system: string; method: string | null }[];
   dl_event_name?: string | null;
   description: string | null;
   purpose: string | null;
@@ -242,6 +245,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             ['Class', <ClassBadge key="c" eventClass={card.class} />, true],
             ['Implementation method', card.implementation_method ?? 'client_web', true],
             ['dataLayer event', card.dl_event_name ?? '—', true],
+            ['Source', card.sources && card.sources.length > 0 ? card.sources.map((s) => `${s.name}: ${sourceViaLabel(s.system, s.method)}`).join('; ') : '—', true],
             ['Status', card.status, true],
             ['Priority', card.priority ?? '—', true],
             ['Grain', card.grain ?? '—', true],
@@ -500,7 +504,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
 
       {(!shared || hasCodegen(card.codegen, card.implementation_method)) && (
       <Section title="Implementation">
-        <CodegenTabs codegen={card.codegen} method={card.implementation_method} defaultOpen={!shared} />
+        <CodegenTabs codegen={card.codegen} method={card.implementation_method} sourceMethod={card.sources?.find((s) => s.method)?.method ?? null} defaultOpen={!shared} />
       </Section>
       )}
 

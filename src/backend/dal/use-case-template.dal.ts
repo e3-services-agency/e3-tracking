@@ -779,7 +779,9 @@ export interface TemplateEventCandidate {
 export interface TemplateResolvedPreviewItem {
   index: number;
   target_kind: string;
-  /** D-61 (T-4-11B): `catalog_attribute` only, one entry per catalog of the main catalog's kind. */
+  /** D-61 (T-4-11B): `catalog_attribute` only, the field name the template asks for. */
+  field_name?: string;
+  /** D-61: `catalog_attribute` only, one entry per catalog of the main catalog's kind. */
   catalog_markets?: CatalogFieldPresence[];
   /** D-61: true when some catalog of the kind lacks the field (created as a gap requirement). */
   partial?: boolean;
@@ -858,7 +860,7 @@ export function previewInstantiateUseCaseTemplate(projectId: string, templateId:
       resolvedItems.push({
         index,
         target_kind: entry.target_kind,
-        ...(outcome.catalogs ? { catalog_markets: outcome.catalogs } : {}),
+        ...(outcome.catalogs ? { field_name: entry.field_name, catalog_markets: outcome.catalogs } : {}),
         ...(outcome.partial ? { partial: true, partial_note: outcome.partial.note } : {}),
       });
     } else {

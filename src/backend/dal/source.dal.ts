@@ -43,6 +43,28 @@ export function listSources(projectId: string): SourceRow[] {
     .all(projectId) as SourceRow[];
 }
 
+/** D-62 (T-4-11B): every event's linked sources for the project in two queries, keyed by event id (document builders). */
+export function listEventSourcesByProject(projectId: string): Map<string, SourceRow[]> {
+  const db = getDb();
+  const sourceById = new Map(listSources(projectId).map((s) => [s.id, s]));
+  const out = new Map<string, SourceRow[]>();
+  const links = db
+    .prepare(
+      `SELECT es.event_id as event_id, es.source_id as source_id
+       FROM event_sources es JOIN events e ON e.id = es.event_id
+       WHERE e.project_id = ? ORDER BY es.created_at, es.source_id`
+    )
+    .all(projectId) as { event_id: string; source_id: string }[];
+  for (const link of links) {
+    const source = sourceById.get(link.source_id);
+    if (!source) continue;
+    const list = out.get(link.event_id);
+    if (list) list.push(source);
+    else out.set(link.event_id, [source]);
+  }
+  return out;
+}
+
 export function getSourceOrThrow(projectId: string, id: string): SourceRow {
   const db = getDb();
   const row = db

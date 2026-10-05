@@ -232,6 +232,14 @@ export interface EventCardCodegen {
   note?: string;
 }
 
+/** D-62 (T-4-11B): a source an event is collected from; system and method are client-facing. */
+export interface EventCardSource {
+  id: string;
+  name: string;
+  system: string;
+  method: string | null;
+}
+
 export interface EventCard {
   id: string;
   name: string;
@@ -242,6 +250,8 @@ export interface EventCard {
   implementation_method?: ImplementationMethod;
   /** D-63: the site's dataLayer event carrying this Bloomreach event, `null` when not recorded. */
   dl_event_name?: string | null;
+  /** D-62 (T-4-11B), additive: the sources the event is collected from (system and method). */
+  sources?: EventCardSource[];
   description: string | null;
   purpose: string | null;
   page: string | null;
@@ -284,6 +294,13 @@ export interface TrackingDocumentProject {
   money_tolerance: { percent: number; floor: number };
   /** D-65 (T-4-22), additive: the project's naming convention; the shared page shows it as a note. */
   naming_convention: NamingConvention;
+  /** D-62 (T-4-11B), additive: the name of the project's default source, if one is set. */
+  default_source?: string | null;
+}
+
+/** D-62 (T-4-11B): one source of the project with how many events use it. */
+export interface TrackingDocumentSource extends EventCardSource {
+  event_count: number;
 }
 
 /** D-58: one named meaning of a property (`property_definitions`). */
@@ -373,6 +390,15 @@ export interface TrackingDocumentCatalog {
   update_frequency?: string | null;
   catalog_type?: string | null;
   purpose?: string | null;
+  /** D-61 (T-4-11B), additive: product | variant | other, market, language, v1 | v2, live and the searchable count. */
+  kind?: string;
+  market?: string | null;
+  language?: string | null;
+  version?: string;
+  live_at?: string | null;
+  searchable_count?: number;
+  /** The lookup key field's name, `null` when the catalog has none. */
+  lookup_key?: string | null;
   fields?: TrackingDocumentCatalogField[];
   mapped_properties?: TrackingDocumentCatalogMappedProperty[];
 }
@@ -427,6 +453,8 @@ export interface TrackingDocument {
   identity_rules: TrackingDocumentIdentityRule[];
   consent_categories: TrackingDocumentConsentCategory[];
   catalogs: TrackingDocumentCatalog[];
+  /** D-62 (T-4-11B), additive. */
+  sources?: TrackingDocumentSource[];
   use_cases: TrackingDocumentUseCase[];
   standard_event_mappings: TrackingDocumentStandardEventMapping[];
   findings_summary: { open: FindingSeverityCounts; by_comparison: Record<string, FindingSeverityCounts> };

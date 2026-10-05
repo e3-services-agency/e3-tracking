@@ -24,6 +24,7 @@ import * as PropertyDAL from '../dal/property.dal';
 import * as IdentityRuleDAL from '../dal/identity-rule.dal';
 import * as ConsentCategoryDAL from '../dal/consent-category.dal';
 import * as CatalogDAL from '../dal/catalog.dal';
+import * as SourceDAL from '../dal/source.dal';
 import { isHttpUrl } from '../dal/urlValidation';
 import * as LimitsService from './limits.service';
 import { createEventResolver } from './eventResolution';
@@ -279,6 +280,8 @@ export interface EventCardBuildContext {
   bundleNameByPropertyId: Map<string, string>;
   /** D-63: the project's `kind = 'context'` event properties, for the `sdk_auto` default properties snippet. */
   projectContextProperties: { name: string; sample: unknown }[];
+  /** D-62 (T-4-11B): each event's linked sources, keyed by event id. */
+  sourcesByEventId: Map<string, SourceDAL.SourceRow[]>;
 }
 
 /** Exported for `export.service.ts`'s HTML documentation export, which also calls `buildEventCard`
@@ -351,6 +354,7 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
     definitionsById: PropertyDefinitionDAL.listAllDefinitionsById(projectId),
     bundleNameByPropertyId: new Map([...bundleNames].map(([id, names]) => [id, names.join(', ')])),
     projectContextProperties,
+    sourcesByEventId: SourceDAL.listEventSourcesByProject(projectId),
   };
 }
 
@@ -675,6 +679,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
     class: event.class,
     implementation_method: event.implementation_method,
     dl_event_name: event.dl_event_name,
+    sources: (context.sourcesByEventId.get(event.id) ?? []).map((s) => ({ id: s.id, name: s.name, system: s.system, method: s.method })),
     description: event.description,
     purpose: event.purpose,
     page: event.page,
@@ -785,6 +790,13 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
   const orderedEventIds = [...events.filter((e) => e.class === 'custom'), ...events.filter((e) => e.class !== 'custom')].map((e) => e.id);
   const eventCards = orderedEventIds.map((id) => buildEventCard(projectId, id, ctx));
 
+  // D-62 (T-4-11B): the project's sources with how many events use each.
+  const sourceRows = SourceDAL.listSources(projectId);
+  const eventSourceCounts = new Map<string, number>();
+  for (const linked of ctx.sourcesByEventId.values()) {
+    for (const s of linked) eventSourceCounts.set(s.id, (eventSourceCounts.get(s.id) ?? 0) + 1);
+  }
+
   const allPropertyRows = PropertyDAL.listProperties(projectId);
   const customerPropertyRows = allPropertyRows.filter((p) => p.scope === 'customer');
   const eventPropertyRows = allPropertyRows.filter((p) => p.scope === 'event');
@@ -881,6 +893,13 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
       update_frequency: c.update_frequency,
       catalog_type: c.catalog_type,
       purpose: c.purpose,
+      kind: c.kind,
+      market: c.market,
+      language: c.language,
+      version: c.version,
+      live_at: c.live_at,
+      searchable_count: fields.filter((f) => f.is_searchable).length,
+      lookup_key: fields.find((f) => f.is_lookup_key)?.name ?? null,
       fields: fields.map((f) => ({
         name: f.name,
         description: f.description,
@@ -950,6 +969,7 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
       bloomreach_project_url: project.bloomreach_project_url,
       money_tolerance: { percent: project.money_tolerance_percent, floor: project.money_tolerance_floor },
       naming_convention: project.naming_convention,
+      default_source: project.default_source_id ? (sourceRows.find((s) => s.id === project.default_source_id)?.name ?? null) : null,
     },
     events: eventCards,
     properties: customerProperties,
@@ -957,6 +977,7 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
     identity_rules: identityRules,
     consent_categories: consentCategories,
     catalogs,
+    sources: sourceRows.map((s) => ({ id: s.id, name: s.name, system: s.system, method: s.method, event_count: eventSourceCounts.get(s.id) ?? 0 })),
     use_cases: useCases,
     standard_event_mappings: standardEventMappings,
     findings_summary: findingsSummary,

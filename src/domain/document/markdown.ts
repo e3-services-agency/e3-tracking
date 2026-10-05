@@ -5,6 +5,7 @@
  * JSON. No DOM, server or database import, so the MCP server can reuse these later.
  */
 import { describeCertificationReason } from '../certification';
+import { sourceViaLabel } from '../sources';
 import type { EventCard, TrackingDocumentCustomerProperty, TrackingDocumentUseCase } from './trackingDocument';
 import type { PropertyKind } from '../enums';
 import { groupPropertiesByCategory, formatDisplayName } from '../propertyCategory';
@@ -53,6 +54,7 @@ export function eventCardToMarkdown(card: EventCard): string {
     bullet('Class', card.class),
     bullet('Implementation method', card.implementation_method),
     bullet('dataLayer event', card.dl_event_name),
+    bullet('Source', card.sources && card.sources.length > 0 ? card.sources.map((s) => sourceViaLabel(s.system, s.method)).join(', ') : null),
     bullet('Status', card.status),
     bullet('Priority', card.priority),
     bullet('Business owner', card.owners?.business),

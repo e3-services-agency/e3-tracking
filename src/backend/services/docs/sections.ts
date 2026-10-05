@@ -10,6 +10,7 @@ import { escapeHtml } from '../htmlEscape';
 import { formatExampleValues } from '../../../domain/examples';
 import { groupFieldMap, mappingHeading } from '../../../domain/document/standardMappings';
 import type { FindingsSummaryView } from '../../../domain/document/findingsSummary';
+import { FAMILY_INFO, comparisonLabel, comparisonTooltip, kindLabel, kindTooltip } from '../../../domain/findingsCatalog';
 import { formatDisplayName, groupPropertiesByCategory, propertyGroupId, propertyKindGroupId, type PropertyCategory } from '../../../domain/propertyCategory';
 import type { PropertyKind } from '../../../domain/enums';
 
@@ -533,7 +534,18 @@ export function renderStandardEventMappingsSection(mappings: StandardEventMappin
 export function renderFindingsSummarySection(summary: FindingsSummaryView, eventAnchor: (eventId: string) => string | null): string {
   if (summary.total === 0 && summary.acknowledged.total === 0) return '';
   const cmpRows = summary.byComparison
-    .map((c) => `<tr>${cell(c.comparison)}${cell(String(c.error))}${cell(String(c.warning))}${cell(String(c.info))}</tr>`)
+    .map(
+      (c) =>
+        `<tr><td><span title="${escapeHtml(comparisonTooltip(c.comparison))}">${escapeHtml(comparisonLabel(c.comparison))}</span></td>${cell(String(c.error))}${cell(String(c.warning))}${cell(String(c.info))}</tr>`
+    )
+    .join('\n');
+  const familyRows = (summary.byFamily ?? [])
+    .map((f) => {
+      const kinds = f.kinds
+        .map((k) => `<span title="${escapeHtml(kindTooltip(k.kind))}">${escapeHtml(kindLabel(k.kind))}</span> (${k.count})`)
+        .join(', ');
+      return `<tr><td><span title="${escapeHtml(FAMILY_INFO[f.family].explanation)}">${escapeHtml(FAMILY_INFO[f.family].label)}</span></td><td>${kinds}</td>${cell(String(f.total))}${cell(FAMILY_INFO[f.family].next)}</tr>`;
+    })
     .join('\n');
   const topRows = summary.topEvents
     .map((e) => {
@@ -548,6 +560,12 @@ export function renderFindingsSummarySection(summary: FindingsSummaryView, event
     <p><strong>${summary.total} open</strong>: error ${summary.bySeverity.error}, warning ${summary.bySeverity.warning}, info ${summary.bySeverity.info}${
       ack.total > 0 ? `. Acknowledged: error ${ack.error}, warning ${ack.warning}, info ${ack.info}` : ''
     }</p>
+    ${
+      familyRows === ''
+        ? ''
+        : `<h3>By kind of problem</h3>
+    <table><thead><tr><th>Family</th><th>Kinds</th><th>Open</th><th>Next step</th></tr></thead><tbody>${familyRows}</tbody></table>`
+    }
     ${
       summary.byComparison.length === 0
         ? ''
@@ -706,8 +724,8 @@ export function renderFindingsTable(findings: FindingForDocs[], heading = 'Open 
     .map(
       (f) => `<tr>
         ${cell(f.severity)}
-        ${cell(f.kind)}
-        ${cell(f.comparison)}
+        <td><span title="${escapeHtml(f.kind)}: ${escapeHtml(kindTooltip(f.kind))}">${escapeHtml(kindLabel(f.kind))}</span></td>
+        <td><span title="${escapeHtml(f.comparison)}: ${escapeHtml(comparisonTooltip(f.comparison))}">${escapeHtml(comparisonLabel(f.comparison))}</span></td>
         ${cell(f.property)}
         ${cell(f.variant)}
         ${cell(f.rule)}

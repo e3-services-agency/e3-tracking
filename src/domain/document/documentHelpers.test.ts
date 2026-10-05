@@ -72,3 +72,23 @@ describe('secondaryPropertyLines', () => {
     ).toEqual(['Name: n', 'Role: context', 'Formats: url', 'Allowed values: a', 'PII', 'Bundle: B', 'dataLayer: p']);
   });
 });
+
+describe('computeFindingsSummary by kind family (T-4-21)', () => {
+  const f = (severity: string, comparison: string, kind: string) => ({ severity, comparison, kind });
+  const events = [
+    { id: 'a', name: 'a', findings: [f('error', 'definition_vs_observations', 'type_mismatch'), f('error', 'definition_vs_observations', 'type_mismatch'), f('warning', 'definition_vs_observations', 'rounding_drift')], quality: { acknowledged: { error: 0, warning: 0, info: 0 } } },
+    { id: 'b', name: 'b', findings: [f('warning', 'data_manager', 'type_mismatch')], quality: { acknowledged: { error: 0, warning: 0, info: 0 } } },
+  ];
+  it('groups by family (Data Manager by comparison), kinds counted, most first', () => {
+    const s = computeFindingsSummary(events, [f('info', 'definition_vs_observations', 'state_list_mismatch')]);
+    expect(s.byFamily.map((x) => [x.family, x.total])).toEqual([['schema', 2], ['arithmetic', 1], ['consistency', 1], ['data_manager', 1]]);
+    expect(s.byFamily[0].kinds).toEqual([{ kind: 'type_mismatch', count: 2 }]);
+  });
+  it('lists affected events per comparison with the unattached count', () => {
+    const s = computeFindingsSummary(events, [f('info', 'definition_vs_observations', 'unexpected_event')]);
+    const g = s.byComparisonEvents.find((x) => x.comparison === 'definition_vs_observations')!;
+    expect(g.events).toEqual([{ id: 'a', name: 'a', count: 3 }]);
+    expect(g.unattached).toBe(1);
+    expect(g.total).toBe(4);
+  });
+});

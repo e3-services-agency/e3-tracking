@@ -356,11 +356,18 @@ describe('renderFindingsSummarySection (T-4-19)', () => {
     byComparison: [{ comparison: 'definition_vs_observations', error: 2, warning: 1, info: 0, total: 3 }],
     topEvents: [{ id: 'e1', name: 'purchase', errors: 2, total: 3 }],
     acknowledged: { error: 1, warning: 0, info: 0, total: 1 },
+    byFamily: [{ family: 'schema' as const, total: 3, kinds: [{ kind: 'type_mismatch', count: 3 }] }],
+    byComparisonEvents: [],
   };
   it('renders severity, comparison, linked top events and acknowledged count', () => {
     const html = renderFindingsSummarySection(summary, (id) => 'event-' + id);
     expect(html).toContain('3 open');
-    expect(html).toContain('definition_vs_observations');
+    // T-4-21: human labels with the explanation as a tooltip, plus the by-kind-family table.
+    expect(html).toContain('Tracking plan vs observed data');
+    expect(html).not.toContain('>definition_vs_observations<');
+    expect(html).toContain('By kind of problem');
+    expect(html).toContain('Type mismatch');
+    expect(html).toContain('Fix the tracking implementation');
     expect(html).toContain('<a href="#event-e1">purchase</a>');
     expect(html).toContain('Acknowledged: error 1');
   });

@@ -5,6 +5,7 @@
  */
 import React from 'react';
 import { getGlossaryEntry } from '@/src/domain/glossary';
+import { findingTermParts } from '@/src/domain/findingsCatalog';
 
 export function GlossaryTerm({ glossaryKey, children }: { glossaryKey: string; children: React.ReactNode }) {
   const entry = getGlossaryEntry(glossaryKey);
@@ -12,6 +13,18 @@ export function GlossaryTerm({ glossaryKey, children }: { glossaryKey: string; c
   return (
     <span title={entry.definition} className="border-b border-dotted border-gray-400 cursor-help">
       {children}
+    </span>
+  );
+}
+
+/** T-4-21: a comparison id or finding kind rendered as its human label, the explanation (and next
+ * step) in the tooltip; the raw id stays in the exports. Unknown ids render as they are. */
+export function FindingTerm({ comparison, kind }: { comparison?: string; kind?: string }) {
+  const { label, tooltip } = findingTermParts({ comparison, kind });
+  if (!tooltip) return <>{label}</>;
+  return (
+    <span title={tooltip} className="border-b border-dotted border-gray-400 cursor-help">
+      {label}
     </span>
   );
 }

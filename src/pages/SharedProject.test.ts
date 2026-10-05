@@ -93,9 +93,9 @@ describe('T-4-14 view helpers', () => {
     properties: [1],
     use_cases: [],
     identity_rules: [],
-    consent_categories: [1],
+    consent_categories: [{ name: 'Newsletter', standard_key: 'newsletter' }],
     catalogs: [],
-    standard_event_mappings: [1],
+    standard_event_mappings: [{ standard_event: 'cart_update', event_name: 'cart_update', variant_name: null }],
     findings_summary: { open: { error: 0, warning: 0, info: 0 } },
   };
 
@@ -143,7 +143,7 @@ describe('T-4-14 view helpers', () => {
     expect(Object.values(empty).every((v) => v === false)).toBe(true);
     const full = eventCardVisibility({
       rules: [1], derived_metrics: ['x'], not_suitable_for: 'y', use_cases: [1], variants: [1],
-      standard_event_mappings: [1], contexts: [1], sdk_default_properties: [1],
+      standard_event_mappings: [{ standard_event: 'cart_update', event_name: 'cart_update', variant_name: null }], contexts: [1], sdk_default_properties: [1],
     });
     expect(Object.values(full).every((v) => v === true)).toBe(true);
   });
@@ -174,7 +174,7 @@ describe('T-4-14 view helpers', () => {
   it('filterNav keeps matching leaves with their ancestors, and whole subtrees on a parent match', () => {
     const nav = buildSectionIndex(baseDoc);
     expect(filterNav(nav, '')).toBe(nav);
-    const f = filterNav(nav, 'CART');
+    const f = filterNav(nav, 'CART UPD');
     expect(f).toHaveLength(1);
     expect(f[0].children![0].children!.map((c) => c.label)).toEqual(['cart update']);
     const parent = filterNav(nav, 'sdk events');
@@ -208,9 +208,23 @@ describe('T-4-14 view helpers', () => {
   it('nav index ids equal the set of rendered section ids (every section link has a target)', () => {
     const all = {
       ...baseDoc,
-      use_cases: [1],
+      use_cases: [
+        { id: 'u1', code: 'UC1', name: 'Welcome', type: 'marketing' },
+        { id: 'u2', code: 'UC2', name: 'Order confirmation', type: 'transactional' },
+        { id: 'u3', code: null, name: 'Loose', type: null },
+      ],
       identity_rules: [1],
       catalogs: [1],
+      events: [
+        { ...ev('purchase'), id: 'e1', findings: [{ severity: 'error', comparison: 'definition_vs_observations', kind: 'type_mismatch' }] },
+        { ...ev('cart update'), id: 'e2', findings: [{ severity: 'warning', comparison: 'definition_vs_mapping', kind: 'unmapped_property' }] },
+      ],
+      unattached_findings: [{ severity: 'info', comparison: 'definition_vs_observations', kind: 'unexpected_event' }],
+      consent_categories: [
+        { name: 'Newsletter', standard_key: 'newsletter' },
+        { name: 'SMS offers', standard_key: null },
+        { name: 'Brand consent', standard_key: null },
+      ],
       findings_summary: { open: { error: 1, warning: 0, info: 2 } },
     };
     for (const doc of [baseDoc, all, { ...baseDoc, events: [] }]) {
@@ -219,6 +233,44 @@ describe('T-4-14 view helpers', () => {
       expect(new Set(navIds).size).toBe(navIds.length);
     }
     expect(renderedSectionIds(all)).toEqual(expect.arrayContaining([SECTION_IDS.consents, SECTION_IDS.mapping, SECTION_IDS.findings]));
+  });
+
+  it('T-4-21 groups use cases by type, consents by channel, mapping per leaf and findings by comparison', () => {
+    const doc = {
+      ...baseDoc,
+      use_cases: [
+        { id: 'u1', code: 'UC1', name: 'Welcome', type: 'marketing' },
+        { id: 'u2', code: 'UC2', name: 'Order confirmation', type: 'transactional' },
+        { id: 'u3', code: null, name: 'Loose', type: null },
+      ],
+      events: [
+        { ...ev('purchase'), id: 'e1', findings: [{ severity: 'error', comparison: 'definition_vs_observations', kind: 'type_mismatch' }] },
+        { ...ev('cart update'), id: 'e2', findings: [{ severity: 'warning', comparison: 'definition_vs_mapping', kind: 'unmapped_property' }] },
+      ],
+      unattached_findings: [{ severity: 'info', comparison: 'definition_vs_observations', kind: 'unexpected_event' }],
+      consent_categories: [
+        { name: 'Newsletter', standard_key: 'newsletter' },
+        { name: 'SMS offers', standard_key: null },
+        { name: 'Brand consent', standard_key: null },
+      ],
+      findings_summary: { open: { error: 1, warning: 1, info: 1 } },
+    };
+    const nav = buildSectionIndex(doc);
+    const uc = nav.find((n) => n.id === 'use-cases')!;
+    expect(uc.children!.map((g) => g.id)).toEqual(['use-cases-marketing', 'use-cases-transactional', 'use-cases-other']);
+    expect(uc.children![0].children!.map((l) => l.id)).toEqual(['use-case-UC1']);
+    expect(uc.children![1].children![0].label).toBe('UC2 \u2014 Order confirmation');
+    const consents = nav.find((n) => n.id === 'consents')!;
+    expect(consents.children!.map((g) => g.id)).toEqual(['consents-email', 'consents-sms', 'consents-other']);
+    const mapping = nav.find((n) => n.id === 'mapping')!;
+    expect(mapping.children!.map((l) => l.label)).toEqual(['cart_update \u2192 cart_update']);
+    const findings = nav.find((n) => n.id === 'findings')!;
+    expect(findings.children!.map((g) => g.id)).toEqual(['findings-definition_vs_mapping', 'findings-definition_vs_observations']);
+    expect(findings.children![0].label).toBe('Tracking plan vs Bloomreach mapping (1)');
+    expect(findings.children![1].children!.map((l) => l.id)).toEqual(['findings-definition_vs_observations-event-purchase', 'findings-definition_vs_observations-project']);
+    const ids = flattenNav(nav).map((f) => f.id);
+    expect(renderedSectionIds(doc)).toEqual(ids);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it('toggleInSet adds, removes and does not mutate its input (nav group collapse state)', () => {

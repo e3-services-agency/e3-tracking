@@ -120,6 +120,11 @@ describe('use-case-template.dal', () => {
     expect(useCase.description).toBe('Recovers abandoned carts by email.');
     expect(useCase.template_id).toBe(template.id);
 
+    // T-4-21: the add-to-project dialog's Type step overrides the template's type.
+    const asTransactional = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, { type: 'transactional' });
+    expect(asTransactional.type).toBe('transactional');
+    expect(() => UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, { type: 'nonsense' })).toThrow(/type must be one of/);
+
     const requirements = RequirementDAL.listRequirements(projectId, useCase.id);
     expect(requirements).toHaveLength(5);
     expect(requirements[0]).toMatchObject({ target_kind: 'customer_property', property_id: customerPropertyId });

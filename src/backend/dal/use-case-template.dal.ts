@@ -652,9 +652,14 @@ function applyTemplateMappings(
 export function instantiateUseCaseTemplate(
   projectId: string,
   templateId: string,
-  opts?: { code?: string; mappings?: TemplateMappingInput[] }
+  opts?: { code?: string; mappings?: TemplateMappingInput[]; type?: string }
 ): UseCaseRow {
   const template = getUseCaseTemplateOrThrow(templateId);
+  // T-4-21: the add-to-project dialog's Type step; defaults to the template's own type.
+  if (opts?.type !== undefined && !USE_CASE_TYPES.includes(opts.type as UseCaseType)) {
+    throw new ValidationError(`type must be one of ${USE_CASE_TYPES.join(', ')}.`, 'type');
+  }
+  const useCaseType = opts?.type ?? template.type;
   const db = getDb();
   const explicitCode = opts?.code?.trim() || null;
   const desiredBase = explicitCode || template.code;
@@ -671,7 +676,7 @@ export function instantiateUseCaseTemplate(
           template_id: template.id,
           code: explicitCode,
           name: template.name,
-          type: template.type,
+          type: useCaseType,
           description: template.description,
           documentation_url: template.documentation_url,
           internal_notes: template.internal_notes,
@@ -694,7 +699,7 @@ export function instantiateUseCaseTemplate(
             template_id: template.id,
             code,
             name: template.name,
-            type: template.type,
+            type: useCaseType,
             description: template.description,
             documentation_url: template.documentation_url,
             internal_notes: template.internal_notes,

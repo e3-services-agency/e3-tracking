@@ -10,7 +10,8 @@
  * `use-case-library-sample.json` is still read, as the library the three use cases come from.
  *
  * Run with `npx tsx scripts/build-sandbox-backup.mjs` (tsx transpiles the imported `.ts` modules).
- * Re-run whenever the schema or the seed changes.
+ * Re-run whenever the schema or the seed changes. Regenerating from an unchanged seed differs only in
+ * timestamps and ids.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -234,6 +235,15 @@ async function main() {
     const useCases = new Map();
     for (const code of seed.USE_CASE_CODES) {
       const template = must(UseCaseTemplateDAL.listUseCaseTemplates().find((t) => t.code === code), `library template ${code}`);
+      // The sample's gap note is written for QA ("Deliberately unresolvable..."); show a client-safe one.
+      if (seed.REQUIREMENT_NOTE_OVERRIDES[code]) {
+        UseCaseTemplateDAL.updateUseCaseTemplate(template.id, {
+          default_requirements_json: template.default_requirements_json.map((r) => {
+            const note = seed.REQUIREMENT_NOTE_OVERRIDES[code][r.event_name ?? ''];
+            return note ? { ...r, note } : r;
+          }),
+        });
+      }
       const useCase = UseCaseTemplateDAL.instantiateUseCaseTemplate(projectId, template.id, {});
       UseCaseDAL.updateUseCase(projectId, useCase.id, { status: seed.USE_CASE_STATUS[code] });
       regenerateNarrative(projectId, useCase.id, false);
@@ -260,7 +270,14 @@ async function main() {
     for (const wanted of new Set(seed.OBSERVATIONS.map((o) => o.expect).filter(Boolean))) {
       if (!kinds.has(wanted)) throw new Error(`Seed expects a "${wanted}" finding but the comparison produced: ${[...kinds].join(', ')}`);
     }
-    if (!kinds.has('missing_event')) console.warn('No missing_event finding was produced.');
+    // Every kind the docs (QA-LOCAL.md sandbox recipe) promise, including both unknown_variant comparisons.
+    for (const wanted of ['missing_event', 'rename_mismatch', 'unmapped_catalog', 'shape_inconsistent', 'state_list_mismatch']) {
+      if (!kinds.has(wanted)) throw new Error(`Docs promise a "${wanted}" finding but the comparison did not produce one.`);
+    }
+    const unknownVariantComparisons = new Set(open.filter((f) => f.kind === 'unknown_variant').map((f) => f.comparison));
+    for (const comparison of ['definition_vs_observations', 'mapping_vs_observations']) {
+      if (!unknownVariantComparisons.has(comparison)) throw new Error(`No unknown_variant finding from ${comparison}.`);
+    }
 
     // 9. Acknowledge one error finding (D-42's manual-resolve path).
     const toAcknowledge = open.find((f) => f.kind === 'enum_violation' && f.severity === 'error');

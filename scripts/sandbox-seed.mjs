@@ -294,6 +294,10 @@ export const IDENTITY_RULES = [
 // Use cases: instantiated from `use-case-library-sample.json`, then given a status.
 // ---------------------------------------------------------------------------
 export const USE_CASE_CODES = ['UC-01', 'UC-02', 'UC-03'];
+// Client-safe replacements for library notes written for QA, keyed by the requirement's event_name.
+export const REQUIREMENT_NOTE_OVERRIDES = {
+  'UC-03': { wishlist_add: 'wishlist_add is not tracked yet; the wishlist_update event covers adds, map or rename it.' },
+};
 export const USE_CASE_STATUS = { 'UC-01': 'live', 'UC-02': 'in_progress', 'UC-03': 'proposed' };
 
 // ---------------------------------------------------------------------------
@@ -341,6 +345,6 @@ export const OBSERVATIONS = [
 export const COMMENTS = [
   { entity: 'event:cart_update', author: 'Jana (Acme)', via_share: true, body: 'Can we also send the cart value in the remove push? Marketing wants to trigger on a cart dropping below 30 EUR.' },
   { entity: 'event:cart_update', author: 'E3 team', via_share: false, body: 'Yes, total_price already travels with every push, it is recalculated after the change.' },
-  { entity: 'event:cart_update', author: 'E3 team', via_share: false, internal_only: true, body: 'Internal: the client developer is slow on dataLayer changes, plan one more review round before go-live.' },
+  { entity: 'event:cart_update', author: 'E3 team', via_share: false, internal_only: true, body: "Internal: plan one more review round with the client's developer before go-live." },
   { entity: 'requirement:UC-01:0', author: 'E3 team', via_share: false, body: 'Abandoned cart needs the add variant only; a remove must not restart the timer.' },
 ];

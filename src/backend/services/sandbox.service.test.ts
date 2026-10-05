@@ -1,8 +1,9 @@
 /**
- * D-60 sandbox creation tests (T-4-09): builds a real (small) backup through `backup.service.ts`
- * from an in-memory fixture project, points `createSandboxProject` at it via
- * `E3_SANDBOX_BACKUP_PATH` (so the test never depends on the real, large bundled sandbox backup),
- * and asserts the restored project is flagged and share-refused without `force`.
+ * D-60 sandbox creation tests (T-4-09, T-4-11 part A): most tests build a tiny backup through
+ * `backup.service.ts` from an in-memory fixture project and point `createSandboxProject` at it via
+ * `E3_SANDBOX_BACKUP_PATH`; the tests that use the real bundled seed backup (its own describe
+ * block and the suffix test) unset that variable and use a temp `E3_FILES_PATH`, so the trigger
+ * PNGs never land in `data/files`.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { writeFileSync, unlinkSync, mkdtempSync, rmSync } from 'node:fs';
@@ -83,8 +84,15 @@ describe('sandbox.service: createSandboxProject (D-60)', () => {
 
   it('does not double the (sandbox) suffix when the backup project is already named that way', async () => {
     delete process.env.E3_SANDBOX_BACKUP_PATH;
-    const { project } = await createSandboxProject({});
-    expect(project.name).toBe('Acme EU (sandbox)');
+    const filesDir = mkdtempSync(join(tmpdir(), 'e3-sandbox-files-'));
+    process.env.E3_FILES_PATH = filesDir;
+    try {
+      const { project } = await createSandboxProject({});
+      expect(project.name).toBe('Acme EU (sandbox)');
+    } finally {
+      delete process.env.E3_FILES_PATH;
+      rmSync(filesDir, { recursive: true, force: true });
+    }
   }, 60_000);
 
   // T-4-11 part A: the real bundled backup is the small hand-written seed (scripts/sandbox-seed.mjs).

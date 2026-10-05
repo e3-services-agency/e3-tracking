@@ -54,7 +54,8 @@ for (const f of FindingDAL.listFindings(project.id, { status: 'open' })) byKind[
 console.log(`Backup size: ${(fs.statSync(BACKUP).size / 1024).toFixed(1)} KB`);
 console.log(`Restore time: ${ms.toFixed(0)} ms, warnings: ${warnings.length}`);
 console.log('Counts:', JSON.stringify(counts, null, 2));
-console.log('Open findings by kind:', JSON.stringify(byKind));
+console.log('Open findings by kind:');
+for (const [kind, n] of Object.entries(byKind).sort()) console.log(`  ${kind.padEnd(24)} ${n}`);
 if (process.argv.includes('--findings')) {
   for (const f of FindingDAL.listFindings(project.id, {})) console.log(`  [${f.status}] ${f.comparison} ${f.kind} ${f.severity}: ${f.message}`);
 }

@@ -20,7 +20,7 @@ export const CONSENT_CHANNEL_LABELS: Record<ConsentChannel, string> = {
 const KEYWORDS: [ConsentChannel, RegExp][] = [
   ['whatsapp', /whats[\s_-]?app/],
   ['sms', /(^|[^a-z])(sms|mms)([^a-z]|$)|text[\s_-]?message/],
-  ['email', /e[\s_-]?mail|newsletter/],
+  ['email', /(^|[^a-z])e[\s_-]?mail|newsletter/],
   ['push', /push|browser|mobile[\s_-]?app/],
 ];
 const BARE_NOTIFICATION = /notification/;

@@ -46,7 +46,7 @@ There is only one version today (`1`); `?version=1` and the unqualified request 
   format: 'e3-tracking-document',
   version: 1,
   generated_at: string,      // ISO timestamp, current time on every fetch (not cached)
-  project: { key, name, client, bloomreach_project_url, money_tolerance: { percent, floor } },
+  project: { key, name, client, bloomreach_project_url, money_tolerance: { percent, floor }, naming_convention },  // naming_convention: T-4-22, additive
   events: EventCard[],       // custom events first, then sdk/platform events
   properties: [...],         // customer-scope properties, each with category and definitions[] (D-58, D-64)
   event_properties: [...],   // event-scope properties with category and kind (D-64)
@@ -74,7 +74,7 @@ field list is present:
 | `priority`, `status` | `PRIORITIES`/`EVENT_STATUSES` (`src/domain/enums.ts`). |
 | `certification` | `{applicable, certified, reasons[]}` — see below (D-05). |
 | `expiration` | `{effective, source: 'event' \| 'project' \| null}` — the event's own expiration, else the project default, else `null`. |
-| `properties[]` | Every linked property: `payload_key`, `data_type`, `data_formats`, `required`, `role`, `allowed_values` (with `label`/`standard_event` hints), `item_schema` (D-30, array properties only), a generated `example`, `description`, `pii`, `kind`/`derivation`/`datalayer_path`/`bundle` (D-63, T-4-17, additive: `kind` is `event` | `item` | `state_list` | `context`; `derivation` is the state list's rule, `{source: 'items', id_field, form: 'ids' | 'id_quantity', quantity_field?}` or `{source: 'items', sum: 'price*quantity'}`, else `null`; `datalayer_path` is `bloomreach.properties.x`, `bloomreach.item.x` or `computed from items`, and is `null` for every event whose `implementation_method` is not `client_web` (`server_api` and `sdk_auto` events have no dataLayer; views show "n/a"); `bundle` is the comma-joined name(s) of the property bundle(s) it belongs to, else `null`), `definition_id`/`definition_name` (D-58, T-4-00). `allowed_values`/`data_formats`/`description`/`example` are read from this link's own named definition (`property_definitions`), not the shared property, so the same property attached to two events can validate and document differently (e.g. `action` allows `add`/`remove` on `cart_update` but `accept`/`reject` on `consent`); a property with a single (`general`) definition behaves exactly as before this table existed. |
+| `properties[]` | Every linked property: `payload_key`, `data_type`, `data_formats`, `required`, `role`, `allowed_values` (with `label`/`standard_event` hints), `item_schema` (D-30, array properties only), a generated `example`, `description`, `pii`, `kind`/`derivation`/`datalayer_path`/`bundle` (D-63, T-4-17, additive: `kind` is `event` | `item` | `state_list` | `context`; `derivation` is the state list's rule, `{source: 'items', id_field, form: 'ids' | 'id_quantity', quantity_field?}` or `{source: 'items', sum: 'price*quantity'}`, else `null`; `datalayer_path` is `bloomreach.properties.x`, `bloomreach.item.x` or `computed from items`, and is `null` for every event whose `implementation_method` is not `client_web` (`server_api` and `sdk_auto` events have no dataLayer; views show "n/a"); `bundle` is the comma-joined name(s) of the property bundle(s) it belongs to, else `null`), `definition_id`/`definition_name` (D-58, T-4-00), `category` (T-4-22, additive: the derived property category, for the badge). `allowed_values`/`data_formats`/`description`/`example` are read from this link's own named definition (`property_definitions`), not the shared property, so the same property attached to two events can validate and document differently (e.g. `action` allows `add`/`remove` on `cart_update` but `accept`/`reject` on `consent`); a property with a single (`general`) definition behaves exactly as before this table existed. |
 | `variants[]` | `id`, `name`, `conditions` (discriminator property names resolved), `standard_event` it maps to (if any), `expected_payload` (a sample JSON payload with the variant's discriminator values as literals), `required_keys` (the `expected_payload` keys that are required, fix round), `expiration` (this variant's own override, or `null` when it follows the event/project value, fix round). |
 | `standard_event_mappings[]` | This event's `StandardEventMapping` rows, `field_map` resolved to property names. |
 | `contexts[]` | `context`-role properties, their `payload_key` (the key `context_values_json`/the raw observation payload actually carries — may differ from the display name `property`, fix round) and their allowed values (D-03: contexts never create variants). |
@@ -121,6 +121,9 @@ Additive (no version bump). Every entry of `properties[]` gains `category` (`sys
     target_label: string,
     level: string,
     status: string | null,
+    target_kind: string,                   // T-4-22: additive -- with event_id/property_id, lets a reader link the target
+    event_id: string | null,
+    property_id: string | null,
   }],
   documentation_url: string | null,        // D-59 amendment 1: additive, public
   // internal_notes/internal_url are deliberately never included here (D-59 amendment 2)
@@ -228,7 +231,8 @@ reopened) reopens the finding as an ordinary open finding, exactly as if it had 
     "name": "Acme EU",
     "client": "Acme",
     "bloomreach_project_url": null,
-    "money_tolerance": { "percent": 1, "floor": 0.01 }
+    "money_tolerance": { "percent": 1, "floor": 0.01 },
+    "naming_convention": "snake_case"
   },
   "events": [
     {

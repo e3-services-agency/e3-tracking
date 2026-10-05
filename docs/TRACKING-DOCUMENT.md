@@ -53,6 +53,7 @@ There is only one version today (`1`); `?version=1` and the unqualified request 
   identity_rules: [...],
   consent_categories: [...],
   catalogs: [...],
+  sources: [...],            // D-62: { id, name, system, method, event_count }
   use_cases: [...],          // ordered requirements resolved to display names, plus narrative
   standard_event_mappings: [...],
   findings_summary: { open: {error, warning, info}, by_comparison: {...} },
@@ -105,6 +106,10 @@ allowed values/formats/example/description already resolved from that link's own
 ### Property categories, `event_properties[]` and catalogs (D-64, T-4-20)
 
 Additive (no version bump). Every entry of `properties[]` gains `category` (`system_customer` | `customer` | `sdk_default` | `event`, the derived value or the `properties.category_override` when set). A new top-level `event_properties[]` lists the event-scope properties (`property_id`, `category`, `kind`, `name`, `data_type`, `data_formats`, `description`, `used_in_events[]` (event names, sorted), `definitions[]`); `properties[]` stays customer-scope only, so existing consumers keep working. `catalogs[]` entries gain `id`, `description`, `source_system`, `sync_method`, `update_frequency`, `catalog_type`, `purpose`, `fields[]` (`name`, `description`, `data_type`, `is_lookup_key`, `is_searchable`, `is_required`) and `mapped_properties[]` (`property_name`, `scope`, `field_name`, `mapping_type`). A catalog's `owner`, `client_name` and `priority` are never included, so the public projection needs no extra stripping for them.
+
+### Catalogs per market and sources (D-61, D-62, T-4-11B)
+
+Additive (no version bump). Every `catalogs[]` entry gains `kind` (`product` | `variant` | `other`), `market`, `language`, `version` (`v1` | `v2`), `live_at` (ISO string or `null`), `searchable_count` and `lookup_key` (the lookup key field's name or `null`). A new top-level `sources[]` lists the project's sources (`id`, `name`, `system`, `method`, `event_count`); `project.default_source` is the default source's name or `null`; every event card gains `sources[]` (`id`, `name`, `system`, `method`). System and method are client-facing, so the public projection keeps them. The `catalogs` comparison's findings appear in `findings_summary.by_comparison.catalogs` and, having no event, under `unattached_findings`.
 
 ### Top-level `use_cases[]` fields
 

@@ -41,7 +41,8 @@ complete since T-3-03, each entity's export starting the moment its own task's m
 | `variants` | id, event_id, event_name, name, description, conditions_json, conditions_text, expiration_json, standard_event |
 | `standard_event_mappings` | id, standard_event, event_id, event_name, variant_id, variant_name, field_map_json |
 | `identity_rules` | id, identifier_name, identity_type, name, description, sdk_call, transformations_json, trigger_event_id, trigger_event_name, trigger_text, value_rule, example, owner, source_name, tracker, priority, status, sort_order |
-| `catalogs` | id, name, description, mapping_role, client_name, purpose, catalog_type, owner, source_system, sync_method, update_frequency, priority, status |
+| `catalogs` | id, name, description, mapping_role, client_name, purpose, catalog_type, owner, source_system, sync_method, update_frequency, priority, status, kind, market, language, version, live_at |
+| `sources` (D-62) | id, name, system, method, color, is_default |
 | `catalog_fields` | id, catalog_id, catalog_name, name, description, data_type, is_lookup_key, is_searchable, is_required, client_field_name, bloomreach_column, purpose, field_family, item_level, priority, status |
 | `consent_categories` | id, name, description, standard_key, status, sort_order |
 | `use_cases` | id, code, name, type, description, priority, status, owner, notes, template_id, template_code, requirement_count, narrative, activation, assets_json, internal_notes, internal_url |
@@ -73,7 +74,7 @@ backup" button on the Settings page):
 
 ```
 {
-  format: 'e3-tracking-backup', version: 1, exported_at, app: { schema_migration: '0021' },
+  format: 'e3-tracking-backup', version: 1, exported_at, app: { schema_migration: '0029' },
   client: { key, name, bloomreach_account_id, notes },              // reference only, never restored
   project: { ...every projects column except id, client_id },        // share_token/share_access always null
   use_case_templates: [...],  // referenced templates, full rows, re-linked by code on restore

@@ -25,6 +25,8 @@ import * as ObservationDAL from '../dal/observation.dal';
 import * as FindingDAL from '../dal/finding.dal';
 import * as MappingDAL from '../dal/standard-event-mapping.dal';
 import * as CommentDAL from '../dal/comment.dal';
+import * as CatalogDAL from '../dal/catalog.dal';
+import * as SourceDAL from '../dal/source.dal';
 import { getFileStore } from '../files/FileStore';
 import { classifyProperty, recommendedFormatsFor } from '../../domain/propertyCategory';
 import { buildBackup } from './backup.service';
@@ -169,6 +171,33 @@ describe('sandbox.service: createSandboxProject (D-60)', () => {
         expect(recommendedFormatsFor(property).length).toBeGreaterThan(0);
       }
       expect(customer.map((p) => p.name)).toEqual(expect.arrayContaining(['loyalty_tier', 'newsletter_opt_in']));
+    }, 60_000);
+
+    it('has GB and CZ catalogs, two sources with a default, and exactly one catalog drift finding (T-4-11B, D-61, D-62)', async () => {
+      const { project } = await createSandboxProject({});
+      const catalogs = CatalogDAL.listCatalogs(project.id);
+      expect(catalogs.map((c) => `${c.name}:${c.kind}:${c.market}`).sort()).toEqual([
+        'products_cz:product:CZ',
+        'products_gb:product:GB',
+        'variants_cz:variant:CZ',
+        'variants_gb:variant:GB',
+      ]);
+      expect(catalogs.find((c) => c.mapping_role === 'main')?.name).toBe('products_gb');
+      expect(catalogs.find((c) => c.mapping_role === 'variant')?.name).toBe('variants_gb');
+      const gb = catalogs.find((c) => c.name === 'products_gb')!;
+      expect(gb.live_at).toBeTruthy();
+      expect(gb.searchable_snapshot_json).toEqual(['title']);
+      const sources = SourceDAL.listSources(project.id);
+      expect(sources.map((s) => `${s.system}:${s.method}`).sort()).toEqual(['custom_backend:tracking_api', 'shopify:web_sdk_gtm_datalayer']);
+      const defaultSource = sources.find((s) => s.id === ProjectDAL.getProjectOrThrow(project.id).default_source_id);
+      expect(defaultSource?.system).toBe('shopify');
+      const purchase = EventDAL.listEvents(project.id).find((e) => e.name === 'purchase')!;
+      const viewItem = EventDAL.listEvents(project.id).find((e) => e.name === 'view_item')!;
+      expect(SourceDAL.listEventSourcesByProject(project.id).get(purchase.id)?.[0].system).toBe('custom_backend');
+      expect(SourceDAL.listEventSourcesByProject(project.id).get(viewItem.id)?.[0].system).toBe('shopify');
+      const catalogFindings = FindingDAL.listFindings(project.id, { status: 'open', comparison: 'catalogs' });
+      expect(catalogFindings.map((f) => f.kind)).toEqual(['catalog_schema_drift']);
+      expect(catalogFindings[0].message).toContain('stock_level');
     }, 60_000);
 
     it('has a QA run with a finding per family, one acknowledged, and a mapping section', async () => {

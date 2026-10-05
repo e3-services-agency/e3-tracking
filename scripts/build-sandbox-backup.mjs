@@ -86,6 +86,7 @@ async function main() {
   const MappingDAL = await import('../src/backend/dal/standard-event-mapping.dal.ts');
   const RuleDAL = await import('../src/backend/dal/rule.dal.ts');
   const CatalogDAL = await import('../src/backend/dal/catalog.dal.ts');
+  const SourceDAL = await import('../src/backend/dal/source.dal.ts');
   const ConsentDAL = await import('../src/backend/dal/consent-category.dal.ts');
   const IdentityDAL = await import('../src/backend/dal/identity-rule.dal.ts');
   const QaRunDAL = await import('../src/backend/dal/qa-run.dal.ts');
@@ -162,12 +163,20 @@ async function main() {
       bundle.set(b.name, BundleDAL.createBundle(projectId, { name: b.name, description: b.description, property_ids: b.properties.map((n) => ep(n).id) }));
     }
 
+    // 2b. Sources (D-62); the project default source is set once the events exist.
+    const sources = new Map();
+    for (const s of seed.SOURCES) sources.set(s.name, SourceDAL.createSource(projectId, s));
+
     // 3. Events, their property links, variants and trigger screenshots.
     const events = new Map();
     const variants = new Map(); // `${event}:${prop}=${value}` -> row
     for (const e of seed.EVENTS) {
       const { props, variants: variantSpecs, triggers, bundles, ...fields } = e;
-      const event = EventDAL.createEvent(projectId, fields);
+      const sourceName = seed.EVENT_SOURCES[e.name];
+      const event = EventDAL.createEvent(projectId, {
+        ...fields,
+        source_ids: sourceName ? [must(sources.get(sourceName), `source "${sourceName}"`).id] : [],
+      });
       events.set(e.name, event);
       for (const b of bundles ?? []) EventDAL.attachBundleToEvent(projectId, event.id, must(bundle.get(b), `bundle "${b}"`).id);
       props.forEach((link, index) => {
@@ -214,9 +223,20 @@ async function main() {
     }
 
     // 6. Catalog, consent categories, identity rules.
-    const { fields: catalogFields, ...catalogFields0 } = seed.CATALOG;
-    const catalog = CatalogDAL.createCatalog(projectId, catalogFields0);
-    for (const f of catalogFields) CatalogDAL.createCatalogField(projectId, catalog.id, f);
+    ProjectDAL.updateProject(projectId, { default_source_id: must(sources.get(seed.DEFAULT_SOURCE), `source "${seed.DEFAULT_SOURCE}"`).id });
+    const catalogFieldId = new Map(); // `${catalog}.${field}` -> { catalogId, fieldId }
+    for (const { fields: catalogFields, live, ...catalogFields0 } of seed.CATALOGS) {
+      const catalog = CatalogDAL.createCatalog(projectId, catalogFields0);
+      for (const f of catalogFields) {
+        const created = CatalogDAL.createCatalogField(projectId, catalog.id, f);
+        catalogFieldId.set(`${catalog.name}.${f.name}`, { catalogId: catalog.id, fieldId: created.id });
+      }
+      if (live) CatalogDAL.setCatalogLive(projectId, catalog.id, true);
+    }
+    for (const [propertyName, target] of Object.entries(seed.PROPERTY_CATALOG_LINKS)) {
+      const link = must(catalogFieldId.get(target), `catalog field "${target}"`);
+      PropertyDAL.updateProperty(projectId, ep(propertyName).id, { mapped_catalog_id: link.catalogId, mapped_catalog_field_id: link.fieldId });
+    }
     seed.CONSENT_CATEGORIES.forEach((c, sort_order) => ConsentDAL.createConsentCategory(projectId, { ...c, sort_order }));
     seed.IDENTITY_RULES.forEach((r, sort_order) => {
       const { trigger_event, transformations, ...rest } = r;
@@ -273,6 +293,11 @@ async function main() {
     // Every kind the docs (QA-LOCAL.md sandbox recipe) promise, including both unknown_variant comparisons.
     for (const wanted of ['missing_event', 'rename_mismatch', 'unmapped_catalog', 'shape_inconsistent', 'state_list_mismatch']) {
       if (!kinds.has(wanted)) throw new Error(`Docs promise a "${wanted}" finding but the comparison did not produce one.`);
+    }
+    // D-61: the one deliberate catalog drift (CZ stock_level is text) and nothing else from the catalogs comparison.
+    const catalogFindings = open.filter((f) => f.comparison === 'catalogs');
+    if (catalogFindings.length !== 1 || catalogFindings[0].kind !== 'catalog_schema_drift') {
+      throw new Error(`Expected exactly one catalog_schema_drift finding, got: ${catalogFindings.map((f) => f.kind + ': ' + f.message).join(' | ') || 'none'}`);
     }
     const unknownVariantComparisons = new Set(open.filter((f) => f.kind === 'unknown_variant').map((f) => f.comparison));
     for (const comparison of ['definition_vs_observations', 'mapping_vs_observations']) {

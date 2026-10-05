@@ -3172,3 +3172,5 @@ Supervisor ruling (D-61 amendment recorded): fix M1 per the amendment, M2 (defau
 
 ### 2026-10-05 18:50 | supervisor | MERGE | T-4-11 part B merged into agent-setup — T-4-11 DONE; nothing running
 Fix commits b8ef541, 57e9607 (lookup-key rule per the D-61 amendment with item_id key + regular id field in the sandbox, default source only via POST /events for custom events, catalog lookup comments in snippets, Markdown Catalog column, HTML export sources line and catalog column, boolean live, text-or-null market/language, restore round trip + clean 400 on a dangling FK). Merged tree: tsc, lint clean, 1701 tests / 159 files. qa-roundtrip scenario 14 updated (4 catalogs, 2 sources, 15 open findings, ~390 KB). Open, waiting on the user: T-4-06 (samples/br-initiatives/), phase 5 (D-09).
+
+### 2026-10-05 22:19 | supervisor | DECISION | D-66 containerization; T-5-00 starts (local Docker only, remote deployment still gated by D-09)

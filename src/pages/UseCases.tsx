@@ -12,6 +12,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { EmptyState } from '@/src/components/ui/EmptyState';
+import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
@@ -253,7 +254,7 @@ export function UseCases() {
               {useCases.map((uc) => (
                 <tr key={uc.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedId(uc.id)}>
                   <td className="px-6 py-4 text-gray-500">{uc.code ?? '—'}</td>
-                  <td className="px-6 py-4 font-medium text-gray-900">{uc.name}</td>
+                  <td className="px-6 py-4 font-medium text-gray-900"><span className="inline-flex items-center gap-1.5">{uc.name}<CopyNameButton name={uc.name} /></span></td>
                   <td className="px-6 py-4 text-gray-500">{uc.type ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{uc.priority ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{uc.status ?? '—'}</td>
@@ -673,7 +674,10 @@ function UseCaseDetail({
         </button>
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{useCase.code ? `${useCase.code} — ${useCase.name}` : useCase.name}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 inline-flex items-center gap-2">
+              {useCase.code ? `${useCase.code} — ${useCase.name}` : useCase.name}
+              <CopyNameButton name={useCase.name} />
+            </h1>
           </div>
           <div className="flex items-center gap-2">
             <CopyMarkdownButton getMarkdown={copyUseCaseMarkdown} />

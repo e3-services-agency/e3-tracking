@@ -11,6 +11,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { EmptyState } from '@/src/components/ui/EmptyState';
+import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
@@ -162,7 +163,7 @@ export function ConsentCategories() {
                       </button>
                     </div>
                   </td>
-                  <td className="px-6 py-4 font-medium text-gray-900 cursor-pointer" onClick={() => { setSelectedId(c.id); setIsCreating(false); setIsSheetOpen(true); }}>{c.name}</td>
+                  <td className="px-6 py-4 font-medium text-gray-900 cursor-pointer" onClick={() => { setSelectedId(c.id); setIsCreating(false); setIsSheetOpen(true); }}><span className="inline-flex items-center gap-1.5">{c.name}<CopyNameButton name={c.name} /></span></td>
                   <td className="px-6 py-4 text-gray-500">{c.standard_key ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{c.status ?? '—'}</td>
                 </tr>
@@ -291,7 +292,10 @@ function ConsentCategoryEditor({
     <div className="space-y-5">
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">Client category</label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. brand_consent" />
+        <div className="flex items-center gap-2">
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. brand_consent" />
+          {trimmedName && <CopyNameButton name={trimmedName} />}
+        </div>
         {!trimmedName && <p className="text-xs text-red-600">Name is required.</p>}
       </div>
       <div className="space-y-2">

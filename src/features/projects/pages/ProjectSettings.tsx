@@ -10,7 +10,15 @@ import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
-import { EXPIRATION_UNITS, LIBRARY_INDUSTRIES, SHARE_ACCESS, SHARE_COMMENT_VISIBILITIES } from '@/src/domain/enums';
+import {
+  EXPIRATION_UNITS,
+  LIBRARY_INDUSTRIES,
+  NAMING_CONVENTIONS,
+  SHARE_ACCESS,
+  SHARE_COMMENT_VISIBILITIES,
+  type NamingConvention,
+} from '@/src/domain/enums';
+import { NAMING_CONVENTION_EXAMPLES, NAMING_CONVENTION_LABELS } from '@/src/domain/naming';
 
 /** T-3-10 QA fix (ERROR 1, 2026-09-28 10:22): sentinel select values distinct from any real industry string. */
 const INDUSTRY_NOT_SET = '';
@@ -33,6 +41,8 @@ interface ProjectDetail {
   money_tolerance_floor: number;
   /** T-3-10 (D-57): optional free-text industry, used as the templates page's default facet filter. */
   industry: string | null;
+  /** D-65 (T-4-22). */
+  naming_convention?: NamingConvention;
   /** D-60: true for a project restored from the bundled sandbox backup; share creation is refused
    * server-side unless `force=true` (`SandboxShareRefusedError`). */
   is_sandbox?: boolean;
@@ -73,6 +83,7 @@ export function ProjectSettings() {
   // suggested list must still round-trip through the "other" text box, not be silently dropped.
   const [industrySelect, setIndustrySelect] = useState<string>(INDUSTRY_NOT_SET);
   const [industryOtherText, setIndustryOtherText] = useState('');
+  const [namingConvention, setNamingConvention] = useState<NamingConvention>('snake_case');
 
   const [share, setShare] = useState<ShareState | null>(null);
   const [shareAccessSelect, setShareAccessSelect] = useState<string>(SHARE_ACCESS[0]);
@@ -112,6 +123,7 @@ export function ProjectSettings() {
       setExpirationUnits(p.default_expiration_json?.units ?? 'days');
       setMoneyTolerancePercent(p.money_tolerance_percent ?? 1);
       setMoneyToleranceFloor(p.money_tolerance_floor ?? 0.01);
+      setNamingConvention(p.naming_convention ?? 'snake_case');
       const industry = p.industry?.trim() || '';
       if (!industry) {
         setIndustrySelect(INDUSTRY_NOT_SET);
@@ -298,6 +310,7 @@ export function ProjectSettings() {
             : { enabled: false, count: expirationCount, units: expirationUnits },
           money_tolerance_percent: moneyTolerancePercent,
           money_tolerance_floor: moneyToleranceFloor,
+          naming_convention: namingConvention,
           industry:
             industrySelect === INDUSTRY_NOT_SET
               ? null
@@ -488,6 +501,25 @@ export function ProjectSettings() {
             ))}
           </select>
         </div>
+      </div>
+
+      <div className="space-y-2 border-t pt-4">
+        <label className="block text-sm font-medium text-gray-700" htmlFor="naming-convention">Naming convention</label>
+        <p className="text-xs text-gray-500">
+          Applies to custom events, their properties and customer properties. SDK and platform events, SDK default
+          properties, the reserved system customer properties and standard event keys are exempt. A name that does not
+          conform gets a warning in the editors and a finding, never a blocked save.
+        </p>
+        <select
+          id="naming-convention"
+          value={namingConvention}
+          onChange={(e) => setNamingConvention(e.target.value as NamingConvention)}
+          className="w-full max-w-md h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+        >
+          {NAMING_CONVENTIONS.map((c) => (
+            <option key={c} value={c}>{NAMING_CONVENTION_LABELS[c]} (e.g. {NAMING_CONVENTION_EXAMPLES[c]})</option>
+          ))}
+        </select>
       </div>
 
       <div className="space-y-2 border-t pt-4">

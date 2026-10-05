@@ -314,7 +314,7 @@ describe('naming_violation (D-65, T-4-22)', () => {
   });
   const empty: MappingSnapshot = {
     standardEvents: [],
-    customerProperties: [],
+    customerProperties: {},
     consents: {},
     catalogs: { main: null, variant: null },
   };

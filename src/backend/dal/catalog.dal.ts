@@ -580,6 +580,45 @@ export function getMainCatalog(projectId: string): CatalogRow | null {
   return row ? mapCatalogRow(row) : null;
 }
 
+/** One catalog's answer for a requirement field (D-61, T-4-11B): does it have the field? */
+export interface CatalogFieldPresence {
+  catalog_id: string;
+  name: string;
+  market: string | null;
+  language: string | null;
+  has_field: boolean;
+}
+
+const CATALOG_FIELD_NAME_ALIASES: Record<string, string> = { product_id: 'item_id', item_id: 'product_id' };
+
+/**
+ * D-61 (T-4-11B): resolves a `catalog_attribute` requirement's field per kind. The reference field is
+ * the main catalog's (as before); the catalogs checked are every catalog of the main catalog's kind
+ * (one per market), or the main catalog alone when its kind is `other`. `product_id` and `item_id`
+ * are the same field under two names. `null` when there is no main catalog or it lacks the field.
+ */
+export function resolveCatalogAttribute(
+  projectId: string,
+  fieldName: string
+): { field: CatalogFieldRow; presence: CatalogFieldPresence[]; missing: CatalogFieldPresence[] } | null {
+  const main = getMainCatalog(projectId);
+  if (!main) return null;
+  const field =
+    findMainCatalogFieldByName(projectId, fieldName) ??
+    (CATALOG_FIELD_NAME_ALIASES[fieldName] ? findMainCatalogFieldByName(projectId, CATALOG_FIELD_NAME_ALIASES[fieldName]) : null);
+  if (!field) return null;
+  const names = [fieldName, CATALOG_FIELD_NAME_ALIASES[fieldName]].filter((n): n is string => !!n);
+  const catalogs = main.kind === 'other' ? [main] : listCatalogs(projectId).filter((c) => c.kind === main.kind);
+  const presence: CatalogFieldPresence[] = catalogs.map((c) => ({
+    catalog_id: c.id,
+    name: c.name,
+    market: c.market,
+    language: c.language,
+    has_field: listCatalogFields(projectId, c.id).some((f) => names.includes(f.name)),
+  }));
+  return { field, presence, missing: presence.filter((p) => !p.has_field) };
+}
+
 /** A field of the project's main catalog by exact name, or `null` if there is no main catalog or no such field. */
 export function findMainCatalogFieldByName(projectId: string, name: string): CatalogFieldRow | null {
   const main = getMainCatalog(projectId);

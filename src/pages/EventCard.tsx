@@ -14,8 +14,12 @@ import { EventCardView, type EventCardData, type CoverageGridData } from '@/src/
 import { CommentsPanel, type CommentPanelRow } from '@/src/features/comments/CommentsPanel';
 import { CommentCountButton } from '@/src/features/comments/CommentCountButton';
 import { CopyMarkdownButton } from '@/src/components/ui/CopyMarkdownButton';
+import { InternalRefLink } from '@/src/features/shared/RefLink';
+import { resolveReference, buildReferenceIndex } from '@/src/features/shared/references';
 import { eventCardToMarkdown } from '@/src/domain/document/markdown';
 import type { EventCard as EventCardDocument } from '@/src/domain/document/trackingDocument';
+
+const EMPTY_INDEX = buildReferenceIndex({ events: [], properties: [] });
 
 async function parseJson(res: Response): Promise<any> {
   return res.json().catch(() => ({}));
@@ -105,6 +109,10 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
             card={card}
             grid={grid}
             fileUrl={(path) => `${API_BASE}/api/projects/${activeProjectId}/files/${path}`}
+            renderPropertyLink={(p, label) => {
+              const target = resolveReference({ kind: 'property', id: p.property_id }, 'internal', EMPTY_INDEX);
+              return target && target.mode === 'internal' ? <InternalRefLink target={target}>{label}</InternalRefLink> : label;
+            }}
             headerActions={
               <CommentCountButton count={comments.length} open={threadOpen} label="this event" onClick={() => setThreadOpen((o) => !o)} />
             }

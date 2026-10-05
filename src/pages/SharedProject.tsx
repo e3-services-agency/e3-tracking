@@ -75,6 +75,18 @@ import {
   type NavItem,
 } from './sharedViewModel';
 
+import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
+import { CategoryBadge } from '@/src/components/ui/CategoryBadge';
+import { SharedRefLink } from '@/src/features/shared/RefLink';
+import {
+  buildReferenceIndex,
+  propertyIdForHash,
+  resolveReference,
+  type Reference,
+  type ReferenceIndex,
+} from '@/src/features/shared/references';
+import { namingNote } from '@/src/domain/naming';
+
 export { sharedFileUrl, buildSharedViewModel };
 
 /** Height of the sticky page header (Tailwind `h-14`); every sticky header sits right below it (T-4-18). */
@@ -191,27 +203,56 @@ type PropertyItem = TrackingDocumentCustomerProperty | TrackingDocumentEventProp
 
 /** One property as a collapsed row (name, type, one-line description); expanded it shows its
  * named definitions (D-58) nested under it and, for an event property, the events that use it. */
-function PropertyRow({ property, expanded, onToggle }: { property: PropertyItem; expanded: boolean; onToggle: () => void }) {
+function PropertyRow({
+  property,
+  anchor,
+  expanded,
+  onToggle,
+  renderRef,
+}: {
+  property: PropertyItem;
+  anchor: string;
+  expanded: boolean;
+  onToggle: () => void;
+  renderRef: (ref: Reference, label: React.ReactNode) => React.ReactNode;
+}) {
   const usedIn = 'used_in_events' in property ? property.used_in_events : [];
   return (
-    <div className="bg-white rounded-lg border shadow-sm">
-      <button type="button" onClick={onToggle} aria-expanded={expanded} className="flex w-full min-w-0 items-center gap-2 px-4 py-2 text-left">
-        {expanded ? <ChevronDown size={16} className="shrink-0" /> : <ChevronRight size={16} className="shrink-0" />}
-        <span className="font-semibold text-gray-900 truncate">{property.name}</span>
-        <span className="shrink-0 text-xs text-gray-500">({property.data_type})</span>
-        {!expanded && property.description && (
-          <span className="hidden sm:block min-w-0 truncate text-sm text-gray-500">{oneLineDescription(property.description)}</span>
-        )}
-      </button>
+    <div id={anchor} style={marginTop('event')} className="bg-white rounded-lg border shadow-sm">
+      <div className="flex items-center gap-2 px-4 py-2">
+        <button type="button" onClick={onToggle} aria-expanded={expanded} className="flex flex-1 min-w-0 items-center gap-2 text-left">
+          {expanded ? <ChevronDown size={16} className="shrink-0" /> : <ChevronRight size={16} className="shrink-0" />}
+          <span className="font-semibold text-gray-900 truncate">{property.name}</span>
+          <CategoryBadge category={property.category} className="shrink-0" />
+          <span className="shrink-0 text-xs text-gray-500">({property.data_type})</span>
+          {!expanded && property.description && (
+            <span className="hidden sm:block min-w-0 truncate text-sm text-gray-500">{oneLineDescription(property.description)}</span>
+          )}
+        </button>
+        <CopyNameButton name={property.name} />
+      </div>
       {expanded && (
         <div className="border-t px-4 py-3 space-y-2">
           {property.description && <p className="text-sm text-gray-700">{property.description}</p>}
           {property.data_formats.length > 0 && <p className="text-xs text-gray-500">Formats: {property.data_formats.map(formatDisplayName).join(', ')}</p>}
-          {usedIn.length > 0 && <p className="text-xs text-gray-500">Used in: {usedIn.join(', ')}</p>}
+          {usedIn.length > 0 && (
+            <p className="text-xs text-gray-500">
+              Used in:{' '}
+              {usedIn.map((name, i) => (
+                <React.Fragment key={name}>
+                  {i > 0 && ', '}
+                  {renderRef({ kind: 'event', name }, name)}
+                </React.Fragment>
+              ))}
+            </p>
+          )}
           <SimpleTable
             head={['Definition', 'Description', 'Allowed values', 'Formats', 'Example']}
             rows={property.definitions.map((d) => [
-              d.name,
+              <span key="n" className="inline-flex items-center gap-1.5">
+                {d.name}
+                <CopyNameButton name={d.name} />
+              </span>,
               d.description ?? '—',
               d.allowed_values ? d.allowed_values.map((v) => v.value).join(', ') : '—',
               d.formats.map(formatDisplayName).join(', ') || '—',
@@ -296,6 +337,31 @@ function FindingsSummaryBlock({
   );
 }
 
+/** A requirement's target label with its event and property parts linked where they resolve (T-4-22). */
+function renderRequirementTarget(
+  r: { target_label: string; target_kind?: string; event_id?: string | null; property_id?: string | null },
+  renderRef: (ref: Reference, label: React.ReactNode) => React.ReactNode
+): React.ReactNode {
+  const eventLabel = r.target_label.split('.')[0];
+  switch (r.target_kind) {
+    case 'event':
+      return r.event_id ? renderRef({ kind: 'event', id: r.event_id }, r.target_label) : r.target_label;
+    case 'customer_property':
+      return r.property_id ? renderRef({ kind: 'property', id: r.property_id }, r.target_label) : r.target_label;
+    case 'event_property': {
+      if (!r.event_id || !r.property_id || !r.target_label.startsWith(`${eventLabel}.`)) return r.target_label;
+      return (
+        <>
+          {renderRef({ kind: 'event', id: r.event_id }, eventLabel)}.
+          {renderRef({ kind: 'property', id: r.property_id }, r.target_label.slice(eventLabel.length + 1))}
+        </>
+      );
+    }
+    default:
+      return r.target_label;
+  }
+}
+
 export function SharedProject({ token }: { token: string }) {
   const [header, setHeader] = useState<ShareHeader | null>(null);
   const [doc, setDoc] = useState<TrackingDocument | null>(null);
@@ -368,6 +434,10 @@ export function SharedProject({ token }: { token: string }) {
     const list = doc ? eventAnchors(doc.events.map((e) => e.name)) : [];
     return new Map((doc?.events ?? []).map((e, i) => [e.id, list[i]]));
   }, [doc]);
+  const refIndex = useMemo<ReferenceIndex>(
+    () => buildReferenceIndex(doc ?? { events: [], properties: [], event_properties: [] }),
+    [doc]
+  );
   const nav = useMemo(() => (doc ? buildSectionIndex(doc) : []), [doc]);
   const groups = useMemo(() => (doc ? sharedSectionGroups(doc) : null), [doc]);
   const filteredNav = useMemo(() => filterNav(nav, navQuery), [nav, navQuery]);
@@ -409,6 +479,9 @@ export function SharedProject({ token }: { token: string }) {
       if (!id) return;
       const event = eventForHash(id, doc.events);
       if (event) setOpenEvents((prev) => (prev.has(event.id) ? prev : new Set(prev).add(event.id)));
+      // T-4-22: a hash on a property row opens that row (its group is always rendered).
+      const propertyId = propertyIdForHash(id, refIndex);
+      if (propertyId) setOpenProperties((prev) => (prev.has(propertyId) ? prev : new Set(prev).add(propertyId)));
       const ucItem = groups?.useCaseGroups.flatMap((g) => g.items).find((i) => i.id === id);
       if (ucItem) setOpenUseCases((prev) => new Set(prev).add(doc.use_cases[ucItem.index].id));
       requestAnimationFrame(() => {
@@ -421,7 +494,7 @@ export function SharedProject({ token }: { token: string }) {
         document.getElementById(target)?.scrollIntoView({ block: 'start' });
       });
     },
-    [doc, groups]
+    [doc, groups, refIndex]
   );
 
   // Opening the URL with a hash, and hand-edited hash changes.
@@ -480,6 +553,22 @@ export function SharedProject({ token }: { token: string }) {
     setOpenProperties((prev) => setExpanded(prev, allPropertyIds, false));
   };
   const linkClass = 'text-[var(--color-info)] hover:underline';
+  /** A reference rendered as a same-page link when it resolves, else as plain text (T-4-22). */
+  const renderRef = (ref: Reference, label: React.ReactNode): React.ReactNode => {
+    const target = resolveReference(ref, 'shared', refIndex);
+    return target && target.mode === 'shared' ? (
+      <SharedRefLink target={target} onNavigate={navigateTo}>
+        {label}
+      </SharedRefLink>
+    ) : (
+      label
+    );
+  };
+  const namingLine = (
+    <p data-testid="naming-note" className="text-xs text-gray-500">
+      {namingNote(doc.project.naming_convention ?? 'snake_case')}
+    </p>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -531,6 +620,7 @@ export function SharedProject({ token }: { token: string }) {
               >
                 <SectionTitle id={SECTION_IDS.events}>Events ({doc.events.length})</SectionTitle>
               </h2>
+              {namingLine}
               {EVENT_CLASS_GROUPS.map(({ cls, label }) => {
                 const inGroup = doc.events.filter((e) => e.class === cls);
                 if (inGroup.length === 0) return null;
@@ -588,6 +678,7 @@ export function SharedProject({ token }: { token: string }) {
                                 } else toggleThread(`event:${event.id}`);
                               }}
                             />
+                            <CopyNameButton name={event.name} />
                             <CopyLinkButton anchor={anchor} label={event.name} />
                           </div>
                           {expanded && (
@@ -608,6 +699,7 @@ export function SharedProject({ token }: { token: string }) {
                                 fileUrl={fileUrl}
                                 mode="shared"
                                 hideHeader
+                                renderPropertyLink={(p, label) => renderRef({ kind: 'property', id: p.property_id }, label)}
                               />
                             </div>
                           )}
@@ -629,6 +721,8 @@ export function SharedProject({ token }: { token: string }) {
                 <PropertyRow
                   key={p.property_id}
                   property={p}
+                  anchor={refIndex.propertyAnchorById.get(p.property_id) ?? p.property_id}
+                  renderRef={renderRef}
                   expanded={openProperties.has(p.property_id)}
                   onToggle={() => toggle(setOpenProperties, p.property_id)}
                 />
@@ -645,6 +739,7 @@ export function SharedProject({ token }: { token: string }) {
                     label="Copy properties as Markdown"
                   />
                 </h2>
+                {namingLine}
                 {groups.map((group) => (
                   <div key={group.category} id={propertyGroupId(group.category)} style={marginTop('group')} className="space-y-3">
                     <div
@@ -713,6 +808,7 @@ export function SharedProject({ token }: { token: string }) {
                             {uc.name}
                           </span>
                         </button>
+                        <CopyNameButton name={uc.name} />
                         <CommentCountButton
                           count={commentsFor('use_case', uc.id).length}
                           open={openThreads.has(`use_case:${uc.id}`)}
@@ -748,7 +844,7 @@ export function SharedProject({ token }: { token: string }) {
                                   {uc.requirements.map((r) => (
                                     <React.Fragment key={r.id}>
                                       <tr>
-                                        <td className="px-3 py-2">{r.target_label}</td>
+                                        <td className="px-3 py-2">{renderRequirementTarget(r, renderRef)}</td>
                                         <td className="px-3 py-2">{r.level}</td>
                                         <td className="px-3 py-2">{r.status ?? '—'}</td>
                                         <td className="px-3 py-2 text-right">
@@ -825,8 +921,9 @@ export function SharedProject({ token }: { token: string }) {
                     <SimpleTable
                       head={['Name', 'Standard key', 'Status']}
                       rows={g.items.map(({ category: c, id }) => [
-                        <span key={id} id={id} style={marginTop('event')}>
+                        <span key={id} id={id} style={marginTop('event')} className="inline-flex items-center gap-1.5">
                           {c.name}
+                          <CopyNameButton name={c.name} />
                         </span>,
                         c.standard_key ?? '—',
                         (c as { status?: string | null }).status ?? '—',
@@ -855,7 +952,10 @@ export function SharedProject({ token }: { token: string }) {
                   const mapped = c.mapped_properties ?? [];
                   return (
                     <div key={c.name} className="rounded-lg border p-4">
-                      <h3 className="text-sm font-semibold text-gray-900">{c.name}</h3>
+                      <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-900">
+                        {c.name}
+                        <CopyNameButton name={c.name} />
+                      </h3>
                       {meta && <p className="text-xs text-gray-500">{meta}</p>}
                       {c.description && <p className="mt-1 text-sm text-gray-700">{c.description}</p>}
                       {fields.length === 0 ? (
@@ -864,7 +964,7 @@ export function SharedProject({ token }: { token: string }) {
                         <div className="mt-2">
                           <SimpleTable
                             head={['Field', 'Type', 'Lookup key', 'Searchable', 'Description']}
-                            rows={fields.map((f) => [f.name, f.data_type ?? '—', f.is_lookup_key ? 'yes' : '—', f.is_searchable ? 'yes' : '—', f.description ?? '—'])}
+                            rows={fields.map((f) => [<span key={f.name} className="inline-flex items-center gap-1.5">{f.name}<CopyNameButton name={f.name} /></span>, f.data_type ?? '—', f.is_lookup_key ? 'yes' : '—', f.is_searchable ? 'yes' : '—', f.description ?? '—'])}
                           />
                         </div>
                       )}
@@ -873,7 +973,11 @@ export function SharedProject({ token }: { token: string }) {
                           <h4 className="mb-1 text-xs font-semibold uppercase text-gray-500">Properties that look up into this catalog</h4>
                           <SimpleTable
                             head={['Property', 'Scope', 'Catalog field']}
-                            rows={mapped.map((m) => [m.property_name, m.scope, m.field_name ?? '—'])}
+                            rows={mapped.map((m) => [
+                              renderRef({ kind: 'property', name: m.property_name, scope: m.scope }, m.property_name),
+                              m.scope,
+                              m.field_name ?? '—',
+                            ])}
                           />
                         </div>
                       )}

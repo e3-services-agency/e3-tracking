@@ -105,7 +105,7 @@ describe('useCaseToMarkdown', () => {
   const uc: TrackingDocumentUseCase = {
     id: 'u1', code: 'UC-1', name: 'Welcome', type: 'lifecycle', status: 'active', narrative: 'Send a welcome.',
     documentation_url: null,
-    requirements: [{ id: 'r1', target_label: 'consent: newsletter', level: 'required', status: 'gap' }],
+    requirements: [{ id: 'r1', target_label: 'consent: newsletter', level: 'required', status: 'gap', target_kind: 'consent', event_id: null, property_id: null }],
   };
   it('renders narrative and a requirements table with status', () => {
     const md = useCaseToMarkdown(uc);

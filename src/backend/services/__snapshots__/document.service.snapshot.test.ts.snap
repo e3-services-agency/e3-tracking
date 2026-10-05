@@ -6966,6 +6966,7 @@ exponea.track('Opt_in_proof', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.message",
@@ -6986,6 +6987,7 @@ exponea.track('Opt_in_proof', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.identification_type",
@@ -7006,6 +7008,7 @@ exponea.track('Opt_in_proof', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.source",
@@ -7026,6 +7029,7 @@ exponea.track('Opt_in_proof', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.category",
@@ -7046,6 +7050,7 @@ exponea.track('Opt_in_proof', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "timestamp",
           "datalayer_path": "bloomreach.properties.updated at",
@@ -7334,6 +7339,7 @@ exponea.track('back_in_stock_list', {
             },
           ],
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.action",
@@ -7354,6 +7360,7 @@ exponea.track('back_in_stock_list', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.product_id",
@@ -7374,6 +7381,7 @@ exponea.track('back_in_stock_list', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.sku_id",
@@ -7394,6 +7402,7 @@ exponea.track('back_in_stock_list', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.store_id",
@@ -7414,6 +7423,7 @@ exponea.track('back_in_stock_list', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.product_title",
@@ -8063,6 +8073,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.booked_by",
@@ -8083,6 +8094,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.booked_days_before_departure",
@@ -8103,6 +8115,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.booking_date",
@@ -8123,6 +8136,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.booking_number",
@@ -8143,6 +8157,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.booking_phase",
@@ -8163,6 +8178,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.booking_phase_name",
@@ -8183,6 +8199,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.booking_segment",
@@ -8203,6 +8220,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "array",
           "datalayer_path": "bloomreach.properties.campaign_codes",
@@ -8223,6 +8241,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.consent_marketing",
@@ -8243,6 +8262,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.consent_taxfree",
@@ -8263,6 +8283,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.duration",
@@ -8283,6 +8304,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.email",
@@ -8303,6 +8325,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.extras",
@@ -8323,6 +8346,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_home_aircraft_type",
@@ -8343,6 +8367,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_home_arrival_station",
@@ -8363,6 +8388,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_home_carrier_code",
@@ -8383,6 +8409,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_home_carrier_description",
@@ -8403,6 +8430,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_home_class_code",
@@ -8423,6 +8451,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_home_country_code",
@@ -8443,6 +8472,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_home_country_description",
@@ -8463,6 +8493,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.flight_home_departure_date",
@@ -8483,6 +8514,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_home_departure_station",
@@ -8503,6 +8535,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_home_flight_number",
@@ -8523,6 +8556,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_home_flight_series",
@@ -8543,6 +8577,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_out_aircraft_type",
@@ -8563,6 +8598,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_out_arrival_station",
@@ -8583,6 +8619,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_out_carrier_code",
@@ -8603,6 +8640,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_out_carrier_description",
@@ -8623,6 +8661,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_out_class_code",
@@ -8643,6 +8682,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_out_country_code",
@@ -8663,6 +8703,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_out_country_description",
@@ -8683,6 +8724,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.flight_out_departure_date",
@@ -8703,6 +8745,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_out_departure_station",
@@ -8723,6 +8766,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_out_flight_number",
@@ -8743,6 +8787,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flight_out_flight_series",
@@ -8763,6 +8808,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.group_customer_number",
@@ -8783,6 +8829,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.group_number",
@@ -8803,6 +8850,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "array",
           "datalayer_path": "bloomreach.properties.hotels",
@@ -8823,6 +8871,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.id",
@@ -8843,6 +8892,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.is_agent",
@@ -8863,6 +8913,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.is_combination",
@@ -8883,6 +8934,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.is_group",
@@ -8903,6 +8955,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.is_invoice",
@@ -8923,6 +8976,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.is_local_sale",
@@ -8943,6 +8997,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.is_owner",
@@ -8963,6 +9018,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.is_staff",
@@ -8983,6 +9039,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.market_unit",
@@ -9003,6 +9060,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.membership_id",
@@ -9023,6 +9081,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.only_homebound_usage",
@@ -9043,6 +9102,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.only_outbound_usage",
@@ -9063,6 +9123,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.passenger_adress",
@@ -9083,6 +9144,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.passenger_birth_date",
@@ -9103,6 +9165,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.passenger_city",
@@ -9123,6 +9186,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.passenger_count_adults",
@@ -9143,6 +9207,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.passenger_count_children",
@@ -9163,6 +9228,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.passenger_count_infants",
@@ -9183,6 +9249,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.passenger_country_code",
@@ -9203,6 +9270,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.passenger_first_name",
@@ -9223,6 +9291,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.passenger_gender",
@@ -9243,6 +9312,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.passenger_last_name",
@@ -9263,6 +9333,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.passenger_postal_code",
@@ -9283,6 +9354,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "array",
           "datalayer_path": "bloomreach.properties.passengers",
@@ -9303,6 +9375,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.phone",
@@ -9323,6 +9396,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "array",
           "datalayer_path": "bloomreach.properties.price_component_descriptions",
@@ -9343,6 +9417,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "array",
           "datalayer_path": "bloomreach.properties.price_components",
@@ -9363,6 +9438,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.price_currency",
@@ -9383,6 +9459,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.price_deposit",
@@ -9403,6 +9480,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.price_deposit_pay_date",
@@ -9423,6 +9501,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.price_final_pay_date",
@@ -9443,6 +9522,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.price_total",
@@ -9463,6 +9543,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.price_total_paid",
@@ -9483,6 +9564,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.purchased_extra",
@@ -9503,6 +9585,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.purchased_extra_all_inclusive",
@@ -9523,6 +9606,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.purchased_extra_car",
@@ -9543,6 +9627,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.purchased_extra_excursions",
@@ -9563,6 +9648,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.purchased_extra_hotel_activities",
@@ -9583,6 +9669,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.purchased_extra_meals_flight",
@@ -9603,6 +9690,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.purchased_extra_other_hotel_meals",
@@ -9623,6 +9711,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.purchased_extra_seating",
@@ -9643,6 +9732,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.purchased_extra_transfer",
@@ -9663,6 +9753,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.retailer_has_received_payment",
@@ -9683,6 +9774,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.sales_unit",
@@ -9703,6 +9795,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.send_parental_cert",
@@ -9723,6 +9816,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.status",
@@ -9743,6 +9837,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.stop_correspondence",
@@ -9763,6 +9858,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.travel_agent",
@@ -9783,6 +9879,7 @@ exponea.track('booking_b', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.travel_type",
@@ -10176,6 +10273,7 @@ exponea.track('cart_update', {
             },
           ],
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.action",
@@ -10196,6 +10294,7 @@ exponea.track('cart_update', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.product_id",
@@ -10216,6 +10315,7 @@ exponea.track('cart_update', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [
             "money",
           ],
@@ -10241,6 +10341,7 @@ exponea.track('cart_update', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "computed from items",
@@ -10264,6 +10365,7 @@ exponea.track('cart_update', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.brand",
@@ -10284,6 +10386,7 @@ exponea.track('cart_update', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.product_ids",
@@ -10304,6 +10407,7 @@ exponea.track('cart_update', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.product_list",
@@ -10324,6 +10428,7 @@ exponea.track('cart_update', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.size",
@@ -10344,6 +10449,7 @@ exponea.track('cart_update', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.title",
@@ -10710,6 +10816,7 @@ exponea.track('checkout', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.product_ids",
@@ -10730,6 +10837,7 @@ exponea.track('checkout', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.product_list",
@@ -10750,6 +10858,7 @@ exponea.track('checkout', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [
             "money",
           ],
@@ -11173,6 +11282,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.email",
@@ -11193,6 +11303,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.source",
@@ -11219,6 +11330,7 @@ exponea.track('double_opt_in_study_interest', {
             },
           ],
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.action",
@@ -11239,6 +11351,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.campaign_name",
@@ -11259,6 +11372,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.acq_level_1",
@@ -11279,6 +11393,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.acq_level_2",
@@ -11299,6 +11414,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.acq_level_3",
@@ -11319,6 +11435,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.acq_level_4",
@@ -11339,6 +11456,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.campaign_context",
@@ -11359,6 +11477,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.consent_list",
@@ -11379,6 +11498,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.consent_version",
@@ -11399,6 +11519,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.iframe_url",
@@ -11419,6 +11540,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.incentive_type",
@@ -11439,6 +11561,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.login_state",
@@ -11459,6 +11582,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.message",
@@ -11479,6 +11603,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.opt_in_method",
@@ -11499,6 +11624,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.page_url",
@@ -11519,6 +11645,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.parent_referrer_url",
@@ -11539,6 +11666,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.source_risk_level",
@@ -11559,6 +11687,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.subscription_source",
@@ -11579,6 +11708,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.survey_answers_json",
@@ -11599,6 +11729,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.survey_brand",
@@ -11619,6 +11750,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.survey_name",
@@ -11639,6 +11771,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.survey_id",
@@ -11659,6 +11792,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.country",
@@ -11679,6 +11813,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.language",
@@ -11699,6 +11834,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.language_tag",
@@ -11719,6 +11855,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.fbclid",
@@ -11739,6 +11876,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.gclid",
@@ -11759,6 +11897,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.utm_campaign",
@@ -11779,6 +11918,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.utm_medium",
@@ -11799,6 +11939,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.utm_source",
@@ -11819,6 +11960,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.first_name",
@@ -11839,6 +11981,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.last_name",
@@ -11859,6 +12002,7 @@ exponea.track('double_opt_in_study_interest', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.store_id",
@@ -12141,6 +12285,7 @@ exponea.track('flyer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.purchase_id",
@@ -12161,6 +12306,7 @@ exponea.track('flyer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.order_date",
@@ -12181,6 +12327,7 @@ exponea.track('flyer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.packed_date",
@@ -12201,6 +12348,7 @@ exponea.track('flyer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.is_flyer_order",
@@ -12221,6 +12369,7 @@ exponea.track('flyer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.flyer_name",
@@ -12455,6 +12604,7 @@ exponea.track('inbound_call', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.agent",
@@ -12475,6 +12625,7 @@ exponea.track('inbound_call', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.call_reason",
@@ -12495,6 +12646,7 @@ exponea.track('inbound_call', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.feedback",
@@ -12515,6 +12667,7 @@ exponea.track('inbound_call', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.length",
@@ -12749,6 +12902,7 @@ exponea.track('initialize_event', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.browser",
@@ -12769,6 +12923,7 @@ exponea.track('initialize_event', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.device",
@@ -12789,6 +12944,7 @@ exponea.track('initialize_event', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.location",
@@ -12809,6 +12965,7 @@ exponea.track('initialize_event', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.os",
@@ -12829,6 +12986,7 @@ exponea.track('initialize_event', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.test_property",
@@ -13088,6 +13246,7 @@ exponea.track('installation', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.app_version",
@@ -13108,6 +13267,7 @@ exponea.track('installation', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.device_type",
@@ -13128,6 +13288,7 @@ exponea.track('installation', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.os_name",
@@ -13148,6 +13309,7 @@ exponea.track('installation', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.sdk_version",
@@ -13168,6 +13330,7 @@ exponea.track('installation', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.application_id",
@@ -13188,6 +13351,7 @@ exponea.track('installation', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.device_id",
@@ -13208,6 +13372,7 @@ exponea.track('installation', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.device_model",
@@ -13228,6 +13393,7 @@ exponea.track('installation', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.os_version",
@@ -13248,6 +13414,7 @@ exponea.track('installation', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.platform",
@@ -13268,6 +13435,7 @@ exponea.track('installation', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.sdk",
@@ -13507,6 +13675,7 @@ exponea.track('loyalty_update', {
             },
           ],
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.action",
@@ -13527,6 +13696,7 @@ exponea.track('loyalty_update', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.final_points",
@@ -13547,6 +13717,7 @@ exponea.track('loyalty_update', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.points_change",
@@ -13567,6 +13738,7 @@ exponea.track('loyalty_update', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.status",
@@ -13859,6 +14031,7 @@ exponea.track('monitoring', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.Germany: count(customer)",
@@ -13879,6 +14052,7 @@ exponea.track('monitoring', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.UK: count(customer)",
@@ -13899,6 +14073,7 @@ exponea.track('monitoring', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.USA: count(customer)",
@@ -13919,6 +14094,7 @@ exponea.track('monitoring', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.customer_id",
@@ -14163,6 +14339,7 @@ exponea.track('newsletter_signup', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.browser",
@@ -14183,6 +14360,7 @@ exponea.track('newsletter_signup', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.customer",
@@ -14203,6 +14381,7 @@ exponea.track('newsletter_signup', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.device",
@@ -14223,6 +14402,7 @@ exponea.track('newsletter_signup', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.email",
@@ -14243,6 +14423,7 @@ exponea.track('newsletter_signup', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.location",
@@ -14263,6 +14444,7 @@ exponea.track('newsletter_signup', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.os",
@@ -14497,6 +14679,7 @@ exponea.track('optilyz_campaign', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.optilyz_campaign_status",
@@ -14517,6 +14700,7 @@ exponea.track('optilyz_campaign', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.optilyz_campaign_name",
@@ -14537,6 +14721,7 @@ exponea.track('optilyz_campaign', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.optilyz_campaign_variant",
@@ -14557,6 +14742,7 @@ exponea.track('optilyz_campaign', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.optilyz_unique_voucher",
@@ -14577,6 +14763,7 @@ exponea.track('optilyz_campaign', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.optilyz_campaign_validation_result",
@@ -14806,6 +14993,7 @@ exponea.track('outbound_call', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.agent",
@@ -14826,6 +15014,7 @@ exponea.track('outbound_call', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.call_reason",
@@ -14846,6 +15035,7 @@ exponea.track('outbound_call', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.feedback",
@@ -14866,6 +15056,7 @@ exponea.track('outbound_call', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.length",
@@ -15063,6 +15254,7 @@ exponea.track('paper_catalogue', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.num_pages",
@@ -15083,6 +15275,7 @@ exponea.track('paper_catalogue', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.status",
@@ -15482,6 +15675,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.in_preview",
@@ -15502,6 +15696,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.store_id",
@@ -15522,6 +15717,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "array",
           "datalayer_path": "computed from items",
@@ -15546,6 +15742,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.categories_string",
@@ -15566,6 +15763,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.is_therapist",
@@ -15586,6 +15784,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.order_count",
@@ -15606,6 +15805,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.aov",
@@ -15626,6 +15826,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.inserted_item",
@@ -15646,6 +15847,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.has_purchased_sports",
@@ -15666,6 +15868,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "array",
           "datalayer_path": "bloomreach.properties.inserted_items",
@@ -15686,6 +15889,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.is_referrer",
@@ -15706,6 +15910,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.is_women_health_interest",
@@ -15726,6 +15931,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.no_parcel_insert_180d",
@@ -15746,6 +15952,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.order_date",
@@ -15766,6 +15973,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.parcel_inserts_inactive_customer",
@@ -15786,6 +15994,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.purchased_aroma_lifetime",
@@ -15806,6 +16015,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.parcel_inserts_low_value",
@@ -15826,6 +16036,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.purchase_id",
@@ -15852,6 +16063,7 @@ exponea.track('parcel_insert', {
             },
           ],
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.purchase_status",
@@ -15872,6 +16084,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.shipping_country",
@@ -15892,6 +16105,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.ab_test_variant",
@@ -15912,6 +16126,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.email",
@@ -15932,6 +16147,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.order_value",
@@ -15952,6 +16168,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.payment_method",
@@ -15972,6 +16189,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.type",
@@ -15992,6 +16210,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.use_case",
@@ -16012,6 +16231,7 @@ exponea.track('parcel_insert', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.managed_endpoint_version",
@@ -16344,6 +16564,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
             },
           ],
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16364,6 +16585,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16384,6 +16606,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16404,6 +16627,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16424,6 +16648,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [
             "money",
           ],
@@ -16449,6 +16674,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16469,6 +16695,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16489,6 +16716,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16509,6 +16737,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16529,6 +16758,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16549,6 +16779,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16569,6 +16800,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16589,6 +16821,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16609,6 +16842,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16629,6 +16863,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16649,6 +16884,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16669,6 +16905,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16689,6 +16926,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16709,6 +16947,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16729,6 +16968,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16749,6 +16989,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16769,6 +17010,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16789,6 +17031,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16809,6 +17052,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16829,6 +17073,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": null,
@@ -16849,6 +17094,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16869,6 +17115,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16889,6 +17136,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16909,6 +17157,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -16929,6 +17178,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": null,
@@ -17281,6 +17531,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -17301,6 +17552,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -17321,6 +17573,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -17341,6 +17594,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -17361,6 +17615,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -17381,6 +17636,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -17401,6 +17657,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [
             "money",
           ],
@@ -17423,6 +17680,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": null,
@@ -17443,6 +17701,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -17463,6 +17722,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -17483,6 +17743,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -17509,6 +17770,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
             },
           ],
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -17529,6 +17791,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -17549,6 +17812,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": null,
@@ -17939,6 +18203,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_CLTV",
@@ -17959,6 +18224,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_active_database_news_info",
@@ -17979,6 +18245,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_active_news",
@@ -17999,6 +18266,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_conversion_news_info_subscribers",
@@ -18019,6 +18287,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_conversion_newsletter_subscribers",
@@ -18039,6 +18308,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_inactive",
@@ -18059,6 +18329,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_inactive_database_news_info",
@@ -18079,6 +18350,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_one_time_shoppers",
@@ -18099,6 +18371,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_revenue_automated_emails",
@@ -18119,6 +18392,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_revenue_emails_last_click",
@@ -18139,6 +18413,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_revenue_newsletters",
@@ -18159,6 +18434,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_revenue_web_layer",
@@ -18179,6 +18455,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_subscribed",
@@ -18199,6 +18476,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_subscribed_news_info",
@@ -18219,6 +18497,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_three_time+_shoppers",
@@ -18239,6 +18518,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_two_time_shoppers",
@@ -18259,6 +18539,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_ucr_automated_emails",
@@ -18279,6 +18560,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_ucr_newsletters",
@@ -18299,6 +18581,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_ucr_web_layer",
@@ -18319,6 +18602,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_unsubscribed",
@@ -18339,6 +18623,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.qbr_unsubscribed_news_info",
@@ -18359,6 +18644,7 @@ exponea.track('qbr_metrics', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.timestamp_tracked",
@@ -18688,6 +18974,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.call_to_action_url",
@@ -18708,6 +18995,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.campaign_name",
@@ -18728,6 +19016,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.coupon_code",
@@ -18748,6 +19037,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.coupon_expiry",
@@ -18768,6 +19058,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.currency_symbol",
@@ -18788,6 +19079,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.email",
@@ -18808,6 +19100,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.experiment_name",
@@ -18828,6 +19121,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.firstname",
@@ -18848,6 +19142,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.fulfilled_by",
@@ -18868,6 +19163,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.locale_code",
@@ -18888,6 +19184,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.offer_call_to_action_copy",
@@ -18908,6 +19205,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.offer_name",
@@ -18928,6 +19226,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.offer_subject_copy",
@@ -18948,6 +19247,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.offer_type",
@@ -18968,6 +19268,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.referee_reward",
@@ -18988,6 +19289,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.referrer_first_name",
@@ -19008,6 +19310,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.referrer_last_name",
@@ -19028,6 +19331,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.referrer_reward",
@@ -19048,6 +19352,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.reward_amount",
@@ -19068,6 +19373,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.reward_type",
@@ -19088,6 +19394,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.source",
@@ -19108,6 +19415,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.surname",
@@ -19128,6 +19436,7 @@ exponea.track('received_referee_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.offer_terms_url",
@@ -19452,6 +19761,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.call_to_action_url",
@@ -19472,6 +19782,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.campaign_name",
@@ -19492,6 +19803,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.coupon_code",
@@ -19512,6 +19824,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.coupon_expiry",
@@ -19532,6 +19845,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.currency_symbol",
@@ -19552,6 +19866,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.email",
@@ -19572,6 +19887,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.experiment_name",
@@ -19592,6 +19908,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.firstname",
@@ -19612,6 +19929,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.fulfilled_by",
@@ -19632,6 +19950,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.locale_code",
@@ -19652,6 +19971,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.offer_call_to_action_copy",
@@ -19672,6 +19992,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.offer_name",
@@ -19692,6 +20013,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.offer_subject_copy",
@@ -19712,6 +20034,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.offer_type",
@@ -19732,6 +20055,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.referee_first_name",
@@ -19752,6 +20076,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.referee_last_name",
@@ -19772,6 +20097,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.referee_reward",
@@ -19792,6 +20118,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.referrer_reward",
@@ -19812,6 +20139,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.reward_amount",
@@ -19832,6 +20160,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.reward_type",
@@ -19852,6 +20181,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.source",
@@ -19872,6 +20202,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.surname",
@@ -19892,6 +20223,7 @@ exponea.track('received_referrer_reward', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.offer_terms_url",
@@ -20106,6 +20438,7 @@ exponea.track('received_reward_next_order', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.call_to_action_url",
@@ -20400,6 +20733,7 @@ exponea.track('registered_as_referee', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.campaign_name",
@@ -20420,6 +20754,7 @@ exponea.track('registered_as_referee', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.email",
@@ -20440,6 +20775,7 @@ exponea.track('registered_as_referee', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.experiment_name",
@@ -20460,6 +20796,7 @@ exponea.track('registered_as_referee', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.firstname",
@@ -20480,6 +20817,7 @@ exponea.track('registered_as_referee', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.fulfilled_by",
@@ -20500,6 +20838,7 @@ exponea.track('registered_as_referee', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.locale_code",
@@ -20520,6 +20859,7 @@ exponea.track('registered_as_referee', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.offer_call_to_action_copy",
@@ -20540,6 +20880,7 @@ exponea.track('registered_as_referee', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.offer_name",
@@ -20560,6 +20901,7 @@ exponea.track('registered_as_referee', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.offer_subject_copy",
@@ -20580,6 +20922,7 @@ exponea.track('registered_as_referee', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.offer_type",
@@ -20600,6 +20943,7 @@ exponea.track('registered_as_referee', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.referee_reward",
@@ -20620,6 +20964,7 @@ exponea.track('registered_as_referee', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.referrer_reward",
@@ -20640,6 +20985,7 @@ exponea.track('registered_as_referee', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.reward_amount",
@@ -20660,6 +21006,7 @@ exponea.track('registered_as_referee', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.reward_type",
@@ -20680,6 +21027,7 @@ exponea.track('registered_as_referee', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.share_source",
@@ -20700,6 +21048,7 @@ exponea.track('registered_as_referee', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.source",
@@ -20720,6 +21069,7 @@ exponea.track('registered_as_referee', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.surname",
@@ -21009,6 +21359,7 @@ exponea.track('registered_as_referrer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.campaign_name",
@@ -21029,6 +21380,7 @@ exponea.track('registered_as_referrer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.customer_segment",
@@ -21049,6 +21401,7 @@ exponea.track('registered_as_referrer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.dashboard_link",
@@ -21069,6 +21422,7 @@ exponea.track('registered_as_referrer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.email",
@@ -21089,6 +21443,7 @@ exponea.track('registered_as_referrer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.experiment_name",
@@ -21109,6 +21464,7 @@ exponea.track('registered_as_referrer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.firstname",
@@ -21129,6 +21485,7 @@ exponea.track('registered_as_referrer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.locale_code",
@@ -21149,6 +21506,7 @@ exponea.track('registered_as_referrer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.offer_call_to_action_copy",
@@ -21169,6 +21527,7 @@ exponea.track('registered_as_referrer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.offer_name",
@@ -21189,6 +21548,7 @@ exponea.track('registered_as_referrer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.offer_subject_copy",
@@ -21209,6 +21569,7 @@ exponea.track('registered_as_referrer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.offer_type",
@@ -21229,6 +21590,7 @@ exponea.track('registered_as_referrer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.referee_reward",
@@ -21249,6 +21611,7 @@ exponea.track('registered_as_referrer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.referrer_reward",
@@ -21269,6 +21632,7 @@ exponea.track('registered_as_referrer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.share_link",
@@ -21289,6 +21653,7 @@ exponea.track('registered_as_referrer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.source",
@@ -21309,6 +21674,7 @@ exponea.track('registered_as_referrer', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.surname",
@@ -21558,6 +21924,7 @@ exponea.track('registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.browser",
@@ -21578,6 +21945,7 @@ exponea.track('registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.device",
@@ -21598,6 +21966,7 @@ exponea.track('registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.email",
@@ -21618,6 +21987,7 @@ exponea.track('registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "boolean",
           "datalayer_path": "bloomreach.properties.email_opt_in",
@@ -21638,6 +22008,7 @@ exponea.track('registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.first_name",
@@ -21658,6 +22029,7 @@ exponea.track('registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.last_name",
@@ -21678,6 +22050,7 @@ exponea.track('registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.location",
@@ -21698,6 +22071,7 @@ exponea.track('registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.os",
@@ -21954,6 +22328,7 @@ exponea.track('return', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [
             "money",
           ],
@@ -21976,6 +22351,7 @@ exponea.track('return', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.product_id",
@@ -22002,6 +22378,7 @@ exponea.track('return', {
             },
           ],
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.purchase_status",
@@ -22022,6 +22399,7 @@ exponea.track('return', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.return_reason",
@@ -22042,6 +22420,7 @@ exponea.track('return', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.title",
@@ -22324,6 +22703,7 @@ exponea.track('sample', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.purchase_id",
@@ -22344,6 +22724,7 @@ exponea.track('sample', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.order_date",
@@ -22364,6 +22745,7 @@ exponea.track('sample', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.packed_date",
@@ -22384,6 +22766,7 @@ exponea.track('sample', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.sku_id",
@@ -22404,6 +22787,7 @@ exponea.track('sample', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.sample_name",
@@ -22695,6 +23079,7 @@ exponea.track('shipment', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.purchase_id",
@@ -22715,6 +23100,7 @@ exponea.track('shipment', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.purchase_date",
@@ -22741,6 +23127,7 @@ exponea.track('shipment', {
             },
           ],
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.purchase_status",
@@ -22761,6 +23148,7 @@ exponea.track('shipment', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.shipping_date",
@@ -22781,6 +23169,7 @@ exponea.track('shipment', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.shipment_status",
@@ -22801,6 +23190,7 @@ exponea.track('shipment', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.delivery_date",
@@ -22821,6 +23211,7 @@ exponea.track('shipment', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.shipping_city",
@@ -22841,6 +23232,7 @@ exponea.track('shipment', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.shipping_cost",
@@ -22861,6 +23253,7 @@ exponea.track('shipment', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.shipping_country",
@@ -22881,6 +23274,7 @@ exponea.track('shipment', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.shipping_postal_code",
@@ -22901,6 +23295,7 @@ exponea.track('shipment', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.shipping_type",
@@ -23130,6 +23525,7 @@ exponea.track('store_visit', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.city",
@@ -23150,6 +23546,7 @@ exponea.track('store_visit', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.country",
@@ -23170,6 +23567,7 @@ exponea.track('store_visit', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.store",
@@ -23595,6 +23993,7 @@ exponea.track('survey_all', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "array",
           "datalayer_path": "bloomreach.properties.answers",
@@ -23615,6 +24014,7 @@ exponea.track('survey_all', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.browser",
@@ -23635,6 +24035,7 @@ exponea.track('survey_all', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.device",
@@ -23655,6 +24056,7 @@ exponea.track('survey_all', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.location",
@@ -23675,6 +24077,7 @@ exponea.track('survey_all', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.os",
@@ -23695,6 +24098,7 @@ exponea.track('survey_all', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.survey_id",
@@ -23715,6 +24119,7 @@ exponea.track('survey_all', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.survey_name",
@@ -23735,6 +24140,7 @@ exponea.track('survey_all', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.first_name",
@@ -23974,6 +24380,7 @@ exponea.track('survey_all_test', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.browser",
@@ -23994,6 +24401,7 @@ exponea.track('survey_all_test', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.device",
@@ -24014,6 +24422,7 @@ exponea.track('survey_all_test', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.location",
@@ -24034,6 +24443,7 @@ exponea.track('survey_all_test', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.os",
@@ -24054,6 +24464,7 @@ exponea.track('survey_all_test', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.survey_id",
@@ -24074,6 +24485,7 @@ exponea.track('survey_all_test', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.survey_name",
@@ -24288,6 +24700,7 @@ exponea.track('survey_data', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.property1",
@@ -24512,6 +24925,7 @@ exponea.track('test', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.application_id",
@@ -24532,6 +24946,7 @@ exponea.track('test', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.device_id",
@@ -24552,6 +24967,7 @@ exponea.track('test', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.test",
@@ -24801,6 +25217,7 @@ exponea.track('ticket_order', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.barcode",
@@ -24821,6 +25238,7 @@ exponea.track('ticket_order', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.email",
@@ -24841,6 +25259,7 @@ exponea.track('ticket_order', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.event_id",
@@ -24861,6 +25280,7 @@ exponea.track('ticket_order', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.event_name",
@@ -24881,6 +25301,7 @@ exponea.track('ticket_order', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.first_name",
@@ -24901,6 +25322,7 @@ exponea.track('ticket_order', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.last_name",
@@ -24921,6 +25343,7 @@ exponea.track('ticket_order', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.order_id",
@@ -24941,6 +25364,7 @@ exponea.track('ticket_order', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.status",
@@ -25205,6 +25629,7 @@ exponea.track('ticket_registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.barcode",
@@ -25225,6 +25650,7 @@ exponea.track('ticket_registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.delivery_method",
@@ -25245,6 +25671,7 @@ exponea.track('ticket_registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.email",
@@ -25265,6 +25692,7 @@ exponea.track('ticket_registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.event_end",
@@ -25285,6 +25713,7 @@ exponea.track('ticket_registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.event_id",
@@ -25305,6 +25734,7 @@ exponea.track('ticket_registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.event_name",
@@ -25325,6 +25755,7 @@ exponea.track('ticket_registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.event_start",
@@ -25345,6 +25776,7 @@ exponea.track('ticket_registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.first_name",
@@ -25365,6 +25797,7 @@ exponea.track('ticket_registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.last_name",
@@ -25385,6 +25818,7 @@ exponea.track('ticket_registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.order_id",
@@ -25405,6 +25839,7 @@ exponea.track('ticket_registration', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.ticket_class",
@@ -25639,6 +26074,7 @@ exponea.track('trigger_push', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.browser",
@@ -25659,6 +26095,7 @@ exponea.track('trigger_push', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.device",
@@ -25679,6 +26116,7 @@ exponea.track('trigger_push', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.location",
@@ -25699,6 +26137,7 @@ exponea.track('trigger_push', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.os",
@@ -25719,6 +26158,7 @@ exponea.track('trigger_push', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.source",
@@ -25968,6 +26408,7 @@ exponea.track('user_active', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.browser",
@@ -25988,6 +26429,7 @@ exponea.track('user_active', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.device",
@@ -26008,6 +26450,7 @@ exponea.track('user_active', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.duration",
@@ -26028,6 +26471,7 @@ exponea.track('user_active', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.end_client_timestamp",
@@ -26048,6 +26492,7 @@ exponea.track('user_active', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.location",
@@ -26068,6 +26513,7 @@ exponea.track('user_active', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.now_client_timestamp",
@@ -26088,6 +26534,7 @@ exponea.track('user_active', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "sdk_default",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.os",
@@ -26108,6 +26555,7 @@ exponea.track('user_active', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.start_client_timestamp",
@@ -26315,6 +26763,7 @@ exponea.track('view_category', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.category_level_1",
@@ -26335,6 +26784,7 @@ exponea.track('view_category', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.category_level_2",
@@ -26355,6 +26805,7 @@ exponea.track('view_category', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.category_name",
@@ -26375,6 +26826,7 @@ exponea.track('view_category', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.category_level_3",
@@ -26692,6 +27144,7 @@ exponea.track('view_item', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.brand",
@@ -26712,6 +27165,7 @@ exponea.track('view_item', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.category_level_1",
@@ -26732,6 +27186,7 @@ exponea.track('view_item', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.category_level_2",
@@ -26752,6 +27207,7 @@ exponea.track('view_item', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.category_level_3",
@@ -26772,6 +27228,7 @@ exponea.track('view_item', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [
             "money",
           ],
@@ -26794,6 +27251,7 @@ exponea.track('view_item', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.product_id",
@@ -26814,6 +27272,7 @@ exponea.track('view_item', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "number",
           "datalayer_path": "bloomreach.properties.stock_level",
@@ -26834,6 +27293,7 @@ exponea.track('view_item', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.title",
@@ -27106,6 +27566,7 @@ exponea.track('voucher_notification', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.total",
@@ -27126,6 +27587,7 @@ exponea.track('voucher_notification', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.available",
@@ -27146,6 +27608,7 @@ exponea.track('voucher_notification', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.threshold",
@@ -27166,6 +27629,7 @@ exponea.track('voucher_notification', {
         {
           "allowed_values": null,
           "bundle": null,
+          "category": "event",
           "data_formats": [],
           "data_type": "string",
           "datalayer_path": "bloomreach.properties.pool name",
@@ -28157,6 +28621,7 @@ track: {
       "percent": 1,
     },
     "name": "Acme EU",
+    "naming_convention": "snake_case",
   },
   "properties": [
     {

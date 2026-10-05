@@ -13,6 +13,8 @@ import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
+import { InternalRefLink } from '@/src/features/shared/RefLink';
+import { buildReferenceIndex, resolveReference } from '@/src/features/shared/references';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
@@ -52,6 +54,8 @@ interface UseCaseRow {
   internal_notes: string | null;
   internal_url: string | null;
 }
+
+const ID_ONLY_INDEX = buildReferenceIndex({ events: [], properties: [] });
 
 interface UseCaseCoverageRow {
   requirement_id: string;
@@ -927,6 +931,19 @@ function UseCaseDetail({
                       ensureEventDetails={ensureEventDetails}
                       onChange={(patch) => updateRow(index, patch)}
                     />
+                    {/* T-4-22: a saved requirement's event and property targets open their event card / editor. */}
+                    {!req.id.startsWith('new-') && (
+                      <div className="mt-1 flex gap-3 text-xs">
+                        {req.event_id && (() => {
+                          const target = resolveReference({ kind: 'event', id: req.event_id }, 'internal', ID_ONLY_INDEX);
+                          return target && target.mode === 'internal' ? <InternalRefLink target={target}>Open event card</InternalRefLink> : null;
+                        })()}
+                        {req.property_id && (() => {
+                          const target = resolveReference({ kind: 'property', id: req.property_id }, 'internal', ID_ONLY_INDEX);
+                          return target && target.mode === 'internal' ? <InternalRefLink target={target}>Open property</InternalRefLink> : null;
+                        })()}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-2">
                     <select

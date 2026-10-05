@@ -19,6 +19,7 @@
 import type { ComparisonId, EventClass, FindingKind, FindingSeverity, ImplementationMethod, PropertyKind } from '../enums';
 import type { PropertyDerivation } from '../codegen/derivation';
 import type { PropertyCategory } from '../propertyCategory';
+import type { NamingConvention } from '../enums';
 
 export const TRACKING_DOCUMENT_FORMAT = 'e3-tracking-document' as const;
 export const TRACKING_DOCUMENT_VERSION = 1;
@@ -100,6 +101,8 @@ export interface EventCardProperty {
   datalayer_path: string | null;
   /** D-63: names of the property bundle(s) this property belongs to, comma-joined; `null` when in none. */
   bundle: string | null;
+  /** D-64/T-4-22, additive: derived category (`classifyProperty`, the override when set), for the badge. */
+  category: PropertyCategory;
 }
 
 export interface EventCardVariantCondition {
@@ -279,6 +282,8 @@ export interface TrackingDocumentProject {
   client: string | null;
   bloomreach_project_url: string | null;
   money_tolerance: { percent: number; floor: number };
+  /** D-65 (T-4-22), additive: the project's naming convention; the shared page shows it as a note. */
+  naming_convention: NamingConvention;
 }
 
 /** D-58: one named meaning of a property (`property_definitions`). */
@@ -379,6 +384,10 @@ export interface TrackingDocumentRequirement {
   target_label: string;
   level: string;
   status: string | null;
+  /** T-4-22, additive: the target's kind and ids so a reader can link the label to its event/property. */
+  target_kind: string;
+  event_id: string | null;
+  property_id: string | null;
 }
 
 export interface TrackingDocumentUseCase {

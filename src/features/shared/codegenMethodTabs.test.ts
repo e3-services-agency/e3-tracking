@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { codegenTabsFor, hasCodegen, normalizeMethod, type CodegenData } from './codegenMethodTabs';
+import { codegenTabsFor, defaultCodegenTab, hasCodegen, normalizeMethod, type CodegenData } from './codegenMethodTabs';
 
 const full: CodegenData = {
   gtm: 'gtm',
@@ -50,5 +50,20 @@ describe('codegenTabsFor (D-63)', () => {
     expect(hasCodegen(none, 'sdk_auto')).toBe(false);
     expect(codegenTabsFor(none, 'sdk_auto').map((t) => t.key)).toEqual(['sdk_emits']); // internal card still renders
     expect(hasCodegen({ ...none, sdk_default_properties: 'd' }, 'sdk_auto')).toBe(true);
+  });
+});
+
+describe('defaultCodegenTab (D-62)', () => {
+  const tabs = codegenTabsFor(full, 'client_web');
+  it('the source method picks the first tab when it exists', () => {
+    expect(defaultCodegenTab(tabs, 'web_sdk_gtm_datalayer')?.key).toBe('gtm');
+    expect(defaultCodegenTab(tabs, 'web_sdk_direct')?.key).toBe('web_sdk');
+    expect(defaultCodegenTab(tabs, 'tracking_api')?.key).toBe('tracking_api');
+  });
+  it('falls back to the first tab of the method when there is no source method or its tab is absent', () => {
+    expect(defaultCodegenTab(tabs, null)?.key).toBe('gtm');
+    expect(defaultCodegenTab(tabs, 'file_import')?.key).toBe('gtm');
+    expect(defaultCodegenTab(codegenTabsFor(full, 'server_api'), 'web_sdk_direct')?.key).toBe('tracking_api');
+    expect(defaultCodegenTab([], 'tracking_api')).toBeUndefined();
   });
 });

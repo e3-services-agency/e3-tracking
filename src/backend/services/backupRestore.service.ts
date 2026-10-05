@@ -395,6 +395,10 @@ export async function applyRestore(
     const pathMap = await restoreFiles(newProjectId, parsed.files, warnings);
 
     const run = db.transaction(() => {
+      // D-61/D-62 (T-4-11B): rows reference tables restored later in table order (`projects.default_source_id`
+      // -> sources, `properties.mapped_catalog_id` -> catalogs); foreign keys are checked at commit instead
+      // of per row. The pragma resets itself when the transaction ends.
+      db.pragma('defer_foreign_keys = ON');
       runWithActor({ actor: actor.actor, source: 'restore', batch_id: batchId }, () => {
         const idMap = new Map<string, string>();
         for (const table of PROJECT_SCOPED_TABLES) {
@@ -476,6 +480,11 @@ export async function applyRestore(
     run();
   } catch (err) {
     await getFileStore().removeProjectFiles(newProjectId);
+    // Foreign keys are checked at commit (`defer_foreign_keys`): a row pointing at an id that is not in the file
+    // (a dangling `default_source_id`, `mapped_catalog_id`, ...) is a bad backup, a 400, not a raw SQLite error.
+    if ((err as { code?: string } | null)?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+      throw new BadRequestError('The backup references a row that is not in the file (a foreign key points nowhere); nothing was restored.', 'backup');
+    }
     throw err;
   }
 

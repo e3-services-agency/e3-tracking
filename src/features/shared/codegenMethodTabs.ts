@@ -60,6 +60,17 @@ export function codegenTabsFor(codegen: CodegenData, method: string | null | und
     .map((id) => ALL_TABS[id]);
 }
 
+/**
+ * The tab to open first (D-62, T-4-11B): the event's source method picks it when that tab exists
+ * (GTM data layer -> dataLayer, direct Web SDK -> Web SDK, Tracking API -> Tracking API); otherwise
+ * the first tab of the implementation method.
+ */
+export function defaultCodegenTab(tabs: CodegenTabDef[], sourceMethod: string | null | undefined): CodegenTabDef | undefined {
+  const wanted: CodegenTabId | null =
+    sourceMethod === 'web_sdk_gtm_datalayer' ? 'gtm' : sourceMethod === 'web_sdk_direct' ? 'web_sdk' : sourceMethod === 'tracking_api' ? 'tracking_api' : null;
+  return (wanted ? tabs.find((t) => t.key === wanted) : undefined) ?? tabs[0];
+}
+
 /** True when any tab would have code (drives whether the shared view renders the block at all). */
 export function hasCodegen(codegen: CodegenData, method?: string | null): boolean {
   // An sdk_auto event with no default properties has nothing to implement: the shared view hides

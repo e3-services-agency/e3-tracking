@@ -24,6 +24,7 @@ import * as PropertyDAL from '../dal/property.dal';
 import * as IdentityRuleDAL from '../dal/identity-rule.dal';
 import * as ConsentCategoryDAL from '../dal/consent-category.dal';
 import * as CatalogDAL from '../dal/catalog.dal';
+import * as SourceDAL from '../dal/source.dal';
 import { isHttpUrl } from '../dal/urlValidation';
 import * as LimitsService from './limits.service';
 import { createEventResolver } from './eventResolution';
@@ -37,6 +38,7 @@ import {
   attachedPropertiesForVariant,
   type AttachedPropertyForCodegen,
 } from './codegen.service';
+import { marketsLabel, type CatalogLinkForCodegen } from '../../domain/codegen/catalogLinks';
 import { SDK_DEFAULT_PROPERTIES } from '../../domain/bloomreach';
 import { classifyProperty } from '../../domain/propertyCategory';
 import type { EventPropertyWithDetails, EventPropertyWithDetailsExtended, EventRow } from '../dal/event.dal';
@@ -279,6 +281,12 @@ export interface EventCardBuildContext {
   bundleNameByPropertyId: Map<string, string>;
   /** D-63: the project's `kind = 'context'` event properties, for the `sdk_auto` default properties snippet. */
   projectContextProperties: { name: string; sample: unknown }[];
+  /** D-62 (T-4-11B): each event's linked sources, keyed by event id. */
+  sourcesByEventId: Map<string, SourceDAL.SourceRow[]>;
+  /** D-61 (T-4-11B): `catalog.field` label per catalog field id, for `EventCardProperty.catalog_field`. */
+  catalogFieldLabelById: Map<string, string>;
+  /** D-61 amendment: per catalog field id, what the codegen comment needs (catalog, field, markets). */
+  catalogLinkByFieldId: Map<string, { catalog: string; field: string; markets: string }>;
 }
 
 /** Exported for `export.service.ts`'s HTML documentation export, which also calls `buildEventCard`
@@ -324,6 +332,24 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
       else bundleNames.set(propertyId, [bundle.name]);
     }
   }
+  const catalogFieldLabelById = new Map<string, string>();
+  const catalogLinkByFieldId = new Map<string, { catalog: string; field: string; markets: string }>();
+  const allCatalogs = CatalogDAL.listCatalogs(projectId).map((c) => ({ c, fields: CatalogDAL.listCatalogFields(projectId, c.id) }));
+  for (const { c, fields } of allCatalogs) {
+    const sameKind = c.kind === 'other' ? [c.id] : allCatalogs.filter((x) => x.c.kind === c.kind).map((x) => x.c.id);
+    for (const f of fields) {
+      catalogFieldLabelById.set(f.id, `${c.name}.${f.name}`);
+      catalogLinkByFieldId.set(f.id, {
+        catalog: c.name,
+        field: f.name,
+        markets: marketsLabel(
+          allCatalogs
+            .filter((x) => sameKind.includes(x.c.id))
+            .map((x) => ({ name: x.c.name, market: x.c.market, has_field: x.fields.some((y) => y.name === f.name) }))
+        ),
+      });
+    }
+  }
   const projectContextProperties = PropertyDAL.listProperties(projectId, { scope: 'event' })
     .filter((p) => p.kind === 'context')
     .map((p) => ({
@@ -351,6 +377,9 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
     definitionsById: PropertyDefinitionDAL.listAllDefinitionsById(projectId),
     bundleNameByPropertyId: new Map([...bundleNames].map(([id, names]) => [id, names.join(', ')])),
     projectContextProperties,
+    sourcesByEventId: SourceDAL.listEventSourcesByProject(projectId),
+    catalogFieldLabelById,
+    catalogLinkByFieldId,
   };
 }
 
@@ -448,10 +477,24 @@ function toEventCardFinding(
 // EventCard
 // ---------------------------------------------------------------------------
 
+/** D-61 amendment: one codegen comment entry per catalog-linked property of an event. */
+export function catalogLinksForProperties(
+  properties: { property: { name: string; mapped_catalog_field_id: string | null } }[],
+  context: Pick<EventCardBuildContext, 'catalogLinkByFieldId'>
+): CatalogLinkForCodegen[] {
+  const out: CatalogLinkForCodegen[] = [];
+  for (const link of properties) {
+    const target = link.property.mapped_catalog_field_id ? context.catalogLinkByFieldId.get(link.property.mapped_catalog_field_id) : undefined;
+    if (target) out.push({ property: link.property.name, catalog: target.catalog, field: target.field, markets: target.markets });
+  }
+  return out;
+}
+
 function toEventCardProperty(
   link: EventPropertyWithDetailsExtended,
   bundleNameByPropertyId?: Map<string, string>,
-  method: string = 'client_web'
+  method: string = 'client_web',
+  catalogFieldLabelById?: Map<string, string>
 ): EventCardProperty {
   const kind = link.property.kind ?? 'event';
   const derivation = parseDerivation(link.property.derivation_json);
@@ -505,6 +548,7 @@ function toEventCardProperty(
     category: classifyProperty({ scope: link.property.scope, name: link.property.name, category_override: link.property.category_override }),
     datalayer_path: method === 'client_web' ? dataLayerPath(kind, link.payload_key?.trim() || link.property.name, derivation) : null,
     bundle: bundleNameByPropertyId?.get(link.property_id) ?? null,
+    catalog_field: link.property.mapped_catalog_field_id ? (catalogFieldLabelById?.get(link.property.mapped_catalog_field_id) ?? null) : null,
   };
 }
 
@@ -664,6 +708,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
       dlEventName: event.dl_event_name,
       eventClass: event.class,
       projectContext: context.projectContextProperties,
+      catalogLinks: catalogLinksForProperties(properties, context),
     },
     event.codegen_event_name_overrides_json as CodegenEventNameOverrides | null
   );
@@ -675,6 +720,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
     class: event.class,
     implementation_method: event.implementation_method,
     dl_event_name: event.dl_event_name,
+    sources: (context.sourcesByEventId.get(event.id) ?? []).map((s) => ({ id: s.id, name: s.name, system: s.system, method: s.method })),
     description: event.description,
     purpose: event.purpose,
     page: event.page,
@@ -686,7 +732,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
     status: event.status,
     certification,
     expiration: computeExpiration(event, project),
-    properties: properties.map((link) => toEventCardProperty(link, context.bundleNameByPropertyId, event.implementation_method)),
+    properties: properties.map((link) => toEventCardProperty(link, context.bundleNameByPropertyId, event.implementation_method, context.catalogFieldLabelById)),
     variants: variants.map((v) => toEventCardVariant(v, properties, propertyNameById, standardEventByVariantId)),
     standard_event_mappings: standardEventMappings,
     contexts,
@@ -785,6 +831,13 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
   const orderedEventIds = [...events.filter((e) => e.class === 'custom'), ...events.filter((e) => e.class !== 'custom')].map((e) => e.id);
   const eventCards = orderedEventIds.map((id) => buildEventCard(projectId, id, ctx));
 
+  // D-62 (T-4-11B): the project's sources with how many events use each.
+  const sourceRows = SourceDAL.listSources(projectId);
+  const eventSourceCounts = new Map<string, number>();
+  for (const linked of ctx.sourcesByEventId.values()) {
+    for (const s of linked) eventSourceCounts.set(s.id, (eventSourceCounts.get(s.id) ?? 0) + 1);
+  }
+
   const allPropertyRows = PropertyDAL.listProperties(projectId);
   const customerPropertyRows = allPropertyRows.filter((p) => p.scope === 'customer');
   const eventPropertyRows = allPropertyRows.filter((p) => p.scope === 'event');
@@ -881,6 +934,13 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
       update_frequency: c.update_frequency,
       catalog_type: c.catalog_type,
       purpose: c.purpose,
+      kind: c.kind,
+      market: c.market,
+      language: c.language,
+      version: c.version,
+      live_at: c.live_at,
+      searchable_count: fields.filter((f) => f.is_searchable).length,
+      lookup_key: fields.find((f) => f.is_lookup_key)?.name ?? null,
       fields: fields.map((f) => ({
         name: f.name,
         description: f.description,
@@ -950,6 +1010,7 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
       bloomreach_project_url: project.bloomreach_project_url,
       money_tolerance: { percent: project.money_tolerance_percent, floor: project.money_tolerance_floor },
       naming_convention: project.naming_convention,
+      default_source: project.default_source_id ? (sourceRows.find((s) => s.id === project.default_source_id)?.name ?? null) : null,
     },
     events: eventCards,
     properties: customerProperties,
@@ -957,6 +1018,7 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
     identity_rules: identityRules,
     consent_categories: consentCategories,
     catalogs,
+    sources: sourceRows.map((s) => ({ id: s.id, name: s.name, system: s.system, method: s.method, event_count: eventSourceCounts.get(s.id) ?? 0 })),
     use_cases: useCases,
     standard_event_mappings: standardEventMappings,
     findings_summary: findingsSummary,

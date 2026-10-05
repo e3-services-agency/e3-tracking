@@ -10,6 +10,9 @@
  * each with its standard properties (`src/domain/bloomreach.ts`), the system customer properties
  * (D-64), SDK defaults as context, and one deliberately flawed QA run so the comparison yields
  * a finding of each family. Names follow snake_case (D-65).
+ *
+ * Part B (T-4-11B, D-61, D-62): GB and CZ product and variant catalogs, and two sources with a
+ * project default.
  */
 
 export const CLIENT = { key: 'sandbox-fixture', name: 'Sandbox fixture client' };
@@ -255,18 +258,88 @@ export const RULE_TEMPLATES = [
 ];
 
 // ---------------------------------------------------------------------------
-// Catalog: one main catalog, enough for the "image" requirement of the transactional use case.
+// Sources (D-62): where events are collected from. Shopify via the GTM data layer for the
+// client-side events; the order system via the Tracking API for purchase, purchase_item and consent.
+// The project default source is Shopify. SDK and platform events emitted by Bloomreach itself have none.
 // ---------------------------------------------------------------------------
-export const CATALOG = {
-  name: 'Products', description: 'The product feed synced from the shop, one row per product.', mapping_role: 'main', source_system: 'Shop back end', sync_method: 'Scheduled import', update_frequency: 'Hourly',
-  fields: [
-    { name: 'item_id', data_type: 'string', is_lookup_key: true, bloomreach_column: 'item_id', description: 'Matches product_id on events.' },
-    { name: 'title', data_type: 'string', bloomreach_column: 'title', description: 'Product name.' },
-    { name: 'price', data_type: 'number', bloomreach_column: 'price', description: 'Current price including VAT.' },
-    { name: 'image', data_type: 'string', bloomreach_column: 'image', description: 'Product image URL, used in email templates.' },
-    { name: 'url', data_type: 'string', bloomreach_column: 'url', description: 'Product page URL.' },
-    { name: 'stock_level', data_type: 'number', bloomreach_column: 'stock_level', description: 'Units in stock.' },
-  ],
+export const SOURCES = [
+  { name: 'Shopify storefront', system: 'shopify', method: 'web_sdk_gtm_datalayer' },
+  { name: 'Order system', system: 'custom_backend', method: 'tracking_api' },
+];
+export const DEFAULT_SOURCE = 'Shopify storefront';
+export const EVENT_SOURCES = {
+  view_item: 'Shopify storefront',
+  view_category: 'Shopify storefront',
+  search: 'Shopify storefront',
+  cart_update: 'Shopify storefront',
+  checkout: 'Shopify storefront',
+  wishlist_update: 'Shopify storefront',
+  newsletter_signup: 'Shopify storefront',
+  purchase: 'Order system',
+  purchase_item: 'Order system',
+  consent: 'Order system',
+};
+
+// ---------------------------------------------------------------------------
+// Catalogs per market (D-61): a product and a variant catalog for GB (en-GB, GBP) and CZ (cs-CZ,
+// CZK), one schema per kind. The GB pair fills the Bloomreach mapping roles (main, variant).
+// The lookup key is the item_id field (Jinja cannot read it), next to a regular product_id / variant_id
+// field with the same value (D-61 amendment).
+// One deliberate drift: CZ stores stock_level as text, which the catalogs comparison reports.
+// The GB product catalog is marked live (v1), its searchable set (title) is then fixed.
+// ---------------------------------------------------------------------------
+const MARKETS = {
+  GB: { language: 'en-GB', currency: 'GBP', base: 'https://shop.example.com/gb' },
+  CZ: { language: 'cs-CZ', currency: 'CZK', base: 'https://shop.example.com/cz' },
+};
+
+function productFields(market) {
+  const { currency, base } = MARKETS[market];
+  return [
+    { name: 'item_id', data_type: 'string', is_lookup_key: true, is_required: true, bloomreach_column: 'item_id', description: 'The lookup key (Bloomreach item_id); Jinja cannot read it.' },
+    { name: 'product_id', data_type: 'string', is_required: true, description: 'Same value as item_id, readable in Jinja. Matches product_id on events.' },
+    { name: 'title', data_type: 'string', is_searchable: true, description: 'Product name in the market language.' },
+    { name: 'price', data_type: 'number', description: `Current price including VAT, in ${currency}.` },
+    { name: 'image', data_type: 'string', description: 'Product image URL, used in email templates.' },
+    { name: 'url', data_type: 'string', description: `Product page URL on ${base}.` },
+    { name: 'stock_level', data_type: market === 'CZ' ? 'string' : 'number', description: 'Units in stock.' },
+  ];
+}
+
+function variantFields(market) {
+  const { currency, base } = MARKETS[market];
+  return [
+    { name: 'item_id', data_type: 'string', is_lookup_key: true, is_required: true, bloomreach_column: 'item_id', description: 'The lookup key (Bloomreach item_id); Jinja cannot read it.' },
+    { name: 'variant_id', data_type: 'string', is_required: true, description: 'Same value as item_id, readable in Jinja. Matches variant_id on events.' },
+    { name: 'product_id', data_type: 'string', description: 'The product this size or colour belongs to.' },
+    { name: 'title', data_type: 'string', is_searchable: true, description: 'Variant name in the market language.' },
+    { name: 'price', data_type: 'number', description: `Current variant price including VAT, in ${currency}.` },
+    { name: 'url', data_type: 'string', description: `Variant page URL on ${base}.` },
+    { name: 'stock_level', data_type: 'number', description: 'Units in stock.' },
+  ];
+}
+
+const catalogBase = (market, kind) => ({
+  kind,
+  market,
+  language: MARKETS[market].language,
+  version: 'v1',
+  source_system: 'Shopify',
+  sync_method: 'Scheduled import',
+  update_frequency: 'Hourly',
+});
+
+export const CATALOGS = [
+  { name: 'products_gb', description: 'The UK product feed, one row per product, prices in GBP.', mapping_role: 'main', live: true, ...catalogBase('GB', 'product'), fields: productFields('GB') },
+  { name: 'variants_gb', description: 'The UK variant feed, one row per size or colour, prices in GBP.', mapping_role: 'variant', ...catalogBase('GB', 'variant'), fields: variantFields('GB') },
+  { name: 'products_cz', description: 'The Czech product feed, prices in CZK.', ...catalogBase('CZ', 'product'), fields: productFields('CZ') },
+  { name: 'variants_cz', description: 'The Czech variant feed, prices in CZK.', ...catalogBase('CZ', 'variant'), fields: variantFields('CZ') },
+];
+
+// Event properties that look up into a catalog's lookup key: property name -> 'catalog.field'.
+export const PROPERTY_CATALOG_LINKS = {
+  product_id: 'products_gb.item_id',
+  variant_id: 'variants_gb.item_id',
 };
 
 // ---------------------------------------------------------------------------

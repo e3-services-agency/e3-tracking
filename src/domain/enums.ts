@@ -118,6 +118,40 @@ export type IdentitySdkCall = (typeof IDENTITY_SDK_CALLS)[number];
 export const CATALOG_MAPPING_ROLES = ['main', 'variant'] as const;
 export type CatalogMappingRole = (typeof CATALOG_MAPPING_ROLES)[number];
 
+// ----- Catalog kind, version (D-61, T-4-11B, migration 0029) -----
+// Kind groups the per-market catalogs that must share one schema; version decides the
+// searchable-field rule (v1: fixed in advance, set at go-live; v2: adjustable).
+export const CATALOG_KINDS = ['product', 'variant', 'other'] as const;
+export type CatalogKind = (typeof CATALOG_KINDS)[number];
+export const DEFAULT_CATALOG_KIND: CatalogKind = 'other';
+export const CATALOG_VERSIONS = ['v1', 'v2'] as const;
+export type CatalogVersion = (typeof CATALOG_VERSIONS)[number];
+export const DEFAULT_CATALOG_VERSION: CatalogVersion = 'v1';
+/** Bloomreach limit on searchable catalog fields (D-61): a warning at this count, an error above it. */
+export const CATALOG_SEARCHABLE_LIMIT = 40;
+
+// ----- Source system and collection method (D-62, T-4-11B, migration 0029) -----
+export const SOURCE_SYSTEMS = [
+  'shopify',
+  'magento',
+  'salesforce_commerce_cloud',
+  'custom_backend',
+  'mobile_app',
+  'crm',
+  'erp',
+  'other',
+] as const;
+export type SourceSystem = (typeof SOURCE_SYSTEMS)[number];
+export const DEFAULT_SOURCE_SYSTEM: SourceSystem = 'other';
+export const SOURCE_METHODS = [
+  'web_sdk_gtm_datalayer',
+  'web_sdk_direct',
+  'tracking_api',
+  'bloomreach_integration',
+  'file_import',
+] as const;
+export type SourceMethod = (typeof SOURCE_METHODS)[number];
+
 // ----- Expiration units -----
 export const EXPIRATION_UNITS = ['days', 'weeks', 'months', 'years'] as const;
 export type ExpirationUnit = (typeof EXPIRATION_UNITS)[number];
@@ -132,6 +166,8 @@ export const COMPARISON_IDS = [
   'mapping_vs_observations',
   'definition_vs_observations',
   'data_manager',
+  // D-61 (T-4-11B): the catalog checks and the property-to-catalog alignment (no observations involved).
+  'catalogs',
 ] as const;
 export type ComparisonId = (typeof COMPARISON_IDS)[number];
 
@@ -163,6 +199,14 @@ export const FINDING_KINDS = [
   'state_list_mismatch',
   // D-65 (T-4-22): a custom event or property name that does not follow the project's naming convention.
   'naming_violation',
+  // D-61 (T-4-11B): catalog checks (comparison catalogs).
+  'catalog_searchable_limit',
+  'catalog_searchable_changed',
+  'catalog_lookup_key',
+  'catalog_lookup_property',
+  'catalog_schema_drift',
+  'catalog_type_mismatch',
+  'catalog_link_missing',
 ] as const;
 export type FindingKind = (typeof FINDING_KINDS)[number];
 

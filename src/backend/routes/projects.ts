@@ -120,6 +120,7 @@ router.patch('/:id', (req: Request, res: Response) => {
       money_tolerance_floor: typeof body.money_tolerance_floor === 'number' ? body.money_tolerance_floor : undefined,
       industry: pick('industry'),
       naming_convention: body.naming_convention,
+      default_source_id: pick('default_source_id'),
     });
     res.status(200).json(project);
   } catch (err) {

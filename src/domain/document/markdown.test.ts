@@ -68,7 +68,7 @@ describe('eventCardToMarkdown', () => {
     const md = eventCardToMarkdown(card());
     expect(md).toContain('# Event: cart_update');
     expect(md).toContain('Not certified. Reasons: 2 open error finding(s). No observation of this event exists in a non-archived QA run.');
-    expect(md).toContain('| action | action |  | string |  | yes | discriminator | event | bloomreach.properties.action | Core | add, remove | add | a\\|b |');
+    expect(md).toContain('| action | action |  | string |  | yes | discriminator | event | bloomreach.properties.action | Core |  | add, remove | add | a\\|b |');
     expect(md).toContain('- Implementation method: client_web');
     expect(md).toContain('- dataLayer event: cart_update');
     expect(md).toContain('| cart_update[action=add] | action = add |');

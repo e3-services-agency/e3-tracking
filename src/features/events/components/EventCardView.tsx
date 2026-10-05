@@ -33,6 +33,7 @@ import { CategoryBadge } from '@/src/components/ui/CategoryBadge';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import type { PropertyCategory } from '@/src/domain/propertyCategory';
 import { displaySampleValue } from '@/src/domain/examples';
+import { sourceViaLabel } from '@/src/domain/sources';
 import { groupFieldMap, mappingHeading } from '@/src/domain/document/standardMappings';
 import { SHARED_PROPERTY_HEAD, secondaryPropertyLines } from '@/src/domain/document/propertyColumns';
 
@@ -43,6 +44,8 @@ export interface EventCardData {
   class: string;
   /** D-63 (T-4-17): absent on older documents, treated as `client_web`. */
   implementation_method?: string;
+  /** D-62 (T-4-11B), additive. */
+  sources?: { id: string; name: string; system: string; method: string | null }[];
   dl_event_name?: string | null;
   description: string | null;
   purpose: string | null;
@@ -72,6 +75,8 @@ export interface EventCardData {
     kind?: string;
     derivation?: unknown;
     datalayer_path?: string | null;
+    /** D-61 (T-4-11B), additive: `catalog.field` the property looks up into. */
+    catalog_field?: string | null;
     bundle?: string | null;
     /** D-64/T-4-22, additive: derived property category for the badge. */
     category?: PropertyCategory;
@@ -242,6 +247,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             ['Class', <ClassBadge key="c" eventClass={card.class} />, true],
             ['Implementation method', card.implementation_method ?? 'client_web', true],
             ['dataLayer event', card.dl_event_name ?? '—', true],
+            ['Source', card.sources && card.sources.length > 0 ? card.sources.map((s) => `${s.name}: ${sourceViaLabel(s.system, s.method)}`).join('; ') : '—', true],
             ['Status', card.status, true],
             ['Priority', card.priority ?? '—', true],
             ['Grain', card.grain ?? '—', true],
@@ -297,7 +303,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
           head={[
             'Payload key',
             ...(showNames ? ['Name'] : []),
-            'Type', 'Formats', 'Role', 'Kind', 'dataLayer path', 'Bundle', 'Required', 'Allowed values', 'PII', 'Description', 'Example',
+            'Type', 'Formats', 'Role', 'Kind', 'dataLayer path', 'Bundle', 'Catalog field', 'Required', 'Allowed values', 'PII', 'Description', 'Example',
           ]}
           rows={card.properties.map((p) => [
             keyCell(p),
@@ -308,6 +314,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             p.kind ?? 'event',
             p.datalayer_path === null ? 'n/a' : (p.datalayer_path ?? '—'),
             p.bundle ?? '—',
+            p.catalog_field ?? '—',
             p.required ? 'yes' : 'no',
             p.allowed_values ? p.allowed_values.map((v) => v.value).join(', ') : '—',
             p.pii ? 'yes' : 'no',
@@ -500,7 +507,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
 
       {(!shared || hasCodegen(card.codegen, card.implementation_method)) && (
       <Section title="Implementation">
-        <CodegenTabs codegen={card.codegen} method={card.implementation_method} defaultOpen={!shared} />
+        <CodegenTabs codegen={card.codegen} method={card.implementation_method} sourceMethod={card.sources?.find((s) => s.method)?.method ?? null} defaultOpen={!shared} />
       </Section>
       )}
 

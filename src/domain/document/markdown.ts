@@ -5,6 +5,7 @@
  * JSON. No DOM, server or database import, so the MCP server can reuse these later.
  */
 import { describeCertificationReason } from '../certification';
+import { sourceViaLabel } from '../sources';
 import type { EventCard, TrackingDocumentCustomerProperty, TrackingDocumentUseCase } from './trackingDocument';
 import type { PropertyKind } from '../enums';
 import { groupPropertiesByCategory, formatDisplayName } from '../propertyCategory';
@@ -53,6 +54,7 @@ export function eventCardToMarkdown(card: EventCard): string {
     bullet('Class', card.class),
     bullet('Implementation method', card.implementation_method),
     bullet('dataLayer event', card.dl_event_name),
+    bullet('Source', card.sources && card.sources.length > 0 ? card.sources.map((s) => sourceViaLabel(s.system, s.method)).join(', ') : null),
     bullet('Status', card.status),
     bullet('Priority', card.priority),
     bullet('Business owner', card.owners?.business),
@@ -83,7 +85,7 @@ export function eventCardToMarkdown(card: EventCard): string {
   } else {
     out.push(
       table(
-        ['Payload key', 'Name', 'Definition', 'Type', 'Formats', 'Required', 'Role', 'Kind', 'dataLayer path', 'Bundle', 'Allowed values', 'Example', 'Description'],
+        ['Payload key', 'Name', 'Definition', 'Type', 'Formats', 'Required', 'Role', 'Kind', 'dataLayer path', 'Bundle', 'Catalog', 'Allowed values', 'Example', 'Description'],
         card.properties.map((p) => [
           p.payload_key,
           p.name,
@@ -95,6 +97,7 @@ export function eventCardToMarkdown(card: EventCard): string {
           p.kind ?? '',
           p.datalayer_path === null ? 'n/a' : (p.datalayer_path ?? ''),
           p.bundle ?? '',
+          p.catalog_field ?? '',
           p.allowed_values?.map((a) => a.value).join(', ') ?? '',
           exampleCell(p.example),
           p.description ?? '',

@@ -79,7 +79,8 @@ import {
   upsertStandardEventMapping,
   type StandardEventMappingRow,
 } from './standard-event-mapping.dal';
-import { findMainCatalogFieldByName } from './catalog.dal';
+import { resolveCatalogAttribute, type CatalogFieldPresence } from './catalog.dal';
+import { catalogMarketLabel } from '../../domain/catalogs';
 import { findConsentCategoryByStandardKeyOrName } from './consent-category.dal';
 
 export interface DefaultRequirementTemplate {
@@ -380,10 +381,22 @@ type ResolvedTarget = Pick<
   RequirementInput,
   'property_id' | 'event_id' | 'variant_id' | 'catalog_field_id' | 'consent_category_id'
 >;
-type ResolveOutcome = { resolved: true; target: ResolvedTarget } | { resolved: false; reason: string };
+/**
+ * D-61 (T-4-11B): a `catalog_attribute` that resolves on the main catalog but is missing in some
+ * market's catalog of the same kind is a partial gap: still resolved to the main field, created with
+ * `status: gap` and a note listing the markets that lack it. `catalogs` is the per-market result
+ * the mapping dialog shows.
+ */
+interface PartialCatalogGap {
+  note: string;
+  catalogs: CatalogFieldPresence[];
+}
+type ResolveOutcome =
+  | { resolved: true; target: ResolvedTarget; partial?: PartialCatalogGap; catalogs?: CatalogFieldPresence[] }
+  | { resolved: false; reason: string };
 
-function resolvedOutcome(target: ResolvedTarget): ResolveOutcome {
-  return { resolved: true, target };
+function resolvedOutcome(target: ResolvedTarget, extra?: { partial?: PartialCatalogGap; catalogs?: CatalogFieldPresence[] }): ResolveOutcome {
+  return { resolved: true, target, ...extra };
 }
 
 function unresolvedOutcome(reason: string): ResolveOutcome {
@@ -405,21 +418,29 @@ function resolveEntry(projectId: string, entry: DefaultRequirementTemplate): Res
   if (entry.target_kind === 'catalog_attribute') {
     if (!entry.field_name) return unresolvedOutcome('Template requirement is missing field_name.');
     // D-57 amendment (fix round WARNING 7): `item_id` and `product_id` name the same main-catalog
-    // id field under two conventions (Bloomreach's own main column is `item_id`; the pnp_usecase
-    // corpus and most clients say `product_id`) -- an exact-name miss on one retries the other
-    // before giving up, so a project using either spelling still resolves.
-    const CATALOG_FIELD_ALIASES: Record<string, string> = { product_id: 'item_id', item_id: 'product_id' };
-    const field =
-      findMainCatalogFieldByName(projectId, entry.field_name) ??
-      (CATALOG_FIELD_ALIASES[entry.field_name]
-        ? findMainCatalogFieldByName(projectId, CATALOG_FIELD_ALIASES[entry.field_name])
-        : null);
-    if (!field) {
+    // id field under two conventions -- `resolveCatalogAttribute` retries the other spelling. D-61
+    // (T-4-11B): the field is then checked against every catalog of the main catalog's kind (one per
+    // market); a market that lacks it makes the requirement a partial gap.
+    const resolution = resolveCatalogAttribute(projectId, entry.field_name);
+    if (!resolution) {
       return unresolvedOutcome(
         `No field named "${entry.field_name}" on this project's main catalog (or the project has no main catalog).`
       );
     }
-    return resolvedOutcome({ catalog_field_id: field.id });
+    if (resolution.missing.length > 0) {
+      const labelOf = (p: CatalogFieldPresence) => catalogMarketLabel(p.market, p.language) || p.name;
+      return resolvedOutcome(
+        { catalog_field_id: resolution.field.id },
+        {
+          catalogs: resolution.presence,
+          partial: {
+            note: `Field "${entry.field_name}" is missing in: ${resolution.missing.map(labelOf).join(', ')}.`,
+            catalogs: resolution.presence,
+          },
+        }
+      );
+    }
+    return resolvedOutcome({ catalog_field_id: resolution.field.id }, { catalogs: resolution.presence });
   }
 
   if (entry.target_kind === 'consent') {
@@ -558,7 +579,8 @@ function resolveOne(
     insertResolvedRequirement(projectId, useCaseId, sortOrder, {
       target_kind: entry.target_kind,
       level,
-      note,
+      note: outcome.partial ? (note ? `${outcome.partial.note} ${note}` : outcome.partial.note) : note,
+      ...(outcome.partial ? { status: 'gap' } : {}),
       ...outcome.target,
     });
     return;
@@ -757,6 +779,14 @@ export interface TemplateEventCandidate {
 export interface TemplateResolvedPreviewItem {
   index: number;
   target_kind: string;
+  /** D-61 (T-4-11B): `catalog_attribute` only, the field name the template asks for. */
+  field_name?: string;
+  /** D-61: `catalog_attribute` only, one entry per catalog of the main catalog's kind. */
+  catalog_markets?: CatalogFieldPresence[];
+  /** D-61: true when some catalog of the kind lacks the field (created as a gap requirement). */
+  partial?: boolean;
+  /** D-61: the note the requirement gets when partial. */
+  partial_note?: string;
 }
 
 export interface TemplateUnresolvedPreviewItem {
@@ -825,8 +855,14 @@ export function previewInstantiateUseCaseTemplate(projectId: string, templateId:
     const outcome = resolveEntry(projectId, entry);
     counts[group].total += 1;
     if (outcome.resolved === true) {
-      counts[group].resolved += 1;
-      resolvedItems.push({ index, target_kind: entry.target_kind });
+      // D-61: a partial catalog gap resolves to a target but is not fully satisfied, so the group reads `mixed`.
+      if (!outcome.partial) counts[group].resolved += 1;
+      resolvedItems.push({
+        index,
+        target_kind: entry.target_kind,
+        ...(outcome.catalogs ? { field_name: entry.field_name, catalog_markets: outcome.catalogs } : {}),
+        ...(outcome.partial ? { partial: true, partial_note: outcome.partial.note } : {}),
+      });
     } else {
       unresolvedItems.push({
         index,

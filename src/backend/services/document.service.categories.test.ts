@@ -188,3 +188,40 @@ describe('cross-reference fields (T-4-22)', () => {
     expect(finding).toMatchObject({ property_id: prop.id, property: 'loyaltyTier' });
   });
 });
+
+describe('catalogs per market and sources on the tracking document (D-61, D-62)', () => {
+  it('carries catalog kind, market, language, version, searchable count and lookup key', () => {
+    const c = CatalogDAL.createCatalog(projectId, { name: 'products_gb', mapping_role: 'main', market: 'GB', language: 'en-GB' });
+    CatalogDAL.createCatalogField(projectId, c.id, { name: 'product_id', is_lookup_key: true });
+    CatalogDAL.createCatalogField(projectId, c.id, { name: 'title', is_searchable: true });
+    const cat = buildTrackingDocument(projectId).catalogs[0];
+    expect(cat).toMatchObject({ kind: 'product', market: 'GB', language: 'en-GB', version: 'v1', live_at: null, searchable_count: 1, lookup_key: 'product_id' });
+  });
+
+  it('lists sources with system and method, the default source and each event card sources', async () => {
+    const SourceDAL = await import('../dal/source.dal');
+    const s = SourceDAL.createSource(projectId, { name: 'Shop', system: 'shopify', method: 'web_sdk_gtm_datalayer' });
+    ProjectDAL.updateProject(projectId, { default_source_id: s.id });
+    EventDAL.createEvent(projectId, { name: 'wishlist_add' }, { applyDefaultSource: true });
+    const doc = buildTrackingDocument(projectId);
+    expect(doc.sources).toEqual([{ id: s.id, name: 'Shop', system: 'shopify', method: 'web_sdk_gtm_datalayer', event_count: 1 }]);
+    expect(doc.project.default_source).toBe('Shop');
+    expect(doc.events[0].sources).toEqual([{ id: s.id, name: 'Shop', system: 'shopify', method: 'web_sdk_gtm_datalayer' }]);
+    const pub = toPublicTrackingDocument(doc);
+    expect(pub.sources?.[0]).toMatchObject({ system: 'shopify', method: 'web_sdk_gtm_datalayer' });
+  });
+});
+
+describe('property to catalog link on the event card (D-61)', () => {
+  it('shows catalog.field on a linked property and null otherwise', () => {
+    const c = CatalogDAL.createCatalog(projectId, { name: 'products_gb', mapping_role: 'main' });
+    const key = CatalogDAL.createCatalogField(projectId, c.id, { name: 'product_id', is_lookup_key: true });
+    const linked = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'product_id', data_type: 'string', mapped_catalog_id: c.id, mapped_catalog_field_id: key.id });
+    const other = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'brand', data_type: 'string' });
+    const event = EventDAL.createEvent(projectId, { name: 'view_x' });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: linked.id });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: other.id });
+    const card = buildTrackingDocument(projectId).events.find((e) => e.name === 'view_x')!;
+    expect(Object.fromEntries(card.properties.map((p) => [p.name, p.catalog_field]))).toEqual({ product_id: 'products_gb.product_id', brand: null });
+  });
+});

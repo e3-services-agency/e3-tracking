@@ -7,22 +7,25 @@
  */
 import React, { useState } from 'react';
 import { CodeBlock } from '@/src/components/ui/CodeBlock';
-import { codegenTabsFor, type CodegenData, type CodegenTabId } from './codegenMethodTabs';
+import { codegenTabsFor, defaultCodegenTab, type CodegenData, type CodegenTabId } from './codegenMethodTabs';
 
 /** `defaultOpen`: the internal card starts expanded, the shared view collapsed. */
 export function CodegenTabs({
   codegen,
   method,
+  sourceMethod,
   defaultOpen = false,
 }: {
   codegen: CodegenData;
   method?: string | null;
+  /** D-62: the event's source collection method, picks the default tab. */
+  sourceMethod?: string | null;
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const tabs = codegenTabsFor(codegen, method);
   const [tab, setTab] = useState<CodegenTabId | null>(null);
-  const active = tabs.find((t) => t.key === tab) ?? tabs[0];
+  const active = tabs.find((t) => t.key === tab) ?? defaultCodegenTab(tabs, sourceMethod);
   return (
     <div>
       {codegen.note && <p className="text-xs text-gray-600 mb-2">{codegen.note}</p>}

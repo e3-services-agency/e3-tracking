@@ -24,7 +24,7 @@ router.get('/usage', (req: Request, res: Response) => {
 });
 
 router.post('/', (req: Request, res: Response) => {
-  const body = req.body as { name?: unknown; color?: unknown };
+  const body = req.body as { name?: unknown; color?: unknown; system?: unknown; method?: unknown };
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   if (!name) {
     res.status(400).json({ error: 'name is required.', code: 'NAME_REQUIRED', field: 'name' });
@@ -34,6 +34,8 @@ router.post('/', (req: Request, res: Response) => {
     const source = SourceDAL.createSource(req.projectId!, {
       name,
       color: typeof body.color === 'string' ? body.color : null,
+      system: body.system as string | undefined,
+      method: body.method as string | null | undefined,
     });
     res.status(201).json(source);
   } catch (err) {
@@ -42,11 +44,13 @@ router.post('/', (req: Request, res: Response) => {
 });
 
 router.patch('/:id', (req: Request, res: Response) => {
-  const body = req.body as { name?: unknown; color?: unknown };
+  const body = req.body as { name?: unknown; color?: unknown; system?: unknown; method?: unknown };
   try {
     const source = SourceDAL.updateSource(req.projectId!, req.params.id, {
       name: typeof body.name === 'string' ? body.name : undefined,
       color: body.color === undefined ? undefined : (body.color as string | null),
+      system: body.system as string | undefined,
+      method: body.method === undefined ? undefined : (body.method as string | null),
     });
     res.status(200).json(source);
   } catch (err) {

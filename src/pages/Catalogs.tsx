@@ -13,7 +13,8 @@ import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
-import { PRIORITIES, ENTITY_STATUSES, CATALOG_MAPPING_ROLES } from '@/src/domain/enums';
+import { PRIORITIES, ENTITY_STATUSES, CATALOG_MAPPING_ROLES, CATALOG_KINDS, CATALOG_VERSIONS, CATALOG_SEARCHABLE_LIMIT, PROPERTY_DATA_TYPES } from '@/src/domain/enums';
+import { catalogMarketLabel } from '@/src/domain/catalogs';
 import { CATALOG_MAIN_COLUMNS } from '@/src/domain/bloomreach';
 import { HistorySection } from '@/src/features/history/HistorySection';
 
@@ -25,6 +26,13 @@ interface CatalogRow {
   mapping_role: string | null;
   priority: string | null;
   status: string | null;
+  /** D-61 (T-4-11B). */
+  kind: string;
+  market: string | null;
+  language: string | null;
+  version: string;
+  live_at: string | null;
+  searchable_snapshot_json: string[] | null;
 }
 
 interface CatalogFieldRow {
@@ -79,6 +87,9 @@ export function Catalogs() {
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-6 py-3 font-medium text-gray-500">Name</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Kind</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Market / language</th>
+                <th className="px-6 py-3 font-medium text-gray-500">Version</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Mapping role</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Status</th>
               </tr>
@@ -87,13 +98,16 @@ export function Catalogs() {
               {catalogs.map((c) => (
                 <tr key={c.id} onClick={() => { setSelectedId(c.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
                   <td className="px-6 py-4 font-medium text-gray-900"><span className="inline-flex items-center gap-1.5">{c.name}<CopyNameButton name={c.name} /></span></td>
+                  <td className="px-6 py-4 text-gray-500">{c.kind}</td>
+                  <td className="px-6 py-4 text-gray-500">{catalogMarketLabel(c.market, c.language) || '—'}</td>
+                  <td className="px-6 py-4 text-gray-500">{c.version}{c.live_at ? ' · live' : ''}</td>
                   <td className="px-6 py-4 text-gray-500">{c.mapping_role ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{c.status ?? '—'}</td>
                 </tr>
               ))}
               {catalogs.length === 0 && (
                 <EmptyState
-                  colSpan={3}
+                  colSpan={6}
                   message="No catalogs yet. Add one to describe a Bloomreach catalog (products, articles, and so on)."
                   actionLabel="Add Catalog"
                   onAction={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }}
@@ -136,6 +150,10 @@ function CatalogEditor({
   const [description, setDescription] = useState('');
   const [owner, setOwner] = useState('');
   const [mappingRole, setMappingRole] = useState('');
+  const [kind, setKind] = useState('');
+  const [market, setMarket] = useState('');
+  const [language, setLanguage] = useState('');
+  const [version, setVersion] = useState('v1');
   const [priority, setPriority] = useState('');
   const [status, setStatus] = useState('');
   const [newFieldName, setNewFieldName] = useState('');
@@ -157,6 +175,10 @@ function CatalogEditor({
         setDescription(data.description ?? '');
         setOwner(data.owner ?? '');
         setMappingRole(data.mapping_role ?? '');
+        setKind(data.kind ?? 'other');
+        setMarket(data.market ?? '');
+        setLanguage(data.language ?? '');
+        setVersion(data.version ?? 'v1');
         setPriority(data.priority ?? '');
         setStatus(data.status ?? '');
         setFields(Array.isArray(data.fields) ? data.fields : []);
@@ -180,6 +202,11 @@ function CatalogEditor({
         description: description.trim() || null,
         owner: owner.trim() || null,
         mapping_role: mappingRole || null,
+        // D-61: on create an unset kind is derived from the mapping role on the server.
+        ...(kind ? { kind } : {}),
+        market: market.trim() || null,
+        language: language.trim() || null,
+        version,
         priority: priority || null,
         status: status || null,
       };
@@ -212,6 +239,18 @@ function CatalogEditor({
     } finally {
       setDeleting(false);
     }
+  };
+
+  const setLive = async (live: boolean) => {
+    if (!projectId || !catalogId) return;
+    setSaveError(null);
+    const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/catalogs/${catalogId}/live`, {
+      method: 'POST',
+      body: JSON.stringify({ live }),
+    });
+    const data = await parseJson(res);
+    if (res.ok) setCatalog((prev) => (prev ? { ...prev, ...data } : prev));
+    else setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to update live state.');
   };
 
   const addField = async () => {
@@ -287,6 +326,33 @@ function CatalogEditor({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Kind</label>
+          <select value={kind} onChange={(e) => setKind(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+            {isCreating && <option value="">Automatic (from mapping role)</option>}
+            {CATALOG_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
+          </select>
+          <p className="text-xs text-gray-500">Catalogs of the same kind (one per market) must share one schema.</p>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Version</label>
+          <select value={version} onChange={(e) => setVersion(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
+            {CATALOG_VERSIONS.map((v) => <option key={v} value={v}>{v}</option>)}
+          </select>
+          <p className="text-xs text-gray-500">On v1 the searchable fields are fixed once the catalog is live.</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Market</label>
+          <Input value={market} onChange={(e) => setMarket(e.target.value)} placeholder="e.g. GB" />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-700">Language</label>
+          <Input value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="e.g. en-GB" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
           <label className="text-sm font-medium text-gray-700">Priority</label>
           <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
@@ -305,6 +371,29 @@ function CatalogEditor({
       {!isCreating && (
         <div className="space-y-3 border-t pt-4">
           <h3 className="text-sm font-semibold text-gray-900">Fields</h3>
+          {(() => {
+            const searchableCount = fields.filter((f) => f.is_searchable).length;
+            const keys = fields.filter((f) => f.is_lookup_key);
+            return (
+              <div className="text-xs text-gray-600 space-y-1" data-testid="catalog-field-summary">
+                <p className={searchableCount > CATALOG_SEARCHABLE_LIMIT ? 'text-red-700' : searchableCount === CATALOG_SEARCHABLE_LIMIT ? 'text-amber-700' : undefined}>
+                  Searchable fields: {searchableCount} of {CATALOG_SEARCHABLE_LIMIT}
+                </p>
+                <p>
+                  Lookup key: {keys.length === 1 ? keys[0].name : keys.length === 0 ? 'none yet' : `${keys.length} fields, must be one`}.
+                  The lookup key is the item_id column, which Jinja cannot read, because Jinja reads only catalog properties: add a regular product_id (or variant_id) field with the same value. If the key field already has that name, treat it as item_id (rename it) first.
+                </p>
+              </div>
+            );
+          })()}
+          <div className="flex items-center gap-3 text-xs" data-testid="catalog-live">
+            <span className="text-gray-600">
+              {catalog?.live_at ? `Live since ${catalog.live_at.slice(0, 10)}; searchable snapshot: ${(catalog.searchable_snapshot_json ?? []).length} fields.` : 'Not marked live.'}
+            </span>
+            <Button type="button" variant="outline" onClick={() => void setLive(!catalog?.live_at)}>
+              {catalog?.live_at ? 'Take off live' : 'Mark live'}
+            </Button>
+          </div>
           {fields.map((f) => (
             <CatalogFieldRowEditor key={f.id} field={f} onPatch={patchField} onRemove={removeField} />
           ))}
@@ -394,6 +483,13 @@ function CatalogFieldRowEditor({
     if (err) setError(err);
   };
 
+  const patchSimple = async (patch: Record<string, unknown>) => {
+    setBusy(true);
+    const err = await onPatch(field.id, patch);
+    setBusy(false);
+    if (err) setError(err);
+  };
+
   const setBloomreachColumn = async (value: string) => {
     setBusy(true);
     const err = await onPatch(field.id, { bloomreach_column: value || null });
@@ -418,6 +514,23 @@ function CatalogFieldRowEditor({
         <button type="button" onClick={() => void onRemove(field.id)} className="text-red-500 hover:text-red-700" title="Remove field">
           <Trash2 className="w-4 h-4" />
         </button>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="space-y-1">
+          <label className="text-xs text-gray-500">Data type</label>
+          <select
+            value={field.data_type ?? 'string'}
+            onChange={(e) => void patchSimple({ data_type: e.target.value })}
+            disabled={busy}
+            className="w-full h-8 rounded-md border border-gray-300 bg-white px-2 text-xs"
+          >
+            {[...new Set([...PROPERTY_DATA_TYPES, field.data_type ?? 'string'])].map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <label className="flex items-center gap-2 text-xs text-gray-700 self-end pb-1">
+          <input type="checkbox" checked={field.is_lookup_key} onChange={(e) => void patchSimple({ is_lookup_key: e.target.checked })} disabled={busy} />
+          Lookup key
+        </label>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <label className="flex items-center gap-2 text-xs text-gray-700">

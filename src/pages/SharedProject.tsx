@@ -35,6 +35,8 @@ import { formatExampleValues } from '@/src/domain/examples';
 import type { FindingsSummaryView } from '@/src/domain/document/findingsSummary';
 import { FindingTerm } from '@/src/components/ui/GlossaryTerm';
 import { FAMILY_INFO } from '@/src/domain/findingsCatalog';
+import { sourceViaLabel } from '@/src/domain/sources';
+import { catalogMarketLabel } from '@/src/domain/catalogs';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { API_BASE } from '@/src/config/env';
 import { PAGE_MAX_WIDTH_CLASS } from '@/src/components/layout/PageShell';
@@ -627,6 +629,12 @@ export function SharedProject({ token }: { token: string }) {
                 <SectionTitle id={SECTION_IDS.events}>Events ({doc.events.length})</SectionTitle>
               </h2>
               {namingLine}
+              {(doc.sources ?? []).length > 0 && (
+                <p className="text-xs text-gray-500" data-testid="shared-sources">
+                  Collected from:{' '}
+                  {(doc.sources ?? []).map((s) => `${s.name} (${sourceViaLabel(s.system, s.method)}, ${s.event_count} event${s.event_count === 1 ? '' : 's'})`).join('; ')}
+                </p>
+              )}
               {EVENT_CLASS_GROUPS.map(({ cls, label }) => {
                 const inGroup = doc.events.filter((e) => e.class === cls);
                 if (inGroup.length === 0) return null;
@@ -946,6 +954,11 @@ export function SharedProject({ token }: { token: string }) {
               <div className="space-y-4">
                 {doc.catalogs.map((c) => {
                   const meta = [
+                    c.kind ? `${c.kind} catalog` : '',
+                    catalogMarketLabel(c.market, c.language) ? `market: ${catalogMarketLabel(c.market, c.language)}` : '',
+                    c.version ? `version: ${c.version}${c.live_at ? ' (live)' : ''}` : '',
+                    typeof c.searchable_count === 'number' ? `${c.searchable_count} searchable` : '',
+                    c.lookup_key ? `lookup key: ${c.lookup_key}` : '',
                     c.mapping_role ? `mapping role: ${c.mapping_role}` : '',
                     c.status ?? '',
                     c.source_system ? `source: ${c.source_system}` : '',

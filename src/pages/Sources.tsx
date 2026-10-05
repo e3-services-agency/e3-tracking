@@ -11,12 +11,17 @@ import { Sheet } from '@/src/components/ui/Sheet';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
+import { SOURCE_METHODS, SOURCE_SYSTEMS } from '@/src/domain/enums';
+import { SOURCE_METHOD_LABELS, SOURCE_SYSTEM_LABELS, sourceViaLabel } from '@/src/domain/sources';
 
 interface SourceRow {
   id: string;
   project_id: string;
   name: string;
   color: string | null;
+  /** D-62 (T-4-11B). */
+  system: string;
+  method: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -104,6 +109,7 @@ export function Sources() {
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-6 py-3 font-medium text-gray-500">Name</th>
+                <th className="px-6 py-3 font-medium text-gray-500">System via method</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Color</th>
                 <th className="px-6 py-3 font-medium text-gray-500">Used In</th>
               </tr>
@@ -114,6 +120,7 @@ export function Sources() {
                 return (
                   <tr key={source.id} onClick={() => handleOpenSource(source.id)} className="hover:bg-gray-50 cursor-pointer transition-colors">
                     <td className="px-6 py-4 font-medium text-gray-900">{source.name}</td>
+                    <td className="px-6 py-4 text-gray-700">{sourceViaLabel(source.system, source.method)}</td>
                     <td className="px-6 py-4 text-gray-500">{source.color || '—'}</td>
                     <td className="px-6 py-4 text-gray-500">
                       Properties: {usage?.property_count ?? 0} · Events: {usage?.event_count ?? 0} · Identity rules:{' '}
@@ -124,7 +131,7 @@ export function Sources() {
               })}
               {filteredSources.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-6 py-8 text-center text-gray-500">No sources found.</td>
+                  <td colSpan={4} className="px-6 py-8 text-center text-gray-500">No sources found.</td>
                 </tr>
               )}
             </tbody>
@@ -167,6 +174,8 @@ function SourceEditor({
 }) {
   const [name, setName] = useState(source?.name || '');
   const [color, setColor] = useState(source?.color || '');
+  const [system, setSystem] = useState(source?.system || 'other');
+  const [method, setMethod] = useState(source?.method || '');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -174,6 +183,8 @@ function SourceEditor({
   useEffect(() => {
     setName(source?.name || '');
     setColor(source?.color || '');
+    setSystem(source?.system || 'other');
+    setMethod(source?.method || '');
     setSaveError(null);
   }, [source?.id, isCreating]);
 
@@ -187,7 +198,7 @@ function SourceEditor({
         : `${API_BASE}/api/projects/${projectId}/sources/${source?.id}`;
       const res = await fetchWithAuth(url, {
         method: isCreating ? 'POST' : 'PATCH',
-        body: JSON.stringify({ name: name.trim(), color: color.trim() || null }),
+        body: JSON.stringify({ name: name.trim(), color: color.trim() || null, system, method: method || null }),
       });
       const data = await parseJson(res);
       if (!res.ok) {
@@ -230,6 +241,20 @@ function SourceEditor({
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">Source Name</label>
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. iOS App" disabled={isSaving} />
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-gray-700" htmlFor="source-system">System</label>
+        <select id="source-system" value={system} onChange={(e) => setSystem(e.target.value)} disabled={isSaving} className="block h-9 w-full rounded-md border border-gray-300 bg-white px-2 text-sm">
+          {SOURCE_SYSTEMS.map((s) => <option key={s} value={s}>{SOURCE_SYSTEM_LABELS[s]}</option>)}
+        </select>
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-gray-700" htmlFor="source-method">Collection method</label>
+        <select id="source-method" value={method} onChange={(e) => setMethod(e.target.value)} disabled={isSaving} className="block h-9 w-full rounded-md border border-gray-300 bg-white px-2 text-sm">
+          <option value="">Not recorded</option>
+          {SOURCE_METHODS.map((m) => <option key={m} value={m}>{SOURCE_METHOD_LABELS[m]}</option>)}
+        </select>
+        <p className="text-xs text-gray-500">A Tracking API source makes a linked event server-side by default; a web source keeps it client-side. An event's own choice is never overridden.</p>
       </div>
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">Color (optional)</label>

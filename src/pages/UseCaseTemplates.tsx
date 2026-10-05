@@ -116,6 +116,11 @@ interface TemplateEventCandidate {
 interface ResolvedPreviewItem {
   index: number;
   target_kind: string;
+  /** D-61 (T-4-11B): catalog attribute requirements carry the per-market result. */
+  field_name?: string;
+  partial?: boolean;
+  partial_note?: string;
+  catalog_markets?: { catalog_id: string; name: string; market: string | null; language: string | null; has_field: boolean }[];
 }
 
 interface UnresolvedPreviewItem {
@@ -616,6 +621,32 @@ function InstantiateMappingDialog({
           </select>
           <p className="text-xs text-gray-500">Marketing or transactional; suggested from the template's channels and name.</p>
         </div>
+        {preview.resolved.some((r) => r.catalog_markets && r.catalog_markets.length > 0) && (
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-gray-900">Catalog attributes per market</h3>
+            <table className="w-full text-left text-xs border rounded-md overflow-hidden">
+              <tbody className="divide-y">
+                {preview.resolved
+                  .filter((r) => r.catalog_markets && r.catalog_markets.length > 0)
+                  .map((r) => (
+                    <tr key={r.index}>
+                      <td className="px-3 py-2 font-medium">{r.field_name}</td>
+                      <td className="px-3 py-2">
+                        {r.catalog_markets!.map((m) => (
+                          <span key={m.catalog_id} className={`inline-block mr-3 ${m.has_field ? 'text-green-700' : 'text-red-700'}`}>
+                            {[m.market, m.language].filter(Boolean).join(' / ') || m.name}: {m.has_field ? 'has it' : 'missing'}
+                          </span>
+                        ))}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+            {preview.resolved.some((r) => r.partial) && (
+              <p className="text-xs text-gray-500">An attribute missing in a market is created as a gap requirement listing the markets.</p>
+            )}
+          </div>
+        )}
         {preview.unresolved.length === 0 ? (
           <p className="text-sm text-gray-500">Every requirement resolves against this project.</p>
         ) : (

@@ -74,6 +74,7 @@ import {
 } from '../../domain/comparison/definitionVsDataManager';
 import { runDefinitionVsMapping, type DefinitionVsMappingInput } from '../../domain/comparison/definitionVsMapping';
 import { runMappingVsObservations } from '../../domain/comparison/mappingVsObservations';
+import { runCatalogChecks, type CatalogCheckInput } from '../../domain/comparison/catalogChecks';
 import { toDataManagerDefinitionSnapshot, buildMappingSnapshotFromDefinition, type MappingSnapshot, type DefConsentCategory } from '../../domain/comparison/snapshot';
 import { buildStateListChecks, runStateListChecks } from '../../domain/rules/stateLists';
 import { runRules, runItemSchemaChecks, type ItemSchemaCheck, type RulesEngineRule } from '../../domain/rules/runRules';
@@ -412,6 +413,41 @@ export function buildItemSchemaChecks(definition: DefinitionSnapshot, customEven
   return checks;
 }
 
+/**
+ * Input of the `catalogs` comparison (D-61, T-4-11B): every catalog with its fields, plus every
+ * property (for the linked-field type check and the id-property link check).
+ */
+export function buildCatalogCheckInput(projectId: string): CatalogCheckInput {
+  const catalogs = CatalogDAL.listCatalogs(projectId).map((c) => ({
+    id: c.id,
+    name: c.name,
+    kind: c.kind,
+    market: c.market,
+    language: c.language,
+    version: c.version,
+    live_at: c.live_at,
+    searchable_snapshot: c.searchable_snapshot_json,
+    fields: CatalogDAL.listCatalogFields(projectId, c.id).map((f) => ({
+      id: f.id,
+      name: f.name,
+      data_type: f.data_type,
+      is_lookup_key: f.is_lookup_key,
+      is_searchable: f.is_searchable,
+      client_field_name: f.client_field_name,
+      bloomreach_column: f.bloomreach_column,
+    })),
+  }));
+  const properties = PropertyDAL.listProperties(projectId).map((p) => ({
+    id: p.id,
+    name: p.name,
+    scope: p.scope,
+    data_type: p.data_type,
+    mapped_catalog_id: p.mapped_catalog_id,
+    mapped_catalog_field_id: p.mapped_catalog_field_id,
+  }));
+  return { catalogs, properties };
+}
+
 export interface ComparisonSummary {
   open: Record<string, number>;
   produced: number;
@@ -506,6 +542,11 @@ export function runComparison(projectId: string): ComparisonSummary {
     {
       comparison: 'definition_vs_mapping',
       findings: runDefinitionVsMapping(definitionVsMappingInput, mappingSnapshot),
+      qaRunIdByObservationId: null,
+    },
+    {
+      comparison: 'catalogs',
+      findings: runCatalogChecks(buildCatalogCheckInput(projectId)),
       qaRunIdByObservationId: null,
     },
     {

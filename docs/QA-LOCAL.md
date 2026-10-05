@@ -152,15 +152,18 @@ the comment rate limit.
 2. Selecting it: 15 events (13 Bloomreach standard ones plus the custom `wishlist_update` and
    `newsletter_signup`), 50 properties (9 customer, 41 event) with 53 definitions (`action` has
    three named ones), 5 variants (`cart_update` add/remove, `purchase` completed/refunded,
-   `wishlist_update` add), 1 bundle ("Product item"), 9 standard event mappings, 4 rules, 1 main
-   catalog, 5 consent categories, 3 identity rules, 3 use cases (`UC-01`..`UC-03`, 17 requirements,
+   `wishlist_update` add), 1 bundle ("Product item"), 9 standard event mappings, 4 rules, 4
+   catalogs (`products_gb` main and live, `variants_gb` variant, `products_cz`, `variants_cz`; GBP and CZK;
+   `item_id` lookup keys plus regular `product_id`/`variant_id` fields, linked from the `product_id`/`variant_id` properties), 2 sources
+   (Shopify via GTM data layer, the project default; custom backend via Tracking API for `purchase`,
+   `purchase_item`, `consent`), 5 consent categories, 3 identity rules, 3 use cases (`UC-01`..`UC-03`, 17 requirements,
    one deliberate gap), 1 QA run with 16 observations, 4 comments (1 via share, 1 internal only,
-   1 on a requirement), 2 trigger screenshots (`purchase`, `cart_update`), 14 open findings plus
+   1 on a requirement), 2 trigger screenshots (`purchase`, `cart_update`), 15 open findings plus
    exactly 1 resolved with `resolved_by: 'user'` (an acknowledged `enum_violation`, D-42, so the
    acknowledge/certification path has evidence to inspect immediately). Open findings by kind:
    `state_list_mismatch` 2, `unknown_variant` 2, `rename_mismatch` 4, `shape_inconsistent` 1,
    `type_mismatch` 1, `unmapped_catalog` 1, `missing_event` 1, `rounding_drift` 1,
-   `format_violation` 1.
+   `format_violation` 1, `catalog_schema_drift` 1 (CZ stores `stock_level` as text; comparison `catalogs`).
 3. Getting started on the sandbox: 9 steps, 4 done (client and project, observations, comparison,
    use case). Open: the three imports (the sandbox has none, by design), "Review property types"
    (an open `type_mismatch` on `view_item.price`) and "Create a share link" (a sandbox refuses

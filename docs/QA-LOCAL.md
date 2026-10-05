@@ -143,14 +143,27 @@ the comment rate limit.
 
 1. Clients page: "Create a sandbox" (no client selection needed on a fresh install — an "Sandboxes"
    client is auto-created). This restores the bundled `.claude/team/samples/sandbox-project-backup.json`
-   (built by `scripts/build-sandbox-backup.mjs`) as a brand-new project: key `sandbox-acme-eu` (a
-   second sandbox created the same way gets `sandbox-acme-eu-2`, never a doubled
-   `sandbox-sandbox-...` key), badged "SANDBOX" in the header switcher and the Clients list.
-2. Selecting it: 62 events, 648 properties, 3 use cases (`UC-01`..`UC-03`), 75 open findings plus
-   exactly 1 resolved with `resolved_by: 'user'` (an acknowledged finding, D-42, so the
-   acknowledge/certification path has evidence to inspect immediately).
-3. Getting started on the sandbox: 9 steps, 7 done (only "Review property types" is intentionally
-   left with an open `type_mismatch`, and "Create a share link" is open since a sandbox refuses
+   (about 350 KB, restores in well under a second with no warnings) as a brand-new project named
+   "Acme EU (sandbox)": key `sandbox-acme-eu` (a second sandbox created the same way gets
+   `sandbox-acme-eu-2`, never a doubled `sandbox-sandbox-...` key), badged "SANDBOX" in the header
+   switcher and the Clients list. The file is generated, never hand-edited: the readable seed is
+   `scripts/sandbox-seed.mjs`, built through the app's own DAL by `scripts/build-sandbox-backup.mjs`
+   (`npx tsx scripts/build-sandbox-backup.mjs`), checked by `npx tsx scripts/verify-sandbox-backup.mjs`.
+2. Selecting it: 15 events (13 Bloomreach standard ones plus the custom `wishlist_update` and
+   `newsletter_signup`), 50 properties (9 customer, 41 event) with 53 definitions (`action` has
+   three named ones), 5 variants (`cart_update` add/remove, `purchase` completed/refunded,
+   `wishlist_update` add), 1 bundle ("Product item"), 9 standard event mappings, 4 rules, 1 main
+   catalog, 5 consent categories, 3 identity rules, 3 use cases (`UC-01`..`UC-03`, 17 requirements,
+   one deliberate gap), 1 QA run with 16 observations, 4 comments (1 via share, 1 internal only,
+   1 on a requirement), 2 trigger screenshots (`purchase`, `cart_update`), 14 open findings plus
+   exactly 1 resolved with `resolved_by: 'user'` (an acknowledged `enum_violation`, D-42, so the
+   acknowledge/certification path has evidence to inspect immediately). Open findings by kind:
+   `state_list_mismatch` 2, `unknown_variant` 2, `rename_mismatch` 4, `shape_inconsistent` 1,
+   `type_mismatch` 1, `unmapped_catalog` 1, `missing_event` 1, `rounding_drift` 1,
+   `format_violation` 1.
+3. Getting started on the sandbox: 9 steps, 4 done (client and project, observations, comparison,
+   use case). Open: the three imports (the sandbox has none, by design), "Review property types"
+   (an open `type_mismatch` on `view_item.price`) and "Create a share link" (a sandbox refuses
    sharing without confirmation — see below).
 4. Sharing a sandbox: Settings shows a plain sentence ("This is a sandbox project. Sharing is
    disabled by default...") and asks for confirmation before sending `force: true` on the same

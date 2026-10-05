@@ -9,7 +9,7 @@ The **project switcher** in the header groups projects under their client. The U
 ## Creating things
 
 - **Clients** page: create a client, then create projects under it. Bulk delete exists only for sandbox projects.
-- **Create a sandbox**: restores the bundled sample project under a "Sandboxes" client (or a client you pick). Sandboxes are badged in the switcher and in the Clients list, are meant for exploration, and refuse a share link unless you force it.
+- **Create a sandbox**: restores the bundled sample project, "Acme EU (sandbox)", under a "Sandboxes" client (or a client you pick). It is small on purpose (15 events, about 50 properties, three use cases) and shows each part of the product once: the Bloomreach standard events with their implementation method, a cart event with add and remove variants, one property with several named definitions, system customer properties, consent categories per channel, identity rules, standard event mappings, two trigger screenshots, comments (a client comment, a reply and an internal note) and a QA run with deliberate mistakes, one of them acknowledged. Sandboxes are badged in the switcher and in the Clients list, are meant for exploration, and refuse a share link unless you force it.
 - **Restore a backup**: a full JSON backup always restores as a brand-new project; it never merges into an existing one.
 
 ## Settings

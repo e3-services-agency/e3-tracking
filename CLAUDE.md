@@ -96,7 +96,7 @@ Frontend: React 19, TypeScript, Vite 6, Tailwind CSS 4, Zustand. Backend: Expres
 - `src/components/` — shared UI components.
 - `.claude/team/` — board, tasks, decisions, plan, samples, QA reports; see "Start here" above.
 - `data/` — local SQLite database and uploaded files (gitignored).
-- `scripts/` — `lint-colors.mjs` (see "Test and lint"); `build-ucc-library.mjs` (D-59, T-4-08: converts every file in `.claude/team/samples/br-pnp/` into `.claude/team/samples/use-case-library-ucc.json` plus `docs/LIBRARY.md`, dropping any hand-authored T-4-07 template with a matching pnp export — re-run whenever `br-pnp/` changes, never hand-edit the generated files); `build-sandbox-backup.mjs` (D-60, T-4-09: rebuilds the bundled `.claude/team/samples/sandbox-project-backup.json` from the fixtures through the app's own services — re-run when the schema changes).
+- `scripts/` — `lint-colors.mjs` (see "Test and lint"); `build-ucc-library.mjs` (D-59, T-4-08: converts every file in `.claude/team/samples/br-pnp/` into `.claude/team/samples/use-case-library-ucc.json` plus `docs/LIBRARY.md`, dropping any hand-authored T-4-07 template with a matching pnp export — re-run whenever `br-pnp/` changes, never hand-edit the generated files); `build-sandbox-backup.mjs` (D-60, T-4-09, T-4-11 part A: rebuilds the bundled `.claude/team/samples/sandbox-project-backup.json` from the hand-written, readable seed in `sandbox-seed.mjs` (plus `sandbox-png.mjs` for the two trigger screenshots) through the app's own DAL and services, not from the QA fixtures — re-run when the schema or the seed changes; `verify-sandbox-backup.mjs` restores it into a fresh `:memory:` database and prints size, restore time, warnings and counts).
 
 ## MCP server
 

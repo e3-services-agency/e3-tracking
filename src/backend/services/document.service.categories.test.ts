@@ -202,7 +202,7 @@ describe('catalogs per market and sources on the tracking document (D-61, D-62)'
     const SourceDAL = await import('../dal/source.dal');
     const s = SourceDAL.createSource(projectId, { name: 'Shop', system: 'shopify', method: 'web_sdk_gtm_datalayer' });
     ProjectDAL.updateProject(projectId, { default_source_id: s.id });
-    EventDAL.createEvent(projectId, { name: 'wishlist_add' });
+    EventDAL.createEvent(projectId, { name: 'wishlist_add' }, { applyDefaultSource: true });
     const doc = buildTrackingDocument(projectId);
     expect(doc.sources).toEqual([{ id: s.id, name: 'Shop', system: 'shopify', method: 'web_sdk_gtm_datalayer', event_count: 1 }]);
     expect(doc.project.default_source).toBe('Shop');

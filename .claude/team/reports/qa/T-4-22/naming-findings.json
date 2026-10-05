@@ -1,0 +1,1077 @@
+[
+ {
+  "id": "11af288f-bbd9-432f-abdc-40e070adf32e",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "7e236362-8349-412c-b1f2-55b5e4310eb2",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "delivery-delay-order"
+  },
+  "message": "Customer property \"delivery-delay-order\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||7e236362-8349-412c-b1f2-55b5e4310eb2|property:delivery-delay-order",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.121Z",
+  "last_seen_at": "2026-10-05T11:57:23.765Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "0039857d-a37f-4808-87dc-e32f88755f4b",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "3073bd73-4db2-4ca6-8409-166d400076be",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "DM_campaign_tag"
+  },
+  "message": "Customer property \"DM_campaign_tag\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||3073bd73-4db2-4ca6-8409-166d400076be|property:DM_campaign_tag",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.118Z",
+  "last_seen_at": "2026-10-05T11:57:23.764Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "6d76c5fe-e715-45ac-a36f-4c699fbda72e",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "2bb1cf2c-1e98-4b75-a64c-0deccc311b42",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "DM_digital_reminder"
+  },
+  "message": "Customer property \"DM_digital_reminder\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||2bb1cf2c-1e98-4b75-a64c-0deccc311b42|property:DM_digital_reminder",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.119Z",
+  "last_seen_at": "2026-10-05T11:57:23.764Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "474cab85-c531-446b-ae07-3e32a65ed1c6",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "7ac5833a-6b82-4863-9d9e-efc38dde9d1f",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "Property"
+  },
+  "message": "Customer property \"Property\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||7ac5833a-6b82-4863-9d9e-efc38dde9d1f|property:Property",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.120Z",
+  "last_seen_at": "2026-10-05T11:57:23.764Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "275b0a7c-5884-49e0-a31e-09d68f8d0d22",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "42a7a3bc-c3a1-41e5-9018-38ab3459d920",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "Testing Property"
+  },
+  "message": "Customer property \"Testing Property\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||42a7a3bc-c3a1-41e5-9018-38ab3459d920|property:Testing Property",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.120Z",
+  "last_seen_at": "2026-10-05T11:57:23.764Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "9c27200c-2b24-4d62-9f61-34a78626ebca",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "3f57f382-4460-46e2-b66f-a7695dc58531",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "DM_2ndOrder_automated_received"
+  },
+  "message": "Customer property \"DM_2ndOrder_automated_received\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||3f57f382-4460-46e2-b66f-a7695dc58531|property:DM_2ndOrder_automated_received",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.117Z",
+  "last_seen_at": "2026-10-05T11:57:23.763Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "3f1e0875-183b-408e-8444-7a048bcc563f",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "0f5210b7-1e9b-48dd-bcb9-e17bb16347f6",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "DM_Collagen_Received"
+  },
+  "message": "Customer property \"DM_Collagen_Received\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||0f5210b7-1e9b-48dd-bcb9-e17bb16347f6|property:DM_Collagen_Received",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.118Z",
+  "last_seen_at": "2026-10-05T11:57:23.763Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "4bac454a-214a-4e3e-9678-55704070a941",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "8aff82c3-b638-438e-8a44-bacd520637f6",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "CodeDuration_Date"
+  },
+  "message": "Customer property \"CodeDuration_Date\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||8aff82c3-b638-438e-8a44-bacd520637f6|property:CodeDuration_Date",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.115Z",
+  "last_seen_at": "2026-10-05T11:57:23.762Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "5a3e1ee8-c9bb-406e-825b-5bda51819614",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "28a01d3d-6f3c-408f-8cfb-f39f868a9d65",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "Collagen Meta Retargeting Split Flag"
+  },
+  "message": "Customer property \"Collagen Meta Retargeting Split Flag\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||28a01d3d-6f3c-408f-8cfb-f39f868a9d65|property:Collagen Meta Retargeting Split Flag",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.116Z",
+  "last_seen_at": "2026-10-05T11:57:23.762Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "9fdad3b9-f3a2-40e1-8b39-6bdd37b6cba4",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "7194147e-22f0-4135-8b29-927c5e609c09",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "Currency Code"
+  },
+  "message": "Customer property \"Currency Code\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||7194147e-22f0-4135-8b29-927c5e609c09|property:Currency Code",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.116Z",
+  "last_seen_at": "2026-10-05T11:57:23.762Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "3592810f-4f76-4946-ae82-85385aab4eb9",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "3b2081a5-d44b-4819-8df8-5bd8488344b5",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "DE Bidding Strategy Split Flag"
+  },
+  "message": "Customer property \"DE Bidding Strategy Split Flag\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||3b2081a5-d44b-4819-8df8-5bd8488344b5|property:DE Bidding Strategy Split Flag",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.116Z",
+  "last_seen_at": "2026-10-05T11:57:23.762Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "fbf79b3e-c404-4b69-9a27-2e497ff7a55b",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "707ab9a4-f2f6-49db-ac9f-b16cc35a303b",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "ChurnRisk_unique_voucher"
+  },
+  "message": "Customer property \"ChurnRisk_unique_voucher\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||707ab9a4-f2f6-49db-ac9f-b16cc35a303b|property:ChurnRisk_unique_voucher",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.113Z",
+  "last_seen_at": "2026-10-05T11:57:23.761Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "5d0a32a7-26ba-4b0c-8b50-de65e801fc36",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "89c72b63-420c-41a9-90c6-26113b1f192e",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "Churn_risk"
+  },
+  "message": "Customer property \"Churn_risk\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||89c72b63-420c-41a9-90c6-26113b1f192e|property:Churn_risk",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.113Z",
+  "last_seen_at": "2026-10-05T11:57:23.761Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "ea0cf7ab-bb83-47a9-9e8c-abd060107d4a",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "41f5fb2f-f15f-43c8-a8f2-e265b98886ed",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "City"
+  },
+  "message": "Customer property \"City\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||41f5fb2f-f15f-43c8-a8f2-e265b98886ed|property:City",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.114Z",
+  "last_seen_at": "2026-10-05T11:57:23.761Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "60f2e079-1bb5-4c19-99d5-af8b6c7db813",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "81169960-de15-4370-87b2-233d647899c2",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "CodeDuration"
+  },
+  "message": "Customer property \"CodeDuration\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||81169960-de15-4370-87b2-233d647899c2|property:CodeDuration",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.114Z",
+  "last_seen_at": "2026-10-05T11:57:23.761Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "d17dd03e-fced-48bb-9d1f-d1d764aa2f7e",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "aacfa13d-f7ca-483a-b3c8-82d05afc0fb6",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "CO_unique_code_referee"
+  },
+  "message": "Customer property \"CO_unique_code_referee\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||aacfa13d-f7ca-483a-b3c8-82d05afc0fb6|property:CO_unique_code_referee",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.111Z",
+  "last_seen_at": "2026-10-05T11:57:23.760Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "38034c8f-6d7f-46d9-bd9c-76a98b11103c",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "9e977b54-3d38-45ed-86f5-1814988de642",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "CO_unique_code_referrer"
+  },
+  "message": "Customer property \"CO_unique_code_referrer\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||9e977b54-3d38-45ed-86f5-1814988de642|property:CO_unique_code_referrer",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.112Z",
+  "last_seen_at": "2026-10-05T11:57:23.760Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "7a81cd1b-967c-4134-b547-90fc7a739e9e",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "0954a904-440f-4641-b04d-176538f4f7e9",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "Cart_Abandonment_Voucher"
+  },
+  "message": "Customer property \"Cart_Abandonment_Voucher\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||0954a904-440f-4641-b04d-176538f4f7e9|property:Cart_Abandonment_Voucher",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.112Z",
+  "last_seen_at": "2026-10-05T11:57:23.760Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "0222fd26-f364-4d37-af44-1aa7a190ea37",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "512cfc45-ceeb-41c1-8947-6b5a44c8fb11",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "Braintree Transaction Source"
+  },
+  "message": "Customer property \"Braintree Transaction Source\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||512cfc45-ceeb-41c1-8947-6b5a44c8fb11|property:Braintree Transaction Source",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.110Z",
+  "last_seen_at": "2026-10-05T11:57:23.759Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "acf1dff9-e63a-4e79-9692-5ca75c4b13b1",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "e99a7e8f-e261-4ff6-ad58-7fddfb949fa8",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "CHF Currency Flag"
+  },
+  "message": "Customer property \"CHF Currency Flag\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||e99a7e8f-e261-4ff6-ad58-7fddfb949fa8|property:CHF Currency Flag",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.111Z",
+  "last_seen_at": "2026-10-05T11:57:23.759Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "ae67cdf6-148e-4f72-ab2e-547759aaff0f",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "5947ce6c-7a61-4c7a-8306-35e22c4e66d4",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "Bidding Strategy Split Flag"
+  },
+  "message": "Customer property \"Bidding Strategy Split Flag\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||5947ce6c-7a61-4c7a-8306-35e22c4e66d4|property:Bidding Strategy Split Flag",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.110Z",
+  "last_seen_at": "2026-10-05T11:57:23.758Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "99823dbe-de51-411b-a1e2-f62fdca39abc",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "d814867e-694b-4104-8c05-9c134d4c2bb2",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "BIS Weblayer Product_id"
+  },
+  "message": "Customer property \"BIS Weblayer Product_id\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||d814867e-694b-4104-8c05-9c134d4c2bb2|property:BIS Weblayer Product_id",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.109Z",
+  "last_seen_at": "2026-10-05T11:57:23.757Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "4e574f81-ef96-43d7-b6f0-d64d915d3316",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "631f8de3-9a3b-41a6-9cec-7c2548beffe4",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "Back_in_Stock__unique_10Voucher"
+  },
+  "message": "Customer property \"Back_in_Stock__unique_10Voucher\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||631f8de3-9a3b-41a6-9cec-7c2548beffe4|property:Back_in_Stock__unique_10Voucher",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.109Z",
+  "last_seen_at": "2026-10-05T11:57:23.757Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "ad0ee68f-5ed8-43df-a85b-05f60637f6fa",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "67646e00-d6ed-4e88-9032-0a08b4a642ff",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "At Risk Segment for tomorrow (Meta Retargeting)"
+  },
+  "message": "Customer property \"At Risk Segment for tomorrow (Meta Retargeting)\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||67646e00-d6ed-4e88-9032-0a08b4a642ff|property:At Risk Segment for tomorrow (Meta Retargeting)",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.109Z",
+  "last_seen_at": "2026-10-05T11:57:23.756Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "50479b3d-6e56-4d52-bc9f-a182b7d432ea",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "6cd066d3-61ab-49a8-afbc-c8d30f9bcfb3",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "At Risk Segment for Monday (Updated on Saturday)"
+  },
+  "message": "Customer property \"At Risk Segment for Monday (Updated on Saturday)\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||6cd066d3-61ab-49a8-afbc-c8d30f9bcfb3|property:At Risk Segment for Monday (Updated on Saturday)",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.108Z",
+  "last_seen_at": "2026-10-05T11:57:23.755Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "746d12c7-45c8-4a05-8aa2-cce50c886414",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "77320acd-b9a9-48e1-b158-4c2358078bb4",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "4thorder4_unique_voucher"
+  },
+  "message": "Customer property \"4thorder4_unique_voucher\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||77320acd-b9a9-48e1-b158-4c2358078bb4|property:4thorder4_unique_voucher",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.107Z",
+  "last_seen_at": "2026-10-05T11:57:23.748Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "8efb67a8-ffb8-44cf-9019-101f9319d660",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "cc8d1709-498d-40aa-ba4e-5851b27c54ef",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "AT/FR/IT Bidding Strategy Split Flag"
+  },
+  "message": "Customer property \"AT/FR/IT Bidding Strategy Split Flag\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||cc8d1709-498d-40aa-ba4e-5851b27c54ef|property:AT/FR/IT Bidding Strategy Split Flag",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.107Z",
+  "last_seen_at": "2026-10-05T11:57:23.748Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "01ed4672-2729-4dce-89d1-4cfcad8b6f9f",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "bbeebce7-3bf3-410a-ac4b-d7c4b4e970f7",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "At Risk 50:50 split (Meta Retargeting)"
+  },
+  "message": "Customer property \"At Risk 50:50 split (Meta Retargeting)\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||bbeebce7-3bf3-410a-ac4b-d7c4b4e970f7|property:At Risk 50:50 split (Meta Retargeting)",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.108Z",
+  "last_seen_at": "2026-10-05T11:57:23.748Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "5456b1c9-5b37-4a35-9a46-e2fe3b8a5385",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "abf43721-ec6c-4801-8df3-cb7b9d92bba2",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "2ndorder_unique_voucher"
+  },
+  "message": "Customer property \"2ndorder_unique_voucher\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||abf43721-ec6c-4801-8df3-cb7b9d92bba2|property:2ndorder_unique_voucher",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.105Z",
+  "last_seen_at": "2026-10-05T11:57:23.747Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "a542d085-6b33-4e20-b6ed-8bdbd7272720",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "2e765ecf-6a1e-4d0b-9b59-8f0286dec8a0",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "4thorder10_unique_voucher"
+  },
+  "message": "Customer property \"4thorder10_unique_voucher\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||2e765ecf-6a1e-4d0b-9b59-8f0286dec8a0|property:4thorder10_unique_voucher",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.106Z",
+  "last_seen_at": "2026-10-05T11:57:23.747Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "4105e8c6-4dde-4bbb-9750-17db512e4d0f",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "9d7340b7-7869-450c-bc59-dfaefbd8ad2a",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "4thorder13_unique_voucher"
+  },
+  "message": "Customer property \"4thorder13_unique_voucher\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||9d7340b7-7869-450c-bc59-dfaefbd8ad2a|property:4thorder13_unique_voucher",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.106Z",
+  "last_seen_at": "2026-10-05T11:57:23.747Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "562ecad8-f479-42f7-92c4-d93467085157",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "5e3fa13d-6080-48fe-97b6-5e1b42136ab2",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "10_euro_geschenkgutschein"
+  },
+  "message": "Customer property \"10_euro_geschenkgutschein\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||5e3fa13d-6080-48fe-97b6-5e1b42136ab2|property:10_euro_geschenkgutschein",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.104Z",
+  "last_seen_at": "2026-10-05T11:57:23.746Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "a000173b-93ae-4315-a9ff-71e7a74b271f",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "fa785709-8dc4-434a-8785-e1e0242c205c",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "2ndorderDE_unique_voucher"
+  },
+  "message": "Customer property \"2ndorderDE_unique_voucher\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||fa785709-8dc4-434a-8785-e1e0242c205c|property:2ndorderDE_unique_voucher",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.105Z",
+  "last_seen_at": "2026-10-05T11:57:23.746Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "dd2238f5-5789-41f8-a44b-bff51728f824",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": null,
+  "variant_id": null,
+  "property_id": "98f6a486-e8e9-4aab-a357-0388c4137c68",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "2ndorder_infl_unique_voucher"
+  },
+  "message": "Customer property \"2ndorder_infl_unique_voucher\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|||98f6a486-e8e9-4aab-a357-0388c4137c68|property:2ndorder_infl_unique_voucher",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.105Z",
+  "last_seen_at": "2026-10-05T11:57:23.746Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "9bb1817c-58e5-4fec-aebe-53bd09a36e24",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": "3c028563-f8e3-46b4-8e3c-5320cee9d5d2",
+  "variant_id": null,
+  "property_id": "7f501044-72fd-4518-ab4a-bac192ac46da",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "qbr_CLTV"
+  },
+  "message": "Property \"qbr_CLTV\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|3c028563-f8e3-46b4-8e3c-5320cee9d5d2||7f501044-72fd-4518-ab4a-bac192ac46da|property:qbr_CLTV",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.103Z",
+  "last_seen_at": "2026-10-05T11:57:23.745Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "71571b83-4373-41f2-a24b-30ca9f8ef80e",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": "3c028563-f8e3-46b4-8e3c-5320cee9d5d2",
+  "variant_id": null,
+  "property_id": "19c9eea0-4bc3-429b-943e-0f5f7b7beee6",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "qbr_three_time+_shoppers"
+  },
+  "message": "Property \"qbr_three_time+_shoppers\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|3c028563-f8e3-46b4-8e3c-5320cee9d5d2||19c9eea0-4bc3-429b-943e-0f5f7b7beee6|property:qbr_three_time+_shoppers",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.103Z",
+  "last_seen_at": "2026-10-05T11:57:23.745Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "1d5c68ad-5a6f-45b5-bc23-9a26b3ff18b0",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": "718be87b-10a6-4587-bbf9-fb9f1b25f413",
+  "variant_id": null,
+  "property_id": "195098da-065e-4ab1-a3df-83a3bde9ecfe",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "pool name"
+  },
+  "message": "Property \"pool name\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|718be87b-10a6-4587-bbf9-fb9f1b25f413||195098da-065e-4ab1-a3df-83a3bde9ecfe|property:pool name",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.104Z",
+  "last_seen_at": "2026-10-05T11:57:23.745Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "f2ef5121-2c17-43c4-aa6e-45007eae46c4",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": "1b3faf21-8468-4515-80b5-7a4037e03df3",
+  "variant_id": null,
+  "property_id": "2ad234f3-e491-4407-9dcc-05fab6cf78b1",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "updated at"
+  },
+  "message": "Property \"updated at\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|1b3faf21-8468-4515-80b5-7a4037e03df3||2ad234f3-e491-4407-9dcc-05fab6cf78b1|property:updated at",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.101Z",
+  "last_seen_at": "2026-10-05T11:57:23.744Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "7692f759-bf70-4683-8cc9-e2a5bbfa911f",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": "8edaa92f-2d62-4b07-9fcb-0aa4e499fe99",
+  "variant_id": null,
+  "property_id": "5506120a-5cee-46f6-ac69-b502535338a2",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "Germany: count(customer)"
+  },
+  "message": "Property \"Germany: count(customer)\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|8edaa92f-2d62-4b07-9fcb-0aa4e499fe99||5506120a-5cee-46f6-ac69-b502535338a2|property:Germany: count(customer)",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.101Z",
+  "last_seen_at": "2026-10-05T11:57:23.744Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "5d0b045b-d589-4590-8074-703faecec457",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": "8edaa92f-2d62-4b07-9fcb-0aa4e499fe99",
+  "variant_id": null,
+  "property_id": "69ff0df8-452d-4981-bb57-19a7db68048d",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "UK: count(customer)"
+  },
+  "message": "Property \"UK: count(customer)\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|8edaa92f-2d62-4b07-9fcb-0aa4e499fe99||69ff0df8-452d-4981-bb57-19a7db68048d|property:UK: count(customer)",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.102Z",
+  "last_seen_at": "2026-10-05T11:57:23.744Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "b95f35ca-cc42-46cc-ae20-87aedea9e3ae",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": "8edaa92f-2d62-4b07-9fcb-0aa4e499fe99",
+  "variant_id": null,
+  "property_id": "565309f6-40ff-49ac-95e6-72c65e660a13",
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "USA: count(customer)"
+  },
+  "message": "Property \"USA: count(customer)\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|8edaa92f-2d62-4b07-9fcb-0aa4e499fe99||565309f6-40ff-49ac-95e6-72c65e660a13|property:USA: count(customer)",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.102Z",
+  "last_seen_at": "2026-10-05T11:57:23.744Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "9f4f341a-20f5-4870-97da-195017f00c79",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": "1b3faf21-8468-4515-80b5-7a4037e03df3",
+  "variant_id": null,
+  "property_id": null,
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "Opt_in_proof"
+  },
+  "message": "Event \"Opt_in_proof\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|1b3faf21-8468-4515-80b5-7a4037e03df3|||event:Opt_in_proof",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:51:16.100Z",
+  "last_seen_at": "2026-10-05T11:57:23.743Z",
+  "resolved_at": null,
+  "resolved_by": null
+ },
+ {
+  "id": "875e392e-176a-481d-902f-64ad8be88e57",
+  "project_id": "06c5c174-0863-4a51-802d-acfb9f15239f",
+  "comparison": "definition_vs_mapping",
+  "kind": "naming_violation",
+  "severity": "warning",
+  "event_id": "f3f212c9-7bb7-4d99-9674-12fda92c5e3c",
+  "variant_id": null,
+  "property_id": null,
+  "observation_id": null,
+  "qa_run_id": null,
+  "expected_json": {
+   "naming_convention": "snake_case"
+  },
+  "actual_json": {
+   "name": "Add To Cart"
+  },
+  "message": "Event \"Add To Cart\" does not follow the project naming convention: snake_case (for example order_total).",
+  "fingerprint": "definition_vs_mapping|naming_violation|f3f212c9-7bb7-4d99-9674-12fda92c5e3c|||event:Add To Cart",
+  "status": "open",
+  "first_seen_at": "2026-10-05T11:57:23.743Z",
+  "last_seen_at": "2026-10-05T11:57:23.743Z",
+  "resolved_at": null,
+  "resolved_by": null
+ }
+]

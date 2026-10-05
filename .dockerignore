@@ -1,0 +1,15 @@
+node_modules
+dist
+dist-backend
+api/_backend
+data
+coverage
+.git
+.claude
+!.claude/team/samples/sandbox-project-backup.json
+.env*
+!.env.docker.example
+*.log
+**/*.test.ts
+docker-compose.yml
+Dockerfile

@@ -8,6 +8,7 @@ coverage/
 *.log
 .env*
 !.env.example
+!.env.docker.example
 data/
 .claude/worktrees/
 

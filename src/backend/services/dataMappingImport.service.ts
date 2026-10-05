@@ -861,7 +861,11 @@ export function previewDataMapping(projectId: string, rawJson: unknown): DataMap
     consents: model.consents,
     catalogs: { main: model.catalogs.main, variant: model.catalogs.variant },
   });
-  const findings = runDefinitionVsMapping(definitionVsMappingInput, mappingSnapshot);
+  // The import preview never runs the naming check (D-65): `runComparison` is the only producer of `naming_violation`.
+  const findings = runDefinitionVsMapping(
+    { ...definitionVsMappingInput, namingConvention: undefined, customerProperties: undefined },
+    mappingSnapshot
+  );
 
   return { items, warnings, payload_hash: payloadHash(rawJson), findings };
 }

@@ -27,7 +27,8 @@ const BARE_NOTIFICATION = /notification/;
 
 export function consentChannel(category: { name: string; standard_key?: string | null }): ConsentChannel {
   for (const text of [category.standard_key ?? '', category.name]) {
-    const t = text.toLowerCase();
+    // A lower-to-upper camelCase transition is a word boundary (marketingEmail), checked before lower-casing.
+    const t = text.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase();
     if (!t) continue;
     for (const [channel, re] of KEYWORDS) if (re.test(t)) return channel;
   }

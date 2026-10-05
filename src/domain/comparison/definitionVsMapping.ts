@@ -257,7 +257,8 @@ export function runDefinitionVsMapping(definition: DefinitionVsMappingInput, map
         expected_json: { naming_convention: convention },
         actual_json: { name },
         message: `${what} "${name}" does not follow the project naming convention: ${conventionRule(convention)}.`,
-        fingerprint: fp('naming_violation', eventId, propertyId, `${propertyId ? 'property' : 'event'}:${name}`),
+        // A property finding is keyed by the property only, so it stays stable across event rename or unlink.
+        fingerprint: fp('naming_violation', propertyId ? null : eventId, propertyId, `${propertyId ? 'property' : 'event'}:${name}`),
       });
     for (const event of customEvents) {
       if (!isNamingExempt({ kind: 'event', class: event.class }) && !matchesConvention(event.name, convention)) {

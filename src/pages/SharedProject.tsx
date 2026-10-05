@@ -340,20 +340,22 @@ function FindingsSummaryBlock({
 /** A requirement's target label with its event and property parts linked where they resolve (T-4-22). */
 function renderRequirementTarget(
   r: { target_label: string; target_kind?: string; event_id?: string | null; property_id?: string | null },
-  renderRef: (ref: Reference, label: React.ReactNode) => React.ReactNode
+  renderRef: (ref: Reference, label: React.ReactNode) => React.ReactNode,
+  names: { event: (id: string) => string | undefined; property: (id: string) => string | undefined }
 ): React.ReactNode {
-  const eventLabel = r.target_label.split('.')[0];
   switch (r.target_kind) {
     case 'event':
       return r.event_id ? renderRef({ kind: 'event', id: r.event_id }, r.target_label) : r.target_label;
     case 'customer_property':
       return r.property_id ? renderRef({ kind: 'property', id: r.property_id }, r.target_label) : r.target_label;
     case 'event_property': {
-      if (!r.event_id || !r.property_id || !r.target_label.startsWith(`${eventLabel}.`)) return r.target_label;
+      const eventName = r.event_id ? names.event(r.event_id) : undefined;
+      const propertyName = r.property_id ? names.property(r.property_id) : undefined;
+      if (!r.event_id || !r.property_id || !eventName || !propertyName) return r.target_label;
       return (
         <>
-          {renderRef({ kind: 'event', id: r.event_id }, eventLabel)}.
-          {renderRef({ kind: 'property', id: r.property_id }, r.target_label.slice(eventLabel.length + 1))}
+          {renderRef({ kind: 'event', id: r.event_id }, eventName)}.
+          {renderRef({ kind: 'property', id: r.property_id }, propertyName)}
         </>
       );
     }
@@ -563,6 +565,10 @@ export function SharedProject({ token }: { token: string }) {
     ) : (
       label
     );
+  };
+  const requirementNames = {
+    event: (id: string) => doc.events.find((e) => e.id === id)?.name,
+    property: (id: string) => [...doc.properties, ...(doc.event_properties ?? [])].find((p) => p.property_id === id)?.name,
   };
   const namingLine = (
     <p data-testid="naming-note" className="text-xs text-gray-500">
@@ -844,7 +850,7 @@ export function SharedProject({ token }: { token: string }) {
                                   {uc.requirements.map((r) => (
                                     <React.Fragment key={r.id}>
                                       <tr>
-                                        <td className="px-3 py-2">{renderRequirementTarget(r, renderRef)}</td>
+                                        <td className="px-3 py-2">{renderRequirementTarget(r, renderRef, requirementNames)}</td>
                                         <td className="px-3 py-2">{r.level}</td>
                                         <td className="px-3 py-2">{r.status ?? '—'}</td>
                                         <td className="px-3 py-2 text-right">

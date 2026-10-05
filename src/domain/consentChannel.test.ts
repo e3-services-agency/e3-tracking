@@ -12,6 +12,8 @@ describe('consentChannel (T-4-21)', () => {
     expect(consentChannel({ name: 'WhatsApp updates' })).toBe('whatsapp');
     expect(consentChannel({ name: 'Email notifications' })).toBe('email');
     expect(consentChannel({ name: 'Voicemail' })).toBe('other');
+    expect(consentChannel({ name: 'marketingEmail' })).toBe('email');
+    expect(consentChannel({ name: 'x', standard_key: 'bulkEmail' })).toBe('email');
     expect(consentChannel({ name: 'E-mail updates' })).toBe('email');
     expect(consentChannel({ name: 'marketing_email', standard_key: 'marketing_email' })).toBe('email');
     expect(consentChannel({ name: 'Mobile app messages' })).toBe('push');

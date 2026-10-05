@@ -16,7 +16,14 @@ import {
 import { getClientOrThrow, type ClientRow } from './client.dal';
 import { validateExpirationJson } from './validators';
 import { STANDARD_EVENTS } from '../../domain/bloomreach';
-import { SHARE_ACCESS, SHARE_COMMENT_VISIBILITIES, type ShareAccess, type ShareCommentVisibility } from '../../domain/enums';
+import {
+  NAMING_CONVENTIONS,
+  SHARE_ACCESS,
+  SHARE_COMMENT_VISIBILITIES,
+  type NamingConvention,
+  type ShareAccess,
+  type ShareCommentVisibility,
+} from '../../domain/enums';
 import * as ChangeLogDAL from './change-log.dal';
 import { payloadHash } from '../../domain/diff/hash';
 
@@ -69,6 +76,8 @@ export interface ProjectRow {
    * filter (`LIBRARY_INDUSTRIES` is a suggested vocabulary, not enforced here -- a client's
    * industry is not limited to the three seed values, same reasoning as D-57's tag values). */
   industry: string | null;
+  /** D-65 (T-4-22): naming convention for custom events and properties (system items exempt). */
+  naming_convention: NamingConvention;
   /** T-4-09 (D-60): free-form per-project flags, `{is_sandbox?: boolean}` today. */
   settings_json: unknown;
   /** Derived from `settings_json.is_sandbox` (T-4-09, D-60); not a real column. */
@@ -278,6 +287,8 @@ export interface UpdateProjectInput {
   data_manager_events_json?: unknown;
   /** T-3-10 (D-57): optional industry, used as the templates page's default facet filter. */
   industry?: string | null;
+  /** D-65 (T-4-22). */
+  naming_convention?: unknown;
 }
 
 /** Range validation for the D-30 money tolerance fields (T-2-06 plan: "range validation"). */
@@ -454,7 +465,15 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
     throw new ValidationError('industry must be a string or null.', 'industry');
   }
 
+  if (
+    updates.naming_convention !== undefined &&
+    !(NAMING_CONVENTIONS as readonly unknown[]).includes(updates.naming_convention)
+  ) {
+    throw new ValidationError(`naming_convention must be one of: ${NAMING_CONVENTIONS.join(', ')}.`, 'naming_convention');
+  }
+
   const patch: Record<string, unknown> = { updated_at: nowIso() };
+  if (updates.naming_convention !== undefined) patch.naming_convention = updates.naming_convention;
   if (updates.name !== undefined) patch.name = updates.name.trim();
   if (updates.key !== undefined) patch.key = updates.key.trim();
   if (updates.client_id !== undefined) patch.client_id = updates.client_id;

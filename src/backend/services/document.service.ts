@@ -136,7 +136,17 @@ function sampleFromAttached(attached: AttachedPropertyForCodegen[]): Record<stri
 /** Per-project cache: (event_id, property_id) -> property name, for resolving rule expressions and field maps to readable names without a `getEventWithProperties` re-read per rule. */
 function buildPropertyNameResolver(projectId: string): (eventId: string, propertyId: string) => string {
   const cache = new Map<string, Map<string, string>>();
+  // T-4-22: a finding with no event (e.g. a customer property `naming_violation`) or whose property
+  // is no longer linked to its event still resolves to the property's name, not its raw id.
+  let projectNames: Map<string, string> | null = null;
+  const projectName = (propertyId: string): string | undefined => {
+    if (!projectNames) {
+      projectNames = new Map(PropertyDAL.listProperties(projectId).map((p) => [p.id, p.name]));
+    }
+    return projectNames.get(propertyId);
+  };
   return (eventId, propertyId) => {
+    if (!eventId) return projectName(propertyId) ?? propertyId;
     let names = cache.get(eventId);
     if (!names) {
       names = new Map<string, string>();
@@ -148,7 +158,7 @@ function buildPropertyNameResolver(projectId: string): (eventId: string, propert
       }
       cache.set(eventId, names);
     }
-    return names.get(propertyId) ?? propertyId;
+    return names.get(propertyId) ?? projectName(propertyId) ?? propertyId;
   };
 }
 
@@ -421,7 +431,7 @@ function toEventCardFinding(
     kind: finding.kind,
     severity: finding.severity,
     property_id: finding.property_id,
-    property: finding.property_id && finding.event_id ? nameOf(finding.event_id, finding.property_id) : finding.property_id,
+    property: finding.property_id ? nameOf(finding.event_id ?? '', finding.property_id) : null,
     variant_id: finding.variant_id,
     variant: finding.variant_id ? variantNameById.get(finding.variant_id) ?? finding.variant_id : null,
     rule: findingRuleName(finding),

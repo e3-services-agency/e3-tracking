@@ -195,6 +195,13 @@ export const KIND_INFO: Record<FindingKind, KindInfo> = {
     'Lists that describe the same state (ids, quantities, totals) disagree in length or type, or the interacted item is missing or still present after add or remove.',
     'Rebuild the lists from one source in the data layer so they always stay in step.'
   ),
+  naming_violation: k(
+    'naming_violation',
+    'schema',
+    'Name breaks the naming convention',
+    'An event or property name does not follow the project naming convention (system items are exempt).',
+    'Rename it to match the convention, or change the convention in Project settings.'
+  ),
   shape_inconsistent: k(
     'shape_inconsistent',
     'consistency',

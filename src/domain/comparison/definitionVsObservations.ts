@@ -58,6 +58,8 @@ export interface DefEventProperty {
   /** D-63 (T-4-17): property kind and derivation rule; only rules/stateLists.ts reads them. */
   kind?: string;
   derivation?: unknown;
+  /** D-65 (T-4-22): the stored category override, read only by the naming check (comparison 1). */
+  category_override?: string | null;
 }
 
 export interface DefVariant {

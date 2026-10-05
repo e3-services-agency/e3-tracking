@@ -151,6 +151,7 @@ export function buildDefinitionSnapshot(projectId: string): DefinitionSnapshot {
         // D-63 (T-4-17): read by rules/stateLists.ts only.
         kind: link.property.kind,
         derivation: link.property.derivation_json,
+        category_override: link.property.category_override ?? null,
       };
     });
     return {
@@ -302,6 +303,14 @@ export function buildDefinitionVsMappingInput(projectId: string, definition: Def
     events: definition.events,
     hasCatalog: CatalogDAL.listCatalogs(projectId).length > 0,
     consentCategories,
+    // D-65 (T-4-22): the naming check needs the convention and the customer properties (which are
+    // not linked to any event).
+    namingConvention: ProjectDAL.getProjectOrThrow(projectId).naming_convention,
+    customerProperties: PropertyDAL.listProperties(projectId, { scope: 'customer' }).map((p) => ({
+      id: p.id,
+      name: p.name,
+      category_override: p.category_override ?? null,
+    })),
   };
 }
 

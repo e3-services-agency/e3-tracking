@@ -119,6 +119,7 @@ router.patch('/:id', (req: Request, res: Response) => {
       money_tolerance_percent: typeof body.money_tolerance_percent === 'number' ? body.money_tolerance_percent : undefined,
       money_tolerance_floor: typeof body.money_tolerance_floor === 'number' ? body.money_tolerance_floor : undefined,
       industry: pick('industry'),
+      naming_convention: body.naming_convention,
     });
     res.status(200).json(project);
   } catch (err) {

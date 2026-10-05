@@ -1,0 +1,75 @@
+/**
+ * Nightly backup job logic (D-66, T-5-00): writes one `backup-<project-key>-<YYYY-MM-DD>.json` per
+ * project (the D-45 full JSON backup, restorable through the Clients restore form or
+ * `POST /api/projects/restore-backup/preview|apply`) into a directory and keeps the newest
+ * `keep` files per project. The pure helpers are unit-tested; `backupJobMain.ts` is the scheduler.
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import { listProjects } from './dal/project.dal';
+import { buildBackup } from './services/backup.service';
+
+export const DEFAULT_KEEP = 14;
+const NAME_RE = /^backup-(.+)-(\d{4}-\d{2}-\d{2})\.json$/;
+
+export function sanitizeKey(key: string): string {
+  return key.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+export function backupFileName(projectKey: string, date: Date): string {
+  return `backup-${sanitizeKey(projectKey)}-${date.toISOString().slice(0, 10)}.json`;
+}
+
+/** Files to delete so that at most `keep` newest (by date in the name) remain per project key. Ignores unrelated names. */
+export function selectBackupsToDelete(fileNames: string[], keep: number = DEFAULT_KEEP): string[] {
+  const byKey = new Map<string, { name: string; date: string }[]>();
+  for (const name of fileNames) {
+    const m = NAME_RE.exec(name);
+    if (!m) continue;
+    const list = byKey.get(m[1]) ?? [];
+    list.push({ name, date: m[2] });
+    byKey.set(m[1], list);
+  }
+  const doomed: string[] = [];
+  for (const list of byKey.values()) {
+    list.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    for (const item of list.slice(Math.max(0, keep))) doomed.push(item.name);
+  }
+  return doomed.sort();
+}
+
+export interface BackupRunResult {
+  written: string[];
+  deleted: string[];
+  failed: { project: string; error: string }[];
+}
+
+export async function runBackupOnce(dir: string, keep: number = DEFAULT_KEEP, now: Date = new Date()): Promise<BackupRunResult> {
+  fs.mkdirSync(dir, { recursive: true });
+  const result: BackupRunResult = { written: [], deleted: [], failed: [] };
+  for (const project of listProjects()) {
+    try {
+      const backup = await buildBackup(project.id);
+      const name = backupFileName(project.key, now);
+      const target = path.join(dir, name);
+      const tmp = `${target}.tmp`;
+      fs.writeFileSync(tmp, JSON.stringify(backup));
+      fs.renameSync(tmp, target);
+      result.written.push(name);
+    } catch (err) {
+      result.failed.push({ project: project.key, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+  for (const name of selectBackupsToDelete(fs.readdirSync(dir), keep)) {
+    fs.unlinkSync(path.join(dir, name));
+    result.deleted.push(name);
+  }
+  return result;
+}
+
+/** Milliseconds until the next `hourUtc`:00 UTC strictly after `now`. */
+export function msUntilNextRun(now: Date, hourUtc: number): number {
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hourUtc, 0, 0, 0));
+  if (next.getTime() <= now.getTime()) next.setUTCDate(next.getUTCDate() + 1);
+  return next.getTime() - now.getTime();
+}

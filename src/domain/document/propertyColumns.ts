@@ -16,6 +16,7 @@ export interface PropertyColumnsInput {
   kind?: string;
   datalayer_path?: string | null;
   bundle?: string | null;
+  catalog_field?: string | null;
 }
 
 export const SHARED_PROPERTY_HEAD = ['Payload key', 'Type', 'Kind', 'Required', 'Description', 'Example'] as const;
@@ -30,5 +31,6 @@ export function secondaryPropertyLines(p: PropertyColumnsInput): string[] {
   if (p.pii) lines.push('PII');
   if (p.bundle) lines.push(`Bundle: ${p.bundle}`);
   if (p.datalayer_path) lines.push(`dataLayer: ${p.datalayer_path}`);
+  if (p.catalog_field) lines.push(`Catalog: ${p.catalog_field}`);
   return lines;
 }

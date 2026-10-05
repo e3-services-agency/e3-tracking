@@ -103,6 +103,8 @@ export interface EventCardProperty {
   bundle: string | null;
   /** D-64/T-4-22, additive: derived category (`classifyProperty`, the override when set), for the badge. */
   category: PropertyCategory;
+  /** D-61 (T-4-11B), additive: the catalog field the property looks up into as `catalog.field`, `null` when not linked. */
+  catalog_field?: string | null;
 }
 
 export interface EventCardVariantCondition {

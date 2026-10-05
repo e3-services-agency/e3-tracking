@@ -75,6 +75,8 @@ export interface EventCardData {
     kind?: string;
     derivation?: unknown;
     datalayer_path?: string | null;
+    /** D-61 (T-4-11B), additive: `catalog.field` the property looks up into. */
+    catalog_field?: string | null;
     bundle?: string | null;
     /** D-64/T-4-22, additive: derived property category for the badge. */
     category?: PropertyCategory;
@@ -301,7 +303,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
           head={[
             'Payload key',
             ...(showNames ? ['Name'] : []),
-            'Type', 'Formats', 'Role', 'Kind', 'dataLayer path', 'Bundle', 'Required', 'Allowed values', 'PII', 'Description', 'Example',
+            'Type', 'Formats', 'Role', 'Kind', 'dataLayer path', 'Bundle', 'Catalog field', 'Required', 'Allowed values', 'PII', 'Description', 'Example',
           ]}
           rows={card.properties.map((p) => [
             keyCell(p),
@@ -312,6 +314,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             p.kind ?? 'event',
             p.datalayer_path === null ? 'n/a' : (p.datalayer_path ?? '—'),
             p.bundle ?? '—',
+            p.catalog_field ?? '—',
             p.required ? 'yes' : 'no',
             p.allowed_values ? p.allowed_values.map((v) => v.value).join(', ') : '—',
             p.pii ? 'yes' : 'no',

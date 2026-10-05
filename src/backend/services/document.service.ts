@@ -282,6 +282,8 @@ export interface EventCardBuildContext {
   projectContextProperties: { name: string; sample: unknown }[];
   /** D-62 (T-4-11B): each event's linked sources, keyed by event id. */
   sourcesByEventId: Map<string, SourceDAL.SourceRow[]>;
+  /** D-61 (T-4-11B): `catalog.field` label per catalog field id, for `EventCardProperty.catalog_field`. */
+  catalogFieldLabelById: Map<string, string>;
 }
 
 /** Exported for `export.service.ts`'s HTML documentation export, which also calls `buildEventCard`
@@ -327,6 +329,10 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
       else bundleNames.set(propertyId, [bundle.name]);
     }
   }
+  const catalogFieldLabelById = new Map<string, string>();
+  for (const c of CatalogDAL.listCatalogs(projectId)) {
+    for (const f of CatalogDAL.listCatalogFields(projectId, c.id)) catalogFieldLabelById.set(f.id, `${c.name}.${f.name}`);
+  }
   const projectContextProperties = PropertyDAL.listProperties(projectId, { scope: 'event' })
     .filter((p) => p.kind === 'context')
     .map((p) => ({
@@ -355,6 +361,7 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
     bundleNameByPropertyId: new Map([...bundleNames].map(([id, names]) => [id, names.join(', ')])),
     projectContextProperties,
     sourcesByEventId: SourceDAL.listEventSourcesByProject(projectId),
+    catalogFieldLabelById,
   };
 }
 
@@ -455,7 +462,8 @@ function toEventCardFinding(
 function toEventCardProperty(
   link: EventPropertyWithDetailsExtended,
   bundleNameByPropertyId?: Map<string, string>,
-  method: string = 'client_web'
+  method: string = 'client_web',
+  catalogFieldLabelById?: Map<string, string>
 ): EventCardProperty {
   const kind = link.property.kind ?? 'event';
   const derivation = parseDerivation(link.property.derivation_json);
@@ -509,6 +517,7 @@ function toEventCardProperty(
     category: classifyProperty({ scope: link.property.scope, name: link.property.name, category_override: link.property.category_override }),
     datalayer_path: method === 'client_web' ? dataLayerPath(kind, link.payload_key?.trim() || link.property.name, derivation) : null,
     bundle: bundleNameByPropertyId?.get(link.property_id) ?? null,
+    catalog_field: link.property.mapped_catalog_field_id ? (catalogFieldLabelById?.get(link.property.mapped_catalog_field_id) ?? null) : null,
   };
 }
 
@@ -691,7 +700,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
     status: event.status,
     certification,
     expiration: computeExpiration(event, project),
-    properties: properties.map((link) => toEventCardProperty(link, context.bundleNameByPropertyId, event.implementation_method)),
+    properties: properties.map((link) => toEventCardProperty(link, context.bundleNameByPropertyId, event.implementation_method, context.catalogFieldLabelById)),
     variants: variants.map((v) => toEventCardVariant(v, properties, propertyNameById, standardEventByVariantId)),
     standard_event_mappings: standardEventMappings,
     contexts,

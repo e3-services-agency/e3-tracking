@@ -1,7 +1,7 @@
 /**
  * D-60 bundled sandbox project: `POST /api/projects/sandbox` restores the repo-bundled
- * `.claude/team/samples/sandbox-project-backup.json` (a fully loaded fixture project, produced by
- * `scripts/build-sandbox-backup.mjs`) as a brand-new project through the existing restore-as-new-
+ * `.claude/team/samples/sandbox-project-backup.json` (a small hand-written demo project built from
+ * `scripts/sandbox-seed.mjs` by `scripts/build-sandbox-backup.mjs`, T-4-11 part A) as a brand-new project through the existing restore-as-new-
  * project machinery (`backupRestore.service.ts`, D-45), then flags the new project as a sandbox
  * (`project.dal.ts#setProjectSandboxFlag`).
  *
@@ -112,7 +112,9 @@ export async function createSandboxProject(input: CreateSandboxInput): Promise<C
     backupProject && typeof backupProject === 'object' && typeof (backupProject as Record<string, unknown>).name === 'string'
       ? ((backupProject as Record<string, unknown>).name as string)
       : 'Sandbox';
-  const name = input.name?.trim() || `${backupName} (sandbox)`;
+  // T-4-11 part A: the lean seed's project is already named "Acme EU (sandbox)"; do not double the suffix.
+  const defaultName = /\(sandbox\)\s*$/i.test(backupName) ? backupName : `${backupName} (sandbox)`;
+  const name = input.name?.trim() || defaultName;
   if (!name) throw new ValidationError('name must not be blank.', 'name');
   const slugSource = stripSandboxDecoration(input.name?.trim() || backupName) || 'project';
   const key = nextSandboxKey(slugify(slugSource));

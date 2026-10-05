@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
+import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
@@ -203,7 +204,7 @@ export function StandardEvents() {
                   className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => { setSelectedKey(row.key); setIsSheetOpen(true); }}
                 >
-                  <td className="px-6 py-4 font-medium text-gray-900 font-mono">{row.key}</td>
+                  <td className="px-6 py-4 font-medium text-gray-900 font-mono"><span className="inline-flex items-center gap-1.5">{row.key}<CopyNameButton name={row.key} /></span></td>
                   <td className="px-6 py-4 text-gray-500">{row.fieldCount}</td>
                   <td className="px-6 py-4 text-gray-500">{isLoading ? 'Loading…' : row.mappedEventName ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500 font-mono">{isLoading ? 'Loading…' : row.mappedVariantName ?? '—'}</td>
@@ -312,6 +313,10 @@ function StandardEventMappingEditor({
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-2 text-sm text-gray-700">
+        Standard event <span className="font-mono font-medium text-gray-900">{standardEvent}</span>
+        <CopyNameButton name={standardEvent} />
+      </div>
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">Event</label>
         <select value={eventId} onChange={(e) => { setEventId(e.target.value); setVariantId(''); setFieldMap({}); }} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">

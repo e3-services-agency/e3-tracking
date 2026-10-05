@@ -27,6 +27,8 @@ import { UseCasesForEventSection } from '@/src/features/events/components/UseCas
 import { HistorySection } from '@/src/features/history/HistorySection';
 import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
 import { EmptyState } from '@/src/components/ui/EmptyState';
+import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
+import { NamingWarning } from '@/src/components/ui/NamingWarning';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
 
 interface EventRow {
@@ -243,7 +245,7 @@ export function Events() {
               {filteredEvents
                 .map((ev) => (
                   <tr key={ev.id} onClick={() => { setSelectedId(ev.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
-                    <td className="px-6 py-4 font-medium text-gray-900">{ev.name}</td>
+                    <td className="px-6 py-4 font-medium text-gray-900"><span className="inline-flex items-center gap-1.5">{ev.name}<CopyNameButton name={ev.name} /></span></td>
                     <td className="px-6 py-4"><ClassBadge eventClass={ev.class} /></td>
                     <td className="px-6 py-4 text-gray-500">{ev.status}</td>
                     <td className="px-6 py-4 text-gray-500" title={(ev.certified_reasons ?? []).join(', ') || undefined}>
@@ -599,9 +601,13 @@ function EventEditor({
         </div>
       )}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Name (snake_case)</label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. purchase" />
+        <label className="text-sm font-medium text-gray-700">Name</label>
+        <div className="flex items-center gap-2">
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. purchase" />
+          {name.trim() && <CopyNameButton name={name.trim()} />}
+        </div>
         {nameError && <p className="text-xs text-red-600">{nameError}</p>}
+        <NamingWarning entity={{ kind: 'event', class: eventClass }} name={name} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">

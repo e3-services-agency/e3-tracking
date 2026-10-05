@@ -92,10 +92,12 @@ describe('D-25 required values', () => {
     const ruleAdditions = ['rule_violation', 'item_schema_violation', 'bound_violation'];
     // D-63 (T-4-17): the state list consistency finding.
     const stateListAdditions = ['state_list_mismatch'];
-    for (const kind of [...skillKinds, ...additions, ...ruleAdditions, ...stateListAdditions]) {
+    // D-65 (T-4-22): the naming convention finding.
+    const namingAdditions = ['naming_violation'];
+    for (const kind of [...skillKinds, ...additions, ...ruleAdditions, ...stateListAdditions, ...namingAdditions]) {
       expect(FINDING_KINDS).toContain(kind);
     }
-    expect(FINDING_KINDS).toHaveLength(skillKinds.length + additions.length + ruleAdditions.length + stateListAdditions.length);
+    expect(FINDING_KINDS).toHaveLength(skillKinds.length + additions.length + ruleAdditions.length + stateListAdditions.length + namingAdditions.length);
   });
 
   it('severities are error, warning, info', () => {

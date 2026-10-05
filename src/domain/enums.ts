@@ -161,6 +161,8 @@ export const FINDING_KINDS = [
   'bound_violation',
   // D-63 (T-4-17): state lists (product_ids / product_list / totals) disagree with each other or with the interacted id.
   'state_list_mismatch',
+  // D-65 (T-4-22): a custom event or property name that does not follow the project's naming convention.
+  'naming_violation',
 ] as const;
 export type FindingKind = (typeof FINDING_KINDS)[number];
 
@@ -423,6 +425,12 @@ export type ShareAccess = (typeof SHARE_ACCESS)[number];
  * are never shown either way. */
 export const SHARE_COMMENT_VISIBILITIES = ['all', 'via_share_only'] as const;
 export type ShareCommentVisibility = (typeof SHARE_COMMENT_VISIBILITIES)[number];
+
+/** Per-project naming convention for custom events, their properties and customer properties (D-65,
+ * T-4-22). `snake_case` is the default; system items are exempt (`src/domain/naming.ts`). */
+export const NAMING_CONVENTIONS = ['snake_case', 'kebab_case', 'camel_case'] as const;
+export type NamingConvention = (typeof NAMING_CONVENTIONS)[number];
+export const DEFAULT_NAMING_CONVENTION: NamingConvention = 'snake_case';
 
 // ----- Backup (D-45, T-3-04) -----
 /** Full-project JSON backup format tag/version (`backup.service.ts#buildBackup`). Every table as

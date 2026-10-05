@@ -12,6 +12,9 @@ import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { EmptyState } from '@/src/components/ui/EmptyState';
+import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
+import { InternalRefLink } from '@/src/features/shared/RefLink';
+import { buildReferenceIndex, resolveReference } from '@/src/features/shared/references';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
@@ -51,6 +54,8 @@ interface UseCaseRow {
   internal_notes: string | null;
   internal_url: string | null;
 }
+
+const ID_ONLY_INDEX = buildReferenceIndex({ events: [], properties: [] });
 
 interface UseCaseCoverageRow {
   requirement_id: string;
@@ -253,7 +258,7 @@ export function UseCases() {
               {useCases.map((uc) => (
                 <tr key={uc.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedId(uc.id)}>
                   <td className="px-6 py-4 text-gray-500">{uc.code ?? '—'}</td>
-                  <td className="px-6 py-4 font-medium text-gray-900">{uc.name}</td>
+                  <td className="px-6 py-4 font-medium text-gray-900"><span className="inline-flex items-center gap-1.5">{uc.name}<CopyNameButton name={uc.name} /></span></td>
                   <td className="px-6 py-4 text-gray-500">{uc.type ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{uc.priority ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{uc.status ?? '—'}</td>
@@ -673,7 +678,10 @@ function UseCaseDetail({
         </button>
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{useCase.code ? `${useCase.code} — ${useCase.name}` : useCase.name}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 inline-flex items-center gap-2">
+              {useCase.code ? `${useCase.code} — ${useCase.name}` : useCase.name}
+              <CopyNameButton name={useCase.name} />
+            </h1>
           </div>
           <div className="flex items-center gap-2">
             <CopyMarkdownButton getMarkdown={copyUseCaseMarkdown} />
@@ -923,6 +931,19 @@ function UseCaseDetail({
                       ensureEventDetails={ensureEventDetails}
                       onChange={(patch) => updateRow(index, patch)}
                     />
+                    {/* T-4-22: a saved requirement's event and property targets open their event card / editor. */}
+                    {!req.id.startsWith('new-') && (
+                      <div className="mt-1 flex gap-3 text-xs">
+                        {req.event_id && (() => {
+                          const target = resolveReference({ kind: 'event', id: req.event_id }, 'internal', ID_ONLY_INDEX);
+                          return target && target.mode === 'internal' ? <InternalRefLink target={target}>Open event card</InternalRefLink> : null;
+                        })()}
+                        {req.property_id && (() => {
+                          const target = resolveReference({ kind: 'property', id: req.property_id }, 'internal', ID_ONLY_INDEX);
+                          return target && target.mode === 'internal' ? <InternalRefLink target={target}>Open property</InternalRefLink> : null;
+                        })()}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-2">
                     <select

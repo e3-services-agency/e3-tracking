@@ -9,6 +9,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { EmptyState } from '@/src/components/ui/EmptyState';
+import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
@@ -85,7 +86,7 @@ export function Catalogs() {
             <tbody className="divide-y">
               {catalogs.map((c) => (
                 <tr key={c.id} onClick={() => { setSelectedId(c.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
-                  <td className="px-6 py-4 font-medium text-gray-900">{c.name}</td>
+                  <td className="px-6 py-4 font-medium text-gray-900"><span className="inline-flex items-center gap-1.5">{c.name}<CopyNameButton name={c.name} /></span></td>
                   <td className="px-6 py-4 text-gray-500">{c.mapping_role ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{c.status ?? '—'}</td>
                 </tr>
@@ -261,7 +262,10 @@ function CatalogEditor({
     <div className="space-y-5">
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">Name</label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} />
+        <div className="flex items-center gap-2">
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
+          {name.trim() && <CopyNameButton name={name.trim()} />}
+        </div>
         {nameError && <p className="text-xs text-red-600">{nameError}</p>}
       </div>
       <div className="space-y-2">
@@ -410,6 +414,7 @@ function CatalogFieldRowEditor({
           disabled={busy}
           className="flex-1"
         />
+        <CopyNameButton name={field.name} />
         <button type="button" onClick={() => void onRemove(field.id)} className="text-red-500 hover:text-red-700" title="Remove field">
           <Trash2 className="w-4 h-4" />
         </button>

@@ -12,6 +12,9 @@ import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
 import { EmptyState } from '@/src/components/ui/EmptyState';
+import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
+import { CategoryBadge } from '@/src/components/ui/CategoryBadge';
+import { NamingWarning } from '@/src/components/ui/NamingWarning';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
@@ -203,7 +206,13 @@ export function Properties() {
                 const enumCount = Array.isArray(p.allowed_values_json) ? p.allowed_values_json.length : 0;
                 return (
                   <tr key={p.id} onClick={() => { setSelectedId(p.id); setIsCreating(false); setIsSheetOpen(true); setOrderFrozen(true); }} className="hover:bg-gray-50 cursor-pointer">
-                    <td className="px-6 py-4 font-medium text-gray-900">{p.name}</td>
+                    <td className="px-6 py-4 font-medium text-gray-900">
+                      <span className="inline-flex flex-wrap items-center gap-1.5">
+                        {p.name}
+                        <CopyNameButton name={p.name} />
+                        <CategoryBadge category={classifyProperty(p)} />
+                      </span>
+                    </td>
                     <td className="px-6 py-4 text-gray-500">{p.scope}</td>
                     <td className="px-6 py-4 text-gray-500">
                       {PROPERTY_CATEGORY_LABELS[classifyProperty(p)]}
@@ -394,9 +403,13 @@ function PropertyEditor({
         </select>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Name (snake_case)</label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. total_price" />
+        <label className="text-sm font-medium text-gray-700">Name</label>
+        <div className="flex items-center gap-2">
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. total_price" />
+          {trimmedName && <CopyNameButton name={trimmedName} />}
+        </div>
         {nameError && <p className="text-xs text-red-600">{nameError}</p>}
+        <NamingWarning entity={{ kind: 'property', scope, name: trimmedName, category_override: categoryOverride || null }} name={trimmedName} />
       </div>
       <div className="space-y-2">
         <label className="text-sm font-medium text-gray-700">Description</label>

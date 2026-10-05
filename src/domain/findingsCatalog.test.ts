@@ -30,6 +30,7 @@ describe('findings catalogue (T-4-21)', () => {
     expect(findingFamily('definition_vs_observations', 'rounding_drift')).toBe('arithmetic');
     expect(findingFamily('definition_vs_observations', 'state_list_mismatch')).toBe('consistency');
     expect(findingFamily('definition_vs_observations', 'missing_event')).toBe('coverage');
+    expect(findingFamily('definition_vs_mapping', 'naming_violation')).toBe('schema');
   });
 
   it('falls back to the raw id for unknown values', () => {

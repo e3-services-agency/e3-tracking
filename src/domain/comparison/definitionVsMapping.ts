@@ -45,11 +45,17 @@ import type { DefEvent } from './definitionVsObservations';
 import type { EngineFinding } from './definitionVsObservations';
 import type { DefConsentCategory, MappingSnapshot } from './snapshot';
 import { SDK_DEFAULT_PROPERTIES } from '../bloomreach';
+import type { NamingConvention } from '../enums';
+import { conventionRule, isNamingExempt, matchesConvention } from '../naming';
 
 export interface DefinitionVsMappingInput {
   events: DefEvent[];
   hasCatalog: boolean;
   consentCategories: DefConsentCategory[];
+  /** D-65 (T-4-22): when set, custom event, event property and customer property names are checked
+   * against it (`naming_violation`). Absent (e.g. the data-mapping import preview) = no naming check. */
+  namingConvention?: NamingConvention;
+  customerProperties?: { id: string; name: string; category_override?: string | null }[];
 }
 
 const COMPARISON: ComparisonId = 'definition_vs_mapping';
@@ -232,6 +238,44 @@ export function runDefinitionVsMapping(definition: DefinitionVsMappingInput, map
       message: 'A Catalog exists in the definition, but the mapping\'s catalogs.main and catalogs.variant are both empty.',
       fingerprint: fp('unmapped_catalog', null, null, 'catalogs'),
     });
+  }
+
+  // ---- naming_violation (D-65): custom event names, their linked properties' names and customer
+  // property names against the project's convention; system items are exempt. Warning, Schema family. ----
+  if (definition.namingConvention) {
+    const convention = definition.namingConvention;
+    const seenProperties = new Set<string>();
+    const push = (eventId: string | null, propertyId: string | null, what: string, name: string) =>
+      findings.push({
+        comparison: COMPARISON,
+        kind: 'naming_violation',
+        severity: 'warning',
+        event_id: eventId,
+        variant_id: null,
+        property_id: propertyId,
+        observation_id: null,
+        expected_json: { naming_convention: convention },
+        actual_json: { name },
+        message: `${what} "${name}" does not follow the project naming convention: ${conventionRule(convention)}.`,
+        // A property finding is keyed by the property only, so it stays stable across event rename or unlink.
+        fingerprint: fp('naming_violation', propertyId ? null : eventId, propertyId, `${propertyId ? 'property' : 'event'}:${name}`),
+      });
+    for (const event of customEvents) {
+      if (!isNamingExempt({ kind: 'event', class: event.class }) && !matchesConvention(event.name, convention)) {
+        push(event.id, null, 'Event', event.name);
+      }
+      for (const prop of event.properties) {
+        // A property linked to several events is reported once (against the first event).
+        if (seenProperties.has(prop.property_id)) continue;
+        seenProperties.add(prop.property_id);
+        if (isNamingExempt({ kind: 'property', scope: 'event', name: prop.name, category_override: prop.category_override })) continue;
+        if (!matchesConvention(prop.name, convention)) push(event.id, prop.property_id, 'Property', prop.name);
+      }
+    }
+    for (const prop of definition.customerProperties ?? []) {
+      if (isNamingExempt({ kind: 'property', scope: 'customer', name: prop.name, category_override: prop.category_override })) continue;
+      if (!matchesConvention(prop.name, convention)) push(null, prop.id, 'Customer property', prop.name);
+    }
   }
 
   return findings;

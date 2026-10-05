@@ -291,3 +291,74 @@ describe('runDefinitionVsMapping', () => {
     expect(findings.some((f) => f.kind === 'unmapped_property' && f.property_id === 'prop_os')).toBe(false);
   });
 });
+
+describe('naming_violation (D-65, T-4-22)', () => {
+  const prop = (property_id: string, name: string, extra: Partial<DefEvent['properties'][number]> = {}): DefEvent['properties'][number] => ({
+    property_id,
+    name,
+    payload_key: null,
+    role: 'normal',
+    required: false,
+    data_type: 'string',
+    data_formats: [],
+    allowed_values: null,
+    ...extra,
+  });
+  const ev = (id: string, name: string, cls: DefEvent['class'], properties: DefEvent['properties']): DefEvent => ({
+    id,
+    name,
+    status: 'implemented',
+    class: cls,
+    expiration: null,
+    properties,
+  });
+  const empty: MappingSnapshot = {
+    standardEvents: [],
+    customerProperties: {},
+    consents: {},
+    catalogs: { main: null, variant: null },
+  };
+  const run = (input: Partial<DefinitionVsMappingInput>) =>
+    runDefinitionVsMapping({ events: [], hasCatalog: false, consentCategories: [], ...input }, empty).filter((f) => f.kind === 'naming_violation');
+
+  it('flags nonconforming custom event, event property and customer property names as warnings', () => {
+    const findings = run({
+      namingConvention: 'snake_case',
+      events: [ev('e1', 'orderPlaced', 'custom', [prop('p1', 'orderTotal'), prop('p2', 'order_id')])],
+      customerProperties: [{ id: 'c1', name: 'loyalty-tier' }],
+    });
+    expect(findings.map((f) => [f.event_id, f.property_id, f.severity])).toEqual([
+      ['e1', null, 'warning'],
+      ['e1', 'p1', 'warning'],
+      [null, 'c1', 'warning'],
+    ]);
+    expect(findings[0].message).toContain('snake_case');
+    expect(new Set(findings.map((f) => f.fingerprint)).size).toBe(3);
+  });
+
+  it('exempts sdk/platform events, SDK default and system customer properties', () => {
+    const findings = run({
+      namingConvention: 'snake_case',
+      events: [
+        ev('e1', 'sessionStart', 'sdk', [prop('p1', 'someProp')]),
+        ev('e2', 'my_event', 'custom', [prop('p2', 'os'), prop('p3', 'device')]),
+      ],
+      customerProperties: [{ id: 'c1', name: 'first_name' }, { id: 'c2', name: 'email' }],
+    });
+    expect(findings).toEqual([]);
+  });
+
+  it('follows the configured convention and reports a shared property once', () => {
+    const shared = prop('p1', 'order_total');
+    const findings = run({
+      namingConvention: 'camel_case',
+      events: [ev('e1', 'orderPlaced', 'custom', [shared]), ev('e2', 'orderShipped', 'custom', [shared])],
+    });
+    expect(findings).toHaveLength(1);
+    expect(findings[0].property_id).toBe('p1');
+  });
+
+  it('runs no naming check when the input carries no convention', () => {
+    expect(run({ events: [ev('e1', 'orderPlaced', 'custom', [])] })).toEqual([]);
+  });
+});

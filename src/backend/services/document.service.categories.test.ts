@@ -156,3 +156,35 @@ describe('catalogs in the tracking document (D-64)', () => {
     expect(doc.event_properties.find((p) => p.name === 'item_name')!.used_in_events).toEqual(['view_item']);
   });
 });
+
+describe('cross-reference fields (T-4-22)', () => {
+  it('carries the card property category, the requirement target ids and the naming convention, through the public projection', async () => {
+    const UseCaseDAL = await import('../dal/use-case.dal');
+    const RequirementDAL = await import('../dal/requirement.dal');
+    const event = EventDAL.createEvent(projectId, { name: 'cart_update', class: 'custom' });
+    const browser = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'browser', data_type: 'string' });
+    const sku = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'sku', data_type: 'string' });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: browser.id, role: 'normal' });
+    EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: sku.id, role: 'normal' });
+    const uc = UseCaseDAL.createUseCase(projectId, { name: 'Cart recovery' } as never);
+    RequirementDAL.replaceRequirements(projectId, uc.id, [
+      { target_kind: 'event_property', event_id: event.id, property_id: sku.id, level: 'R' } as never,
+    ]);
+    ProjectDAL.updateProject(projectId, { naming_convention: 'kebab_case' });
+
+    const doc = toPublicTrackingDocument(buildTrackingDocument(projectId));
+    const props = Object.fromEntries(doc.events[0].properties.map((p) => [p.name, p.category]));
+    expect(props).toEqual({ browser: 'sdk_default', sku: 'event' });
+    expect(doc.use_cases[0].requirements[0]).toMatchObject({ target_kind: 'event_property', event_id: event.id, property_id: sku.id, target_label: 'cart_update.sku' });
+    expect(doc.project.naming_convention).toBe('kebab_case');
+  });
+
+  it('names the customer property of an event-less finding instead of its raw id', async () => {
+    const { runComparison } = await import('./comparison.service');
+    const prop = PropertyDAL.createProperty(projectId, { scope: 'customer', name: 'loyaltyTier', data_type: 'string' });
+    runComparison(projectId);
+    const doc = buildTrackingDocument(projectId);
+    const finding = doc.unattached_findings.find((f) => f.kind === 'naming_violation');
+    expect(finding).toMatchObject({ property_id: prop.id, property: 'loyaltyTier' });
+  });
+});

@@ -16,6 +16,7 @@ import { useStore } from '@/src/store';
 import { useProjects, type ProjectItem } from '@/src/features/projects/hooks/useProjects';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
+import { DEFAULT_NAMING_CONVENTION, NAMING_CONVENTIONS, type NamingConvention } from '@/src/domain/enums';
 
 type CreateProjectFn = ReturnType<typeof useProjects>['createProject'];
 
@@ -23,6 +24,8 @@ export type ProjectShellSettings = {
   client_primary_color: string | null;
   client_logo_path: string | null;
   client_name: string | null;
+  /** D-65 (T-4-22): drives the inline naming warnings in the event and property editors. */
+  naming_convention: NamingConvention;
 };
 
 export type ProjectShellContextValue = {
@@ -118,6 +121,9 @@ export function ProjectShellProvider({ children }: { children: React.ReactNode }
             client_primary_color: (data.client_primary_color as string | null) ?? null,
             client_logo_path: (data.client_logo_path as string | null) ?? null,
             client_name: ((data.client as { name?: string } | null)?.name as string | undefined) ?? null,
+            naming_convention: (NAMING_CONVENTIONS as readonly unknown[]).includes(data.naming_convention)
+              ? (data.naming_convention as NamingConvention)
+              : DEFAULT_NAMING_CONVENTION,
           },
         });
       } catch {
@@ -127,7 +133,9 @@ export function ProjectShellProvider({ children }: { children: React.ReactNode }
     return () => {
       cancelled = true;
     };
-  }, [hasValidProjectContext, activeProjectIdTrimmed]);
+  // `hook.projects` changes after Settings saves (it calls `fetchProjects`), so a changed naming
+  // convention reaches the editors without a reload.
+  }, [hasValidProjectContext, activeProjectIdTrimmed, hook.projects]);
 
   const value = useMemo<ProjectShellContextValue>(
     () => ({

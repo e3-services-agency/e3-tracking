@@ -29,6 +29,9 @@ import { hasCodegen, type CodegenData } from '@/src/features/shared/codegenMetho
 import { TriggersBlock } from '@/src/features/shared/TriggersBlock';
 import { derivedMetricsText, eventCardVisibility } from '@/src/features/shared/viewHelpers';
 import { ClassBadge } from '@/src/components/ui/ClassBadge';
+import { CategoryBadge } from '@/src/components/ui/CategoryBadge';
+import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
+import type { PropertyCategory } from '@/src/domain/propertyCategory';
 import { displaySampleValue } from '@/src/domain/examples';
 import { groupFieldMap, mappingHeading } from '@/src/domain/document/standardMappings';
 import { SHARED_PROPERTY_HEAD, secondaryPropertyLines } from '@/src/domain/document/propertyColumns';
@@ -70,6 +73,8 @@ export interface EventCardData {
     derivation?: unknown;
     datalayer_path?: string | null;
     bundle?: string | null;
+    /** D-64/T-4-22, additive: derived property category for the badge. */
+    category?: PropertyCategory;
   }[];
   variants: {
     id: string;
@@ -195,12 +200,23 @@ export interface EventCardViewProps {
   hideHeader?: boolean;
   /** Rendered next to the certification badge in the header (T-4-16: the comment count button). */
   headerActions?: React.ReactNode;
+  /** T-4-22: renders a property's payload key as a link to the property (shared anchor or internal
+   * editor); omit for plain text. The caller owns the mode-specific target. */
+  renderPropertyLink?: (property: EventCardData['properties'][number], label: string) => React.ReactNode;
 }
 
-export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'internal', hideHeader = false, headerActions }: EventCardViewProps) {
+export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'internal', hideHeader = false, headerActions, renderPropertyLink }: EventCardViewProps) {
   const showNames = anyNameDiffersFromKey(card.properties);
   const shared = mode === 'shared';
   const visible = eventCardVisibility(card);
+  /** First property cell: the key (a link when the caller supplies one), the category badge and the copy-name button. */
+  const keyCell = (p: EventCardData['properties'][number]) => (
+    <span key={p.property_id} className="inline-flex flex-wrap items-center gap-1.5">
+      {renderPropertyLink ? renderPropertyLink(p, p.payload_key) : p.payload_key}
+      <CopyNameButton name={p.payload_key} />
+      {p.category && <CategoryBadge category={p.category} />}
+    </span>
+  );
   return (
     <div className="space-y-6">
       {!hideHeader && (
@@ -268,7 +284,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             head={[...SHARED_PROPERTY_HEAD]}
             wideColumns={[4]}
             rows={card.properties.map((p) => [
-              p.payload_key,
+              keyCell(p),
               p.data_type,
               p.kind ?? 'event',
               p.required ? 'yes' : 'no',
@@ -284,7 +300,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             'Type', 'Formats', 'Role', 'Kind', 'dataLayer path', 'Bundle', 'Required', 'Allowed values', 'PII', 'Description', 'Example',
           ]}
           rows={card.properties.map((p) => [
-            p.payload_key,
+            keyCell(p),
             ...(showNames ? [p.name] : []),
             p.data_type,
             p.data_formats.join(', ') || '—',
@@ -548,7 +564,10 @@ export function StandardMappingBlock({
   return (
     <div className="mb-3 rounded-md border p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h4 className="text-sm font-semibold text-gray-800">{mappingHeading(mapping.standard_event, eventName, mapping.variant_name)}</h4>
+        <h4 className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-800">
+          {mappingHeading(mapping.standard_event, eventName, mapping.variant_name)}
+          <CopyNameButton name={mapping.standard_event} />
+        </h4>
         <span className="text-xs text-gray-500">{g.summary}</span>
       </div>
       {g.total > 0 && (

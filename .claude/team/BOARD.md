@@ -3148,3 +3148,6 @@ Supervisor ruling: fix M1, L2 (pass no convention in the import preview, so the 
 
 ### 2026-10-05 15:08 | supervisor | MERGE | T-4-22 merged into agent-setup — DONE; nothing running
 Fix commit 6676331 (camelCase-aware consent boundary, import preview without naming check, CLAUDE.md heading, event-independent property fingerprint, requirement link labels from names, DOMAIN.md). Merged tree: tsc, lint clean; the first full run showed 6 failures in 2 files that were 15 s timeouts under concurrent load (backup/restore tests); the re-run with --testTimeout=90000 passed 1647 / 148. Backlog: raise the default test timeout for the backup/restore suites. Open, waiting on the user: T-4-11 part B (D-61 catalogs per market, D-62 sources + method, consent list), T-4-06 (samples/br-initiatives/), phase 5 (D-09).
+
+### 2026-10-05 15:18 | supervisor | DECISION | D-61 and D-62 approved by the user; T-4-11 part B starts
+D-61 with the user's addition: the lookup key must also exist as a catalog property because Jinja reads only properties. D-62 as proposed. Consent list unchanged (newsletter email, SMS offers, push alerts, WhatsApp updates, personalization). Migration 0029 (D-53 amendment 10).

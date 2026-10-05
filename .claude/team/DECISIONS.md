@@ -438,3 +438,21 @@ Date: 2026-09-30  Status: accepted (user)
 Decision: `projects.naming_convention` (migration 0028, D-53 amendment 9) with values snake_case (default), kebab_case, camel_case, chosen in Settings. It applies to custom events, their properties and customer properties. Excluded: sdk and platform class events, SDK default properties, the reserved system customer properties (D-64) and standard event keys (which stay snake_case as Bloomreach requires). Enforcement: an inline warning in the event and property editors when a name does not conform (saving is allowed), and a comparison-1 finding of kind `naming_violation` (Schema family, warning severity) so imported names surface as findings instead of blocking imports. The rule and the exclusions are shown on the shared page's Properties/Events group headers as a one-line note.
 
 ## D-53 amendment 9 (2026-09-30): 0028 T-4-22 projects.naming_convention.
+
+## D-61 Catalogs per market and language, catalog checks, property-to-catalog alignment
+Date: 2026-10-05  Status: accepted (user)
+Context: Bloomreach's mapping knows one main and one variant catalog (legacy); real projects run a product and a variant catalog per market and language with the same schema and market-specific prices, currencies and URLs. Catalog fields carry a lookup key and searchable flags (limit 40 on v1, fixed in advance; adjustable on v2). The lookup key is not reachable from Jinja; only catalog properties are.
+Decision:
+1. Catalog gains `kind` (product | variant | other), `market`, `language`, `version` (v1 | v2). The two Bloomreach mapping roles stay single per project (main product, variant), normally the default market; the data-mapping export is unchanged.
+2. Catalogs of the same kind must share one schema (field names, types, searchable flags); drift across markets is a finding.
+3. Catalog checks (comparison run): searchable count against the limit (warning at 40, error above); a v1 catalog whose searchable set changes after it is marked live is flagged; the lookup key must be present and unique; the lookup key field must also exist as a catalog property (schema field) because Jinja can only read properties -- missing lookup property is an error with the recommendation to add it.
+4. Alignment: a property linked to a catalog field must share its data type (error); an event property named like a catalog id (product_id, variant_id, item_id aliases) is expected to link to the lookup key of the matching kind (warning otherwise); event cards, tracking document and codegen show the link.
+5. Use case catalog-attribute requirements resolve per kind: satisfied when every market's catalog of that kind has the field, partial gap otherwise.
+6. Observed-value matching against catalog items is deferred until a catalog item export fixture exists.
+7. Sandbox: GB and CZ product and variant catalogs (GBP/CZK prices, market URLs), GB as main and variant in the mapping.
+
+## D-62 Source system and collection method
+Date: 2026-10-05  Status: accepted (user)
+Decision: Source gains `system` (shopify | magento | salesforce_commerce_cloud | custom_backend | mobile_app | crm | erp | other) and `method` (web_sdk_gtm_datalayer | web_sdk_direct | tracking_api | bloomreach_integration | file_import). An event's source link carries both ("Shopify via GTM data layer"); the source's method is the default for the event's D-63 implementation method and picks the default codegen tab. Sources page, shared view and tracking document show system and method. Sandbox: Shopify via GTM data layer for client events, custom backend via Tracking API for purchase and consent. A project may set a default source applied to new events.
+
+## D-53 amendment 10 (2026-10-05): 0029 T-4-11B catalogs kind/market/language/version, sources system/method, projects.default_source_id.

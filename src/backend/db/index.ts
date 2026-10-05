@@ -21,7 +21,7 @@ const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
 let db: Database.Database | null = null;
 
 /** Resolve the configured database path, creating the parent directory if needed. */
-function resolveDbPath(): string {
+export function resolveDbPath(): string {
   const configured = process.env.E3_DB_PATH?.trim() || './data/e3-tracking.sqlite';
   if (configured === ':memory:') return configured;
   const resolved = path.resolve(configured);

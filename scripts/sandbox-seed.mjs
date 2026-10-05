@@ -283,7 +283,8 @@ export const EVENT_SOURCES = {
 // ---------------------------------------------------------------------------
 // Catalogs per market (D-61): a product and a variant catalog for GB (en-GB, GBP) and CZ (cs-CZ,
 // CZK), one schema per kind. The GB pair fills the Bloomreach mapping roles (main, variant).
-// product_id / variant_id are the lookup keys and are ordinary fields, so Jinja can read them.
+// The lookup key is the item_id field (Jinja cannot read it), next to a regular product_id / variant_id
+// field with the same value (D-61 amendment).
 // One deliberate drift: CZ stores stock_level as text, which the catalogs comparison reports.
 // The GB product catalog is marked live (v1), its searchable set (title) is then fixed.
 // ---------------------------------------------------------------------------
@@ -295,7 +296,8 @@ const MARKETS = {
 function productFields(market) {
   const { currency, base } = MARKETS[market];
   return [
-    { name: 'product_id', data_type: 'string', is_lookup_key: true, is_required: true, description: 'Matches product_id on events.' },
+    { name: 'item_id', data_type: 'string', is_lookup_key: true, is_required: true, bloomreach_column: 'item_id', description: 'The lookup key (Bloomreach item_id); Jinja cannot read it.' },
+    { name: 'product_id', data_type: 'string', is_required: true, description: 'Same value as item_id, readable in Jinja. Matches product_id on events.' },
     { name: 'title', data_type: 'string', is_searchable: true, description: 'Product name in the market language.' },
     { name: 'price', data_type: 'number', description: `Current price including VAT, in ${currency}.` },
     { name: 'image', data_type: 'string', description: 'Product image URL, used in email templates.' },
@@ -307,7 +309,8 @@ function productFields(market) {
 function variantFields(market) {
   const { currency, base } = MARKETS[market];
   return [
-    { name: 'variant_id', data_type: 'string', is_lookup_key: true, is_required: true, description: 'Matches variant_id on events.' },
+    { name: 'item_id', data_type: 'string', is_lookup_key: true, is_required: true, bloomreach_column: 'item_id', description: 'The lookup key (Bloomreach item_id); Jinja cannot read it.' },
+    { name: 'variant_id', data_type: 'string', is_required: true, description: 'Same value as item_id, readable in Jinja. Matches variant_id on events.' },
     { name: 'product_id', data_type: 'string', description: 'The product this size or colour belongs to.' },
     { name: 'title', data_type: 'string', is_searchable: true, description: 'Variant name in the market language.' },
     { name: 'price', data_type: 'number', description: `Current variant price including VAT, in ${currency}.` },
@@ -335,8 +338,8 @@ export const CATALOGS = [
 
 // Event properties that look up into a catalog's lookup key: property name -> 'catalog.field'.
 export const PROPERTY_CATALOG_LINKS = {
-  product_id: 'products_gb.product_id',
-  variant_id: 'variants_gb.variant_id',
+  product_id: 'products_gb.item_id',
+  variant_id: 'variants_gb.item_id',
 };
 
 // ---------------------------------------------------------------------------

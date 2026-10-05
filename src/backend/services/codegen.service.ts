@@ -31,6 +31,7 @@ import {
 import { IDENTITY_TRANSFORMATIONS } from '../../domain/enums';
 import { BLOOMREACH_SPECIAL_CUSTOMER_ATTRIBUTES } from '../../domain/bloomreach';
 import { jsLiteral } from '../../domain/codegen/literal';
+import { catalogLinkComment, withCatalogComment, type CatalogLinkForCodegen } from '../../domain/codegen/catalogLinks';
 import type { EventPropertyWithDetails, EventPropertyWithDetailsExtended } from '../dal/event.dal';
 import type { VariantRow } from '../dal/variant.dal';
 
@@ -577,6 +578,8 @@ export interface CodegenV2Options {
   eventClass?: string | null;
   /** Project-wide context properties (kind `context`), for the SDK default properties snippet. */
   projectContext?: { name: string; sample: unknown }[];
+  /** D-61 amendment: catalog-linked properties; each prints one comment line in the client snippets. */
+  catalogLinks?: CatalogLinkForCodegen[];
 }
 
 export function toCodegenProperty(p: AttachedPropertyForCodegen): CodegenProperty {
@@ -611,8 +614,9 @@ export function buildCodegenV2(
     sdk_default_properties: '',
     note: '',
   };
+  const comment = catalogLinkComment(options.catalogLinks);
   const trackingApi = () =>
-    buildBloomreachApiSnippet(safeCanonical, props, overrides, projectConfig, model.payload);
+    withCatalogComment(buildBloomreachApiSnippet(safeCanonical, props, overrides, projectConfig, model.payload), comment);
 
   if (options.method === 'server_api') {
     return { ...empty, tracking_api: trackingApi(), note: SERVER_API_NOTE };
@@ -634,15 +638,15 @@ export function buildCodegenV2(
   // site's dataLayer event is dl_event_name (D-63), never the dataLayer name override.
   const sdkName = resolveOutputEventName(safeCanonical, 'bloomreachSdk', overrides);
   const names = { bloomreach: sdkName, dataLayer: options.dlEventName ?? null };
-  const datalayer = buildDataLayerV2(names, model);
+  const datalayer = withCatalogComment(buildDataLayerV2(names, model), comment);
   const gtm_template = buildGtmTemplate(names, model);
   return {
     ...empty,
     gtm: `${datalayer}\n\n${gtm_template}`,
     datalayer,
     gtm_template,
-    web_sdk: buildWebSdkV2(sdkName, model),
-    web_sdk_legacy: buildWebSdkLegacy(sdkName, model),
+    web_sdk: withCatalogComment(buildWebSdkV2(sdkName, model), comment),
+    web_sdk_legacy: withCatalogComment(buildWebSdkLegacy(sdkName, model), comment),
     tracking_api: trackingApi(),
   };
 }

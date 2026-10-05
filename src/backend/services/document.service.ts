@@ -38,6 +38,7 @@ import {
   attachedPropertiesForVariant,
   type AttachedPropertyForCodegen,
 } from './codegen.service';
+import { marketsLabel, type CatalogLinkForCodegen } from '../../domain/codegen/catalogLinks';
 import { SDK_DEFAULT_PROPERTIES } from '../../domain/bloomreach';
 import { classifyProperty } from '../../domain/propertyCategory';
 import type { EventPropertyWithDetails, EventPropertyWithDetailsExtended, EventRow } from '../dal/event.dal';
@@ -284,6 +285,8 @@ export interface EventCardBuildContext {
   sourcesByEventId: Map<string, SourceDAL.SourceRow[]>;
   /** D-61 (T-4-11B): `catalog.field` label per catalog field id, for `EventCardProperty.catalog_field`. */
   catalogFieldLabelById: Map<string, string>;
+  /** D-61 amendment: per catalog field id, what the codegen comment needs (catalog, field, markets). */
+  catalogLinkByFieldId: Map<string, { catalog: string; field: string; markets: string }>;
 }
 
 /** Exported for `export.service.ts`'s HTML documentation export, which also calls `buildEventCard`
@@ -330,8 +333,22 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
     }
   }
   const catalogFieldLabelById = new Map<string, string>();
-  for (const c of CatalogDAL.listCatalogs(projectId)) {
-    for (const f of CatalogDAL.listCatalogFields(projectId, c.id)) catalogFieldLabelById.set(f.id, `${c.name}.${f.name}`);
+  const catalogLinkByFieldId = new Map<string, { catalog: string; field: string; markets: string }>();
+  const allCatalogs = CatalogDAL.listCatalogs(projectId).map((c) => ({ c, fields: CatalogDAL.listCatalogFields(projectId, c.id) }));
+  for (const { c, fields } of allCatalogs) {
+    const sameKind = c.kind === 'other' ? [c.id] : allCatalogs.filter((x) => x.c.kind === c.kind).map((x) => x.c.id);
+    for (const f of fields) {
+      catalogFieldLabelById.set(f.id, `${c.name}.${f.name}`);
+      catalogLinkByFieldId.set(f.id, {
+        catalog: c.name,
+        field: f.name,
+        markets: marketsLabel(
+          allCatalogs
+            .filter((x) => sameKind.includes(x.c.id))
+            .map((x) => ({ name: x.c.name, market: x.c.market, has_field: x.fields.some((y) => y.name === f.name) }))
+        ),
+      });
+    }
   }
   const projectContextProperties = PropertyDAL.listProperties(projectId, { scope: 'event' })
     .filter((p) => p.kind === 'context')
@@ -362,6 +379,7 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
     projectContextProperties,
     sourcesByEventId: SourceDAL.listEventSourcesByProject(projectId),
     catalogFieldLabelById,
+    catalogLinkByFieldId,
   };
 }
 
@@ -458,6 +476,19 @@ function toEventCardFinding(
 // ---------------------------------------------------------------------------
 // EventCard
 // ---------------------------------------------------------------------------
+
+/** D-61 amendment: one codegen comment entry per catalog-linked property of an event. */
+export function catalogLinksForProperties(
+  properties: { property: { name: string; mapped_catalog_field_id: string | null } }[],
+  context: Pick<EventCardBuildContext, 'catalogLinkByFieldId'>
+): CatalogLinkForCodegen[] {
+  const out: CatalogLinkForCodegen[] = [];
+  for (const link of properties) {
+    const target = link.property.mapped_catalog_field_id ? context.catalogLinkByFieldId.get(link.property.mapped_catalog_field_id) : undefined;
+    if (target) out.push({ property: link.property.name, catalog: target.catalog, field: target.field, markets: target.markets });
+  }
+  return out;
+}
 
 function toEventCardProperty(
   link: EventPropertyWithDetailsExtended,
@@ -677,6 +708,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
       dlEventName: event.dl_event_name,
       eventClass: event.class,
       projectContext: context.projectContextProperties,
+      catalogLinks: catalogLinksForProperties(properties, context),
     },
     event.codegen_event_name_overrides_json as CodegenEventNameOverrides | null
   );

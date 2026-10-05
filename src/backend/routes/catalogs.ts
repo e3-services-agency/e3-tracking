@@ -77,8 +77,12 @@ router.patch('/:id', (req: Request, res: Response) => {
 // D-61 (T-4-11B): mark the catalog live (sets live_at and the searchable snapshot) or take it off live.
 router.post('/:id/live', (req: Request, res: Response) => {
   const body = (req.body ?? {}) as { live?: unknown };
+  if (typeof body.live !== 'boolean') {
+    res.status(400).json({ error: 'live must be a boolean.', code: 'BAD_REQUEST', field: 'live' });
+    return;
+  }
   try {
-    res.status(200).json(CatalogDAL.setCatalogLive(req.projectId!, req.params.id, body.live !== false));
+    res.status(200).json(CatalogDAL.setCatalogLive(req.projectId!, req.params.id, body.live));
   } catch (err) {
     handleRouteError(err, res);
   }

@@ -29,6 +29,12 @@ function validateMappingRole(mappingRole: string | null | undefined): void {
   }
 }
 
+function validateTextOrNull(value: unknown, field: string): void {
+  if (value !== undefined && value !== null && typeof value !== 'string') {
+    throw new ValidationError(`${field} must be a string or null.`, field);
+  }
+}
+
 function validateKindAndVersion(kind: unknown, version: unknown): void {
   if (kind !== undefined && !(CATALOG_KINDS as readonly unknown[]).includes(kind)) {
     throw new ValidationError(`kind must be one of: ${CATALOG_KINDS.join(', ')}.`, 'kind');
@@ -180,6 +186,8 @@ export function createCatalog(projectId: string, input: CatalogInput): CatalogRo
   if (!name) throw new ValidationError('Catalog name is required.', 'name');
   validateMappingRole(input.mapping_role);
   validateKindAndVersion(input.kind, input.version);
+  validateTextOrNull(input.market, 'market');
+  validateTextOrNull(input.language, 'language');
   const id = newId();
   const now = nowIso();
   const db = getDb();
@@ -249,6 +257,8 @@ export function updateCatalog(
   }
   if (input.mapping_role !== undefined) validateMappingRole(input.mapping_role);
   validateKindAndVersion(input.kind, input.version);
+  validateTextOrNull(input.market, 'market');
+  validateTextOrNull(input.language, 'language');
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (input.name !== undefined) patch.name = input.name.trim();
   if (input.description !== undefined) patch.description = input.description?.trim() || null;

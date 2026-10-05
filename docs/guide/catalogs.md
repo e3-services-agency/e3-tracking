@@ -35,7 +35,7 @@ Catalogs of the same kind must share one schema. After you add or change fields,
 
 - searchable fields: a warning at 40, an error above 40 (the Bloomreach limit);
 - v1 catalogs: use **Mark live** when the catalog goes live. On v1 the searchable fields are fixed from then on, so a later change is an error;
-- the lookup key: exactly one per catalog, and Jinja reads only catalog properties, so the key must also exist as a property field (add a `product_id` or `variant_id` field with the same value when the key sits in the built-in `item_id` column);
+- the lookup key: exactly one per catalog. The key is the `item_id` column, which Jinja cannot read (it reads only catalog properties), so every product or variant catalog also needs a regular field with the same value, named `product_id` or `variant_id`; if the key field already has that name, rename it to `item_id` first;
 - schema drift: a field present in one market and missing in another, or with a different type or searchable flag, is a warning;
 - links: a property linked to a catalog field must have the same data type, and `product_id`, `variant_id` and `item_id` properties should link to the lookup key of their catalog kind (pick it in the **Catalog field** select of the property editor).
 

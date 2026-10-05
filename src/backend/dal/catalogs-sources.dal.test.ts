@@ -93,9 +93,13 @@ describe('project default source and implementation method default (D-62)', () =
   it('links the default source to a new event that names none', () => {
     const s = SourceDAL.createSource(projectId, { name: 'Shop', system: 'shopify', method: 'web_sdk_gtm_datalayer' });
     ProjectDAL.updateProject(projectId, { default_source_id: s.id });
-    const e = EventDAL.createEvent(projectId, { name: 'page_view_x' });
+    const e = EventDAL.createEvent(projectId, { name: 'page_view_x' }, { applyDefaultSource: true });
     expect(EventDAL.listEventSourceIds(projectId, e.id)).toEqual([s.id]);
-    const explicit = EventDAL.createEvent(projectId, { name: 'other_event', source_ids: [] });
+    // not applied without the route flag (import planners), nor to sdk/platform class events
+    expect(EventDAL.listEventSourceIds(projectId, EventDAL.createEvent(projectId, { name: 'imported_event' }).id)).toEqual([]);
+    const sdk = EventDAL.createEvent(projectId, { name: 'session_x', class: 'sdk' }, { applyDefaultSource: true });
+    expect(EventDAL.listEventSourceIds(projectId, sdk.id)).toEqual([]);
+    const explicit = EventDAL.createEvent(projectId, { name: 'other_event', source_ids: [] }, { applyDefaultSource: true });
     expect(EventDAL.listEventSourceIds(projectId, explicit.id)).toEqual([]);
   });
 

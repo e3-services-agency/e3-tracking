@@ -33,9 +33,11 @@ describe('runComparison: catalogs', () => {
   it('reports drift, a missing lookup key and a type mismatch, then resolves them when fixed', () => {
     const gb = CatalogDAL.createCatalog(projectId, { name: 'products_gb', mapping_role: 'main', market: 'GB' });
     const cz = CatalogDAL.createCatalog(projectId, { name: 'products_cz', kind: 'product', market: 'CZ' });
-    CatalogDAL.createCatalogField(projectId, gb.id, { name: 'product_id', is_lookup_key: true });
+    CatalogDAL.createCatalogField(projectId, gb.id, { name: 'item_id', is_lookup_key: true });
+    CatalogDAL.createCatalogField(projectId, gb.id, { name: 'product_id' });
     const gbPrice = CatalogDAL.createCatalogField(projectId, gb.id, { name: 'price', data_type: 'number' });
-    CatalogDAL.createCatalogField(projectId, cz.id, { name: 'product_id', is_lookup_key: true });
+    CatalogDAL.createCatalogField(projectId, cz.id, { name: 'item_id', is_lookup_key: true });
+    CatalogDAL.createCatalogField(projectId, cz.id, { name: 'product_id' });
     PropertyDAL.createProperty(projectId, { scope: 'event', name: 'price', data_type: 'string', mapped_catalog_id: gb.id, mapped_catalog_field_id: gbPrice.id });
 
     const summary = runComparison(projectId);

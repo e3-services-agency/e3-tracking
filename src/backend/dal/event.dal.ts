@@ -436,7 +436,11 @@ export function listEventSourceIds(projectId: string, eventId: string): string[]
   ).map((r) => r.source_id);
 }
 
-export function createEvent(projectId: string, input: EventInput): EventRow {
+/**
+ * `opts.applyDefaultSource` (D-62): the editor/API route sets it so a new *custom* event with no sources of its
+ * own gets the project's default source. Import planners (data mapping, Data Manager, expiration) never set it.
+ */
+export function createEvent(projectId: string, input: EventInput, opts: { applyDefaultSource?: boolean } = {}): EventRow {
   const name = input.name.trim();
   if (!name) throw new ValidationError('Event name is required.', 'name');
   validateAsciiName(name, 'name');
@@ -506,8 +510,8 @@ export function createEvent(projectId: string, input: EventInput): EventRow {
       );
     }
 
-    // D-62: a project default source is applied to a new event that names no sources of its own.
-    const defaultSourceId = (db.prepare('SELECT default_source_id FROM projects WHERE id = ?').get(projectId) as { default_source_id: string | null } | undefined)?.default_source_id;
+    // D-62: a project default source is applied to a new custom event created through the editor/API that names no sources of its own.
+    const defaultSourceId = !opts.applyDefaultSource || (input.class || DEFAULT_EVENT_CLASS) !== 'custom' ? null : (db.prepare('SELECT default_source_id FROM projects WHERE id = ?').get(projectId) as { default_source_id: string | null } | undefined)?.default_source_id;
     const createSourceIds = input.source_ids ?? (defaultSourceId ? [defaultSourceId] : null);
     if (createSourceIds !== null) {
       replaceEventSources(projectId, id, createSourceIds);

@@ -49,3 +49,36 @@ describe('backup restore: catalogs per market and sources', () => {
     expect(restoredCatalog.live_at).toBeTruthy();
   });
 });
+
+describe('backup restore: catalog-linked property and a dangling default source', () => {
+  it('a property linked to a catalog field is restored with remapped catalog and field ids', async () => {
+    const catalog = CatalogDAL.createCatalog(projectId, { name: 'products_gb', mapping_role: 'main', market: 'GB' });
+    const key = CatalogDAL.createCatalogField(projectId, catalog.id, { name: 'item_id', is_lookup_key: true });
+    const PropertyDAL = await import('../dal/property.dal');
+    PropertyDAL.createProperty(projectId, { scope: 'event', name: 'product_id', data_type: 'string', mapped_catalog_id: catalog.id, mapped_catalog_field_id: key.id });
+
+    const backup = await buildBackup(projectId);
+    const preview = previewRestore(backup);
+    const client = ClientDAL.createClient({ key: 'other', name: 'Other' });
+    const { project } = await applyRestore(backup, preview.payload_hash, { name: 'Restored', key: 'restored', client_id: client.id });
+
+    const [restoredCatalog] = CatalogDAL.listCatalogs(project.id);
+    const [restoredField] = CatalogDAL.listCatalogFields(project.id, restoredCatalog.id);
+    const restoredProp = PropertyDAL.listProperties(project.id).find((p) => p.name === 'product_id')!;
+    expect(restoredCatalog.id).not.toBe(catalog.id);
+    expect(restoredProp.mapped_catalog_id).toBe(restoredCatalog.id);
+    expect(restoredProp.mapped_catalog_field_id).toBe(restoredField.id);
+  });
+
+  it('a default_source_id that points at no source in the file is a clean 400 and restores nothing', async () => {
+    SourceDAL.createSource(projectId, { name: 'Shop', system: 'shopify', method: null });
+    const backup = (await buildBackup(projectId)) as { project: Record<string, unknown> };
+    backup.project.default_source_id = 'no-such-source-id';
+    const preview = previewRestore(backup);
+    const client = ClientDAL.createClient({ key: 'other', name: 'Other' });
+    await expect(
+      applyRestore(backup, preview.payload_hash, { name: 'Dangling', key: 'dangling', client_id: client.id })
+    ).rejects.toMatchObject({ code: 'BAD_REQUEST', field: 'backup' });
+    expect(ProjectDAL.listProjects().some((p) => p.key === 'dangling')).toBe(false);
+  });
+});

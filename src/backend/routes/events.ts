@@ -82,7 +82,7 @@ router.post('/', (req: Request, res: Response) => {
     return;
   }
   try {
-    const event = EventDAL.createEvent(req.projectId!, { ...inputFromBody(body), name });
+    const event = EventDAL.createEvent(req.projectId!, { ...inputFromBody(body), name }, { applyDefaultSource: true });
     res.status(201).json(event);
   } catch (err) {
     handleRouteError(err, res);

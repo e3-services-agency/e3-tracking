@@ -8,9 +8,9 @@
  * - `catalog_searchable_changed` (error): a v1 catalog marked live whose searchable set differs from
  *   the snapshot taken when it went live (on v1 the set is fixed in advance).
  * - `catalog_lookup_key` (error): no lookup key field, or more than one.
- * - `catalog_lookup_property` (error): the lookup key sits in the Bloomreach built-in `item_id`
- *   column, which Jinja cannot read; the catalog needs a separate property field with the same value
- *   (named like the key's `client_field_name`, else `product_id` / `variant_id` for the kind).
+ * - `catalog_lookup_property` (error, D-61 amendment): the lookup key field is the item_id column, which Jinja
+ *   cannot read; every catalog with a lookup key needs a regular non-key field with the same value, named
+ *   like the key's `client_field_name` or else `product_id` / `variant_id` for the kind.
  *
  * Across catalogs of one kind (product, variant; `other` catalogs are not compared):
  * - `catalog_schema_drift` (warning): a field present in some markets and missing in others, or a
@@ -191,19 +191,22 @@ export function runCatalogChecks(input: CatalogCheckInput): EngineFinding[] {
     } else {
       // ---- the lookup key must also be readable as a property (Jinja reads only properties) ----
       const key = keys[0];
-      if (key.bloomreach_column === 'item_id') {
-        const wanted = key.client_field_name?.trim() || KIND_ID_NAME[c.kind] || null;
-        const hasProperty = wanted ? c.fields.some((f) => f.id !== key.id && f.name.toLowerCase() === wanted.toLowerCase()) : false;
+      // D-61 amendment: the field flagged as lookup key IS the item_id column, which Jinja cannot read, so a
+      // regular non-key field with the same value must exist (kind id name, or the key's client_field_name).
+      const wanted = key.client_field_name?.trim() || KIND_ID_NAME[c.kind] || null;
+      if (wanted) {
+        const hasProperty = c.fields.some((f) => f.id !== key.id && f.name.toLowerCase() === wanted.toLowerCase());
         if (!hasProperty) {
+          const keyIsNamedLikeIt = key.name.toLowerCase() === wanted.toLowerCase();
           findings.push(
             finding(
               'catalog_lookup_property',
               'error',
               null,
               c.id,
-              wanted
-                ? `Catalog "${label(c)}": the lookup key "${key.name}" is not available as a property; add a field "${wanted}" with the same value, because Jinja reads only properties.`
-                : `Catalog "${label(c)}": the lookup key "${key.name}" is not available as a property; add a field with the same value, because Jinja reads only properties.`,
+              keyIsNamedLikeIt
+                ? `Catalog "${label(c)}": the lookup key "${key.name}" is the item_id column, which Jinja cannot read; treat this field as item_id (rename it) and add a regular "${wanted}" field with the same value, because Jinja reads only properties.`
+                : `Catalog "${label(c)}": the lookup key "${key.name}" is the item_id column, which Jinja cannot read; add a regular field "${wanted}" with the same value, because Jinja reads only properties.`,
               { catalog_id: c.id, property_field: wanted },
               { catalog: c.name, lookup_key: key.name }
             )

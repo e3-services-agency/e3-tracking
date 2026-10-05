@@ -480,6 +480,11 @@ export async function applyRestore(
     run();
   } catch (err) {
     await getFileStore().removeProjectFiles(newProjectId);
+    // Foreign keys are checked at commit (`defer_foreign_keys`): a row pointing at an id that is not in the file
+    // (a dangling `default_source_id`, `mapped_catalog_id`, ...) is a bad backup, a 400, not a raw SQLite error.
+    if ((err as { code?: string } | null)?.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+      throw new BadRequestError('The backup references a row that is not in the file (a foreign key points nowhere); nothing was restored.', 'backup');
+    }
     throw err;
   }
 

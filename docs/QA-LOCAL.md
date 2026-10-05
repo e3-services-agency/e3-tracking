@@ -154,7 +154,7 @@ the comment rate limit.
    three named ones), 5 variants (`cart_update` add/remove, `purchase` completed/refunded,
    `wishlist_update` add), 1 bundle ("Product item"), 9 standard event mappings, 4 rules, 4
    catalogs (`products_gb` main and live, `variants_gb` variant, `products_cz`, `variants_cz`; GBP and CZK;
-   `product_id`/`variant_id` lookup keys, linked from the `product_id`/`variant_id` properties), 2 sources
+   `item_id` lookup keys plus regular `product_id`/`variant_id` fields, linked from the `product_id`/`variant_id` properties), 2 sources
    (Shopify via GTM data layer, the project default; custom backend via Tracking API for `purchase`,
    `purchase_item`, `consent`), 5 consent categories, 3 identity rules, 3 use cases (`UC-01`..`UC-03`, 17 requirements,
    one deliberate gap), 1 QA run with 16 observations, 4 comments (1 via share, 1 internal only,

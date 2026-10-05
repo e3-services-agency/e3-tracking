@@ -85,7 +85,7 @@ export function eventCardToMarkdown(card: EventCard): string {
   } else {
     out.push(
       table(
-        ['Payload key', 'Name', 'Definition', 'Type', 'Formats', 'Required', 'Role', 'Kind', 'dataLayer path', 'Bundle', 'Allowed values', 'Example', 'Description'],
+        ['Payload key', 'Name', 'Definition', 'Type', 'Formats', 'Required', 'Role', 'Kind', 'dataLayer path', 'Bundle', 'Catalog', 'Allowed values', 'Example', 'Description'],
         card.properties.map((p) => [
           p.payload_key,
           p.name,
@@ -97,6 +97,7 @@ export function eventCardToMarkdown(card: EventCard): string {
           p.kind ?? '',
           p.datalayer_path === null ? 'n/a' : (p.datalayer_path ?? ''),
           p.bundle ?? '',
+          p.catalog_field ?? '',
           p.allowed_values?.map((a) => a.value).join(', ') ?? '',
           exampleCell(p.example),
           p.description ?? '',

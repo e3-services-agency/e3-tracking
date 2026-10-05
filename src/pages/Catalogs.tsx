@@ -381,7 +381,7 @@ function CatalogEditor({
                 </p>
                 <p>
                   Lookup key: {keys.length === 1 ? keys[0].name : keys.length === 0 ? 'none yet' : `${keys.length} fields, must be one`}.
-                  Jinja reads only catalog properties, not the lookup key itself: keep the key as a property field too (a key in the built-in item_id column needs a separate product_id or variant_id field with the same value).
+                  The lookup key is the item_id column, which Jinja cannot read, because Jinja reads only catalog properties: add a regular product_id (or variant_id) field with the same value. If the key field already has that name, treat it as item_id (rename it) first.
                 </p>
               </div>
             );

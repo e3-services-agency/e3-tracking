@@ -233,8 +233,8 @@ export const KIND_INFO: Record<FindingKind, KindInfo> = {
     'catalog_lookup_property',
     'schema',
     'Lookup key is not a catalog property',
-    'The lookup key is not available as a catalog field, but Jinja can only read catalog properties, not the key itself.',
-    'Add the lookup key as a property (field) of the catalog as well.'
+    'The lookup key is the item_id column, which Jinja cannot read; Jinja reads only catalog properties, so the catalog needs a regular field with the same id.',
+    'Add a regular field named like the kind id (product_id or variant_id) with the same value; if the key field already has that name, treat it as item_id (rename it) first.'
   ),
   catalog_schema_drift: k(
     'catalog_schema_drift',

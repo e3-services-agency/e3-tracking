@@ -63,7 +63,8 @@ import { escapeHtml } from './htmlEscape';
 import { displaySampleValue } from '../../domain/examples';
 import { computeFindingsSummary } from '../../domain/document/findingsSummary';
 import { PROPERTY_DEFINITION_DEFAULT_NAME } from '../../domain/enums';
-import { buildEventCard, buildEventCardContext, buildUnattachedFindings, type EventCardBuildContext } from './document.service';
+import { buildEventCard, buildEventCardContext, buildUnattachedFindings, catalogLinksForProperties, type EventCardBuildContext } from './document.service';
+import { sourceViaLabel } from '../../domain/sources';
 
 export { escapeHtml };
 
@@ -86,7 +87,12 @@ function renderExampleHtml(value: unknown): string {
  * Renders the attached-property table for one event: name, required/optional, role, data type,
  * payload key, description. Exported so it can be unit-tested and reused (docs export contract).
  */
-export function buildPropertyDetailsTable(properties: EventPropertyWithDetails[], method: string = 'client_web'): string {
+export function buildPropertyDetailsTable(
+  properties: EventPropertyWithDetails[],
+  method: string = 'client_web',
+  /** D-61 (T-4-11B): when given, adds the "Catalog field" column (`catalog.field` per linked property). */
+  catalogFieldLabelById?: Map<string, string>
+): string {
   if (properties.length === 0) {
     return '<p class="empty">No properties attached.</p>';
   }
@@ -106,6 +112,7 @@ export function buildPropertyDetailsTable(properties: EventPropertyWithDetails[]
         <td>${escapeHtml(link.payload_key?.trim() || link.property.name)}</td>
         <td>${escapeHtml(link.property.kind ?? 'event')}</td>
         <td>${method === 'client_web' ? escapeHtml(dataLayerPath(link.property.kind ?? 'event', link.payload_key?.trim() || link.property.name, parseDerivation(link.property.derivation_json))) : 'n/a'}</td>
+        ${catalogFieldLabelById ? `<td>${escapeHtml(link.property.mapped_catalog_field_id ? (catalogFieldLabelById.get(link.property.mapped_catalog_field_id) ?? '') : '')}</td>` : ''}
         <td>${escapeHtml(description)}</td>
         <td>${renderExampleHtml(jsonSampleValueForProperty(toAttachedPropertyForCodegen(link)))}</td>
       </tr>`;
@@ -121,6 +128,7 @@ export function buildPropertyDetailsTable(properties: EventPropertyWithDetails[]
         <th>Payload key</th>
         <th>Kind</th>
         <th>dataLayer path</th>
+        ${catalogFieldLabelById ? '<th>Catalog field</th>' : ''}
         <th>Description</th>
         <th>Example</th>
       </tr>
@@ -245,7 +253,12 @@ async function buildEventSectionHtml(
       const variantCodegen = buildCodegenV2(
         event.name,
         variantAttached,
-        { method: event.implementation_method, dlEventName: event.dl_event_name, eventClass: event.class },
+        {
+          method: event.implementation_method,
+          dlEventName: event.dl_event_name,
+          eventClass: event.class,
+          catalogLinks: catalogLinksForProperties(properties, cardCtx),
+        },
         event.codegen_event_name_overrides_json as CodegenEventNameOverrides | null
       );
       return `<div class="variant-codegen">
@@ -262,6 +275,7 @@ async function buildEventSectionHtml(
       <dt>Class</dt><dd><span class="class-badge ${escapeHtml(event.class)}">${escapeHtml(event.class)}</span></dd>
       <dt>Implementation method</dt><dd>${escapeHtml(event.implementation_method)}</dd>
       ${event.dl_event_name ? `<dt>dataLayer event</dt><dd>${escapeHtml(event.dl_event_name)}</dd>` : ''}
+      ${card.sources && card.sources.length > 0 ? `<dt>Collected from</dt><dd>${escapeHtml(card.sources.map((s) => `${s.name} (${sourceViaLabel(s.system, s.method)})`).join('; '))}</dd>` : ''}
       <dt>Status</dt><dd>${escapeHtml(event.status)}</dd>
       ${event.page ? `<dt>Page</dt><dd>${escapeHtml(event.page)}</dd>` : ''}
       ${event.trigger_text ? `<dt>Trigger</dt><dd>${escapeHtml(event.trigger_text)}</dd>` : ''}
@@ -272,7 +286,7 @@ async function buildEventSectionHtml(
     ${event.purpose ? `<p class="purpose"><strong>Purpose:</strong> ${escapeHtml(event.purpose)}</p>` : ''}
     ${triggersHtml}
     <h3>Properties</h3>
-    ${buildPropertyDetailsTable(properties, event.implementation_method)}
+    ${buildPropertyDetailsTable(properties, event.implementation_method, cardCtx.catalogFieldLabelById)}
     <h3>Sample payload</h3>
     ${buildPayloadDoc(properties)}
     <h3>Implementation</h3>

@@ -398,6 +398,11 @@ function buildCatalogsSectionHtml(projectId: string): string {
       source_system: c.source_system,
       sync_method: c.sync_method,
       update_frequency: c.update_frequency,
+      kind: c.kind,
+      market: c.market,
+      language: c.language,
+      version: c.version,
+      live: !!c.live_at,
       fields: fields.map((f) => ({
         name: f.name,
         data_type: f.data_type,

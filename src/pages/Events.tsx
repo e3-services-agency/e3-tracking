@@ -17,6 +17,7 @@ import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { PRIORITIES, EVENT_STATUSES, EVENT_CLASSES, IMPLEMENTATION_METHODS } from '@/src/domain/enums';
+import { sourceViaLabel } from '@/src/domain/sources';
 import { isHttpUrl } from '@/src/domain/url';
 import { ExpirationEditor, type ExpirationValue } from '@/src/features/events/components/ExpirationEditor';
 import { DerivedMetricsEditor, type DerivedMetricRow } from '@/src/features/events/components/DerivedMetricsEditor';
@@ -80,6 +81,9 @@ interface PropertyRow {
 interface SourceRow {
   id: string;
   name: string;
+  /** D-62 (T-4-11B). */
+  system?: string;
+  method?: string | null;
 }
 
 async function parseJson(res: Response): Promise<any> {
@@ -338,6 +342,8 @@ function EventEditor({
   const [eventClass, setEventClass] = useState('custom');
   // D-63 (T-4-17): '' = let the server default by name and class (new events only).
   const [implementationMethod, setImplementationMethod] = useState('');
+  // D-62: only a method the user changed is sent, so a source's method can still default an untouched one.
+  const [loadedImplementationMethod, setLoadedImplementationMethod] = useState('');
   const [dlEventName, setDlEventName] = useState('');
   const [ownerBusiness, setOwnerBusiness] = useState('');
   const [ownerTechnical, setOwnerTechnical] = useState('');
@@ -387,6 +393,7 @@ function EventEditor({
           setIdentityNote(ev.identity_note ?? '');
           setEventClass(ev.class);
           setImplementationMethod(ev.implementation_method ?? 'client_web');
+          setLoadedImplementationMethod(ev.implementation_method ?? 'client_web');
           setDlEventName(ev.dl_event_name ?? '');
           setOwnerBusiness(ev.owner_business ?? '');
           setOwnerTechnical(ev.owner_technical ?? '');
@@ -514,7 +521,7 @@ function EventEditor({
         identity_note: identityNote.trim() || null,
         triggers_json: triggers,
         class: eventClass,
-        ...(implementationMethod ? { implementation_method: implementationMethod } : {}),
+        ...(implementationMethod && implementationMethod !== loadedImplementationMethod ? { implementation_method: implementationMethod } : {}),
         dl_event_name: dlEventName.trim() || null,
         owner_business: ownerBusiness.trim() || null,
         owner_technical: ownerTechnical.trim() || null,
@@ -526,7 +533,8 @@ function EventEditor({
         derived_metrics_json: derivedMetrics
           .filter((m) => m.name.trim() && m.expression.trim())
           .map((m) => ({ name: m.name.trim(), expression: m.expression.trim(), description: m.description?.trim() || null })),
-        source_ids: sourceIds,
+        // D-62: a new event with no source chosen gets the project default source from the server.
+        ...(isCreating && sourceIds.length === 0 ? {} : { source_ids: sourceIds }),
       };
       const url = isCreating
         ? `${API_BASE}/api/projects/${projectId}/events`
@@ -703,12 +711,12 @@ function EventEditor({
 
       {allSources.length > 0 && (
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Sources</label>
+          <label className="text-sm font-medium text-gray-700">Sources (system via method)</label>
           <div className="flex flex-wrap gap-2">
             {allSources.map((s) => (
               <label key={s.id} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1">
                 <input type="checkbox" checked={sourceIds.includes(s.id)} onChange={() => toggleSource(s.id)} />
-                {s.name}
+                {s.name} <span className="text-gray-500">({sourceViaLabel(s.system, s.method)})</span>
               </label>
             ))}
           </div>

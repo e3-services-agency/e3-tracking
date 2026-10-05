@@ -164,7 +164,17 @@ export const CSV_ENTITIES = {
       'update_frequency',
       'priority',
       'status',
+      // D-61 (T-4-11B)
+      'kind',
+      'market',
+      'language',
+      'version',
+      'live_at',
     ],
+  },
+  // D-62 (T-4-11B): the project's sources; `is_default` marks the project default source.
+  sources: {
+    headers: ['id', 'name', 'system', 'method', 'color', 'is_default'],
   },
   catalog_fields: {
     headers: [

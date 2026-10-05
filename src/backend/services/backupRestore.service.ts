@@ -426,6 +426,10 @@ export async function applyRestore(
           created_at: now,
           updated_at: now,
         });
+        // D-62 (T-4-11B): `default_source_id` is a foreign key to a table restored below, so it is
+        // inserted NULL and set once the sources exist.
+        const restoredDefaultSourceId = typeof remappedProject.default_source_id === 'string' ? remappedProject.default_source_id : null;
+        remappedProject.default_source_id = null;
         insertGenericRow('projects', remappedProject, unknownColsSeen);
 
         for (const table of PROJECT_SCOPED_TABLES) {
@@ -452,6 +456,9 @@ export async function applyRestore(
             insertGenericRow(table, withInferredContract(table, remapped), unknownColsSeen);
           }
           counts[table] = rows.length;
+        }
+        if (restoredDefaultSourceId) {
+          db.prepare('UPDATE projects SET default_source_id = ? WHERE id = ? AND EXISTS (SELECT 1 FROM sources WHERE id = ?)').run(restoredDefaultSourceId, newProjectId, restoredDefaultSourceId);
         }
         counts.use_case_templates = (parsed.tables.use_case_templates ?? []).length;
         counts.files = parsed.files.length;

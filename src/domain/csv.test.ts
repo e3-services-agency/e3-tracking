@@ -97,3 +97,11 @@ describe('CSV_ENTITIES (D-46, T-3-03)', () => {
     expect(CSV_ENTITY_NAMES).toContain('comments');
   });
 });
+
+describe('catalog and source columns (D-61, D-62)', () => {
+  it('catalogs carry kind, market, language, version and live_at; sources is an entity', () => {
+    expect(csvHeadersFor('catalogs')).toEqual(expect.arrayContaining(['kind', 'market', 'language', 'version', 'live_at']));
+    expect(CSV_ENTITY_NAMES).toContain('sources');
+    expect(csvHeadersFor('sources')).toEqual(['id', 'name', 'system', 'method', 'color', 'is_default']);
+  });
+});

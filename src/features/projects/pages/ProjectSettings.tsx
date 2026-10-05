@@ -19,6 +19,7 @@ import {
   type NamingConvention,
 } from '@/src/domain/enums';
 import { NAMING_CONVENTION_EXAMPLES, NAMING_CONVENTION_LABELS } from '@/src/domain/naming';
+import { sourceViaLabel } from '@/src/domain/sources';
 
 /** T-3-10 QA fix (ERROR 1, 2026-09-28 10:22): sentinel select values distinct from any real industry string. */
 const INDUSTRY_NOT_SET = '';
@@ -43,6 +44,8 @@ interface ProjectDetail {
   industry: string | null;
   /** D-65 (T-4-22). */
   naming_convention?: NamingConvention;
+  /** D-62 (T-4-11B): the source applied to new events that name none. */
+  default_source_id?: string | null;
   /** D-60: true for a project restored from the bundled sandbox backup; share creation is refused
    * server-side unless `force=true` (`SandboxShareRefusedError`). */
   is_sandbox?: boolean;
@@ -84,6 +87,8 @@ export function ProjectSettings() {
   const [industrySelect, setIndustrySelect] = useState<string>(INDUSTRY_NOT_SET);
   const [industryOtherText, setIndustryOtherText] = useState('');
   const [namingConvention, setNamingConvention] = useState<NamingConvention>('snake_case');
+  const [defaultSourceId, setDefaultSourceId] = useState('');
+  const [sourceOptions, setSourceOptions] = useState<{ id: string; name: string; system: string; method: string | null }[]>([]);
 
   const [share, setShare] = useState<ShareState | null>(null);
   const [shareAccessSelect, setShareAccessSelect] = useState<string>(SHARE_ACCESS[0]);
@@ -124,6 +129,10 @@ export function ProjectSettings() {
       setMoneyTolerancePercent(p.money_tolerance_percent ?? 1);
       setMoneyToleranceFloor(p.money_tolerance_floor ?? 0.01);
       setNamingConvention(p.naming_convention ?? 'snake_case');
+      setDefaultSourceId(p.default_source_id ?? '');
+      const sourcesRes = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/sources`);
+      const sourcesData = await sourcesRes.json().catch(() => []);
+      setSourceOptions(sourcesRes.ok && Array.isArray(sourcesData) ? sourcesData : []);
       const industry = p.industry?.trim() || '';
       if (!industry) {
         setIndustrySelect(INDUSTRY_NOT_SET);
@@ -311,6 +320,7 @@ export function ProjectSettings() {
           money_tolerance_percent: moneyTolerancePercent,
           money_tolerance_floor: moneyToleranceFloor,
           naming_convention: namingConvention,
+          default_source_id: defaultSourceId || null,
           industry:
             industrySelect === INDUSTRY_NOT_SET
               ? null
@@ -518,6 +528,22 @@ export function ProjectSettings() {
         >
           {NAMING_CONVENTIONS.map((c) => (
             <option key={c} value={c}>{NAMING_CONVENTION_LABELS[c]} (e.g. {NAMING_CONVENTION_EXAMPLES[c]})</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="space-y-2 border-t pt-4">
+        <label className="block text-sm font-medium text-gray-700" htmlFor="default-source">Default source</label>
+        <p className="text-xs text-gray-500">Linked to every new event that names no source of its own (D-62). Its collection method also sets the new event's implementation method.</p>
+        <select
+          id="default-source"
+          value={defaultSourceId}
+          onChange={(e) => setDefaultSourceId(e.target.value)}
+          className="w-full max-w-md h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900"
+        >
+          <option value="">None</option>
+          {sourceOptions.map((s) => (
+            <option key={s.id} value={s.id}>{s.name} ({sourceViaLabel(s.system, s.method)})</option>
           ))}
         </select>
       </div>

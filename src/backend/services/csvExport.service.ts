@@ -34,6 +34,7 @@ import * as QaRunDAL from '../dal/qa-run.dal';
 import * as ObservationDAL from '../dal/observation.dal';
 import * as FindingDAL from '../dal/finding.dal';
 import * as SourceDAL from '../dal/source.dal';
+import * as ProjectDAL from '../dal/project.dal';
 import * as UseCaseTemplateDAL from '../dal/use-case-template.dal';
 import * as CommentDAL from '../dal/comment.dal';
 import { describeRuleExpression, computeCertificationsForProject } from './document.service';
@@ -352,6 +353,23 @@ function buildCatalogsRows(projectId: string): CsvRow[] {
     update_frequency: textCell(c.update_frequency),
     priority: textCell(c.priority),
     status: textCell(c.status),
+    kind: c.kind,
+    market: textCell(c.market),
+    language: textCell(c.language),
+    version: c.version,
+    live_at: textCell(c.live_at),
+  }));
+}
+
+function buildSourcesRows(projectId: string): CsvRow[] {
+  const defaultSourceId = ProjectDAL.getProjectOrThrow(projectId).default_source_id;
+  return SourceDAL.listSources(projectId).map((s) => ({
+    id: s.id,
+    name: s.name,
+    system: s.system,
+    method: textCell(s.method),
+    color: textCell(s.color),
+    is_default: boolCell(s.id === defaultSourceId),
   }));
 }
 
@@ -635,6 +653,7 @@ const ROW_BUILDERS: Record<CsvEntity, (projectId: string) => CsvRow[]> = {
   standard_event_mappings: buildStandardEventMappingsRows,
   identity_rules: buildIdentityRulesRows,
   catalogs: buildCatalogsRows,
+  sources: buildSourcesRows,
   catalog_fields: buildCatalogFieldsRows,
   consent_categories: buildConsentCategoriesRows,
   use_cases: buildUseCasesRows,
@@ -684,6 +703,7 @@ const COUNT_QUERIES: Record<CsvEntity, (projectId: string) => number> = {
     ),
   identity_rules: (projectId) => countOf('SELECT COUNT(*) as n FROM identity_rules WHERE project_id = ?', projectId),
   catalogs: (projectId) => countOf('SELECT COUNT(*) as n FROM catalogs WHERE project_id = ? AND deleted_at IS NULL', projectId),
+  sources: (projectId) => countOf('SELECT COUNT(*) as n FROM sources WHERE project_id = ?', projectId),
   catalog_fields: (projectId) =>
     countOf(
       `SELECT COUNT(*) as n FROM catalog_fields cf

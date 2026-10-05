@@ -413,6 +413,12 @@ export interface CatalogForDocs {
   source_system?: string | null;
   sync_method?: string | null;
   update_frequency?: string | null;
+  /** D-61 (T-4-11B), optional so older callers stay valid. */
+  kind?: string | null;
+  market?: string | null;
+  language?: string | null;
+  version?: string | null;
+  live?: boolean;
   fields: { name: string; data_type?: string | null; is_lookup_key: boolean; is_searchable: boolean; description?: string | null }[];
   mapped_properties: { property_name: string; scope: string; field_name: string | null }[];
 }
@@ -423,7 +429,15 @@ export function renderCatalogsSection(catalogs: CatalogForDocs[]): string {
   const yes = (v: boolean): string => (v ? 'yes' : '—');
   const blocks = catalogs
     .map((catalog) => {
+      const marketLabel = [catalog.market, catalog.language].filter(Boolean).join(' / ');
+      const searchableCount = catalog.fields.filter((f) => f.is_searchable).length;
+      const lookupKey = catalog.fields.find((f) => f.is_lookup_key)?.name;
       const meta = [
+        catalog.kind ? `${catalog.kind} catalog` : '',
+        marketLabel ? `market: ${marketLabel}` : '',
+        catalog.version ? `version: ${catalog.version}${catalog.live ? ' (live)' : ''}` : '',
+        catalog.kind ? `${searchableCount} searchable` : '',
+        catalog.kind && lookupKey ? `lookup key: ${lookupKey}` : '',
         catalog.mapping_role ? `mapping role: ${catalog.mapping_role}` : '',
         catalog.status ?? '',
         catalog.source_system ? `source: ${catalog.source_system}` : '',

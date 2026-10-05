@@ -42,6 +42,8 @@ import {
   type PropertyCategory,
 } from '@/src/domain/propertyCategory';
 import { HistorySection } from '@/src/features/history/HistorySection';
+import { catalogMarketLabel } from '@/src/domain/catalogs';
+import { typeFamily } from '@/src/domain/comparison/catalogChecks';
 import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
 
 interface PropertyRow {
@@ -68,6 +70,19 @@ interface PropertyRow {
   status: string | null;
   bloomreach_customer_property: string | null;
   bundle_ids?: string[];
+  /** D-61 (T-4-11B): the catalog field the property looks up into. */
+  mapped_catalog_id?: string | null;
+  mapped_catalog_field_id?: string | null;
+}
+
+interface CatalogFieldOption {
+  id: string;
+  catalog_id: string;
+  catalog_name: string;
+  catalog_label: string;
+  name: string;
+  data_type: string | null;
+  is_lookup_key: boolean;
 }
 
 interface BundleRow {
@@ -306,6 +321,8 @@ function PropertyEditor({
   const [status, setStatus] = useState(property?.status ?? '');
   const [bloomreachCustomerProperty, setBloomreachCustomerProperty] = useState(property?.bloomreach_customer_property ?? '');
   const [bundleIds, setBundleIds] = useState<string[]>(property?.bundle_ids ?? []);
+  const [mappedCatalogFieldId, setMappedCatalogFieldId] = useState(property?.mapped_catalog_field_id ?? '');
+  const [catalogFieldOptions, setCatalogFieldOptions] = useState<CatalogFieldOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -319,6 +336,37 @@ function PropertyEditor({
 
   const trimmedName = name.trim();
   const nameError = trimmedName ? null : 'Name is required.';
+
+  // D-61 (T-4-11B): every catalog field of the project, for the catalog field picker.
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    (async () => {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/catalogs`);
+      const list = await parseJson(res);
+      if (!res.ok || !Array.isArray(list)) return;
+      const options: CatalogFieldOption[] = [];
+      for (const c of list as { id: string; name: string; market: string | null; language: string | null }[]) {
+        const detailRes = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/catalogs/${c.id}`);
+        const detail = await parseJson(detailRes);
+        if (!detailRes.ok || !Array.isArray(detail.fields)) continue;
+        const market = catalogMarketLabel(c.market, c.language);
+        for (const f of detail.fields as { id: string; name: string; data_type: string | null; is_lookup_key: boolean }[]) {
+          options.push({ id: f.id, catalog_id: c.id, catalog_name: c.name, catalog_label: market ? `${c.name} (${market})` : c.name, name: f.name, data_type: f.data_type, is_lookup_key: f.is_lookup_key });
+        }
+      }
+      if (!cancelled) setCatalogFieldOptions(options);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+  const selectedCatalogField = catalogFieldOptions.find((o) => o.id === mappedCatalogFieldId) ?? null;
+  const catalogTypeClash =
+    selectedCatalogField !== null &&
+    typeFamily(selectedCatalogField.data_type) !== null &&
+    typeFamily(dataType) !== null &&
+    typeFamily(selectedCatalogField.data_type) !== typeFamily(dataType);
 
   const handleSave = async () => {
     if (!trimmedName || !projectId) return;
@@ -360,6 +408,14 @@ function PropertyEditor({
         status: status || null,
         bloomreach_customer_property: scope === 'customer' ? bloomreachCustomerProperty || null : null,
         bundle_ids: bundleIds,
+        // D-61: a link whose field is not (yet) in the loaded options is left untouched; clearing the picker clears the link.
+        ...(selectedCatalogField
+          ? { mapped_catalog_id: selectedCatalogField.catalog_id, mapped_catalog_field_id: selectedCatalogField.id }
+          : mappedCatalogFieldId === ''
+            ? property?.mapped_catalog_field_id
+              ? { mapped_catalog_id: null, mapped_catalog_field_id: null }
+              : {}
+            : {}),
       };
       const url = isCreating
         ? `${API_BASE}/api/projects/${projectId}/properties`
@@ -465,6 +521,26 @@ function PropertyEditor({
           ))}
         </select>
         <p className="text-xs text-gray-500">Derived from the scope and name; set it only to override.</p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-gray-700" htmlFor="property-catalog-field">Catalog field</label>
+        <select
+          id="property-catalog-field"
+          value={mappedCatalogFieldId}
+          onChange={(e) => setMappedCatalogFieldId(e.target.value)}
+          className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+        >
+          <option value="">Not linked</option>
+          {mappedCatalogFieldId && !selectedCatalogField && <option value={mappedCatalogFieldId}>(current link)</option>}
+          {catalogFieldOptions.map((o) => (
+            <option key={o.id} value={o.id}>{o.catalog_label} · {o.name}{o.is_lookup_key ? ' (lookup key)' : ''} · {o.data_type ?? 'string'}</option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-500">The catalog field this property looks up into. An id property (product_id, variant_id) should link to the lookup key of its catalog kind.</p>
+        {catalogTypeClash && selectedCatalogField && (
+          <p className="text-xs text-red-700" role="alert">This property is {dataType}, but {selectedCatalogField.catalog_name}.{selectedCatalogField.name} is {selectedCatalogField.data_type}; the comparison reports it as an error.</p>
+        )}
       </div>
 
       {scope === 'event' && (

@@ -3246,3 +3246,6 @@ Sandbox, comment share link, API 3012, Vite 3010 (stopped, QA db and config remo
 2. Not-tied list: personalization and whatsapp_updates rename findings link to `#consent-personalization` / `#consent-whatsapp_updates`; "Catalog not mapped" and catalog drift link to `#catalogs`.
 3. Page loads, only the HMR WebSocket console error, no 500s.
 Caveat: pane page was hidden (rAF dead), so scrolls were verified with rAF shimmed to setTimeout; the fresh-load variant did not auto-scroll under that throttling, hashchange path did.
+
+### 2026-10-06 10:42 | supervisor | MERGE | T-4-25 merged into agent-setup — DONE
+Fix 70bf63c (scrollTopBelowSticky for variant targets, consent finding links by name/standard key, catalog findings to #catalogs); re-check PASS (heading at 116 px below both bars). Merged tree: tsc, lint clean, 1730 tests / 163 files. T-4-24 still in progress (adds the explicit variants id).

@@ -1,6 +1,6 @@
 /** T-4-26: presentational parts of the Properties table, mirroring the Events variant sub-rows. */
 import React, { useRef } from 'react';
-import { useModalA11y } from '@/src/features/history/HistorySection';
+import { useModalA11y } from '@/src/components/ui/useModalA11y';
 import { Button } from '@/src/components/ui/Button';
 
 export interface PropertyDefinitionSummary {

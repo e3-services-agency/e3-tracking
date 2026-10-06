@@ -777,11 +777,13 @@ interface DefinitionRow {
  */
 function DefinitionsSection({ projectId, propertyId, focus }: { projectId: string; propertyId: string; focus?: boolean }) {
   const sectionRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (focus) sectionRef.current?.scrollIntoView?.({ block: 'center' });
-  }, [focus]);
   const [definitions, setDefinitions] = useState<DefinitionRow[]>([]);
   const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!focus || loading) return;
+    sectionRef.current?.focus?.({ preventScroll: true });
+    sectionRef.current?.scrollIntoView?.({ block: 'center' });
+  }, [focus, loading]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);

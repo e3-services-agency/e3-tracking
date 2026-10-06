@@ -53,4 +53,15 @@ describe('GET /properties definitions and usage (T-4-26)', () => {
     expect(u.used_by_events).toEqual([]);
     expect(u.definitions).toHaveLength(1);
   });
+
+  it('ignores soft-deleted events', async () => {
+    const prop = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'ghost_prop', data_type: 'string' });
+    const ev = EventDAL.createEvent(projectId, { name: 'ghost_event', class: 'custom' } as never);
+    EventDAL.attachPropertyToEvent(projectId, ev.id, { property_id: prop.id });
+    EventDAL.deleteEvent(projectId, ev.id);
+    const rows = (await (await fetch(`${baseUrl}/api/projects/${projectId}/properties`)).json()) as any[];
+    const r = rows.find((x) => x.id === prop.id);
+    expect(r.used_by_events).toEqual([]);
+    expect(r.definitions.every((d: any) => d.using_events.length === 0)).toBe(true);
+  });
 });

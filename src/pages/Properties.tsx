@@ -208,7 +208,6 @@ export function Properties() {
   const { sorted: visibleProperties, sort } = useSortableTable(filteredProperties, {
     name: (p) => p.name,
     scope: (p) => p.scope,
-    category: (p) => classifyProperty(p),
     data_type: (p) => p.data_type,
     kind: (p) => p.kind ?? 'event',
     enum: (p) => (Array.isArray(p.allowed_values_json) ? p.allowed_values_json.length : 0),
@@ -305,13 +304,13 @@ export function Properties() {
             <colgroup>
               <col className="w-10" />
               <col />
-              <col className="w-[72px]" />
               <col className="w-[96px]" />
+              <col className="w-[96px]" />
+              <col className="w-[104px]" />
               <col className="w-[88px]" />
               <col className="w-[88px]" />
-              <col className="w-[88px]" />
-              <col className="w-[110px]" />
-              <col className="w-[150px]" />
+              <col className="w-[104px]" />
+              <col className="w-[170px]" />
             </colgroup>
             <thead className="bg-gray-50 border-b">
               <tr>

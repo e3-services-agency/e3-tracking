@@ -3,13 +3,25 @@ import { useEffect, useRef, type RefObject } from 'react';
 /** Open dialogs, innermost last: only the top one reacts to Esc and Tab (T-4-27). */
 const stack: symbol[] = [];
 
+export function pushModal(): symbol {
+  const id = Symbol('modal');
+  stack.push(id);
+  return id;
+}
+export function popModal(id: symbol): void {
+  const at = stack.indexOf(id);
+  if (at >= 0) stack.splice(at, 1);
+}
+export function isTopModal(id: symbol): boolean {
+  return stack[stack.length - 1] === id;
+}
+
 /** Esc closes, focus moves into the dialog and is trapped, returns to the opener, body scroll locked. */
 export function useModalA11y(ref: RefObject<HTMLElement | null>, onClose: () => void) {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useEffect(() => {
-    const id = Symbol('modal');
-    stack.push(id);
+    const id = pushModal();
     const opener = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -17,6 +29,7 @@ export function useModalA11y(ref: RefObject<HTMLElement | null>, onClose: () => 
       Array.from(ref.current?.querySelectorAll<HTMLElement>('button, input, select, [href], [tabindex]:not([tabindex="-1"])') ?? []);
     (focusables()[0] ?? ref.current)?.focus();
     const onKey = (e: KeyboardEvent) => {
+      if (!isTopModal(id)) return;
       if (e.key === 'Escape') {
         closeRef.current();
         return;
@@ -42,8 +55,7 @@ export function useModalA11y(ref: RefObject<HTMLElement | null>, onClose: () => 
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('keydown', onKey);
-      const at = stack.indexOf(id);
-      if (at >= 0) stack.splice(at, 1);
+      popModal(id);
       document.body.style.overflow = previousOverflow;
       opener?.focus?.();
     };

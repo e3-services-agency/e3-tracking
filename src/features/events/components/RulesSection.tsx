@@ -362,42 +362,42 @@ export function RulesSection({
         </tbody>
       </table>
 
-      <div className="border rounded-md p-3 space-y-2 bg-gray-50">
-        <div className="text-xs font-medium text-gray-700">Add rule</div>
+      <div className="border rounded-md p-3 space-y-2 bg-gray-50 text-sm">
+        <div className="text-sm font-medium text-gray-700">Add rule</div>
         <div className="flex flex-wrap gap-2 items-center">
           <select
             value={form.kind}
             onChange={(e) => setForm((f) => ({ ...emptyForm(), kind: e.target.value as ManualKind, name: f.name }))}
-            className="h-8 rounded border border-gray-300 px-2 text-xs"
+            className="h-9 rounded border border-gray-300 px-2 text-sm"
           >
             {MANUAL_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
           </select>
-          <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="rule name" className="h-8 w-40 text-xs" />
-          <select value={form.variantId} onChange={(e) => setForm((f) => ({ ...f, variantId: e.target.value }))} className="h-8 rounded border border-gray-300 px-2 text-xs">
+          <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="rule name" className="h-9 w-40 text-sm" />
+          <select value={form.variantId} onChange={(e) => setForm((f) => ({ ...f, variantId: e.target.value }))} className="h-9 rounded border border-gray-300 px-2 text-sm">
             <option value="">scope: whole event</option>
             {variants.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
-          <select value={form.severity} onChange={(e) => setForm((f) => ({ ...f, severity: e.target.value }))} className="h-8 rounded border border-gray-300 px-2 text-xs">
+          <select value={form.severity} onChange={(e) => setForm((f) => ({ ...f, severity: e.target.value }))} className="h-9 rounded border border-gray-300 px-2 text-sm">
             {RULE_SEVERITIES.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
 
         {form.kind === 'membership' && (
           <div className="flex flex-wrap gap-2 items-center">
-            <select value={form.needlePropertyId} onChange={(e) => setForm((f) => ({ ...f, needlePropertyId: e.target.value }))} className="h-8 rounded border border-gray-300 px-2 text-xs">
+            <select value={form.needlePropertyId} onChange={(e) => setForm((f) => ({ ...f, needlePropertyId: e.target.value }))} className="h-9 rounded border border-gray-300 px-2 text-sm">
               <option value="">needle property…</option>
               {properties.map((p) => <option key={p.property_id} value={p.property_id}>{p.name}</option>)}
             </select>
-            <span className="text-gray-500">must be present in</span>
+            <span className="text-sm text-gray-500">must be present in</span>
             <select
               value={form.haystackPropertyId}
               onChange={(e) => setForm((f) => ({ ...f, haystackPropertyId: e.target.value, haystackField: '' }))}
-              className="h-8 rounded border border-gray-300 px-2 text-xs"
+              className="h-9 rounded border border-gray-300 px-2 text-sm"
             >
               <option value="">list property…</option>
               {listProperties.map((p) => <option key={p.property_id} value={p.property_id}>{p.name}</option>)}
             </select>
-            <select value={form.haystackField} onChange={(e) => setForm((f) => ({ ...f, haystackField: e.target.value }))} className="h-8 rounded border border-gray-300 px-2 text-xs" disabled={!form.haystackPropertyId}>
+            <select value={form.haystackField} onChange={(e) => setForm((f) => ({ ...f, haystackField: e.target.value }))} className="h-9 rounded border border-gray-300 px-2 text-sm" disabled={!form.haystackPropertyId}>
               <option value="">field…</option>
               {listFields(propertyById(form.haystackPropertyId)).map((field) => <option key={field} value={field}>{field}</option>)}
             </select>
@@ -406,11 +406,11 @@ export function RulesSection({
 
         {form.kind === 'bound' && (
           <div className="flex flex-wrap gap-2 items-center">
-            <select value={form.subjectPropertyId} onChange={(e) => setForm((f) => ({ ...f, subjectPropertyId: e.target.value }))} className="h-8 rounded border border-gray-300 px-2 text-xs">
+            <select value={form.subjectPropertyId} onChange={(e) => setForm((f) => ({ ...f, subjectPropertyId: e.target.value }))} className="h-9 rounded border border-gray-300 px-2 text-sm">
               <option value="">subject property…</option>
               {properties.map((p) => <option key={p.property_id} value={p.property_id}>{p.name}</option>)}
             </select>
-            <select value={form.boundCheck} onChange={(e) => setForm((f) => ({ ...f, boundCheck: e.target.value as (typeof RULE_BOUND_CHECKS)[number] }))} className="h-8 rounded border border-gray-300 px-2 text-xs">
+            <select value={form.boundCheck} onChange={(e) => setForm((f) => ({ ...f, boundCheck: e.target.value as (typeof RULE_BOUND_CHECKS)[number] }))} className="h-9 rounded border border-gray-300 px-2 text-sm">
               {RULE_BOUND_CHECKS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
             {(RULE_COMPARATORS as readonly string[]).includes(form.boundCheck) && (
@@ -419,7 +419,7 @@ export function RulesSection({
                 value={form.boundConstant}
                 onChange={(e) => setForm((f) => ({ ...f, boundConstant: e.target.value }))}
                 placeholder="bound value"
-                className="h-8 w-28 text-xs"
+                className="h-9 w-28 text-sm"
               />
             )}
           </div>
@@ -428,12 +428,12 @@ export function RulesSection({
         {form.kind === 'arithmetic' && (
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2 items-center">
-              <select value={form.leftMode} onChange={(e) => setForm((f) => ({ ...f, leftMode: e.target.value as 'property' | 'sum_list' }))} className="h-8 rounded border border-gray-300 px-2 text-xs">
+              <select value={form.leftMode} onChange={(e) => setForm((f) => ({ ...f, leftMode: e.target.value as 'property' | 'sum_list' }))} className="h-9 rounded border border-gray-300 px-2 text-sm">
                 <option value="property">left: property</option>
                 <option value="sum_list">left: sum of a list property's field(s)</option>
               </select>
               {form.leftMode === 'property' ? (
-                <select value={form.leftPropertyId} onChange={(e) => setForm((f) => ({ ...f, leftPropertyId: e.target.value }))} className="h-8 rounded border border-gray-300 px-2 text-xs">
+                <select value={form.leftPropertyId} onChange={(e) => setForm((f) => ({ ...f, leftPropertyId: e.target.value }))} className="h-9 rounded border border-gray-300 px-2 text-sm">
                   <option value="">property…</option>
                   {properties.map((p) => <option key={p.property_id} value={p.property_id}>{p.name}</option>)}
                 </select>
@@ -442,17 +442,17 @@ export function RulesSection({
                   <select
                     value={form.leftListPropertyId}
                     onChange={(e) => setForm((f) => ({ ...f, leftListPropertyId: e.target.value, leftFieldA: '', leftFieldB: '' }))}
-                    className="h-8 rounded border border-gray-300 px-2 text-xs"
+                    className="h-9 rounded border border-gray-300 px-2 text-sm"
                   >
                     <option value="">list property…</option>
                     {listProperties.map((p) => <option key={p.property_id} value={p.property_id}>{p.name}</option>)}
                   </select>
-                  <select value={form.leftFieldA} onChange={(e) => setForm((f) => ({ ...f, leftFieldA: e.target.value }))} className="h-8 rounded border border-gray-300 px-2 text-xs" disabled={!form.leftListPropertyId}>
+                  <select value={form.leftFieldA} onChange={(e) => setForm((f) => ({ ...f, leftFieldA: e.target.value }))} className="h-9 rounded border border-gray-300 px-2 text-sm" disabled={!form.leftListPropertyId}>
                     <option value="">field…</option>
                     {listFields(propertyById(form.leftListPropertyId)).map((field) => <option key={field} value={field}>{field}</option>)}
                   </select>
-                  <span className="text-gray-500 text-xs">× (optional)</span>
-                  <select value={form.leftFieldB} onChange={(e) => setForm((f) => ({ ...f, leftFieldB: e.target.value }))} className="h-8 rounded border border-gray-300 px-2 text-xs" disabled={!form.leftListPropertyId}>
+                  <span className="text-gray-500 text-sm">× (optional)</span>
+                  <select value={form.leftFieldB} onChange={(e) => setForm((f) => ({ ...f, leftFieldB: e.target.value }))} className="h-9 rounded border border-gray-300 px-2 text-sm" disabled={!form.leftListPropertyId}>
                     <option value="">field…</option>
                     {listFields(propertyById(form.leftListPropertyId)).map((field) => <option key={field} value={field}>{field}</option>)}
                   </select>
@@ -460,25 +460,25 @@ export function RulesSection({
               )}
             </div>
             <div className="flex flex-wrap gap-2 items-center">
-              <select value={form.comparator} onChange={(e) => setForm((f) => ({ ...f, comparator: e.target.value as (typeof RULE_COMPARATORS)[number] }))} className="h-8 rounded border border-gray-300 px-2 text-xs">
+              <select value={form.comparator} onChange={(e) => setForm((f) => ({ ...f, comparator: e.target.value as (typeof RULE_COMPARATORS)[number] }))} className="h-9 rounded border border-gray-300 px-2 text-sm">
                 {RULE_COMPARATORS.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
-              <select value={form.rightPropertyId} onChange={(e) => setForm((f) => ({ ...f, rightPropertyId: e.target.value }))} className="h-8 rounded border border-gray-300 px-2 text-xs">
+              <select value={form.rightPropertyId} onChange={(e) => setForm((f) => ({ ...f, rightPropertyId: e.target.value }))} className="h-9 rounded border border-gray-300 px-2 text-sm">
                 <option value="">right: property…</option>
                 {properties.map((p) => <option key={p.property_id} value={p.property_id}>{p.name}</option>)}
               </select>
-              <select value={form.toleranceMode} onChange={(e) => setForm((f) => ({ ...f, toleranceMode: e.target.value }))} className="h-8 rounded border border-gray-300 px-2 text-xs">
+              <select value={form.toleranceMode} onChange={(e) => setForm((f) => ({ ...f, toleranceMode: e.target.value }))} className="h-9 rounded border border-gray-300 px-2 text-sm">
                 {RULE_TOLERANCE_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
               {(form.toleranceMode === 'absolute' || form.toleranceMode === 'percent') && (
-                <Input type="number" value={form.toleranceValue} onChange={(e) => setForm((f) => ({ ...f, toleranceValue: e.target.value }))} placeholder="tolerance value" className="h-8 w-28 text-xs" />
+                <Input type="number" value={form.toleranceValue} onChange={(e) => setForm((f) => ({ ...f, toleranceValue: e.target.value }))} placeholder="tolerance value" className="h-9 w-28 text-sm" />
               )}
             </div>
           </div>
         )}
 
-        <Input value={form.message} onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))} placeholder="message (optional)" className="h-8 text-xs" />
-        {error && <div className="text-xs text-red-600">{error}</div>}
+        <Input value={form.message} onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))} placeholder="message (optional)" className="h-9 text-sm" />
+        {error && <div className="text-sm text-red-600">{error}</div>}
         <Button type="button" size="sm" onClick={() => void handleCreate()} disabled={creating}>
           {creating ? 'Creating…' : 'Create rule'}
         </Button>

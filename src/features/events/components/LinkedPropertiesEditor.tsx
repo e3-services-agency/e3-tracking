@@ -6,8 +6,9 @@
  * property's) with the standard-event hint per value (D-03).
  */
 import { effectivePayloadKey } from '@/src/domain/payloadKey';
-import React from 'react';
+import React, { useState } from 'react';
 import { Trash2 } from 'lucide-react';
+import { RoleBadge } from '@/src/components/ui/badges';
 import { Input } from '@/src/components/ui/Input';
 import { EVENT_PROPERTY_ROLES, ENTITY_STATUSES, PRIORITIES, PROPERTY_DEFINITION_DEFAULT_NAME } from '@/src/domain/enums';
 
@@ -37,6 +38,16 @@ export interface DefinitionOption {
   id: string;
   name: string;
   allowed_values_json?: { value: string; label?: string | null; standard_event?: string | null }[] | null;
+  /** T-4-24: shown in the nested definition rows. */
+  description?: string | null;
+  formats_json?: string[] | null;
+  example_values_json?: unknown;
+}
+
+function exampleText(value: unknown): string {
+  if (Array.isArray(value)) return value.map(String).join(', ');
+  if (value === null || value === undefined || value === '') return '—';
+  return String(value);
 }
 
 const ROLE_BADGE_STYLE: Record<string, string> = {
@@ -57,6 +68,15 @@ export function LinkedPropertiesEditor({
    * definition (the common case) shows no picker at all -- there is only one meaning to pick. */
   definitionsByPropertyId?: Record<string, DefinitionOption[]>;
 }) {
+  // T-4-24: a property row expands to its definitions as nested rows, with the picker inline.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpanded = (propertyId: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(propertyId)) next.delete(propertyId);
+      else next.add(propertyId);
+      return next;
+    });
   const removeLink = (propertyId: string) => onChange(links.filter((l) => l.property_id !== propertyId));
   const updateLink = (propertyId: string, patch: Partial<LinkedPropertyRow>) =>
     onChange(links.map((l) => (l.property_id === propertyId ? { ...l, ...patch } : l)));
@@ -87,11 +107,18 @@ export function LinkedPropertiesEditor({
                 {effectivePayloadKey(link.property.name, link.payload_key) !== link.property.name && (
                   <span className="text-xs text-gray-500">name: {link.property.name}</span>
                 )}
-                {badgeStyle && (
-                  <span className={`inline-flex items-center rounded-full text-xs px-2 py-0.5 border ${badgeStyle}`}>
-                    {link.role}
-                  </span>
+                {definitions.length > 0 && (
+                  <button
+                    type="button"
+                    aria-expanded={expanded.has(link.property_id)}
+                    onClick={() => toggleExpanded(link.property_id)}
+                    className="text-xs text-gray-500 hover:text-gray-900"
+                    title="Show this property's definitions"
+                  >
+                    {expanded.has(link.property_id) ? '▾' : '▸'} Definitions ({definitions.length})
+                  </button>
                 )}
+                {badgeStyle && <RoleBadge role={link.role} />}
               </div>
               <button type="button" onClick={() => removeLink(link.property_id)} className="text-red-500 hover:text-red-700">
                 <Trash2 className="w-4 h-4" />
@@ -138,6 +165,44 @@ export function LinkedPropertiesEditor({
                 </select>
               )}
             </div>
+            {expanded.has(link.property_id) && definitions.length > 0 && (
+              <table className="w-full text-left text-xs bg-white border rounded" data-testid="nested-definitions">
+                <thead className="bg-gray-50 border-b">
+                  <tr>
+                    <th className="px-2 py-1 font-medium text-gray-500 w-10" title="The definition this event uses">Use</th>
+                    <th className="px-2 py-1 font-medium text-gray-500">Name</th>
+                    <th className="px-2 py-1 font-medium text-gray-500">Description</th>
+                    <th className="px-2 py-1 font-medium text-gray-500">Allowed values</th>
+                    <th className="px-2 py-1 font-medium text-gray-500">Formats</th>
+                    <th className="px-2 py-1 font-medium text-gray-500">Example</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {definitions.map((d) => (
+                    <tr key={d.id} className={d.id === effectiveDefinitionId ? 'bg-blue-50' : undefined}>
+                      <td className="px-2 py-1">
+                        <input
+                          type="radio"
+                          name={`definition-${link.property_id}`}
+                          aria-label={`Use definition ${d.name}`}
+                          checked={d.id === effectiveDefinitionId}
+                          onChange={() => updateLink(link.property_id, { definition_id: d.id })}
+                        />
+                      </td>
+                      <td className="px-2 py-1 font-medium text-gray-900">{d.name}</td>
+                      <td className="px-2 py-1 text-gray-600">{d.description ?? '—'}</td>
+                      <td className="px-2 py-1 text-gray-600">
+                        {Array.isArray(d.allowed_values_json) && d.allowed_values_json.length > 0
+                          ? d.allowed_values_json.map((v) => v.value).join(', ')
+                          : '—'}
+                      </td>
+                      <td className="px-2 py-1 text-gray-600">{Array.isArray(d.formats_json) && d.formats_json.length > 0 ? d.formats_json.join(', ') : '—'}</td>
+                      <td className="px-2 py-1 text-gray-600">{exampleText(d.example_values_json)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
             {(link.role === 'discriminator' || link.role === 'context') && (
               <div className="text-xs text-gray-600 space-y-1 pt-1 border-t">
                 <div className="font-medium text-gray-500">Allowed values:</div>

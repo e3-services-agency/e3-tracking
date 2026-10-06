@@ -3214,3 +3214,6 @@ Scenario 2 PASS: availability has no standard-event dropdown; action (discrimina
 Scenario 3 PASS: shared UC-02 narrative renders H2 Flow / Customer data and lists, zero `##` or backticks; Catalogs on shared view and on Catalogs page show "Looked up by (all product|variant catalogs)" with product_id / variant_id -> item_id for all four catalogs.
 Scenario 4 PASS: counts 15 events, 50 properties, 5 variants, 4 catalogs, 3 use cases, 5 consents, 3 identity rules, 2 sources, 4 rules, 9 mappings, 4 comments; findings 15 open + 1 resolved; no console errors, no 500s; shared JSON has no agent_instructions/internal_* (owners/identity_note keys remain with null values); HTML 200; copy buttons present. Sticky headers: not verified (only a DOM probe on the card page, none found there).
 Extracts: .claude/team/reports/qa/T-4-23/
+
+### 2026-10-06 10:01 | supervisor | MERGE | T-4-23 merged into agent-setup — DONE; T-4-24 and T-4-25 start
+Review PASS (brweb everywhere, hard-id key resolution with override, items example, is_discriminator gating, MarkdownView narrative, per-kind lookup; lows: identify snippet still exponea.identify, discriminator query not project-scoped, PUT response lacks is_discriminator) and QA PASS. Merged tree: tsc, lint clean, 1721 tests / 161 files. Backlog: brweb.identify variant, scope the discriminator query, return is_discriminator on PUT.

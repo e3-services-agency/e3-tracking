@@ -952,14 +952,7 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
         is_searchable: f.is_searchable,
         is_required: f.is_required,
       })),
-      mapped_properties: allPropertyRows
-        .filter((p) => p.mapped_catalog_id === c.id)
-        .map((p) => ({
-          property_name: p.name,
-          scope: p.scope,
-          field_name: p.mapped_catalog_field_id ? (catalogFieldNameById.get(p.mapped_catalog_field_id) ?? null) : null,
-          mapping_type: p.mapping_type,
-        })),
+      mapped_properties: PropertyDAL.listPropertiesLookingUpCatalog(projectId, c),
     };
   });
 

@@ -3,6 +3,7 @@
  */
 import { Router, type Request, type Response } from 'express';
 import * as CatalogDAL from '../dal/catalog.dal';
+import * as PropertyDAL from '../dal/property.dal';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -55,7 +56,11 @@ router.get('/:id', (req: Request, res: Response) => {
   try {
     const catalog = CatalogDAL.getCatalogOrThrow(req.projectId!, req.params.id);
     const fields = CatalogDAL.listCatalogFields(req.projectId!, req.params.id);
-    res.status(200).json({ ...catalog, fields });
+    res.status(200).json({
+      ...catalog,
+      fields,
+      looked_up_by: PropertyDAL.listPropertiesLookingUpCatalog(req.projectId!, catalog),
+    });
   } catch (err) {
     handleRouteError(err, res);
   }

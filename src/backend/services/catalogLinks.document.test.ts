@@ -88,3 +88,18 @@ describe('Markdown and documentation.html', () => {
     expect(html).toContain('// product_id looks up products_gb by item_id; all markets');
   });
 });
+
+describe('T-4-23: lookup is per catalog kind (D-61)', () => {
+  it('every catalog of a kind lists the properties linked to any catalog of that kind; other kinds stay separate', async () => {
+    const { cz } = seed();
+    const doc = buildTrackingDocument(projectId);
+    const gb = doc.catalogs!.find((c) => c.name === 'products_gb')!;
+    const czCat = doc.catalogs!.find((c) => c.name === 'products_cz')!;
+    expect(gb.mapped_properties!.map((m) => m.property_name)).toEqual(['product_id']);
+    expect(czCat.mapped_properties!.map((m) => m.property_name)).toEqual(['product_id']);
+    const variantCat = CatalogDAL.createCatalog(projectId, { name: 'variants_gb', kind: 'variant' });
+    expect(PropertyDAL.listPropertiesLookingUpCatalog(projectId, variantCat)).toEqual([]);
+    expect(PropertyDAL.listPropertiesLookingUpCatalog(projectId, cz)).toHaveLength(1);
+    expect(await generateProjectDocumentationHtml(projectId)).toContain('Looked up by (all product catalogs)');
+  });
+});

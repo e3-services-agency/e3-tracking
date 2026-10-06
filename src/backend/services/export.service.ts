@@ -29,7 +29,7 @@ import { dataLayerPath, parseDerivation } from '../../domain/codegen/derivation'
 import { getFileStore } from '../files/FileStore';
 import type { CodegenEventNameOverrides } from '../../types/schema';
 import { listIdentityRules } from '../dal/identity-rule.dal';
-import { listProperties } from '../dal/property.dal';
+import { listProperties, listPropertiesLookingUpCatalog } from '../dal/property.dal';
 import { listConsentCategories } from '../dal/consent-category.dal';
 import { listCatalogs, listCatalogFields } from '../dal/catalog.dal';
 import { classifyProperty, PROPERTY_CATEGORY_LABELS, groupPropertiesByCategory, propertyGroupId } from '../../domain/propertyCategory';
@@ -425,13 +425,7 @@ function buildCatalogsSectionHtml(projectId: string): string {
         is_searchable: f.is_searchable,
         description: f.description,
       })),
-      mapped_properties: allProperties
-        .filter((p) => p.mapped_catalog_id === c.id)
-        .map((p) => ({
-          property_name: p.name,
-          scope: p.scope,
-          field_name: p.mapped_catalog_field_id ? (fieldNameById.get(p.mapped_catalog_field_id) ?? null) : null,
-        })),
+      mapped_properties: listPropertiesLookingUpCatalog(projectId, c).map(({ property_name, scope, field_name }) => ({ property_name, scope, field_name })),
     };
   });
   return renderCatalogsSection(catalogs);

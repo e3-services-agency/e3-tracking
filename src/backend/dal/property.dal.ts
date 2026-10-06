@@ -927,3 +927,33 @@ export function deleteProperty(projectId: string, id: string): void {
   });
   run();
 }
+
+export interface CatalogLookupProperty {
+  property_name: string;
+  scope: string;
+  field_name: string | null;
+  mapping_type: string | null;
+}
+
+/**
+ * T-4-23 (D-61): properties that look up into a catalog. Lookup is per catalog kind, so for kind
+ * `product` or `variant` every property linked to any catalog of that kind counts; kind `other`
+ * has no shared schema, so only properties linked to this very catalog count.
+ */
+export function listPropertiesLookingUpCatalog(
+  projectId: string,
+  catalog: { id: string; kind: string }
+): CatalogLookupProperty[] {
+  const perKind = catalog.kind === 'product' || catalog.kind === 'variant';
+  const rows = getDb()
+    .prepare(
+      `SELECT p.name AS property_name, p.scope AS scope, f.name AS field_name, p.mapping_type AS mapping_type
+         FROM properties p
+         JOIN catalogs c ON c.id = p.mapped_catalog_id AND c.deleted_at IS NULL
+         LEFT JOIN catalog_fields f ON f.id = p.mapped_catalog_field_id
+        WHERE p.project_id = ? AND p.deleted_at IS NULL AND ${perKind ? 'c.kind = ?' : 'c.id = ?'}
+        ORDER BY p.name`
+    )
+    .all(projectId, perKind ? catalog.kind : catalog.id) as CatalogLookupProperty[];
+  return rows;
+}

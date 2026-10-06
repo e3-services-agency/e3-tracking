@@ -24182,7 +24182,8 @@ var BR_RULES = [];
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "{
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+{
   "customer_ids": {
     "<hard_id>": "<customer_id>"
   },
@@ -28308,7 +28309,8 @@ exponea.track('voucher_notification', {
         "note": "Tracked server-side through the Tracking API (purchase, purchase_item, refunds and consent are not sent from the browser), so there is no client snippet.",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "{
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+{
   "customer_ids": {
     "<hard_id>": "<customer_id>"
   },

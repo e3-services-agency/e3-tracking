@@ -463,7 +463,7 @@ export function renderCatalogsSection(catalogs: CatalogForDocs[]): string {
         ${
           catalog.mapped_properties.length === 0
             ? ''
-            : `<h4>Properties that look up into this catalog</h4><table><thead><tr><th>Property</th><th>Scope</th><th>Catalog field</th></tr></thead><tbody>${mappedRows}</tbody></table>`
+            : `<h4>${catalog.kind === 'product' || catalog.kind === 'variant' ? `Looked up by (all ${escapeHtml(catalog.kind)} catalogs)` : 'Properties that look up into this catalog'}</h4><table><thead><tr><th>Property</th><th>Scope</th><th>Catalog field</th></tr></thead><tbody>${mappedRows}</tbody></table>`
         }
       </div>`;
     })

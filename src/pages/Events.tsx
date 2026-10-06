@@ -613,7 +613,8 @@ function EventEditor({
       }
       const savedEventId = isCreating ? data.id : eventId;
 
-      if (!isCreating) {
+      // T-4-24: a new event saves its (client-side) property list, including added bundles, right after creation.
+      if (!isCreating || links.length > 0) {
         const linksRes = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/events/${savedEventId}/properties`, {
           method: 'PUT',
           body: JSON.stringify({
@@ -789,7 +790,7 @@ function EventEditor({
         </div>
       )}
 
-      {!isCreating && (
+      {(
         <div className="space-y-3 border-t pt-4">
           <h3 className="text-sm font-semibold text-gray-900">Linked properties</h3>
           <LinkedPropertiesEditor links={links} onChange={setLinks} sources={allSources} definitionsByPropertyId={definitionsByPropertyId} />

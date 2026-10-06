@@ -9,7 +9,7 @@ An event is a Bloomreach event type such as `purchase` or `view_item`. Each has 
 
 An event has an owner, a status, a priority, triggers (with the page URLs where it fires) and optionally screenshots per trigger. In the event editor drag several images onto a trigger's drop zone (or click it to browse), reorder them with the arrows, or remove one with the cross (removing an image from a trigger does not delete the uploaded file); the event card and the shared view show every image and the lightbox steps through all of them. An event can have several triggers.
 
-The Events table has a search box (name or description, filters as you type) and every column header sorts: click once for ascending, again for descending, a third time to go back to the original order. Events that have variants show a small arrow next to the name; the **Expand all variants** button opens or closes every event's variants at once.
+The Events table has a search box (name or description, filters as you type) and every column header sorts: click once for ascending, again for descending, a third time to go back to the original order. Events that have variants show a chevron button in the first column; the **Expand all variants** button opens or closes every event's variants at once.
 
 ## Properties
 
@@ -23,7 +23,7 @@ The same property can mean slightly different things on different events (a diff
 
 ### Bundles
 
-A bundle is a named group of properties you add to an event in one step (for example the properties every purchase event carries). Open the **Bundles** tab on the Properties page: each bundle shows its property count and the events that use it (an event uses a bundle when it links every property of it). Expand a bundle to see its properties with data type and type, rename it, edit its membership with a checkbox list, or delete it. A bundle in use asks for confirmation ("Delete anyway"); the events keep their properties. The property table has a trailing **Actions** column: **Definitions (n)** opens the editor at the definitions block, **Used by (n)** opens a dialog listing the events that link the property with their role and chosen definition, and **Delete** asks for confirmation. A property with definitions has a small triangle next to its name that expands its definitions as sub-rows (like event variants), and **Expand all definitions** in the toolbar does it for every row. The Properties tab has the same search box and column sorting as Events, and a property's own editor still lets you tick the bundles it belongs to.
+A bundle is a named group of properties you add to an event in one step (for example the properties every purchase event carries). Open the **Bundles** tab on the Properties page: each bundle shows its property count and the events that use it (an event uses a bundle when it links every property of it). Expand a bundle to see its properties with data type and type, rename it, edit its membership with a checkbox list, or delete it. A bundle in use asks for confirmation ("Delete anyway"); the events keep their properties. The property table has a trailing **Actions** column: **Definitions (n)** opens the editor at the definitions block, **Used by (n)** opens a dialog listing the events that link the property with their role and chosen definition, and **Delete** asks for confirmation. The Properties table is grouped by category (system customer, customer, SDK default, event) with a collapsible header row per group and its count; a property with definitions has a chevron in the first column that expands its definitions as sub-rows (like event variants), and **Expand all definitions** in the toolbar does it for every row. The Properties tab has the same search box and column sorting as Events, and a property's own editor still lets you tick the bundles it belongs to.
 
 ## Attaching a property to an event
 
@@ -48,3 +48,5 @@ A rule is a declarative check on an event (or one variant), for example "the sum
 ## The event card
 
 Open an event card for the complete view: owner, status, certification and its reasons, properties with definitions, variants, contexts, triggers, identity, rules, findings, an expected payload and code snippets (GTM, Web SDK, Tracking API). The card has a **Copy as Markdown** button that copies an AI-friendly text version.
+
+Every side panel has a maximize button next to the close button that turns it into a centred modal (and back); the choice is remembered in this browser and applies to every panel, and Esc closes the open panel or dialog. In the requirements matrix a required cell is a solid green pill, an optional cell an outlined pill and no requirement a faint dot.

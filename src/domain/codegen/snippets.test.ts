@@ -83,6 +83,16 @@ describe('buildDataLayerModel with the wishlist fixture', () => {
     ]);
   });
 
+  it('items example carries product_id and variant_id, and the one-entry-per-variant comment', () => {
+    const withAttrs = buildDataLayerModel([...WISHLIST, prop('size', 'item', 'M'), prop('colour', 'item', 'blue')]);
+    expect(withAttrs.itemsEntry.map((f) => f.name)).toEqual(expect.arrayContaining(['product_id', 'variant_id', 'size', 'colour']));
+    const text = buildDataLayerV2({ bloomreach: 'add_to_wishlist', dataLayer: null }, withAttrs);
+    expect(text).toContain('one entry per variant line');
+    expect(text).toContain("variant_id: '54723199795525'");
+    expect(withAttrs.payload.variant_ids).toEqual(['54723199795525']);
+    expect(withAttrs.payload.variant_list).toEqual([{ variant_id: '54723199795525', quantity: 1 }]);
+  });
+
   it('produces the Bloomreach payload: item flattened, state lists from items, totals summed', () => {
     expect(model.payload).toMatchObject({
       placement: 'plp',
@@ -188,7 +198,7 @@ describe('buildGtmTemplate and brPayload', () => {
     expect(text).toContain('{"name":"product_ids","form":"ids","id_field":"product_id"}');
     expect(text).toContain('{"name":"total_price","sum":"price*quantity"}');
     expect(text).toContain('Custom Event "add_to_wishlist"');
-    expect(text).toContain("bloomreach.track('add_to_wishlist', brPayload(dataLayer.bloomreach, BR_RULES))");
+    expect(text).toContain("brweb.track('add_to_wishlist', brPayload(dataLayer.bloomreach, BR_RULES))");
   });
 
   const runSource = (br: unknown, rules: unknown) =>
@@ -250,9 +260,9 @@ describe('buildGtmTemplate and brPayload', () => {
 describe('Web SDK snippets', () => {
   const model = buildDataLayerModel(WISHLIST);
 
-  it('new SDK uses bloomreach.track with the final payload', () => {
+  it('new SDK uses brweb.track with the final payload', () => {
     const t = buildWebSdkV2('add_to_wishlist', model);
-    expect(t).toContain("bloomreach.track('add_to_wishlist', {");
+    expect(t).toContain("brweb.track('add_to_wishlist', {");
     expect(t).toContain("  product_ids: ['15062099820869'],");
     expect(t).toContain('  total_price: 123,');
     expect(t).toContain('  // Optional:\n  details_sleeves:');
@@ -263,7 +273,7 @@ describe('Web SDK snippets', () => {
     const t = buildWebSdkLegacy('add_to_wishlist', model);
     expect(t).toContain("exponea.track('add_to_wishlist', {");
     expect(t).toContain("  product_ids: ['15062099820869'],");
-    expect(t).not.toContain('bloomreach.track');
+    expect(t).not.toContain('brweb.track');
   });
 });
 

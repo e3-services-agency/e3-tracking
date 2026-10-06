@@ -67,10 +67,13 @@ type CodegenMethodKey = keyof CodegenEventNameOverrides;
 export type CodegenProjectConfig = {
   /**
    * Bloomreach Tracking API customer identifier key inside `customer_ids`.
-   * Default (back-compat): "registered"
+   * Derived from the project's hard identity rule (T-4-23); `<hard_id>` placeholder when none.
    */
   bloomreachApiCustomerIdKey?: string | null;
 };
+
+export const CUSTOMER_IDS_COMMENT =
+  "customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview";
 
 function resolveOutputEventName(
   canonicalTrimmed: string,
@@ -523,7 +526,7 @@ function buildBloomreachApiSnippet(
     typeof projectConfig?.bloomreachApiCustomerIdKey === 'string'
       ? projectConfig.bloomreachApiCustomerIdKey.trim()
       : '';
-  const customerIdKey = rawKey || 'registered';
+  const customerIdKey = rawKey || '<hard_id>';
   const properties: Record<string, unknown> = {};
   for (const p of props) {
     properties[p.property_name] =
@@ -535,6 +538,7 @@ function buildBloomreachApiSnippet(
     ...(Object.keys(properties).length > 0 ? { properties } : {}),
   };
   const json = JSON.stringify(body, null, 2);
+  const idComment = `// ${CUSTOMER_IDS_COMMENT}\n`;
   const optionalProps = props.filter((p) => !isRequiredForCodegenSnippet(p));
   const curlExample =
     `curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\\n` +
@@ -543,9 +547,9 @@ function buildBloomreachApiSnippet(
     `  -d '${JSON.stringify(body)}'`;
   if (optionalProps.length > 0) {
     const optionalNames = optionalProps.map((p) => p.property_name).join(', ');
-    return `// Optional properties: ${optionalNames}\n\n${json}\n\n// cURL example:\n${curlExample}`;
+    return `${idComment}// Optional properties: ${optionalNames}\n\n${json}\n\n// cURL example:\n${curlExample}`;
   }
-  return `${json}\n\n// cURL example:\n${curlExample}`;
+  return `${idComment}${json}\n\n// cURL example:\n${curlExample}`;
 }
 
 /* --------------------------------------------------------------------------------------------
@@ -558,7 +562,7 @@ export interface CodegenV2 {
   gtm: string;
   datalayer: string;
   gtm_template: string;
-  /** New Web SDK: `bloomreach.track(event, payload)`. */
+  /** New Web SDK: `brweb.track(event, payload)`. */
   web_sdk: string;
   /** Legacy Web SDK: `exponea.track(event, payload)`. */
   web_sdk_legacy: string;
@@ -580,6 +584,8 @@ export interface CodegenV2Options {
   projectContext?: { name: string; sample: unknown }[];
   /** D-61 amendment: catalog-linked properties; each prints one comment line in the client snippets. */
   catalogLinks?: CatalogLinkForCodegen[];
+  /** T-4-23: identifier_name of the project's hard identity rule, the Tracking API `customer_ids` key. */
+  hardIdKey?: string | null;
 }
 
 export function toCodegenProperty(p: AttachedPropertyForCodegen): CodegenProperty {
@@ -616,7 +622,13 @@ export function buildCodegenV2(
   };
   const comment = catalogLinkComment(options.catalogLinks);
   const trackingApi = () =>
-    withCatalogComment(buildBloomreachApiSnippet(safeCanonical, props, overrides, projectConfig, model.payload), comment);
+    withCatalogComment(buildBloomreachApiSnippet(
+      safeCanonical,
+      props,
+      overrides,
+      projectConfig ?? { bloomreachApiCustomerIdKey: options.hardIdKey },
+      model.payload
+    ), comment);
 
   if (options.method === 'server_api') {
     return { ...empty, tracking_api: trackingApi(), note: SERVER_API_NOTE };

@@ -73,6 +73,8 @@ interface PropertyRow {
   /** D-61 (T-4-11B): the catalog field the property looks up into. */
   mapped_catalog_id?: string | null;
   mapped_catalog_field_id?: string | null;
+  /** T-4-23: discriminator on at least one event (the standard-event binding only applies then). */
+  is_discriminator?: boolean;
 }
 
 interface CatalogFieldOption {
@@ -499,6 +501,7 @@ function PropertyEditor({
         values={allowedValues}
         onChange={setAllowedValues}
         standardEventAdditions={standardEventAdditions}
+        showStandardEvent={property?.is_discriminator === true || allowedValues.some((v) => !!v.standard_event)}
       />
 
       {dataType === 'array' && <ItemSchemaEditor fields={itemSchema} onChange={setItemSchema} />}

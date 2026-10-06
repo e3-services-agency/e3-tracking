@@ -120,11 +120,14 @@ describe('event card codegen per implementation method', () => {
     expect(c.datalayer).toContain('Computed by brPayload from items: product_ids, product_list, total_price');
     expect(c.gtm).toBe(`${c.datalayer}\n\n${c.gtm_template}`);
     expect(c.gtm_template).toContain('function brPayload(br, rules)');
-    expect(c.web_sdk).toContain("bloomreach.track('add_to_wishlist', {");
+    expect(c.web_sdk).toContain("brweb.track('add_to_wishlist', {");
     expect(c.web_sdk).toContain("  product_ids: ['15062099820869'],");
     expect(c.web_sdk_legacy).toContain("exponea.track('add_to_wishlist', {");
     expect(c.tracking_api).toContain('"product_ids": [\n      "15062099820869"\n    ]');
     expect(c.tracking_api).toContain('"total_price": 123');
+    // T-4-23: no hard id configured: placeholder key plus the explanatory comment.
+    expect(c.tracking_api).toContain('"<hard_id>": "<customer_id>"');
+    expect(c.tracking_api).toContain("customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview");
     expect(c.sdk_emits).toBe('');
     expect(c.note).toBe('');
   });
@@ -163,7 +166,7 @@ describe('event name overrides (L4)', () => {
     expect(c.datalayer).toContain("    event: 'sdk_name',");
     expect(c.datalayer).toContain("  event: 'add_to_wishlist',");
     expect(c.datalayer).not.toContain('dl_name');
-    expect(c.gtm_template).toContain("bloomreach.track('sdk_name'");
+    expect(c.gtm_template).toContain("brweb.track('sdk_name'");
   });
 });
 
@@ -358,5 +361,35 @@ describe('F2/F3/F4', () => {
     const card = buildEventCard(projectId, event.id);
     expect(card.properties.every((p) => p.datalayer_path === null)).toBe(true);
     expect(eventCardToMarkdown(card)).toContain('n/a');
+  });
+});
+
+describe('T-4-23: hard id key and discriminator flag', () => {
+  it('Tracking API customer_ids uses the hard identity rule identifier_name', async () => {
+    const IdentityRuleDAL = await import('../dal/identity-rule.dal');
+    IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'user_id', identity_type: 'hard', name: 'Login' });
+    const { event } = setUpWishlist();
+    const c = buildEventCard(projectId, event.id).codegen;
+    expect(c.tracking_api).toContain('"user_id": "<customer_id>"');
+    expect(c.tracking_api).not.toContain('"registered"');
+    expect(c.tracking_api).not.toContain('<hard_id>');
+  });
+
+  it('GET /properties flags discriminators', async () => {
+    const server = http.createServer(createApp());
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    try {
+      const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+      const event = EventDAL.createEvent(projectId, { name: 'add_to_cart' });
+      const a = prop('action', { allowed_values_json: [{ value: 'add' }] });
+      const b = prop('other');
+      EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: a.id, required: true, role: 'discriminator' } as never);
+      EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: b.id, required: true });
+      const rows = (await (await fetch(`${base}/api/projects/${projectId}/properties`)).json()) as { name: string; is_discriminator: boolean }[];
+      expect(rows.find((r) => r.name === 'action')!.is_discriminator).toBe(true);
+      expect(rows.find((r) => r.name === 'other')!.is_discriminator).toBe(false);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 });

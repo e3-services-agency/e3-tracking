@@ -28,6 +28,8 @@ interface CatalogRow {
   status: string | null;
   /** D-61 (T-4-11B). */
   kind: string;
+  /** T-4-23: properties looking up into this catalog's kind (GET /:id only). */
+  looked_up_by?: { property_name: string; scope: string; field_name: string | null }[];
   market: string | null;
   language: string | null;
   version: string;
@@ -367,6 +369,19 @@ function CatalogEditor({
           </select>
         </div>
       </div>
+
+      {!isCreating && (catalog?.looked_up_by ?? []).length > 0 && (
+        <div className="space-y-1 border-t pt-4" data-testid="catalog-looked-up-by">
+          <h3 className="text-sm font-semibold text-gray-900">
+            {kind === 'product' || kind === 'variant' ? `Looked up by (all ${kind} catalogs)` : 'Looked up by'}
+          </h3>
+          <ul className="text-xs text-gray-700 list-disc pl-5">
+            {(catalog?.looked_up_by ?? []).map((p) => (
+              <li key={`${p.scope}:${p.property_name}`}>{p.property_name} ({p.scope}){p.field_name ? ` -> ${p.field_name}` : ''}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {!isCreating && (
         <div className="space-y-3 border-t pt-4">

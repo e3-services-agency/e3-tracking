@@ -77,6 +77,7 @@ import {
   type NavItem,
 } from './sharedViewModel';
 
+import { MarkdownView } from '@/src/components/ui/MarkdownView';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import { CategoryBadge } from '@/src/components/ui/CategoryBadge';
 import { SharedRefLink } from '@/src/features/shared/RefLink';
@@ -842,7 +843,7 @@ export function SharedProject({ token }: { token: string }) {
                       </div>
                       {expanded && (
                         <div className="px-3 pb-3">
-                          {uc.narrative && <p className="text-sm text-gray-700">{uc.narrative}</p>}
+                          {uc.narrative && <div className="text-sm text-gray-700"><MarkdownView source={uc.narrative} /></div>}
                           {uc.requirements.length > 0 && (
                             <div className="overflow-x-auto mt-2">
                               <table className="w-full text-left text-xs">
@@ -989,7 +990,7 @@ export function SharedProject({ token }: { token: string }) {
                       )}
                       {mapped.length > 0 && (
                         <div className="mt-3">
-                          <h4 className="mb-1 text-xs font-semibold uppercase text-gray-500">Properties that look up into this catalog</h4>
+                          <h4 className="mb-1 text-xs font-semibold uppercase text-gray-500">{c.kind === 'product' || c.kind === 'variant' ? `Looked up by (all ${c.kind} catalogs)` : 'Properties that look up into this catalog'}</h4>
                           <SimpleTable
                             head={['Property', 'Scope', 'Catalog field']}
                             rows={mapped.map((m) => [

@@ -271,6 +271,8 @@ export interface EventRow {
   implementation_method: ImplementationMethod;
   /** D-63: the site's dataLayer event that carries this Bloomreach event; `null` = not recorded. */
   dl_event_name: string | null;
+  /** D-67 (T-4-28): identity-rule identifier names the event sends in `customer_ids`; `null` = derived default. */
+  identifiers_json: string[] | null;
   /** Data Manager group name (T-2-02/T-2-03, D-28); `null` = default group, symmetrical with `Property.category`. */
   category: string | null;
   owner_business: string | null;
@@ -298,7 +300,37 @@ type EventDbRow = Omit<
   | 'tags_json'
   | 'codegen_event_name_overrides_json'
   | 'bloomreach_meta_json'
+  | 'identifiers_json'
 >;
+
+function normalizeIdentifiers(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const names = value.filter((v): v is string => typeof v === 'string');
+  return names.length > 0 ? names : null;
+}
+
+/** D-67: every name must be an identifier_name of one of the project's identity rules (400 otherwise); `[]`/null clear to the derived default. */
+function validateIdentifiers(projectId: string, value: unknown): string[] | null {
+  if (value === null || value === undefined) return null;
+  if (!Array.isArray(value) || value.some((v) => typeof v !== 'string')) {
+    throw new BadRequestError('identifiers_json must be an array of identifier names or null.', 'identifiers_json');
+  }
+  const names = [...new Set(value as string[])];
+  if (names.length === 0) return null;
+  const known = new Set(
+    (getDb().prepare('SELECT identifier_name FROM identity_rules WHERE project_id = ?').all(projectId) as { identifier_name: string }[]).map(
+      (r) => r.identifier_name
+    )
+  );
+  const unknown = names.filter((n) => !known.has(n));
+  if (unknown.length > 0) {
+    throw new BadRequestError(
+      `identifiers_json names no identity rule: ${unknown.join(', ')}.`,
+      'identifiers_json'
+    );
+  }
+  return names;
+}
 
 function mapEventRow(row: EventDbRow): EventRow {
   const raw = row as unknown as Record<string, unknown>;
@@ -310,6 +342,7 @@ function mapEventRow(row: EventDbRow): EventRow {
     tags_json: parseJsonColumn(raw.tags_json, []),
     codegen_event_name_overrides_json: parseJsonColumn(raw.codegen_event_name_overrides_json, null),
     bloomreach_meta_json: parseJsonColumn(raw.bloomreach_meta_json, null),
+    identifiers_json: normalizeIdentifiers(parseJsonColumn(raw.identifiers_json, null)),
   };
 }
 
@@ -326,6 +359,7 @@ export interface EventInput {
   class?: string;
   implementation_method?: string;
   dl_event_name?: string | null;
+  identifiers_json?: string[] | null;
   category?: string | null;
   owner_business?: string | null;
   owner_technical?: string | null;
@@ -473,6 +507,10 @@ export function createEvent(projectId: string, input: EventInput, opts: { applyD
     .get(projectId, name);
   if (existing) throw new ConflictError(`An event named "${name}" already exists in this project.`);
 
+  const identifiersJson = (() => {
+    const v = validateIdentifiers(projectId, input.identifiers_json);
+    return v ? JSON.stringify(v) : null;
+  })();
   const id = newId();
   const now = nowIso();
   const run = db.transaction(() => {
@@ -480,14 +518,14 @@ export function createEvent(projectId: string, input: EventInput, opts: { applyD
       db.prepare(
         `INSERT INTO events (
           id, project_id, name, business_name, description, purpose, page, trigger_text, grain,
-          identity_note, triggers_json, class, implementation_method, dl_event_name, category, owner_business,
+          identity_note, triggers_json, class, implementation_method, dl_event_name, identifiers_json, category, owner_business,
           owner_technical, priority,
           status, expiration_json, not_suitable_for, agent_instructions, derived_metrics_json,
           tags_json, codegen_event_name_overrides_json, bloomreach_meta_json, created_at, updated_at,
           deleted_at
         ) VALUES (
           @id, @project_id, @name, @business_name, @description, @purpose, @page, @trigger_text, @grain,
-          @identity_note, @triggers_json, @class, @implementation_method, @dl_event_name, @category, @owner_business,
+          @identity_note, @triggers_json, @class, @implementation_method, @dl_event_name, @identifiers_json, @category, @owner_business,
           @owner_technical, @priority,
           @status, @expiration_json, @not_suitable_for, @agent_instructions, @derived_metrics_json,
           @tags_json, NULL, @bloomreach_meta_json, @created_at, @updated_at, NULL
@@ -508,6 +546,7 @@ export function createEvent(projectId: string, input: EventInput, opts: { applyD
         implementation_method:
           input.implementation_method || defaultImplementationMethod(name, input.class || DEFAULT_EVENT_CLASS),
         dl_event_name: input.dl_event_name?.trim() || null,
+        identifiers_json: identifiersJson,
         category: input.category?.trim() || null,
         owner_business: input.owner_business?.trim() || null,
         owner_technical: input.owner_technical?.trim() || null,
@@ -593,6 +632,10 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
   if (input.class !== undefined) patch.class = input.class;
   if (input.implementation_method !== undefined) patch.implementation_method = input.implementation_method;
   if (input.dl_event_name !== undefined) patch.dl_event_name = input.dl_event_name?.trim() || null;
+  if (input.identifiers_json !== undefined) {
+    const v = validateIdentifiers(projectId, input.identifiers_json);
+    patch.identifiers_json = v ? JSON.stringify(v) : null;
+  }
   if (input.category !== undefined) patch.category = input.category?.trim() || null;
   if (input.owner_business !== undefined) patch.owner_business = input.owner_business?.trim() || null;
   if (input.owner_technical !== undefined) patch.owner_technical = input.owner_technical?.trim() || null;

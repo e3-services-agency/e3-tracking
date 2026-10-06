@@ -9,6 +9,7 @@ import type { LucideIcon } from 'lucide-react';
 import { PROPERTY_CATEGORY_LABELS, type PropertyCategory } from '@/src/domain/propertyCategory';
 import { PROPERTY_KIND_LABELS } from '@/src/domain/propertyCategory';
 import type { PropertyKind } from '@/src/domain/enums';
+import { isSourceColor, sourceViaLabel } from '@/src/domain/sources';
 import {
   CATEGORY_ICONS,
   CLASS_ICONS,
@@ -190,5 +191,40 @@ export function TargetKindBadge({ kind, compact = false, className = '' }: { kin
     >
       {compact ? null : (TARGET_KIND_LABELS[kind] ?? humanize(kind))}
     </Badge>
+  );
+}
+
+/**
+ * Source badge (D-68, T-4-28): a dot in the source's palette colour (`--source-1` .. `--source-8`)
+ * plus the "System via method" label. A source with no valid colour token gets the neutral gray.
+ */
+export function SourceBadge({
+  system,
+  method,
+  color,
+  label,
+  className = '',
+}: {
+  system: string | null | undefined;
+  method: string | null | undefined;
+  color: string | null | undefined;
+  /** Overrides the "System via method" text, e.g. the source's own name. */
+  label?: string;
+  className?: string;
+}) {
+  const text = label ?? sourceViaLabel(system, method);
+  return (
+    <span
+      data-testid="source-badge"
+      title={sourceViaLabel(system, method)}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium text-gray-700 ${className}`}
+    >
+      <span
+        aria-hidden="true"
+        className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+        style={{ backgroundColor: `var(--${isSourceColor(color) ? color : 'source-8'})` }}
+      />
+      {text}
+    </span>
   );
 }

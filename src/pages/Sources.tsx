@@ -12,8 +12,9 @@ import { Sheet } from '@/src/components/ui/Sheet';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
-import { SOURCE_METHODS, SOURCE_SYSTEMS } from '@/src/domain/enums';
-import { SOURCE_METHOD_LABELS, SOURCE_SYSTEM_LABELS, sourceViaLabel } from '@/src/domain/sources';
+import { SOURCE_COLORS, SOURCE_METHODS, SOURCE_SYSTEMS } from '@/src/domain/enums';
+import { SOURCE_COLOR_LABELS, SOURCE_METHOD_LABELS, SOURCE_SYSTEM_LABELS, isSourceColor } from '@/src/domain/sources';
+import { SourceBadge } from '@/src/components/ui/badges';
 
 interface SourceRow {
   id: string;
@@ -121,8 +122,8 @@ export function Sources() {
                 return (
                   <tr key={source.id} onClick={() => handleOpenSource(source.id)} className="hover:bg-gray-50 cursor-pointer transition-colors">
                     <td className="px-6 py-4 font-medium text-gray-900">{source.name}</td>
-                    <td className="px-6 py-4 text-gray-700">{sourceViaLabel(source.system, source.method)}</td>
-                    <td className="px-6 py-4 text-gray-500">{source.color || '—'}</td>
+                    <td className="px-6 py-4 text-gray-700"><SourceBadge system={source.system} method={source.method} color={source.color} /></td>
+                    <td className="px-6 py-4 text-gray-500">{isSourceColor(source.color) ? SOURCE_COLOR_LABELS[source.color] : '—'}</td>
                     <td className="px-6 py-4 text-gray-500">
                       Properties: {usage?.property_count ?? 0} · Events: {usage?.event_count ?? 0} · Identity rules:{' '}
                       {usage?.identity_rule_count ?? 0}
@@ -258,8 +259,26 @@ function SourceEditor({
         <p className="text-xs text-gray-500">A Tracking API source makes a linked event server-side by default; a web source keeps it client-side. An event's own choice is never overridden.</p>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Color (optional)', 'Sources')}>Color (optional)</label>
-        <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="e.g. blue" disabled={isSaving} />
+        <label className="text-sm font-medium text-gray-700" htmlFor="source-color" title={hintFor('Color (optional)', 'Sources')}>Color</label>
+        <div className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            data-testid="source-color-swatch"
+            className="inline-block h-5 w-5 shrink-0 rounded-full border border-gray-200"
+            style={{ backgroundColor: `var(--${isSourceColor(color) ? color : 'source-8'})` }}
+          />
+          <select id="source-color" value={color} onChange={(e) => setColor(e.target.value)} disabled={isSaving} className="block h-9 w-full rounded-md border border-gray-300 bg-white px-2 text-sm">
+            <option value="">{isCreating ? 'Automatic (by system)' : 'Automatic'}</option>
+            {SOURCE_COLORS.map((c) => <option key={c} value={c}>{SOURCE_COLOR_LABELS[c]}</option>)}
+          </select>
+        </div>
+        <ul className="flex flex-wrap gap-2" aria-label="Palette">
+          {SOURCE_COLORS.map((c) => (
+            <li key={c}>
+              <button type="button" onClick={() => setColor(c)} disabled={isSaving} title={SOURCE_COLOR_LABELS[c]} aria-label={SOURCE_COLOR_LABELS[c]} className={`h-5 w-5 rounded-full border ${color === c ? 'ring-2 ring-offset-1 ring-gray-500' : 'border-gray-200'}`} style={{ backgroundColor: `var(--${c})` }} />
+            </li>
+          ))}
+        </ul>
       </div>
       {saveError && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{saveError}</div>

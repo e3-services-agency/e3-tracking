@@ -78,6 +78,8 @@ export interface DefEvent {
   class: EventClass;
   expiration: ExpirationBlock | null;
   properties: DefEventProperty[];
+  /** D-67 (T-4-28): the identifier names the event carries in `customer_ids` (effective: explicit list, else derived). */
+  identifiers?: string[];
 }
 
 export interface StandardMappingRef {
@@ -101,6 +103,8 @@ export interface EngineObservation {
   variant_id: string | null;
   timestamp: number;
   properties: Record<string, unknown>;
+  /** D-67 (T-4-28): the observation's `customer_ids` when it carries any (read from `properties.customer_ids`); absent = not recorded. */
+  customer_ids?: Record<string, unknown>;
   /** QaRun.kind this observation belongs to (D-25 Q4: `missing_event` severity depends on it). */
   run_kind: string;
 }
@@ -439,6 +443,32 @@ export function runDefinitionVsObservations(
   // D-31 replaces it with the `purchase_items_total` rule template, evaluated by
   // `src/domain/rules/runRules.ts` inside the same `definition_vs_observations` comparison
   // (`comparison.service.ts` merges its findings with this function's) — not duplicated here.
+
+  // ---- identifier_missing (warning, D-67): an observation that records customer_ids lacks an identifier its event carries ----
+  const identifierSeen = new Set<string>();
+  for (const obs of resolved) {
+    if (!obs.customer_ids) continue;
+    const event = eventsById.get(obs.event_id as string);
+    for (const name of event?.identifiers ?? []) {
+      if (name in obs.customer_ids) continue;
+      const fingerprint = fp('identifier_missing', event!.id, null, null, name);
+      if (identifierSeen.has(fingerprint)) continue;
+      identifierSeen.add(fingerprint);
+      findings.push({
+        comparison: COMPARISON,
+        kind: 'identifier_missing',
+        severity: 'warning',
+        event_id: event!.id,
+        variant_id: null,
+        property_id: null,
+        observation_id: obs.id,
+        expected_json: { identifier: name },
+        actual_json: { customer_ids: Object.keys(obs.customer_ids) },
+        message: `Event "${event!.name}" should carry the identifier "${name}" in customer_ids, but an observation does not.`,
+        fingerprint,
+      });
+    }
+  }
 
   // ---- missing_event (error for agent_session, warning otherwise, D-25 Q4) + expiration suppression ----
   const observedEventIds = new Set(resolved.map((o) => o.event_id as string));

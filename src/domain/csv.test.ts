@@ -24,6 +24,7 @@ describe('CSV_ENTITIES (D-46, T-3-03)', () => {
       'class',
       'implementation_method',
       'dl_event_name',
+      'identifiers_json',
       'category',
       'status',
       'certified',

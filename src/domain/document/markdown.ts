@@ -62,7 +62,13 @@ export function eventCardToMarkdown(card: EventCard): string {
     bullet('Grain', card.grain),
     bullet('Page', card.page),
     bullet('Trigger', card.trigger),
-    bullet('Identity', card.identity_note)
+    bullet('Identity', card.identity_note),
+    bullet(
+      'Identifiers (customer_ids)',
+      card.identifiers && card.identifiers.length > 0
+        ? `${card.identifiers.join(', ')}${card.identifiers_derived ? ' (derived)' : ''}`
+        : null
+    )
   );
   if (header) out.push(header);
   if (card.description) out.push(card.description);

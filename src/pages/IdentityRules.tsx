@@ -17,6 +17,9 @@ import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { PRIORITIES, ENTITY_STATUSES, IDENTITY_TYPES, IDENTITY_TRANSFORMATIONS, IDENTITY_SDK_CALLS } from '@/src/domain/enums';
 import { HistorySection } from '@/src/features/history/HistorySection';
+import { CopyMarkdownButton } from '@/src/components/ui/CopyMarkdownButton';
+import { CarriedByCell, SetByCell } from '@/src/features/identity/SetByCell';
+import type { IdentifierSetBy } from '@/src/domain/identity/identifiers';
 
 interface IdentityRuleRow {
   id: string;
@@ -36,6 +39,10 @@ interface IdentityRuleRow {
   sort_order: number;
   transformations_json: string[];
   sdk_call: string | null;
+  /** D-67 (T-4-28): from `GET /identity-rules`. */
+  set_by?: IdentifierSetBy;
+  binds?: string[];
+  carried_by?: { id: string; name: string }[];
 }
 
 interface IdentityCodegenSnippets {
@@ -64,6 +71,7 @@ export function IdentityRules() {
   const [events, setEvents] = useState<EventOption[]>([]);
   const [sources, setSources] = useState<SourceOption[]>([]);
   const [codegen, setCodegen] = useState<IdentityCodegenSnippets | null>(null);
+  const [flowParagraph, setFlowParagraph] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -71,12 +79,15 @@ export function IdentityRules() {
 
   const load = useCallback(async () => {
     if (!hasValidProjectContext || !activeProjectId) return;
-    const [rulesRes, eventsRes, sourcesRes, codegenRes] = await Promise.all([
+    const [rulesRes, eventsRes, sourcesRes, codegenRes, flowRes] = await Promise.all([
       fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/identity-rules`),
       fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/events`),
       fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/sources`),
       fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/identity-rules/codegen`),
+      fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/identity-rules/flow`),
     ]);
+    const flowData = await parseJson(flowRes);
+    if (flowRes.ok) setFlowParagraph(typeof flowData?.paragraph === 'string' ? flowData.paragraph : '');
     const rulesData = await parseJson(rulesRes);
     if (rulesRes.ok) setRules(Array.isArray(rulesData) ? rulesData : []);
     const eventsData = await parseJson(eventsRes);
@@ -129,6 +140,16 @@ export function IdentityRules() {
       </PageHeader>
 
       <PageBody>
+        <div className="mb-6 bg-white rounded-lg border shadow-sm p-4" data-testid="identification-flow">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-lg font-semibold text-gray-900">Identification flow</h2>
+            <CopyMarkdownButton getMarkdown={() => `## Identification flow
+
+${flowParagraph}
+`} />
+          </div>
+          <p className="text-sm text-gray-700">{flowParagraph || 'No identification flow yet.'}</p>
+        </div>
         {reorderError && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{reorderError}</div>
         )}
@@ -142,6 +163,8 @@ export function IdentityRules() {
                 <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Type', 'Identity')}>Type</th>
                 <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('SDK call', 'Identity')}>SDK call</th>
                 <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Trigger event', 'Identity')}>Trigger event</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Set by', 'Identity')}>Set by</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Carried by', 'Identity')}>Carried by</th>
                 <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Identity')}>Status</th>
               </tr>
             </thead>
@@ -163,12 +186,14 @@ export function IdentityRules() {
                   <td className="px-6 py-4 text-gray-500">{rule.identity_type}</td>
                   <td className="px-6 py-4 text-gray-500">{rule.sdk_call ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{eventName(rule.trigger_event_id)}</td>
+                  <td className="px-6 py-4 text-gray-500"><SetByCell setBy={rule.set_by} binds={rule.binds} /></td>
+                  <td className="px-6 py-4 text-gray-500"><CarriedByCell events={rule.carried_by} /></td>
                   <td className="px-6 py-4 text-gray-500"><StatusBadge status={rule.status} /></td>
                 </tr>
               ))}
               {rules.length === 0 && (
                 <EmptyState
-                  colSpan={7}
+                  colSpan={9}
                   message="No identity rules yet. Add one to describe how a customer identifier is captured and sent to Bloomreach."
                   actionLabel="Add Identity Rule"
                   onAction={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }}

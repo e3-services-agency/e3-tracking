@@ -26,11 +26,11 @@ afterEach(() => {
 
 describe('source.dal', () => {
   it('creates, reads, updates and deletes a source; enforces per-project uniqueness', () => {
-    const source = SourceDAL.createSource(projectId, { name: 'Website', color: 'blue' });
+    const source = SourceDAL.createSource(projectId, { name: 'Website', color: 'source-2' });
     expect(SourceDAL.listSources(projectId)).toHaveLength(1);
 
-    const updated = SourceDAL.updateSource(projectId, source.id, { color: 'green' });
-    expect(updated.color).toBe('green');
+    const updated = SourceDAL.updateSource(projectId, source.id, { color: 'source-3' });
+    expect(updated.color).toBe('source-3');
 
     expect(() => SourceDAL.createSource(projectId, { name: 'Website' })).toThrow(ConflictError);
 

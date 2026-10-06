@@ -47,6 +47,7 @@ import { runComparison } from './comparison.service';
 import { parseBackupFile, PROJECT_SCOPED_TABLES, type BackupRow } from '../../domain/import/backup';
 import { payloadHash } from '../../domain/diff/hash';
 import { BACKUP_FORMAT, BACKUP_VERSION } from '../../domain/enums';
+import { isSourceColor, pickSourceColor } from '../../domain/sources';
 import { BadRequestError, PayloadChangedError, ProjectKeyTakenError, ValidationError } from '../errors';
 import type { ProjectRow } from '../dal/project.dal';
 
@@ -283,6 +284,11 @@ function deepRemapRow(row: BackupRow, idMap: Map<string, string>, pathMap: Map<s
  * them with the same rules as the DAL create path instead of leaving the column defaults.
  */
 function withInferredContract(table: string, row: BackupRow): BackupRow {
+  // D-68 (T-4-28): a backup from before migration 0030 holds free-text source colours (or none); the
+  // CHECK trigger only accepts palette tokens, so map them from the source's system.
+  if (table === 'sources' && !isSourceColor(row.color)) {
+    return { ...row, color: pickSourceColor(typeof row.system === 'string' ? row.system : null, []) };
+  }
   if (table === 'events' && !('implementation_method' in row) && typeof row.name === 'string') {
     return { ...row, implementation_method: defaultImplementationMethod(row.name, typeof row.class === 'string' ? row.class : null) };
   }

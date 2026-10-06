@@ -70,6 +70,11 @@ export type CodegenProjectConfig = {
    * Derived from the project's hard identity rule (T-4-23); `<hard_id>` placeholder when none.
    */
   bloomreachApiCustomerIdKey?: string | null;
+  /**
+   * D-67 (T-4-28): the event's effective identifier names; when non-empty they replace the single
+   * project-wide hard id key as the `customer_ids` keys.
+   */
+  identifierKeys?: string[] | null;
 };
 
 export const CUSTOMER_IDS_COMMENT =
@@ -527,13 +532,17 @@ function buildBloomreachApiSnippet(
       ? projectConfig.bloomreachApiCustomerIdKey.trim()
       : '';
   const customerIdKey = rawKey || '<hard_id>';
+  const identifierKeys = (projectConfig?.identifierKeys ?? []).filter((k) => k.trim());
   const properties: Record<string, unknown> = {};
   for (const p of props) {
     properties[p.property_name] =
       payload && p.property_name in payload ? payload[p.property_name] : jsonSampleValueForProperty(p);
   }
   const body = {
-    customer_ids: { [customerIdKey]: '<customer_id>' },
+    customer_ids:
+      identifierKeys.length > 0
+        ? Object.fromEntries(identifierKeys.map((k) => [k, `<${k}>`]))
+        : { [customerIdKey]: '<customer_id>' },
     event_type: eventName,
     ...(Object.keys(properties).length > 0 ? { properties } : {}),
   };
@@ -586,6 +595,8 @@ export interface CodegenV2Options {
   catalogLinks?: CatalogLinkForCodegen[];
   /** T-4-23: identifier_name of the project's hard identity rule, the Tracking API `customer_ids` key. */
   hardIdKey?: string | null;
+  /** D-67 (T-4-28): the event's effective identifier names, the Tracking API `customer_ids` keys. */
+  identifierKeys?: string[] | null;
 }
 
 export function toCodegenProperty(p: AttachedPropertyForCodegen): CodegenProperty {
@@ -626,7 +637,7 @@ export function buildCodegenV2(
       safeCanonical,
       props,
       overrides,
-      projectConfig ?? { bloomreachApiCustomerIdKey: options.hardIdKey },
+      projectConfig ?? { bloomreachApiCustomerIdKey: options.hardIdKey, identifierKeys: options.identifierKeys },
       model.payload
     ), comment);
 
@@ -677,6 +688,10 @@ export interface IdentityRuleForCodegen {
   sdk_call: string | null;
   trigger_text?: string | null;
   name?: string;
+  /** D-67 amendment 1: identifiers a standalone call binds together (non-empty = standalone call). */
+  binds?: string[];
+  /** The page or moment the standalone call runs on (its trigger_text). */
+  standalone_on?: string | null;
 }
 
 /** Minimal shape `buildIdentityCodegen` needs from customer-scope `properties` rows. */
@@ -820,6 +835,25 @@ function buildAnonymizeSnippet(anonymizeRules: IdentityRuleForCodegen[]): string
 }
 
 /**
+ * D-67 amendment 1: a standalone identify call (no event), e.g. GTM on the checkout page. Lists the
+ * identifiers the call binds: the rule's own, plus the cookie (web source) or the source's other
+ * identifiers (server source); the cookie is bound by the SDK itself and needs no argument.
+ */
+function buildStandaloneIdentifySnippet(rule: IdentityRuleForCodegen): string {
+  const binds = rule.binds ?? [];
+  const sent = binds.filter((b) => b !== 'cookie');
+  const where = rule.standalone_on ? ` on ${rule.standalone_on}` : '';
+  const lines = [`// Standalone identify call${where}: binds ${binds.join(', ')}`];
+  if (binds.includes('cookie')) lines.push('// The cookie is bound by the SDK automatically.');
+  lines.push('exponea.identify({');
+  for (const name of sent) {
+    lines.push(`  ${formatObjectKey(name)}: ${toCamelCaseVariable(name)},`);
+  }
+  lines.push('});');
+  return lines.join('\n');
+}
+
+/**
  * Builds the three identity Web SDK snippets for a project (D-38, T-2-12): `identify` from every
  * hard `IdentityRule`, `update` from customer properties mapped to a Bloomreach customer
  * attribute, `anonymize` from rules with `sdk_call = 'anonymize'`.
@@ -830,8 +864,9 @@ export function buildIdentityCodegen(
 ): IdentityCodegenSnippets {
   const hardRules = dedupeHardRulesByIdentifierName(rules.filter((r) => r.identity_type === 'hard'));
   const anonymizeRules = rules.filter((r) => r.sdk_call === 'anonymize');
+  const standalone = rules.filter((r) => (r.binds ?? []).length > 0);
   return {
-    identify: buildIdentifySnippet(hardRules),
+    identify: [buildIdentifySnippet(hardRules), ...standalone.map(buildStandaloneIdentifySnippet)].join('\n\n'),
     update: buildUpdateSnippet(customerProperties),
     anonymize: buildAnonymizeSnippet(anonymizeRules),
   };

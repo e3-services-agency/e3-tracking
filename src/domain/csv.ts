@@ -30,6 +30,7 @@ export const CSV_ENTITIES = {
       'class',
       'implementation_method',
       'dl_event_name',
+      'identifiers_json',
       'category',
       'status',
       'certified',

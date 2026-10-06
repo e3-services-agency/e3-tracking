@@ -140,6 +140,8 @@ export interface IdentityRuleForDocs {
   transformations?: string[] | null;
   /** D-38: `IDENTITY_SDK_CALLS`, nullable for a policy-only rule. */
   sdk_call?: string | null;
+  /** D-67 (T-4-28): names of the events that send this identifier in `customer_ids`. */
+  carried_by?: string[] | null;
 }
 
 /** Minimal shape the identity codegen block needs (D-38, `buildIdentityCodegen`'s output). */
@@ -241,7 +243,7 @@ function cell(value: string | null | undefined): string {
  * Renders the "Identity rules" documentation section: one row per rule, ordered as passed in
  * (callers pass `listIdentityRules`'s already sort_order-ordered result).
  */
-export function renderIdentityRulesSection(rules: IdentityRuleForDocs[]): string {
+export function renderIdentityRulesSection(rules: IdentityRuleForDocs[], identificationFlow?: string | null): string {
   if (rules.length === 0) {
     return '<section id="identity-rules"><h2>Identity rules</h2><p>No identity rules defined.</p></section>';
   }
@@ -262,18 +264,20 @@ export function renderIdentityRulesSection(rules: IdentityRuleForDocs[]): string
         ${cell(rule.tracker)}
         ${cell(rule.priority)}
         ${cell(rule.status)}
+        ${cell(Array.isArray(rule.carried_by) && rule.carried_by.length > 0 ? rule.carried_by.join(', ') : null)}
       </tr>`
     )
     .join('\n');
   return `<section id="identity-rules">
     <h2>Identity rules</h2>
+    ${identificationFlow ? `<h3>Identification flow</h3><p class="identification-flow">${escapeHtml(identificationFlow)}</p>` : ''}
     <table>
       <thead>
         <tr>
           <th>Name</th><th>Identifier name</th><th>Identity type</th><th>SDK call</th>
           <th>Transformations</th><th>Trigger event</th>
           <th>Trigger</th><th>Value rule</th><th>Example</th><th>Owner</th><th>Source</th>
-          <th>Tracker</th><th>Priority</th><th>Status</th>
+          <th>Tracker</th><th>Priority</th><th>Status</th><th>Carried by</th>
         </tr>
       </thead>
       <tbody>

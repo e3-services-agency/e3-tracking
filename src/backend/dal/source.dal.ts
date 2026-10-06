@@ -4,7 +4,8 @@
 import { getDb } from '../db';
 import { newId, nowIso, mapWriteError } from '../db/util';
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
-import { DEFAULT_SOURCE_SYSTEM, SOURCE_METHODS, SOURCE_SYSTEMS, type SourceMethod, type SourceSystem } from '../../domain/enums';
+import { DEFAULT_SOURCE_SYSTEM, SOURCE_COLORS, SOURCE_METHODS, SOURCE_SYSTEMS, type SourceMethod, type SourceSystem } from '../../domain/enums';
+import { pickSourceColor } from '../../domain/sources';
 import * as ChangeLogDAL from './change-log.dal';
 
 export interface SourceRow {
@@ -18,6 +19,14 @@ export interface SourceRow {
   method: SourceMethod | null;
   created_at: string;
   updated_at: string;
+}
+
+/** D-68: `color` is one of the eight palette tokens (`SOURCE_COLORS`); null/empty means "assign automatically". */
+function validateColor(color: unknown): void {
+  if (color === undefined || color === null || color === '') return;
+  if (!(SOURCE_COLORS as readonly unknown[]).includes(color)) {
+    throw new ValidationError(`color must be one of: ${SOURCE_COLORS.join(', ')}.`, 'color');
+  }
 }
 
 function validateSystemAndMethod(system: unknown, method: unknown): void {
@@ -81,6 +90,7 @@ export function createSource(
   const name = input.name.trim();
   if (!name) throw new ValidationError('Source name is required.', 'name');
   validateSystemAndMethod(input.system, input.method);
+  validateColor(input.color);
 
   const db = getDb();
   const existing = db
@@ -90,11 +100,18 @@ export function createSource(
 
   const id = newId();
   const now = nowIso();
+  const system = input.system ?? DEFAULT_SOURCE_SYSTEM;
+  const color =
+    input.color ||
+    pickSourceColor(
+      system,
+      (db.prepare('SELECT color FROM sources WHERE project_id = ?').all(projectId) as { color: string | null }[]).map((r) => r.color)
+    );
   const run = db.transaction(() => {
     try {
       db.prepare(
         'INSERT INTO sources (id, project_id, name, color, system, method, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-      ).run(id, projectId, name, input.color ?? null, input.system ?? DEFAULT_SOURCE_SYSTEM, input.method ?? null, now, now);
+      ).run(id, projectId, name, color, system, input.method ?? null, now, now);
     } catch (err) {
       mapWriteError(err, 'A source with that name already exists.', `Failed to create source: ${(err as Error).message}`);
     }
@@ -121,6 +138,7 @@ export function updateSource(
   const before = getSourceOrThrow(projectId, id);
   const db = getDb();
   validateSystemAndMethod(input.system, input.method);
+  validateColor(input.color);
 
   const patch: Record<string, unknown> = {};
   if (input.name !== undefined) {
@@ -132,7 +150,14 @@ export function updateSource(
     if (clash) throw new ConflictError('A source with that name already exists.');
     patch.name = trimmed;
   }
-  if (input.color !== undefined) patch.color = input.color;
+  if (input.color !== undefined) {
+    patch.color =
+      input.color ||
+      pickSourceColor(
+        input.system ?? before.system,
+        (db.prepare('SELECT color FROM sources WHERE project_id = ? AND id != ?').all(projectId, id) as { color: string | null }[]).map((r) => r.color)
+      );
+  }
   if (input.system !== undefined) patch.system = input.system;
   if (input.method !== undefined) patch.method = input.method;
 

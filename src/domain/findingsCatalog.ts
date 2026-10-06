@@ -45,7 +45,7 @@ export const COMPARISON_INFO: Record<ComparisonId, ComparisonInfo> = {
   },
 };
 
-export const FINDING_FAMILIES = ['schema', 'values', 'arithmetic', 'consistency', 'coverage', 'data_manager', 'other'] as const;
+export const FINDING_FAMILIES = ['schema', 'values', 'arithmetic', 'consistency', 'coverage', 'identity', 'data_manager', 'other'] as const;
 export type FindingFamily = (typeof FINDING_FAMILIES)[number];
 
 export interface FamilyInfo {
@@ -85,6 +85,12 @@ export const FAMILY_INFO: Record<FindingFamily, FamilyInfo> = {
     label: 'Coverage',
     explanation: 'Something defined is not covered elsewhere: an event is never observed, or is not mapped.',
     next: 'Send or import the missing data, add the missing mapping, or mark the item as ignored.',
+  },
+  identity: {
+    id: 'identity',
+    label: 'Identity',
+    explanation: 'An event does not identify the customer the way the identification flow says it should (an identifier is missing from customer_ids).',
+    next: 'Send the missing identifier in customer_ids, or change which identifiers the event carries in its Identifiers block.',
   },
   other: {
     id: 'other',
@@ -207,6 +213,13 @@ export const KIND_INFO: Record<FindingKind, KindInfo> = {
     'Name breaks the naming convention',
     'An event or property name does not follow the project naming convention (system items are exempt).',
     'Rename it to match the convention, or change the convention in Project settings.'
+  ),
+  identifier_missing: k(
+    'identifier_missing',
+    'identity',
+    'Identifier missing from customer_ids',
+    'An observed event does not send an identifier its definition carries in customer_ids (see the Identification flow on the Identity rules page).',
+    'Add the identifier to the event customer_ids, or remove it from the event Identifiers block.'
   ),
   catalog_searchable_limit: k(
     'catalog_searchable_limit',

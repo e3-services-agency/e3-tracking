@@ -204,9 +204,9 @@ describe('catalogs per market and sources on the tracking document (D-61, D-62)'
     ProjectDAL.updateProject(projectId, { default_source_id: s.id });
     EventDAL.createEvent(projectId, { name: 'wishlist_add' }, { applyDefaultSource: true });
     const doc = buildTrackingDocument(projectId);
-    expect(doc.sources).toEqual([{ id: s.id, name: 'Shop', system: 'shopify', method: 'web_sdk_gtm_datalayer', event_count: 1 }]);
+    expect(doc.sources).toEqual([{ id: s.id, name: 'Shop', system: 'shopify', method: 'web_sdk_gtm_datalayer', color: 'source-1', event_count: 1 }]);
     expect(doc.project.default_source).toBe('Shop');
-    expect(doc.events[0].sources).toEqual([{ id: s.id, name: 'Shop', system: 'shopify', method: 'web_sdk_gtm_datalayer' }]);
+    expect(doc.events[0].sources).toEqual([{ id: s.id, name: 'Shop', system: 'shopify', method: 'web_sdk_gtm_datalayer', color: 'source-1' }]);
     const pub = toPublicTrackingDocument(doc);
     expect(pub.sources?.[0]).toMatchObject({ system: 'shopify', method: 'web_sdk_gtm_datalayer' });
   });

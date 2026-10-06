@@ -33,6 +33,7 @@ import { hintFor } from '@/src/components/ui/FieldHint';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import type { PropertyCategory } from '@/src/domain/propertyCategory';
 import { displaySampleValue } from '@/src/domain/examples';
+import { SourceBadge } from '@/src/components/ui/badges';
 import { sourceViaLabel } from '@/src/domain/sources';
 import { groupFieldMap, mappingHeading } from '@/src/domain/document/standardMappings';
 import { SHARED_PROPERTY_HEAD, secondaryPropertyLines } from '@/src/domain/document/propertyColumns';
@@ -45,7 +46,10 @@ export interface EventCardData {
   /** D-63 (T-4-17): absent on older documents, treated as `client_web`. */
   implementation_method?: string;
   /** D-62 (T-4-11B), additive. */
-  sources?: { id: string; name: string; system: string; method: string | null }[];
+  sources?: { id: string; name: string; system: string; method: string | null; color?: string | null }[];
+  /** D-67 (T-4-28). */
+  identifiers?: string[];
+  identifiers_derived?: boolean;
   dl_event_name?: string | null;
   description: string | null;
   purpose: string | null;
@@ -229,6 +233,11 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{card.name}</h1>
           {card.business_name && <p className="text-sm text-gray-500 mt-1">{card.business_name}</p>}
+          {card.sources && card.sources.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-3" data-testid="card-header-sources">
+              {card.sources.map((s) => <SourceBadge key={s.id} system={s.system} method={s.method} color={s.color} />)}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {headerActions}
@@ -247,7 +256,12 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             ['Class', <ClassBadge key="c" eventClass={card.class} />, true],
             ['Implementation method', card.implementation_method ?? 'client_web', true],
             ['dataLayer event', card.dl_event_name ?? '—', true],
-            ['Source', card.sources && card.sources.length > 0 ? card.sources.map((s) => `${s.name}: ${sourceViaLabel(s.system, s.method)}`).join('; ') : '—', true],
+            ['Source', card.sources && card.sources.length > 0 ? (
+              <span key="src" className="flex flex-col gap-0.5">
+                {card.sources.map((s) => <SourceBadge key={s.id} system={s.system} method={s.method} color={s.color} label={`${s.name}: ${sourceViaLabel(s.system, s.method)}`} />)}
+              </span>
+            ) : '—', true],
+            ['Identifiers (customer_ids)', card.identifiers && card.identifiers.length > 0 ? `${card.identifiers.join(', ')}${card.identifiers_derived ? ' (derived)' : ''}` : '—', true],
             ['Status', <StatusBadge key="s" status={card.status} />, true],
             ['Priority', card.priority ? <PriorityBadge key="p" priority={card.priority} /> : '—', true],
             ['Grain', card.grain ?? '—', true],

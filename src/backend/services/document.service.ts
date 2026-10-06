@@ -23,6 +23,7 @@ import * as RequirementDAL from '../dal/requirement.dal';
 import * as ProjectDAL from '../dal/project.dal';
 import * as PropertyDAL from '../dal/property.dal';
 import * as IdentityRuleDAL from '../dal/identity-rule.dal';
+import { buildIdentificationFlow, effectiveEventIdentifiers, hasExplicitIdentifiers, type IdentificationFlow } from '../../domain/identity/identifiers';
 import * as ConsentCategoryDAL from '../dal/consent-category.dal';
 import * as CatalogDAL from '../dal/catalog.dal';
 import * as SourceDAL from '../dal/source.dal';
@@ -286,6 +287,10 @@ export interface EventCardBuildContext {
   /** D-63: the project's `kind = 'context'` event properties, for the `sdk_auto` default properties snippet. */
   projectContextProperties: { name: string; sample: unknown }[];
   hardIdKey: string | null;
+  /** D-67 (T-4-28): the project's identity rules, sources and the batched identification flow (built once). */
+  identityRules: IdentityRuleDAL.IdentityRuleRow[];
+  allSources: SourceDAL.SourceRow[];
+  identificationFlow: IdentificationFlow;
   /** D-62 (T-4-11B): each event's linked sources, keyed by event id. */
   sourcesByEventId: Map<string, SourceDAL.SourceRow[]>;
   /** D-61 (T-4-11B): `catalog.field` label per catalog field id, for `EventCardProperty.catalog_field`. */
@@ -368,6 +373,9 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
       }),
     }));
 
+  const identityRules = IdentityRuleDAL.listIdentityRules(projectId);
+  const allSources = SourceDAL.listSources(projectId);
+  const sourcesByEventId = SourceDAL.listEventSourcesByProject(projectId);
   return {
     project,
     events,
@@ -382,8 +390,15 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
     definitionsById: PropertyDefinitionDAL.listAllDefinitionsById(projectId),
     bundleNameByPropertyId: new Map([...bundleNames].map(([id, names]) => [id, names.join(', ')])),
     projectContextProperties,
-    hardIdKey: IdentityRuleDAL.listIdentityRules(projectId).find((r) => r.identity_type === 'hard')?.identifier_name ?? null,
-    sourcesByEventId: SourceDAL.listEventSourcesByProject(projectId),
+    hardIdKey: identityRules.find((r) => r.identity_type === 'hard')?.identifier_name ?? null,
+    identityRules,
+    allSources,
+    identificationFlow: buildIdentificationFlow(
+      identityRules,
+      events.map((e) => ({ ...e, source_ids: (sourcesByEventId.get(e.id) ?? []).map((s) => s.id) })),
+      allSources
+    ),
+    sourcesByEventId,
     catalogFieldLabelById,
     catalogLinkByFieldId,
   };
@@ -706,6 +721,8 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
   // as literals ('add', 'success'); without variants a discriminator falls back to its first allowed value.
   const attachedForCodegen =
     variants.length > 0 ? attachedPropertiesForVariant(properties, variants[0]) : properties.map(toAttachedPropertyForCodegen);
+  const identifierEvent = { ...event, source_ids: (context.sourcesByEventId.get(event.id) ?? []).map((s) => s.id) };
+  const identifiers = effectiveEventIdentifiers(identifierEvent, context.identityRules, context.allSources);
   const codegenSnippets = buildCodegenV2(
     event.name,
     attachedForCodegen,
@@ -715,6 +732,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
       eventClass: event.class,
       projectContext: context.projectContextProperties,
       hardIdKey: context.hardIdKey,
+      identifierKeys: identifiers,
       catalogLinks: catalogLinksForProperties(properties, context),
     },
     event.codegen_event_name_overrides_json as CodegenEventNameOverrides | null
@@ -727,7 +745,9 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
     class: event.class,
     implementation_method: event.implementation_method,
     dl_event_name: event.dl_event_name,
-    sources: (context.sourcesByEventId.get(event.id) ?? []).map((s) => ({ id: s.id, name: s.name, system: s.system, method: s.method })),
+    sources: (context.sourcesByEventId.get(event.id) ?? []).map((s) => ({ id: s.id, name: s.name, system: s.system, method: s.method, color: s.color })),
+    identifiers,
+    identifiers_derived: !hasExplicitIdentifiers(event),
     description: event.description,
     purpose: event.purpose,
     page: event.page,
@@ -909,14 +929,21 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
     definitions: definitionsOf(p.id),
   }));
 
-  const identityRules = IdentityRuleDAL.listIdentityRules(projectId).map((r) => ({
-    identifier_name: r.identifier_name,
-    identity_type: r.identity_type,
-    name: r.name,
-    transformations: r.transformations_json,
-    sdk_call: r.sdk_call,
-    trigger_text: r.trigger_text,
-  }));
+  const flowByRuleId = new Map(ctx.identificationFlow.rules.map((r) => [r.rule_id, r]));
+  const identityRules = ctx.identityRules.map((r) => {
+    const flowRule = flowByRuleId.get(r.id);
+    return {
+      identifier_name: r.identifier_name,
+      identity_type: r.identity_type,
+      name: r.name,
+      transformations: r.transformations_json,
+      sdk_call: r.sdk_call,
+      trigger_text: r.trigger_text,
+      set_by: flowRule?.set_by ?? { kind: 'unknown' as const },
+      binds: flowRule?.binds ?? [],
+      carried_by: (flowRule?.carried_by ?? []).map((e) => e.name),
+    };
+  });
 
   const consentCategories = ConsentCategoryDAL.listConsentCategories(projectId).map((c) => ({
     id: c.id,
@@ -1024,9 +1051,10 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
     properties: customerProperties,
     event_properties: eventProperties,
     identity_rules: identityRules,
+    identification_flow: ctx.identificationFlow.paragraph,
     consent_categories: consentCategories,
     catalogs,
-    sources: sourceRows.map((s) => ({ id: s.id, name: s.name, system: s.system, method: s.method, event_count: eventSourceCounts.get(s.id) ?? 0 })),
+    sources: sourceRows.map((s) => ({ id: s.id, name: s.name, system: s.system, method: s.method, color: s.color, event_count: eventSourceCounts.get(s.id) ?? 0 })),
     use_cases: useCases,
     standard_event_mappings: standardEventMappings,
     findings_summary: findingsSummary,

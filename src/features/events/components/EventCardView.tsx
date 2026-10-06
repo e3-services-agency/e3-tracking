@@ -27,9 +27,9 @@ import { CodeBlock } from '@/src/components/ui/CodeBlock';
 import { CodegenTabs } from '@/src/features/shared/CodegenTabs';
 import { hasCodegen, type CodegenData } from '@/src/features/shared/codegenMethodTabs';
 import { TriggersBlock } from '@/src/features/shared/TriggersBlock';
-import { derivedMetricsText, eventCardVisibility } from '@/src/features/shared/viewHelpers';
-import { ClassBadge } from '@/src/components/ui/ClassBadge';
-import { CategoryBadge } from '@/src/components/ui/CategoryBadge';
+import { derivedMetricsText, eventCardVisibility, variantsAnchor } from '@/src/features/shared/viewHelpers';
+import { CategoryBadge, ClassBadge, KindBadge, PriorityBadge, RoleBadge, SeverityBadge, StatusBadge } from '@/src/components/ui/badges';
+import { hintFor } from '@/src/components/ui/FieldHint';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import type { PropertyCategory } from '@/src/domain/propertyCategory';
 import { displaySampleValue } from '@/src/domain/examples';
@@ -248,8 +248,8 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             ['Implementation method', card.implementation_method ?? 'client_web', true],
             ['dataLayer event', card.dl_event_name ?? '—', true],
             ['Source', card.sources && card.sources.length > 0 ? card.sources.map((s) => `${s.name}: ${sourceViaLabel(s.system, s.method)}`).join('; ') : '—', true],
-            ['Status', card.status, true],
-            ['Priority', card.priority ?? '—', true],
+            ['Status', <StatusBadge key="s" status={card.status} />, true],
+            ['Priority', card.priority ? <PriorityBadge key="p" priority={card.priority} /> : '—', true],
             ['Grain', card.grain ?? '—', true],
             ['Page', card.page ?? '—', true],
             ['Trigger', card.trigger ?? '—', true],
@@ -292,7 +292,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             rows={card.properties.map((p) => [
               keyCell(p),
               p.data_type,
-              p.kind ?? 'event',
+              <KindBadge key="k" kind={p.kind ?? 'event'} />,
               p.required ? 'yes' : 'no',
               <DescriptionCell key="d" description={p.description} lines={secondaryPropertyLines(p)} />,
               <ExampleCell key="e" value={p.example} />,
@@ -310,8 +310,8 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
             ...(showNames ? [p.name] : []),
             p.data_type,
             p.data_formats.join(', ') || '—',
-            p.role,
-            p.kind ?? 'event',
+            <RoleBadge key="r" role={p.role} />,
+            <KindBadge key="k" kind={p.kind ?? 'event'} />,
             p.datalayer_path === null ? 'n/a' : (p.datalayer_path ?? '—'),
             p.bundle ?? '—',
             p.catalog_field ?? '—',
@@ -343,7 +343,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
       )}
 
       {(!shared || visible.variants) && (
-      <Section title={`Variants (${card.variants.length})`}>
+      <Section id={variantsAnchor(card.name)} title={`Variants (${card.variants.length})`}>
         {card.variants.length === 0 && <p className="text-sm text-gray-500">No variants.</p>}
         {card.variants.map((v) => (
           <div key={v.id} className="mb-4 border rounded-md p-3">
@@ -474,7 +474,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
                 head={['Severity', 'Kind', 'Property / variant', 'Message']}
                 wideColumns={[3]}
                 rows={card.findings.map((f) => [
-                  f.severity,
+                  <SeverityBadge key="sv" severity={f.severity} />,
                   <FindingTerm key="k" kind={f.kind} />,
                   [f.property, f.variant].filter(Boolean).join(' / ') || '—',
                   f.message ?? '—',
@@ -485,7 +485,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
               head={['Severity', 'Kind', 'Comparison', 'Rule', 'Property', 'Variant', 'Message', 'Expected', 'Actual', 'QA run', 'First seen', 'Last seen']}
               wideColumns={[6]}
               rows={card.findings.map((f) => [
-                f.severity,
+                <SeverityBadge key="sv" severity={f.severity} />,
                 <FindingTerm key="k" kind={f.kind} />,
                 <FindingTerm key="c" comparison={f.comparison} />,
                 f.rule ?? '—',
@@ -520,9 +520,9 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
   );
 }
 
-export function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
+export function Section({ title, children, id }: { title: React.ReactNode; children: React.ReactNode; id?: string }) {
   return (
-    <div className="bg-white rounded-lg border shadow-sm p-4">
+    <div id={id} className="bg-white rounded-lg border shadow-sm p-4">
       <h2 className="text-sm font-semibold text-gray-900 mb-3">{title}</h2>
       {children}
     </div>
@@ -612,7 +612,7 @@ export function Table({ head, rows, wideColumns = [] }: { head: string[]; rows: 
         <thead className="bg-gray-50 border-b">
           <tr>
             {head.map((h, j) => (
-              <th key={h} className={`px-3 py-2 font-medium text-gray-500 ${wideColumns.includes(j) ? 'w-full' : ''}`}>
+              <th key={h} title={hintFor(h)} className={`px-3 py-2 font-medium text-gray-500 ${wideColumns.includes(j) ? 'w-full' : ''}`}>
                 {h}
               </th>
             ))}

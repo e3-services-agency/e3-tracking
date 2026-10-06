@@ -7,6 +7,7 @@
  * from the local FileStore (D-14) so the file is fully self-contained (no server round-trip to
  * view it later). System font stack only (D-07) — no external CDN fonts.
  */
+import { triggerImages } from '../../domain/document/triggerImages';
 import { getProjectWithClient, type ProjectWithClient } from '../dal/project.dal';
 import {
   listEvents,
@@ -72,6 +73,7 @@ interface TriggerEntry {
   title?: string;
   description?: string;
   image_path?: string | null;
+  images?: string[];
   source?: string | null;
   order?: number;
 }
@@ -158,11 +160,11 @@ async function buildTriggersHtml(projectId: string, triggers: TriggerEntry[]): P
       const title = trigger.title?.trim() || '';
       const description = trigger.description?.trim() || '';
       let imgHtml = '';
-      if (trigger.image_path) {
+      for (const imagePath of triggerImages(trigger)) {
         try {
-          const opened = await getFileStore().openForProject(projectId, trigger.image_path);
+          const opened = await getFileStore().openForProject(projectId, imagePath);
           const dataUri = `data:${opened.mime};base64,${opened.buffer.toString('base64')}`;
-          imgHtml = `<img src="${dataUri}" alt="${escapeHtml(title)}" class="trigger-image" />`;
+          imgHtml += `<img src="${dataUri}" alt="${escapeHtml(title)}" class="trigger-image" />`;
         } catch {
           // File missing/unreadable: skip the image, keep the text (export must not fail).
         }

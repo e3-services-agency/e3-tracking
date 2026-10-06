@@ -1,3 +1,4 @@
+import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
 /**
  * QA runs page (T-1-09, D-07 simplified UI): a table of runs (auto-created by the customer events
  * export import, T-1-09; `agent_session`/`manual` runs are phase 2) and a detail sheet per run
@@ -5,6 +6,7 @@
  * always recomputes over the whole project; this button is a convenience trigger after a run).
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
@@ -48,6 +50,14 @@ export function QaRuns() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
   const setRequestedTab = useStore((s) => s.setRequestedTab);
   const [runs, setRuns] = useState<QaRunRow[]>([]);
+  const { sorted: sortedRuns, sort } = useSortableTable(runs, {
+    kind: (r) => r.kind,
+    actor: (r) => r.actor,
+    environment: (r) => r.environment,
+    started: (r) => r.started_at,
+    finished: (r) => r.finished_at,
+    archived: (r) => r.archived,
+  });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,16 +133,16 @@ export function QaRuns() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500">Kind</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Actor</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Environment</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Started</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Finished</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Archived</th>
+                <SortableTh sort={sort} column="kind" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Kind', 'QaRuns')}>Kind</SortableTh>
+                <SortableTh sort={sort} column="actor" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Actor', 'QaRuns')}>Actor</SortableTh>
+                <SortableTh sort={sort} column="environment" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Environment', 'QaRuns')}>Environment</SortableTh>
+                <SortableTh sort={sort} column="started" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Started', 'QaRuns')}>Started</SortableTh>
+                <SortableTh sort={sort} column="finished" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Finished', 'QaRuns')}>Finished</SortableTh>
+                <SortableTh sort={sort} column="archived" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Archived', 'QaRuns')}>Archived</SortableTh>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {runs.map((run) => (
+              {sortedRuns.map((run) => (
                 <tr
                   key={run.id}
                   onClick={() => {
@@ -429,7 +439,7 @@ function QaRunDetail({
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Notes</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Notes', 'QaRuns')}>Notes</label>
         <textarea
           className="w-full h-20 rounded-md border border-gray-300 px-3 py-2 text-sm"
           value={notes}
@@ -477,11 +487,11 @@ function QaRunDetail({
           <table className="w-full text-left text-xs">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-3 py-2 font-medium text-gray-500">Type</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Timestamp</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Resolved</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Properties</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Actions</th>
+                <th className="px-3 py-2 font-medium text-gray-500" title={hintFor('Type', 'QaRuns')}>Type</th>
+                <th className="px-3 py-2 font-medium text-gray-500" title={hintFor('Timestamp', 'QaRuns')}>Timestamp</th>
+                <th className="px-3 py-2 font-medium text-gray-500" title={hintFor('Resolved', 'QaRuns')}>Resolved</th>
+                <th className="px-3 py-2 font-medium text-gray-500" title={hintFor('Properties', 'QaRuns')}>Properties</th>
+                <th className="px-3 py-2 font-medium text-gray-500" title={hintFor('Actions', 'QaRuns')}>Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">

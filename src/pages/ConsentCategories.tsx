@@ -1,3 +1,4 @@
+import { StatusBadge } from '@/src/components/ui/badges';
 /**
  * Consent categories: plain table + form against `/api/projects/:projectId/consent-categories`
  * (plan "Target data model" section ConsentCategory; T-1-06). `standard_key` is picked from the
@@ -5,6 +6,7 @@
  * consent key" form below the picker appends to that project column.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -124,7 +126,7 @@ export function ConsentCategories() {
       <PageBody className="space-y-6">
         <div className="bg-white rounded-lg border shadow-sm p-4 flex items-end gap-2">
           <div className="flex-1 space-y-1">
-            <label className="text-sm font-medium text-gray-700">Add a standard consent key</label>
+            <label className="text-sm font-medium text-gray-700" title={hintFor('Add a standard consent key', 'Consents')}>Add a standard consent key</label>
             <Input
               value={newStandardKey}
               onChange={(e) => setNewStandardKey(e.target.value)}
@@ -144,10 +146,10 @@ export function ConsentCategories() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500 w-20">Order</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Client category</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Standard key</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Status</th>
+                <th className="px-6 py-3 font-medium text-gray-500 w-20" title={hintFor('Order', 'Consents')}>Order</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Client category', 'Consents')}>Client category</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Standard key', 'Consents')}>Standard key</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Consents')}>Status</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -165,7 +167,7 @@ export function ConsentCategories() {
                   </td>
                   <td className="px-6 py-4 font-medium text-gray-900 cursor-pointer" onClick={() => { setSelectedId(c.id); setIsCreating(false); setIsSheetOpen(true); }}><span className="inline-flex items-center gap-1.5">{c.name}<CopyNameButton name={c.name} /></span></td>
                   <td className="px-6 py-4 text-gray-500">{c.standard_key ?? '—'}</td>
-                  <td className="px-6 py-4 text-gray-500">{c.status ?? '—'}</td>
+                  <td className="px-6 py-4 text-gray-500"><StatusBadge status={c.status} /></td>
                 </tr>
               ))}
               {categories.length === 0 && (
@@ -291,7 +293,7 @@ function ConsentCategoryEditor({
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Client category</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Client category', 'Consents')}>Client category</label>
         <div className="flex items-center gap-2">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. brand_consent" />
           {trimmedName && <CopyNameButton name={trimmedName} />}
@@ -299,11 +301,11 @@ function ConsentCategoryEditor({
         {!trimmedName && <p className="text-xs text-red-600">Name is required.</p>}
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Description</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Description', 'Consents')}>Description</label>
         <Input value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Standard key</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Standard key', 'Consents')}>Standard key</label>
         <select value={standardKey} onChange={(e) => setStandardKey(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
           <option value="">—</option>
           {availableStandardKeys.map((k) => (
@@ -314,7 +316,7 @@ function ConsentCategoryEditor({
         </select>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Status</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Status', 'Consents')}>Status</label>
         <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
           <option value="">—</option>
           {ENTITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}

@@ -36,6 +36,11 @@ export function eventAnchors(names: string[]): string[] {
   });
 }
 
+/** DOM id of an event card's Variants block: `variants-event-<slug>` (T-4-24). */
+export function variantsAnchor(eventName: string): string {
+  return `variants-${eventAnchor(eventName)}`;
+}
+
 /** Finds the event a URL hash (`#event-purchase`, with or without the `#`, possibly percent-encoded)
  * points at, or `null`. */
 export function eventForHash<T extends { name: string }>(hash: string, events: T[]): T | null {

@@ -1,9 +1,11 @@
+import { StatusBadge } from '@/src/components/ui/badges';
 /**
  * Identity rules: plain table + form against `/api/projects/:projectId/identity-rules`
  * (plan "Target data model" section IdentityRule; T-1-06). Simplified UI (D-07): a single
  * sheet form with every field, plus move up/down for `sort_order`.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -134,13 +136,13 @@ export function IdentityRules() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500 w-20">Order</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Name</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Identifier name</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Type</th>
-                <th className="px-6 py-3 font-medium text-gray-500">SDK call</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Trigger event</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Status</th>
+                <th className="px-6 py-3 font-medium text-gray-500 w-20" title={hintFor('Order', 'Identity')}>Order</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'Identity')}>Name</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Identifier name', 'Identity')}>Identifier name</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Type', 'Identity')}>Type</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('SDK call', 'Identity')}>SDK call</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Trigger event', 'Identity')}>Trigger event</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Identity')}>Status</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -161,7 +163,7 @@ export function IdentityRules() {
                   <td className="px-6 py-4 text-gray-500">{rule.identity_type}</td>
                   <td className="px-6 py-4 text-gray-500">{rule.sdk_call ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{eventName(rule.trigger_event_id)}</td>
-                  <td className="px-6 py-4 text-gray-500">{rule.status ?? '—'}</td>
+                  <td className="px-6 py-4 text-gray-500"><StatusBadge status={rule.status} /></td>
                 </tr>
               ))}
               {rules.length === 0 && (
@@ -347,12 +349,12 @@ function IdentityRuleEditor({
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Name</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Name', 'Identity')}>Name</label>
           <Input value={name} onChange={(e) => setName(e.target.value)} />
           {!trimmedName && <p className="text-xs text-red-600">Name is required.</p>}
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Identifier name</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Identifier name', 'Identity')}>Identifier name</label>
           <Input value={identifierName} onChange={(e) => setIdentifierName(e.target.value)} placeholder="e.g. registered, cookie, email_id" />
           {!trimmedField && <p className="text-xs text-red-600">Identifier name is required.</p>}
         </div>
@@ -360,13 +362,13 @@ function IdentityRuleEditor({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Identity type</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Identity type', 'Identity')}>Identity type</label>
           <select value={identityType} onChange={(e) => setIdentityType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             {IDENTITY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">SDK call</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('SDK call', 'Identity')}>SDK call</label>
           <select value={sdkCall} onChange={(e) => setSdkCall(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
             {IDENTITY_SDK_CALLS.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -375,7 +377,7 @@ function IdentityRuleEditor({
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Transformations</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Transformations', 'Identity')}>Transformations</label>
         <div className="flex gap-4">
           {IDENTITY_TRANSFORMATIONS.map((t) => (
             <label key={t} className="flex items-center gap-2 text-sm text-gray-700">
@@ -387,41 +389,41 @@ function IdentityRuleEditor({
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Description</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Description', 'Identity')}>Description</label>
         <Input value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Trigger event</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Trigger event', 'Identity')}>Trigger event</label>
           <select value={triggerEventId} onChange={(e) => setTriggerEventId(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
             {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
           </select>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Trigger text</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Trigger text', 'Identity')}>Trigger text</label>
           <Input value={triggerText} onChange={(e) => setTriggerText(e.target.value)} />
         </div>
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Value rule</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Value rule', 'Identity')}>Value rule</label>
         <Input value={valueRule} onChange={(e) => setValueRule(e.target.value)} />
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Example</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Example', 'Identity')}>Example</label>
         <Input value={example} onChange={(e) => setExample(e.target.value)} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Owner</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Owner', 'Identity')}>Owner</label>
           <Input value={owner} onChange={(e) => setOwner(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Source</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Source', 'Identity')}>Source</label>
           <select value={sourceId} onChange={(e) => setSourceId(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
             {sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -430,20 +432,20 @@ function IdentityRuleEditor({
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Tracker</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Tracker', 'Identity')}>Tracker</label>
         <Input value={tracker} onChange={(e) => setTracker(e.target.value)} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Priority</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Priority', 'Identity')}>Priority</label>
           <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
             {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Status</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Status', 'Identity')}>Status</label>
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
             {ENTITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}

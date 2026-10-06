@@ -7,7 +7,9 @@ An event is a Bloomreach event type such as `purchase` or `view_item`. Each has 
 - **custom**: defined and implemented by the client. These are what the migration is about and the only ones that are checked and certified.
 - **sdk** and **platform**: produced by Bloomreach itself (`session_start`, `page_visit`, `campaign`, `consent`, ...). Informational only.
 
-An event has an owner, a status, a priority, triggers (with the page URLs where it fires) and optionally a screenshot per trigger.
+An event has an owner, a status, a priority, triggers (with the page URLs where it fires) and optionally screenshots per trigger. In the event editor drag several images onto a trigger's drop zone (or click it to browse), reorder them with the arrows, or remove one with the cross (removing an image from a trigger does not delete the uploaded file); the event card and the shared view show every image and the lightbox steps through all of them. An event can have several triggers.
+
+The Events table has a search box (name or description, filters as you type) and every column header sorts: click once for ascending, again for descending, a third time to go back to the original order. Events that have variants show a small arrow next to the name; the **Expand all variants** button opens or closes every event's variants at once.
 
 ## Properties
 
@@ -17,7 +19,11 @@ A property of type array can carry an **item schema**: the fields every list ite
 
 ### Definitions: one property, several meanings
 
-The same property can mean slightly different things on different events (a different description, allowed values or examples). Instead of duplicating the property, open it on the Properties page and add a **named definition**. Every property has a `general` definition; an event chooses which definition its link uses (the picker appears only when a property has more than one). The data type always stays on the property.
+The same property can mean slightly different things on different events (a different description, allowed values or examples). Instead of duplicating the property, open it on the Properties page and add a **named definition**. Every property has a `general` definition; an event chooses which definition its link uses. In the event editor, click **Definitions** on a linked property to see them as nested rows (name, description, allowed values, formats, example) and pick the one this event uses with the radio button. The data type always stays on the property.
+
+### Bundles
+
+A bundle is a named group of properties you add to an event in one step (for example the properties every purchase event carries). Open the **Bundles** tab on the Properties page: each bundle shows its property count and the events that use it (an event uses a bundle when it links every property of it). Expand a bundle to see its properties with data type and type, rename it, edit its membership with a checkbox list, or delete it. A bundle in use asks for confirmation ("Delete anyway"); the events keep their properties. The Properties tab has the same search box and column sorting as Events, and a property's own editor still lets you tick the bundles it belongs to.
 
 ## Attaching a property to an event
 
@@ -26,6 +32,8 @@ An attachment (event property) records:
 - **Required**: whether every observation must include it. A missing required property is an error finding.
 - **Role**: `normal`, `discriminator` or `context`.
 - Status, source, payload key and priority.
+
+The linked-properties list, including the **Add bundle** picker, is available when you create an event too; the list is saved right after the event is created.
 
 ### Roles and variants
 

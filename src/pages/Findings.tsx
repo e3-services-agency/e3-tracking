@@ -1,3 +1,5 @@
+import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
+import { SeverityBadge, StatusBadge } from '@/src/components/ui/badges';
 /**
  * Findings page (T-1-09, D-07 simplified UI; T-2-04 adds comparison 4, `data_manager`): a table of
  * findings from every comparison engine `POST /comparison/run` orchestrates, with filters
@@ -6,6 +8,7 @@
  * and by `Import.tsx`'s customer-events-export apply) to pre-filter by the observation's run.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { GlossaryTerm, FindingTerm } from '@/src/components/ui/GlossaryTerm';
@@ -54,12 +57,6 @@ async function parseJson(res: Response): Promise<any> {
   return res.json().catch(() => ({}));
 }
 
-const SEVERITY_BADGE: Record<string, string> = {
-  error: 'bg-red-50 text-red-800 border-red-200',
-  warning: 'bg-amber-50 text-amber-800 border-amber-200',
-  info: 'bg-blue-50 text-blue-800 border-blue-200',
-};
-
 export function Findings() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
   const [findings, setFindings] = useState<FindingRow[]>([]);
@@ -100,6 +97,16 @@ export function Findings() {
   }, [pendingFindingsRunId, setPendingFindingsRunId]);
 
   const eventNameById = useMemo(() => new Map(events.map((e) => [e.id, e.name])), [events]);
+  const { sorted: sortedFindings, sort } = useSortableTable(findings, {
+    severity: (f) => ({ error: 1, warning: 2, info: 3 } as Record<string, number>)[f.severity] ?? 9,
+    kind: (f) => f.kind,
+    rule: (f) => ruleNameOf(f),
+    comparison: (f) => f.comparison,
+    event: (f) => (f.event_id ? eventNameById.get(f.event_id) ?? f.event_id : null),
+    message: (f) => f.message,
+    status: (f) => f.status,
+    last_seen: (f) => f.last_seen_at,
+  });
 
   // Fetch race guard (fix round, same pattern as StandardEvents.tsx/QaRuns.tsx): filters and the
   // project id can both change quickly (e.g. project switch right after adjusting a filter), so
@@ -229,35 +236,35 @@ export function Findings() {
         )}
         <div className="bg-white rounded-lg border shadow-sm p-4 flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Comparison</label>
+            <label className="text-xs font-medium text-gray-500" title={hintFor('Comparison', 'Findings')}>Comparison</label>
             <select value={comparison} onChange={(e) => setComparison(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
               {COMPARISON_IDS.map((c) => <option key={c} value={c}>{comparisonLabel(c)}</option>)}
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Kind</label>
+            <label className="text-xs font-medium text-gray-500" title={hintFor('Kind', 'Findings')}>Kind</label>
             <select value={kind} onChange={(e) => setKind(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
               {FINDING_KINDS.map((k) => <option key={k} value={k}>{kindLabel(k)}</option>)}
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Severity</label>
+            <label className="text-xs font-medium text-gray-500" title={hintFor('Severity', 'Findings')}>Severity</label>
             <select value={severity} onChange={(e) => setSeverity(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
               {FINDING_SEVERITIES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Event</label>
+            <label className="text-xs font-medium text-gray-500" title={hintFor('Event', 'Findings')}>Event</label>
             <select value={eventId} onChange={(e) => setEventId(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
               {events.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Status</label>
+            <label className="text-xs font-medium text-gray-500" title={hintFor('Status', 'Findings')}>Status</label>
             <select value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
               {FINDING_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -274,24 +281,22 @@ export function Findings() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500">Severity</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Kind</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Rule</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Comparison</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Event</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Message</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Status</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Last seen</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Actions</th>
+                <SortableTh sort={sort} column="severity" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Severity', 'Findings')}>Severity</SortableTh>
+                <SortableTh sort={sort} column="kind" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Kind', 'Findings')}>Kind</SortableTh>
+                <SortableTh sort={sort} column="rule" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Rule', 'Findings')}>Rule</SortableTh>
+                <SortableTh sort={sort} column="comparison" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Comparison', 'Findings')}>Comparison</SortableTh>
+                <SortableTh sort={sort} column="event" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Event', 'Findings')}>Event</SortableTh>
+                <SortableTh sort={sort} column="message" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Message', 'Findings')}>Message</SortableTh>
+                <SortableTh sort={sort} column="status" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Findings')}>Status</SortableTh>
+                <SortableTh sort={sort} column="last_seen" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Last seen', 'Findings')}>Last seen</SortableTh>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Actions', 'Findings')}>Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {findings.map((f) => (
+              {sortedFindings.map((f) => (
                 <tr key={f.id}>
                   <td className="px-6 py-4">
-                    <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${SEVERITY_BADGE[f.severity] ?? ''}`}>
-                      {f.severity}
-                    </span>
+                    <SeverityBadge severity={f.severity} />
                   </td>
                   <td className="px-6 py-4 text-xs text-gray-700"><FindingTerm kind={f.kind} /></td>
                   <td className="px-6 py-4 text-gray-700 text-xs">{ruleNameOf(f) ?? '—'}</td>
@@ -310,7 +315,7 @@ export function Findings() {
                     )}
                   </td>
                   <td className="px-6 py-4 text-gray-500">{f.message ?? '—'}</td>
-                  <td className="px-6 py-4 text-gray-500">{f.status}</td>
+                  <td className="px-6 py-4 text-gray-500"><StatusBadge status={f.status} /></td>
                   <td className="px-6 py-4 text-gray-500">{new Date(f.last_seen_at).toLocaleString()}</td>
                   <td className="px-6 py-4">
                     <Button

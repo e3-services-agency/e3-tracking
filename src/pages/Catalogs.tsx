@@ -1,8 +1,10 @@
+import { StatusBadge } from '@/src/components/ui/badges';
 /**
  * Catalogs: table + plain editor with nested fields against
  * `/api/projects/:projectId/catalogs` (kept, extended per the plan).
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -88,12 +90,12 @@ export function Catalogs() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500">Name</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Kind</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Market / language</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Version</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Mapping role</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Status</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'Catalogs')}>Name</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Kind', 'Catalogs')}>Kind</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Market / language', 'Catalogs')}>Market / language</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Version', 'Catalogs')}>Version</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Mapping role', 'Catalogs')}>Mapping role</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Catalogs')}>Status</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -104,7 +106,7 @@ export function Catalogs() {
                   <td className="px-6 py-4 text-gray-500">{catalogMarketLabel(c.market, c.language) || '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{c.version}{c.live_at ? ' · live' : ''}</td>
                   <td className="px-6 py-4 text-gray-500">{c.mapping_role ?? '—'}</td>
-                  <td className="px-6 py-4 text-gray-500">{c.status ?? '—'}</td>
+                  <td className="px-6 py-4 text-gray-500"><StatusBadge status={c.status} /></td>
                 </tr>
               ))}
               {catalogs.length === 0 && (
@@ -302,7 +304,7 @@ function CatalogEditor({
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Name</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Name', 'Catalogs')}>Name</label>
         <div className="flex items-center gap-2">
           <Input value={name} onChange={(e) => setName(e.target.value)} />
           {name.trim() && <CopyNameButton name={name.trim()} />}
@@ -310,16 +312,16 @@ function CatalogEditor({
         {nameError && <p className="text-xs text-red-600">{nameError}</p>}
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Description</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Description', 'Catalogs')}>Description</label>
         <Input value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Owner</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Owner', 'Catalogs')}>Owner</label>
           <Input value={owner} onChange={(e) => setOwner(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Mapping role</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Mapping role', 'Catalogs')}>Mapping role</label>
           <select value={mappingRole} onChange={(e) => setMappingRole(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
             {CATALOG_MAPPING_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -328,7 +330,7 @@ function CatalogEditor({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Kind</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Kind', 'Catalogs')}>Kind</label>
           <select value={kind} onChange={(e) => setKind(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             {isCreating && <option value="">Automatic (from mapping role)</option>}
             {CATALOG_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
@@ -336,7 +338,7 @@ function CatalogEditor({
           <p className="text-xs text-gray-500">Catalogs of the same kind (one per market) must share one schema.</p>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Version</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Version', 'Catalogs')}>Version</label>
           <select value={version} onChange={(e) => setVersion(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             {CATALOG_VERSIONS.map((v) => <option key={v} value={v}>{v}</option>)}
           </select>
@@ -345,24 +347,24 @@ function CatalogEditor({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Market</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Market', 'Catalogs')}>Market</label>
           <Input value={market} onChange={(e) => setMarket(e.target.value)} placeholder="e.g. GB" />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Language</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Language', 'Catalogs')}>Language</label>
           <Input value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="e.g. en-GB" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Priority</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Priority', 'Catalogs')}>Priority</label>
           <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
             {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Status</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Status', 'Catalogs')}>Status</label>
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
             {ENTITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -532,7 +534,7 @@ function CatalogFieldRowEditor({
       </div>
       <div className="grid grid-cols-3 gap-2">
         <div className="space-y-1">
-          <label className="text-xs text-gray-500">Data type</label>
+          <label className="text-xs text-gray-500" title={hintFor('Data type', 'Catalogs')}>Data type</label>
           <select
             value={field.data_type ?? 'string'}
             onChange={(e) => void patchSimple({ data_type: e.target.value })}
@@ -569,7 +571,7 @@ function CatalogFieldRowEditor({
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div className="space-y-1">
-          <label className="text-xs text-gray-500">Client field name</label>
+          <label className="text-xs text-gray-500" title={hintFor('Client field name', 'Catalogs')}>Client field name</label>
           <Input
             value={clientFieldName}
             onChange={(e) => setClientFieldName(e.target.value)}
@@ -579,7 +581,7 @@ function CatalogFieldRowEditor({
           />
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-gray-500">Bloomreach column</label>
+          <label className="text-xs text-gray-500" title={hintFor('Bloomreach column', 'Catalogs')}>Bloomreach column</label>
           <select
             value={field.bloomreach_column ?? ''}
             onChange={(e) => void setBloomreachColumn(e.target.value)}

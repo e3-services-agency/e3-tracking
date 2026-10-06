@@ -8,6 +8,26 @@ import {
   Activity,
   AlertTriangle,
   BookOpen,
+  Box,
+  CheckCircle2,
+  CircleDashed,
+  ChevronDown,
+  ChevronUp,
+  ChevronsUp,
+  Code2,
+  Eye,
+  EyeOff,
+  Info,
+  Layers,
+  ListOrdered,
+  Minus,
+  OctagonAlert,
+  Package,
+  Pencil,
+  Server,
+  Split,
+  User,
+  XCircle,
   ClipboardCheck,
   Database,
   Fingerprint,
@@ -61,3 +81,50 @@ export const SHARED_SECTION_ICONS: Record<string, LucideIcon> = {
   mapping: NAV_ICONS.standardEvents,
   findings: NAV_ICONS.findings,
 };
+
+/** T-4-24: icons of the badge vocabulary (`src/components/ui/badges.tsx`) and the requirement target kinds. */
+export const CLASS_ICONS: Record<string, LucideIcon> = { custom: Pencil, sdk: Code2, platform: Server };
+export const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  system_customer: User,
+  customer: User,
+  sdk_default: Code2,
+  event: NAV_ICONS.events,
+};
+export const PROPERTY_KIND_ICONS: Record<string, LucideIcon> = {
+  event: NAV_ICONS.events,
+  item: Package,
+  state_list: ListOrdered,
+  context: Layers,
+};
+export const PRIORITY_ICONS: Record<string, LucideIcon> = {
+  critical: ChevronsUp,
+  high: ChevronUp,
+  medium: Minus,
+  low: ChevronDown,
+};
+export const STATUS_ICONS: Record<string, LucideIcon> = {
+  planned: CircleDashed,
+  in_review: Eye,
+  implemented: CheckCircle2,
+  ignored: EyeOff,
+  proposed: CircleDashed,
+  approved: CheckCircle2,
+  in_progress: Activity,
+  live: CheckCircle2,
+  dropped: XCircle,
+  open: AlertTriangle,
+  resolved: CheckCircle2,
+  gap: AlertTriangle,
+};
+export const SEVERITY_ICONS: Record<string, LucideIcon> = { error: OctagonAlert, warning: AlertTriangle, info: Info };
+/** Requirement target kind -> icon (requirements matrix, use case requirement rows). */
+export const TARGET_KIND_ICONS: Record<string, LucideIcon> = {
+  customer_property: User,
+  event: NAV_ICONS.events,
+  variant: Split,
+  event_property: NAV_ICONS.properties,
+  variant_property: NAV_ICONS.properties,
+  catalog_attribute: NAV_ICONS.catalogs,
+  consent: NAV_ICONS.consentCategories,
+};
+export const BUNDLE_ICON: LucideIcon = Box;

@@ -1,3 +1,6 @@
+import { ClassBadge, StatusBadge } from '@/src/components/ui/badges';
+import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
+import { useDebouncedValue } from '@/src/hooks/useDebouncedValue';
 /**
  * Events: table + plain editor against `/api/projects/:projectId/events` (D-16). Linked
  * properties are edited as the full ordered list (`PUT /events/:id/properties`); T-1-04 adds the
@@ -6,9 +9,9 @@
  * `GET /api/projects/:id/files/*`.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
-import { ClassBadge } from '@/src/components/ui/ClassBadge';
+import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Trash2, Loader2, Upload, FileDown } from 'lucide-react';
+import { Plus, Trash2, Loader2, FileDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
@@ -25,6 +28,8 @@ import { LinkedPropertiesEditor, type LinkedPropertyRow, type DefinitionOption }
 import { VariantsSection, type DiscriminatorProperty } from '@/src/features/events/components/VariantsSection';
 import { RulesSection, type RuleLinkedProperty } from '@/src/features/events/components/RulesSection';
 import { UseCasesForEventSection } from '@/src/features/events/components/UseCasesForEventSection';
+import { TriggerImagesEditor } from '@/src/features/events/components/TriggerImagesEditor';
+import { triggerImageFields, triggerImages } from '@/src/domain/document/triggerImages';
 import { HistorySection } from '@/src/features/history/HistorySection';
 import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
 import { EmptyState } from '@/src/components/ui/EmptyState';
@@ -67,6 +72,8 @@ interface TriggerEntry {
   title: string;
   description: string;
   image_path?: string | null;
+  /** T-4-24: every screenshot in order; `image_path` mirrors the first. */
+  images?: string[];
   source?: string | null;
   order: number;
 }
@@ -121,10 +128,46 @@ export function Events() {
   // LOW 5 fix round: the empty state must react to the `class` filter, not the unfiltered list --
   // a project whose custom filter (default) matches nothing used to render a headerless empty
   // table with no "No events found" row.
-  const filteredEvents = useMemo(
-    () => events.filter((ev) => classFilter === 'all' || ev.class === classFilter),
-    [events, classFilter]
+  // T-4-24: client-side search by name/description (debounced), column sorting, and one toggle that
+  // expands or collapses the variant sub-rows of every event.
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search.trim().toLowerCase(), 200);
+  const [variantsByEventId, setVariantsByEventId] = useState<Record<string, { id: string; name: string; description: string | null }[]>>({});
+  const [expandedEventIds, setExpandedEventIds] = useState<Set<string>>(new Set());
+  const searchedEvents = useMemo(
+    () =>
+      events
+        .filter((ev) => classFilter === 'all' || ev.class === classFilter)
+        .filter(
+          (ev) =>
+            !debouncedSearch ||
+            ev.name.toLowerCase().includes(debouncedSearch) ||
+            (ev.description ?? '').toLowerCase().includes(debouncedSearch)
+        ),
+    [events, classFilter, debouncedSearch]
   );
+  const { sorted: filteredEvents, sort } = useSortableTable(searchedEvents, {
+    name: (ev) => ev.name,
+    class: (ev) => ev.class,
+    status: (ev) => ev.status,
+    certified: (ev) => ev.certified ?? 'n/a',
+    expiration: (ev) => expirationSummary(ev.expiration_json),
+    properties: (ev) => ev.attached_property_count ?? 0,
+  });
+  const eventsWithVariants = useMemo(
+    () => filteredEvents.filter((ev) => (variantsByEventId[ev.id] ?? []).length > 0),
+    [filteredEvents, variantsByEventId]
+  );
+  const allExpanded = eventsWithVariants.length > 0 && eventsWithVariants.every((ev) => expandedEventIds.has(ev.id));
+  const toggleAllVariants = () =>
+    setExpandedEventIds(allExpanded ? new Set() : new Set(eventsWithVariants.map((ev) => ev.id)));
+  const toggleEventVariants = (id: string) =>
+    setExpandedEventIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const handleDownloadDocumentation = useCallback(async () => {
     if (!activeProjectId) return;
@@ -177,6 +220,13 @@ export function Events() {
     const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/events`);
     const data = await parseJson(res);
     if (res.ok) setEvents(Array.isArray(data) ? data : []);
+    const variantRes = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/variants`);
+    const variantData = await parseJson(variantRes);
+    if (variantRes.ok && Array.isArray(variantData)) {
+      const grouped: Record<string, { id: string; name: string; description: string | null }[]> = {};
+      for (const v of variantData) (grouped[v.event_id] ??= []).push({ id: v.id, name: v.name, description: v.description ?? null });
+      setVariantsByEventId(grouped);
+    }
   }, [hasValidProjectContext, activeProjectId]);
 
   useEffect(() => {
@@ -217,7 +267,18 @@ export function Events() {
 
       <PageBody className="space-y-4">
         <div className="flex items-center gap-2">
-          <label className="text-xs font-medium text-gray-500">Class</label>
+          <Input
+            type="search"
+            aria-label="Search events"
+            placeholder="Search name or description"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-9 w-64"
+          />
+          <Button variant="outline" onClick={toggleAllVariants} disabled={eventsWithVariants.length === 0} className="h-9">
+            {allExpanded ? 'Collapse all variants' : 'Expand all variants'}
+          </Button>
+          <label className="text-xs font-medium text-gray-500" title={hintFor('Class', 'Events')}>Class</label>
           <select
             value={classFilter}
             onChange={(e) => setClassFilter(e.target.value as typeof classFilter)}
@@ -234,24 +295,40 @@ export function Events() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500">Name</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Class</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Status</th>
-                <th className="px-6 py-3 font-medium text-gray-500">
+                <SortableTh sort={sort} column="name" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'Events')}>Name</SortableTh>
+                <SortableTh sort={sort} column="class" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Class', 'Events')}>Class</SortableTh>
+                <SortableTh sort={sort} column="status" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Events')}>Status</SortableTh>
+                <SortableTh sort={sort} column="certified" className="px-6 py-3 font-medium text-gray-500">
                   <GlossaryTerm glossaryKey="certified">Certified</GlossaryTerm>
-                </th>
-                <th className="px-6 py-3 font-medium text-gray-500">Expiration</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Properties</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Card</th>
+                </SortableTh>
+                <SortableTh sort={sort} column="expiration" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Expiration', 'Events')}>Expiration</SortableTh>
+                <SortableTh sort={sort} column="properties" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Properties', 'Events')}>Properties</SortableTh>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Card', 'Events')}>Card</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {filteredEvents
                 .map((ev) => (
-                  <tr key={ev.id} onClick={() => { setSelectedId(ev.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
-                    <td className="px-6 py-4 font-medium text-gray-900"><span className="inline-flex items-center gap-1.5">{ev.name}<CopyNameButton name={ev.name} /></span></td>
+                  <React.Fragment key={ev.id}>
+                  <tr onClick={() => { setSelectedId(ev.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
+                    <td className="px-6 py-4 font-medium text-gray-900">
+                      <span className="inline-flex items-center gap-1.5">
+                        {(variantsByEventId[ev.id] ?? []).length > 0 && (
+                          <button
+                            type="button"
+                            aria-expanded={expandedEventIds.has(ev.id)}
+                            title={`${(variantsByEventId[ev.id] ?? []).length} variant(s): click to ${expandedEventIds.has(ev.id) ? 'collapse' : 'expand'}`}
+                            onClick={(e) => { e.stopPropagation(); toggleEventVariants(ev.id); }}
+                            className="text-xs text-gray-400 hover:text-gray-700"
+                          >
+                            {expandedEventIds.has(ev.id) ? '▾' : '▸'}
+                          </button>
+                        )}
+                        {ev.name}<CopyNameButton name={ev.name} />
+                      </span>
+                    </td>
                     <td className="px-6 py-4"><ClassBadge eventClass={ev.class} /></td>
-                    <td className="px-6 py-4 text-gray-500">{ev.status}</td>
+                    <td className="px-6 py-4 text-gray-500"><StatusBadge status={ev.status} /></td>
                     <td className="px-6 py-4 text-gray-500" title={(ev.certified_reasons ?? []).join(', ') || undefined}>
                       {ev.certified ?? 'n/a'}
                     </td>
@@ -267,6 +344,16 @@ export function Events() {
                       </button>
                     </td>
                   </tr>
+                  {expandedEventIds.has(ev.id) &&
+                    (variantsByEventId[ev.id] ?? []).map((v) => (
+                      <tr key={v.id} className="bg-gray-50 text-xs text-gray-600">
+                        <td className="pl-12 pr-6 py-2" colSpan={7}>
+                          <span className="font-medium text-gray-800">{v.name}</span>
+                          {v.description && <span className="ml-2 text-gray-500">{v.description}</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
                 ))}
               {filteredEvents.length === 0 && events.length === 0 && (
                 <EmptyState
@@ -279,7 +366,7 @@ export function Events() {
               {filteredEvents.length === 0 && events.length > 0 && (
                 <tr>
                   <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                    No events match this class filter.
+                    No events match this filter.
                   </td>
                 </tr>
               )}
@@ -357,8 +444,6 @@ function EventEditor({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [uploadingTriggerIndex, setUploadingTriggerIndex] = useState<number | null>(null);
   // T-1-09: open finding count badge (findings table filtered to this event, any comparison/kind/severity).
   const [openFindingsCount, setOpenFindingsCount] = useState<number | null>(null);
 
@@ -479,25 +564,6 @@ function EventEditor({
     setTriggers((prev) => prev.map((t, i) => (i === index ? { ...t, ...patch } : t)));
   const removeTrigger = (index: number) => setTriggers((prev) => prev.filter((_, i) => i !== index));
 
-  const handleTriggerImageUpload = async (index: number, file: File) => {
-    if (!projectId) return;
-    setUploadingTriggerIndex(index);
-    try {
-      const form = new FormData();
-      form.append('file', file);
-      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/files?kind=event_trigger`, {
-        method: 'POST',
-        body: form,
-      });
-      const data = await parseJson(res);
-      if (res.ok && typeof data.path === 'string') {
-        updateTrigger(index, { image_path: data.path });
-      }
-    } finally {
-      setUploadingTriggerIndex(null);
-    }
-  };
-
   const trimmedName = name.trim();
   const nameError = trimmedName ? null : 'Name is required.';
   // D-50/T-4-03 QA fix: block Save while a trigger's page URL fails the same http(s) rule the API
@@ -547,7 +613,8 @@ function EventEditor({
       }
       const savedEventId = isCreating ? data.id : eventId;
 
-      if (!isCreating) {
+      // T-4-24: a new event saves its (client-side) property list, including added bundles, right after creation.
+      if (!isCreating || links.length > 0) {
         const linksRes = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/events/${savedEventId}/properties`, {
           method: 'PUT',
           body: JSON.stringify({
@@ -609,7 +676,7 @@ function EventEditor({
         </div>
       )}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Name</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Name', 'Events')}>Name</label>
         <div className="flex items-center gap-2">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. purchase" />
           {name.trim() && <CopyNameButton name={name.trim()} />}
@@ -619,11 +686,11 @@ function EventEditor({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Business name</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Business name', 'Events')}>Business name</label>
           <Input value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Class</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Class', 'Events')}>Class</label>
           <select value={eventClass} onChange={(e) => setEventClass(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             {EVENT_CLASSES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
@@ -631,65 +698,65 @@ function EventEditor({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Implementation method</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Implementation method', 'Events')}>Implementation method</label>
           <select value={implementationMethod} onChange={(e) => setImplementationMethod(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             {isCreating && <option value="">Automatic (by name and class)</option>}
             {IMPLEMENTATION_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">dataLayer event name</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('dataLayer event name', 'Events')}>dataLayer event name</label>
           <Input value={dlEventName} onChange={(e) => setDlEventName(e.target.value)} placeholder="the site's event, e.g. add_to_wishlist" />
         </div>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Description</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Description', 'Events')}>Description</label>
         <Input value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Purpose</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Purpose', 'Events')}>Purpose</label>
           <Input value={purpose} onChange={(e) => setPurpose(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Page</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Page', 'Events')}>Page</label>
           <Input value={page} onChange={(e) => setPage(e.target.value)} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Trigger</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Trigger', 'Events')}>Trigger</label>
           <Input value={triggerText} onChange={(e) => setTriggerText(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Grain</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Grain', 'Events')}>Grain</label>
           <Input value={grain} onChange={(e) => setGrain(e.target.value)} />
         </div>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Identity note</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Identity note', 'Events')}>Identity note</label>
         <Input value={identityNote} onChange={(e) => setIdentityNote(e.target.value)} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Owner (business)</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Owner (business)', 'Events')}>Owner (business)</label>
           <Input value={ownerBusiness} onChange={(e) => setOwnerBusiness(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Owner (technical)</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Owner (technical)', 'Events')}>Owner (technical)</label>
           <Input value={ownerTechnical} onChange={(e) => setOwnerTechnical(e.target.value)} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Priority</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Priority', 'Events')}>Priority</label>
           <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
             {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Status</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Status', 'Events')}>Status</label>
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             {EVENT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
@@ -699,11 +766,11 @@ function EventEditor({
       <ExpirationEditor value={expiration} onChange={setExpiration} inheritHint="Disabled: inherits the project default expiration." />
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Not suitable for</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Not suitable for', 'Events')}>Not suitable for</label>
         <Input value={notSuitableFor} onChange={(e) => setNotSuitableFor(e.target.value)} />
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Agent instructions</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Agent instructions', 'Events')}>Agent instructions</label>
         <Input value={agentInstructions} onChange={(e) => setAgentInstructions(e.target.value)} />
       </div>
 
@@ -711,7 +778,7 @@ function EventEditor({
 
       {allSources.length > 0 && (
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Sources (system via method)</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Sources (system via method)', 'Events')}>Sources (system via method)</label>
           <div className="flex flex-wrap gap-2">
             {allSources.map((s) => (
               <label key={s.id} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1">
@@ -723,7 +790,7 @@ function EventEditor({
         </div>
       )}
 
-      {!isCreating && (
+      {(
         <div className="space-y-3 border-t pt-4">
           <h3 className="text-sm font-semibold text-gray-900">Linked properties</h3>
           <LinkedPropertiesEditor links={links} onChange={setLinks} sources={allSources} definitionsByPropertyId={definitionsByPropertyId} />
@@ -821,29 +888,11 @@ function EventEditor({
                 <p className="text-xs text-red-600 mt-1">Page URL must be an http:// or https:// URL.</p>
               )}
             </div>
-            <div className="flex items-center gap-3">
-              {trigger.image_path && projectId && (
-                <img
-                  src={`${API_BASE}/api/projects/${projectId}/files/${trigger.image_path}`}
-                  alt=""
-                  className="h-16 w-auto rounded border"
-                />
-              )}
-              <label className="flex items-center gap-1 text-xs text-[var(--brand-primary)] cursor-pointer">
-                <Upload className="w-4 h-4" />
-                {uploadingTriggerIndex === index ? 'Uploading…' : 'Upload image'}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void handleTriggerImageUpload(index, file);
-                  }}
-                />
-              </label>
-            </div>
+            <TriggerImagesEditor
+              projectId={projectId}
+              images={triggerImages(trigger)}
+              onChange={(next) => updateTrigger(index, triggerImageFields(next))}
+            />
           </div>
         ))}
         <Button type="button" variant="outline" size="sm" onClick={addTrigger}>Add trigger</Button>

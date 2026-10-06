@@ -429,3 +429,8 @@ export class RateLimitedError extends Error {
     this.name = 'RateLimitedError';
   }
 }
+
+/** T-4-24: deleting a bundle whose properties are all linked to an event; `?force=true` overrides. */
+export class BundleInUseError extends ConflictError {
+  readonly code = 'BUNDLE_IN_USE';
+}

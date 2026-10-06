@@ -10,7 +10,15 @@ const router = Router({ mergeParams: true });
 
 router.get('/', (req: Request, res: Response) => {
   try {
-    res.status(200).json(BundleDAL.listBundles(req.projectId!));
+    res.status(200).json(BundleDAL.listBundlesWithUsage(req.projectId!));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+router.get('/:id', (req: Request, res: Response) => {
+  try {
+    res.status(200).json(BundleDAL.getBundleDetail(req.projectId!, req.params.id));
   } catch (err) {
     handleRouteError(err, res);
   }
@@ -46,7 +54,7 @@ router.patch('/:id', (req: Request, res: Response) => {
 
 router.delete('/:id', (req: Request, res: Response) => {
   try {
-    BundleDAL.deleteBundle(req.projectId!, req.params.id);
+    BundleDAL.deleteBundle(req.projectId!, req.params.id, { force: req.query.force === 'true' });
     res.status(204).end();
   } catch (err) {
     handleRouteError(err, res);

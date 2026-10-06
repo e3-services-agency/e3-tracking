@@ -3,6 +3,7 @@
  * Simplified UI (D-07).
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Search, Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -108,10 +109,10 @@ export function Sources() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500">Name</th>
-                <th className="px-6 py-3 font-medium text-gray-500">System via method</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Color</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Used In</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'Sources')}>Name</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('System via method', 'Sources')}>System via method</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Color', 'Sources')}>Color</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Used In', 'Sources')}>Used In</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -239,17 +240,17 @@ function SourceEditor({
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Source Name</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Source Name', 'Sources')}>Source Name</label>
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. iOS App" disabled={isSaving} />
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" htmlFor="source-system">System</label>
+        <label className="text-sm font-medium text-gray-700" htmlFor="source-system" title={hintFor('System', 'Sources')}>System</label>
         <select id="source-system" value={system} onChange={(e) => setSystem(e.target.value)} disabled={isSaving} className="block h-9 w-full rounded-md border border-gray-300 bg-white px-2 text-sm">
           {SOURCE_SYSTEMS.map((s) => <option key={s} value={s}>{SOURCE_SYSTEM_LABELS[s]}</option>)}
         </select>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" htmlFor="source-method">Collection method</label>
+        <label className="text-sm font-medium text-gray-700" htmlFor="source-method" title={hintFor('Collection method', 'Sources')}>Collection method</label>
         <select id="source-method" value={method} onChange={(e) => setMethod(e.target.value)} disabled={isSaving} className="block h-9 w-full rounded-md border border-gray-300 bg-white px-2 text-sm">
           <option value="">Not recorded</option>
           {SOURCE_METHODS.map((m) => <option key={m} value={m}>{SOURCE_METHOD_LABELS[m]}</option>)}
@@ -257,7 +258,7 @@ function SourceEditor({
         <p className="text-xs text-gray-500">A Tracking API source makes a linked event server-side by default; a web source keeps it client-side. An event's own choice is never overridden.</p>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Color (optional)</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Color (optional)', 'Sources')}>Color (optional)</label>
         <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="e.g. blue" disabled={isSaving} />
       </div>
       {saveError && (

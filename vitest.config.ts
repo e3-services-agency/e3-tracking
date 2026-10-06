@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 /**
@@ -6,6 +7,8 @@ import { defineConfig } from 'vitest/config';
  * `src/domain/*` and `src/backend/db/*`. Revisit if/when component tests are added.
  */
 export default defineConfig({
+  // T-4-24: lets the few component-rendering tests resolve the `@/` alias the app uses.
+  resolve: { alias: { '@': path.resolve(__dirname, '.') } },
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],

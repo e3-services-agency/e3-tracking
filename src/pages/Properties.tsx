@@ -1,3 +1,7 @@
+import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
+import { useDebouncedValue } from '@/src/hooks/useDebouncedValue';
+import { BundlesSection } from '@/src/features/properties/components/BundlesSection';
+import { Badge, KindBadge, PriorityBadge, StatusBadge } from '@/src/components/ui/badges';
 /**
  * Properties: table with scope filter + plain create/edit form against
  * `/api/projects/:projectId/properties` (D-24). T-1-04 adds the allowed-values editor, the
@@ -5,6 +9,7 @@
  * `src/domain/enums.ts` and `src/domain/bloomreach.ts` define.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
@@ -104,6 +109,10 @@ export function Properties() {
   const [standardEventAdditions, setStandardEventAdditions] = useState<StandardEventSeed[] | null>(null);
   const [scopeFilter, setScopeFilter] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
+  // T-4-24: Properties | Bundles tabs, debounced client-side search, column sorting.
+  const [view, setView] = useState<'properties' | 'bundles'>('properties');
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search.trim().toLowerCase(), 200);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -162,10 +171,28 @@ export function Properties() {
     return order.map((id) => byId.get(id)!);
   }, [properties, orderFrozen]);
   // D-64: the category filter applies to the (possibly frozen) display order, client-side.
-  const visibleProperties = useMemo(
-    () => (categoryFilter ? displayProperties.filter((p) => classifyProperty(p) === categoryFilter) : displayProperties),
-    [displayProperties, categoryFilter]
+  const filteredProperties = useMemo(
+    () =>
+      displayProperties
+        .filter((p) => !categoryFilter || classifyProperty(p) === categoryFilter)
+        .filter(
+          (p) =>
+            !debouncedSearch ||
+            p.name.toLowerCase().includes(debouncedSearch) ||
+            (p.description ?? '').toLowerCase().includes(debouncedSearch)
+        ),
+    [displayProperties, categoryFilter, debouncedSearch]
   );
+  const { sorted: visibleProperties, sort } = useSortableTable(filteredProperties, {
+    name: (p) => p.name,
+    scope: (p) => p.scope,
+    category: (p) => classifyProperty(p),
+    data_type: (p) => p.data_type,
+    kind: (p) => p.kind ?? 'event',
+    enum: (p) => (Array.isArray(p.allowed_values_json) ? p.allowed_values_json.length : 0),
+    priority: (p) => ['critical', 'high', 'medium', 'low'].indexOf(p.priority ?? '') + 1 || null,
+    status: (p) => p.status,
+  });
 
   useEffect(() => {
     if (selectedItemIdToEdit && properties.some((p) => p.id === selectedItemIdToEdit)) {
@@ -190,7 +217,34 @@ export function Properties() {
       </PageHeader>
 
       <PageBody>
+        <div className="mb-4 flex gap-1 border-b" role="tablist">
+          {(['properties', 'bundles'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              role="tab"
+              aria-selected={view === v}
+              onClick={() => setView(v)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${view === v ? 'border-[var(--brand-primary)] text-gray-900' : 'border-transparent text-gray-500 hover:text-gray-800'}`}
+            >
+              {v === 'properties' ? 'Properties' : `Bundles (${bundles.length})`}
+            </button>
+          ))}
+        </div>
+
+        {view === 'bundles' ? (
+          <BundlesSection projectId={activeProjectId} onChanged={() => void load()} />
+        ) : (
+        <>
         <div className="mb-6 flex gap-2">
+          <Input
+            type="search"
+            aria-label="Search properties"
+            placeholder="Search name or description"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-10 w-64"
+          />
           <select value={scopeFilter} onChange={(e) => setScopeFilter(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">All scopes</option>
             {PROPERTY_SCOPES.map((s) => (
@@ -209,13 +263,14 @@ export function Properties() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500">Name</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Scope</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Category</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Data type</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Enum</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Priority</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Status</th>
+                <SortableTh sort={sort} column="name" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'Properties')}>Name</SortableTh>
+                <SortableTh sort={sort} column="scope" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Scope', 'Properties')}>Scope</SortableTh>
+                <SortableTh sort={sort} column="category" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Category', 'Properties')}>Category</SortableTh>
+                <SortableTh sort={sort} column="data_type" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Data type', 'Properties')}>Data type</SortableTh>
+                <SortableTh sort={sort} column="kind" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Property type', 'Properties')}>Type</SortableTh>
+                <SortableTh sort={sort} column="enum" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Enum', 'Properties')}>Enum</SortableTh>
+                <SortableTh sort={sort} column="priority" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Priority', 'Properties')}>Priority</SortableTh>
+                <SortableTh sort={sort} column="status" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Properties')}>Status</SortableTh>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -227,34 +282,32 @@ export function Properties() {
                       <span className="inline-flex flex-wrap items-center gap-1.5">
                         {p.name}
                         <CopyNameButton name={p.name} />
-                        <CategoryBadge category={classifyProperty(p)} />
                       </span>
                     </td>
                     <td className="px-6 py-4 text-gray-500">{p.scope}</td>
                     <td className="px-6 py-4 text-gray-500">
-                      {PROPERTY_CATEGORY_LABELS[classifyProperty(p)]}
+                      <CategoryBadge category={classifyProperty(p)} />
                       {isPropertyCategory(p.category_override) && <span className="ml-1 text-xs text-gray-400">(set)</span>}
                     </td>
                     <td className="px-6 py-4 text-gray-500">{p.data_type}</td>
+                    <td className="px-6 py-4"><KindBadge kind={p.kind} /></td>
                     <td className="px-6 py-4">
                       {enumCount > 0 ? (
-                        <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 text-xs px-2 py-0.5 border border-blue-200">
-                          enum · {enumCount}
-                        </span>
+                        <Badge tone="blue">enum · {enumCount}</Badge>
                       ) : (
                         <span className="text-gray-400">—</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-gray-500">{p.priority ?? '—'}</td>
-                    <td className="px-6 py-4 text-gray-500">{p.status ?? '—'}</td>
+                    <td className="px-6 py-4 text-gray-500"><PriorityBadge priority={p.priority} /></td>
+                    <td className="px-6 py-4 text-gray-500"><StatusBadge status={p.status} /></td>
                   </tr>
                 );
               })}
               {visibleProperties.length === 0 && (
                 <EmptyState
-                  colSpan={7}
+                  colSpan={8}
                   message={
-                    properties.length > 0 || scopeFilter || categoryFilter
+                    properties.length > 0 || scopeFilter || categoryFilter || debouncedSearch
                       ? 'No properties match the filter.'
                       : 'No properties yet. Import a data mapping from the Import page, or add one by hand.'
                   }
@@ -265,6 +318,8 @@ export function Properties() {
             </tbody>
           </table>
         </div>
+        </>
+        )}
       </PageBody>
 
       <Sheet
@@ -455,13 +510,13 @@ function PropertyEditor({
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Scope</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Scope', 'Properties')}>Scope</label>
         <select value={scope} onChange={(e) => setScope(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
           {PROPERTY_SCOPES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Name</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Name', 'Properties')}>Name</label>
         <div className="flex items-center gap-2">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. total_price" />
           {trimmedName && <CopyNameButton name={trimmedName} />}
@@ -470,23 +525,23 @@ function PropertyEditor({
         <NamingWarning entity={{ kind: 'property', scope, name: trimmedName, category_override: categoryOverride || null }} name={trimmedName} />
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Description</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Description', 'Properties')}>Description</label>
         <Input value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Category</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Category', 'Properties')}>Category</label>
           <Input value={category} onChange={(e) => setCategory(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Data type</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Data type', 'Properties')}>Data type</label>
           <select value={dataType} onChange={(e) => setDataType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             {PROPERTY_DATA_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Data formats</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Data formats', 'Properties')}>Data formats</label>
         <div className="flex flex-wrap gap-2">
           {PROPERTY_DATA_FORMATS.map((fmt) => (
             <label key={fmt} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1">
@@ -507,7 +562,7 @@ function PropertyEditor({
       {dataType === 'array' && <ItemSchemaEditor fields={itemSchema} onChange={setItemSchema} />}
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" htmlFor="property-category-override">Property category</label>
+        <label className="text-sm font-medium text-gray-700" htmlFor="property-category-override" title={hintFor('Property category', 'Properties')}>Property category</label>
         <select
           id="property-category-override"
           value={categoryOverride}
@@ -527,7 +582,7 @@ function PropertyEditor({
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" htmlFor="property-catalog-field">Catalog field</label>
+        <label className="text-sm font-medium text-gray-700" htmlFor="property-catalog-field" title={hintFor('Catalog field', 'Properties')}>Catalog field</label>
         <select
           id="property-catalog-field"
           value={mappedCatalogFieldId}
@@ -552,14 +607,14 @@ function PropertyEditor({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Priority</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Priority', 'Properties')}>Priority</label>
           <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
             {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Status</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Status', 'Properties')}>Status</label>
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
             {ENTITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -567,7 +622,7 @@ function PropertyEditor({
         </div>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Property type</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Property type', 'Properties')}>Property type</label>
         <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
           {ORIGIN_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
@@ -577,7 +632,7 @@ function PropertyEditor({
       </label>
       {scope === 'customer' && (
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Bloomreach customer property</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Bloomreach customer property', 'Properties')}>Bloomreach customer property</label>
           <select
             value={bloomreachCustomerProperty}
             onChange={(e) => setBloomreachCustomerProperty(e.target.value)}
@@ -591,12 +646,12 @@ function PropertyEditor({
         </div>
       )}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Notes</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Notes', 'Properties')}>Notes</label>
         <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
       {bundles.length > 0 && (
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Bundles</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Bundles', 'Properties')}>Bundles</label>
           <div className="flex flex-wrap gap-2">
             {bundles.map((b) => (
               <label key={b.id} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1">
@@ -689,7 +744,7 @@ function DefinitionsSection({ projectId, propertyId }: { projectId: string; prop
   return (
     <div className="space-y-2 pt-4 border-t">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-gray-700">Definitions</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Definitions', 'Properties')}>Definitions</label>
         <Button variant="outline" size="sm" onClick={() => { setEditingId(null); setIsAdding(true); }} className="gap-1">
           <Plus className="w-3 h-3" /> Add definition
         </Button>
@@ -793,7 +848,7 @@ function DefinitionEditor({
   return (
     <div className="rounded-md border bg-gray-50 p-3 space-y-3">
       <div className="space-y-1">
-        <label className="text-xs font-medium text-gray-700">Name</label>
+        <label className="text-xs font-medium text-gray-700" title={hintFor('Name', 'Properties')}>Name</label>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -807,11 +862,11 @@ function DefinitionEditor({
         )}
       </div>
       <div className="space-y-1">
-        <label className="text-xs font-medium text-gray-700">Description</label>
+        <label className="text-xs font-medium text-gray-700" title={hintFor('Description', 'Properties')}>Description</label>
         <Input value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <div className="space-y-1">
-        <label className="text-xs font-medium text-gray-700">Formats</label>
+        <label className="text-xs font-medium text-gray-700" title={hintFor('Formats', 'Properties')}>Formats</label>
         <div className="flex flex-wrap gap-2">
           {PROPERTY_DATA_FORMATS.map((fmt) => (
             <label key={fmt} className="flex items-center gap-1 text-xs bg-white border rounded px-2 py-1">
@@ -823,7 +878,7 @@ function DefinitionEditor({
       </div>
       <AllowedValuesEditor values={allowedValues} onChange={setAllowedValues} standardEventAdditions={null} />
       <div className="space-y-1">
-        <label className="text-xs font-medium text-gray-700">Example value</label>
+        <label className="text-xs font-medium text-gray-700" title={hintFor('Example value', 'Properties')}>Example value</label>
         <Input value={example} onChange={(e) => setExample(e.target.value)} />
       </div>
       {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{saveError}</div>}

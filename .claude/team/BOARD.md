@@ -3271,3 +3271,19 @@ Extracts: .claude/team/reports/qa/T-4-24/backup.json. Processes stopped, QA db a
 
 ### 2026-10-06 11:06 | supervisor | MERGE | T-4-24 merged into agent-setup — DONE; review round 6 complete, nothing running
 Fix cc027a2 (history preference auto-opens the modal, useModalA11y, image path validation, doc line, keyboard-sortable headers). QA PASS 9/9. Merged tree: tsc, build, lint clean, 1752 tests / 168 files. Open, waiting on the user: T-4-06 (samples/br-initiatives/), phase 5 step 2 (D-09 go + provider).
+
+### 2026-10-06 | supervisor | TASK | T-4-26 Properties page parity with Events (user review)
+User: "properties actions and modals are missing; the properties actions should be expandable same as the event variants." Row added to TASKS.md. Implementer on its own worktree; reviewer + QA follow.
+
+### 2026-10-06 | implementer | HANDOFF | T-4-26 Properties parity — branch task/T-4-26-properties-parity, commit 4b1a4cd (worktree C:/t/t426)
+1757 tests / 170 files, tsc, build, lint green (one "Timeout calling onTaskUpdate" worker flake, no failure). GET /properties gains additive definitions[] {id,name,description,using_events[]} and used_by_events[] {id,name,role,definition_id} via listDefinitionsByPropertyIds plus new listUsageByPropertyId (one join). Properties page: per-row expand plus "Expand all definitions" toolbar toggle, DefinitionSubRows, actions column (Definitions (n) opens drawer focused on the definitions block via a focus prop, Used by (n) opens UsedByModal with useModalA11y, Delete with confirm; all stopPropagation). Tests: propertiesList.route.test.ts, PropertyRowParts.test.ts (helpers, no DOM render). Docs: events-and-properties.md, CLAUDE.md Pages line. Bundles tab and shared view unchanged.
+
+### 2026-10-06 | reviewer | REVIEW | T-4-26 PASS (3 low, 2 info)
+Branch tsc clean, new tests 5/5; full suite was run on agent-setup (1752/168) by mistake, not on the branch (implementer reported 1757/170). L1 DefinitionsSection `focus` scrolls once on mount before definitions load and never focuses. L2 UsedByModal imports useModalA11y from features/history (coupling); a11y behaviour inherited, only markup tested. L3 usage query soft-delete handling correct. INFO delete alert on object-shaped error; component test covers helpers only; route test lacks soft-deleted exclusion case. Verified: 3 queries total, additive fields, colSpan 9, stopPropagation everywhere, docs accurate, shared view untouched.
+Supervisor ruling: fix L1 (scroll + focus after loading) and L2 (move useModalA11y to src/components/ui) plus a soft-deleted-event exclusion case in the route test, one commit; INFO items to backlog; then QA.
+
+### 2026-10-06 | implementer | HANDOFF | T-4-26 fix round ba69265
+Focus effect runs after definitions load (focus preventScroll, then scrollIntoView); useModalA11y moved to src/components/ui/useModalA11y.ts; soft-deleted event exclusion test. Branch: tsc, build, lint green, 1758 tests / 170 files. To QA.
+
+### 2026-10-06 | qa-tester | QA PASS | T-4-26 ba69265, 4/4
+Expand/collapse all (50 + 53 sub-rows), actions column (drawer focus, Used-by modal a11y, delete confirm + 409 alert), API additive fields batched (13-38 ms, soft-deleted event excluded), regressions clean (Bundles, Events variants, History modal, shared view). Note outside task: Esc does not close the Edit Property drawer. Report: reports/qa/T-4-26/REPORT.md.

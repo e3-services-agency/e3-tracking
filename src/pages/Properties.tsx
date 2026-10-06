@@ -304,12 +304,12 @@ export function Properties() {
             <colgroup>
               <col className="w-10" />
               <col />
-              <col className="w-[96px]" />
-              <col className="w-[96px]" />
-              <col className="w-[104px]" />
               <col className="w-[88px]" />
               <col className="w-[88px]" />
               <col className="w-[104px]" />
+              <col className="w-[96px]" />
+              <col className="w-[88px]" />
+              <col className="w-[140px]" />
               <col className="w-[170px]" />
             </colgroup>
             <thead className="bg-gray-50 border-b">
@@ -374,7 +374,7 @@ export function Properties() {
                               {enumCount > 0 ? <Badge tone="blue">enum · {enumCount}</Badge> : <span className="text-gray-400">—</span>}
                             </td>
                             <td className="px-4 py-3 text-gray-500"><PriorityBadge priority={p.priority} /></td>
-                            <td className="px-4 py-3 text-gray-500"><StatusBadge status={p.status} /></td>
+                            <td className="px-2 py-3 text-gray-500"><StatusBadge status={p.status} /></td>
                             <td className="px-4 py-3 whitespace-nowrap">
                               <span className="inline-flex gap-1">
                                 <Button variant="outline" size="sm" className="gap-1 px-2" title={`Definitions (${defCount})`} aria-label={`Definitions (${defCount})`} onClick={(e) => { e.stopPropagation(); openDrawer(p.id, true); }}><Layers className="h-4 w-4" />{defCount}</Button>

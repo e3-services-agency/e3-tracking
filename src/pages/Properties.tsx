@@ -49,6 +49,14 @@ import {
 import { HistorySection } from '@/src/features/history/HistorySection';
 import { catalogMarketLabel } from '@/src/domain/catalogs';
 import { typeFamily } from '@/src/domain/comparison/catalogChecks';
+import {
+  DefinitionSubRows,
+  UsedByModal,
+  toggleAll,
+  toggleId,
+  type PropertyDefinitionSummary,
+  type PropertyUsageEvent,
+} from '@/src/features/properties/components/PropertyRowParts';
 import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
 
 interface PropertyRow {
@@ -80,6 +88,9 @@ interface PropertyRow {
   mapped_catalog_field_id?: string | null;
   /** T-4-23: discriminator on at least one event (the standard-event binding only applies then). */
   is_discriminator?: boolean;
+  /** T-4-26: batched with the list. */
+  definitions?: PropertyDefinitionSummary[];
+  used_by_events?: PropertyUsageEvent[];
 }
 
 interface CatalogFieldOption {
@@ -116,6 +127,15 @@ export function Properties() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [focusDefinitions, setFocusDefinitions] = useState(false);
+  const [usedByFor, setUsedByFor] = useState<string | null>(null);
+  const setRequestedTab = useStore((s) => s.setRequestedTab);
+  const setEventCardEventId = useStore((s) => s.setEventCardEventId);
+  const openEvent = useCallback(
+    (id: string) => { setUsedByFor(null); setEventCardEventId(id); setRequestedTab('eventCard'); },
+    [setEventCardEventId, setRequestedTab]
+  );
 
   // T-4-02 fix round (ERROR 1): the Comments page (and any other cross-page link) sets
   // `selectedItemIdToEdit` + `requestedTab: 'properties'` (Layout.tsx) to deep-link straight to a
@@ -194,6 +214,20 @@ export function Properties() {
     status: (p) => p.status,
   });
 
+  const expandable = useMemo(() => visibleProperties.filter((p) => (p.definitions ?? []).length > 0).map((p) => p.id), [visibleProperties]);
+  const allExpanded = expandable.length > 0 && expandable.every((id) => expandedIds.has(id));
+  const openDrawer = (id: string, defs: boolean) => { setSelectedId(id); setIsCreating(false); setFocusDefinitions(defs); setIsSheetOpen(true); setOrderFrozen(true); };
+  const deleteRow = async (p: PropertyRow) => {
+    if (!activeProjectId || !window.confirm(`Delete property "${p.name}"?`)) return;
+    const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/properties/${p.id}`, { method: 'DELETE' });
+    if (!res.ok && res.status !== 204) {
+      const data = await parseJson(res);
+      window.alert(typeof data?.error === 'string' ? data.error : 'Failed to delete.');
+      return;
+    }
+    await load();
+  };
+
   useEffect(() => {
     if (selectedItemIdToEdit && properties.some((p) => p.id === selectedItemIdToEdit)) {
       setSelectedId(selectedItemIdToEdit);
@@ -257,6 +291,9 @@ export function Properties() {
               <option key={c} value={c}>{PROPERTY_CATEGORY_LABELS[c]}</option>
             ))}
           </select>
+          <Button variant="outline" onClick={() => setExpandedIds(toggleAll(expandedIds, expandable))} disabled={expandable.length === 0} className="h-10">
+            {allExpanded ? 'Collapse all definitions' : 'Expand all definitions'}
+          </Button>
         </div>
 
         <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
@@ -271,15 +308,28 @@ export function Properties() {
                 <SortableTh sort={sort} column="enum" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Enum', 'Properties')}>Enum</SortableTh>
                 <SortableTh sort={sort} column="priority" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Priority', 'Properties')}>Priority</SortableTh>
                 <SortableTh sort={sort} column="status" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Properties')}>Status</SortableTh>
+                <th className="px-6 py-3 font-medium text-gray-500">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {visibleProperties.map((p) => {
                 const enumCount = Array.isArray(p.allowed_values_json) ? p.allowed_values_json.length : 0;
                 return (
-                  <tr key={p.id} onClick={() => { setSelectedId(p.id); setIsCreating(false); setIsSheetOpen(true); setOrderFrozen(true); }} className="hover:bg-gray-50 cursor-pointer">
+                  <React.Fragment key={p.id}>
+                  <tr onClick={() => openDrawer(p.id, false)} className="hover:bg-gray-50 cursor-pointer">
                     <td className="px-6 py-4 font-medium text-gray-900">
                       <span className="inline-flex flex-wrap items-center gap-1.5">
+                        {(p.definitions ?? []).length > 0 && (
+                          <button
+                            type="button"
+                            aria-expanded={expandedIds.has(p.id)}
+                            title={`${(p.definitions ?? []).length} definition(s): click to ${expandedIds.has(p.id) ? 'collapse' : 'expand'}`}
+                            onClick={(e) => { e.stopPropagation(); setExpandedIds((s) => toggleId(s, p.id)); }}
+                            className="text-xs text-gray-400 hover:text-gray-700"
+                          >
+                            {expandedIds.has(p.id) ? '▾' : '▸'}
+                          </button>
+                        )}
                         {p.name}
                         <CopyNameButton name={p.name} />
                       </span>
@@ -300,12 +350,21 @@ export function Properties() {
                     </td>
                     <td className="px-6 py-4 text-gray-500"><PriorityBadge priority={p.priority} /></td>
                     <td className="px-6 py-4 text-gray-500"><StatusBadge status={p.status} /></td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex gap-1">
+                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); openDrawer(p.id, true); }}>Definitions ({(p.definitions ?? []).length})</Button>
+                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setUsedByFor(p.id); }}>Used by ({(p.used_by_events ?? []).length})</Button>
+                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); void deleteRow(p); }}>Delete</Button>
+                      </span>
+                    </td>
                   </tr>
+                  {expandedIds.has(p.id) && <DefinitionSubRows definitions={p.definitions ?? []} colSpan={9} onOpenEvent={openEvent} />}
+                  </React.Fragment>
                 );
               })}
               {visibleProperties.length === 0 && (
                 <EmptyState
-                  colSpan={8}
+                  colSpan={9}
                   message={
                     properties.length > 0 || scopeFilter || categoryFilter || debouncedSearch
                       ? 'No properties match the filter.'
@@ -331,6 +390,7 @@ export function Properties() {
         <PropertyEditor
           key={isCreating ? 'create' : selectedId ?? 'none'}
           property={selected}
+          focusDefinitions={focusDefinitions}
           isCreating={isCreating}
           bundles={bundles}
           standardEventAdditions={standardEventAdditions}
@@ -339,12 +399,19 @@ export function Properties() {
           onClose={() => setIsSheetOpen(false)}
         />
       </Sheet>
+      {usedByFor && (() => {
+        const p = properties.find((x) => x.id === usedByFor);
+        return p ? (
+          <UsedByModal propertyName={p.name} events={p.used_by_events ?? []} definitions={p.definitions ?? []} onOpenEvent={openEvent} onClose={() => setUsedByFor(null)} />
+        ) : null;
+      })()}
     </div>
   );
 }
 
 function PropertyEditor({
   property,
+  focusDefinitions,
   isCreating,
   bundles,
   standardEventAdditions,
@@ -353,6 +420,7 @@ function PropertyEditor({
   onClose,
 }: {
   property: PropertyRow | null | undefined;
+  focusDefinitions?: boolean;
   isCreating: boolean;
   bundles: BundleRow[];
   standardEventAdditions: StandardEventSeed[] | null;
@@ -665,7 +733,7 @@ function PropertyEditor({
 
       {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{saveError}</div>}
 
-      {!isCreating && property && <DefinitionsSection projectId={projectId} propertyId={property.id} />}
+      {!isCreating && property && <DefinitionsSection projectId={projectId} propertyId={property.id} focus={focusDefinitions} />}
 
       {!isCreating && property && (
         <CommentsPanel entityType="property" entityId={property.id} api={{ mode: 'internal', projectId }} />
@@ -707,7 +775,11 @@ interface DefinitionRow {
  * the same attribute means something different on another event (e.g. `action` on `consent`).
  * Simplified UI (D-07): plain add/edit/remove, no drag reorder.
  */
-function DefinitionsSection({ projectId, propertyId }: { projectId: string; propertyId: string }) {
+function DefinitionsSection({ projectId, propertyId, focus }: { projectId: string; propertyId: string; focus?: boolean }) {
+  const sectionRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focus) sectionRef.current?.scrollIntoView?.({ block: 'center' });
+  }, [focus]);
   const [definitions, setDefinitions] = useState<DefinitionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -742,7 +814,7 @@ function DefinitionsSection({ projectId, propertyId }: { projectId: string; prop
   };
 
   return (
-    <div className="space-y-2 pt-4 border-t">
+    <div ref={sectionRef} tabIndex={-1} className="space-y-2 pt-4 border-t outline-none">
       <div className="flex items-center justify-between">
         <label className="text-sm font-medium text-gray-700" title={hintFor('Definitions', 'Properties')}>Definitions</label>
         <Button variant="outline" size="sm" onClick={() => { setEditingId(null); setIsAdding(true); }} className="gap-1">

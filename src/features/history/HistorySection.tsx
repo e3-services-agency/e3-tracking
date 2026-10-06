@@ -106,7 +106,7 @@ function HistoryTable({ rows, wrap }: { rows: HistoryRow[]; wrap: boolean }) {
 }
 
 /** Esc closes, focus moves into the dialog and is trapped, returns to the opener, body scroll locked. */
-function useModalA11y(ref: React.RefObject<HTMLElement | null>, onClose: () => void) {
+export function useModalA11y(ref: React.RefObject<HTMLElement | null>, onClose: () => void) {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useEffect(() => {

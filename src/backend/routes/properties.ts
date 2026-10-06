@@ -24,8 +24,29 @@ router.get('/', (req: Request, res: Response) => {
   try {
     const scope = typeof req.query.scope === 'string' ? req.query.scope : undefined;
     const disc = discriminatorPropertyIds();
+    const props = PropertyDAL.listProperties(req.projectId!, { scope });
+    // T-4-26: two batched reads for the whole list (definitions, event links), additive fields only.
+    const defsById = PropertyDefinitionDAL.listDefinitionsByPropertyIds(req.projectId!, props.map((p) => p.id));
+    const defsByProp = new Map<string, PropertyDefinitionDAL.PropertyDefinitionRow[]>();
+    for (const d of defsById.values()) {
+      const l = defsByProp.get(d.property_id) ?? [];
+      l.push(d);
+      defsByProp.set(d.property_id, l);
+    }
+    const usage = PropertyDefinitionDAL.listUsageByPropertyId(req.projectId!);
     res.status(200).json(
-      PropertyDAL.listProperties(req.projectId!, { scope }).map((p) => ({ ...p, is_discriminator: disc.has(p.id) }))
+      props.map((p) => {
+        const used = usage.get(p.id) ?? [];
+        const defs = (defsByProp.get(p.id) ?? [])
+          .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name))
+          .map((d) => ({
+            id: d.id,
+            name: d.name,
+            description: d.description,
+            using_events: used.filter((u) => u.definition_id === d.id).map((u) => ({ id: u.id, name: u.name })),
+          }));
+        return { ...p, is_discriminator: disc.has(p.id), definitions: defs, used_by_events: used };
+      })
     );
   } catch (err) {
     handleRouteError(err, res);

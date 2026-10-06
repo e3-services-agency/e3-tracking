@@ -614,3 +614,30 @@ export function reorderDefinitions(projectId: string, propertyId: string, ordere
   run();
   return listDefinitions(projectId, propertyId);
 }
+
+export interface PropertyUsageEvent {
+  id: string;
+  name: string;
+  role: string;
+  definition_id: string | null;
+}
+
+/** T-4-26: every live event link of every property of the project in ONE query, grouped by
+ * property id (Properties list `used_by_events` / `definitions[].using_events`). */
+export function listUsageByPropertyId(projectId: string): Map<string, PropertyUsageEvent[]> {
+  const rows = getDb()
+    .prepare(
+      `SELECT ep.property_id AS property_id, e.id AS id, e.name AS name, ep.role AS role, ep.definition_id AS definition_id
+       FROM event_properties ep
+       JOIN events e ON e.id = ep.event_id AND e.deleted_at IS NULL
+       WHERE e.project_id = ? ORDER BY e.name`
+    )
+    .all(projectId) as (PropertyUsageEvent & { property_id: string })[];
+  const map = new Map<string, PropertyUsageEvent[]>();
+  for (const { property_id, ...ev } of rows) {
+    const list = map.get(property_id) ?? [];
+    list.push(ev);
+    map.set(property_id, list);
+  }
+  return map;
+}

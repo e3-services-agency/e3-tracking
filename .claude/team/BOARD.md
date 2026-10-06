@@ -3239,3 +3239,10 @@ Environment note: the Browser pane reported the page hidden (requestAnimationFra
 
 ### 2026-10-06 10:32 | reviewer | REVIEW | T-4-25 PASS (3 minor); QA FAIL only on the variants scroll offset
 1727 / 163 green, merge clean; ids additive and opaque; anchors share slugAnchors with the nav (parity); requirementTargets typed per kind; goToHash fallback safe; Not-tied list uses existing unattached findings. Minor: broad hash match for the project-findings group; no component test for the scroll/expand; catalog/consent findings link to the section. Fix round in progress: scroll target computed from the sticky stack (prefer the explicit variants id T-4-24 adds), consent finding entity links.
+
+### 2026-10-06 11:10 | qa-tester | QA PASS | T-4-25 fix 70bf63c re-check
+Sandbox, comment share link, API 3012, Vite 3010 (stopped, QA db and config removed).
+1. `#variants-event-purchase` and `#variants-event-cart_update` and a click on the UC-02 `purchase[purchase_status=completed]` link: "Variants" h2 viewport top 116 px, sticky event title row bottom 108 px, page header 56 px: visible below both bars (before: 0).
+2. Not-tied list: personalization and whatsapp_updates rename findings link to `#consent-personalization` / `#consent-whatsapp_updates`; "Catalog not mapped" and catalog drift link to `#catalogs`.
+3. Page loads, only the HMR WebSocket console error, no 500s.
+Caveat: pane page was hidden (rAF dead), so scrolls were verified with rAF shimmed to setTimeout; the fresh-load variant did not auto-scroll under that throttling, hashchange path did.

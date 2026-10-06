@@ -1,3 +1,4 @@
+import { SeverityBadge } from '@/src/components/ui/badges';
 /**
  * Rules section for the event editor (D-30, D-31, T-2-07, D-07 simplified UI): a table of the
  * event's rules (name, kind, scope, severity, message, enabled, delete), "Apply template" buttons
@@ -343,7 +344,7 @@ export function RulesSection({
               </td>
               <td className="px-3 py-2 text-gray-600 font-mono">{r.kind}</td>
               <td className="px-3 py-2 text-gray-600">{r.variant_id ? variants.find((v) => v.id === r.variant_id)?.name ?? r.variant_id : 'event'}</td>
-              <td className="px-3 py-2 text-gray-600">{r.severity}</td>
+              <td className="px-3 py-2"><SeverityBadge severity={r.severity} /></td>
               <td className="px-3 py-2 text-gray-600 max-w-xs truncate" title={r.message}>{r.message}</td>
               <td className="px-3 py-2">
                 <input type="checkbox" checked={r.enabled} onChange={() => void handleToggleEnabled(r)} />

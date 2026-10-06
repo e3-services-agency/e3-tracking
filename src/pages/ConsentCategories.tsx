@@ -1,3 +1,4 @@
+import { StatusBadge } from '@/src/components/ui/badges';
 /**
  * Consent categories: plain table + form against `/api/projects/:projectId/consent-categories`
  * (plan "Target data model" section ConsentCategory; T-1-06). `standard_key` is picked from the
@@ -166,7 +167,7 @@ export function ConsentCategories() {
                   </td>
                   <td className="px-6 py-4 font-medium text-gray-900 cursor-pointer" onClick={() => { setSelectedId(c.id); setIsCreating(false); setIsSheetOpen(true); }}><span className="inline-flex items-center gap-1.5">{c.name}<CopyNameButton name={c.name} /></span></td>
                   <td className="px-6 py-4 text-gray-500">{c.standard_key ?? '—'}</td>
-                  <td className="px-6 py-4 text-gray-500">{c.status ?? '—'}</td>
+                  <td className="px-6 py-4 text-gray-500"><StatusBadge status={c.status} /></td>
                 </tr>
               ))}
               {categories.length === 0 && (

@@ -1,3 +1,4 @@
+import { PriorityBadge, StatusBadge } from '@/src/components/ui/badges';
 /**
  * Use cases: plain table + form against `/api/projects/:projectId/use-cases`, plus an ordered
  * requirements editor against `PUT .../use-cases/:id/requirements` (plan "Target data model"
@@ -261,8 +262,8 @@ export function UseCases() {
                   <td className="px-6 py-4 text-gray-500">{uc.code ?? '—'}</td>
                   <td className="px-6 py-4 font-medium text-gray-900"><span className="inline-flex items-center gap-1.5">{uc.name}<CopyNameButton name={uc.name} /></span></td>
                   <td className="px-6 py-4 text-gray-500">{uc.type ?? '—'}</td>
-                  <td className="px-6 py-4 text-gray-500">{uc.priority ?? '—'}</td>
-                  <td className="px-6 py-4 text-gray-500">{uc.status ?? '—'}</td>
+                  <td className="px-6 py-4 text-gray-500"><PriorityBadge priority={uc.priority} /></td>
+                  <td className="px-6 py-4 text-gray-500"><StatusBadge status={uc.status} /></td>
                   <td className="px-6 py-4 text-gray-500">{uc.owner ?? '—'}</td>
                 </tr>
               ))}

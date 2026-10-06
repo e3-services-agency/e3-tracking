@@ -1,3 +1,4 @@
+import { SeverityBadge, StatusBadge } from '@/src/components/ui/badges';
 /**
  * Findings page (T-1-09, D-07 simplified UI; T-2-04 adds comparison 4, `data_manager`): a table of
  * findings from every comparison engine `POST /comparison/run` orchestrates, with filters
@@ -54,12 +55,6 @@ interface EventOption {
 async function parseJson(res: Response): Promise<any> {
   return res.json().catch(() => ({}));
 }
-
-const SEVERITY_BADGE: Record<string, string> = {
-  error: 'bg-red-50 text-red-800 border-red-200',
-  warning: 'bg-amber-50 text-amber-800 border-amber-200',
-  info: 'bg-blue-50 text-blue-800 border-blue-200',
-};
 
 export function Findings() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
@@ -290,9 +285,7 @@ export function Findings() {
               {findings.map((f) => (
                 <tr key={f.id}>
                   <td className="px-6 py-4">
-                    <span className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${SEVERITY_BADGE[f.severity] ?? ''}`}>
-                      {f.severity}
-                    </span>
+                    <SeverityBadge severity={f.severity} />
                   </td>
                   <td className="px-6 py-4 text-xs text-gray-700"><FindingTerm kind={f.kind} /></td>
                   <td className="px-6 py-4 text-gray-700 text-xs">{ruleNameOf(f) ?? '—'}</td>
@@ -311,7 +304,7 @@ export function Findings() {
                     )}
                   </td>
                   <td className="px-6 py-4 text-gray-500">{f.message ?? '—'}</td>
-                  <td className="px-6 py-4 text-gray-500">{f.status}</td>
+                  <td className="px-6 py-4 text-gray-500"><StatusBadge status={f.status} /></td>
                   <td className="px-6 py-4 text-gray-500">{new Date(f.last_seen_at).toLocaleString()}</td>
                   <td className="px-6 py-4">
                     <Button

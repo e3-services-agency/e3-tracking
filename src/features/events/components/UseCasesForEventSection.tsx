@@ -1,3 +1,4 @@
+import { StatusBadge } from '@/src/components/ui/badges';
 /**
  * Read-only list of use cases referencing this event (directly, or via one of its variants) in the
  * event editor (T-1-07 acceptance: "event editor lists the use cases that reference the event or
@@ -50,7 +51,7 @@ export function UseCasesForEventSection({ projectId, eventId }: { projectId: str
           {useCases.map((uc) => (
             <li key={uc.id} className="flex items-center gap-2">
               <span className="font-medium">{uc.code ? `${uc.code} — ${uc.name}` : uc.name}</span>
-              {uc.status && <span className="text-xs text-gray-500">({uc.status})</span>}
+              {uc.status && <StatusBadge status={uc.status} />}
             </li>
           ))}
         </ul>

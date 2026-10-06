@@ -1,3 +1,4 @@
+import { StatusBadge } from '@/src/components/ui/badges';
 /**
  * Catalogs: table + plain editor with nested fields against
  * `/api/projects/:projectId/catalogs` (kept, extended per the plan).
@@ -105,7 +106,7 @@ export function Catalogs() {
                   <td className="px-6 py-4 text-gray-500">{catalogMarketLabel(c.market, c.language) || '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{c.version}{c.live_at ? ' · live' : ''}</td>
                   <td className="px-6 py-4 text-gray-500">{c.mapping_role ?? '—'}</td>
-                  <td className="px-6 py-4 text-gray-500">{c.status ?? '—'}</td>
+                  <td className="px-6 py-4 text-gray-500"><StatusBadge status={c.status} /></td>
                 </tr>
               ))}
               {catalogs.length === 0 && (

@@ -1,3 +1,6 @@
+import { ClassBadge, StatusBadge } from '@/src/components/ui/badges';
+import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
+import { useDebouncedValue } from '@/src/hooks/useDebouncedValue';
 /**
  * Events: table + plain editor against `/api/projects/:projectId/events` (D-16). Linked
  * properties are edited as the full ordered list (`PUT /events/:id/properties`); T-1-04 adds the
@@ -7,7 +10,6 @@
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import { hintFor } from '@/src/components/ui/FieldHint';
-import { ClassBadge } from '@/src/components/ui/ClassBadge';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, Loader2, Upload, FileDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -122,10 +124,46 @@ export function Events() {
   // LOW 5 fix round: the empty state must react to the `class` filter, not the unfiltered list --
   // a project whose custom filter (default) matches nothing used to render a headerless empty
   // table with no "No events found" row.
-  const filteredEvents = useMemo(
-    () => events.filter((ev) => classFilter === 'all' || ev.class === classFilter),
-    [events, classFilter]
+  // T-4-24: client-side search by name/description (debounced), column sorting, and one toggle that
+  // expands or collapses the variant sub-rows of every event.
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search.trim().toLowerCase(), 200);
+  const [variantsByEventId, setVariantsByEventId] = useState<Record<string, { id: string; name: string; description: string | null }[]>>({});
+  const [expandedEventIds, setExpandedEventIds] = useState<Set<string>>(new Set());
+  const searchedEvents = useMemo(
+    () =>
+      events
+        .filter((ev) => classFilter === 'all' || ev.class === classFilter)
+        .filter(
+          (ev) =>
+            !debouncedSearch ||
+            ev.name.toLowerCase().includes(debouncedSearch) ||
+            (ev.description ?? '').toLowerCase().includes(debouncedSearch)
+        ),
+    [events, classFilter, debouncedSearch]
   );
+  const { sorted: filteredEvents, sort } = useSortableTable(searchedEvents, {
+    name: (ev) => ev.name,
+    class: (ev) => ev.class,
+    status: (ev) => ev.status,
+    certified: (ev) => ev.certified ?? 'n/a',
+    expiration: (ev) => expirationSummary(ev.expiration_json),
+    properties: (ev) => ev.attached_property_count ?? 0,
+  });
+  const eventsWithVariants = useMemo(
+    () => filteredEvents.filter((ev) => (variantsByEventId[ev.id] ?? []).length > 0),
+    [filteredEvents, variantsByEventId]
+  );
+  const allExpanded = eventsWithVariants.length > 0 && eventsWithVariants.every((ev) => expandedEventIds.has(ev.id));
+  const toggleAllVariants = () =>
+    setExpandedEventIds(allExpanded ? new Set() : new Set(eventsWithVariants.map((ev) => ev.id)));
+  const toggleEventVariants = (id: string) =>
+    setExpandedEventIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const handleDownloadDocumentation = useCallback(async () => {
     if (!activeProjectId) return;
@@ -178,6 +216,13 @@ export function Events() {
     const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/events`);
     const data = await parseJson(res);
     if (res.ok) setEvents(Array.isArray(data) ? data : []);
+    const variantRes = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/variants`);
+    const variantData = await parseJson(variantRes);
+    if (variantRes.ok && Array.isArray(variantData)) {
+      const grouped: Record<string, { id: string; name: string; description: string | null }[]> = {};
+      for (const v of variantData) (grouped[v.event_id] ??= []).push({ id: v.id, name: v.name, description: v.description ?? null });
+      setVariantsByEventId(grouped);
+    }
   }, [hasValidProjectContext, activeProjectId]);
 
   useEffect(() => {
@@ -218,6 +263,17 @@ export function Events() {
 
       <PageBody className="space-y-4">
         <div className="flex items-center gap-2">
+          <Input
+            type="search"
+            aria-label="Search events"
+            placeholder="Search name or description"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-9 w-64"
+          />
+          <Button variant="outline" onClick={toggleAllVariants} disabled={eventsWithVariants.length === 0} className="h-9">
+            {allExpanded ? 'Collapse all variants' : 'Expand all variants'}
+          </Button>
           <label className="text-xs font-medium text-gray-500" title={hintFor('Class', 'Events')}>Class</label>
           <select
             value={classFilter}
@@ -235,24 +291,40 @@ export function Events() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'Events')}>Name</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Class', 'Events')}>Class</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Events')}>Status</th>
-                <th className="px-6 py-3 font-medium text-gray-500">
+                <SortableTh sort={sort} column="name" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'Events')}>Name</SortableTh>
+                <SortableTh sort={sort} column="class" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Class', 'Events')}>Class</SortableTh>
+                <SortableTh sort={sort} column="status" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Events')}>Status</SortableTh>
+                <SortableTh sort={sort} column="certified" className="px-6 py-3 font-medium text-gray-500">
                   <GlossaryTerm glossaryKey="certified">Certified</GlossaryTerm>
-                </th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Expiration', 'Events')}>Expiration</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Properties', 'Events')}>Properties</th>
+                </SortableTh>
+                <SortableTh sort={sort} column="expiration" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Expiration', 'Events')}>Expiration</SortableTh>
+                <SortableTh sort={sort} column="properties" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Properties', 'Events')}>Properties</SortableTh>
                 <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Card', 'Events')}>Card</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {filteredEvents
                 .map((ev) => (
-                  <tr key={ev.id} onClick={() => { setSelectedId(ev.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
-                    <td className="px-6 py-4 font-medium text-gray-900"><span className="inline-flex items-center gap-1.5">{ev.name}<CopyNameButton name={ev.name} /></span></td>
+                  <React.Fragment key={ev.id}>
+                  <tr onClick={() => { setSelectedId(ev.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
+                    <td className="px-6 py-4 font-medium text-gray-900">
+                      <span className="inline-flex items-center gap-1.5">
+                        {(variantsByEventId[ev.id] ?? []).length > 0 && (
+                          <button
+                            type="button"
+                            aria-expanded={expandedEventIds.has(ev.id)}
+                            title={`${(variantsByEventId[ev.id] ?? []).length} variant(s): click to ${expandedEventIds.has(ev.id) ? 'collapse' : 'expand'}`}
+                            onClick={(e) => { e.stopPropagation(); toggleEventVariants(ev.id); }}
+                            className="text-xs text-gray-400 hover:text-gray-700"
+                          >
+                            {expandedEventIds.has(ev.id) ? '▾' : '▸'}
+                          </button>
+                        )}
+                        {ev.name}<CopyNameButton name={ev.name} />
+                      </span>
+                    </td>
                     <td className="px-6 py-4"><ClassBadge eventClass={ev.class} /></td>
-                    <td className="px-6 py-4 text-gray-500">{ev.status}</td>
+                    <td className="px-6 py-4 text-gray-500"><StatusBadge status={ev.status} /></td>
                     <td className="px-6 py-4 text-gray-500" title={(ev.certified_reasons ?? []).join(', ') || undefined}>
                       {ev.certified ?? 'n/a'}
                     </td>
@@ -268,6 +340,16 @@ export function Events() {
                       </button>
                     </td>
                   </tr>
+                  {expandedEventIds.has(ev.id) &&
+                    (variantsByEventId[ev.id] ?? []).map((v) => (
+                      <tr key={v.id} className="bg-gray-50 text-xs text-gray-600">
+                        <td className="pl-12 pr-6 py-2" colSpan={7}>
+                          <span className="font-medium text-gray-800">{v.name}</span>
+                          {v.description && <span className="ml-2 text-gray-500">{v.description}</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
                 ))}
               {filteredEvents.length === 0 && events.length === 0 && (
                 <EmptyState
@@ -280,7 +362,7 @@ export function Events() {
               {filteredEvents.length === 0 && events.length > 0 && (
                 <tr>
                   <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                    No events match this class filter.
+                    No events match this filter.
                   </td>
                 </tr>
               )}

@@ -1,3 +1,4 @@
+import { StatusBadge } from '@/src/components/ui/badges';
 /**
  * Identity rules: plain table + form against `/api/projects/:projectId/identity-rules`
  * (plan "Target data model" section IdentityRule; T-1-06). Simplified UI (D-07): a single
@@ -162,7 +163,7 @@ export function IdentityRules() {
                   <td className="px-6 py-4 text-gray-500">{rule.identity_type}</td>
                   <td className="px-6 py-4 text-gray-500">{rule.sdk_call ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{eventName(rule.trigger_event_id)}</td>
-                  <td className="px-6 py-4 text-gray-500">{rule.status ?? '—'}</td>
+                  <td className="px-6 py-4 text-gray-500"><StatusBadge status={rule.status} /></td>
                 </tr>
               ))}
               {rules.length === 0 && (

@@ -1,3 +1,4 @@
+import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
 import { SeverityBadge, StatusBadge } from '@/src/components/ui/badges';
 /**
  * Findings page (T-1-09, D-07 simplified UI; T-2-04 adds comparison 4, `data_manager`): a table of
@@ -96,6 +97,16 @@ export function Findings() {
   }, [pendingFindingsRunId, setPendingFindingsRunId]);
 
   const eventNameById = useMemo(() => new Map(events.map((e) => [e.id, e.name])), [events]);
+  const { sorted: sortedFindings, sort } = useSortableTable(findings, {
+    severity: (f) => ({ error: 1, warning: 2, info: 3 } as Record<string, number>)[f.severity] ?? 9,
+    kind: (f) => f.kind,
+    rule: (f) => ruleNameOf(f),
+    comparison: (f) => f.comparison,
+    event: (f) => (f.event_id ? eventNameById.get(f.event_id) ?? f.event_id : null),
+    message: (f) => f.message,
+    status: (f) => f.status,
+    last_seen: (f) => f.last_seen_at,
+  });
 
   // Fetch race guard (fix round, same pattern as StandardEvents.tsx/QaRuns.tsx): filters and the
   // project id can both change quickly (e.g. project switch right after adjusting a filter), so
@@ -270,19 +281,19 @@ export function Findings() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Severity', 'Findings')}>Severity</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Kind', 'Findings')}>Kind</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Rule', 'Findings')}>Rule</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Comparison', 'Findings')}>Comparison</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Event', 'Findings')}>Event</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Message', 'Findings')}>Message</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Findings')}>Status</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Last seen', 'Findings')}>Last seen</th>
+                <SortableTh sort={sort} column="severity" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Severity', 'Findings')}>Severity</SortableTh>
+                <SortableTh sort={sort} column="kind" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Kind', 'Findings')}>Kind</SortableTh>
+                <SortableTh sort={sort} column="rule" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Rule', 'Findings')}>Rule</SortableTh>
+                <SortableTh sort={sort} column="comparison" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Comparison', 'Findings')}>Comparison</SortableTh>
+                <SortableTh sort={sort} column="event" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Event', 'Findings')}>Event</SortableTh>
+                <SortableTh sort={sort} column="message" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Message', 'Findings')}>Message</SortableTh>
+                <SortableTh sort={sort} column="status" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Findings')}>Status</SortableTh>
+                <SortableTh sort={sort} column="last_seen" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Last seen', 'Findings')}>Last seen</SortableTh>
                 <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Actions', 'Findings')}>Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {findings.map((f) => (
+              {sortedFindings.map((f) => (
                 <tr key={f.id}>
                   <td className="px-6 py-4">
                     <SeverityBadge severity={f.severity} />

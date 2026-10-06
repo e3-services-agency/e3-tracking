@@ -27,7 +27,7 @@ import { CodeBlock } from '@/src/components/ui/CodeBlock';
 import { CodegenTabs } from '@/src/features/shared/CodegenTabs';
 import { hasCodegen, type CodegenData } from '@/src/features/shared/codegenMethodTabs';
 import { TriggersBlock } from '@/src/features/shared/TriggersBlock';
-import { derivedMetricsText, eventCardVisibility } from '@/src/features/shared/viewHelpers';
+import { derivedMetricsText, eventCardVisibility, variantsAnchor } from '@/src/features/shared/viewHelpers';
 import { CategoryBadge, ClassBadge, KindBadge, PriorityBadge, RoleBadge, SeverityBadge, StatusBadge } from '@/src/components/ui/badges';
 import { hintFor } from '@/src/components/ui/FieldHint';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
@@ -343,7 +343,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
       )}
 
       {(!shared || visible.variants) && (
-      <Section title={`Variants (${card.variants.length})`}>
+      <Section id={variantsAnchor(card.name)} title={`Variants (${card.variants.length})`}>
         {card.variants.length === 0 && <p className="text-sm text-gray-500">No variants.</p>}
         {card.variants.map((v) => (
           <div key={v.id} className="mb-4 border rounded-md p-3">
@@ -520,9 +520,9 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
   );
 }
 
-export function Section({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {
+export function Section({ title, children, id }: { title: React.ReactNode; children: React.ReactNode; id?: string }) {
   return (
-    <div className="bg-white rounded-lg border shadow-sm p-4">
+    <div id={id} className="bg-white rounded-lg border shadow-sm p-4">
       <h2 className="text-sm font-semibold text-gray-900 mb-3">{title}</h2>
       {children}
     </div>

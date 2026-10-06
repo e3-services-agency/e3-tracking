@@ -19,18 +19,25 @@ export type ReferenceMode = 'shared' | 'internal';
  * since a customer and an event property may share a name). */
 export type Reference =
   | { kind: 'event'; id?: string | null; name?: string | null }
-  | { kind: 'property'; id?: string | null; name?: string | null; scope?: string | null };
+  | { kind: 'property'; id?: string | null; name?: string | null; scope?: string | null }
+  /** T-4-25: a variant opens its event card at the variants block. */
+  | { kind: 'variant'; id: string | null | undefined }
+  | { kind: 'catalog'; id: string | null | undefined }
+  | { kind: 'consent'; id: string | null | undefined };
 
 export type ReferenceTarget =
   | { mode: 'shared'; href: string; anchor: string }
   | { mode: 'internal'; href: string; tab: 'eventCard' | 'properties'; eventCardId?: string; editId?: string };
 
 export interface ReferenceDocInput {
-  events: { id?: string; name: string }[];
+  events: { id?: string; name: string; variants?: { id: string; name?: string | null }[] }[];
   /** Customer-scope properties. */
   properties: { property_id: string; name: string }[];
   /** Event-scope properties (D-64). */
   event_properties?: { property_id: string; name: string }[];
+  /** T-4-25: catalog cards and consent rows. */
+  catalogs?: { id?: string; name: string }[];
+  consent_categories?: { id?: string; name: string; standard_key?: string | null }[];
 }
 
 export interface ReferenceIndex {
@@ -42,7 +49,21 @@ export interface ReferenceIndex {
   propertyIdByScopeName: ReadonlyMap<string, string>;
   /** Keyed by name alone: the first match, customer properties first. */
   propertyIdByName: ReadonlyMap<string, string>;
+  /** T-4-25 */
+  eventNameById: ReadonlyMap<string, string>;
+  propertyNameById: ReadonlyMap<string, string>;
+  variantNameById: ReadonlyMap<string, string>;
+  /** variant id -> the id of its event. */
+  variantEventId: ReadonlyMap<string, string>;
+  catalogAnchorById: ReadonlyMap<string, string>;
+  consentAnchorById: ReadonlyMap<string, string>;
+  /** Consent row anchor by category name and by standard key (T-4-25: for findings that carry only those). */
+  consentAnchorByName: ReadonlyMap<string, string>;
+  consentAnchorByStandardKey: ReadonlyMap<string, string>;
 }
+
+/** Anchor of an event's variants block on the shared page (T-4-25): `variants-<event anchor>`. */
+export const VARIANTS_ANCHOR_PREFIX = 'variants-';
 
 /** Unique property row anchors `property-<slug>`, customer properties first then event properties
  * (the order the Properties section lists them in). Pure. */
@@ -74,11 +95,61 @@ export function buildReferenceIndex(doc: ReferenceDocInput): ReferenceIndex {
     propertyIdByScopeName.set(`event:${p.name}`, p.property_id);
     if (!propertyIdByName.has(p.name)) propertyIdByName.set(p.name, p.property_id);
   }
-  return { eventAnchorById, eventAnchorByName, eventIdByName, propertyAnchorById: propertyAnchors(doc), propertyIdByScopeName, propertyIdByName };
+  const eventNameById = new Map<string, string>();
+  const variantNameById = new Map<string, string>();
+  const variantEventId = new Map<string, string>();
+  for (const e of doc.events) {
+    if (e.id) eventNameById.set(e.id, e.name);
+    for (const v of e.variants ?? []) {
+      if (e.id) variantEventId.set(v.id, e.id);
+      if (v.name) variantNameById.set(v.id, v.name);
+    }
+  }
+  const propertyNameById = new Map<string, string>();
+  for (const p of [...doc.properties, ...(doc.event_properties ?? [])]) propertyNameById.set(p.property_id, p.name);
+  const idAnchors = (prefix: string, list: { id?: string; name: string }[] | undefined) => {
+    const items = list ?? [];
+    const anchors = slugAnchors(prefix, items.map((i) => i.name));
+    const map = new Map<string, string>();
+    items.forEach((i, n) => {
+      if (i.id) map.set(i.id, anchors[n]);
+    });
+    return map;
+  };
+  const consentAnchors = idAnchors('consent', doc.consent_categories);
+  return {
+    eventAnchorById,
+    eventAnchorByName,
+    eventIdByName,
+    propertyAnchorById: propertyAnchors(doc),
+    propertyIdByScopeName,
+    propertyIdByName,
+    eventNameById,
+    propertyNameById,
+    variantNameById,
+    variantEventId,
+    catalogAnchorById: idAnchors('catalog', doc.catalogs),
+    consentAnchorById: idAnchors('consent', doc.consent_categories),
+    consentAnchorByName: new Map((doc.consent_categories ?? []).flatMap((c) => (c.id && consentAnchors.get(c.id) ? [[c.name, consentAnchors.get(c.id) as string] as const] : []))),
+    consentAnchorByStandardKey: new Map((doc.consent_categories ?? []).flatMap((c) => (c.id && c.standard_key && consentAnchors.get(c.id) ? [[c.standard_key, consentAnchors.get(c.id) as string] as const] : []))),
+  };
 }
 
 /** Where a reference points in `mode`, or `null` when it does not resolve (the caller then renders plain text). */
 export function resolveReference(ref: Reference, mode: ReferenceMode, index: ReferenceIndex): ReferenceTarget | null {
+  if (ref.kind === 'variant' || ref.kind === 'catalog' || ref.kind === 'consent') {
+    if (!ref.id) return null;
+    if (ref.kind === 'variant') {
+      const eventId = index.variantEventId.get(ref.id);
+      if (!eventId) return null;
+      if (mode === 'internal') return { mode, href: `/events/${eventId}/card`, tab: 'eventCard', eventCardId: eventId };
+      const ev = index.eventAnchorById.get(eventId);
+      return ev ? { mode, href: `#${VARIANTS_ANCHOR_PREFIX}${ev}`, anchor: `${VARIANTS_ANCHOR_PREFIX}${ev}` } : null;
+    }
+    if (mode === 'internal') return null;
+    const anchor = (ref.kind === 'catalog' ? index.catalogAnchorById : index.consentAnchorById).get(ref.id);
+    return anchor ? { mode, href: `#${anchor}`, anchor } : null;
+  }
   if (ref.kind === 'event') {
     if (mode === 'shared') {
       const anchor = (ref.id && index.eventAnchorById.get(ref.id)) || (ref.name ? index.eventAnchorByName.get(ref.name) : undefined);

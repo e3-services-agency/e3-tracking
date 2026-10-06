@@ -45,7 +45,10 @@ import { CommentsPanel, type CommentPanelRow } from '@/src/features/comments/Com
 import { CommentCountButton } from '@/src/features/comments/CommentCountButton';
 import { CopyLinkButton } from '@/src/features/shared/CopyLinkButton';
 import { CopyMarkdownButton } from '@/src/components/ui/CopyMarkdownButton';
-import { SHARED_SECTION_ICONS } from '@/src/components/layout/navIcons';
+import { SHARED_SECTION_ICONS, NAV_ICONS } from '@/src/components/layout/navIcons';
+import { requirementTargetView } from '@/src/features/shared/requirementTargets';
+import { findingEntity } from '@/src/features/shared/findingEntity';
+import { VARIANTS_ANCHOR_PREFIX } from '@/src/features/shared/references';
 import { propertiesToMarkdown, findingsSummaryToMarkdown } from '@/src/domain/document/markdown';
 import { propertyGroupId, propertyKindGroupId, PROPERTY_CATEGORY_LABELS, formatDisplayName } from '@/src/domain/propertyCategory';
 import { SharedNav } from '@/src/features/shared/SharedNav';
@@ -72,6 +75,7 @@ import {
   toggleInSet,
   setExpanded,
   stickyScrollMarginPx,
+  scrollTopBelowSticky,
   spyTopOffsetPx,
   STICKY_PX,
   type NavItem,
@@ -342,29 +346,36 @@ function FindingsSummaryBlock({
 
 /** A requirement's target label with its event and property parts linked where they resolve (T-4-22). */
 function renderRequirementTarget(
-  r: { target_label: string; target_kind?: string; event_id?: string | null; property_id?: string | null },
-  renderRef: (ref: Reference, label: React.ReactNode) => React.ReactNode,
-  names: { event: (id: string) => string | undefined; property: (id: string) => string | undefined }
+  r: Parameters<typeof requirementTargetView>[0],
+  index: ReferenceIndex,
+  onNavigate: (anchor: string) => void
 ): React.ReactNode {
-  switch (r.target_kind) {
-    case 'event':
-      return r.event_id ? renderRef({ kind: 'event', id: r.event_id }, r.target_label) : r.target_label;
-    case 'customer_property':
-      return r.property_id ? renderRef({ kind: 'property', id: r.property_id }, r.target_label) : r.target_label;
-    case 'event_property': {
-      const eventName = r.event_id ? names.event(r.event_id) : undefined;
-      const propertyName = r.property_id ? names.property(r.property_id) : undefined;
-      if (!r.event_id || !r.property_id || !eventName || !propertyName) return r.target_label;
-      return (
-        <>
-          {renderRef({ kind: 'event', id: r.event_id }, eventName)}.
-          {renderRef({ kind: 'property', id: r.property_id }, propertyName)}
-        </>
-      );
-    }
-    default:
-      return r.target_label;
-  }
+  const v = requirementTargetView(r, index);
+  const Icon = v.icon ? NAV_ICONS[v.icon] : null;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1.5">
+      {v.typeLabel && (
+        <span data-testid="target-type" className="inline-flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
+          {Icon && <Icon size={12} />}
+          {v.typeLabel}
+        </span>
+      )}
+      <span>
+        {v.parts.map((p, i) => (
+          <React.Fragment key={i}>
+            {i > 0 && '.'}
+            {p.href && p.anchor ? (
+              <SharedRefLink target={{ mode: 'shared', href: p.href, anchor: p.anchor }} onNavigate={onNavigate}>
+                {p.text}
+              </SharedRefLink>
+            ) : (
+              p.text
+            )}
+          </React.Fragment>
+        ))}
+      </span>
+    </span>
+  );
 }
 
 export function SharedProject({ token }: { token: string }) {
@@ -375,6 +386,7 @@ export function SharedProject({ token }: { token: string }) {
   const [loading, setLoading] = useState(true);
   const [openEvents, setOpenEvents] = useState<Set<string>>(new Set());
   const [openUseCases, setOpenUseCases] = useState<Set<string>>(new Set());
+  const [openProjectFindings, setOpenProjectFindings] = useState<Set<string>>(new Set());
   const [openProperties, setOpenProperties] = useState<Set<string>>(new Set());
   const [navQuery, setNavQuery] = useState('');
   const [openThreads, setOpenThreads] = useState<Set<string>>(new Set());
@@ -482,13 +494,35 @@ export function SharedProject({ token }: { token: string }) {
       if (!doc) return;
       const id = hash.startsWith('#') ? hash.slice(1) : hash;
       if (!id) return;
-      const event = eventForHash(id, doc.events);
+      let decoded = id;
+      try {
+        decoded = decodeURIComponent(id);
+      } catch {
+        // keep the raw text
+      }
+      // T-4-25: variants-event-<slug> opens the event and scrolls to its variants block.
+      const variantsOf = decoded.startsWith(VARIANTS_ANCHOR_PREFIX) ? decoded.slice(VARIANTS_ANCHOR_PREFIX.length) : null;
+      const event = eventForHash(variantsOf ?? id, doc.events);
+      if (decoded.startsWith('findings-') && decoded.endsWith('-project')) setOpenProjectFindings((prev) => new Set(prev).add(decoded));
       if (event) setOpenEvents((prev) => (prev.has(event.id) ? prev : new Set(prev).add(event.id)));
       // T-4-22: a hash on a property row opens that row (its group is always rendered).
       const propertyId = propertyIdForHash(id, refIndex);
       if (propertyId) setOpenProperties((prev) => (prev.has(propertyId) ? prev : new Set(prev).add(propertyId)));
       const ucItem = groups?.useCaseGroups.flatMap((g) => g.items).find((i) => i.id === id);
       if (ucItem) setOpenUseCases((prev) => new Set(prev).add(doc.use_cases[ucItem.index].id));
+      if (variantsOf && event) {
+        const eventEl = () => document.getElementById(variantsOf);
+        const scrollToVariants = () => {
+          const ev = eventEl();
+          const h = document.getElementById(decoded) ?? Array.from(ev?.querySelectorAll('h2') ?? []).find((el) => (el.textContent ?? '').startsWith('Variants'));
+          const el = h ?? ev;
+          if (!el) return;
+          const titleRow = ev?.firstElementChild as HTMLElement | null;
+          window.scrollTo({ top: scrollTopBelowSticky(el.getBoundingClientRect().top, window.scrollY, titleRow?.offsetHeight ?? 0) });
+        };
+        requestAnimationFrame(() => requestAnimationFrame(scrollToVariants));
+        return;
+      }
       requestAnimationFrame(() => {
         let target: string;
         try {
@@ -568,10 +602,6 @@ export function SharedProject({ token }: { token: string }) {
     ) : (
       label
     );
-  };
-  const requirementNames = {
-    event: (id: string) => doc.events.find((e) => e.id === id)?.name,
-    property: (id: string) => [...doc.properties, ...(doc.event_properties ?? [])].find((p) => p.property_id === id)?.name,
   };
   const namingLine = (
     <p data-testid="naming-note" className="text-xs text-gray-500">
@@ -859,7 +889,7 @@ export function SharedProject({ token }: { token: string }) {
                                   {uc.requirements.map((r) => (
                                     <React.Fragment key={r.id}>
                                       <tr>
-                                        <td className="px-3 py-2">{renderRequirementTarget(r, renderRef, requirementNames)}</td>
+                                        <td className="px-3 py-2">{renderRequirementTarget(r, refIndex, navigateTo)}</td>
                                         <td className="px-3 py-2">{r.level}</td>
                                         <td className="px-3 py-2">{r.status ?? '—'}</td>
                                         <td className="px-3 py-2 text-right">
@@ -971,7 +1001,7 @@ export function SharedProject({ token }: { token: string }) {
                   const fields = c.fields ?? [];
                   const mapped = c.mapped_properties ?? [];
                   return (
-                    <div key={c.name} className="rounded-lg border p-4">
+                    <div key={c.id ?? c.name} id={c.id ? refIndex.catalogAnchorById.get(c.id) : undefined} style={marginTop('event')} className="rounded-lg border p-4">
                       <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-900">
                         {c.name}
                         <CopyNameButton name={c.name} />
@@ -1036,7 +1066,68 @@ export function SharedProject({ token }: { token: string }) {
                       }
                     />
                     <ul className="divide-y rounded-md border text-sm">
-                      {g.leaves.map((l) => (
+                      {g.leaves.map((l) => {
+                        if (l.id.endsWith('-project')) {
+                          const open = openProjectFindings.has(l.id);
+                          const rows = (doc.unattached_findings ?? []).filter((f) => f.comparison === g.comparison);
+                          return (
+                            <li key={l.id} id={l.id} style={marginTop('event')} className="px-3 py-2">
+                              <button
+                                type="button"
+                                aria-expanded={open}
+                                onClick={() =>
+                                  setOpenProjectFindings((prev) => {
+                                    const next = new Set(prev);
+                                    if (!next.delete(l.id)) next.add(l.id);
+                                    return next;
+                                  })
+                                }
+                                className="flex w-full items-center justify-between gap-2 text-left"
+                              >
+                                <span className="inline-flex items-center gap-1 text-gray-700">
+                                  {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                  {l.label}
+                                </span>
+                                <span className="text-xs text-gray-500">{l.count} open</span>
+                              </button>
+                              {open && (
+                                <ul data-testid="project-findings" className="mt-2 divide-y rounded-md border text-sm">
+                                  {rows.map((f) => {
+                                    const ent = findingEntity(f, refIndex, { catalogs: SECTION_IDS.catalogs, consents: SECTION_IDS.consents });
+                                    return (
+                                      <li key={f.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2">
+                                        <span className="font-medium"><FindingTerm kind={f.kind} /></span>
+                                        <span className="text-xs uppercase text-gray-500">{f.severity}</span>
+                                        {ent.type && (
+                                          <span className="text-xs text-gray-600">
+                                            {ent.type}
+                                            {ent.label ? ': ' : ''}
+                                            {ent.href ? (
+                                              <a
+                                                href={ent.href}
+                                                className={linkClass}
+                                                onClick={(e) => {
+                                                  e.preventDefault();
+                                                  navigateTo((ent.href as string).slice(1));
+                                                }}
+                                              >
+                                                {ent.label ?? ' open section'}
+                                              </a>
+                                            ) : (
+                                              ent.label
+                                            )}
+                                          </span>
+                                        )}
+                                        {f.message && <span className="basis-full text-gray-700">{f.message}</span>}
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              )}
+                            </li>
+                          );
+                        }
+                        return (
                         <li key={l.id} id={l.id} style={marginTop('event')} className="flex items-center justify-between gap-2 px-3 py-2">
                           {l.cardAnchor ? (
                             <a
@@ -1054,7 +1145,8 @@ export function SharedProject({ token }: { token: string }) {
                           )}
                           <span className="text-xs text-gray-500">{l.count} open</span>
                         </li>
-                      ))}
+                        );
+                      })}
                     </ul>
                   </div>
                 ))}

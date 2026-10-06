@@ -81,3 +81,11 @@ describe('shared icons (D-64)', () => {
     expect(SHARED_SECTION_ICONS.findings).toBe(NAV_ICONS.findings);
   });
 });
+
+describe('scrollTopBelowSticky (T-4-25)', () => {
+  it('lands below the page header and the event title row, never negative', async () => {
+    const { scrollTopBelowSticky, STICKY_PX } = await import('./viewHelpers');
+    expect(scrollTopBelowSticky(500, 1000, 48)).toBe(1500 - STICKY_PX.pageHeader - 48 - 8);
+    expect(scrollTopBelowSticky(10, 0, 48)).toBe(0);
+  });
+});

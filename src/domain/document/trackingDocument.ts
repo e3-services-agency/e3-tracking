@@ -355,6 +355,8 @@ export interface TrackingDocumentIdentityRule {
 }
 
 export interface TrackingDocumentConsentCategory {
+  /** T-4-25, additive: lets a requirement link to its consent row. */
+  id?: string;
   name: string;
   standard_key: string | null;
   status: string | null;
@@ -416,6 +418,10 @@ export interface TrackingDocumentRequirement {
   target_kind: string;
   event_id: string | null;
   property_id: string | null;
+  /** T-4-25, additive: the other target ids (variant; the main catalog for a catalog attribute; consent category). */
+  variant_id?: string | null;
+  catalog_id?: string | null;
+  consent_category_id?: string | null;
 }
 
 export interface TrackingDocumentUseCase {

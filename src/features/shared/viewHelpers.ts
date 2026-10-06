@@ -447,6 +447,12 @@ export const STICKY_PX = { pageHeader: 56, sectionHeader: 40, groupHeader: 32 } 
 /** `scroll-margin-top` for an anchor target, so it lands below the sticky headers that cover its
  * position: sections and groups start with their own sticky header (page header only); an event
  * sits below its group header, which stays visible while the event is collapsed. */
+/** Window scroll position that puts an element (bounding-rect top `rectTop`, current `scrollY`) just
+ * below the stacked sticky bars: page header, then the event title row (`titleRowPx`) (T-4-25). */
+export function scrollTopBelowSticky(rectTop: number, scrollY: number, titleRowPx: number): number {
+  return Math.max(0, Math.round(rectTop + scrollY - STICKY_PX.pageHeader - titleRowPx - 8));
+}
+
 export function stickyScrollMarginPx(kind: 'section' | 'group' | 'event'): number {
   return kind === 'event' ? STICKY_PX.pageHeader + STICKY_PX.groupHeader : STICKY_PX.pageHeader;
 }

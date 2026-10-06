@@ -915,6 +915,7 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
   }));
 
   const consentCategories = ConsentCategoryDAL.listConsentCategories(projectId).map((c) => ({
+    id: c.id,
     name: c.name,
     standard_key: c.standard_key,
     status: c.status,
@@ -923,9 +924,13 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
   // D-64 (T-4-20): a catalog with its fields and the properties that look up into it. `owner`,
   // `client_name` and `priority` are left out; `source_system`/`sync_method` stay (client-facing).
   const catalogFieldNameById = new Map<string, string>();
+  const catalogIdByFieldId = new Map<string, string>();
   const catalogs = CatalogDAL.listCatalogs(projectId).map((c) => {
     const fields = CatalogDAL.listCatalogFields(projectId, c.id);
-    for (const f of fields) catalogFieldNameById.set(f.id, f.name);
+    for (const f of fields) {
+      catalogFieldNameById.set(f.id, f.name);
+      catalogIdByFieldId.set(f.id, c.id);
+    }
     return {
       id: c.id,
       name: c.name,
@@ -974,6 +979,9 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
         target_kind: r.target_kind,
         event_id: r.event_id,
         property_id: r.property_id,
+        variant_id: r.variant_id,
+        catalog_id: r.catalog_field_id ? catalogIdByFieldId.get(r.catalog_field_id) ?? null : null,
+        consent_category_id: r.consent_category_id,
       })),
       // D-59 amendment 1 (additive). `internal_notes`/`internal_url` never appear here (amendment 2).
       documentation_url: uc.documentation_url,

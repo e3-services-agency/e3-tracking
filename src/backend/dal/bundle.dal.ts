@@ -4,7 +4,7 @@
  */
 import { getDb } from '../db';
 import { newId, nowIso, mapWriteError } from '../db/util';
-import { BadRequestError, ConflictError, NotFoundError, ValidationError } from '../errors';
+import { BadRequestError, BundleInUseError, ConflictError, NotFoundError, ValidationError } from '../errors';
 import * as ChangeLogDAL from './change-log.dal';
 
 export interface PropertyBundleRow {
@@ -119,6 +119,56 @@ export function listBundles(projectId: string): BundleWithPropertyIds[] {
     .prepare('SELECT * FROM property_bundles WHERE project_id = ? AND deleted_at IS NULL ORDER BY name')
     .all(projectId) as PropertyBundleRow[];
   return rows.map((row) => ({ ...row, property_ids: loadPropertyIds(row.id) }));
+}
+
+export interface BundleMember {
+  id: string;
+  name: string;
+  data_type: string | null;
+  kind: string | null;
+}
+export interface BundleUsage {
+  id: string;
+  name: string;
+}
+export type BundleDetail = BundleWithPropertyIds & { members: BundleMember[]; used_by_events: BundleUsage[] };
+
+/**
+ * T-4-24: events "using" a bundle are those that link every property of a non-empty bundle
+ * (there is no bundle-to-event link table: "Add bundle" copies the properties onto the event).
+ */
+export function listEventsUsingBundle(projectId: string, propertyIds: string[]): BundleUsage[] {
+  if (propertyIds.length === 0) return [];
+  const db = getDb();
+  const placeholders = propertyIds.map(() => '?').join(', ');
+  return db
+    .prepare(
+      `SELECT e.id as id, e.name as name FROM events e
+       JOIN event_properties ep ON ep.event_id = e.id AND ep.property_id IN (${placeholders})
+       WHERE e.project_id = ? AND e.deleted_at IS NULL
+       GROUP BY e.id HAVING COUNT(DISTINCT ep.property_id) = ?
+       ORDER BY e.name`
+    )
+    .all(...propertyIds, projectId, propertyIds.length) as BundleUsage[];
+}
+
+export function listBundlesWithUsage(projectId: string): (BundleWithPropertyIds & { used_by_events: BundleUsage[] })[] {
+  return listBundles(projectId).map((b) => ({ ...b, used_by_events: listEventsUsingBundle(projectId, b.property_ids) }));
+}
+
+export function getBundleDetail(projectId: string, bundleId: string): BundleDetail {
+  const bundle = getBundleOrThrow(projectId, bundleId);
+  const db = getDb();
+  let members: BundleMember[] = [];
+  if (bundle.property_ids.length > 0) {
+    const placeholders = bundle.property_ids.map(() => '?').join(', ');
+    members = db
+      .prepare(
+        `SELECT id, name, data_type, kind FROM properties WHERE project_id = ? AND deleted_at IS NULL AND id IN (${placeholders}) ORDER BY name`
+      )
+      .all(projectId, ...bundle.property_ids) as BundleMember[];
+  }
+  return { ...bundle, members, used_by_events: listEventsUsingBundle(projectId, bundle.property_ids) };
 }
 
 export function getBundleById(projectId: string, bundleId: string): BundleWithPropertyIds | null {
@@ -255,8 +305,16 @@ export function updateBundle(
   return getBundleOrThrow(projectId, bundleId);
 }
 
-export function deleteBundle(projectId: string, bundleId: string): void {
+export function deleteBundle(projectId: string, bundleId: string, opts: { force?: boolean } = {}): void {
   const existing = getBundleOrThrow(projectId, bundleId);
+  if (!opts.force) {
+    const usage = listEventsUsingBundle(projectId, existing.property_ids);
+    if (usage.length > 0) {
+      throw new BundleInUseError(
+        `Bundle is used by ${usage.length} event(s): ${usage.map((u) => u.name).join(', ')}. Delete with force to remove the bundle anyway (the events keep their properties).`
+      );
+    }
+  }
   const db = getDb();
   const now = nowIso();
   const run = db.transaction(() => {

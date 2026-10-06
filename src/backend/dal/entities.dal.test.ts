@@ -140,6 +140,36 @@ describe('property.dal', () => {
   });
 });
 
+describe('bundle detail, usage and in-use delete (T-4-24)', () => {
+  it('reports members and events using the bundle; delete 409s unless forced; membership edits are logged', () => {
+    const p1 = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'a', data_type: 'string' });
+    const p2 = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'b', data_type: 'number' });
+    const p3 = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'c', data_type: 'number' });
+    const bundle = BundleDAL.createBundle(projectId, { name: 'Core', property_ids: [p1.id, p2.id] });
+    const full = EventDAL.createEvent(projectId, { name: 'full_event' });
+    EventDAL.attachBundleToEvent(projectId, full.id, bundle.id);
+    const partial = EventDAL.createEvent(projectId, { name: 'partial_event' });
+    EventDAL.attachPropertyToEvent(projectId, partial.id, { property_id: p1.id, role: 'normal' });
+
+    const detail = BundleDAL.getBundleDetail(projectId, bundle.id);
+    expect(detail.members.map((m) => m.name)).toEqual(['a', 'b']);
+    expect(detail.used_by_events.map((e) => e.name)).toEqual(['full_event']);
+    expect(BundleDAL.listBundlesWithUsage(projectId)[0].used_by_events).toHaveLength(1);
+
+    expect(() => BundleDAL.deleteBundle(projectId, bundle.id)).toThrow(ConflictError);
+    const updated = BundleDAL.updateBundle(projectId, bundle.id, { name: 'Core2', property_ids: [p2.id, p3.id] });
+    expect(updated.property_ids.sort()).toEqual([p2.id, p3.id].sort());
+    expect(BundleDAL.getBundleDetail(projectId, bundle.id).used_by_events).toHaveLength(0);
+    BundleDAL.deleteBundle(projectId, bundle.id);
+    expect(BundleDAL.getBundleById(projectId, bundle.id)).toBeNull();
+
+    const b2 = BundleDAL.createBundle(projectId, { name: 'Again', property_ids: [p1.id] });
+    expect(() => BundleDAL.deleteBundle(projectId, b2.id)).toThrow(/used by 2 event/);
+    BundleDAL.deleteBundle(projectId, b2.id, { force: true });
+    expect(BundleDAL.getBundleById(projectId, b2.id)).toBeNull();
+  });
+});
+
 describe('event.dal + event_properties', () => {
   it('creates an event, attaches a property, replaces the link list, and detaches', () => {
     const event = EventDAL.createEvent(projectId, { name: 'purchase' });

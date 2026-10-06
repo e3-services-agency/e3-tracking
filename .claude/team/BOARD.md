@@ -3268,3 +3268,6 @@ Supervisor ruling: fix M1, M2, L3 (reject `..`/absolute paths in validateTrigger
 8 Requirements matrix PASS: per-row kind icons (22 svg in body), target-kind legend (Customer property, Event, Variant, Event property, Variant property, Catalog attribute, Consent) and gap legend.
 9 Regression PASS: sandbox counts unchanged (15 events baseline +1 my test event, 50 props, 4 catalogs, 2 sources, 3 use cases, 5 consents, 3 identity rules, 4 rules, 15 open findings); restored copy 15 events, same counts; shared page fine; only console error is the expected 409 on the bundle delete; no 500 except one caused by my malformed POST /restore-backup/apply (no `backup` key) -> 500 INTERNAL_ERROR instead of 400 (low, pre-existing route, not T-4-24).
 Extracts: .claude/team/reports/qa/T-4-24/backup.json. Processes stopped, QA db and config removed.
+
+### 2026-10-06 11:06 | supervisor | MERGE | T-4-24 merged into agent-setup — DONE; review round 6 complete, nothing running
+Fix cc027a2 (history preference auto-opens the modal, useModalA11y, image path validation, doc line, keyboard-sortable headers). QA PASS 9/9. Merged tree: tsc, build, lint clean, 1752 tests / 168 files. Open, waiting on the user: T-4-06 (samples/br-initiatives/), phase 5 step 2 (D-09 go + provider).

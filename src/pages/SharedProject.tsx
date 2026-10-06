@@ -75,6 +75,7 @@ import {
   toggleInSet,
   setExpanded,
   stickyScrollMarginPx,
+  scrollTopBelowSticky,
   spyTopOffsetPx,
   STICKY_PX,
   type NavItem,
@@ -512,8 +513,12 @@ export function SharedProject({ token }: { token: string }) {
       if (variantsOf && event) {
         const eventEl = () => document.getElementById(variantsOf);
         const scrollToVariants = () => {
-          const h = Array.from(eventEl()?.querySelectorAll('h2') ?? []).find((el) => (el.textContent ?? '').startsWith('Variants'));
-          (h ?? eventEl())?.scrollIntoView({ block: 'start' });
+          const ev = eventEl();
+          const h = document.getElementById(decoded) ?? Array.from(ev?.querySelectorAll('h2') ?? []).find((el) => (el.textContent ?? '').startsWith('Variants'));
+          const el = h ?? ev;
+          if (!el) return;
+          const titleRow = ev?.firstElementChild as HTMLElement | null;
+          window.scrollTo({ top: scrollTopBelowSticky(el.getBoundingClientRect().top, window.scrollY, titleRow?.offsetHeight ?? 0) });
         };
         requestAnimationFrame(() => requestAnimationFrame(scrollToVariants));
         return;

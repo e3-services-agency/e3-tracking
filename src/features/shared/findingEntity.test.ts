@@ -20,3 +20,18 @@ describe('findingEntity (T-4-25)', () => {
     expect(findingEntity(base, index, sections)).toEqual({ type: null, label: null, href: null });
   });
 });
+
+describe('findingEntity consent and catalog payloads (T-4-25)', () => {
+  const idx = buildReferenceIndex({
+    events: [], properties: [],
+    consent_categories: [{ id: 'n1', name: 'whatsapp_updates', standard_key: 'whatsapp' }],
+  });
+  it('links a rename_mismatch to its consent row by category name or standard key', () => {
+    const f = { kind: 'rename_mismatch', property_id: null, property: null, variant_id: null, variant: null };
+    expect(findingEntity({ ...f, expected: { category_name: 'whatsapp_updates' } }, idx, sections)).toMatchObject({ type: 'Consent', href: '#consent-whatsapp_updates' });
+    expect(findingEntity({ ...f, expected: { standard_key: 'whatsapp' } }, idx, sections)).toMatchObject({ type: 'Consent', href: '#consent-whatsapp_updates' });
+  });
+  it('unmapped_catalog links to the Catalogs section', () => {
+    expect(findingEntity({ ...base, kind: 'unmapped_catalog' }, idx, sections)).toMatchObject({ type: 'Catalog', href: '#catalogs' });
+  });
+});

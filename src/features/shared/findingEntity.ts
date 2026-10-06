@@ -11,6 +11,9 @@ export interface FindingEntityInput {
   property: string | null;
   variant_id: string | null;
   variant: string | null;
+  expected?: unknown;
+  actual?: unknown;
+  message?: string | null;
 }
 
 export interface FindingEntity {
@@ -32,7 +35,14 @@ export function findingEntity(
     const t = f.variant_id ? resolveReference({ kind: 'variant', id: f.variant_id }, 'shared', index) : null;
     return { type: 'Variant', label: f.variant ?? null, href: t?.href ?? null };
   }
-  if (f.kind.startsWith('catalog')) return { type: 'Catalog', label: null, href: `#${sections.catalogs}` };
+  // A consent finding (rename_mismatch) carries the category name and/or standard key in its payload.
+  const exp = (f.expected ?? {}) as { category_name?: string; standard_key?: string };
+  const consentAnchor =
+    (exp.category_name && index.consentAnchorByName.get(exp.category_name)) ||
+    (exp.standard_key && index.consentAnchorByStandardKey.get(exp.standard_key)) ||
+    null;
+  if (consentAnchor) return { type: 'Consent', label: exp.category_name ?? exp.standard_key ?? null, href: `#${consentAnchor}` };
+  if (f.kind.includes('catalog')) return { type: 'Catalog', label: null, href: `#${sections.catalogs}` };
   if (f.kind.startsWith('consent')) return { type: 'Consent', label: null, href: `#${sections.consents}` };
   return { type: null, label: null, href: null };
 }

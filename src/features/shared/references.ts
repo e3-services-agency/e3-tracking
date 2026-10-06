@@ -37,7 +37,7 @@ export interface ReferenceDocInput {
   event_properties?: { property_id: string; name: string }[];
   /** T-4-25: catalog cards and consent rows. */
   catalogs?: { id?: string; name: string }[];
-  consent_categories?: { id?: string; name: string }[];
+  consent_categories?: { id?: string; name: string; standard_key?: string | null }[];
 }
 
 export interface ReferenceIndex {
@@ -57,6 +57,9 @@ export interface ReferenceIndex {
   variantEventId: ReadonlyMap<string, string>;
   catalogAnchorById: ReadonlyMap<string, string>;
   consentAnchorById: ReadonlyMap<string, string>;
+  /** Consent row anchor by category name and by standard key (T-4-25: for findings that carry only those). */
+  consentAnchorByName: ReadonlyMap<string, string>;
+  consentAnchorByStandardKey: ReadonlyMap<string, string>;
 }
 
 /** Anchor of an event's variants block on the shared page (T-4-25): `variants-<event anchor>`. */
@@ -113,6 +116,7 @@ export function buildReferenceIndex(doc: ReferenceDocInput): ReferenceIndex {
     });
     return map;
   };
+  const consentAnchors = idAnchors('consent', doc.consent_categories);
   return {
     eventAnchorById,
     eventAnchorByName,
@@ -126,6 +130,8 @@ export function buildReferenceIndex(doc: ReferenceDocInput): ReferenceIndex {
     variantEventId,
     catalogAnchorById: idAnchors('catalog', doc.catalogs),
     consentAnchorById: idAnchors('consent', doc.consent_categories),
+    consentAnchorByName: new Map((doc.consent_categories ?? []).flatMap((c) => (c.id && consentAnchors.get(c.id) ? [[c.name, consentAnchors.get(c.id) as string] as const] : []))),
+    consentAnchorByStandardKey: new Map((doc.consent_categories ?? []).flatMap((c) => (c.id && c.standard_key && consentAnchors.get(c.id) ? [[c.standard_key, consentAnchors.get(c.id) as string] as const] : []))),
   };
 }
 

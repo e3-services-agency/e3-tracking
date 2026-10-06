@@ -281,6 +281,7 @@ export interface EventCardBuildContext {
   bundleNameByPropertyId: Map<string, string>;
   /** D-63: the project's `kind = 'context'` event properties, for the `sdk_auto` default properties snippet. */
   projectContextProperties: { name: string; sample: unknown }[];
+  hardIdKey: string | null;
   /** D-62 (T-4-11B): each event's linked sources, keyed by event id. */
   sourcesByEventId: Map<string, SourceDAL.SourceRow[]>;
   /** D-61 (T-4-11B): `catalog.field` label per catalog field id, for `EventCardProperty.catalog_field`. */
@@ -377,6 +378,7 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
     definitionsById: PropertyDefinitionDAL.listAllDefinitionsById(projectId),
     bundleNameByPropertyId: new Map([...bundleNames].map(([id, names]) => [id, names.join(', ')])),
     projectContextProperties,
+    hardIdKey: IdentityRuleDAL.listIdentityRules(projectId).find((r) => r.identity_type === 'hard')?.identifier_name ?? null,
     sourcesByEventId: SourceDAL.listEventSourcesByProject(projectId),
     catalogFieldLabelById,
     catalogLinkByFieldId,
@@ -708,6 +710,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
       dlEventName: event.dl_event_name,
       eventClass: event.class,
       projectContext: context.projectContextProperties,
+      hardIdKey: context.hardIdKey,
       catalogLinks: catalogLinksForProperties(properties, context),
     },
     event.codegen_event_name_overrides_json as CodegenEventNameOverrides | null

@@ -257,6 +257,7 @@ async function buildEventSectionHtml(
           method: event.implementation_method,
           dlEventName: event.dl_event_name,
           eventClass: event.class,
+          hardIdKey: cardCtx.hardIdKey,
           catalogLinks: catalogLinksForProperties(properties, cardCtx),
         },
         event.codegen_event_name_overrides_json as CodegenEventNameOverrides | null

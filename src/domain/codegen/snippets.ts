@@ -55,6 +55,9 @@ function quantitySample(sample: unknown): number {
   return typeof sample === 'number' ? sample : 1;
 }
 
+/** Variant-level item attributes shown in the items example (T-4-23). */
+const VARIANT_ATTRIBUTE = /(^|_)(size|colou?r)(_|$)/i;
+
 export function buildDataLayerModel(all: CodegenProperty[]): DataLayerModel {
   const sorted = [...all].sort(byRequiredThenName);
   const isComputed = (p: CodegenProperty) => p.kind === 'state_list' && p.derivation !== null;
@@ -74,6 +77,12 @@ export function buildDataLayerModel(all: CodegenProperty[]): DataLayerModel {
     if (!fieldNames.includes(n)) fieldNames.push(n);
   };
   for (const r of rules) if ('id_field' in r) add(r.id_field);
+  // T-4-23: one entry per variant line carries the product and variant ids plus variant-level
+  // attributes (size, colour) whenever the project defines them as item properties.
+  if (item.length > 0 || itemSampleByName.has('product_id')) {
+    for (const id of ['product_id', 'variant_id']) if (itemSampleByName.has(id)) add(id);
+    for (const p of item) if (VARIANT_ATTRIBUTE.test(p.name)) add(p.name);
+  }
   for (const r of rules) if ('form' in r && r.form === 'id_quantity') add(r.quantity_field || 'quantity');
   for (const r of rules) if ('sum' in r) for (const f of sumFields(r.sum)) add(f);
   const quantityFields = new Set<string>(['quantity']);
@@ -171,7 +180,10 @@ export function buildDataLayerV2(names: EventNames, model: DataLayerModel): stri
     );
   }
   if (model.itemsEntry.length > 0) {
-    lines.push('    items: [ // the whole collection after the action, one entry per line', '      {');
+    lines.push('    // Recommended practice: one entry per variant line (product_id plus variant_id), the whole',
+      '    // collection after the action; product_ids/variant_ids and the *_list values are computed from it.',
+      '    items: [',
+      '      {');
     for (const f of model.itemsEntry) lines.push(`        ${f.name}: ${jsLiteral(f.value, '        ')},`);
     lines.push('      },', '    ],');
   }
@@ -195,7 +207,7 @@ export function buildGtmTemplate(names: EventNames, model: DataLayerModel): stri
     '// GTM custom template setup',
     `//  1. Trigger: Custom Event "${siteEvent}", fires only when the Data Layer Variable "bloomreach" is defined.`,
     '//  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".',
-    `//  3. The tag calls the Web SDK: bloomreach.track(${jsLiteral(names.bloomreach)}, brPayload(dataLayer.bloomreach, BR_RULES));`,
+    `//  3. The tag calls the Web SDK: brweb.track(${jsLiteral(names.bloomreach)}, brPayload(dataLayer.bloomreach, BR_RULES));`,
     '//  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.',
   ].join('\n');
 }
@@ -207,9 +219,9 @@ function trackSnippet(fn: string, eventName: string, model: DataLayerModel): str
   return lines.join('\n');
 }
 
-/** (c) New Web SDK: `bloomreach.track(event, payload)`. */
+/** (c) New Web SDK: `brweb.track(event, payload)`. */
 export function buildWebSdkV2(eventName: string, model: DataLayerModel): string {
-  return trackSnippet('bloomreach.track', eventName, model);
+  return trackSnippet('brweb.track', eventName, model);
 }
 
 /** (d) Legacy Web SDK: `exponea.track(event, payload)`. */

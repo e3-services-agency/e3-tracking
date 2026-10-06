@@ -6803,7 +6803,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "Opt_in_proof", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('Opt_in_proof', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('Opt_in_proof', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -6815,16 +6815,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "Opt_in_proof", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('Opt_in_proof', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('Opt_in_proof', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: category, identification_type, message, source, updated at
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: category, identification_type, message, source, updated at
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "Opt_in_proof",
   "properties": {
@@ -6840,9 +6841,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"Opt_in_proof","properties":{"category":"string","identification_type":"string","message":"string","source":"string","updated at":1735689600}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"Opt_in_proof","properties":{"category":"string","identification_type":"string","message":"string","source":"string","updated at":1735689600}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('Opt_in_proof', {
+brweb.track('Opt_in_proof', {
   // Optional:
   category: 'string',
   identification_type: 'string',
@@ -7144,6 +7145,13 @@ window.dataLayer.push({
       sku_id: 'string',
       store_id: 'string',
     },
+    // Recommended practice: one entry per variant line (product_id plus variant_id), the whole
+    // collection after the action; product_ids/variant_ids and the *_list values are computed from it.
+    items: [
+      {
+        product_id: 'string',
+      },
+    ],
   },
 });",
         "gtm": "// E3's recommended practice (D-63): one namespaced 'bloomreach' object on the site's existing
@@ -7163,6 +7171,13 @@ window.dataLayer.push({
       sku_id: 'string',
       store_id: 'string',
     },
+    // Recommended practice: one entry per variant line (product_id plus variant_id), the whole
+    // collection after the action; product_ids/variant_ids and the *_list values are computed from it.
+    items: [
+      {
+        product_id: 'string',
+      },
+    ],
   },
 });
 
@@ -7176,7 +7191,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "back_in_stock_list", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('back_in_stock_list', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('back_in_stock_list', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -7188,16 +7203,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "back_in_stock_list", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('back_in_stock_list', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('back_in_stock_list', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: action, product_id, product_title, sku_id, store_id
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: action, product_id, product_title, sku_id, store_id
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "back_in_stock_list",
   "properties": {
@@ -7213,9 +7229,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"back_in_stock_list","properties":{"action":"string","product_id":"string","product_title":"string","sku_id":"string","store_id":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"back_in_stock_list","properties":{"action":"string","product_id":"string","product_title":"string","sku_id":"string","store_id":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('back_in_stock_list', {
+brweb.track('back_in_stock_list', {
   // Optional:
   action: 'string',
   product_id: 'string',
@@ -7718,7 +7734,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "booking_b", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('booking_b', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('booking_b', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -7730,16 +7746,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "booking_b", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('booking_b', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('booking_b', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: booked_by, booked_days_before_departure, booking_date, booking_number, booking_phase, booking_phase_name, booking_segment, campaign_codes, consent_marketing, consent_taxfree, duration, email, extras, flight_home_aircraft_type, flight_home_arrival_station, flight_home_carrier_code, flight_home_carrier_description, flight_home_class_code, flight_home_country_code, flight_home_country_description, flight_home_departure_date, flight_home_departure_station, flight_home_flight_number, flight_home_flight_series, flight_out_aircraft_type, flight_out_arrival_station, flight_out_carrier_code, flight_out_carrier_description, flight_out_class_code, flight_out_country_code, flight_out_country_description, flight_out_departure_date, flight_out_departure_station, flight_out_flight_number, flight_out_flight_series, group_customer_number, group_number, hotels, id, is_agent, is_combination, is_group, is_invoice, is_local_sale, is_owner, is_staff, market_unit, membership_id, only_homebound_usage, only_outbound_usage, passenger_adress, passenger_birth_date, passenger_city, passenger_count_adults, passenger_count_children, passenger_count_infants, passenger_country_code, passenger_first_name, passenger_gender, passenger_last_name, passenger_postal_code, passengers, phone, price_component_descriptions, price_components, price_currency, price_deposit, price_deposit_pay_date, price_final_pay_date, price_total, price_total_paid, purchased_extra, purchased_extra_all_inclusive, purchased_extra_car, purchased_extra_excursions, purchased_extra_hotel_activities, purchased_extra_meals_flight, purchased_extra_other_hotel_meals, purchased_extra_seating, purchased_extra_transfer, retailer_has_received_payment, sales_unit, send_parental_cert, status, stop_correspondence, travel_agent, travel_type
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: booked_by, booked_days_before_departure, booking_date, booking_number, booking_phase, booking_phase_name, booking_segment, campaign_codes, consent_marketing, consent_taxfree, duration, email, extras, flight_home_aircraft_type, flight_home_arrival_station, flight_home_carrier_code, flight_home_carrier_description, flight_home_class_code, flight_home_country_code, flight_home_country_description, flight_home_departure_date, flight_home_departure_station, flight_home_flight_number, flight_home_flight_series, flight_out_aircraft_type, flight_out_arrival_station, flight_out_carrier_code, flight_out_carrier_description, flight_out_class_code, flight_out_country_code, flight_out_country_description, flight_out_departure_date, flight_out_departure_station, flight_out_flight_number, flight_out_flight_series, group_customer_number, group_number, hotels, id, is_agent, is_combination, is_group, is_invoice, is_local_sale, is_owner, is_staff, market_unit, membership_id, only_homebound_usage, only_outbound_usage, passenger_adress, passenger_birth_date, passenger_city, passenger_count_adults, passenger_count_children, passenger_count_infants, passenger_country_code, passenger_first_name, passenger_gender, passenger_last_name, passenger_postal_code, passengers, phone, price_component_descriptions, price_components, price_currency, price_deposit, price_deposit_pay_date, price_final_pay_date, price_total, price_total_paid, purchased_extra, purchased_extra_all_inclusive, purchased_extra_car, purchased_extra_excursions, purchased_extra_hotel_activities, purchased_extra_meals_flight, purchased_extra_other_hotel_meals, purchased_extra_seating, purchased_extra_transfer, retailer_has_received_payment, sales_unit, send_parental_cert, status, stop_correspondence, travel_agent, travel_type
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "booking_b",
   "properties": {
@@ -7837,9 +7854,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"booking_b","properties":{"booked_by":"string","booked_days_before_departure":123,"booking_date":123,"booking_number":"string","booking_phase":123,"booking_phase_name":"string","booking_segment":123,"campaign_codes":[],"consent_marketing":true,"consent_taxfree":true,"duration":123,"email":"string","extras":"string","flight_home_aircraft_type":"string","flight_home_arrival_station":"string","flight_home_carrier_code":"string","flight_home_carrier_description":"string","flight_home_class_code":"string","flight_home_country_code":"string","flight_home_country_description":"string","flight_home_departure_date":123,"flight_home_departure_station":"string","flight_home_flight_number":"string","flight_home_flight_series":"string","flight_out_aircraft_type":"string","flight_out_arrival_station":"string","flight_out_carrier_code":"string","flight_out_carrier_description":"string","flight_out_class_code":"string","flight_out_country_code":"string","flight_out_country_description":"string","flight_out_departure_date":123,"flight_out_departure_station":"string","flight_out_flight_number":"string","flight_out_flight_series":"string","group_customer_number":"string","group_number":"string","hotels":[],"id":"string","is_agent":true,"is_combination":true,"is_group":true,"is_invoice":true,"is_local_sale":true,"is_owner":true,"is_staff":true,"market_unit":"string","membership_id":"string","only_homebound_usage":true,"only_outbound_usage":true,"passenger_adress":"string","passenger_birth_date":123,"passenger_city":"string","passenger_count_adults":123,"passenger_count_children":123,"passenger_count_infants":123,"passenger_country_code":"string","passenger_first_name":"string","passenger_gender":"string","passenger_last_name":"string","passenger_postal_code":"string","passengers":[],"phone":"string","price_component_descriptions":[],"price_components":[],"price_currency":"string","price_deposit":123,"price_deposit_pay_date":123,"price_final_pay_date":123,"price_total":123,"price_total_paid":123,"purchased_extra":true,"purchased_extra_all_inclusive":true,"purchased_extra_car":true,"purchased_extra_excursions":true,"purchased_extra_hotel_activities":true,"purchased_extra_meals_flight":true,"purchased_extra_other_hotel_meals":true,"purchased_extra_seating":true,"purchased_extra_transfer":true,"retailer_has_received_payment":true,"sales_unit":"string","send_parental_cert":true,"status":"string","stop_correspondence":true,"travel_agent":"string","travel_type":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"booking_b","properties":{"booked_by":"string","booked_days_before_departure":123,"booking_date":123,"booking_number":"string","booking_phase":123,"booking_phase_name":"string","booking_segment":123,"campaign_codes":[],"consent_marketing":true,"consent_taxfree":true,"duration":123,"email":"string","extras":"string","flight_home_aircraft_type":"string","flight_home_arrival_station":"string","flight_home_carrier_code":"string","flight_home_carrier_description":"string","flight_home_class_code":"string","flight_home_country_code":"string","flight_home_country_description":"string","flight_home_departure_date":123,"flight_home_departure_station":"string","flight_home_flight_number":"string","flight_home_flight_series":"string","flight_out_aircraft_type":"string","flight_out_arrival_station":"string","flight_out_carrier_code":"string","flight_out_carrier_description":"string","flight_out_class_code":"string","flight_out_country_code":"string","flight_out_country_description":"string","flight_out_departure_date":123,"flight_out_departure_station":"string","flight_out_flight_number":"string","flight_out_flight_series":"string","group_customer_number":"string","group_number":"string","hotels":[],"id":"string","is_agent":true,"is_combination":true,"is_group":true,"is_invoice":true,"is_local_sale":true,"is_owner":true,"is_staff":true,"market_unit":"string","membership_id":"string","only_homebound_usage":true,"only_outbound_usage":true,"passenger_adress":"string","passenger_birth_date":123,"passenger_city":"string","passenger_count_adults":123,"passenger_count_children":123,"passenger_count_infants":123,"passenger_country_code":"string","passenger_first_name":"string","passenger_gender":"string","passenger_last_name":"string","passenger_postal_code":"string","passengers":[],"phone":"string","price_component_descriptions":[],"price_components":[],"price_currency":"string","price_deposit":123,"price_deposit_pay_date":123,"price_final_pay_date":123,"price_total":123,"price_total_paid":123,"purchased_extra":true,"purchased_extra_all_inclusive":true,"purchased_extra_car":true,"purchased_extra_excursions":true,"purchased_extra_hotel_activities":true,"purchased_extra_meals_flight":true,"purchased_extra_other_hotel_meals":true,"purchased_extra_seating":true,"purchased_extra_transfer":true,"retailer_has_received_payment":true,"sales_unit":"string","send_parental_cert":true,"status":"string","stop_correspondence":true,"travel_agent":"string","travel_type":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('booking_b', {
+brweb.track('booking_b', {
   // Optional:
   booked_by: 'string',
   booked_days_before_departure: 123,
@@ -10065,8 +10082,11 @@ window.dataLayer.push({
     },
     // Computed by brPayload from items: total_price, total_quantity
     // (put a value in properties to override a computed one)
-    items: [ // the whole collection after the action, one entry per line
+    // Recommended practice: one entry per variant line (product_id plus variant_id), the whole
+    // collection after the action; product_ids/variant_ids and the *_list values are computed from it.
+    items: [
       {
+        product_id: 'string',
         price: 123,
         quantity: 1,
       },
@@ -10094,8 +10114,11 @@ window.dataLayer.push({
     },
     // Computed by brPayload from items: total_price, total_quantity
     // (put a value in properties to override a computed one)
-    items: [ // the whole collection after the action, one entry per line
+    // Recommended practice: one entry per variant line (product_id plus variant_id), the whole
+    // collection after the action; product_ids/variant_ids and the *_list values are computed from it.
+    items: [
       {
+        product_id: 'string',
         price: 123,
         quantity: 1,
       },
@@ -10116,7 +10139,7 @@ var BR_RULES = [
 // GTM custom template setup
 //  1. Trigger: Custom Event "cart_update", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('cart_update', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('cart_update', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -10131,16 +10154,17 @@ var BR_RULES = [
 // GTM custom template setup
 //  1. Trigger: Custom Event "cart_update", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('cart_update', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('cart_update', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: action, brand, product_id, product_ids, product_list, size, title, total_price, total_quantity
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: action, brand, product_id, product_ids, product_list, size, title, total_price, total_quantity
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "cart_update",
   "properties": {
@@ -10160,9 +10184,9 @@ var BR_RULES = [
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"cart_update","properties":{"action":"add","brand":"string","product_id":"string","product_ids":"string","product_list":"string","size":"string","title":"string","total_price":123,"total_quantity":1}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"cart_update","properties":{"action":"add","brand":"string","product_id":"string","product_ids":"string","product_list":"string","size":"string","title":"string","total_price":123,"total_quantity":1}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('cart_update', {
+brweb.track('cart_update', {
   // Optional:
   action: 'add',
   brand: 'string',
@@ -10692,7 +10716,9 @@ window.dataLayer.push({
     },
     // Computed by brPayload from items: total_price
     // (put a value in properties to override a computed one)
-    items: [ // the whole collection after the action, one entry per line
+    // Recommended practice: one entry per variant line (product_id plus variant_id), the whole
+    // collection after the action; product_ids/variant_ids and the *_list values are computed from it.
+    items: [
       {
         price: 123,
         quantity: 1,
@@ -10716,7 +10742,9 @@ window.dataLayer.push({
     },
     // Computed by brPayload from items: total_price
     // (put a value in properties to override a computed one)
-    items: [ // the whole collection after the action, one entry per line
+    // Recommended practice: one entry per variant line (product_id plus variant_id), the whole
+    // collection after the action; product_ids/variant_ids and the *_list values are computed from it.
+    items: [
       {
         price: 123,
         quantity: 1,
@@ -10737,7 +10765,7 @@ var BR_RULES = [
 // GTM custom template setup
 //  1. Trigger: Custom Event "checkout", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('checkout', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('checkout', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -10751,16 +10779,17 @@ var BR_RULES = [
 // GTM custom template setup
 //  1. Trigger: Custom Event "checkout", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('checkout', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('checkout', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: product_ids, product_list, total_price
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: product_ids, product_list, total_price
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "checkout",
   "properties": {
@@ -10774,9 +10803,9 @@ var BR_RULES = [
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"checkout","properties":{"product_ids":"string","product_list":"string","total_price":123}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"checkout","properties":{"product_ids":"string","product_list":"string","total_price":123}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('checkout', {
+brweb.track('checkout', {
   // Optional:
   product_ids: 'string',
   product_list: 'string',
@@ -11164,7 +11193,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "double_opt_in_study_interest", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('double_opt_in_study_interest', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('double_opt_in_study_interest', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -11176,16 +11205,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "double_opt_in_study_interest", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('double_opt_in_study_interest', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('double_opt_in_study_interest', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: acq_level_1, acq_level_2, acq_level_3, acq_level_4, action, campaign_context, campaign_name, consent_list, consent_version, country, email, fbclid, first_name, gclid, iframe_url, incentive_type, language, language_tag, last_name, login_state, message, opt_in_method, page_url, parent_referrer_url, source, source_risk_level, store_id, subscription_source, survey_answers_json, survey_brand, survey_id, survey_name, utm_campaign, utm_medium, utm_source
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: acq_level_1, acq_level_2, acq_level_3, acq_level_4, action, campaign_context, campaign_name, consent_list, consent_version, country, email, fbclid, first_name, gclid, iframe_url, incentive_type, language, language_tag, last_name, login_state, message, opt_in_method, page_url, parent_referrer_url, source, source_risk_level, store_id, subscription_source, survey_answers_json, survey_brand, survey_id, survey_name, utm_campaign, utm_medium, utm_source
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "double_opt_in_study_interest",
   "properties": {
@@ -11231,9 +11261,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"double_opt_in_study_interest","properties":{"acq_level_1":"string","acq_level_2":"string","acq_level_3":"string","acq_level_4":"string","action":"string","campaign_context":"string","campaign_name":"string","consent_list":"string","consent_version":"string","country":"string","email":"string","fbclid":"string","first_name":"string","gclid":"string","iframe_url":"string","incentive_type":"string","language":"string","language_tag":"string","last_name":"string","login_state":"string","message":"string","opt_in_method":"string","page_url":"string","parent_referrer_url":"string","source":"string","source_risk_level":"string","store_id":"string","subscription_source":"string","survey_answers_json":"string","survey_brand":"string","survey_id":"string","survey_name":"string","utm_campaign":"string","utm_medium":"string","utm_source":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"double_opt_in_study_interest","properties":{"acq_level_1":"string","acq_level_2":"string","acq_level_3":"string","acq_level_4":"string","action":"string","campaign_context":"string","campaign_name":"string","consent_list":"string","consent_version":"string","country":"string","email":"string","fbclid":"string","first_name":"string","gclid":"string","iframe_url":"string","incentive_type":"string","language":"string","language_tag":"string","last_name":"string","login_state":"string","message":"string","opt_in_method":"string","page_url":"string","parent_referrer_url":"string","source":"string","source_risk_level":"string","store_id":"string","subscription_source":"string","survey_answers_json":"string","survey_brand":"string","survey_id":"string","survey_name":"string","utm_campaign":"string","utm_medium":"string","utm_source":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('double_opt_in_study_interest', {
+brweb.track('double_opt_in_study_interest', {
   // Optional:
   acq_level_1: 'string',
   acq_level_2: 'string',
@@ -12272,7 +12302,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "flyer", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('flyer', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('flyer', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -12284,16 +12314,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "flyer", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('flyer', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('flyer', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: flyer_name, is_flyer_order, order_date, packed_date, purchase_id
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: flyer_name, is_flyer_order, order_date, packed_date, purchase_id
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "flyer",
   "properties": {
@@ -12309,9 +12340,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"flyer","properties":{"flyer_name":"string","is_flyer_order":true,"order_date":"string","packed_date":123,"purchase_id":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"flyer","properties":{"flyer_name":"string","is_flyer_order":true,"order_date":"string","packed_date":123,"purchase_id":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('flyer', {
+brweb.track('flyer', {
   // Optional:
   flyer_name: 'string',
   is_flyer_order: true,
@@ -12642,7 +12673,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "inbound_call", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('inbound_call', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('inbound_call', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -12654,16 +12685,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "inbound_call", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('inbound_call', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('inbound_call', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: agent, call_reason, feedback, length
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: agent, call_reason, feedback, length
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "inbound_call",
   "properties": {
@@ -12678,9 +12710,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"inbound_call","properties":{"agent":"string","call_reason":"string","feedback":"string","length":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"inbound_call","properties":{"agent":"string","call_reason":"string","feedback":"string","length":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('inbound_call', {
+brweb.track('inbound_call', {
   // Optional:
   agent: 'string',
   call_reason: 'string',
@@ -12942,7 +12974,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "initialize_event", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('initialize_event', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('initialize_event', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -12954,16 +12986,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "initialize_event", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('initialize_event', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('initialize_event', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: browser, device, location, os, test_property
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: browser, device, location, os, test_property
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "initialize_event",
   "properties": {
@@ -12979,9 +13012,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"initialize_event","properties":{"browser":"string","device":"string","location":"string","os":"string","test_property":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"initialize_event","properties":{"browser":"string","device":"string","location":"string","os":"string","test_property":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('initialize_event', {
+brweb.track('initialize_event', {
   // Optional:
   browser: 'string',
   device: 'string',
@@ -13277,7 +13310,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "installation", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('installation', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('installation', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -13289,16 +13322,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "installation", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('installation', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('installation', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: app_version, application_id, device_id, device_model, device_type, os_name, os_version, platform, sdk, sdk_version
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: app_version, application_id, device_id, device_model, device_type, os_name, os_version, platform, sdk, sdk_version
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "installation",
   "properties": {
@@ -13319,9 +13353,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"installation","properties":{"app_version":"string","application_id":"string","device_id":"string","device_model":"string","device_type":"string","os_name":"string","os_version":"string","platform":"string","sdk":"string","sdk_version":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"installation","properties":{"app_version":"string","application_id":"string","device_id":"string","device_model":"string","device_type":"string","os_name":"string","os_version":"string","platform":"string","sdk":"string","sdk_version":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('installation', {
+brweb.track('installation', {
   // Optional:
   app_version: 'string',
   application_id: 'string',
@@ -13725,7 +13759,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "loyalty_update", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('loyalty_update', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('loyalty_update', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -13737,16 +13771,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "loyalty_update", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('loyalty_update', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('loyalty_update', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: action, final_points, points_change, status
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: action, final_points, points_change, status
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "loyalty_update",
   "properties": {
@@ -13761,9 +13796,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"loyalty_update","properties":{"action":"string","final_points":"string","points_change":"string","status":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"loyalty_update","properties":{"action":"string","final_points":"string","points_change":"string","status":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('loyalty_update', {
+brweb.track('loyalty_update', {
   // Optional:
   action: 'string',
   final_points: 'string',
@@ -14033,7 +14068,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "monitoring", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('monitoring', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('monitoring', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -14045,16 +14080,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "monitoring", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('monitoring', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('monitoring', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: customer_id, Germany: count(customer), UK: count(customer), USA: count(customer)
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: customer_id, Germany: count(customer), UK: count(customer), USA: count(customer)
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "monitoring",
   "properties": {
@@ -14069,9 +14105,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"monitoring","properties":{"customer_id":"string","Germany: count(customer)":123,"UK: count(customer)":123,"USA: count(customer)":123}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"monitoring","properties":{"customer_id":"string","Germany: count(customer)":123,"UK: count(customer)":123,"USA: count(customer)":123}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('monitoring', {
+brweb.track('monitoring', {
   // Optional:
   customer_id: 'string',
   Germany: count(customer): 123,
@@ -14403,7 +14439,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "newsletter_signup", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('newsletter_signup', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('newsletter_signup', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -14415,16 +14451,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "newsletter_signup", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('newsletter_signup', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('newsletter_signup', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: browser, customer, device, email, location, os
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: browser, customer, device, email, location, os
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "newsletter_signup",
   "properties": {
@@ -14441,9 +14478,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"newsletter_signup","properties":{"browser":"string","customer":"string","device":"string","email":"string","location":"string","os":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"newsletter_signup","properties":{"browser":"string","customer":"string","device":"string","email":"string","location":"string","os":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('newsletter_signup', {
+brweb.track('newsletter_signup', {
   // Optional:
   browser: 'string',
   customer: 'string',
@@ -14753,7 +14790,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "optilyz_campaign", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('optilyz_campaign', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('optilyz_campaign', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -14765,16 +14802,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "optilyz_campaign", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('optilyz_campaign', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('optilyz_campaign', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: optilyz_campaign_name, optilyz_campaign_status, optilyz_campaign_validation_result, optilyz_campaign_variant, optilyz_unique_voucher
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: optilyz_campaign_name, optilyz_campaign_status, optilyz_campaign_validation_result, optilyz_campaign_variant, optilyz_unique_voucher
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "optilyz_campaign",
   "properties": {
@@ -14790,9 +14828,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"optilyz_campaign","properties":{"optilyz_campaign_name":"string","optilyz_campaign_status":"string","optilyz_campaign_validation_result":"string","optilyz_campaign_variant":"string","optilyz_unique_voucher":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"optilyz_campaign","properties":{"optilyz_campaign_name":"string","optilyz_campaign_status":"string","optilyz_campaign_validation_result":"string","optilyz_campaign_variant":"string","optilyz_unique_voucher":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('optilyz_campaign', {
+brweb.track('optilyz_campaign', {
   // Optional:
   optilyz_campaign_name: 'string',
   optilyz_campaign_status: 'string',
@@ -15076,7 +15114,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "outbound_call", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('outbound_call', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('outbound_call', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -15088,16 +15126,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "outbound_call", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('outbound_call', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('outbound_call', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: agent, call_reason, feedback, length
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: agent, call_reason, feedback, length
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "outbound_call",
   "properties": {
@@ -15112,9 +15151,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"outbound_call","properties":{"agent":"string","call_reason":"string","feedback":"string","length":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"outbound_call","properties":{"agent":"string","call_reason":"string","feedback":"string","length":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('outbound_call', {
+brweb.track('outbound_call', {
   // Optional:
   agent: 'string',
   call_reason: 'string',
@@ -15368,7 +15407,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "paper_catalogue", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('paper_catalogue', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('paper_catalogue', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -15380,16 +15419,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "paper_catalogue", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('paper_catalogue', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('paper_catalogue', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: num_pages, status
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: num_pages, status
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "paper_catalogue",
   "properties": {
@@ -15402,9 +15442,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"paper_catalogue","properties":{"num_pages":"string","status":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"paper_catalogue","properties":{"num_pages":"string","status":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('paper_catalogue', {
+brweb.track('paper_catalogue', {
   // Optional:
   num_pages: 'string',
   status: 'string',
@@ -15584,7 +15624,9 @@ window.dataLayer.push({
     },
     // Computed by brPayload from items: item_ids
     // (put a value in properties to override a computed one)
-    items: [ // the whole collection after the action, one entry per line
+    // Recommended practice: one entry per variant line (product_id plus variant_id), the whole
+    // collection after the action; product_ids/variant_ids and the *_list values are computed from it.
+    items: [
       {
         item_id: 'string',
       },
@@ -15631,7 +15673,9 @@ window.dataLayer.push({
     },
     // Computed by brPayload from items: item_ids
     // (put a value in properties to override a computed one)
-    items: [ // the whole collection after the action, one entry per line
+    // Recommended practice: one entry per variant line (product_id plus variant_id), the whole
+    // collection after the action; product_ids/variant_ids and the *_list values are computed from it.
+    items: [
       {
         item_id: 'string',
       },
@@ -15651,7 +15695,7 @@ var BR_RULES = [
 // GTM custom template setup
 //  1. Trigger: Custom Event "parcel_insert", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('parcel_insert', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('parcel_insert', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -15665,16 +15709,17 @@ var BR_RULES = [
 // GTM custom template setup
 //  1. Trigger: Custom Event "parcel_insert", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('parcel_insert', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('parcel_insert', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: ab_test_variant, aov, categories_string, email, has_purchased_sports, in_preview, inserted_item, inserted_items, is_referrer, is_therapist, is_women_health_interest, item_ids, managed_endpoint_version, no_parcel_insert_180d, order_count, order_date, order_value, parcel_inserts_inactive_customer, parcel_inserts_low_value, payment_method, purchase_id, purchase_status, purchased_aroma_lifetime, shipping_country, store_id, type, use_case
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: ab_test_variant, aov, categories_string, email, has_purchased_sports, in_preview, inserted_item, inserted_items, is_referrer, is_therapist, is_women_health_interest, item_ids, managed_endpoint_version, no_parcel_insert_180d, order_count, order_date, order_value, parcel_inserts_inactive_customer, parcel_inserts_low_value, payment_method, purchase_id, purchase_status, purchased_aroma_lifetime, shipping_country, store_id, type, use_case
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "parcel_insert",
   "properties": {
@@ -15714,9 +15759,9 @@ var BR_RULES = [
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"parcel_insert","properties":{"ab_test_variant":"string","aov":123,"categories_string":"string","email":"string","has_purchased_sports":true,"in_preview":true,"inserted_item":"string","inserted_items":[],"is_referrer":true,"is_therapist":true,"is_women_health_interest":true,"item_ids":["string"],"managed_endpoint_version":"string","no_parcel_insert_180d":true,"order_count":123,"order_date":"string","order_value":123,"parcel_inserts_inactive_customer":true,"parcel_inserts_low_value":true,"payment_method":"string","purchase_id":"string","purchase_status":"string","purchased_aroma_lifetime":true,"shipping_country":"string","store_id":"string","type":"string","use_case":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"parcel_insert","properties":{"ab_test_variant":"string","aov":123,"categories_string":"string","email":"string","has_purchased_sports":true,"in_preview":true,"inserted_item":"string","inserted_items":[],"is_referrer":true,"is_therapist":true,"is_women_health_interest":true,"item_ids":["string"],"managed_endpoint_version":"string","no_parcel_insert_180d":true,"order_count":123,"order_date":"string","order_value":123,"parcel_inserts_inactive_customer":true,"parcel_inserts_low_value":true,"payment_method":"string","purchase_id":"string","purchase_status":"string","purchased_aroma_lifetime":true,"shipping_country":"string","store_id":"string","type":"string","use_case":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('parcel_insert', {
+brweb.track('parcel_insert', {
   // Optional:
   ab_test_variant: 'string',
   aov: 123,
@@ -16544,11 +16589,12 @@ exponea.track('parcel_insert', {
         "note": "Tracked server-side through the Tracking API (purchase, purchase_item, refunds and consent are not sent from the browser), so there is no client snippet.",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: browser, currency, device, has_voucher, is_gift, is_sample, local_currency, location, os, payment_method, payment_type, product_ids, product_list, purchase_id, purchase_reason, purchase_source_id, purchase_source_name, purchase_source_type, purchase_status, region, retailer, shipping_company, shipping_cost, shipping_country, shipping_type, source, total_price, total_price_local_currency, total_quantity, voucher_code
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: browser, currency, device, has_voucher, is_gift, is_sample, local_currency, location, os, payment_method, payment_type, product_ids, product_list, purchase_id, purchase_reason, purchase_source_id, purchase_source_name, purchase_source_type, purchase_status, region, retailer, shipping_company, shipping_cost, shipping_country, shipping_type, source, total_price, total_price_local_currency, total_quantity, voucher_code
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "purchase",
   "properties": {
@@ -16589,7 +16635,7 @@ exponea.track('parcel_insert', {
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"purchase","properties":{"browser":"string","currency":"string","device":"string","has_voucher":"string","is_gift":"string","is_sample":"string","local_currency":"string","location":"string","os":"string","payment_method":"string","payment_type":"string","product_ids":"string","product_list":"string","purchase_id":"string","purchase_reason":"string","purchase_source_id":"string","purchase_source_name":"string","purchase_source_type":"string","purchase_status":"success","region":"string","retailer":"string","shipping_company":"string","shipping_cost":123,"shipping_country":"string","shipping_type":"string","source":"string","total_price":123,"total_price_local_currency":"string","total_quantity":1,"voucher_code":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"purchase","properties":{"browser":"string","currency":"string","device":"string","has_voucher":"string","is_gift":"string","is_sample":"string","local_currency":"string","location":"string","os":"string","payment_method":"string","payment_type":"string","product_ids":"string","product_list":"string","purchase_id":"string","purchase_reason":"string","purchase_source_id":"string","purchase_source_name":"string","purchase_source_type":"string","purchase_status":"success","region":"string","retailer":"string","shipping_company":"string","shipping_cost":123,"shipping_country":"string","shipping_type":"string","source":"string","total_price":123,"total_price_local_currency":"string","total_quantity":1,"voucher_code":"string"}}'",
         "web_sdk": "",
         "web_sdk_legacy": "",
       },
@@ -17591,11 +17637,12 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
         "note": "Tracked server-side through the Tracking API (purchase, purchase_item, refunds and consent are not sent from the browser), so there is no client snippet.",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: brand, category_level_1, category_level_2, category_level_3, color, is_new, price, product_id, purchase_id, purchase_source_type, purchase_status, quantity, size, title
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: brand, category_level_1, category_level_2, category_level_3, color, is_new, price, product_id, purchase_id, purchase_source_type, purchase_status, quantity, size, title
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "purchase_item",
   "properties": {
@@ -17620,7 +17667,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"purchase_item","properties":{"brand":"string","category_level_1":"string","category_level_2":"string","category_level_3":"string","color":"string","is_new":"string","price":123,"product_id":"string","purchase_id":"string","purchase_source_type":"string","purchase_status":"string","quantity":123,"size":"string","title":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"purchase_item","properties":{"brand":"string","category_level_1":"string","category_level_2":"string","category_level_3":"string","color":"string","is_new":"string","price":123,"product_id":"string","purchase_id":"string","purchase_source_type":"string","purchase_status":"string","quantity":123,"size":"string","title":"string"}}'",
         "web_sdk": "",
         "web_sdk_legacy": "",
       },
@@ -18272,7 +18319,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "qbr_metrics", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('qbr_metrics', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('qbr_metrics', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -18284,16 +18331,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "qbr_metrics", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('qbr_metrics', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('qbr_metrics', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: qbr_active_database_news_info, qbr_active_news, qbr_CLTV, qbr_conversion_news_info_subscribers, qbr_conversion_newsletter_subscribers, qbr_inactive, qbr_inactive_database_news_info, qbr_one_time_shoppers, qbr_revenue_automated_emails, qbr_revenue_emails_last_click, qbr_revenue_newsletters, qbr_revenue_web_layer, qbr_subscribed, qbr_subscribed_news_info, qbr_three_time+_shoppers, qbr_two_time_shoppers, qbr_ucr_automated_emails, qbr_ucr_newsletters, qbr_ucr_web_layer, qbr_unsubscribed, qbr_unsubscribed_news_info, timestamp_tracked
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: qbr_active_database_news_info, qbr_active_news, qbr_CLTV, qbr_conversion_news_info_subscribers, qbr_conversion_newsletter_subscribers, qbr_inactive, qbr_inactive_database_news_info, qbr_one_time_shoppers, qbr_revenue_automated_emails, qbr_revenue_emails_last_click, qbr_revenue_newsletters, qbr_revenue_web_layer, qbr_subscribed, qbr_subscribed_news_info, qbr_three_time+_shoppers, qbr_two_time_shoppers, qbr_ucr_automated_emails, qbr_ucr_newsletters, qbr_ucr_web_layer, qbr_unsubscribed, qbr_unsubscribed_news_info, timestamp_tracked
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "qbr_metrics",
   "properties": {
@@ -18326,9 +18374,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"qbr_metrics","properties":{"qbr_active_database_news_info":123,"qbr_active_news":123,"qbr_CLTV":123,"qbr_conversion_news_info_subscribers":123,"qbr_conversion_newsletter_subscribers":123,"qbr_inactive":123,"qbr_inactive_database_news_info":123,"qbr_one_time_shoppers":123,"qbr_revenue_automated_emails":123,"qbr_revenue_emails_last_click":123,"qbr_revenue_newsletters":123,"qbr_revenue_web_layer":123,"qbr_subscribed":123,"qbr_subscribed_news_info":123,"qbr_three_time+_shoppers":123,"qbr_two_time_shoppers":123,"qbr_ucr_automated_emails":123,"qbr_ucr_newsletters":123,"qbr_ucr_web_layer":123,"qbr_unsubscribed":123,"qbr_unsubscribed_news_info":123,"timestamp_tracked":123}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"qbr_metrics","properties":{"qbr_active_database_news_info":123,"qbr_active_news":123,"qbr_CLTV":123,"qbr_conversion_news_info_subscribers":123,"qbr_conversion_newsletter_subscribers":123,"qbr_inactive":123,"qbr_inactive_database_news_info":123,"qbr_one_time_shoppers":123,"qbr_revenue_automated_emails":123,"qbr_revenue_emails_last_click":123,"qbr_revenue_newsletters":123,"qbr_revenue_web_layer":123,"qbr_subscribed":123,"qbr_subscribed_news_info":123,"qbr_three_time+_shoppers":123,"qbr_two_time_shoppers":123,"qbr_ucr_automated_emails":123,"qbr_ucr_newsletters":123,"qbr_ucr_web_layer":123,"qbr_unsubscribed":123,"qbr_unsubscribed_news_info":123,"timestamp_tracked":123}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('qbr_metrics', {
+brweb.track('qbr_metrics', {
   // Optional:
   qbr_active_database_news_info: 123,
   qbr_active_news: 123,
@@ -19105,7 +19153,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "received_referee_reward", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('received_referee_reward', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('received_referee_reward', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -19117,16 +19165,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "received_referee_reward", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('received_referee_reward', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('received_referee_reward', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: call_to_action_url, campaign_name, coupon_code, coupon_expiry, currency_symbol, email, experiment_name, firstname, fulfilled_by, locale_code, offer_call_to_action_copy, offer_name, offer_subject_copy, offer_terms_url, offer_type, referee_reward, referrer_first_name, referrer_last_name, referrer_reward, reward_amount, reward_type, source, surname
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: call_to_action_url, campaign_name, coupon_code, coupon_expiry, currency_symbol, email, experiment_name, firstname, fulfilled_by, locale_code, offer_call_to_action_copy, offer_name, offer_subject_copy, offer_terms_url, offer_type, referee_reward, referrer_first_name, referrer_last_name, referrer_reward, reward_amount, reward_type, source, surname
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "received_referee_reward",
   "properties": {
@@ -19160,9 +19209,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"received_referee_reward","properties":{"call_to_action_url":"string","campaign_name":"string","coupon_code":"string","coupon_expiry":"string","currency_symbol":"string","email":"string","experiment_name":"string","firstname":"string","fulfilled_by":"string","locale_code":"string","offer_call_to_action_copy":"string","offer_name":"string","offer_subject_copy":"string","offer_terms_url":"string","offer_type":"string","referee_reward":"string","referrer_first_name":"string","referrer_last_name":"string","referrer_reward":"string","reward_amount":123,"reward_type":"string","source":"string","surname":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"received_referee_reward","properties":{"call_to_action_url":"string","campaign_name":"string","coupon_code":"string","coupon_expiry":"string","currency_symbol":"string","email":"string","experiment_name":"string","firstname":"string","fulfilled_by":"string","locale_code":"string","offer_call_to_action_copy":"string","offer_name":"string","offer_subject_copy":"string","offer_terms_url":"string","offer_type":"string","referee_reward":"string","referrer_first_name":"string","referrer_last_name":"string","referrer_reward":"string","reward_amount":123,"reward_type":"string","source":"string","surname":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('received_referee_reward', {
+brweb.track('received_referee_reward', {
   // Optional:
   call_to_action_url: 'string',
   campaign_name: 'string',
@@ -19916,7 +19965,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "received_referrer_reward", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('received_referrer_reward', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('received_referrer_reward', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -19928,16 +19977,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "received_referrer_reward", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('received_referrer_reward', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('received_referrer_reward', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: call_to_action_url, campaign_name, coupon_code, coupon_expiry, currency_symbol, email, experiment_name, firstname, fulfilled_by, locale_code, offer_call_to_action_copy, offer_name, offer_subject_copy, offer_terms_url, offer_type, referee_first_name, referee_last_name, referee_reward, referrer_reward, reward_amount, reward_type, source, surname
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: call_to_action_url, campaign_name, coupon_code, coupon_expiry, currency_symbol, email, experiment_name, firstname, fulfilled_by, locale_code, offer_call_to_action_copy, offer_name, offer_subject_copy, offer_terms_url, offer_type, referee_first_name, referee_last_name, referee_reward, referrer_reward, reward_amount, reward_type, source, surname
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "received_referrer_reward",
   "properties": {
@@ -19971,9 +20021,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"received_referrer_reward","properties":{"call_to_action_url":"string","campaign_name":"string","coupon_code":"string","coupon_expiry":"string","currency_symbol":"string","email":"string","experiment_name":"string","firstname":"string","fulfilled_by":"string","locale_code":"string","offer_call_to_action_copy":"string","offer_name":"string","offer_subject_copy":"string","offer_terms_url":"string","offer_type":"string","referee_first_name":"string","referee_last_name":"string","referee_reward":"string","referrer_reward":"string","reward_amount":123,"reward_type":"string","source":"string","surname":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"received_referrer_reward","properties":{"call_to_action_url":"string","campaign_name":"string","coupon_code":"string","coupon_expiry":"string","currency_symbol":"string","email":"string","experiment_name":"string","firstname":"string","fulfilled_by":"string","locale_code":"string","offer_call_to_action_copy":"string","offer_name":"string","offer_subject_copy":"string","offer_terms_url":"string","offer_type":"string","referee_first_name":"string","referee_last_name":"string","referee_reward":"string","referrer_reward":"string","reward_amount":123,"reward_type":"string","source":"string","surname":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('received_referrer_reward', {
+brweb.track('received_referrer_reward', {
   // Optional:
   call_to_action_url: 'string',
   campaign_name: 'string',
@@ -20683,7 +20733,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "received_reward_next_order", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('received_reward_next_order', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('received_reward_next_order', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -20695,16 +20745,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "received_reward_next_order", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('received_reward_next_order', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('received_reward_next_order', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: call_to_action_url
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: call_to_action_url
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "received_reward_next_order",
   "properties": {
@@ -20716,9 +20767,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"received_reward_next_order","properties":{"call_to_action_url":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"received_reward_next_order","properties":{"call_to_action_url":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('received_reward_next_order', {
+brweb.track('received_reward_next_order', {
   // Optional:
   call_to_action_url: 'string',
 });",
@@ -20932,7 +20983,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "registered_as_referee", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('registered_as_referee', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('registered_as_referee', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -20944,16 +20995,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "registered_as_referee", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('registered_as_referee', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('registered_as_referee', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: campaign_name, email, experiment_name, firstname, fulfilled_by, locale_code, offer_call_to_action_copy, offer_name, offer_subject_copy, offer_type, referee_reward, referrer_reward, reward_amount, reward_type, share_source, source, surname
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: campaign_name, email, experiment_name, firstname, fulfilled_by, locale_code, offer_call_to_action_copy, offer_name, offer_subject_copy, offer_type, referee_reward, referrer_reward, reward_amount, reward_type, share_source, source, surname
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "registered_as_referee",
   "properties": {
@@ -20981,9 +21033,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"registered_as_referee","properties":{"campaign_name":"string","email":"string","experiment_name":"string","firstname":"string","fulfilled_by":"string","locale_code":"string","offer_call_to_action_copy":"string","offer_name":"string","offer_subject_copy":"string","offer_type":"string","referee_reward":"string","referrer_reward":"string","reward_amount":123,"reward_type":"string","share_source":"string","source":"string","surname":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"registered_as_referee","properties":{"campaign_name":"string","email":"string","experiment_name":"string","firstname":"string","fulfilled_by":"string","locale_code":"string","offer_call_to_action_copy":"string","offer_name":"string","offer_subject_copy":"string","offer_type":"string","referee_reward":"string","referrer_reward":"string","reward_amount":123,"reward_type":"string","share_source":"string","source":"string","surname":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('registered_as_referee', {
+brweb.track('registered_as_referee', {
   // Optional:
   campaign_name: 'string',
   email: 'string',
@@ -21579,7 +21631,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "registered_as_referrer", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('registered_as_referrer', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('registered_as_referrer', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -21591,16 +21643,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "registered_as_referrer", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('registered_as_referrer', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('registered_as_referrer', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: campaign_name, customer_segment, dashboard_link, email, experiment_name, firstname, locale_code, offer_call_to_action_copy, offer_name, offer_subject_copy, offer_type, referee_reward, referrer_reward, share_link, source, surname
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: campaign_name, customer_segment, dashboard_link, email, experiment_name, firstname, locale_code, offer_call_to_action_copy, offer_name, offer_subject_copy, offer_type, referee_reward, referrer_reward, share_link, source, surname
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "registered_as_referrer",
   "properties": {
@@ -21627,9 +21680,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"registered_as_referrer","properties":{"campaign_name":"string","customer_segment":"string","dashboard_link":"string","email":"string","experiment_name":"string","firstname":"string","locale_code":"string","offer_call_to_action_copy":"string","offer_name":"string","offer_subject_copy":"string","offer_type":"string","referee_reward":"string","referrer_reward":"string","share_link":"string","source":"string","surname":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"registered_as_referrer","properties":{"campaign_name":"string","customer_segment":"string","dashboard_link":"string","email":"string","experiment_name":"string","firstname":"string","locale_code":"string","offer_call_to_action_copy":"string","offer_name":"string","offer_subject_copy":"string","offer_type":"string","referee_reward":"string","referrer_reward":"string","share_link":"string","source":"string","surname":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('registered_as_referrer', {
+brweb.track('registered_as_referrer', {
   // Optional:
   campaign_name: 'string',
   customer_segment: 'string',
@@ -22185,7 +22238,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "registration", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('registration', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('registration', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -22197,16 +22250,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "registration", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('registration', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('registration', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: browser, device, email, email_opt_in, first_name, last_name, location, os
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: browser, device, email, email_opt_in, first_name, last_name, location, os
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "registration",
   "properties": {
@@ -22225,9 +22279,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"registration","properties":{"browser":"string","device":"string","email":"string","email_opt_in":true,"first_name":"string","last_name":"string","location":"string","os":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"registration","properties":{"browser":"string","device":"string","email":"string","email_opt_in":true,"first_name":"string","last_name":"string","location":"string","os":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('registration', {
+brweb.track('registration', {
   // Optional:
   browser: 'string',
   device: 'string',
@@ -22554,6 +22608,13 @@ window.dataLayer.push({
       return_reason: 'string',
       title: 'string',
     },
+    // Recommended practice: one entry per variant line (product_id plus variant_id), the whole
+    // collection after the action; product_ids/variant_ids and the *_list values are computed from it.
+    items: [
+      {
+        product_id: 'string',
+      },
+    ],
   },
 });",
         "gtm": "// E3's recommended practice (D-63): one namespaced 'bloomreach' object on the site's existing
@@ -22573,6 +22634,13 @@ window.dataLayer.push({
       return_reason: 'string',
       title: 'string',
     },
+    // Recommended practice: one entry per variant line (product_id plus variant_id), the whole
+    // collection after the action; product_ids/variant_ids and the *_list values are computed from it.
+    items: [
+      {
+        product_id: 'string',
+      },
+    ],
   },
 });
 
@@ -22586,7 +22654,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "return", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('return', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('return', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -22598,16 +22666,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "return", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('return', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('return', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: price, product_id, purchase_status, return_reason, title
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: price, product_id, purchase_status, return_reason, title
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "return",
   "properties": {
@@ -22623,9 +22692,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"return","properties":{"price":123,"product_id":"string","purchase_status":"string","return_reason":"string","title":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"return","properties":{"price":123,"product_id":"string","purchase_status":"string","return_reason":"string","title":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('return', {
+brweb.track('return', {
   // Optional:
   price: 123,
   product_id: 'string',
@@ -22946,7 +23015,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "sample", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('sample', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('sample', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -22958,16 +23027,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "sample", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('sample', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('sample', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: order_date, packed_date, purchase_id, sample_name, sku_id
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: order_date, packed_date, purchase_id, sample_name, sku_id
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "sample",
   "properties": {
@@ -22983,9 +23053,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"sample","properties":{"order_date":"string","packed_date":123,"purchase_id":"string","sample_name":"string","sku_id":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"sample","properties":{"order_date":"string","packed_date":123,"purchase_id":"string","sample_name":"string","sku_id":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('sample', {
+brweb.track('sample', {
   // Optional:
   order_date: 'string',
   packed_date: 123,
@@ -23331,7 +23401,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "shipment", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('shipment', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('shipment', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -23343,16 +23413,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "shipment", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('shipment', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('shipment', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: delivery_date, purchase_date, purchase_id, purchase_status, shipment_status, shipping_city, shipping_cost, shipping_country, shipping_date, shipping_postal_code, shipping_type
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: delivery_date, purchase_date, purchase_id, purchase_status, shipment_status, shipping_city, shipping_cost, shipping_country, shipping_date, shipping_postal_code, shipping_type
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "shipment",
   "properties": {
@@ -23374,9 +23445,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"shipment","properties":{"delivery_date":"string","purchase_date":"string","purchase_id":"string","purchase_status":"string","shipment_status":"string","shipping_city":"string","shipping_cost":123,"shipping_country":"string","shipping_date":"string","shipping_postal_code":123,"shipping_type":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"shipment","properties":{"delivery_date":"string","purchase_date":"string","purchase_id":"string","purchase_status":"string","shipment_status":"string","shipping_city":"string","shipping_cost":123,"shipping_country":"string","shipping_date":"string","shipping_postal_code":123,"shipping_type":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('shipment', {
+brweb.track('shipment', {
   // Optional:
   delivery_date: 'string',
   purchase_date: 'string',
@@ -23834,7 +23905,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "store_visit", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('store_visit', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('store_visit', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -23846,16 +23917,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "store_visit", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('store_visit', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('store_visit', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: city, country, store
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: city, country, store
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "store_visit",
   "properties": {
@@ -23869,9 +23941,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"store_visit","properties":{"city":"string","country":"string","store":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"store_visit","properties":{"city":"string","country":"string","store":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('store_visit', {
+brweb.track('store_visit', {
   // Optional:
   city: 'string',
   country: 'string',
@@ -24093,7 +24165,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "submitted_nps_score", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('submitted_nps_score', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('submitted_nps_score', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -24105,14 +24177,14 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "submitted_nps_score", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('submitted_nps_score', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('submitted_nps_score', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
         "tracking_api": "{
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "submitted_nps_score"
 }
@@ -24121,9 +24193,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"submitted_nps_score"}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"submitted_nps_score"}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('submitted_nps_score', {
+brweb.track('submitted_nps_score', {
 });",
         "web_sdk_legacy": "// Final payload, as brPayload produces it from the dataLayer object.
 exponea.track('submitted_nps_score', {
@@ -24292,7 +24364,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "survey_all", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('survey_all', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('survey_all', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -24304,16 +24376,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "survey_all", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('survey_all', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('survey_all', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: answers, browser, device, first_name, location, os, survey_id, survey_name
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: answers, browser, device, first_name, location, os, survey_id, survey_name
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "survey_all",
   "properties": {
@@ -24332,9 +24405,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"survey_all","properties":{"answers":[],"browser":"string","device":"string","first_name":"string","location":"string","os":"string","survey_id":"string","survey_name":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"survey_all","properties":{"answers":[],"browser":"string","device":"string","first_name":"string","location":"string","os":"string","survey_id":"string","survey_name":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('survey_all', {
+brweb.track('survey_all', {
   // Optional:
   answers: [],
   browser: 'string',
@@ -24694,7 +24767,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "survey_all_test", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('survey_all_test', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('survey_all_test', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -24706,16 +24779,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "survey_all_test", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('survey_all_test', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('survey_all_test', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: browser, device, location, os, survey_id, survey_name
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: browser, device, location, os, survey_id, survey_name
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "survey_all_test",
   "properties": {
@@ -24732,9 +24806,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"survey_all_test","properties":{"browser":"string","device":"string","location":"string","os":"string","survey_id":"string","survey_name":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"survey_all_test","properties":{"browser":"string","device":"string","location":"string","os":"string","survey_id":"string","survey_name":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('survey_all_test', {
+brweb.track('survey_all_test', {
   // Optional:
   browser: 'string',
   device: 'string',
@@ -25036,7 +25110,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "survey_data", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('survey_data', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('survey_data', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -25048,16 +25122,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "survey_data", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('survey_data', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('survey_data', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: property1
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: property1
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "survey_data",
   "properties": {
@@ -25069,9 +25144,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"survey_data","properties":{"property1":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"survey_data","properties":{"property1":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('survey_data', {
+brweb.track('survey_data', {
   // Optional:
   property1: 'string',
 });",
@@ -25257,7 +25332,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "test", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('test', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('test', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -25269,16 +25344,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "test", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('test', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('test', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: application_id, device_id, test
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: application_id, device_id, test
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "test",
   "properties": {
@@ -25292,9 +25368,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"test","properties":{"application_id":"string","device_id":"string","test":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"test","properties":{"application_id":"string","device_id":"string","test":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('test', {
+brweb.track('test', {
   // Optional:
   application_id: 'string',
   device_id: 'string',
@@ -25538,7 +25614,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "ticket_order", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('ticket_order', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('ticket_order', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -25550,16 +25626,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "ticket_order", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('ticket_order', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('ticket_order', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: barcode, email, event_id, event_name, first_name, last_name, order_id, status
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: barcode, email, event_id, event_name, first_name, last_name, order_id, status
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "ticket_order",
   "properties": {
@@ -25578,9 +25655,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"ticket_order","properties":{"barcode":"string","email":"string","event_id":"string","event_name":"string","first_name":"string","last_name":"string","order_id":"string","status":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"ticket_order","properties":{"barcode":"string","email":"string","event_id":"string","event_name":"string","first_name":"string","last_name":"string","order_id":"string","status":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('ticket_order', {
+brweb.track('ticket_order', {
   // Optional:
   barcode: 'string',
   email: 'string',
@@ -25950,7 +26027,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "ticket_registration", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('ticket_registration', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('ticket_registration', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -25962,16 +26039,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "ticket_registration", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('ticket_registration', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('ticket_registration', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: barcode, delivery_method, email, event_end, event_id, event_name, event_start, first_name, last_name, order_id, ticket_class
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: barcode, delivery_method, email, event_end, event_id, event_name, event_start, first_name, last_name, order_id, ticket_class
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "ticket_registration",
   "properties": {
@@ -25993,9 +26071,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"ticket_registration","properties":{"barcode":"string","delivery_method":"string","email":"string","event_end":"string","event_id":"string","event_name":"string","event_start":"string","first_name":"string","last_name":"string","order_id":"string","ticket_class":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"ticket_registration","properties":{"barcode":"string","delivery_method":"string","email":"string","event_end":"string","event_id":"string","event_name":"string","event_start":"string","first_name":"string","last_name":"string","order_id":"string","ticket_class":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('ticket_registration', {
+brweb.track('ticket_registration', {
   // Optional:
   barcode: 'string',
   delivery_method: 'string',
@@ -26425,7 +26503,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "trigger_push", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('trigger_push', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('trigger_push', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -26437,16 +26515,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "trigger_push", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('trigger_push', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('trigger_push', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: browser, device, location, os, source
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: browser, device, location, os, source
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "trigger_push",
   "properties": {
@@ -26462,9 +26541,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"trigger_push","properties":{"browser":"string","device":"string","location":"string","os":"string","source":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"trigger_push","properties":{"browser":"string","device":"string","location":"string","os":"string","source":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('trigger_push', {
+brweb.track('trigger_push', {
   // Optional:
   browser: 'string',
   device: 'string',
@@ -26756,7 +26835,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "user_active", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('user_active', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('user_active', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -26768,16 +26847,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "user_active", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('user_active', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('user_active', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: browser, device, duration, end_client_timestamp, location, now_client_timestamp, os, start_client_timestamp
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: browser, device, duration, end_client_timestamp, location, now_client_timestamp, os, start_client_timestamp
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "user_active",
   "properties": {
@@ -26796,9 +26876,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"user_active","properties":{"browser":"string","device":"string","duration":123,"end_client_timestamp":123,"location":"string","now_client_timestamp":123,"os":"string","start_client_timestamp":123}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"user_active","properties":{"browser":"string","device":"string","duration":123,"end_client_timestamp":123,"location":"string","now_client_timestamp":123,"os":"string","start_client_timestamp":123}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('user_active', {
+brweb.track('user_active', {
   // Optional:
   browser: 'string',
   device: 'string',
@@ -27152,7 +27232,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "view_category", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('view_category', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('view_category', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -27164,16 +27244,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "view_category", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('view_category', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('view_category', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: category_level_1, category_level_2, category_level_3, category_name
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: category_level_1, category_level_2, category_level_3, category_name
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "view_category",
   "properties": {
@@ -27188,9 +27269,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"view_category","properties":{"category_level_1":"string","category_level_2":"string","category_level_3":"string","category_name":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"view_category","properties":{"category_level_1":"string","category_level_2":"string","category_level_3":"string","category_name":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('view_category', {
+brweb.track('view_category', {
   // Optional:
   category_level_1: 'string',
   category_level_2: 'string',
@@ -27404,6 +27485,13 @@ window.dataLayer.push({
       stock_level: 123,
       title: 'string',
     },
+    // Recommended practice: one entry per variant line (product_id plus variant_id), the whole
+    // collection after the action; product_ids/variant_ids and the *_list values are computed from it.
+    items: [
+      {
+        product_id: 'string',
+      },
+    ],
   },
 });",
         "gtm": "// E3's recommended practice (D-63): one namespaced 'bloomreach' object on the site's existing
@@ -27426,6 +27514,13 @@ window.dataLayer.push({
       stock_level: 123,
       title: 'string',
     },
+    // Recommended practice: one entry per variant line (product_id plus variant_id), the whole
+    // collection after the action; product_ids/variant_ids and the *_list values are computed from it.
+    items: [
+      {
+        product_id: 'string',
+      },
+    ],
   },
 });
 
@@ -27439,7 +27534,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "view_item", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('view_item', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('view_item', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -27451,16 +27546,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "view_item", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('view_item', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('view_item', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: brand, category_level_1, category_level_2, category_level_3, price, product_id, stock_level, title
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: brand, category_level_1, category_level_2, category_level_3, price, product_id, stock_level, title
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "view_item",
   "properties": {
@@ -27479,9 +27575,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"view_item","properties":{"brand":"string","category_level_1":"string","category_level_2":"string","category_level_3":"string","price":123,"product_id":"string","stock_level":123,"title":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"view_item","properties":{"brand":"string","category_level_1":"string","category_level_2":"string","category_level_3":"string","price":123,"product_id":"string","stock_level":123,"title":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('view_item', {
+brweb.track('view_item', {
   // Optional:
   brand: 'string',
   category_level_1: 'string',
@@ -27928,7 +28024,7 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "voucher_notification", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('voucher_notification', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('voucher_notification', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "gtm_template": "// E3 shared transformation, version 1. A fixed artefact: do not edit per client.
 // Ships as the E3 GTM custom template and as this JS helper.
@@ -27940,16 +28036,17 @@ var BR_RULES = [];
 // GTM custom template setup
 //  1. Trigger: Custom Event "voucher_notification", fires only when the Data Layer Variable "bloomreach" is defined.
 //  2. Tag: the E3 Bloomreach tag (custom template) reads the Data Layer Variable "bloomreach".
-//  3. The tag calls the Web SDK: bloomreach.track('voucher_notification', brPayload(dataLayer.bloomreach, BR_RULES));
+//  3. The tag calls the Web SDK: brweb.track('voucher_notification', brPayload(dataLayer.bloomreach, BR_RULES));
 //  4. One tag serves every event (it reads bloomreach.event); only the trigger differs per site event.",
         "note": "",
         "sdk_default_properties": "",
         "sdk_emits": "",
-        "tracking_api": "// Optional properties: available, pool name, threshold, total
+        "tracking_api": "// customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview
+// Optional properties: available, pool name, threshold, total
 
 {
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "voucher_notification",
   "properties": {
@@ -27964,9 +28061,9 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"voucher_notification","properties":{"available":"string","pool name":"string","threshold":"string","total":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"voucher_notification","properties":{"available":"string","pool name":"string","threshold":"string","total":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
-bloomreach.track('voucher_notification', {
+brweb.track('voucher_notification', {
   // Optional:
   available: 'string',
   pool name: 'string',
@@ -28213,7 +28310,7 @@ exponea.track('voucher_notification', {
         "sdk_emits": "",
         "tracking_api": "{
   "customer_ids": {
-    "registered": "<customer_id>"
+    "<hard_id>": "<customer_id>"
   },
   "event_type": "consent"
 }
@@ -28222,7 +28319,7 @@ exponea.track('voucher_notification', {
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"registered":"<customer_id>"},"event_type":"consent"}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"consent"}'",
         "web_sdk": "",
         "web_sdk_legacy": "",
       },

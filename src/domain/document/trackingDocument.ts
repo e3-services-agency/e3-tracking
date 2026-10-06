@@ -221,7 +221,7 @@ export interface EventCardQuality {
 export interface EventCardCodegen {
   /** `datalayer` + `gtm_template` (D-63: was the flat dataLayer push before T-4-17). */
   gtm: string;
-  /** New Web SDK, `bloomreach.track(event, payload)` (D-63). */
+  /** New Web SDK, `brweb.track(event, payload)` (D-63). */
   web_sdk: string;
   tracking_api: string;
   /** D-63 (T-4-17), additive; empty string when not applicable for the event's implementation method. */

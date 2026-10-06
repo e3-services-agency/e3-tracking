@@ -120,11 +120,14 @@ describe('event card codegen per implementation method', () => {
     expect(c.datalayer).toContain('Computed by brPayload from items: product_ids, product_list, total_price');
     expect(c.gtm).toBe(`${c.datalayer}\n\n${c.gtm_template}`);
     expect(c.gtm_template).toContain('function brPayload(br, rules)');
-    expect(c.web_sdk).toContain("bloomreach.track('add_to_wishlist', {");
+    expect(c.web_sdk).toContain("brweb.track('add_to_wishlist', {");
     expect(c.web_sdk).toContain("  product_ids: ['15062099820869'],");
     expect(c.web_sdk_legacy).toContain("exponea.track('add_to_wishlist', {");
     expect(c.tracking_api).toContain('"product_ids": [\n      "15062099820869"\n    ]');
     expect(c.tracking_api).toContain('"total_price": 123');
+    // T-4-23: no hard id configured: placeholder key plus the explanatory comment.
+    expect(c.tracking_api).toContain('"<hard_id>": "<customer_id>"');
+    expect(c.tracking_api).toContain("customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview");
     expect(c.sdk_emits).toBe('');
     expect(c.note).toBe('');
   });
@@ -163,7 +166,7 @@ describe('event name overrides (L4)', () => {
     expect(c.datalayer).toContain("    event: 'sdk_name',");
     expect(c.datalayer).toContain("  event: 'add_to_wishlist',");
     expect(c.datalayer).not.toContain('dl_name');
-    expect(c.gtm_template).toContain("bloomreach.track('sdk_name'");
+    expect(c.gtm_template).toContain("brweb.track('sdk_name'");
   });
 });
 

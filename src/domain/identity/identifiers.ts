@@ -83,7 +83,8 @@ export function effectiveEventIdentifiers(
   for (const rule of rules) {
     if (wanted.has(rule.identifier_name) && !out.includes(rule.identifier_name)) out.push(rule.identifier_name);
   }
-  return out;
+  // Every explicit name was renamed or deleted: the stale override carries nothing, so use the default.
+  return out.length > 0 ? out : deriveEventIdentifiers(event, rules, sources);
 }
 
 /** The rule's source with its display label ("Shopify via GTM data layer"). */

@@ -167,3 +167,19 @@ export function filterMatrixRows<R extends MatrixRowLike>(rows: R[], filter: Mat
     return true;
   });
 }
+
+/** T-4-27: how a matrix cell renders. R = solid pill, O = outlined pill, anything else = faint dot. */
+export type MatrixCellBadgeKind = 'required' | 'optional' | 'none';
+export interface MatrixCellBadge {
+  kind: MatrixCellBadgeKind;
+  /** Visible text ('R' / 'O' / '·'). */
+  text: string;
+  /** Accessible name. */
+  label: string;
+}
+
+export function matrixCellBadge(level: string | null | undefined): MatrixCellBadge {
+  if (level === 'R') return { kind: 'required', text: 'R', label: 'Required' };
+  if (level === 'O') return { kind: 'optional', text: 'O', label: 'Optional' };
+  return { kind: 'none', text: '·', label: 'No requirement' };
+}

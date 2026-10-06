@@ -34,7 +34,7 @@ export function listIdentityRulesWithFlow(projectId: string): IdentityRuleWithFl
 }
 
 /** Identity rules plus the identifiers each standalone call binds, for the identity codegen (D-38, D-67 amendment 1). */
-export function listIdentityRulesForCodegen(projectId: string): (IdentityRuleDAL.IdentityRuleRow & { binds: string[]; standalone_on: string | null })[] {
+export function listIdentityRulesForCodegen(projectId: string): (IdentityRuleDAL.IdentityRuleRow & { binds: string[]; standalone_on: string | null; standalone_server: boolean })[] {
   const rules = IdentityRuleDAL.listIdentityRules(projectId);
   const byRule = new Map(getProjectIdentificationFlow(projectId).rules.map((r) => [r.rule_id, r]));
   return rules.map((rule) => {
@@ -43,6 +43,7 @@ export function listIdentityRulesForCodegen(projectId: string): (IdentityRuleDAL
       ...rule,
       binds: f?.binds ?? [],
       standalone_on: f?.set_by.kind === 'standalone_call' ? f.set_by.trigger_text : null,
+      standalone_server: f?.set_by.kind === 'standalone_call' && f.set_by.source?.method === 'tracking_api',
     };
   });
 }

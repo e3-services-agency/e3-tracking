@@ -223,3 +223,23 @@ describe('comparison 3: identifier_missing', () => {
     expect(findings()).toHaveLength(0);
   });
 });
+
+describe('identity codegen: standalone rules', () => {
+  it('emits a hard standalone rule once, not in the plain identify block', () => {
+    const web = SourceDAL.createSource(projectId, { name: 'Storefront', system: 'shopify', method: 'web_sdk_gtm_datalayer' });
+    IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'cookie', identity_type: 'soft', name: 'Cookie' });
+    IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'email_id', identity_type: 'hard', name: 'Email', sdk_call: 'identify', trigger_text: 'login', source_id: web.id });
+    const identify = buildIdentityCodegen(listIdentityRulesForCodegen(projectId), []).identify;
+    expect(identify.match(/exponea\.identify\(/g)).toHaveLength(1);
+    expect(identify).toContain('Standalone identify call on login');
+  });
+
+  it('a standalone rule on a Tracking API source gets the server-side form', () => {
+    const api = SourceDAL.createSource(projectId, { name: 'Order system', system: 'custom_backend', method: 'tracking_api' });
+    IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'cart_id', identity_type: 'soft', name: 'Cart', sdk_call: 'identify', trigger_text: 'checkout', source_id: api.id });
+    const identify = buildIdentityCodegen(listIdentityRulesForCodegen(projectId), []).identify;
+    expect(identify).not.toContain('exponea.identify({');
+    expect(identify).toContain('Tracking API');
+    expect(identify).toContain('customer_ids: { cart_id: cartId }');
+  });
+});

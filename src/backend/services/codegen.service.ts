@@ -692,6 +692,8 @@ export interface IdentityRuleForCodegen {
   binds?: string[];
   /** The page or moment the standalone call runs on (its trigger_text). */
   standalone_on?: string | null;
+  /** The standalone call's source collects through the Tracking API (a server-side call, not exponea.identify). */
+  standalone_server?: boolean;
 }
 
 /** Minimal shape `buildIdentityCodegen` needs from customer-scope `properties` rows. */
@@ -843,6 +845,13 @@ function buildStandaloneIdentifySnippet(rule: IdentityRuleForCodegen): string {
   const binds = rule.binds ?? [];
   const sent = binds.filter((b) => b !== 'cookie');
   const where = rule.standalone_on ? ` on ${rule.standalone_on}` : '';
+  if (rule.standalone_server) {
+    return [
+      `// Standalone server-side identification${where}: binds ${binds.join(', ')}`,
+      '// Send these as customer_ids with the Tracking API (POST /track/v2/projects/{project_token}/customers); there is no exponea.identify call.',
+      `// customer_ids: { ${sent.map((n) => `${formatObjectKey(n)}: ${toCamelCaseVariable(n)}`).join(', ')} }`,
+    ].join('\n');
+  }
   const lines = [`// Standalone identify call${where}: binds ${binds.join(', ')}`];
   if (binds.includes('cookie')) lines.push('// The cookie is bound by the SDK automatically.');
   lines.push('exponea.identify({');
@@ -862,11 +871,13 @@ export function buildIdentityCodegen(
   rules: IdentityRuleForCodegen[],
   customerProperties: CustomerPropertyForCodegen[]
 ): IdentityCodegenSnippets {
-  const hardRules = dedupeHardRulesByIdentifierName(rules.filter((r) => r.identity_type === 'hard'));
+  // A rule is a described standalone call only when it also records where it runs (its trigger text).
+  const isStandalone = (r: IdentityRuleForCodegen) => (r.binds ?? []).length > 0 && !!r.standalone_on;
+  const hardRules = dedupeHardRulesByIdentifierName(rules.filter((r) => r.identity_type === 'hard' && !isStandalone(r)));
   const anonymizeRules = rules.filter((r) => r.sdk_call === 'anonymize');
-  const standalone = rules.filter((r) => (r.binds ?? []).length > 0);
+  const standalone = rules.filter(isStandalone);
   return {
-    identify: [buildIdentifySnippet(hardRules), ...standalone.map(buildStandaloneIdentifySnippet)].join('\n\n'),
+    identify: [...(hardRules.length > 0 || standalone.length === 0 ? [buildIdentifySnippet(hardRules)] : []), ...standalone.map(buildStandaloneIdentifySnippet)].join('\n\n'),
     update: buildUpdateSnippet(customerProperties),
     anonymize: buildAnonymizeSnippet(anonymizeRules),
   };

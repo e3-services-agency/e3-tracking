@@ -19,6 +19,7 @@
 
   /* Product semantic tokens */
   --brand-primary: var(--e3-emerald); /* create/save/confirm */
+  --brand-primary-text: #06281E; /* readable text on a solid --brand-primary pill (T-4-27) */
   --brand-bloomreach: #FFD500; /* Bloomreach accent: sdk and platform class badges (T-4-19) */
   --brand-bloomreach-text: #1A1E38; /* readable text on --brand-bloomreach */
   --color-info: #0077E3; /* navigation / informational / interactive accents */

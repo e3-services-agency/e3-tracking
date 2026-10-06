@@ -1,4 +1,5 @@
 import { ClassBadge, SourceBadge, StatusBadge } from '@/src/components/ui/badges';
+import { ExpandChevron } from '@/src/components/ui/ExpandChevron';
 import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
 import { useDebouncedValue } from '@/src/hooks/useDebouncedValue';
 /**
@@ -301,6 +302,7 @@ export function Events() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
+                <th className="w-12 px-2 py-3"><span className="sr-only">Expand</span></th>
                 <SortableTh sort={sort} column="name" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'Events')}>Name</SortableTh>
                 <SortableTh sort={sort} column="class" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Class', 'Events')}>Class</SortableTh>
                 <SortableTh sort={sort} column="source" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Source', 'Events')}>Source</SortableTh>
@@ -318,19 +320,17 @@ export function Events() {
                 .map((ev) => (
                   <React.Fragment key={ev.id}>
                   <tr onClick={() => { setSelectedId(ev.id); setIsCreating(false); setIsSheetOpen(true); }} className="hover:bg-gray-50 cursor-pointer">
+                    <td className="w-12 px-2 py-2">
+                      {(variantsByEventId[ev.id] ?? []).length > 0 && (
+                        <ExpandChevron
+                          expanded={expandedEventIds.has(ev.id)}
+                          label={`${(variantsByEventId[ev.id] ?? []).length} variant(s): click to ${expandedEventIds.has(ev.id) ? 'collapse' : 'expand'}`}
+                          onToggle={() => toggleEventVariants(ev.id)}
+                        />
+                      )}
+                    </td>
                     <td className="px-6 py-4 font-medium text-gray-900">
                       <span className="inline-flex items-center gap-1.5">
-                        {(variantsByEventId[ev.id] ?? []).length > 0 && (
-                          <button
-                            type="button"
-                            aria-expanded={expandedEventIds.has(ev.id)}
-                            title={`${(variantsByEventId[ev.id] ?? []).length} variant(s): click to ${expandedEventIds.has(ev.id) ? 'collapse' : 'expand'}`}
-                            onClick={(e) => { e.stopPropagation(); toggleEventVariants(ev.id); }}
-                            className="text-xs text-gray-400 hover:text-gray-700"
-                          >
-                            {expandedEventIds.has(ev.id) ? '▾' : '▸'}
-                          </button>
-                        )}
                         {ev.name}<CopyNameButton name={ev.name} />
                       </span>
                     </td>
@@ -359,7 +359,8 @@ export function Events() {
                   {expandedEventIds.has(ev.id) &&
                     (variantsByEventId[ev.id] ?? []).map((v) => (
                       <tr key={v.id} className="bg-gray-50 text-xs text-gray-600">
-                        <td className="pl-12 pr-6 py-2" colSpan={7}>
+                        <td className="w-12" />
+                        <td className="px-6 py-2" colSpan={8}>
                           <span className="font-medium text-gray-800">{v.name}</span>
                           {v.description && <span className="ml-2 text-gray-500">{v.description}</span>}
                         </td>
@@ -369,7 +370,7 @@ export function Events() {
                 ))}
               {filteredEvents.length === 0 && events.length === 0 && (
                 <EmptyState
-                  colSpan={7}
+                  colSpan={9}
                   message="No events yet. Import a data mapping from the Import page, or add one by hand."
                   actionLabel="Add Event"
                   onAction={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }}
@@ -377,7 +378,7 @@ export function Events() {
               )}
               {filteredEvents.length === 0 && events.length > 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
                     No events match this filter.
                   </td>
                 </tr>

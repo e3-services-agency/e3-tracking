@@ -38,6 +38,10 @@ describe('effectiveEventIdentifiers', () => {
     const e = { ...server, identifiers_json: ['registered', 'cart_id', 'ghost'] };
     expect(effectiveEventIdentifiers(e, rules, sources)).toEqual(['registered', 'cart_id']);
   });
+  it('an explicit list that filters to nothing falls back to the derived default', () => {
+    const e = { ...server, identifiers_json: ['ghost'] };
+    expect(effectiveEventIdentifiers(e, rules, sources)).toEqual(['cart_id']);
+  });
   it('null or empty falls back to the derived default', () => {
     expect(effectiveEventIdentifiers({ ...server, identifiers_json: null }, rules, sources)).toEqual(['cart_id']);
     expect(effectiveEventIdentifiers({ ...server, identifiers_json: [] }, rules, sources)).toEqual(['cart_id']);

@@ -96,6 +96,7 @@ function buildEventsRows(projectId: string): CsvRow[] {
     class: e.class,
     implementation_method: e.implementation_method,
     dl_event_name: textCell(e.dl_event_name),
+    identifiers_json: textCell(e.identifiers_json ? JSON.stringify(e.identifiers_json) : null),
     category: textCell(e.category),
     status: e.status,
     certified: boolCell(certificationByEventId.get(e.id)?.certified ?? false),

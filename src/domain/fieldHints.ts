@@ -103,12 +103,15 @@ export const FIELD_HINTS: Record<string, string> = {
   'Identity type': 'hard = identifies a known customer (such as email); soft = a cookie or device id.',
   'SDK call': 'The SDK call that sets this identifier, for example identify.',
   'Trigger event': 'The event that fires when this identifier is learned.',
+  'Set by': 'The trigger event, or the standalone call with no event, that sets this identifier, and its source.',
+  'Carried by': 'The events that send this identifier in customer_ids.',
   'Trigger text': 'Plain-words description of when the identifier is learned.',
   Tracker: 'The system that records this identifier.',
   Transformations: 'How the raw value is cleaned before sending, for example lower-case and trim.',
   'Value rule': 'What a valid value looks like.',
   Example: 'An example value.',
   Source: 'The source that provides this data.',
+  Identifiers: 'The identity-rule identifiers this event sends in customer_ids. Derived from the implementation method and sources unless set by hand.',
 
   // QA runs
   'QaRuns.Kind': 'export_paste = pasted Bloomreach export; agent_session = an agent submitted observations; manual = typed by hand.',

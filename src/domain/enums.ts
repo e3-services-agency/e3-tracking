@@ -152,6 +152,20 @@ export const SOURCE_METHODS = [
 ] as const;
 export type SourceMethod = (typeof SOURCE_METHODS)[number];
 
+// ----- Source colour palette (D-68, T-4-28, migration 0030) -----
+// Tokens only; the colours live in `src/index.css` as `--source-1` .. `--source-8`.
+export const SOURCE_COLORS = [
+  'source-1',
+  'source-2',
+  'source-3',
+  'source-4',
+  'source-5',
+  'source-6',
+  'source-7',
+  'source-8',
+] as const;
+export type SourceColor = (typeof SOURCE_COLORS)[number];
+
 // ----- Expiration units -----
 export const EXPIRATION_UNITS = ['days', 'weeks', 'months', 'years'] as const;
 export type ExpirationUnit = (typeof EXPIRATION_UNITS)[number];
@@ -199,6 +213,8 @@ export const FINDING_KINDS = [
   'state_list_mismatch',
   // D-65 (T-4-22): a custom event or property name that does not follow the project's naming convention.
   'naming_violation',
+  // D-67 (T-4-28): an observed event lacks an identifier its definition carries in customer_ids.
+  'identifier_missing',
   // D-61 (T-4-11B): catalog checks (comparison catalogs).
   'catalog_searchable_limit',
   'catalog_searchable_changed',

@@ -30,6 +30,7 @@ import { dataLayerPath, parseDerivation } from '../../domain/codegen/derivation'
 import { getFileStore } from '../files/FileStore';
 import type { CodegenEventNameOverrides } from '../../types/schema';
 import { listIdentityRules } from '../dal/identity-rule.dal';
+import { getProjectIdentificationFlow, listIdentityRulesForCodegen } from './identification.service';
 import { listProperties, listPropertiesLookingUpCatalog } from '../dal/property.dal';
 import { listConsentCategories } from '../dal/consent-category.dal';
 import { listCatalogs, listCatalogFields } from '../dal/catalog.dal';
@@ -279,6 +280,7 @@ async function buildEventSectionHtml(
       <dt>Implementation method</dt><dd>${escapeHtml(event.implementation_method)}</dd>
       ${event.dl_event_name ? `<dt>dataLayer event</dt><dd>${escapeHtml(event.dl_event_name)}</dd>` : ''}
       ${card.sources && card.sources.length > 0 ? `<dt>Collected from</dt><dd>${escapeHtml(card.sources.map((s) => `${s.name} (${sourceViaLabel(s.system, s.method)})`).join('; '))}</dd>` : ''}
+      ${card.identifiers && card.identifiers.length > 0 ? `<dt>Identifiers</dt><dd>${escapeHtml(card.identifiers.join(', '))}${card.identifiers_derived ? ' (derived)' : ''}</dd>` : ''}
       <dt>Status</dt><dd>${escapeHtml(event.status)}</dd>
       ${event.page ? `<dt>Page</dt><dd>${escapeHtml(event.page)}</dd>` : ''}
       ${event.trigger_text ? `<dt>Trigger</dt><dd>${escapeHtml(event.trigger_text)}</dd>` : ''}
@@ -345,8 +347,11 @@ function buildIdentityAndConsentSectionsHtml(projectId: string, publicView: bool
   const eventNameById = new Map(listEvents(projectId).map((event) => [event.id, event.name]));
   const sourceNameById = new Map(listSources(projectId).map((source) => [source.id, source.name]));
 
+  const flow = getProjectIdentificationFlow(projectId);
+  const flowByRuleId = new Map(flow.rules.map((r) => [r.rule_id, r]));
   const rulesForDocs = rules.map((rule) => ({
     ...rule,
+    carried_by: (flowByRuleId.get(rule.id)?.carried_by ?? []).map((e) => e.name),
     // D-48 amendment (fix round, LOW 1): the shared HTML must not carry an identity rule's owner.
     owner: publicView ? null : rule.owner,
     transformations: rule.transformations_json,
@@ -354,10 +359,10 @@ function buildIdentityAndConsentSectionsHtml(projectId: string, publicView: bool
     source_name: rule.source_id ? sourceNameById.get(rule.source_id) ?? null : null,
   }));
   const customerProperties = listProperties(projectId, { scope: 'customer' });
-  const identityCodegen = buildIdentityCodegen(rules, customerProperties);
+  const identityCodegen = buildIdentityCodegen(listIdentityRulesForCodegen(projectId), customerProperties);
 
   return [
-    renderIdentityRulesSection(rulesForDocs),
+    renderIdentityRulesSection(rulesForDocs, flow.paragraph),
     renderIdentityCodegenSection(identityCodegen),
     renderConsentCategoriesSection(categories),
   ].join('\n');

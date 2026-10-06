@@ -5,6 +5,7 @@ import { Router, type Request, type Response } from 'express';
 import * as IdentityRuleDAL from '../dal/identity-rule.dal';
 import { buildIdentityCodegen } from '../services/codegen.service';
 import { listProperties } from '../dal/property.dal';
+import { getProjectIdentificationFlow, listIdentityRulesForCodegen, listIdentityRulesWithFlow } from '../services/identification.service';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -36,7 +37,16 @@ function inputFromBody(body: Record<string, unknown>): Partial<IdentityRuleDAL.I
 
 router.get('/', (req: Request, res: Response) => {
   try {
-    res.status(200).json(IdentityRuleDAL.listIdentityRules(req.projectId!));
+    res.status(200).json(listIdentityRulesWithFlow(req.projectId!));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+/** `GET .../flow` (D-67, T-4-28): the generated "Identification flow" paragraph plus per-rule set_by / carried_by. Before `/:id`. */
+router.get('/flow', (req: Request, res: Response) => {
+  try {
+    res.status(200).json(getProjectIdentificationFlow(req.projectId!));
   } catch (err) {
     handleRouteError(err, res);
   }
@@ -80,7 +90,7 @@ router.post('/', (req: Request, res: Response) => {
  */
 router.get('/codegen', (req: Request, res: Response) => {
   try {
-    const rules = IdentityRuleDAL.listIdentityRules(req.projectId!);
+    const rules = listIdentityRulesForCodegen(req.projectId!);
     const customerProperties = listProperties(req.projectId!, { scope: 'customer' });
     res.status(200).json(buildIdentityCodegen(rules, customerProperties));
   } catch (err) {

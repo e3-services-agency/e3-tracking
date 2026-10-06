@@ -36,6 +36,8 @@ import type { FindingsSummaryView } from '@/src/domain/document/findingsSummary'
 import { FindingTerm } from '@/src/components/ui/GlossaryTerm';
 import { FAMILY_INFO } from '@/src/domain/findingsCatalog';
 import { sourceViaLabel } from '@/src/domain/sources';
+import { SourceBadge } from '@/src/components/ui/badges';
+import { SetByCell } from '@/src/features/identity/SetByCell';
 import { catalogMarketLabel } from '@/src/domain/catalogs';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { API_BASE } from '@/src/config/env';
@@ -703,6 +705,9 @@ export function SharedProject({ token }: { token: string }) {
                               {expanded ? <ChevronDown size={16} className="shrink-0" /> : <ChevronRight size={16} className="shrink-0" />}
                               <span className="font-semibold text-gray-900 truncate">{event.name}</span>
                               <ClassBadge eventClass={event.class} className="shrink-0" />
+                              {(event.sources ?? []).map((s) => (
+                                <SourceBadge key={s.id} system={s.system} method={s.method} color={s.color} className="shrink-0" />
+                              ))}
                               <span className="shrink-0">
                                 <CertificationBadge certification={event.certification} compact />
                               </span>
@@ -943,8 +948,14 @@ export function SharedProject({ token }: { token: string }) {
 
           {present.identity && (
             <SectionCard id={SECTION_IDS.identity} title={`Identity rules (${doc.identity_rules.length})`}>
+              {doc.identification_flow && (
+                <div className="mb-3" data-testid="shared-identification-flow">
+                  <h3 className="text-sm font-semibold text-gray-900">Identification flow</h3>
+                  <p className="text-sm text-gray-700 mt-1">{doc.identification_flow}</p>
+                </div>
+              )}
               <SimpleTable
-                head={['Name', 'Identifier', 'Type', 'SDK call', 'Transformations', 'Trigger']}
+                head={['Name', 'Identifier', 'Type', 'SDK call', 'Transformations', 'Trigger', 'Set by', 'Carried by']}
                 rows={doc.identity_rules.map((r) => [
                   r.name,
                   r.identifier_name,
@@ -952,6 +963,8 @@ export function SharedProject({ token }: { token: string }) {
                   r.sdk_call ?? '—',
                   r.transformations.join(', ') || '—',
                   r.trigger_text ?? '—',
+                  <SetByCell key="sb" setBy={r.set_by} binds={r.binds} />,
+                  (r.carried_by ?? []).join(', ') || '—',
                 ])}
               />
             </SectionCard>

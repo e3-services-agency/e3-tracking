@@ -9,6 +9,7 @@ import guideProjects from '../../docs/guide/projects-and-clients.md?raw';
 import guideEvents from '../../docs/guide/events-and-properties.md?raw';
 import guideCatalogs from '../../docs/guide/catalogs.md?raw';
 import guideSharing from '../../docs/guide/sharing-and-access.md?raw';
+import guideIdentification from '../../docs/guide/identification.md?raw';
 import domainDoc from '../../docs/DOMAIN.md?raw';
 import exportsDoc from '../../docs/EXPORTS.md?raw';
 import qaLocalDoc from '../../docs/QA-LOCAL.md?raw';
@@ -37,6 +38,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
   { slug: 'events-and-properties', label: 'Events and properties', group: 'Guide', markdown: guideEvents },
   { slug: 'catalogs', label: 'Catalogs', group: 'Guide', markdown: guideCatalogs },
   { slug: 'sharing-and-access', label: 'Sharing and access', group: 'Guide', markdown: guideSharing },
+  { slug: 'identification', label: 'Identification and sources', group: 'Guide', markdown: guideIdentification },
   { slug: 'domain', label: 'Domain model', group: 'Reference', markdown: domainDoc },
   { slug: 'exports', label: 'Exports', group: 'Reference', markdown: exportsDoc },
   { slug: 'qa-local', label: 'Running QA locally', group: 'Reference', markdown: qaLocalDoc },

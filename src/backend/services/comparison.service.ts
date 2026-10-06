@@ -54,6 +54,9 @@ import * as FindingDAL from '../dal/finding.dal';
 import * as ConsentCategoryDAL from '../dal/consent-category.dal';
 import * as CatalogDAL from '../dal/catalog.dal';
 import * as RuleDAL from '../dal/rule.dal';
+import * as IdentityRuleDAL from '../dal/identity-rule.dal';
+import * as SourceDAL from '../dal/source.dal';
+import { effectiveEventIdentifiers } from '../../domain/identity/identifiers';
 import { createEventResolver } from './eventResolution';
 import {
   runDefinitionVsObservations,
@@ -104,6 +107,9 @@ export function buildDefinitionSnapshot(projectId: string): DefinitionSnapshot {
   // Fix round WARNING 3: one query for every definition in the project, reused for every event's
   // `getEventWithProperties` call below instead of one definition query per link.
   const definitionsById = PropertyDefinitionDAL.listAllDefinitionsById(projectId);
+  const identityRules = IdentityRuleDAL.listIdentityRules(projectId);
+  const allSources = SourceDAL.listSources(projectId);
+  const sourcesByEventId = SourceDAL.listEventSourcesByProject(projectId);
   const events: DefEvent[] = EventDAL.listEvents(projectId).map((event) => {
     const { properties } = EventDAL.getEventWithProperties(projectId, event.id, definitionsById);
     const defProperties: DefEventProperty[] = properties.map((link) => {
@@ -162,6 +168,11 @@ export function buildDefinitionSnapshot(projectId: string): DefinitionSnapshot {
       class: event.class,
       expiration: toExpirationBlock(event.expiration_json),
       properties: defProperties,
+      identifiers: effectiveEventIdentifiers(
+        { ...event, source_ids: (sourcesByEventId.get(event.id) ?? []).map((s) => s.id) },
+        identityRules,
+        allSources
+      ),
     };
   });
 
@@ -218,13 +229,18 @@ export function buildEngineObservations(
     if (resolution.event_id !== o.event_id || resolution.variant_id !== o.variant_id) {
       ObservationDAL.updateObservationResolution(projectId, o.id, resolution.event_id, resolution.variant_id);
     }
+    // D-67: an observation that records `customer_ids` (an object in its properties) is checked by
+    // comparison 3's identifier_missing; the object is not a property of the event itself.
+    const { customer_ids: rawIds, ...restProperties } = o.properties_json;
+    const hasIds = typeof rawIds === 'object' && rawIds !== null && !Array.isArray(rawIds);
     return {
       id: o.id,
       event_type: o.event_type,
       event_id: resolution.event_id,
       variant_id: resolution.variant_id,
       timestamp: o.timestamp,
-      properties: o.properties_json,
+      properties: hasIds ? restProperties : o.properties_json,
+      ...(hasIds ? { customer_ids: rawIds as Record<string, unknown> } : {}),
       run_kind: runs.get(o.qa_run_id)?.kind ?? 'manual',
     };
   });

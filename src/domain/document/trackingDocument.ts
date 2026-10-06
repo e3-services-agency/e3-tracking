@@ -242,6 +242,8 @@ export interface EventCardSource {
   name: string;
   system: string;
   method: string | null;
+  /** D-68 (T-4-28), additive: palette token (`source-1` .. `source-8`) the app shows the source in. */
+  color?: string | null;
 }
 
 export interface EventCard {
@@ -256,6 +258,10 @@ export interface EventCard {
   dl_event_name?: string | null;
   /** D-62 (T-4-11B), additive: the sources the event is collected from (system and method). */
   sources?: EventCardSource[];
+  /** D-67 (T-4-28), additive: the identity-rule identifier names this event sends in `customer_ids`
+   * (its explicit list, else the derived default) and whether that list is derived. */
+  identifiers?: string[];
+  identifiers_derived?: boolean;
   description: string | null;
   purpose: string | null;
   page: string | null;
@@ -347,6 +353,8 @@ export interface TrackingDocumentEventProperty {
   definitions: TrackingDocumentPropertyDefinition[];
 }
 
+import type { IdentifierSetBy } from '../identity/identifiers';
+
 export interface TrackingDocumentIdentityRule {
   identifier_name: string;
   identity_type: string;
@@ -354,6 +362,12 @@ export interface TrackingDocumentIdentityRule {
   transformations: string[];
   sdk_call: string | null;
   trigger_text: string | null;
+  /** D-67 (T-4-28), additive: the trigger event name and the source label ("Shopify via GTM data layer"). */
+  set_by?: IdentifierSetBy;
+  /** D-67 amendment 1: identifiers a standalone call binds together (empty otherwise). */
+  binds?: string[];
+  /** D-67, additive: names of the events that send this identifier in `customer_ids`. */
+  carried_by?: string[];
 }
 
 export interface TrackingDocumentConsentCategory {
@@ -461,6 +475,8 @@ export interface TrackingDocument {
   /** D-64 (T-4-20), additive: event-scope properties with category and kind. */
   event_properties: TrackingDocumentEventProperty[];
   identity_rules: TrackingDocumentIdentityRule[];
+  /** D-67 (T-4-28), additive: the generated "Identification flow" paragraph. */
+  identification_flow?: string;
   consent_categories: TrackingDocumentConsentCategory[];
   catalogs: TrackingDocumentCatalog[];
   /** D-62 (T-4-11B), additive. */

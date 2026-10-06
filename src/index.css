@@ -33,6 +33,16 @@
   --surface-disabled: #C1C3C8;
   --surface-zebra: #F9FAFB; /* alternate table row (T-4-12) */
 
+  /* Source palette (D-68, T-4-28): one token per source colour, see SOURCE_COLORS in enums.ts */
+  --source-1: #2563EB;
+  --source-2: #EA580C;
+  --source-3: #16A34A;
+  --source-4: #7C3AED;
+  --source-5: #DB2777;
+  --source-6: #0D9488;
+  --source-7: #CA8A04;
+  --source-8: #6B7280;
+
   /* Code surfaces (system utility, repeated) */
   --surface-code: #1e293b;
   --surface-code-header: #334155;

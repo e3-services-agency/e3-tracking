@@ -8,6 +8,7 @@ import * as EventDAL from '../dal/event.dal';
 import * as VariantDAL from '../dal/variant.dal';
 import * as UseCaseDAL from '../dal/use-case.dal';
 import * as RuleDAL from '../dal/rule.dal';
+import { listEventSourcesByProject } from '../dal/source.dal';
 import {
   buildEventCard,
   computeCertificationsForProject,
@@ -32,11 +33,14 @@ router.get('/', (req: Request, res: Response) => {
   try {
     const events = EventDAL.listEvents(req.projectId!);
     const certifications = computeCertificationsForProject(req.projectId!);
+    // D-68 (T-4-28): each event's linked sources (system, method, colour) for the Source column, one batched read.
+    const sourcesByEventId = listEventSourcesByProject(req.projectId!);
     res.status(200).json(
       events.map((event) => {
         const certification = certifications.get(event.id);
         return {
           ...event,
+          sources: (sourcesByEventId.get(event.id) ?? []).map((s) => ({ id: s.id, name: s.name, system: s.system, method: s.method, color: s.color })),
           certified: certification ? certifiedLabel(certification) : 'n/a',
           certified_reasons: certification?.reasons ?? [],
         };
@@ -61,6 +65,7 @@ function inputFromBody(body: Record<string, unknown>): Partial<EventDAL.EventInp
   if (typeof body.class === 'string') input.class = body.class;
   if (typeof body.implementation_method === 'string') input.implementation_method = body.implementation_method;
   if ('dl_event_name' in body) input.dl_event_name = body.dl_event_name as string | null;
+  if ('identifiers_json' in body) input.identifiers_json = body.identifiers_json as string[] | null;
   if ('owner_business' in body) input.owner_business = body.owner_business as string | null;
   if ('owner_technical' in body) input.owner_technical = body.owner_technical as string | null;
   if ('priority' in body) input.priority = body.priority as string | null;

@@ -3,6 +3,7 @@
  * `requireProject`. The old customer-lifecycle-scoped export and share-token export are gone;
  * this is project-wide.
  */
+import { listIdentityRulesForCodegen } from '../services/identification.service';
 import { Router, type Request, type Response } from 'express';
 import { generateProjectDocumentationHtml } from '../services/export.service';
 import {
@@ -65,7 +66,7 @@ router.get('/expiration-settings.json', (req: Request, res: Response) => {
 // documentation export and any project-wide export tooling do not need the identity-rules router.
 router.get('/codegen/identity', (req: Request, res: Response) => {
   try {
-    const rules = listIdentityRules(req.projectId!);
+    const rules = listIdentityRulesForCodegen(req.projectId!);
     const customerProperties = listProperties(req.projectId!, { scope: 'customer' });
     res.status(200).json(buildIdentityCodegen(rules, customerProperties));
   } catch (err) {

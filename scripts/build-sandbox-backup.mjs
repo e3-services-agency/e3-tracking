@@ -239,14 +239,19 @@ async function main() {
     }
     seed.CONSENT_CATEGORIES.forEach((c, sort_order) => ConsentDAL.createConsentCategory(projectId, { ...c, sort_order }));
     seed.IDENTITY_RULES.forEach((r, sort_order) => {
-      const { trigger_event, transformations, ...rest } = r;
+      const { trigger_event, transformations, source, ...rest } = r;
       IdentityDAL.createIdentityRule(projectId, {
         ...rest,
+        source_id: source ? must(sources.get(source), `source "${source}"`).id : null,
         trigger_event_id: trigger_event ? must(events.get(trigger_event), `event "${trigger_event}"`).id : null,
         transformations_json: transformations ?? null,
         sort_order,
       });
     });
+
+    for (const [eventName, identifiers] of Object.entries(seed.EVENT_IDENTIFIERS)) {
+      EventDAL.updateEvent(projectId, must(events.get(eventName), `event "${eventName}"`).id, { identifiers_json: identifiers });
+    }
 
     // 7. Use cases from the library sample (statuses set, narratives generated).
     const library = JSON.parse(fs.readFileSync(path.join(SAMPLES, 'use-case-library-sample.json'), 'utf-8'));

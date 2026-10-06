@@ -1,4 +1,4 @@
-import { ClassBadge, StatusBadge } from '@/src/components/ui/badges';
+import { ClassBadge, SourceBadge, StatusBadge } from '@/src/components/ui/badges';
 import { ExpandChevron } from '@/src/components/ui/ExpandChevron';
 import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
 import { useDebouncedValue } from '@/src/hooks/useDebouncedValue';
@@ -22,6 +22,7 @@ import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { PRIORITIES, EVENT_STATUSES, EVENT_CLASSES, IMPLEMENTATION_METHODS } from '@/src/domain/enums';
 import { sourceViaLabel } from '@/src/domain/sources';
+import { deriveEventIdentifiers } from '@/src/domain/identity/identifiers';
 import { isHttpUrl } from '@/src/domain/url';
 import { ExpirationEditor, type ExpirationValue } from '@/src/features/events/components/ExpirationEditor';
 import { DerivedMetricsEditor, type DerivedMetricRow } from '@/src/features/events/components/DerivedMetricsEditor';
@@ -52,6 +53,10 @@ interface EventRow {
   /** D-63 (T-4-17). */
   implementation_method?: string;
   dl_event_name?: string | null;
+  /** D-67 (T-4-28): explicit identifiers; null = derived default. */
+  identifiers_json?: string[] | null;
+  /** D-68 (T-4-28): linked sources with colour, from `GET /events`. */
+  sources?: { id: string; name: string; system: string; method: string | null; color: string | null }[];
   owner_business: string | null;
   owner_technical: string | null;
   priority: string | null;
@@ -150,6 +155,7 @@ export function Events() {
   const { sorted: filteredEvents, sort } = useSortableTable(searchedEvents, {
     name: (ev) => ev.name,
     class: (ev) => ev.class,
+    source: (ev) => (ev.sources ?? []).map((s) => sourceViaLabel(s.system, s.method)).join(', '),
     status: (ev) => ev.status,
     certified: (ev) => ev.certified ?? 'n/a',
     expiration: (ev) => expirationSummary(ev.expiration_json),
@@ -299,6 +305,7 @@ export function Events() {
                 <th className="w-12 px-2 py-3"><span className="sr-only">Expand</span></th>
                 <SortableTh sort={sort} column="name" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'Events')}>Name</SortableTh>
                 <SortableTh sort={sort} column="class" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Class', 'Events')}>Class</SortableTh>
+                <SortableTh sort={sort} column="source" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Source', 'Events')}>Source</SortableTh>
                 <SortableTh sort={sort} column="status" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Events')}>Status</SortableTh>
                 <SortableTh sort={sort} column="certified" className="px-6 py-3 font-medium text-gray-500">
                   <GlossaryTerm glossaryKey="certified">Certified</GlossaryTerm>
@@ -328,6 +335,11 @@ export function Events() {
                       </span>
                     </td>
                     <td className="px-6 py-4"><ClassBadge eventClass={ev.class} /></td>
+                    <td className="px-6 py-4" data-testid="event-source-cell">
+                      <span className="flex flex-col gap-0.5">
+                        {(ev.sources ?? []).map((s) => <SourceBadge key={s.id} system={s.system} method={s.method} color={s.color} />)}
+                      </span>
+                    </td>
                     <td className="px-6 py-4 text-gray-500"><StatusBadge status={ev.status} /></td>
                     <td className="px-6 py-4 text-gray-500" title={(ev.certified_reasons ?? []).join(', ') || undefined}>
                       {ev.certified ?? 'n/a'}
@@ -348,7 +360,7 @@ export function Events() {
                     (variantsByEventId[ev.id] ?? []).map((v) => (
                       <tr key={v.id} className="bg-gray-50 text-xs text-gray-600">
                         <td className="w-12" />
-                        <td className="px-6 py-2" colSpan={7}>
+                        <td className="px-6 py-2" colSpan={8}>
                           <span className="font-medium text-gray-800">{v.name}</span>
                           {v.description && <span className="ml-2 text-gray-500">{v.description}</span>}
                         </td>
@@ -358,7 +370,7 @@ export function Events() {
                 ))}
               {filteredEvents.length === 0 && events.length === 0 && (
                 <EmptyState
-                  colSpan={8}
+                  colSpan={9}
                   message="No events yet. Import a data mapping from the Import page, or add one by hand."
                   actionLabel="Add Event"
                   onAction={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }}
@@ -366,7 +378,7 @@ export function Events() {
               )}
               {filteredEvents.length === 0 && events.length > 0 && (
                 <tr>
-                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
                     No events match this filter.
                   </td>
                 </tr>
@@ -433,6 +445,9 @@ function EventEditor({
   // D-62: only a method the user changed is sent, so a source's method can still default an untouched one.
   const [loadedImplementationMethod, setLoadedImplementationMethod] = useState('');
   const [dlEventName, setDlEventName] = useState('');
+  // D-67 (T-4-28): null = derived default; a list = the event's own override of its customer_ids identifiers.
+  const [identifiersOverride, setIdentifiersOverride] = useState<string[] | null>(null);
+  const [idRules, setIdRules] = useState<{ id: string; identifier_name: string; identity_type: string; sdk_call: string | null; source_id: string | null }[]>([]);
   const [ownerBusiness, setOwnerBusiness] = useState('');
   const [ownerTechnical, setOwnerTechnical] = useState('');
   const [priority, setPriority] = useState('');
@@ -459,6 +474,10 @@ function EventEditor({
       const sourcesData = await parseJson(sourcesRes);
       if (sourcesRes.ok) setAllSources(Array.isArray(sourcesData) ? sourcesData : []);
 
+      const idRulesRes = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/identity-rules`);
+      const idRulesData = await parseJson(idRulesRes);
+      if (idRulesRes.ok) setIdRules(Array.isArray(idRulesData) ? idRulesData : []);
+
       const bundlesRes = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/bundles`);
       const bundlesData = await parseJson(bundlesRes);
       if (bundlesRes.ok) setAllBundles(Array.isArray(bundlesData) ? bundlesData : []);
@@ -481,6 +500,7 @@ function EventEditor({
           setImplementationMethod(ev.implementation_method ?? 'client_web');
           setLoadedImplementationMethod(ev.implementation_method ?? 'client_web');
           setDlEventName(ev.dl_event_name ?? '');
+          setIdentifiersOverride(Array.isArray(ev.identifiers_json) && ev.identifiers_json.length > 0 ? ev.identifiers_json : null);
           setOwnerBusiness(ev.owner_business ?? '');
           setOwnerTechnical(ev.owner_technical ?? '');
           setPriority(ev.priority ?? '');
@@ -590,6 +610,7 @@ function EventEditor({
         class: eventClass,
         ...(implementationMethod && implementationMethod !== loadedImplementationMethod ? { implementation_method: implementationMethod } : {}),
         dl_event_name: dlEventName.trim() || null,
+        identifiers_json: identifiersOverride && identifiersOverride.length > 0 ? identifiersOverride : null,
         owner_business: ownerBusiness.trim() || null,
         owner_technical: ownerTechnical.trim() || null,
         priority: priority || null,
@@ -790,6 +811,38 @@ function EventEditor({
           </div>
         </div>
       )}
+
+      {idRules.length > 0 && (() => {
+        const derived = deriveEventIdentifiers(
+          { id: eventId ?? 'new', name, implementation_method: implementationMethod || loadedImplementationMethod || 'client_web', source_ids: sourceIds },
+          idRules,
+          allSources
+        );
+        const current = identifiersOverride ?? derived;
+        const toggle = (n: string) => {
+          const next = current.includes(n) ? current.filter((x) => x !== n) : [...current, n];
+          setIdentifiersOverride(next.length > 0 ? next : null);
+        };
+        return (
+          <div className="space-y-2" data-testid="identifiers-block">
+            <label className="text-sm font-medium text-gray-700" title={hintFor('Identifiers', 'Events')}>Identifiers (customer_ids)</label>
+            <div className="flex flex-wrap gap-2">
+              {idRules.map((r) => (
+                <label key={r.id} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1">
+                  <input type="checkbox" checked={current.includes(r.identifier_name)} onChange={() => toggle(r.identifier_name)} />
+                  {r.identifier_name} <span className="text-gray-500">({r.identity_type})</span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500">
+              {identifiersOverride ? 'Set by hand for this event.' : `Derived from the implementation method and sources: ${derived.length > 0 ? derived.join(', ') : 'none'}.`}
+              {identifiersOverride && (
+                <button type="button" onClick={() => setIdentifiersOverride(null)} className="ml-2 text-[var(--color-info)] hover:underline">Reset to derived</button>
+              )}
+            </p>
+          </div>
+        );
+      })()}
 
       {(
         <div className="space-y-3 border-t pt-4">

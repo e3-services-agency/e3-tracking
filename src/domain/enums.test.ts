@@ -93,7 +93,7 @@ describe('D-25 required values', () => {
     // D-63 (T-4-17): the state list consistency finding.
     const stateListAdditions = ['state_list_mismatch'];
     // D-65 (T-4-22): the naming convention finding.
-    const namingAdditions = ['naming_violation'];
+    const namingAdditions = ['naming_violation', 'identifier_missing'];
     // D-61 (T-4-11B): the catalog checks.
     const catalogAdditions = [
       'catalog_searchable_limit',

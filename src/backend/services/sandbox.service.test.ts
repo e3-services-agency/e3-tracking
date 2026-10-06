@@ -127,7 +127,7 @@ describe('sandbox.service: createSandboxProject (D-60)', () => {
         'whatsapp_updates',
         'personalization',
       ]);
-      expect(IdentityDAL.listIdentityRules(project.id).map((r) => r.identifier_name).sort()).toEqual(['cookie', 'email_id', 'phone_id']);
+      expect(IdentityDAL.listIdentityRules(project.id).map((r) => r.identifier_name).sort()).toEqual(['cart_id', 'cookie', 'email_id', 'phone_id']);
     }, 60_000);
 
     it('carries method, kind, derivation and the dataLayer name (D-63, T-4-17)', async () => {
@@ -137,7 +137,7 @@ describe('sandbox.service: createSandboxProject (D-60)', () => {
       for (const n of ['purchase', 'purchase_item', 'consent']) expect(byName(n)?.implementation_method).toBe('server_api');
       for (const n of ['session_start', 'page_visit']) expect(byName(n)?.implementation_method).toBe('sdk_auto');
       for (const n of ['wishlist_update', 'newsletter_signup']) expect(byName(n)?.implementation_method).toBe('client_web');
-      expect(byName('cart_update')).toMatchObject({ implementation_method: 'client_web', dl_event_name: 'add_to_cart' });
+      expect(byName('cart_update')).toMatchObject({ implementation_method: 'server_api' });
       const props = PropertyDAL.listProperties(project.id, { scope: 'event' });
       const prop = (n: string) => props.find((p) => p.name === n);
       expect(prop('product_ids')).toMatchObject({ kind: 'state_list', derivation_json: { source: 'items', id_field: 'product_id', form: 'ids' } });

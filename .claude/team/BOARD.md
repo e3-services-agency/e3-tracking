@@ -3287,3 +3287,6 @@ Focus effect runs after definitions load (focus preventScroll, then scrollIntoVi
 
 ### 2026-10-06 | qa-tester | QA PASS | T-4-26 ba69265, 4/4
 Expand/collapse all (50 + 53 sub-rows), actions column (drawer focus, Used-by modal a11y, delete confirm + 409 alert), API additive fields batched (13-38 ms, soft-deleted event excluded), regressions clean (Bundles, Events variants, History modal, shared view). Note outside task: Esc does not close the Edit Property drawer. Report: reports/qa/T-4-26/REPORT.md.
+
+### 2026-10-06 | supervisor | MERGE | T-4-26 merged into agent-setup — DONE; nothing running
+Merge dcfcf02. Merged tree: tsc, build, lint clean, 1758 tests / 170 files. Open, waiting on the user: T-4-06 (samples/br-initiatives/), phase 5 step 2 (D-09 go + provider).

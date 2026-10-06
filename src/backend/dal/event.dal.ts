@@ -81,6 +81,12 @@ function assertEventPropertyLimitNotReached(eventId: string): void {
 function validateTriggersJson(value: unknown, field: string): void {
   if (!Array.isArray(value)) return;
   for (const entry of value) {
+    if (entry && typeof entry === 'object' && 'images' in (entry as Record<string, unknown>)) {
+      const images = (entry as Record<string, unknown>).images;
+      if (images !== null && images !== undefined && (!Array.isArray(images) || images.some((i) => typeof i !== 'string'))) {
+        throw new BadRequestError(`${field}[].images must be an array of file paths.`, `${field}[].images`);
+      }
+    }
     if (entry && typeof entry === 'object' && 'source' in (entry as Record<string, unknown>)) {
       normalizeHttpUrl((entry as Record<string, unknown>).source, `${field}[].source`);
     }

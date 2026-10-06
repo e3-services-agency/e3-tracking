@@ -11,7 +11,7 @@ import { useDebouncedValue } from '@/src/hooks/useDebouncedValue';
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Trash2, Loader2, Upload, FileDown } from 'lucide-react';
+import { Plus, Trash2, Loader2, FileDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { Sheet } from '@/src/components/ui/Sheet';
@@ -28,6 +28,8 @@ import { LinkedPropertiesEditor, type LinkedPropertyRow, type DefinitionOption }
 import { VariantsSection, type DiscriminatorProperty } from '@/src/features/events/components/VariantsSection';
 import { RulesSection, type RuleLinkedProperty } from '@/src/features/events/components/RulesSection';
 import { UseCasesForEventSection } from '@/src/features/events/components/UseCasesForEventSection';
+import { TriggerImagesEditor } from '@/src/features/events/components/TriggerImagesEditor';
+import { triggerImageFields, triggerImages } from '@/src/domain/document/triggerImages';
 import { HistorySection } from '@/src/features/history/HistorySection';
 import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
 import { EmptyState } from '@/src/components/ui/EmptyState';
@@ -70,6 +72,8 @@ interface TriggerEntry {
   title: string;
   description: string;
   image_path?: string | null;
+  /** T-4-24: every screenshot in order; `image_path` mirrors the first. */
+  images?: string[];
   source?: string | null;
   order: number;
 }
@@ -440,8 +444,6 @@ function EventEditor({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [uploadingTriggerIndex, setUploadingTriggerIndex] = useState<number | null>(null);
   // T-1-09: open finding count badge (findings table filtered to this event, any comparison/kind/severity).
   const [openFindingsCount, setOpenFindingsCount] = useState<number | null>(null);
 
@@ -561,25 +563,6 @@ function EventEditor({
   const updateTrigger = (index: number, patch: Partial<TriggerEntry>) =>
     setTriggers((prev) => prev.map((t, i) => (i === index ? { ...t, ...patch } : t)));
   const removeTrigger = (index: number) => setTriggers((prev) => prev.filter((_, i) => i !== index));
-
-  const handleTriggerImageUpload = async (index: number, file: File) => {
-    if (!projectId) return;
-    setUploadingTriggerIndex(index);
-    try {
-      const form = new FormData();
-      form.append('file', file);
-      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/files?kind=event_trigger`, {
-        method: 'POST',
-        body: form,
-      });
-      const data = await parseJson(res);
-      if (res.ok && typeof data.path === 'string') {
-        updateTrigger(index, { image_path: data.path });
-      }
-    } finally {
-      setUploadingTriggerIndex(null);
-    }
-  };
 
   const trimmedName = name.trim();
   const nameError = trimmedName ? null : 'Name is required.';
@@ -904,29 +887,11 @@ function EventEditor({
                 <p className="text-xs text-red-600 mt-1">Page URL must be an http:// or https:// URL.</p>
               )}
             </div>
-            <div className="flex items-center gap-3">
-              {trigger.image_path && projectId && (
-                <img
-                  src={`${API_BASE}/api/projects/${projectId}/files/${trigger.image_path}`}
-                  alt=""
-                  className="h-16 w-auto rounded border"
-                />
-              )}
-              <label className="flex items-center gap-1 text-xs text-[var(--brand-primary)] cursor-pointer">
-                <Upload className="w-4 h-4" />
-                {uploadingTriggerIndex === index ? 'Uploading…' : 'Upload image'}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void handleTriggerImageUpload(index, file);
-                  }}
-                />
-              </label>
-            </div>
+            <TriggerImagesEditor
+              projectId={projectId}
+              images={triggerImages(trigger)}
+              onChange={(next) => updateTrigger(index, triggerImageFields(next))}
+            />
           </div>
         ))}
         <Button type="button" variant="outline" size="sm" onClick={addTrigger}>Add trigger</Button>

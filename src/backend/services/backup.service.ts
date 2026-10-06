@@ -28,6 +28,7 @@
  * - `observations` is ordered `timestamp, id` like every other array (it previously had no
  *   `ORDER BY` at all, so two backups of the same project could differ in row order).
  */
+import { triggerImages } from '../../domain/document/triggerImages';
 import { getDb } from '../db';
 import { getProjectOrThrow } from '../dal/project.dal';
 import { getClientById } from '../dal/client.dal';
@@ -179,8 +180,7 @@ function triggerImagePaths(events: Row[]): string[] {
     const triggers = event.triggers_json;
     if (!Array.isArray(triggers)) continue;
     for (const trigger of triggers) {
-      const imagePath = (trigger as Row | null)?.image_path;
-      if (typeof imagePath === 'string' && imagePath.trim()) paths.add(imagePath);
+      for (const imagePath of triggerImages(trigger as Row | null)) paths.add(imagePath);
     }
   }
   return Array.from(paths);

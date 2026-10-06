@@ -5,16 +5,20 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { lightboxStep } from './viewHelpers';
+import { triggerImages } from '@/src/domain/document/triggerImages';
 
 export interface TriggerData {
   title: string | null;
   description: string | null;
   image_path: string | null;
+  /** T-4-24: every screenshot in order; `image_path` is the first. */
+  images?: string[];
   page_url: string | null;
 }
 
 export function TriggersBlock({ triggers, fileUrl }: { triggers: TriggerData[]; fileUrl: (path: string) => string }) {
-  const images = triggers.filter((t) => t.image_path);
+  // T-4-24: a trigger can carry several screenshots; the lightbox steps through all of them.
+  const images = triggers.flatMap((t) => triggerImages(t).map((path) => ({ path, title: t.title })));
   const [open, setOpen] = useState<number | null>(null);
   const close = useCallback(() => setOpen(null), []);
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -84,19 +88,24 @@ export function TriggersBlock({ triggers, fileUrl }: { triggers: TriggerData[]; 
             )}
             {trigger.description && <p className="text-sm text-gray-700 mt-1">{trigger.description}</p>}
           </div>
-          {trigger.image_path && (
-            <button
-              type="button"
-              onClick={() => setOpen(images.indexOf(trigger))}
-              className="shrink-0 border rounded overflow-hidden hover:ring-2 hover:ring-[var(--color-info)]"
-              aria-label={`Enlarge ${trigger.title ?? 'trigger screenshot'}`}
-            >
-              <img src={fileUrl(trigger.image_path)} alt={trigger.title ?? 'Trigger screenshot'} className="h-24 w-auto max-w-56 object-cover block" />
-            </button>
+          {triggerImages(trigger).length > 0 && (
+            <div className="shrink-0 flex flex-wrap gap-2 max-w-[60%] justify-end">
+              {triggerImages(trigger).map((path) => (
+                <button
+                  key={path}
+                  type="button"
+                  onClick={() => setOpen(images.findIndex((img) => img.path === path))}
+                  className="shrink-0 border rounded overflow-hidden hover:ring-2 hover:ring-[var(--color-info)]"
+                  aria-label={`Enlarge ${trigger.title ?? 'trigger screenshot'}`}
+                >
+                  <img src={fileUrl(path)} alt={trigger.title ?? 'Trigger screenshot'} className="h-24 w-auto max-w-56 object-cover block" />
+                </button>
+              ))}
+            </div>
           )}
         </div>
       ))}
-      {current && current.image_path && (
+      {current && (
         <div
           role="dialog"
           aria-modal="true"
@@ -107,7 +116,7 @@ export function TriggersBlock({ triggers, fileUrl }: { triggers: TriggerData[]; 
           onClick={close}
         >
           <img
-            src={fileUrl(current.image_path)}
+            src={fileUrl(current.path)}
             alt={current.title ?? 'Trigger screenshot'}
             className="max-h-[80vh] max-w-full rounded shadow-lg"
             onClick={(e) => e.stopPropagation()}

@@ -145,6 +145,8 @@ export interface EventCardTrigger {
   title: string | null;
   description: string | null;
   image_path: string | null;
+  /** T-4-24: every screenshot of the trigger in order (`image_path` is the first). */
+  images?: string[];
   page_url: string | null;
 }
 

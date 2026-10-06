@@ -3220,3 +3220,19 @@ Review PASS (brweb everywhere, hard-id key resolution with override, items examp
 
 ### 2026-10-06 10:14 | supervisor | HANDOFF | T-4-25 shared view targets (1320c53) — REVIEW + QA in parallel
 1727 tests / 163 files, tsc, build, lint green; not browser-checked. Requirement rows carry a type badge with the sidebar icon and every target links (event card, variants block via #variants-event-<slug>, property row, catalog card #catalog-<slug>, consent row #consent-<slug>); additive document ids variant_id/catalog_id/consent_category_id and consent id; "Not tied to an event" expands to a findings list with kind tooltip, severity, entity link, message; requirementTargets.ts and findingEntity.ts helpers with tests; SHARING.md. Deviations: variants scroll finds the "Variants" h2 by text (T-4-24 to add an explicit id on EventCardView); catalog/consent findings link to their section, not a row.
+
+### 2026-10-06 10:50 | qa-tester | QA FAIL | T-4-25 shared view targets (1320c53), browser QA
+Sandbox, `comment` share link, port 3012 API / 3010 Vite. Extracts: `.claude/team/reports/qa/T-4-25/`.
+| # | Scenario | Result |
+|---|---|---|
+| 1 | UC-01/UC-02 requirement rows: type badge+icon (Event, Variant, Property, Customer property, Catalog attribute, Consent), every target is a link (zero plain text); property/catalog/consent/customer-property/event links resolve to existing ids | PASS (variants scroll: see FAIL 1) |
+| 2 | "Not tied to an event" groups expand, kind tooltips, severity, message; catalog drift links `#catalogs`; nav leaf opens the group | PASS (minor note below) |
+| 3 | Direct hash: `#catalog-products_gb`, `#consent-newsletter`, `#property-price` land at top 88 px (just below sticky); `#variants-event-purchase` expands the card but lands under the sticky headers | FAIL |
+| 4 | Regression: events collapsed, sticky header, nav groups, copy buttons (129), catalog lookup list, shared JSON 200 with new ids (variant_id/catalog_id/consent_category_id), no agent_instructions/internal_* values (owners/identity_note/bloomreach_project_url are null), HTML 200 with 0 internal hits; console only the HMR WebSocket error, no 500s | PASS |
+
+FAIL 1 (`#variants-event-purchase`, also clicking `purchase[purchase_status=completed]` / any Variant or Variant-property row link):
+1. Open the shared URL (fresh load) with `#variants-event-purchase`, or click the variant target in UC-02.
+2. Expected: the "Variants (2)" heading visible below the sticky project header (56 px) and the event's sticky card header (bottom 108 px).
+3. Actual: event card opens and scrolls, but the "Variants" h2 sits at viewport top = 0 (bottom of sticky card header 108), i.e. hidden behind both sticky bars. Cause: `SharedProject.tsx` goToHash calls `scrollIntoView` on the h2, which has no scroll-margin-top (computed 0px), unlike the catalog/consent/property targets (88px). Reproduced for cart_update too. Suggest scroll-margin-top ~120 px on that heading (T-4-24 explicit id work).
+Minor: Consent-category findings (personalization, whatsapp_updates) and "Catalog not mapped" in the "Not tied" group have no entity link (message text only); matches the stated deviation only for the catalog drift finding, so confirm intent.
+Environment note: the Browser pane reported the page hidden (requestAnimationFrame never fires), so fresh-load hash scrolls were flaky; hash scrolls were verified with rAF shimmed to setTimeout, same code path.

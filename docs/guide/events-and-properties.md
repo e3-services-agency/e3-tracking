@@ -7,7 +7,7 @@ An event is a Bloomreach event type such as `purchase` or `view_item`. Each has 
 - **custom**: defined and implemented by the client. These are what the migration is about and the only ones that are checked and certified.
 - **sdk** and **platform**: produced by Bloomreach itself (`session_start`, `page_visit`, `campaign`, `consent`, ...). Informational only.
 
-An event has an owner, a status, a priority, triggers (with the page URLs where it fires) and optionally screenshots per trigger. In the event editor drag several images onto a trigger's drop zone (or click it to browse), reorder them with the arrows, or remove one with the cross; the event card and the shared view show every image and the lightbox steps through all of them. An event can have several triggers.
+An event has an owner, a status, a priority, triggers (with the page URLs where it fires) and optionally screenshots per trigger. In the event editor drag several images onto a trigger's drop zone (or click it to browse), reorder them with the arrows, or remove one with the cross (removing an image from a trigger does not delete the uploaded file); the event card and the shared view show every image and the lightbox steps through all of them. An event can have several triggers.
 
 The Events table has a search box (name or description, filters as you type) and every column header sorts: click once for ascending, again for descending, a third time to go back to the original order. Events that have variants show a small arrow next to the name; the **Expand all variants** button opens or closes every event's variants at once.
 

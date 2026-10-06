@@ -7,7 +7,7 @@
  * requirement under a use case, catalog_field under a catalog), merged and sorted newest-first so a
  * single section shows both the entity's own edits and its children's.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
@@ -105,6 +105,49 @@ function HistoryTable({ rows, wrap }: { rows: HistoryRow[]; wrap: boolean }) {
   );
 }
 
+/** Esc closes, focus moves into the dialog and is trapped, returns to the opener, body scroll locked. */
+function useModalA11y(ref: React.RefObject<HTMLElement | null>, onClose: () => void) {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const focusables = () =>
+      Array.from(ref.current?.querySelectorAll<HTMLElement>('button, input, select, [href], [tabindex]:not([tabindex="-1"])') ?? []);
+    (focusables()[0] ?? ref.current)?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeRef.current();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const items = focusables();
+      if (items.length === 0) {
+        e.preventDefault();
+        ref.current?.focus();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || !ref.current?.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !ref.current?.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previousOverflow;
+      opener?.focus?.();
+    };
+  }, [ref]);
+}
+
 function HistoryModal({ rows, title, onClose, alwaysModal, onAlwaysModal }: {
   rows: HistoryRow[];
   title: string;
@@ -115,6 +158,8 @@ function HistoryModal({ rows, title, onClose, alwaysModal, onAlwaysModal }: {
   const [actionFilter, setActionFilter] = useState('');
   const [text, setText] = useState('');
   const actions = useMemo(() => [...new Set(rows.map((r) => r.action))].sort(), [rows]);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  useModalA11y(dialogRef, onClose);
   const filtered = useMemo(() => {
     const q = text.trim().toLowerCase();
     return rows.filter(
@@ -128,7 +173,7 @@ function HistoryModal({ rows, title, onClose, alwaysModal, onAlwaysModal }: {
     );
   }, [rows, actionFilter, text]);
   return (
-    <div className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-6" role="dialog" aria-modal="true" aria-label={title}>
+    <div ref={dialogRef} tabIndex={-1} className="fixed inset-0 z-[70] bg-black/50 flex items-center justify-center p-6" role="dialog" aria-modal="true" aria-label={title}>
       <div className="bg-white rounded-lg shadow-xl w-full h-full max-w-6xl flex flex-col">
         <div className="flex items-center justify-between p-4 border-b gap-4">
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
@@ -172,7 +217,8 @@ export function HistorySection({
   const [rows, setRows] = useState<HistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [pref, setPref] = useState<HistoryViewPref>(() => readHistoryViewPref());
-  const [modalOpen, setModalOpen] = useState(false);
+  // M1: the remembered "always full view" preference opens the modal on mount.
+  const [modalOpen, setModalOpen] = useState(() => readHistoryViewPref() === 'modal');
 
   useEffect(() => {
     let cancelled = false;
@@ -212,6 +258,7 @@ export function HistorySection({
     const next: HistoryViewPref = value ? 'modal' : 'panel';
     setPref(next);
     writeHistoryViewPref(next);
+    if (!value) setModalOpen(false);
   };
 
   return (
@@ -234,7 +281,7 @@ export function HistorySection({
       ) : (
         <HistoryTable rows={rows} wrap={false} />
       )}
-      {modalOpen && (
+      {modalOpen && rows.length > 0 && (
         <HistoryModal
           rows={rows}
           title={title}

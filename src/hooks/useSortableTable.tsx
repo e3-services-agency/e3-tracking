@@ -56,13 +56,14 @@ export function SortableTh({
   const active = sort.key === column;
   return (
     <th
-      className={`${className} cursor-pointer select-none`}
+      className={className}
       title={title}
       aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-      onClick={() => sort.toggle(column)}
     >
-      {children}
-      <span className="ml-1 text-gray-400" aria-hidden="true">{active ? (sort.dir === 'asc' ? '▲' : '▼') : ''}</span>
+      <button type="button" onClick={() => sort.toggle(column)} className="inline-flex items-center font-[inherit] text-inherit select-none cursor-pointer">
+        {children}
+        <span className="ml-1 text-gray-400" aria-hidden="true">{active ? (sort.dir === 'asc' ? '▲' : '▼') : ''}</span>
+      </button>
     </th>
   );
 }

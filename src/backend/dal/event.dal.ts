@@ -78,9 +78,23 @@ function assertEventPropertyLimitNotReached(eventId: string): void {
  * free-form, unvalidated here. A non-array value is left to `toJsonColumn`/the `?? []` default
  * upstream, not this function's concern.
  */
+/** L3: an uploaded-file path is relative, non-empty, with no `..` segment and no backslash. */
+export function isSafeImagePath(path: unknown): boolean {
+  if (typeof path !== 'string' || !path.trim()) return false;
+  if (path.startsWith('/') || path.includes('\\') || /^[A-Za-z]:/.test(path)) return false;
+  return !path.split('/').includes('..');
+}
+
 function validateTriggersJson(value: unknown, field: string): void {
   if (!Array.isArray(value)) return;
   for (const entry of value) {
+    if (entry && typeof entry === 'object') {
+      const e = entry as Record<string, unknown>;
+      const paths = [...(Array.isArray(e.images) ? e.images : []), ...(typeof e.image_path === 'string' ? [e.image_path] : [])];
+      if (paths.some((p) => !isSafeImagePath(p))) {
+        throw new BadRequestError('Trigger image paths must be relative, non-empty and free of ".." and backslashes.', 'triggers_json');
+      }
+    }
     if (entry && typeof entry === 'object' && 'images' in (entry as Record<string, unknown>)) {
       const images = (entry as Record<string, unknown>).images;
       if (images !== null && images !== undefined && (!Array.isArray(images) || images.some((i) => typeof i !== 'string'))) {

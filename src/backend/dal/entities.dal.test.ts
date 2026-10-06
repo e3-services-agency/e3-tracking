@@ -170,6 +170,17 @@ describe('bundle detail, usage and in-use delete (T-4-24)', () => {
   });
 });
 
+describe('trigger image path validation (T-4-24)', () => {
+  it('rejects absolute, parent-traversing, backslash and empty image paths with 400 on triggers_json', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'img_paths' });
+    for (const bad of ['/etc/passwd', '../x.png', 'a/../../x.png', 'a\\b.png', '', 'C:/x.png']) {
+      expect(() => EventDAL.updateEvent(projectId, event.id, { triggers_json: [{ title: 't', images: [bad], order: 0 }] } as any), bad).toThrow(BadRequestError);
+    }
+    expect(() => EventDAL.updateEvent(projectId, event.id, { triggers_json: [{ title: 't', image_path: '../x', order: 0 }] } as any)).toThrow(BadRequestError);
+    expect(() => EventDAL.updateEvent(projectId, event.id, { triggers_json: [{ title: 't', images: ['p/event_trigger/a.png'], image_path: 'p/event_trigger/a.png', order: 0 }] } as any)).not.toThrow();
+  });
+});
+
 describe('event.dal + event_properties', () => {
   it('creates an event, attaches a property, replaces the link list, and detaches', () => {
     const event = EventDAL.createEvent(projectId, { name: 'purchase' });

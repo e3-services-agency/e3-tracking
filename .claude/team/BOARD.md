@@ -3333,3 +3333,6 @@ Supervisor ruling: polish commit for nits 1-3 (lower-case/strip trailing period 
 
 ### 2026-10-06 | implementer | HANDOFF | T-4-28 polish 13123b5
 describeTrigger() ("when the checkout page loads"), empty identify block skipped, punctuation fixed, soft-id Tracking API note. tsc, lint, identity/codegen/services/routes tests green.
+
+### 2026-10-06 | supervisor | MERGE | T-4-28 merged into agent-setup — DONE; review round 7 complete, nothing running
+Merge a348015. Merged tree: tsc, lint, build clean, 1798 tests / 176 files. D-67 (+amendment 1) and D-68 implemented, status proposed; the user may still object. Open, waiting on the user: T-4-06 (samples/br-initiatives/), phase 5 step 2 (D-09 go + provider).

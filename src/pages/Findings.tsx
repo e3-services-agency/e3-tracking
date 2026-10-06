@@ -6,6 +6,7 @@
  * and by `Import.tsx`'s customer-events-export apply) to pre-filter by the observation's run.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { GlossaryTerm, FindingTerm } from '@/src/components/ui/GlossaryTerm';
@@ -229,35 +230,35 @@ export function Findings() {
         )}
         <div className="bg-white rounded-lg border shadow-sm p-4 flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Comparison</label>
+            <label className="text-xs font-medium text-gray-500" title={hintFor('Comparison', 'Findings')}>Comparison</label>
             <select value={comparison} onChange={(e) => setComparison(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
               {COMPARISON_IDS.map((c) => <option key={c} value={c}>{comparisonLabel(c)}</option>)}
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Kind</label>
+            <label className="text-xs font-medium text-gray-500" title={hintFor('Kind', 'Findings')}>Kind</label>
             <select value={kind} onChange={(e) => setKind(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
               {FINDING_KINDS.map((k) => <option key={k} value={k}>{kindLabel(k)}</option>)}
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Severity</label>
+            <label className="text-xs font-medium text-gray-500" title={hintFor('Severity', 'Findings')}>Severity</label>
             <select value={severity} onChange={(e) => setSeverity(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
               {FINDING_SEVERITIES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Event</label>
+            <label className="text-xs font-medium text-gray-500" title={hintFor('Event', 'Findings')}>Event</label>
             <select value={eventId} onChange={(e) => setEventId(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
               {events.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Status</label>
+            <label className="text-xs font-medium text-gray-500" title={hintFor('Status', 'Findings')}>Status</label>
             <select value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
               {FINDING_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -274,15 +275,15 @@ export function Findings() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500">Severity</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Kind</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Rule</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Comparison</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Event</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Message</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Status</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Last seen</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Actions</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Severity', 'Findings')}>Severity</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Kind', 'Findings')}>Kind</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Rule', 'Findings')}>Rule</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Comparison', 'Findings')}>Comparison</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Event', 'Findings')}>Event</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Message', 'Findings')}>Message</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Findings')}>Status</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Last seen', 'Findings')}>Last seen</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Actions', 'Findings')}>Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">

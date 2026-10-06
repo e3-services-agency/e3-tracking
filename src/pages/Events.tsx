@@ -6,6 +6,7 @@
  * `GET /api/projects/:id/files/*`.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { hintFor } from '@/src/components/ui/FieldHint';
 import { ClassBadge } from '@/src/components/ui/ClassBadge';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, Loader2, Upload, FileDown } from 'lucide-react';
@@ -217,7 +218,7 @@ export function Events() {
 
       <PageBody className="space-y-4">
         <div className="flex items-center gap-2">
-          <label className="text-xs font-medium text-gray-500">Class</label>
+          <label className="text-xs font-medium text-gray-500" title={hintFor('Class', 'Events')}>Class</label>
           <select
             value={classFilter}
             onChange={(e) => setClassFilter(e.target.value as typeof classFilter)}
@@ -234,15 +235,15 @@ export function Events() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500">Name</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Class</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Status</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'Events')}>Name</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Class', 'Events')}>Class</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Events')}>Status</th>
                 <th className="px-6 py-3 font-medium text-gray-500">
                   <GlossaryTerm glossaryKey="certified">Certified</GlossaryTerm>
                 </th>
-                <th className="px-6 py-3 font-medium text-gray-500">Expiration</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Properties</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Card</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Expiration', 'Events')}>Expiration</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Properties', 'Events')}>Properties</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Card', 'Events')}>Card</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -609,7 +610,7 @@ function EventEditor({
         </div>
       )}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Name</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Name', 'Events')}>Name</label>
         <div className="flex items-center gap-2">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. purchase" />
           {name.trim() && <CopyNameButton name={name.trim()} />}
@@ -619,11 +620,11 @@ function EventEditor({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Business name</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Business name', 'Events')}>Business name</label>
           <Input value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Class</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Class', 'Events')}>Class</label>
           <select value={eventClass} onChange={(e) => setEventClass(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             {EVENT_CLASSES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
@@ -631,65 +632,65 @@ function EventEditor({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Implementation method</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Implementation method', 'Events')}>Implementation method</label>
           <select value={implementationMethod} onChange={(e) => setImplementationMethod(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             {isCreating && <option value="">Automatic (by name and class)</option>}
             {IMPLEMENTATION_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">dataLayer event name</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('dataLayer event name', 'Events')}>dataLayer event name</label>
           <Input value={dlEventName} onChange={(e) => setDlEventName(e.target.value)} placeholder="the site's event, e.g. add_to_wishlist" />
         </div>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Description</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Description', 'Events')}>Description</label>
         <Input value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Purpose</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Purpose', 'Events')}>Purpose</label>
           <Input value={purpose} onChange={(e) => setPurpose(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Page</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Page', 'Events')}>Page</label>
           <Input value={page} onChange={(e) => setPage(e.target.value)} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Trigger</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Trigger', 'Events')}>Trigger</label>
           <Input value={triggerText} onChange={(e) => setTriggerText(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Grain</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Grain', 'Events')}>Grain</label>
           <Input value={grain} onChange={(e) => setGrain(e.target.value)} />
         </div>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Identity note</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Identity note', 'Events')}>Identity note</label>
         <Input value={identityNote} onChange={(e) => setIdentityNote(e.target.value)} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Owner (business)</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Owner (business)', 'Events')}>Owner (business)</label>
           <Input value={ownerBusiness} onChange={(e) => setOwnerBusiness(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Owner (technical)</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Owner (technical)', 'Events')}>Owner (technical)</label>
           <Input value={ownerTechnical} onChange={(e) => setOwnerTechnical(e.target.value)} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Priority</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Priority', 'Events')}>Priority</label>
           <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
             {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Status</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Status', 'Events')}>Status</label>
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             {EVENT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
@@ -699,11 +700,11 @@ function EventEditor({
       <ExpirationEditor value={expiration} onChange={setExpiration} inheritHint="Disabled: inherits the project default expiration." />
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Not suitable for</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Not suitable for', 'Events')}>Not suitable for</label>
         <Input value={notSuitableFor} onChange={(e) => setNotSuitableFor(e.target.value)} />
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Agent instructions</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Agent instructions', 'Events')}>Agent instructions</label>
         <Input value={agentInstructions} onChange={(e) => setAgentInstructions(e.target.value)} />
       </div>
 
@@ -711,7 +712,7 @@ function EventEditor({
 
       {allSources.length > 0 && (
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Sources (system via method)</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Sources (system via method)', 'Events')}>Sources (system via method)</label>
           <div className="flex flex-wrap gap-2">
             {allSources.map((s) => (
               <label key={s.id} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1">

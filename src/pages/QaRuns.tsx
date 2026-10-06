@@ -5,6 +5,7 @@
  * always recomputes over the whole project; this button is a convenience trigger after a run).
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
@@ -123,12 +124,12 @@ export function QaRuns() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500">Kind</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Actor</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Environment</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Started</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Finished</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Archived</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Kind', 'QaRuns')}>Kind</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Actor', 'QaRuns')}>Actor</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Environment', 'QaRuns')}>Environment</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Started', 'QaRuns')}>Started</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Finished', 'QaRuns')}>Finished</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Archived', 'QaRuns')}>Archived</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -429,7 +430,7 @@ function QaRunDetail({
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Notes</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Notes', 'QaRuns')}>Notes</label>
         <textarea
           className="w-full h-20 rounded-md border border-gray-300 px-3 py-2 text-sm"
           value={notes}
@@ -477,11 +478,11 @@ function QaRunDetail({
           <table className="w-full text-left text-xs">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-3 py-2 font-medium text-gray-500">Type</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Timestamp</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Resolved</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Properties</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Actions</th>
+                <th className="px-3 py-2 font-medium text-gray-500" title={hintFor('Type', 'QaRuns')}>Type</th>
+                <th className="px-3 py-2 font-medium text-gray-500" title={hintFor('Timestamp', 'QaRuns')}>Timestamp</th>
+                <th className="px-3 py-2 font-medium text-gray-500" title={hintFor('Resolved', 'QaRuns')}>Resolved</th>
+                <th className="px-3 py-2 font-medium text-gray-500" title={hintFor('Properties', 'QaRuns')}>Properties</th>
+                <th className="px-3 py-2 font-medium text-gray-500" title={hintFor('Actions', 'QaRuns')}>Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">

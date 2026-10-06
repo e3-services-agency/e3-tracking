@@ -5,6 +5,7 @@
  * beyond the create Sheet.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Loader2, ArrowUp, ArrowDown, ArrowLeft, Sparkles, RefreshCw } from 'lucide-react';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
@@ -246,12 +247,12 @@ export function UseCases() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500">Code</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Name</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Type</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Priority</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Status</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Owner</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Code', 'UseCases')}>Code</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'UseCases')}>Name</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Type', 'UseCases')}>Type</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Priority', 'UseCases')}>Priority</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'UseCases')}>Status</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Owner', 'UseCases')}>Owner</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -332,19 +333,19 @@ function UseCaseCreateForm({
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Name</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Name', 'UseCases')}>Name</label>
         <Input value={name} onChange={(e) => setName(e.target.value)} />
         {!trimmedName && <p className="text-xs text-red-600">Name is required.</p>}
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Type</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Type', 'UseCases')}>Type</label>
         <select value={type} onChange={(e) => setType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
           <option value="">—</option>
           {USE_CASE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Priority</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Priority', 'UseCases')}>Priority</label>
         <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
           <option value="">—</option>
           {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -697,14 +698,14 @@ function UseCaseDetail({
 
         <div className="bg-white rounded-lg border shadow-sm p-6 grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Name</label>
+            <label className="text-sm font-medium text-gray-700" title={hintFor('Name', 'UseCases')}>Name</label>
             <Input
               defaultValue={useCase.name}
               onBlur={(e) => { if (e.target.value.trim() && e.target.value.trim() !== useCase.name) void saveFields({ name: e.target.value.trim() }); }}
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Type</label>
+            <label className="text-sm font-medium text-gray-700" title={hintFor('Type', 'UseCases')}>Type</label>
             <select
               defaultValue={useCase.type ?? ''}
               onChange={(e) => void saveFields({ type: e.target.value || null })}
@@ -715,7 +716,7 @@ function UseCaseDetail({
             </select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Priority</label>
+            <label className="text-sm font-medium text-gray-700" title={hintFor('Priority', 'UseCases')}>Priority</label>
             <select
               defaultValue={useCase.priority ?? ''}
               onChange={(e) => void saveFields({ priority: e.target.value || null })}
@@ -726,7 +727,7 @@ function UseCaseDetail({
             </select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Status</label>
+            <label className="text-sm font-medium text-gray-700" title={hintFor('Status', 'UseCases')}>Status</label>
             <select
               defaultValue={useCase.status ?? ''}
               onChange={(e) => void saveFields({ status: e.target.value || null })}
@@ -737,14 +738,14 @@ function UseCaseDetail({
             </select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Owner</label>
+            <label className="text-sm font-medium text-gray-700" title={hintFor('Owner', 'UseCases')}>Owner</label>
             <Input
               defaultValue={useCase.owner ?? ''}
               onBlur={(e) => void saveFields({ owner: e.target.value.trim() || null })}
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Documentation link</label>
+            <label className="text-sm font-medium text-gray-700" title={hintFor('Documentation link', 'UseCases')}>Documentation link</label>
             <Input
               defaultValue={useCase.documentation_url ?? ''}
               onBlur={(e) => void saveFields({ documentation_url: e.target.value.trim() || null })}
@@ -756,7 +757,7 @@ function UseCaseDetail({
             )}
           </div>
           <div className="space-y-2 col-span-2">
-            <label className="text-sm font-medium text-gray-700">Description</label>
+            <label className="text-sm font-medium text-gray-700" title={hintFor('Description', 'UseCases')}>Description</label>
             <Input
               defaultValue={useCase.description ?? ''}
               onBlur={(e) => void saveFields({ description: e.target.value.trim() || null })}
@@ -766,7 +767,7 @@ function UseCaseDetail({
             <h3 className="text-sm font-semibold text-gray-900">Internal (never shown to the client)</h3>
           </div>
           <div className="space-y-2 col-span-2">
-            <label className="text-sm font-medium text-gray-700">Internal notes</label>
+            <label className="text-sm font-medium text-gray-700" title={hintFor('Internal notes', 'UseCases')}>Internal notes</label>
             <textarea
               className="w-full h-16 rounded-md border border-gray-300 px-3 py-2 text-sm"
               defaultValue={useCase.internal_notes ?? ''}
@@ -774,7 +775,7 @@ function UseCaseDetail({
             />
           </div>
           <div className="space-y-2 col-span-2">
-            <label className="text-sm font-medium text-gray-700">Internal link</label>
+            <label className="text-sm font-medium text-gray-700" title={hintFor('Internal link', 'UseCases')}>Internal link</label>
             <Input
               defaultValue={useCase.internal_url ?? ''}
               onBlur={(e) => void saveFields({ internal_url: e.target.value.trim() || null })}
@@ -782,7 +783,7 @@ function UseCaseDetail({
           </div>
           <div className="space-y-2 col-span-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-gray-700">Narrative</label>
+              <label className="text-sm font-medium text-gray-700" title={hintFor('Narrative', 'UseCases')}>Narrative</label>
               <div className="flex items-center gap-2">
                 {useCase.narrative_edited_at && (
                   <span className="text-xs text-amber-600">Edited by hand</span>
@@ -881,12 +882,12 @@ function UseCaseDetail({
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-2 font-medium text-gray-500 w-16">Order</th>
-                <th className="px-4 py-2 font-medium text-gray-500">Target kind</th>
-                <th className="px-4 py-2 font-medium text-gray-500">Target</th>
-                <th className="px-4 py-2 font-medium text-gray-500 w-20">Level</th>
-                <th className="px-4 py-2 font-medium text-gray-500 w-32">Status</th>
-                <th className="px-4 py-2 font-medium text-gray-500">Note</th>
+                <th className="px-4 py-2 font-medium text-gray-500 w-16" title={hintFor('Order', 'UseCases')}>Order</th>
+                <th className="px-4 py-2 font-medium text-gray-500" title={hintFor('Target kind', 'UseCases')}>Target kind</th>
+                <th className="px-4 py-2 font-medium text-gray-500" title={hintFor('Target', 'UseCases')}>Target</th>
+                <th className="px-4 py-2 font-medium text-gray-500 w-20" title={hintFor('Level', 'UseCases')}>Level</th>
+                <th className="px-4 py-2 font-medium text-gray-500 w-32" title={hintFor('Status', 'UseCases')}>Status</th>
+                <th className="px-4 py-2 font-medium text-gray-500" title={hintFor('Note', 'UseCases')}>Note</th>
                 <th className="px-4 py-2 w-10" />
               </tr>
             </thead>

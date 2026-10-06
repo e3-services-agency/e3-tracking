@@ -4,6 +4,7 @@
  * paged via `next_cursor`. Enums (entity type) come from `src/domain/enums.ts`, never hardcoded.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
@@ -166,25 +167,25 @@ export function History() {
         )}
         <div className="bg-white rounded-lg border shadow-sm p-4 flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Entity type</label>
+            <label className="text-xs font-medium text-gray-500" title={hintFor('Entity type', 'History')}>Entity type</label>
             <select value={entityType} onChange={(e) => setEntityType(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
               {CHANGE_LOG_ENTITY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Action</label>
+            <label className="text-xs font-medium text-gray-500" title={hintFor('Action', 'History')}>Action</label>
             <select value={action} onChange={(e) => setAction(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
               {CHANGE_LOG_ACTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Actor</label>
+            <label className="text-xs font-medium text-gray-500" title={hintFor('Actor', 'History')}>Actor</label>
             <input value={actor} onChange={(e) => setActor(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm" placeholder="Any actor" />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Source</label>
+            <label className="text-xs font-medium text-gray-500" title={hintFor('Source', 'History')}>Source</label>
             <input value={source} onChange={(e) => setSource(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm" placeholder="ui, mcp, import:…" />
           </div>
           <div className="space-y-1">
@@ -220,12 +221,12 @@ export function History() {
                   <div className="overflow-x-auto"><table className="w-full text-left text-xs mt-3">
                     <thead className="text-gray-500">
                       <tr>
-                        <th className="py-1 pr-3 font-medium">Type</th>
-                        <th className="py-1 pr-3 font-medium">Entity</th>
-                        <th className="py-1 pr-3 font-medium">Action</th>
-                        <th className="py-1 pr-3 font-medium">Field</th>
-                        <th className="py-1 pr-3 font-medium">Before</th>
-                        <th className="py-1 pr-3 font-medium">After</th>
+                        <th className="py-1 pr-3 font-medium" title={hintFor('Type', 'History')}>Type</th>
+                        <th className="py-1 pr-3 font-medium" title={hintFor('Entity', 'History')}>Entity</th>
+                        <th className="py-1 pr-3 font-medium" title={hintFor('Action', 'History')}>Action</th>
+                        <th className="py-1 pr-3 font-medium" title={hintFor('Field', 'History')}>Field</th>
+                        <th className="py-1 pr-3 font-medium" title={hintFor('Before', 'History')}>Before</th>
+                        <th className="py-1 pr-3 font-medium" title={hintFor('After', 'History')}>After</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">

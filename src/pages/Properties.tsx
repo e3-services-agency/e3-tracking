@@ -5,6 +5,7 @@
  * `src/domain/enums.ts` and `src/domain/bloomreach.ts` define.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
@@ -209,13 +210,13 @@ export function Properties() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500">Name</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Scope</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Category</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Data type</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Enum</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Priority</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Status</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'Properties')}>Name</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Scope', 'Properties')}>Scope</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Category', 'Properties')}>Category</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Data type', 'Properties')}>Data type</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Enum', 'Properties')}>Enum</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Priority', 'Properties')}>Priority</th>
+                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Properties')}>Status</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -455,13 +456,13 @@ function PropertyEditor({
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Scope</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Scope', 'Properties')}>Scope</label>
         <select value={scope} onChange={(e) => setScope(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
           {PROPERTY_SCOPES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Name</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Name', 'Properties')}>Name</label>
         <div className="flex items-center gap-2">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. total_price" />
           {trimmedName && <CopyNameButton name={trimmedName} />}
@@ -470,23 +471,23 @@ function PropertyEditor({
         <NamingWarning entity={{ kind: 'property', scope, name: trimmedName, category_override: categoryOverride || null }} name={trimmedName} />
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Description</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Description', 'Properties')}>Description</label>
         <Input value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Category</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Category', 'Properties')}>Category</label>
           <Input value={category} onChange={(e) => setCategory(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Data type</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Data type', 'Properties')}>Data type</label>
           <select value={dataType} onChange={(e) => setDataType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             {PROPERTY_DATA_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Data formats</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Data formats', 'Properties')}>Data formats</label>
         <div className="flex flex-wrap gap-2">
           {PROPERTY_DATA_FORMATS.map((fmt) => (
             <label key={fmt} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1">
@@ -507,7 +508,7 @@ function PropertyEditor({
       {dataType === 'array' && <ItemSchemaEditor fields={itemSchema} onChange={setItemSchema} />}
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" htmlFor="property-category-override">Property category</label>
+        <label className="text-sm font-medium text-gray-700" htmlFor="property-category-override" title={hintFor('Property category', 'Properties')}>Property category</label>
         <select
           id="property-category-override"
           value={categoryOverride}
@@ -527,7 +528,7 @@ function PropertyEditor({
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" htmlFor="property-catalog-field">Catalog field</label>
+        <label className="text-sm font-medium text-gray-700" htmlFor="property-catalog-field" title={hintFor('Catalog field', 'Properties')}>Catalog field</label>
         <select
           id="property-catalog-field"
           value={mappedCatalogFieldId}
@@ -552,14 +553,14 @@ function PropertyEditor({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Priority</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Priority', 'Properties')}>Priority</label>
           <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
             {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Status</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Status', 'Properties')}>Status</label>
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
             {ENTITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -567,7 +568,7 @@ function PropertyEditor({
         </div>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Property type</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Property type', 'Properties')}>Property type</label>
         <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
           {ORIGIN_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
@@ -577,7 +578,7 @@ function PropertyEditor({
       </label>
       {scope === 'customer' && (
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Bloomreach customer property</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Bloomreach customer property', 'Properties')}>Bloomreach customer property</label>
           <select
             value={bloomreachCustomerProperty}
             onChange={(e) => setBloomreachCustomerProperty(e.target.value)}
@@ -591,12 +592,12 @@ function PropertyEditor({
         </div>
       )}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Notes</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Notes', 'Properties')}>Notes</label>
         <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
       {bundles.length > 0 && (
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Bundles</label>
+          <label className="text-sm font-medium text-gray-700" title={hintFor('Bundles', 'Properties')}>Bundles</label>
           <div className="flex flex-wrap gap-2">
             {bundles.map((b) => (
               <label key={b.id} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1">
@@ -689,7 +690,7 @@ function DefinitionsSection({ projectId, propertyId }: { projectId: string; prop
   return (
     <div className="space-y-2 pt-4 border-t">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-gray-700">Definitions</label>
+        <label className="text-sm font-medium text-gray-700" title={hintFor('Definitions', 'Properties')}>Definitions</label>
         <Button variant="outline" size="sm" onClick={() => { setEditingId(null); setIsAdding(true); }} className="gap-1">
           <Plus className="w-3 h-3" /> Add definition
         </Button>
@@ -793,7 +794,7 @@ function DefinitionEditor({
   return (
     <div className="rounded-md border bg-gray-50 p-3 space-y-3">
       <div className="space-y-1">
-        <label className="text-xs font-medium text-gray-700">Name</label>
+        <label className="text-xs font-medium text-gray-700" title={hintFor('Name', 'Properties')}>Name</label>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -807,11 +808,11 @@ function DefinitionEditor({
         )}
       </div>
       <div className="space-y-1">
-        <label className="text-xs font-medium text-gray-700">Description</label>
+        <label className="text-xs font-medium text-gray-700" title={hintFor('Description', 'Properties')}>Description</label>
         <Input value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <div className="space-y-1">
-        <label className="text-xs font-medium text-gray-700">Formats</label>
+        <label className="text-xs font-medium text-gray-700" title={hintFor('Formats', 'Properties')}>Formats</label>
         <div className="flex flex-wrap gap-2">
           {PROPERTY_DATA_FORMATS.map((fmt) => (
             <label key={fmt} className="flex items-center gap-1 text-xs bg-white border rounded px-2 py-1">
@@ -823,7 +824,7 @@ function DefinitionEditor({
       </div>
       <AllowedValuesEditor values={allowedValues} onChange={setAllowedValues} standardEventAdditions={null} />
       <div className="space-y-1">
-        <label className="text-xs font-medium text-gray-700">Example value</label>
+        <label className="text-xs font-medium text-gray-700" title={hintFor('Example value', 'Properties')}>Example value</label>
         <Input value={example} onChange={(e) => setExample(e.target.value)} />
       </div>
       {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{saveError}</div>}

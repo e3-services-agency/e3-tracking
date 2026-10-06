@@ -58,3 +58,23 @@ describe('referenceHref (T-4-22)', () => {
     expect(propertyIdForHash('#property-%E0%A4%A', index)).toBeNull();
   });
 });
+
+describe('consent and catalog anchors (T-4-25 parity)', () => {
+  it('consent anchors equal the rendered consent row ids of sharedSectionGroups; catalog anchors are unique', async () => {
+    const { sharedSectionGroups } = await import('./viewHelpers');
+    const consents = [
+      { id: 'n1', name: 'newsletter' },
+      { id: 'n2', name: 'newsletter' },
+      { id: 'n3', name: 'sms offers', standard_key: 'sms' },
+    ];
+    const idx = buildReferenceIndex({ ...doc, consent_categories: consents, catalogs: [{ id: 'k1', name: 'A b' }, { id: 'k2', name: 'A b' }] });
+    const groups = sharedSectionGroups({
+      events: [], properties: [], use_cases: [], identity_rules: [], catalogs: [], standard_event_mappings: [],
+      consent_categories: consents,
+    } as unknown as Parameters<typeof sharedSectionGroups>[0]);
+    const rendered = new Map(groups.consentGroups.flatMap((g) => g.items.map((i) => [consents[i.index].id, i.id] as const)));
+    for (const c of consents) expect(idx.consentAnchorById.get(c.id)).toBe(rendered.get(c.id));
+    expect(idx.catalogAnchorById.get('k1')).toBe('catalog-A-b');
+    expect(idx.catalogAnchorById.get('k2')).toBe('catalog-A-b-2');
+  });
+});

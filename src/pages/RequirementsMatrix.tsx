@@ -14,7 +14,7 @@ import { Button } from '@/src/components/ui/Button';
 import { useStore } from '@/src/store';
 import { TargetKindBadge } from '@/src/components/ui/badges';
 import { REQUIREMENT_TARGET_KINDS } from '@/src/domain/enums';
-import { filterMatrixRows, formatTargetLabel, groupMatrixRows } from '@/src/domain/requirementsMatrix';
+import { matrixCellBadge, filterMatrixRows, formatTargetLabel, groupMatrixRows } from '@/src/domain/requirementsMatrix';
 
 interface MatrixUseCase {
   id: string;
@@ -42,6 +42,21 @@ interface Matrix {
 
 async function parseJson(res: Response): Promise<any> {
   return res.json().catch(() => ({}));
+}
+
+const CELL_BADGE_CLASS = {
+  required: 'inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--brand-primary)] px-1.5 text-xs font-semibold text-[var(--brand-primary-text)]',
+  optional: 'inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-[var(--brand-primary)] px-1.5 text-xs font-semibold text-gray-700',
+  none: 'text-gray-300',
+} as const;
+
+function MatrixCellBadge({ level }: { level: string | null }) {
+  const b = matrixCellBadge(level);
+  return (
+    <span className={CELL_BADGE_CLASS[b.kind]} title={b.label} aria-label={b.label} data-cell-badge={b.kind}>
+      {b.text}
+    </span>
+  );
 }
 
 export function RequirementsMatrix() {
@@ -115,8 +130,7 @@ export function RequirementsMatrix() {
           <>
             <div className="text-xs text-gray-600 flex flex-wrap items-center gap-x-4 gap-y-1">
               <span>
-                Legend: <b>R</b> required, <b>O</b> optional,{' '}
-                <b>N</b> nice to have, — no requirement
+                Legend: <MatrixCellBadge level="R" /> required, <MatrixCellBadge level="O" /> optional, <MatrixCellBadge level={null} /> no requirement
               </span>
               <span className="flex flex-wrap items-center gap-1.5" data-testid="matrix-kind-legend">
                 Target kinds:
@@ -197,7 +211,7 @@ export function RequirementsMatrix() {
                             </td>
                             {visibleUseCases.map((uc) => (
                               <td key={uc.id} className="px-4 py-2 text-center text-gray-700">
-                                {row.cells[uc.id] ?? '—'}
+                                <MatrixCellBadge level={row.cells[uc.id] ?? null} />
                               </td>
                             ))}
                           </tr>

@@ -1,10 +1,15 @@
 import { useEffect, useRef, type RefObject } from 'react';
 
+/** Open dialogs, innermost last: only the top one reacts to Esc and Tab (T-4-27). */
+const stack: symbol[] = [];
+
 /** Esc closes, focus moves into the dialog and is trapped, returns to the opener, body scroll locked. */
 export function useModalA11y(ref: RefObject<HTMLElement | null>, onClose: () => void) {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useEffect(() => {
+    const id = Symbol('modal');
+    stack.push(id);
     const opener = document.activeElement as HTMLElement | null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -37,6 +42,8 @@ export function useModalA11y(ref: RefObject<HTMLElement | null>, onClose: () => 
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('keydown', onKey);
+      const at = stack.indexOf(id);
+      if (at >= 0) stack.splice(at, 1);
       document.body.style.overflow = previousOverflow;
       opener?.focus?.();
     };

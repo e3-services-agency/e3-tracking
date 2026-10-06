@@ -123,3 +123,13 @@ describe('real DAL gap notes (T-4-12 fix round)', () => {
     expect(formatTargetLabel({ target_kind: 'consent', group_label: 'Consent', leaf_label: 'newsletter' })).toBe('newsletter');
   });
 });
+
+import { matrixCellBadge } from './requirementsMatrix';
+describe('matrixCellBadge (T-4-27)', () => {
+  it('maps R, O and everything else', () => {
+    expect(matrixCellBadge('R')).toMatchObject({ kind: 'required', text: 'R' });
+    expect(matrixCellBadge('O')).toMatchObject({ kind: 'optional', text: 'O' });
+    expect(matrixCellBadge(null)).toMatchObject({ kind: 'none', text: '·' });
+    expect(matrixCellBadge('x')).toMatchObject({ kind: 'none' });
+  });
+});

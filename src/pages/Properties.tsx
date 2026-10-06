@@ -1,3 +1,5 @@
+import { ExpandChevron } from '@/src/components/ui/ExpandChevron';
+import { groupRowsByCategory, toggleCollapsed } from '@/src/domain/propertyTableGroups';
 import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
 import { useDebouncedValue } from '@/src/hooks/useDebouncedValue';
 import { BundlesSection } from '@/src/features/properties/components/BundlesSection';
@@ -11,7 +13,7 @@ import { Badge, KindBadge, PriorityBadge, StatusBadge } from '@/src/components/u
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Trash2, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Loader2, ChevronRight, Layers, Link2 } from 'lucide-react';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -214,6 +216,8 @@ export function Properties() {
     status: (p) => p.status,
   });
 
+  const propertyGroups = useMemo(() => groupRowsByCategory<PropertyRow>(visibleProperties, classifyProperty), [visibleProperties]);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<PropertyCategory>>(new Set());
   const expandable = useMemo(() => visibleProperties.filter((p) => (p.definitions ?? []).length > 0).map((p) => p.id), [visibleProperties]);
   const allExpanded = expandable.length > 0 && expandable.every((id) => expandedIds.has(id));
   const openDrawer = (id: string, defs: boolean) => { setSelectedId(id); setIsCreating(false); setFocusDefinitions(defs); setIsSheetOpen(true); setOrderFrozen(true); };
@@ -297,68 +301,93 @@ export function Properties() {
         </div>
 
         <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[900px] table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-10" />
+              <col />
+              <col className="w-[72px]" />
+              <col className="w-[96px]" />
+              <col className="w-[88px]" />
+              <col className="w-[88px]" />
+              <col className="w-[88px]" />
+              <col className="w-[110px]" />
+              <col className="w-[150px]" />
+            </colgroup>
             <thead className="bg-gray-50 border-b">
               <tr>
-                <SortableTh sort={sort} column="name" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'Properties')}>Name</SortableTh>
-                <SortableTh sort={sort} column="scope" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Scope', 'Properties')}>Scope</SortableTh>
-                <SortableTh sort={sort} column="category" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Category', 'Properties')}>Category</SortableTh>
-                <SortableTh sort={sort} column="data_type" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Data type', 'Properties')}>Data type</SortableTh>
-                <SortableTh sort={sort} column="kind" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Property type', 'Properties')}>Type</SortableTh>
-                <SortableTh sort={sort} column="enum" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Enum', 'Properties')}>Enum</SortableTh>
-                <SortableTh sort={sort} column="priority" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Priority', 'Properties')}>Priority</SortableTh>
-                <SortableTh sort={sort} column="status" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Properties')}>Status</SortableTh>
-                <th className="px-6 py-3 font-medium text-gray-500">Actions</th>
+                <th className="px-1 py-3"><span className="sr-only">Expand</span></th>
+                <SortableTh sort={sort} column="name" className="px-4 py-3 font-medium text-gray-500" title={hintFor('Name', 'Properties')}>Name</SortableTh>
+                <SortableTh sort={sort} column="scope" className="px-4 py-3 font-medium text-gray-500" title={hintFor('Scope', 'Properties')}>Scope</SortableTh>
+                <SortableTh sort={sort} column="data_type" className="px-4 py-3 font-medium text-gray-500" title={hintFor('Data type', 'Properties')}>Data type</SortableTh>
+                <SortableTh sort={sort} column="kind" className="px-4 py-3 font-medium text-gray-500" title={hintFor('Property type', 'Properties')}>Type</SortableTh>
+                <SortableTh sort={sort} column="enum" className="px-4 py-3 font-medium text-gray-500" title={hintFor('Enum', 'Properties')}>Enum</SortableTh>
+                <SortableTh sort={sort} column="priority" className="px-4 py-3 font-medium text-gray-500" title={hintFor('Priority', 'Properties')}>Priority</SortableTh>
+                <SortableTh sort={sort} column="status" className="px-4 py-3 font-medium text-gray-500" title={hintFor('Status', 'Properties')}>Status</SortableTh>
+                <th className="px-4 py-3 font-medium text-gray-500">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {visibleProperties.map((p) => {
-                const enumCount = Array.isArray(p.allowed_values_json) ? p.allowed_values_json.length : 0;
+              {propertyGroups.map((group) => {
+                const isCollapsed = collapsedGroups.has(group.category);
                 return (
-                  <React.Fragment key={p.id}>
-                  <tr onClick={() => openDrawer(p.id, false)} className="hover:bg-gray-50 cursor-pointer">
-                    <td className="px-6 py-4 font-medium text-gray-900">
-                      <span className="inline-flex flex-wrap items-center gap-1.5">
-                        {(p.definitions ?? []).length > 0 && (
-                          <button
-                            type="button"
-                            aria-expanded={expandedIds.has(p.id)}
-                            title={`${(p.definitions ?? []).length} definition(s): click to ${expandedIds.has(p.id) ? 'collapse' : 'expand'}`}
-                            onClick={(e) => { e.stopPropagation(); setExpandedIds((s) => toggleId(s, p.id)); }}
-                            className="text-xs text-gray-400 hover:text-gray-700"
-                          >
-                            {expandedIds.has(p.id) ? '▾' : '▸'}
-                          </button>
-                        )}
-                        {p.name}
-                        <CopyNameButton name={p.name} />
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-500">{p.scope}</td>
-                    <td className="px-6 py-4 text-gray-500">
-                      <CategoryBadge category={classifyProperty(p)} />
-                      {isPropertyCategory(p.category_override) && <span className="ml-1 text-xs text-gray-400">(set)</span>}
-                    </td>
-                    <td className="px-6 py-4 text-gray-500">{p.data_type}</td>
-                    <td className="px-6 py-4"><KindBadge kind={p.kind} /></td>
-                    <td className="px-6 py-4">
-                      {enumCount > 0 ? (
-                        <Badge tone="blue">enum · {enumCount}</Badge>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-gray-500"><PriorityBadge priority={p.priority} /></td>
-                    <td className="px-6 py-4 text-gray-500"><StatusBadge status={p.status} /></td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex gap-1">
-                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); openDrawer(p.id, true); }}>Definitions ({(p.definitions ?? []).length})</Button>
-                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); setUsedByFor(p.id); }}>Used by ({(p.used_by_events ?? []).length})</Button>
-                        <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); void deleteRow(p); }}>Delete</Button>
-                      </span>
-                    </td>
-                  </tr>
-                  {expandedIds.has(p.id) && <DefinitionSubRows definitions={p.definitions ?? []} colSpan={9} onOpenEvent={openEvent} />}
+                  <React.Fragment key={group.category}>
+                    <tr className="bg-gray-100" data-testid={`property-group-${group.category}`}>
+                      <th colSpan={9} scope="colgroup" className="px-2 py-1 text-left text-xs font-semibold text-gray-700">
+                        <button
+                          type="button"
+                          aria-expanded={!isCollapsed}
+                          onClick={() => setCollapsedGroups((c) => toggleCollapsed(c, group.category))}
+                          className="inline-flex items-center gap-2 rounded px-1 py-1 hover:bg-gray-200"
+                        >
+                          <ChevronRight className={`h-4 w-4 transition-transform ${isCollapsed ? '' : 'rotate-90'}`} />
+                          <CategoryBadge category={group.category} />
+                          <span className="font-normal text-gray-500">({group.rows.length})</span>
+                        </button>
+                      </th>
+                    </tr>
+                    {!isCollapsed && group.rows.map((p) => {
+                      const enumCount = Array.isArray(p.allowed_values_json) ? p.allowed_values_json.length : 0;
+                      const defCount = (p.definitions ?? []).length;
+                      const usedCount = (p.used_by_events ?? []).length;
+                      return (
+                        <React.Fragment key={p.id}>
+                          <tr onClick={() => openDrawer(p.id, false)} className="hover:bg-gray-50 cursor-pointer">
+                            <td className="px-1 py-2">
+                              {defCount > 0 && (
+                                <ExpandChevron
+                                  expanded={expandedIds.has(p.id)}
+                                  label={`${defCount} definition(s): click to ${expandedIds.has(p.id) ? 'collapse' : 'expand'}`}
+                                  onToggle={() => setExpandedIds((s) => toggleId(s, p.id))}
+                                />
+                              )}
+                            </td>
+                            <td className="px-4 py-3 font-medium text-gray-900">
+                              <span className="flex items-center gap-1.5 min-w-0">
+                                <span className="whitespace-nowrap truncate" title={p.name}>{p.name}</span>
+                                <CopyNameButton name={p.name} />
+                                {isPropertyCategory(p.category_override) && <span className="text-xs font-normal text-gray-400" title="Category set by hand">(set)</span>}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-gray-500">{p.scope}</td>
+                            <td className="px-4 py-3 text-gray-500">{p.data_type}</td>
+                            <td className="px-4 py-3"><KindBadge kind={p.kind} /></td>
+                            <td className="px-4 py-3">
+                              {enumCount > 0 ? <Badge tone="blue">enum · {enumCount}</Badge> : <span className="text-gray-400">—</span>}
+                            </td>
+                            <td className="px-4 py-3 text-gray-500"><PriorityBadge priority={p.priority} /></td>
+                            <td className="px-4 py-3 text-gray-500"><StatusBadge status={p.status} /></td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <span className="inline-flex gap-1">
+                                <Button variant="outline" size="sm" className="gap-1 px-2" title={`Definitions (${defCount})`} aria-label={`Definitions (${defCount})`} onClick={(e) => { e.stopPropagation(); openDrawer(p.id, true); }}><Layers className="h-4 w-4" />{defCount}</Button>
+                                <Button variant="outline" size="sm" className="gap-1 px-2" title={`Used by (${usedCount})`} aria-label={`Used by (${usedCount})`} onClick={(e) => { e.stopPropagation(); setUsedByFor(p.id); }}><Link2 className="h-4 w-4" />{usedCount}</Button>
+                                <Button variant="outline" size="sm" className="px-2" title="Delete" aria-label={`Delete ${p.name}`} onClick={(e) => { e.stopPropagation(); void deleteRow(p); }}><Trash2 className="h-4 w-4" /></Button>
+                              </span>
+                            </td>
+                          </tr>
+                          {expandedIds.has(p.id) && <DefinitionSubRows definitions={p.definitions ?? []} colSpan={9} onOpenEvent={openEvent} />}
+                        </React.Fragment>
+                      );
+                    })}
                   </React.Fragment>
                 );
               })}

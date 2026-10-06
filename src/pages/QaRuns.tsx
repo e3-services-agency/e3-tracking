@@ -1,3 +1,4 @@
+import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
 /**
  * QA runs page (T-1-09, D-07 simplified UI): a table of runs (auto-created by the customer events
  * export import, T-1-09; `agent_session`/`manual` runs are phase 2) and a detail sheet per run
@@ -49,6 +50,14 @@ export function QaRuns() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
   const setRequestedTab = useStore((s) => s.setRequestedTab);
   const [runs, setRuns] = useState<QaRunRow[]>([]);
+  const { sorted: sortedRuns, sort } = useSortableTable(runs, {
+    kind: (r) => r.kind,
+    actor: (r) => r.actor,
+    environment: (r) => r.environment,
+    started: (r) => r.started_at,
+    finished: (r) => r.finished_at,
+    archived: (r) => r.archived,
+  });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -124,16 +133,16 @@ export function QaRuns() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Kind', 'QaRuns')}>Kind</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Actor', 'QaRuns')}>Actor</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Environment', 'QaRuns')}>Environment</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Started', 'QaRuns')}>Started</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Finished', 'QaRuns')}>Finished</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Archived', 'QaRuns')}>Archived</th>
+                <SortableTh sort={sort} column="kind" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Kind', 'QaRuns')}>Kind</SortableTh>
+                <SortableTh sort={sort} column="actor" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Actor', 'QaRuns')}>Actor</SortableTh>
+                <SortableTh sort={sort} column="environment" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Environment', 'QaRuns')}>Environment</SortableTh>
+                <SortableTh sort={sort} column="started" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Started', 'QaRuns')}>Started</SortableTh>
+                <SortableTh sort={sort} column="finished" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Finished', 'QaRuns')}>Finished</SortableTh>
+                <SortableTh sort={sort} column="archived" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Archived', 'QaRuns')}>Archived</SortableTh>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {runs.map((run) => (
+              {sortedRuns.map((run) => (
                 <tr
                   key={run.id}
                   onClick={() => {

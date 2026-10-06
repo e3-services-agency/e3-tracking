@@ -12,6 +12,8 @@ import { API_BASE } from '@/src/config/env';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
 import { Button } from '@/src/components/ui/Button';
 import { useStore } from '@/src/store';
+import { TargetKindBadge } from '@/src/components/ui/badges';
+import { REQUIREMENT_TARGET_KINDS } from '@/src/domain/enums';
 import { filterMatrixRows, formatTargetLabel, groupMatrixRows } from '@/src/domain/requirementsMatrix';
 
 interface MatrixUseCase {
@@ -116,6 +118,12 @@ export function RequirementsMatrix() {
                 Legend: <b>R</b> required, <b>O</b> optional,{' '}
                 <b>N</b> nice to have, — no requirement
               </span>
+              <span className="flex flex-wrap items-center gap-1.5" data-testid="matrix-kind-legend">
+                Target kinds:
+                {REQUIREMENT_TARGET_KINDS.map((k) => (
+                  <TargetKindBadge key={k} kind={k} />
+                ))}
+              </span>
               <span>
                 <span className="text-amber-600 font-bold" aria-hidden="true">!</span>{' '}
                 <GlossaryTerm glossaryKey="gap">gap</GlossaryTerm>: the target is missing or was removed (hover the marker or expand the row for the note)
@@ -157,6 +165,9 @@ export function RequirementsMatrix() {
                   <tbody key={group.key} className="divide-y">
                     <tr className="bg-gray-100">
                       <th colSpan={colSpan} className="px-4 py-2 text-xs font-semibold text-gray-700 text-left">
+                        {(group.kind === 'event' || group.kind === 'variant') && (
+                          <TargetKindBadge kind={group.kind} compact className="mr-2 align-middle" />
+                        )}
                         {group.label}{(group.kind === 'event' || group.kind === 'variant') && (
                           <span className="font-normal text-gray-500"> ({group.kind})</span>
                         )}
@@ -175,6 +186,7 @@ export function RequirementsMatrix() {
                                 aria-expanded={expanded}
                               >
                                 <span className="text-gray-400 text-xs">{expanded ? '▾' : '▸'}</span>
+                                <TargetKindBadge kind={row.target_kind} compact />
                                 <span title={formatTargetLabel(row)}>{row.leaf_label}</span>
                                 {row.is_gap && (
                                   <span className="text-amber-600 font-bold" title={row.gap_note ?? 'Gap'}>

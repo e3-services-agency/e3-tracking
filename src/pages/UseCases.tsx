@@ -1,3 +1,4 @@
+import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
 import { PriorityBadge, StatusBadge } from '@/src/components/ui/badges';
 /**
  * Use cases: plain table + form against `/api/projects/:projectId/use-cases`, plus an ordered
@@ -125,6 +126,14 @@ async function parseJson(res: Response): Promise<any> {
 export function UseCases() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
   const [useCases, setUseCases] = useState<UseCaseRow[]>([]);
+  const { sorted: sortedUseCases, sort } = useSortableTable(useCases, {
+    code: (u) => u.code,
+    name: (u) => u.name,
+    type: (u) => u.type,
+    priority: (u) => ['critical', 'high', 'medium', 'low'].indexOf(u.priority ?? '') + 1 || null,
+    status: (u) => u.status,
+    owner: (u) => u.owner,
+  });
   const [templates, setTemplates] = useState<UseCaseTemplateOption[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -248,16 +257,16 @@ export function UseCases() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Code', 'UseCases')}>Code</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'UseCases')}>Name</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Type', 'UseCases')}>Type</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Priority', 'UseCases')}>Priority</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'UseCases')}>Status</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Owner', 'UseCases')}>Owner</th>
+                <SortableTh sort={sort} column="code" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Code', 'UseCases')}>Code</SortableTh>
+                <SortableTh sort={sort} column="name" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'UseCases')}>Name</SortableTh>
+                <SortableTh sort={sort} column="type" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Type', 'UseCases')}>Type</SortableTh>
+                <SortableTh sort={sort} column="priority" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Priority', 'UseCases')}>Priority</SortableTh>
+                <SortableTh sort={sort} column="status" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'UseCases')}>Status</SortableTh>
+                <SortableTh sort={sort} column="owner" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Owner', 'UseCases')}>Owner</SortableTh>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {useCases.map((uc) => (
+              {sortedUseCases.map((uc) => (
                 <tr key={uc.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedId(uc.id)}>
                   <td className="px-6 py-4 text-gray-500">{uc.code ?? '—'}</td>
                   <td className="px-6 py-4 font-medium text-gray-900"><span className="inline-flex items-center gap-1.5">{uc.name}<CopyNameButton name={uc.name} /></span></td>

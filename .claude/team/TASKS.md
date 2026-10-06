@@ -194,6 +194,7 @@ Detailed acceptance criteria per task live in `reports/PLAN-PHASE2-2026-09-25.md
 - Flaky test: full vitest runs on agent-setup occasionally report 1 failure (1460/1461, 1456/1457) with a clean re-run; identify the test (run with the default reporter until it reproduces) and fix the isolation issue.
 - (closed, T-4-13 QA) T-4-15 modal browser check PASS on the merged tree.
 - Sandbox data (for T-4-11): UC-01..03 in the bundled backup have no narrative and blank requirement statuses; the generator should regenerate narratives and run coverage so the sandbox use cases look finished.
+- From T-4-24 review: listBundlesWithUsage runs one usage query per bundle and does not filter soft-deleted member properties; TriggersBlock lightbox keys assume unique image paths across triggers; the Properties category-group collapse on the Properties page was not done (variants only on Events).
 - From T-4-23 review: identity codegen still emits exponea.identify (add a brweb.identify variant next to the Web SDK tab); discriminatorPropertyIds() is not scoped by project; PUT/PATCH property responses lack is_discriminator.
 - From T-4-23 QA: the sandbox seed stores no standard-event binding on cart_update's action values (add -> add_to_cart, remove -> remove_from_cart) although the mappings exist; seed the bindings so the editor shows them.
 - From T-5-00 re-review: backupJobMain.ts has no SIGTERM handler, so `docker compose stop` leaves the SQLite WAL/SHM behind (recovered on next start); add closeDb on SIGTERM and soften the DEPLOY.md sentence.

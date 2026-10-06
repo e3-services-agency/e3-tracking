@@ -15,6 +15,7 @@ import type {
 } from '../../types/schema';
 import type { PropertyDataFormat, IdentityTransformation, ImplementationMethod, PropertyKind } from '../../domain/enums';
 import { DEFAULT_PROPERTY_KIND } from '../../domain/enums';
+import { describeTrigger } from '../../domain/identity/identifiers';
 import { parseDerivation, type PropertyDerivation } from '../../domain/codegen/derivation';
 import {
   buildDataLayerModel,
@@ -75,7 +76,12 @@ export type CodegenProjectConfig = {
    * project-wide hard id key as the `customer_ids` keys.
    */
   identifierKeys?: string[] | null;
+  /** True when at least one of `identifierKeys` is a soft identifier (changes the customer_ids note). */
+  identifierHasSoft?: boolean;
 };
+
+export const SOFT_CUSTOMER_IDS_COMMENT =
+  'customer_ids carry the identifiers this event uses (soft ids are merged into the profile; a hard id must be present somewhere in the session); see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview';
 
 export const CUSTOMER_IDS_COMMENT =
   "customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview";
@@ -547,7 +553,7 @@ function buildBloomreachApiSnippet(
     ...(Object.keys(properties).length > 0 ? { properties } : {}),
   };
   const json = JSON.stringify(body, null, 2);
-  const idComment = `// ${CUSTOMER_IDS_COMMENT}\n`;
+  const idComment = `// ${identifierKeys.length > 0 && projectConfig?.identifierHasSoft ? SOFT_CUSTOMER_IDS_COMMENT : CUSTOMER_IDS_COMMENT}\n`;
   const optionalProps = props.filter((p) => !isRequiredForCodegenSnippet(p));
   const curlExample =
     `curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\\n` +
@@ -597,6 +603,7 @@ export interface CodegenV2Options {
   hardIdKey?: string | null;
   /** D-67 (T-4-28): the event's effective identifier names, the Tracking API `customer_ids` keys. */
   identifierKeys?: string[] | null;
+  identifierHasSoft?: boolean;
 }
 
 export function toCodegenProperty(p: AttachedPropertyForCodegen): CodegenProperty {
@@ -637,7 +644,7 @@ export function buildCodegenV2(
       safeCanonical,
       props,
       overrides,
-      projectConfig ?? { bloomreachApiCustomerIdKey: options.hardIdKey, identifierKeys: options.identifierKeys },
+      projectConfig ?? { bloomreachApiCustomerIdKey: options.hardIdKey, identifierKeys: options.identifierKeys, identifierHasSoft: options.identifierHasSoft },
       model.payload
     ), comment);
 
@@ -841,10 +848,15 @@ function buildAnonymizeSnippet(anonymizeRules: IdentityRuleForCodegen[]): string
  * identifiers the call binds: the rule's own, plus the cookie (web source) or the source's other
  * identifiers (server source); the cookie is bound by the SDK itself and needs no argument.
  */
-function buildStandaloneIdentifySnippet(rule: IdentityRuleForCodegen): string {
+function triggerPhraseForCodegen(text: string): string {
+  const t = describeTrigger(text);
+  return `${t.preposition} ${t.text}`;
+}
+
+function buildStandaloneIdentifySnippet(rule: IdentityRuleForCodegen): string | null {
   const binds = rule.binds ?? [];
   const sent = binds.filter((b) => b !== 'cookie');
-  const where = rule.standalone_on ? ` on ${rule.standalone_on}` : '';
+  const where = rule.standalone_on ? ` ${triggerPhraseForCodegen(rule.standalone_on)}` : '';
   if (rule.standalone_server) {
     return [
       `// Standalone server-side identification${where}: binds ${binds.join(', ')}`,
@@ -852,6 +864,8 @@ function buildStandaloneIdentifySnippet(rule: IdentityRuleForCodegen): string {
       `// customer_ids: { ${sent.map((n) => `${formatObjectKey(n)}: ${toCamelCaseVariable(n)}`).join(', ')} }`,
     ].join('\n');
   }
+  // The cookie alone is bound by the SDK itself: nothing to send, so no block.
+  if (sent.length === 0) return null;
   const lines = [`// Standalone identify call${where}: binds ${binds.join(', ')}`];
   if (binds.includes('cookie')) lines.push('// The cookie is bound by the SDK automatically.');
   lines.push('exponea.identify({');
@@ -877,7 +891,7 @@ export function buildIdentityCodegen(
   const anonymizeRules = rules.filter((r) => r.sdk_call === 'anonymize');
   const standalone = rules.filter(isStandalone);
   return {
-    identify: [...(hardRules.length > 0 || standalone.length === 0 ? [buildIdentifySnippet(hardRules)] : []), ...standalone.map(buildStandaloneIdentifySnippet)].join('\n\n'),
+    identify: [...(hardRules.length > 0 || standalone.length === 0 ? [buildIdentifySnippet(hardRules)] : []), ...standalone.map(buildStandaloneIdentifySnippet).filter((b): b is string => b !== null)].join('\n\n'),
     update: buildUpdateSnippet(customerProperties),
     anonymize: buildAnonymizeSnippet(anonymizeRules),
   };

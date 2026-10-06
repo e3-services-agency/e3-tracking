@@ -733,6 +733,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
       projectContext: context.projectContextProperties,
       hardIdKey: context.hardIdKey,
       identifierKeys: identifiers,
+      identifierHasSoft: context.identityRules.some((r) => r.identity_type === 'soft' && identifiers.includes(r.identifier_name)),
       catalogLinks: catalogLinksForProperties(properties, context),
     },
     event.codegen_event_name_overrides_json as CodegenEventNameOverrides | null

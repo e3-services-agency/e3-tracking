@@ -123,6 +123,24 @@ export interface IdentificationFlow {
 
 const MAX_NAMED_EVENTS = 8;
 
+/**
+ * Normalises a rule's free-text trigger for splicing into a sentence: trailing period stripped, first
+ * letter lower-cased unless the first word is an acronym or identifier, and "when" for a sentence-like
+ * text (more than 3 words) else "on".
+ */
+export function describeTrigger(text: string): { preposition: 'on' | 'when'; text: string } {
+  const trimmed = text.trim().replace(/[.]+$/, '').trim();
+  const first = trimmed.split(/\s+/)[0] ?? '';
+  const keep = /[A-Z].*[A-Z]/.test(first) || /[_0-9]/.test(first);
+  const normalised = keep || !trimmed ? trimmed : trimmed.charAt(0).toLowerCase() + trimmed.slice(1);
+  return { preposition: trimmed.split(/\s+/).length > 3 ? 'when' : 'on', text: normalised };
+}
+
+function triggerPhrase(text: string): string {
+  const t = describeTrigger(text);
+  return `${t.preposition} ${t.text}`;
+}
+
 function listNames(names: string[]): string {
   if (names.length <= MAX_NAMED_EVENTS) return names.join(', ');
   return `${names.slice(0, MAX_NAMED_EVENTS).join(', ')} and ${names.length - MAX_NAMED_EVENTS} more`;
@@ -136,7 +154,7 @@ function whenSentence(rule: IdentityRuleLike, set_by: IdentifierSetBy): string {
   }
   if (set_by.kind === 'standalone_call') {
     const via = set_by.source ? `, by ${set_by.source.label}` : '';
-    return `is set ${set_by.trigger_text ? `when ${set_by.trigger_text.replace(/[.]+$/, '')}` : 'at a moment no trigger records yet'}${via}${call}`;
+    return `is set ${set_by.trigger_text ? triggerPhrase(set_by.trigger_text) : 'at a moment no trigger records yet'}${via}${call}`;
   }
   return 'is set at a moment no trigger records yet';
 }
@@ -222,7 +240,7 @@ export function buildIdentificationFlow(
       const id = rule.identifier_name;
       const call = fr.set_by.sdk_call ?? 'identify';
       const others = fr.binds.filter((b) => b !== id);
-      const on = fr.set_by.trigger_text ? ` on ${fr.set_by.trigger_text.replace(/[.]+$/, '')}` : '';
+      const on = fr.set_by.trigger_text ? ` ${triggerPhrase(fr.set_by.trigger_text)}` : '';
       const via = fr.set_by.source ? ` via ${fr.set_by.source.name}` : '';
       const together = others.length > 0 ? ` together with ${others.join(', ')}` : '';
       const only = fr.carried_by.filter((e) => {

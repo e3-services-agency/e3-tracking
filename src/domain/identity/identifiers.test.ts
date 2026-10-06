@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildIdentificationFlow,
+  describeTrigger,
   deriveEventIdentifiers,
   effectiveEventIdentifiers,
   type IdentifierEventLike,
@@ -101,5 +102,14 @@ describe('standalone identify call (D-67 amendment 1)', () => {
     expect(flow.paragraph).toContain(
       'cart_id is set by a standalone identify call on the checkout page via Web together with cookie; cart_update is sent with cart_id only and is merged into the profile through it.'
     );
+  });
+});
+
+describe('describeTrigger', () => {
+  it('lower-cases the first letter, strips the period and picks on or when', () => {
+    expect(describeTrigger('The SMS consent form is submitted.')).toEqual({ preposition: 'when', text: 'the SMS consent form is submitted' });
+    expect(describeTrigger('Checkout page.')).toEqual({ preposition: 'on', text: 'checkout page' });
+    expect(describeTrigger('GTM push')).toEqual({ preposition: 'on', text: 'GTM push' });
+    expect(describeTrigger('cart_id is set by the page')).toEqual({ preposition: 'when', text: 'cart_id is set by the page' });
   });
 });

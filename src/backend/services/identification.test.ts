@@ -113,7 +113,7 @@ describe('identification flow service', () => {
     expect(cart.set_by).toMatchObject({ kind: 'standalone_call', sdk_call: 'identify', trigger_text: 'the checkout page loads', source: { name: 'Storefront' } });
     expect(cart.binds).toEqual(['cart_id', 'cookie']);
     expect(cart.carried_by.map((e) => e.name)).toContain('cart_update');
-    expect(flow.paragraph).toContain('cart_id is set by a standalone identify call on the checkout page loads via Storefront together with cookie; cart_update is sent with cart_id only and is merged into the profile through it.');
+    expect(flow.paragraph).toContain('cart_id is set by a standalone identify call when the checkout page loads via Storefront together with cookie; cart_update is sent with cart_id only and is merged into the profile through it.');
   });
 
   it('GET /identity-rules and /identity-rules/flow carry the flow', async () => {
@@ -185,7 +185,7 @@ describe('document, export and codegen', () => {
   it('the identify snippet lists the identifiers a standalone call binds', () => {
     setUp();
     const snippets = buildIdentityCodegen(listIdentityRulesForCodegen(projectId), []);
-    expect(snippets.identify).toContain('// Standalone identify call on the checkout page loads: binds cart_id, cookie');
+    expect(snippets.identify).toContain('// Standalone identify call when the checkout page loads: binds cart_id, cookie');
     expect(snippets.identify).toContain('cart_id: cartId,');
     expect(snippets.identify).not.toContain('cookie:');
   });
@@ -241,5 +241,25 @@ describe('identity codegen: standalone rules', () => {
     expect(identify).not.toContain('exponea.identify({');
     expect(identify).toContain('Tracking API');
     expect(identify).toContain('customer_ids: { cart_id: cartId }');
+  });
+});
+
+describe('identity codegen and Tracking API note polish', () => {
+  it('skips an identify block with no ids and strips the trailing period in comments', () => {
+    const web = SourceDAL.createSource(projectId, { name: 'Storefront', system: 'shopify', method: 'web_sdk_gtm_datalayer' });
+    IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'cookie', identity_type: 'soft', name: 'Cookie', sdk_call: 'identify', trigger_text: 'First page view of a new visitor.', source_id: web.id });
+    IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'cart_id', identity_type: 'soft', name: 'Cart', sdk_call: 'identify', trigger_text: 'Checkout page.', source_id: web.id });
+    const identify = buildIdentityCodegen(listIdentityRulesForCodegen(projectId), []).identify;
+    expect(identify).not.toContain('exponea.identify({\n});');
+    expect(identify).not.toContain('.:');
+    expect(identify).toContain('Standalone identify call on checkout page: binds cart_id, cookie');
+  });
+
+  it('the Tracking API note mentions soft ids only when a soft id is carried', () => {
+    const { cartUpdate, email, view } = setUp();
+    expect(buildEventCard(projectId, cartUpdate.id).codegen.tracking_api).toContain('soft ids are merged into the profile');
+    EventDAL.updateEvent(projectId, view.id, { implementation_method: 'server_api', identifiers_json: [email.identifier_name] });
+    const hardOnly = buildEventCard(projectId, view.id).codegen.tracking_api;
+    expect(hardOnly).toContain("customer_ids must match the project's hard ID");
   });
 });

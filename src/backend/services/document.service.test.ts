@@ -133,6 +133,16 @@ describe('buildEventCard', () => {
     expect(card.triggers).toEqual([]);
   });
 
+  it('T-4-24: a trigger with several screenshots exposes images[] in order, image_path stays the first', () => {
+    const event = EventDAL.createEvent(projectId, { name: 'multi_image' });
+    getDb()
+      .prepare('UPDATE events SET triggers_json = ? WHERE id = ?')
+      .run(JSON.stringify([{ title: 'T', image_path: 'a.png', images: ['b.png', 'a.png', 'c.png'], order: 0 }]), event.id);
+    const card = buildEventCard(projectId, event.id);
+    expect(card.triggers[0].image_path).toBe('b.png');
+    expect(card.triggers[0].images).toEqual(['b.png', 'a.png', 'c.png']);
+  });
+
   it('T-4-03 pre-QA fix: a pre-existing non-http(s) triggers_json[].source renders no page_url (write-time validation only guards new/updated rows)', () => {
     const event = EventDAL.createEvent(projectId, { name: 'legacy_bad_source', class: 'custom' });
     // Bypass the DAL's write-time validation (event.dal.ts#validateTriggersJson) to simulate a row

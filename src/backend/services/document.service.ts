@@ -126,7 +126,8 @@ function toEventCardTriggers(raw: unknown): EventCardTrigger[] {
         title: t.title?.trim() || null,
         description: t.description?.trim() || null,
         image_path: triggerImages(t)[0] ?? null,
-        images: triggerImages(t),
+        // Additive: only present for a trigger with several screenshots (keeps the single-image shape unchanged).
+        ...(triggerImages(t).length > 1 ? { images: triggerImages(t) } : {}),
         page_url: source && isHttpUrl(source) ? source : null,
       };
     });

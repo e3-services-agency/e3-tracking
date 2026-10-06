@@ -3316,3 +3316,20 @@ Supervisor ruling: widen Status to 128 and Enum to 96 (reviewer nit), keep the t
 
 ### 2026-10-06 | implementer | HANDOFF | T-4-27 QA fix 4fa8361
 Status column 140 with px-2 (124 px content box for the 121 px badge), Enum 96; fixed columns 814 px, Name ~116 px in a 930 px card. tsc, lint, Properties tests green. Supervisor: merging without a further QA round (column width only).
+
+### 2026-10-06 | supervisor | MERGE | T-4-27 merged into agent-setup — DONE
+Merge 78cb5d8. Merged tree: tsc, build, lint clean, 1768 tests / 173 files.
+
+### 2026-10-06 | reviewer | REVIEW | T-4-28 PASS (4 minor)
+Gates green (1782/173, verify-sandbox needs `node --import tsx`). Migration 0030 backfill idempotent and before the triggers, restore remaps old colours; identifiers_json validation and change_log covered; derive rules match D-67, standalone set_by/binds match amendment 1; flow deterministic; batched service; additive document fields; codegen customer_ids from effective identifiers; comparison 3 split only in engine input. Notes: (1) explicit list whose rules were renamed/deleted filters to [] and never falls back to derived; (2) a hard standalone rule appears twice in the identify snippet, standalone snippets always Web SDK even for tracking_api sources; (3) Events.tsx wider than the Source column (Identifiers editor block), conflicts with T-4-27 in Events.tsx and CLAUDE.md; (4) wording fine.
+Supervisor ruling: fix (1) fall back to derived when the filtered list is empty, (2) exclude standalone rules from the plain identify block and emit a server-side form for tracking_api sources; merge agent-setup (78cb5d8) into the branch and resolve Events.tsx/CLAUDE.md; then QA.
+
+### 2026-10-06 | implementer | HANDOFF | T-4-28 fix round + agent-setup merge 31b27d7
+effectiveEventIdentifiers falls back to derived when the explicit list filters to []; standalone rules excluded from the plain identify block, tracking_api sources get a Tracking API customers comment block; a rule is standalone only with binds AND trigger_text (a hard identify rule with neither event nor trigger text stays in the plain block). Events.tsx: chevron + Source columns (9 columns), CLAUDE.md both lines. 1795 tests / 176 files, gates green, sandbox verify 0 warnings. Supervisor accepts the trigger_text rule (recorded in D-67 amendment 1 wording: standalone = sdk_call + trigger_text). To QA.
+
+### 2026-10-06 | qa-tester | QA PASS | T-4-28 31b27d7, 6/6
+Flow paragraph, Set by/Carried by, copy; editor override/reset/400; card identifiers; Tracking API customer_ids per event; source colours via CSS vars everywhere incl. shared view, API rejects hex; no identifier_missing, 15 open findings unchanged; exports and restore carry the new fields; merged Events table 9 columns, no gap. Nits: paragraph splices raw trigger_text ("on the checkout page loads"); cookie identify snippet renders empty identify({}) and ".:" punctuation; cart_update Tracking API note still says customer_ids must match the hard id; restore-apply without body key 500 (pre-existing backlog). Report: reports/qa/T-4-28/REPORT.md.
+Supervisor ruling: polish commit for nits 1-3 (lower-case/strip trailing period and prefix "when" instead of "on" for sentence-like trigger text, skip empty identify blocks, note text depends on soft/hard ids), then merge without re-QA.
+
+### 2026-10-06 | implementer | HANDOFF | T-4-28 polish 13123b5
+describeTrigger() ("when the checkout page loads"), empty identify block skipped, punctuation fixed, soft-id Tracking API note. tsc, lint, identity/codegen/services/routes tests green.

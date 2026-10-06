@@ -6,14 +6,27 @@
 import { Router, type Request, type Response } from 'express';
 import * as PropertyDAL from '../dal/property.dal';
 import * as PropertyDefinitionDAL from '../dal/property-definition.dal';
+import { getDb } from '../db';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
 
+/** T-4-23: ids of the project's properties that are a discriminator on at least one event (additive `is_discriminator` on GET). */
+function discriminatorPropertyIds(): Set<string> {
+  const rows = getDb()
+    .prepare(`SELECT DISTINCT ep.property_id AS id FROM event_properties ep
+       JOIN events e ON e.id = ep.event_id WHERE e.deleted_at IS NULL AND ep.role = 'discriminator'`)
+    .all() as { id: string }[];
+  return new Set(rows.map((r) => r.id));
+}
+
 router.get('/', (req: Request, res: Response) => {
   try {
     const scope = typeof req.query.scope === 'string' ? req.query.scope : undefined;
-    res.status(200).json(PropertyDAL.listProperties(req.projectId!, { scope }));
+    const disc = discriminatorPropertyIds();
+    res.status(200).json(
+      PropertyDAL.listProperties(req.projectId!, { scope }).map((p) => ({ ...p, is_discriminator: disc.has(p.id) }))
+    );
   } catch (err) {
     handleRouteError(err, res);
   }
@@ -87,7 +100,7 @@ router.post('/', (req: Request, res: Response) => {
 router.get('/:id', (req: Request, res: Response) => {
   try {
     const property = PropertyDAL.getPropertyOrThrow(req.projectId!, req.params.id);
-    res.status(200).json(property);
+    res.status(200).json({ ...property, is_discriminator: discriminatorPropertyIds().has(property.id) });
   } catch (err) {
     handleRouteError(err, res);
   }

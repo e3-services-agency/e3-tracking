@@ -21,11 +21,14 @@ export function AllowedValuesEditor({
   values,
   onChange,
   standardEventAdditions,
+  showStandardEvent = true,
 }: {
   values: AllowedValueRow[];
   onChange: (next: AllowedValueRow[]) => void;
   /** `projects.standard_event_additions_json` (D-26); merged with the seed for the select. */
   standardEventAdditions?: StandardEventSeed[] | null;
+  /** T-4-23: the binding only makes sense for a discriminator (or an existing binding); hidden otherwise. */
+  showStandardEvent?: boolean;
 }) {
   const standardEvents = mergeStandardEvents(standardEventAdditions);
 
@@ -60,11 +63,13 @@ export function AllowedValuesEditor({
                 value={row.description ?? ''}
                 onChange={(e) => updateRow(index, { description: e.target.value })}
                 placeholder="description"
-                className="col-span-3 h-8 text-xs"
+                className={showStandardEvent ? "col-span-3 h-8 text-xs" : "col-span-5 h-8 text-xs"}
               />
+              {showStandardEvent && (
               <select
                 value={row.standard_event ?? ''}
                 onChange={(e) => updateRow(index, { standard_event: e.target.value || null })}
+                title="Binds this discriminator value to a Bloomreach standard event (for example add to cart), so the variant maps to it in the standard event mappings."
                 className="col-span-2 h-8 rounded border border-gray-300 px-1 text-xs"
               >
                 <option value="">standard event —</option>
@@ -72,6 +77,7 @@ export function AllowedValuesEditor({
                   <option key={se.key} value={se.key}>{se.key}</option>
                 ))}
               </select>
+              )}
               <button
                 type="button"
                 onClick={() => removeRow(index)}

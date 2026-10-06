@@ -363,3 +363,33 @@ describe('F2/F3/F4', () => {
     expect(eventCardToMarkdown(card)).toContain('n/a');
   });
 });
+
+describe('T-4-23: hard id key and discriminator flag', () => {
+  it('Tracking API customer_ids uses the hard identity rule identifier_name', async () => {
+    const IdentityRuleDAL = await import('../dal/identity-rule.dal');
+    IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'user_id', identity_type: 'hard', name: 'Login' });
+    const { event } = setUpWishlist();
+    const c = buildEventCard(projectId, event.id).codegen;
+    expect(c.tracking_api).toContain('"user_id": "<customer_id>"');
+    expect(c.tracking_api).not.toContain('"registered"');
+    expect(c.tracking_api).not.toContain('<hard_id>');
+  });
+
+  it('GET /properties flags discriminators', async () => {
+    const server = http.createServer(createApp());
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    try {
+      const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+      const event = EventDAL.createEvent(projectId, { name: 'add_to_cart' });
+      const a = prop('action', { allowed_values_json: [{ value: 'add' }] });
+      const b = prop('other');
+      EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: a.id, required: true, role: 'discriminator' } as never);
+      EventDAL.attachPropertyToEvent(projectId, event.id, { property_id: b.id, required: true });
+      const rows = (await (await fetch(`${base}/api/projects/${projectId}/properties`)).json()) as { name: string; is_discriminator: boolean }[];
+      expect(rows.find((r) => r.name === 'action')!.is_discriminator).toBe(true);
+      expect(rows.find((r) => r.name === 'other')!.is_discriminator).toBe(false);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+});

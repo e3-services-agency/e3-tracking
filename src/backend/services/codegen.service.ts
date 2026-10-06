@@ -538,8 +538,7 @@ function buildBloomreachApiSnippet(
     ...(Object.keys(properties).length > 0 ? { properties } : {}),
   };
   const json = JSON.stringify(body, null, 2);
-  const idComment = `// ${CUSTOMER_IDS_COMMENT}
-`;
+  const idComment = `// ${CUSTOMER_IDS_COMMENT}\n`;
   const optionalProps = props.filter((p) => !isRequiredForCodegenSnippet(p));
   const curlExample =
     `curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\\n` +
@@ -550,7 +549,7 @@ function buildBloomreachApiSnippet(
     const optionalNames = optionalProps.map((p) => p.property_name).join(', ');
     return `${idComment}// Optional properties: ${optionalNames}\n\n${json}\n\n// cURL example:\n${curlExample}`;
   }
-  return `${json}\n\n// cURL example:\n${curlExample}`;
+  return `${idComment}${json}\n\n// cURL example:\n${curlExample}`;
 }
 
 /* --------------------------------------------------------------------------------------------

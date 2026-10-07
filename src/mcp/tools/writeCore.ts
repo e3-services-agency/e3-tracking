@@ -18,6 +18,7 @@ import { getDb } from '../../backend/db';
 import { diffValue } from '../../domain/diff/primitives';
 import type { Difference } from '../../domain/diff/types';
 import { McpToolError } from '../errors';
+import { getActor } from '../../backend/context/actor';
 
 export const writeCommonShape = {
   project_key: z.string().optional(),
@@ -108,8 +109,8 @@ export function executeOp(op: WriteOp, applied: boolean): WriteResult {
   const { action, differences } = computeDifferences(op, row);
   const logs = applied
     ? (getDb()
-        .prepare('SELECT id, entity_id FROM change_log WHERE rowid > ? ORDER BY rowid')
-        .all(mark) as { id: string; entity_id: string }[])
+        .prepare('SELECT id, entity_id FROM change_log WHERE rowid > ? AND actor = ? AND source = ? AND batch_id IS ? ORDER BY rowid')
+        .all(mark, getActor().actor, getActor().source, getActor().batch_id ?? null) as { id: string; entity_id: string }[])
     : [];
   const own = logs.find((l) => l.entity_id === entityId) ?? logs[0];
   return {
@@ -129,9 +130,10 @@ export function executeOp(op: WriteOp, applied: boolean): WriteResult {
 
 /** Parses tool args against the tool's shape (batch ops bypass the MCP SDK's own validation). */
 export function parseArgs(tool: WriteTool, raw: Record<string, unknown>): Record<string, unknown> {
-  const parsed = z.object(tool.shape).safeParse(raw);
+  const parsed = z.object({ ...writeCommonShape, ...tool.shape }).strict().safeParse(raw);
   if (!parsed.success) {
-    const msg = parsed.error.issues.map((i) => `${i.path.join('.') || '(input)'}: ${i.message}`).join('; ');
+    const unknown = parsed.error.issues.flatMap((i) => (i.code === 'unrecognized_keys' ? i.keys : []));
+    const msg = (unknown.length ? [`unknown key(s): ${unknown.join(', ')}`] : []).concat(parsed.error.issues.filter((i) => i.code !== 'unrecognized_keys').map((i) => `${i.path.join('.') || '(input)'}: ${i.message}`)).join('; ');
     throw new McpToolError('VALIDATION_ERROR', `Invalid arguments for ${tool.name}: ${msg}`);
   }
   return parsed.data as Record<string, unknown>;

@@ -79,12 +79,14 @@ type, ...), plus `EVENT_NOT_FOUND`, `PROPERTY_NOT_FOUND`, `AMBIGUOUS_PROPERTY` (
 | `update_event` | `event` (name or id), `new_name?`, any REST event field |
 | `create_property` | `scope` (event/customer), `name`, `data_type` + REST property fields; `allowed_values`, `data_formats`, `example_values` alias the `*_json` fields |
 | `update_property` | `property` (name or id), `scope?` (when the name exists in both scopes), `new_name?`, `data_type?`, same fields incl. `kind`, `category_override` |
-| `link_event_property` | `event`, `property`, `property_scope?` (default event), `role` (normal/discriminator/context), `required`, `definition?` (name; created when missing, D-58), `definition_description?`, `priority`, `status`, `payload_key`, `sort_order`. Updates the link when it exists |
-| `unlink_event_property` | `event`, `property`, `property_scope?` |
+| `link_event_property` | `event`, `property`, `property_scope?` (default `event`; a customer property needs `property_scope: "customer"`), `role` (normal/discriminator/context), `required`, `definition?` (name; created when missing, D-58), `definition_description?`, `priority`, `status`, `payload_key`, `sort_order`. Updates the link when it exists |
+| `unlink_event_property` | `event`, `property`, `property_scope?` (default `event`, as for link) |
 | `create_identity_rule` | `name`, `identifier_name` (or `identifier_id`), `identity_type?` (honoured only for a new identifier, D-69 amendment 1), `trigger_event?` (name or id), `sdk_call`, `transformations_json`, ... |
 | `set_event_identifiers` | `event`, `identifiers`: names from the identifier registry, `[]` = carries nothing, `null` = derived (D-67) |
 | `create_catalog_field` | `catalog` (name or id), `name`, `data_type`, `is_searchable`/`searchable`, `is_required`/`required`, `is_lookup_key`/`lookup_key`, ... |
 | `batch_apply` | `operations`: `[{op: "<tool name>", ...that tool's arguments}]` |
+
+**History and strictness.** MCP writes appear on the History page with source `mcp` (single tools) and `import:mcp` (`batch_apply`). Unknown argument keys (typos) are a validation error listing the keys, for single tools and for each batch operation; DAL error `details` are appended to the error text when present.
 
 **`batch_apply`.** Runs the operations in order with one `dry_run` flag. Applied operations run in one
 import batch (`runWithImportBatch`), so all their `change_log` rows share a `batch_id` and show up

@@ -11,6 +11,8 @@ import * as PropertyDAL from '../../backend/dal/property.dal';
 import * as CatalogDAL from '../../backend/dal/catalog.dal';
 import * as IdentifierDAL from '../../backend/dal/identifier.dal';
 import * as ChangeLogDAL from '../../backend/dal/change-log.dal';
+import { executeOp } from './writeCore';
+import { runWithActor } from '../../backend/context/actor';
 import { callTool, countRows, toolNames } from './writeTestUtil';
 
 let projectId: string;
@@ -252,5 +254,30 @@ describe('batch_apply', () => {
     expect(unknown.data.results[0].error.code).toBe('UNKNOWN_OPERATION');
     const invalid = await callTool('batch_apply', { project_key: key, operations: [{ op: 'create_property', name: 'x' }] });
     expect(invalid.data.results[0].error.code).toBe('VALIDATION_ERROR');
+  });
+});
+
+describe('polish', () => {
+  it('rejects unknown keys for single tools and batch operations', async () => {
+    const r = await callTool('create_event', { project_key: key, name: 'x', descripton: 'typo' });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain('descripton');
+    const b = await callTool('batch_apply', { project_key: key, operations: [{ op: 'create_event', name: 'x', nme: 'y' }] });
+    expect(b.data.results[0].error.code).toBe('VALIDATION_ERROR');
+    expect(b.data.results[0].error.message).toContain('nme');
+  });
+
+  it('change_log_ids only include rows written by this call, not another actor', () => {
+    const op = {
+      entityType: 'event', label: 'e', before: null,
+      run() {
+        const row = EventDAL.createEvent(projectId, { name: 'mine' });
+        runWithActor({ actor: 'someone-else', source: 'ui' }, () => EventDAL.createEvent(projectId, { name: 'theirs' }));
+        return { row: row as unknown as Record<string, unknown>, entityId: row.id };
+      },
+    };
+    const res = runWithActor({ actor: 'me', source: 'mcp' }, () => executeOp(op, true));
+    expect(res.change_log_ids).toHaveLength(1);
+    expect(ChangeLogDAL.getChangeOrThrow(projectId, res.change_log_ids[0]).actor).toBe('me');
   });
 });

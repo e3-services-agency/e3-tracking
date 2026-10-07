@@ -116,7 +116,7 @@ describe('GET /api/health', () => {
     expect(typeof body.version).toBe('string');
     expect(body.schema_migration).toMatch(/^\d{4}_/);
     expect(body.db_path_writable).toBe(true);
-    expect(Object.keys(body).sort()).toEqual(['db_path_writable', 'ok', 'schema_migration', 'version']);
+    expect(Object.keys(body).sort()).toEqual(['db_path_writable', 'last_backup_at', 'last_upload_ok', 'ok', 'schema_migration', 'version']);
   });
 });
 

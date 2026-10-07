@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { listProjects } from './dal/project.dal';
 import { buildBackup } from './services/backup.service';
+import { objectNameFor, writeBackupStatus, type BackupUploader } from './backupUpload';
 
 export const DEFAULT_KEEP = 14;
 const NAME_RE = /^backup-(.+)-(\d{4}-\d{2}-\d{2})\.json$/;
@@ -46,11 +47,14 @@ export interface BackupRunResult {
   written: string[];
   deleted: string[];
   failed: { project: string; error: string }[];
+  uploaded: string[];
+  uploadFailed: { name: string; error: string }[];
 }
 
-export async function runBackupOnce(dir: string, keep: number = DEFAULT_KEEP, now: Date = new Date()): Promise<BackupRunResult> {
+export async function runBackupOnce(dir: string, keep: number = DEFAULT_KEEP, now: Date = new Date(), uploader: BackupUploader | null = null): Promise<BackupRunResult> {
   fs.mkdirSync(dir, { recursive: true });
-  const result: BackupRunResult = { written: [], deleted: [], failed: [] };
+  const result: BackupRunResult = { written: [], deleted: [], failed: [], uploaded: [], uploadFailed: [] };
+  let uploadSkipped = false;
   for (const f of fs.readdirSync(dir)) {
     if (f.startsWith('backup-') && f.endsWith('.json.tmp')) fs.unlinkSync(path.join(dir, f)); // leftovers of an interrupted run
   }
@@ -60,9 +64,16 @@ export async function runBackupOnce(dir: string, keep: number = DEFAULT_KEEP, no
       const name = backupFileName(project.key, now);
       const target = path.join(dir, name);
       const tmp = `${target}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify(backup));
+      const json = JSON.stringify(backup);
+      fs.writeFileSync(tmp, json);
       fs.renameSync(tmp, target);
       result.written.push(name);
+      if (uploader) {
+        const up = await uploader.upload({ objectName: objectNameFor(project.key, now), body: Buffer.from(json) });
+        if (up.ok && up.uri) result.uploaded.push(up.uri);
+        else if (up.skipped) uploadSkipped = true;
+        else result.uploadFailed.push({ name, error: up.error ?? 'unknown' });
+      }
     } catch (err) {
       result.failed.push({ project: project.key, error: err instanceof Error ? err.message : String(err) });
     }
@@ -70,6 +81,15 @@ export async function runBackupOnce(dir: string, keep: number = DEFAULT_KEEP, no
   for (const name of selectBackupsToDelete(fs.readdirSync(dir), keep)) {
     fs.unlinkSync(path.join(dir, name));
     result.deleted.push(name);
+  }
+  try {
+    writeBackupStatus(dir, {
+      last_backup_at: result.written.length ? now.toISOString() : null,
+      last_upload_ok: !uploader || uploadSkipped || !result.written.length ? null : result.uploadFailed.length === 0,
+      last_upload_error: result.uploadFailed[0]?.error ?? null,
+    });
+  } catch {
+    // status is advisory
   }
   return result;
 }

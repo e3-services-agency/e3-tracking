@@ -6,6 +6,7 @@
  */
 import path from 'node:path';
 import { getDb, resolveDbPath } from './db';
+import { uploaderFromEnv } from './backupUpload';
 import { DEFAULT_KEEP, msUntilNextRun, runBackupOnce } from './backupJob';
 
 getDb();
@@ -16,10 +17,11 @@ const keep = Number(process.env.BACKUP_KEEP) > 0 ? Number(process.env.BACKUP_KEE
 const hour = Number.isInteger(Number(process.env.BACKUP_HOUR_UTC)) && process.env.BACKUP_HOUR_UTC ? Number(process.env.BACKUP_HOUR_UTC) : 2;
 
 async function once(): Promise<number> {
-  const r = await runBackupOnce(dir, keep);
-  console.log(`[e3-backup] wrote ${r.written.length}, pruned ${r.deleted.length}, failed ${r.failed.length} in ${dir}`);
+  const r = await runBackupOnce(dir, keep, new Date(), uploaderFromEnv());
+  console.log(`[e3-backup] wrote ${r.written.length}, pruned ${r.deleted.length}, failed ${r.failed.length}, uploaded ${r.uploaded.length}, upload failures ${r.uploadFailed.length} in ${dir}`);
+  for (const f of r.uploadFailed) console.error(`[e3-backup] upload ${f.name}: ${f.error}`);
   for (const f of r.failed) console.error(`[e3-backup] ${f.project}: ${f.error}`);
-  return r.failed.length;
+  return r.failed.length + r.uploadFailed.length;
 }
 
 if (process.argv.includes('--once')) {

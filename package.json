@@ -4,6 +4,7 @@
   "version": "0.5.0",
   "type": "module",
   "scripts": {
+    "restore:rehearsal": "tsx scripts/restore-rehearsal.mjs",
     "dev": "concurrently \"npm:dev:api\" \"npm:dev:web\"",
     "dev:api": "tsx watch src/backend/server.ts",
     "dev:web": "vite --port=3000 --host=0.0.0.0",

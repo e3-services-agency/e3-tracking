@@ -1,0 +1,8 @@
+# T-5-06: LOCAL TEST ONLY (profile edge-fake). Injects a fixed identity, no real authentication.
+# Never expose this port beyond 127.0.0.1.
+:80 {
+	reverse_proxy app:3001 {
+		header_up X-Forwarded-Email {$FAKE_EMAIL}
+		header_up X-Forwarded-User {$FAKE_NAME}
+	}
+}

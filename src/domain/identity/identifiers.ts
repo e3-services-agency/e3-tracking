@@ -128,12 +128,18 @@ const MAX_NAMED_EVENTS = 8;
  * letter lower-cased unless the first word is an acronym or identifier, and "when" for a sentence-like
  * text (more than 3 words) else "on".
  */
+const TRIGGER_VERBS = /^(is|are|was|were|loads?|clicks?|submits?|submitted|opens?|completes?|logs?|signs?|adds?|removes?|visits?|lands?|returns?|fires?|sends?|enters?|leaves?|\w{3,}ed)$/i;
+
 export function describeTrigger(text: string): { preposition: 'on' | 'when'; text: string } {
   const trimmed = text.trim().replace(/[.]+$/, '').trim();
   const first = trimmed.split(/\s+/)[0] ?? '';
   const keep = /[A-Z].*[A-Z]/.test(first) || /[_0-9]/.test(first);
   const normalised = keep || !trimmed ? trimmed : trimmed.charAt(0).toLowerCase() + trimmed.slice(1);
-  return { preposition: trimmed.split(/\s+/).length > 3 ? 'when' : 'on', text: normalised };
+  const words = trimmed.split(/\s+/);
+  if (words.length <= 3) return { preposition: 'on', text: normalised };
+  const verbLike = words.some((w) => TRIGGER_VERBS.test(w.replace(/[^A-Za-z]/g, '')));
+  if (verbLike) return { preposition: 'when', text: normalised };
+  return { preposition: 'on', text: /^(the|a|an)\s/i.test(trimmed) ? normalised : `the ${normalised}` };
 }
 
 function triggerPhrase(text: string): string {

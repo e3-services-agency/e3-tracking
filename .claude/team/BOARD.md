@@ -3606,3 +3606,6 @@ Inline image in a reply renders in all three views with preview = posted render;
 
 ### 2026-10-07 | implementer | HANDOFF | T-5-05 italic fix ff128d1
 wrapSelection counts contiguous marker runs before unwrapping (italic on runs 1/3, bold on 2/3, exact match otherwise); five cases tested. tsc + markdownEdit tests green. Supervisor: merging.
+
+### 2026-10-07 | supervisor | MERGE | T-5-05 merged into agent-setup — DONE; nothing running
+Merge b8c6d12. Merged tree: tsc, lint, build clean, 1953 tests / 194 files. Migrations 0031-0036 pending on the container. Open, waiting on the user: D-72 approval (GCP project id, region, hostname); container rebuild; T-4-06 samples.

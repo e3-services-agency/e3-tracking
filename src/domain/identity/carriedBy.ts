@@ -4,8 +4,10 @@
  * events whose `identifiers_json` must change and their new value. Pure; no server imports.
  */
 import {
+  candidateNames,
   deriveEventIdentifiers,
   effectiveEventIdentifiers,
+  type IdentifierLike,
   type IdentifierEventLike,
   type IdentifierSourceLike,
   type IdentityRuleLike,
@@ -28,17 +30,18 @@ export function diffCarriedBy(
   selectedEventIds: ReadonlySet<string>,
   events: readonly IdentifierEventLike[],
   rules: readonly IdentityRuleLike[],
-  sources?: readonly IdentifierSourceLike[]
+  sources?: readonly IdentifierSourceLike[],
+  registry?: readonly IdentifierLike[]
 ): CarriedByChange[] {
   const changes: CarriedByChange[] = [];
   for (const event of events) {
-    const current = effectiveEventIdentifiers(event, rules, sources);
+    const current = effectiveEventIdentifiers(event, rules, sources, registry);
     const carries = current.includes(identifierName);
     const wanted = selectedEventIds.has(event.id);
     if (carries === wanted) continue;
     const next = new Set(wanted ? [...current, identifierName] : current.filter((n) => n !== identifierName));
-    const ordered = rules.map((r) => r.identifier_name).filter((n, i, all) => next.has(n) && all.indexOf(n) === i);
-    const derived = deriveEventIdentifiers(event, rules, sources);
+    const ordered = candidateNames(rules, registry ?? []).filter((n) => next.has(n));
+    const derived = deriveEventIdentifiers(event, rules, sources, registry);
     const sameAsDerived = ordered.length === derived.length && ordered.every((n, i) => n === derived[i]);
     // D-67 amendment 2: null only when the result equals the derived default; an empty result is an explicit [].
     const value = sameAsDerived ? null : ordered;

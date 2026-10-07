@@ -369,6 +369,14 @@ export const CONSENT_CATEGORIES = [
 ];
 
 // ---------------------------------------------------------------------------
+// Identifiers registry (D-69, T-4-35): the project's hard and soft ids, set once; identity rules below are acts of identifying with them.
+export const IDENTIFIERS = [
+  { name: 'cookie', type: 'soft', is_cookie: true, description: 'Anonymous first-party cookie set by the SDK.' },
+  { name: 'cart_id', type: 'soft', description: 'Shopify cart token that ties the browser to the open cart.' },
+  { name: 'email_id', type: 'hard', description: 'Email address of a registered customer.' },
+  { name: 'phone_id', type: 'hard', description: 'Phone number (E.164) of a customer who signed up by SMS.' },
+];
+
 // Identity rules. `trigger_event` is an event name.
 // ---------------------------------------------------------------------------
 export const IDENTITY_RULES = [

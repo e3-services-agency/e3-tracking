@@ -38,6 +38,7 @@ export const PROJECT_SCOPED_TABLES = [
   'event_properties',
   'variants',
   'standard_event_mappings',
+  'identifiers',
   'identity_rules',
   'catalogs',
   'catalog_fields',

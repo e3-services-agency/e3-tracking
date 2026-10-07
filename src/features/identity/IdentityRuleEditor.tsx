@@ -36,7 +36,10 @@ import {
   type IdentityRuleLike,
 } from '@/src/domain/identity/identifiers';
 import { diffCarriedBy } from '@/src/domain/identity/carriedBy';
-import { resolveEventSourceId, resolveSaveTarget } from './ruleSave';
+import { effectiveNewIdentifierType, resolveEventSourceId, resolveSaveTarget, resolveSdkCall } from './ruleSave';
+
+/** Dropdown value that reveals the inline name + type fields of a new identifier (D-69). */
+const NEW_IDENTIFIER = '__new_identifier__';
 
 export type IdentityEditorSection = 'identifier' | 'set_by' | 'carried_by' | 'meta';
 
@@ -128,6 +131,7 @@ export function IdentityRuleEditor({
   focusSection,
   onSaved,
   onRefresh,
+  onCreated,
   onClose,
 }: {
   ruleId: string | null;
@@ -140,6 +144,8 @@ export function IdentityRuleEditor({
   onSaved: () => Promise<void>;
   /** Refreshes the list without closing the sheet (a partly failed save of a new rule). */
   onRefresh?: (createdId?: string) => Promise<void>;
+  /** Called once, right after a new rule is first saved (the sheet then reads "Edit Identity Rule"). */
+  onCreated?: (id: string) => void;
   onClose: () => void;
 }) {
   /** Set after the first successful POST of a new rule: later saves PATCH it, never POST again. */
@@ -151,6 +157,9 @@ export function IdentityRuleEditor({
   const [name, setName] = useState('');
   const [identifierName, setIdentifierName] = useState('');
   const [identityType, setIdentityType] = useState<string>(IDENTITY_TYPES[0]);
+  /** D-69: the project's identifiers registry (Settings); `NEW_IDENTIFIER` in the dropdown reveals the inline name + type fields. */
+  const [registry, setRegistry] = useState<{ id: string; name: string; type: string; is_cookie: boolean }[]>([]);
+  const [isNewIdentifier, setIsNewIdentifier] = useState(false);
   const [transformations, setTransformations] = useState<string[]>([]);
   const [description, setDescription] = useState('');
   const [example, setExample] = useState('');
@@ -171,6 +180,15 @@ export function IdentityRuleEditor({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [identifierError, setIdentifierError] = useState<string | null>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+
+  useEffect(() => {
+    if (!projectId) return;
+    void (async () => {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/identifiers`);
+      const data = await parseJson(res);
+      if (res.ok && Array.isArray(data)) setRegistry(data);
+    })();
+  }, [projectId]);
 
   useEffect(() => {
     if (!projectId || !ruleId) {
@@ -226,13 +244,13 @@ export function IdentityRuleEditor({
       id: effectiveRuleId ?? 'draft',
       name: trimmedName,
       identifier_name: trimmedField || 'this identifier',
-      identity_type: identityType,
-      sdk_call: mode === 'none' ? null : sdkCall || null,
+      identity_type: effectiveNewIdentifierType(registry, trimmedField, identityType).type,
+      sdk_call: resolveSdkCall(mode, sdkCall, registry.find((i) => i.name.toLowerCase() === trimmedField.toLowerCase())?.type ?? identityType),
       trigger_event_id: mode === 'event' ? triggerEventId || null : null,
       trigger_text: mode === 'standalone' ? triggerText.trim() || null : null,
       source_id: mode === 'event' ? eventSourceId : mode === 'standalone' ? sourceId || null : null,
     }),
-    [effectiveRuleId, trimmedName, trimmedField, identityType, mode, sdkCall, triggerEventId, triggerText, sourceId, eventSourceId]
+    [effectiveRuleId, trimmedName, trimmedField, identityType, registry, mode, sdkCall, triggerEventId, triggerText, sourceId, eventSourceId]
   );
 
   const draftRules: EditorRule[] = useMemo(
@@ -288,7 +306,7 @@ export function IdentityRuleEditor({
       const body = {
         name: trimmedName,
         identifier_name: trimmedField,
-        identity_type: identityType,
+        identity_type: effectiveNewIdentifierType(registry, trimmedField, identityType).type,
         transformations_json: transformations,
         description: description.trim() || null,
         example: example.trim() || null,
@@ -314,7 +332,10 @@ export function IdentityRuleEditor({
         return;
       }
       const savedId = effectiveRuleId ?? data.id;
-      if (isCreating) setCreatedId(data.id);
+      if (isCreating) {
+        setCreatedId(data.id);
+        onCreated?.(data.id);
+      }
       if (Object.keys(overrides).length > 0 || isCreating) {
         const carried = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/identity-rules/${savedId}/carried-by`, {
           method: 'PUT',
@@ -368,22 +389,58 @@ export function IdentityRuleEditor({
             {!trimmedName && <p className="text-xs text-red-600">Name is required.</p>}
           </div>
           <div className="space-y-2">
-            <Label>Identifier name</Label>
-            <Input value={identifierName} onChange={(e) => { setIdentifierName(e.target.value); setIdentifierError(null); }} placeholder="e.g. registered, cookie, email_id" />
+            <Label>Identifier</Label>
+            <select
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              aria-label="Identifier"
+              data-testid="identifier-select"
+              value={isNewIdentifier ? NEW_IDENTIFIER : registry.find((i) => i.name === identifierName)?.name ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                setIdentifierError(null);
+                if (v === NEW_IDENTIFIER) {
+                  setIsNewIdentifier(true);
+                  setIdentifierName('');
+                  return;
+                }
+                setIsNewIdentifier(false);
+                setIdentifierName(v);
+                const found = registry.find((i) => i.name === v);
+                if (found) setIdentityType(found.type);
+              }}
+            >
+              <option value="">Choose an identifier</option>
+              {registry.map((i) => (
+                <option key={i.id} value={i.name}>{i.name} ({i.type}{i.is_cookie ? ', cookie' : ''})</option>
+              ))}
+              <option value={NEW_IDENTIFIER}>New identifier…</option>
+            </select>
+            {isNewIdentifier && (
+              <Input value={identifierName} onChange={(e) => { setIdentifierName(e.target.value); setIdentifierError(null); }} placeholder="e.g. registered, cookie, email_id" aria-label="New identifier name" />
+            )}
+            {isNewIdentifier && registry.some((i) => i.name.toLowerCase() === trimmedField.toLowerCase()) && (
+              <p className="text-xs text-gray-600" data-testid="identifier-joins-existing">
+                "{trimmedField}" already exists, so this rule joins it as a {registry.find((i) => i.name.toLowerCase() === trimmedField.toLowerCase())?.type} identifier. Its type is set in Settings.
+              </p>
+            )}
             {identifierError && <p className="text-xs text-red-600" role="alert" data-testid="identifier-exists-error">{identifierError}</p>}
-            {!trimmedField && <p className="text-xs text-red-600">Identifier name is required.</p>}
+            {!trimmedField && <p className="text-xs text-red-600">Identifier is required. Identifiers are managed in Settings.</p>}
           </div>
         </div>
         <div className="space-y-2">
           <Label>Identity type</Label>
-          <div className="flex gap-4">
-            {IDENTITY_TYPES.map((t) => (
-              <Option key={t} hint={t}>
-                <input type="radio" name="identity-type" checked={identityType === t} onChange={() => setIdentityType(t)} />
-                {t}
-              </Option>
-            ))}
-          </div>
+          {isNewIdentifier ? (
+            <div className="flex gap-4" data-testid="new-identifier-type">
+              {IDENTITY_TYPES.map((t) => (
+                <Option key={t} hint={t}>
+                  <input type="radio" name="identity-type" checked={effectiveNewIdentifierType(registry, trimmedField, identityType).type === t} disabled={effectiveNewIdentifierType(registry, trimmedField, identityType).joinsExisting} onChange={() => setIdentityType(t)} />
+                  {t}
+                </Option>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-700" data-testid="identity-type-readonly">{trimmedField ? identityType : '—'} <span className="text-xs text-gray-400">(set on the identifier, see Settings)</span></p>
+          )}
         </div>
         <div className="space-y-2">
           <Label>Transformations</Label>

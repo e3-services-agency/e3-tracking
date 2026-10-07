@@ -952,6 +952,25 @@ export function SharedProject({ token }: { token: string }) {
 
           {present.identity && (
             <SectionCard id={SECTION_IDS.identity} title={`Identity rules (${doc.identity_rules.length})`}>
+              {doc.identifiers && doc.identifiers.length > 0 && (
+                <div className="mb-3" data-testid="shared-identifiers">
+                  <h3 className="text-sm font-semibold text-gray-900">Identifiers</h3>
+                  {(['hard', 'soft'] as const).map((type) => (
+                    <div key={type} className="mt-1">
+                      <p className="text-xs font-medium text-gray-500">{type === 'hard' ? 'Hard IDs' : 'Soft IDs'}</p>
+                      <ul className="text-sm text-gray-700 list-disc ml-5">
+                        {doc.identifiers!.filter((i) => i.type === type).map((i) => (
+                          <li key={i.name}>
+                            <code>{i.name}</code>
+                            {i.is_cookie ? ' (cookie)' : ''}
+                            {i.description ? ` - ${i.description}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
               {doc.identification_flow && (
                 <div className="mb-3" data-testid="shared-identification-flow">
                   <h3 className="text-sm font-semibold text-gray-900">Identification flow</h3>

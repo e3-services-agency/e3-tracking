@@ -457,6 +457,7 @@ export const CHANGE_LOG_ENTITY_TYPES = [
   'rule',
   'property_bundle',
   'property_definition',
+  'identifier',
 ] as const;
 export type ChangeLogEntityType = (typeof CHANGE_LOG_ENTITY_TYPES)[number];
 

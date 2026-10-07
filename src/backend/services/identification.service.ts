@@ -6,6 +6,7 @@
 import * as IdentityRuleDAL from '../dal/identity-rule.dal';
 import * as EventDAL from '../dal/event.dal';
 import * as SourceDAL from '../dal/source.dal';
+import * as IdentifierDAL from '../dal/identifier.dal';
 import { getDb } from '../db';
 import { BadRequestError } from '../errors';
 import { diffCarriedBy } from '../../domain/identity/carriedBy';
@@ -19,7 +20,8 @@ export function getProjectIdentificationFlow(projectId: string): IdentificationF
   return buildIdentificationFlow(
     rules,
     events.map((e) => ({ ...e, source_ids: (sourcesByEvent.get(e.id) ?? []).map((s) => s.id) })),
-    sources
+    sources,
+    IdentifierDAL.listIdentifiers(projectId)
   );
 }
 
@@ -74,7 +76,8 @@ export function setRuleCarriedBy(projectId: string, ruleId: string, eventIds: un
     new Set(eventIds as string[]),
     events.map((e) => ({ ...e, source_ids: (sourcesByEvent.get(e.id) ?? []).map((s) => s.id) })),
     rules,
-    sources
+    sources,
+    IdentifierDAL.listIdentifiers(projectId)
   );
   getDb().transaction(() => {
     for (const c of changes) EventDAL.updateEvent(projectId, c.event_id, { identifiers_json: c.identifiers });

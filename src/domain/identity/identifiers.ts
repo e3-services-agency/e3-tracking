@@ -16,6 +16,51 @@ export interface IdentityRuleLike {
   trigger_text?: string | null;
 }
 
+/** The `identifiers` registry columns this module reads (D-69): hard/soft/cookie come from here. */
+export interface IdentifierLike {
+  name: string;
+  type: string;
+  is_cookie?: boolean;
+  description?: string | null;
+}
+
+/**
+ * The registry to use: the given one, else one derived from the rules (first-seen order, hard wins on a
+ * type conflict, the identifier named `cookie` flagged), so callers without a registry keep working.
+ */
+export function registryFromRules(rules: readonly IdentityRuleLike[]): IdentifierLike[] {
+  const out: IdentifierLike[] = [];
+  for (const rule of rules) {
+    const existing = out.find((i) => i.name.toLowerCase() === rule.identifier_name.toLowerCase());
+    if (existing) {
+      if (rule.identity_type === 'hard') existing.type = 'hard';
+    } else {
+      out.push({ name: rule.identifier_name, type: rule.identity_type, is_cookie: rule.identifier_name === COOKIE_IDENTIFIER });
+    }
+  }
+  return out;
+}
+
+/** The given registry plus an entry for every rule identifier it lacks (a registry may be empty or partial, e.g. after an old backup). */
+function mergeRegistry(rules: readonly IdentityRuleLike[], registry?: readonly IdentifierLike[]): IdentifierLike[] {
+  if (!registry) return registryFromRules(rules);
+  const out = [...registry];
+  for (const extra of registryFromRules(rules)) if (!findIdentifier(out, extra.name)) out.push(extra);
+  return out;
+}
+
+function findIdentifier(registry: readonly IdentifierLike[], name: string): IdentifierLike | undefined {
+  return registry.find((i) => i.name === name) ?? registry.find((i) => i.name.toLowerCase() === name.toLowerCase());
+}
+
+/** Names an event may carry: the rules' identifiers in rule order, then registry identifiers no rule uses. */
+export function candidateNames(rules: readonly IdentityRuleLike[], registry: readonly IdentifierLike[]): string[] {
+  const out: string[] = [];
+  for (const r of rules) if (!out.includes(r.identifier_name)) out.push(r.identifier_name);
+  for (const i of registry) if (!out.includes(i.name)) out.push(i.name);
+  return out;
+}
+
 /** The `events` columns this module reads; `source_ids` come from `event_sources`. */
 export interface IdentifierEventLike {
   id: string;
@@ -46,8 +91,10 @@ export const COOKIE_IDENTIFIER = 'cookie';
 export function deriveEventIdentifiers(
   event: IdentifierEventLike,
   rules: readonly IdentityRuleLike[],
-  sources?: readonly IdentifierSourceLike[]
+  sources?: readonly IdentifierSourceLike[],
+  registry?: readonly IdentifierLike[]
 ): string[] {
+  const reg = mergeRegistry(rules, registry);
   const known = sources ? new Set(sources.map((s) => s.id)) : null;
   const eventSources = new Set((event.source_ids ?? []).filter((id) => !known || known.has(id)));
   const out: string[] = [];
@@ -56,7 +103,7 @@ export function deriveEventIdentifiers(
     if (event.implementation_method === 'server_api') {
       carries = !!rule.source_id && eventSources.has(rule.source_id);
     } else {
-      carries = rule.sdk_call === 'identify' || rule.identifier_name === COOKIE_IDENTIFIER;
+      carries = rule.sdk_call === 'identify' || !!findIdentifier(reg, rule.identifier_name)?.is_cookie;
     }
     if (carries && !out.includes(rule.identifier_name)) out.push(rule.identifier_name);
   }
@@ -75,10 +122,10 @@ export function hasExplicitIdentifiers(event: Pick<IdentifierEventLike, 'identif
  * True when the event's identifiers are the derived default: no list, or a non-empty list whose names
  * match no rule any more (renamed or deleted rules, the T-4-28 fallback). `[]` is never derived.
  */
-export function identifiersAreDerived(event: IdentifierEventLike, rules: readonly IdentityRuleLike[]): boolean {
+export function identifiersAreDerived(event: IdentifierEventLike, rules: readonly IdentityRuleLike[], registry?: readonly IdentifierLike[]): boolean {
   if (!Array.isArray(event.identifiers_json)) return true;
   if (event.identifiers_json.length === 0) return false;
-  const names = new Set(rules.map((r) => r.identifier_name));
+  const names = new Set(candidateNames(rules, registry ?? []));
   return !event.identifiers_json.some((n) => names.has(n));
 }
 
@@ -89,15 +136,12 @@ export function identifiersAreDerived(event: IdentifierEventLike, rules: readonl
 export function effectiveEventIdentifiers(
   event: IdentifierEventLike,
   rules: readonly IdentityRuleLike[],
-  sources?: readonly IdentifierSourceLike[]
+  sources?: readonly IdentifierSourceLike[],
+  registry?: readonly IdentifierLike[]
 ): string[] {
-  if (identifiersAreDerived(event, rules)) return deriveEventIdentifiers(event, rules, sources);
+  if (identifiersAreDerived(event, rules, registry)) return deriveEventIdentifiers(event, rules, sources, registry);
   const wanted = new Set(event.identifiers_json);
-  const out: string[] = [];
-  for (const rule of rules) {
-    if (wanted.has(rule.identifier_name) && !out.includes(rule.identifier_name)) out.push(rule.identifier_name);
-  }
-  return out;
+  return candidateNames(rules, registry ?? []).filter((n) => wanted.has(n));
 }
 
 /** The rule's source with its display label ("Shopify via GTM data layer"). */
@@ -190,13 +234,14 @@ function whenSentence(rule: IdentityRuleLike, set_by: IdentifierSetBy): string {
 }
 
 /** Identifiers a standalone call binds (D-67 amendment 1): its own, plus the cookie (web source) or the source's other identifiers (server source). */
-function bindsFor(rule: IdentityRuleLike, rules: readonly IdentityRuleLike[], source: IdentifierSourceLike | undefined): string[] {
+function bindsFor(rule: IdentityRuleLike, rules: readonly IdentityRuleLike[], source: IdentifierSourceLike | undefined, reg: readonly IdentifierLike[]): string[] {
   const out = [rule.identifier_name];
   const server = source?.method === 'tracking_api';
   if (server) {
     for (const r of rules) if (r.source_id === rule.source_id && !out.includes(r.identifier_name)) out.push(r.identifier_name);
-  } else if (rules.some((r) => r.identifier_name === COOKIE_IDENTIFIER) && !out.includes(COOKIE_IDENTIFIER)) {
-    out.push(COOKIE_IDENTIFIER);
+  } else {
+    const cookie = rules.map((r) => findIdentifier(reg, r.identifier_name)).find((i) => i?.is_cookie);
+    if (cookie && !out.includes(cookie.name)) out.push(cookie.name);
   }
   return out;
 }
@@ -209,14 +254,17 @@ function bindsFor(rule: IdentityRuleLike, rules: readonly IdentityRuleLike[], so
 export function buildIdentificationFlow(
   rules: readonly IdentityRuleLike[],
   events: readonly IdentifierEventLike[],
-  sources: readonly IdentifierSourceLike[]
+  sources: readonly IdentifierSourceLike[],
+  registry?: readonly IdentifierLike[]
 ): IdentificationFlow {
+  const reg = mergeRegistry(rules, registry);
+  const typeOf = (name: string) => findIdentifier(reg, name)?.type;
   const eventById = new Map(events.map((e) => [e.id, e]));
   const sourceById = new Map(sources.map((s) => [s.id, s]));
   const carried = new Map<string, { id: string; name: string }[]>();
   const sortedEvents = [...events].sort((a, b) => a.name.localeCompare(b.name));
   for (const event of sortedEvents) {
-    for (const name of effectiveEventIdentifiers(event, rules, sources)) {
+    for (const name of effectiveEventIdentifiers(event, rules, sources, reg)) {
       const list = carried.get(name);
       if (list) list.push({ id: event.id, name: event.name });
       else carried.set(name, [{ id: event.id, name: event.name }]);
@@ -245,9 +293,9 @@ export function buildIdentificationFlow(
     return {
       rule_id: rule.id,
       identifier_name: rule.identifier_name,
-      identity_type: rule.identity_type,
+      identity_type: typeOf(rule.identifier_name) ?? rule.identity_type,
       set_by,
-      binds: set_by.kind === 'standalone_call' ? bindsFor(rule, rules, source) : [],
+      binds: set_by.kind === 'standalone_call' ? bindsFor(rule, rules, source, reg) : [],
       carried_by: carried.get(rule.identifier_name) ?? [],
       sentence: '',
     };
@@ -260,40 +308,70 @@ export function buildIdentificationFlow(
     };
   }
 
+  // Per identifier (D-69): its acts are aggregated, in the order the identifiers first appear.
+  const names: string[] = [];
+  for (const r of rules) if (!names.includes(r.identifier_name)) names.push(r.identifier_name);
   const parts: string[] = [
-    `A customer is identified by ${rules.length === 1 ? 'one identifier' : `${rules.length} identifiers`}: ${rules
-      .map((r) => `${r.identifier_name} (${r.identity_type})`)
+    `A customer is identified by ${names.length === 1 ? 'one identifier' : `${names.length} identifiers`}: ${names
+      .map((n) => `${n} (${typeOf(n) ?? 'soft'})`)
       .join(', ')}.`,
   ];
-  rules.forEach((rule, i) => {
-    const fr = flowRules[i];
+  const actClause = (rule: IdentityRuleLike, fr: IdentifierFlowRule): string => {
     if (fr.set_by.kind === 'standalone_call') {
-      const id = rule.identifier_name;
       const call = fr.set_by.sdk_call ?? 'identify';
-      const others = fr.binds.filter((b) => b !== id);
+      const others = fr.binds.filter((b) => b !== rule.identifier_name);
       const on = fr.set_by.trigger_text ? ` ${triggerPhrase(fr.set_by.trigger_text)}` : '';
       const via = fr.set_by.source ? ` via ${fr.set_by.source.name}` : '';
-      const together = others.length > 0 ? ` together with ${others.join(', ')}` : '';
-      const only = fr.carried_by.filter((e) => {
-        const ev = eventById.get(e.id)!;
-        const eff = effectiveEventIdentifiers(ev, rules, sources);
-        return eff.length === 1 && eff[0] === id;
-      });
-      const merge = only.length > 0 ? `; ${listNames(only.map((e) => e.name))} ${only.length === 1 ? 'is' : 'are'} sent with ${id} only and ${only.length === 1 ? 'is' : 'are'} merged into the profile through it` : '';
-      const rest = fr.carried_by.filter((e) => !only.includes(e));
-      const restText = rest.length > 0 ? ` Other events that send it in customer_ids: ${listNames(rest.map((e) => e.name))}.` : '';
-      const none = fr.carried_by.length === 0 ? ' No event sends it in customer_ids yet.' : '';
-      fr.sentence = `${id} is set by a standalone ${call} call${on}${via}${together}${merge}.${restText}${none}`;
-      parts.push(fr.sentence);
-      return;
+      return `by a standalone ${call} call${on}${via}${others.length > 0 ? ` together with ${others.join(', ')}` : ''}`;
     }
-    const carriedText = fr.carried_by.length
-      ? `Events that send it in customer_ids: ${listNames(fr.carried_by.map((e) => e.name))}.`
+    return whenSentence(rule, fr.set_by).replace(/^is set /, '');
+  };
+  for (const id of names) {
+    const idxs = rules.map((r, i) => (r.identifier_name === id ? i : -1)).filter((i) => i >= 0);
+    if (idxs.length === 1) {
+      const rule = rules[idxs[0]];
+      const fr = flowRules[idxs[0]];
+      if (fr.set_by.kind === 'standalone_call') {
+        const call = fr.set_by.sdk_call ?? 'identify';
+        const others = fr.binds.filter((b) => b !== id);
+        const on = fr.set_by.trigger_text ? ` ${triggerPhrase(fr.set_by.trigger_text)}` : '';
+        const via = fr.set_by.source ? ` via ${fr.set_by.source.name}` : '';
+        const together = others.length > 0 ? ` together with ${others.join(', ')}` : '';
+        const only = fr.carried_by.filter((e) => {
+          const ev = eventById.get(e.id)!;
+          const eff = effectiveEventIdentifiers(ev, rules, sources, reg);
+          return eff.length === 1 && eff[0] === id;
+        });
+        const merge = only.length > 0 ? `; ${listNames(only.map((e) => e.name))} ${only.length === 1 ? 'is' : 'are'} sent with ${id} only and ${only.length === 1 ? 'is' : 'are'} merged into the profile through it` : '';
+        const rest = fr.carried_by.filter((e) => !only.includes(e));
+        const restText = rest.length > 0 ? ` Other events that send it in customer_ids: ${listNames(rest.map((e) => e.name))}.` : '';
+        const none = fr.carried_by.length === 0 ? ' No event sends it in customer_ids yet.' : '';
+        fr.sentence = `${id} is set by a standalone ${call} call${on}${via}${together}${merge}.${restText}${none}`;
+      } else {
+        const carriedText = fr.carried_by.length
+          ? `Events that send it in customer_ids: ${listNames(fr.carried_by.map((e) => e.name))}.`
+          : 'No event sends it in customer_ids yet.';
+        fr.sentence = `${rule.identifier_name} ${whenSentence(rule, fr.set_by)}. ${carriedText}`;
+      }
+      parts.push(fr.sentence);
+      continue;
+    }
+    // Several acts of one identifier: each rule keeps its own sentence (the editor preview), the paragraph joins them.
+    for (const i of idxs) {
+      const fr = flowRules[i];
+      fr.sentence = `${id} is set ${actClause(rules[i], fr)}.`;
+    }
+    const carried = flowRules[idxs[0]].carried_by;
+    const carriedText = carried.length
+      ? `Events that send it in customer_ids: ${listNames(carried.map((e) => e.name))}.`
       : 'No event sends it in customer_ids yet.';
-    fr.sentence = `${rule.identifier_name} ${whenSentence(rule, fr.set_by)}. ${carriedText}`;
-    parts.push(fr.sentence);
-  });
-  if (rules.some((r) => r.identity_type === 'hard') && rules.some((r) => r.identity_type === 'soft')) {
+    parts.push(`${id} is set ${idxs.map((i) => actClause(rules[i], flowRules[i])).join(', and also ')}. ${carriedText}`);
+  }
+  const unused = reg.filter((i) => !names.some((n) => n.toLowerCase() === i.name.toLowerCase()));
+  if (unused.length > 0) {
+    parts.push(`No identification act is defined yet for ${unused.map((i) => `${i.name} (${i.type})`).join(', ')}.`);
+  }
+  if (names.some((n) => typeOf(n) === 'hard') && names.some((n) => typeOf(n) === 'soft')) {
     parts.push(
       'Soft identifiers recognise an anonymous visitor; a hard identifier ties that visitor to a known customer, so an event that carries one identifies the customer by it.'
     );

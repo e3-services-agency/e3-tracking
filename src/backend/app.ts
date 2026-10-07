@@ -21,6 +21,7 @@ import filesRouter from './routes/files';
 import exportRouter from './routes/export';
 import sharedRouter from './routes/shared';
 import identityRulesRouter from './routes/identity-rules';
+import identifiersRouter from './routes/identifiers';
 import consentCategoriesRouter from './routes/consent-categories';
 import standardEventMappingsRouter from './routes/standard-event-mappings';
 import projectVariantsRouter from './routes/project-variants';
@@ -120,6 +121,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   // is added by T-4-04 on top of `routes/shared.ts`.
   app.use('/api/projects/:projectId/comments', requireProject, commentsRouter);
   app.use('/api/projects/:projectId/identity-rules', requireProject, identityRulesRouter);
+  app.use('/api/projects/:projectId/identifiers', requireProject, identifiersRouter);
   app.use('/api/projects/:projectId/consent-categories', requireProject, consentCategoriesRouter);
   app.use('/api/projects/:projectId/standard-event-mappings', requireProject, standardEventMappingsRouter);
   app.use('/api/projects/:projectId/variants', requireProject, projectVariantsRouter);

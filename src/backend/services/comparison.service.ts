@@ -56,6 +56,7 @@ import * as CatalogDAL from '../dal/catalog.dal';
 import * as RuleDAL from '../dal/rule.dal';
 import * as IdentityRuleDAL from '../dal/identity-rule.dal';
 import * as SourceDAL from '../dal/source.dal';
+import * as IdentifierDAL from '../dal/identifier.dal';
 import { effectiveEventIdentifiers } from '../../domain/identity/identifiers';
 import { createEventResolver } from './eventResolution';
 import {
@@ -171,7 +172,8 @@ export function buildDefinitionSnapshot(projectId: string): DefinitionSnapshot {
       identifiers: effectiveEventIdentifiers(
         { ...event, source_ids: (sourcesByEventId.get(event.id) ?? []).map((s) => s.id) },
         identityRules,
-        allSources
+        allSources,
+        IdentifierDAL.listIdentifiers(projectId)
       ),
     };
   });

@@ -8,6 +8,7 @@ import React from 'react';
 import { FORM_CARD_WIDTH_CLASS, PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import { ProjectSettings } from '@/src/features/projects/pages/ProjectSettings';
 import { CsvExportBlock } from '@/src/features/projects/components/CsvExportBlock';
+import { IdentifiersBlock } from '@/src/features/projects/components/IdentifiersBlock';
 import { BackupExportBlock } from '@/src/features/projects/components/BackupExportBlock';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 
@@ -22,6 +23,7 @@ export function Settings() {
       <PageBody>
       <div className={`space-y-8 ${FORM_CARD_WIDTH_CLASS}`}>
         <ProjectSettings />
+        <IdentifiersBlock projectId={activeProjectId} />
         <CsvExportBlock projectId={activeProjectId} />
         <BackupExportBlock projectId={activeProjectId} />
       </div>

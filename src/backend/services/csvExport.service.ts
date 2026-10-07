@@ -24,6 +24,7 @@ import * as PropertyDAL from '../dal/property.dal';
 import * as VariantDAL from '../dal/variant.dal';
 import * as StandardEventMappingDAL from '../dal/standard-event-mapping.dal';
 import * as IdentityRuleDAL from '../dal/identity-rule.dal';
+import * as IdentifierDAL from '../dal/identifier.dal';
 import * as CatalogDAL from '../dal/catalog.dal';
 import * as ConsentCategoryDAL from '../dal/consent-category.dal';
 import { classifyProperty } from '../../domain/propertyCategory';
@@ -314,11 +315,23 @@ function buildStandardEventMappingsRows(projectId: string): CsvRow[] {
   });
 }
 
+function buildIdentifiersRows(projectId: string): CsvRow[] {
+  return IdentifierDAL.listIdentifiers(projectId).map((i) => ({
+    id: i.id,
+    name: i.name,
+    type: i.type,
+    description: textCell(i.description),
+    is_cookie: boolCell(i.is_cookie),
+    sort_order: i.sort_order,
+  }));
+}
+
 function buildIdentityRulesRows(projectId: string): CsvRow[] {
   const eventNameById = new Map(EventDAL.listEvents(projectId).map((e) => [e.id, e.name]));
   const sourceNameById = new Map(SourceDAL.listSources(projectId).map((s) => [s.id, s.name]));
   return IdentityRuleDAL.listIdentityRules(projectId).map((r) => ({
     id: r.id,
+    identifier_id: textCell(r.identifier_id),
     identifier_name: r.identifier_name,
     identity_type: r.identity_type,
     name: r.name,
@@ -652,6 +665,7 @@ const ROW_BUILDERS: Record<CsvEntity, (projectId: string) => CsvRow[]> = {
   property_definitions: buildPropertyDefinitionsRows,
   variants: buildVariantsRows,
   standard_event_mappings: buildStandardEventMappingsRows,
+  identifiers: buildIdentifiersRows,
   identity_rules: buildIdentityRulesRows,
   catalogs: buildCatalogsRows,
   sources: buildSourcesRows,
@@ -702,6 +716,7 @@ const COUNT_QUERIES: Record<CsvEntity, (projectId: string) => number> = {
        WHERE m.project_id = ?`,
       projectId
     ),
+  identifiers: (projectId) => countOf('SELECT COUNT(*) as n FROM identifiers WHERE project_id = ?', projectId),
   identity_rules: (projectId) => countOf('SELECT COUNT(*) as n FROM identity_rules WHERE project_id = ?', projectId),
   catalogs: (projectId) => countOf('SELECT COUNT(*) as n FROM catalogs WHERE project_id = ? AND deleted_at IS NULL', projectId),
   sources: (projectId) => countOf('SELECT COUNT(*) as n FROM sources WHERE project_id = ?', projectId),

@@ -138,7 +138,7 @@ You: create the GCP project and attach billing; `gcloud auth login`; create the 
 
 ### OAuth client (console, once)
 
-APIs and Services > OAuth consent screen: user type **Internal** (limits sign-in to the Workspace). Credentials > Create credentials > OAuth client ID > Web application, authorized redirect URI `https://<HOSTNAME>/oauth2/callback`. Keep the client id and secret; they go into `/opt/e3-tracking/.env` on the VM (`OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`).
+APIs and Services > OAuth consent screen: user type **Internal** (limits sign-in to the Workspace). Credentials > Create credentials > OAuth client ID > Web application, authorized redirect URI `https://<HOSTNAME>/oauth2/callback`. Keep the client id and secret; they go into `/opt/e3-tracking/.env` on the VM (`OAUTH2_CLIENT_ID`, `OAUTH2_CLIENT_SECRET`).
 
 ### Step order
 
@@ -154,7 +154,7 @@ deploy/gcp/05-cutover.sh <project-id>...   # move local projects (exports from 1
 deploy/gcp/06-monitoring.sh            # uptime check on /api/health, email alert
 ```
 
-The VM runs compose with `-f docker-compose.yml -f docker-compose.gcp.yml` (`deploy/gcp/docker-compose.gcp.yml` binds `/data` of app, backup and mcp to the mounted data disk; `startup.sh` chowns it to uid 1000). `.env` variable names (`IMAGE`, `HOSTNAME`, `WORKSPACE_DOMAIN`, `TRUSTED_PROXY_CIDR`, `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`, `COOKIE_SECRET`, `BACKUP_BUCKET`) must match what the edge profile's compose and Caddyfile read; compose uses `image: ${IMAGE:-e3-tracking:local}` for app, backup and mcp.
+The VM runs compose with `-f docker-compose.yml -f docker-compose.gcp.yml` (`deploy/gcp/docker-compose.gcp.yml` binds `/data` of app, backup and mcp to the mounted data disk; `startup.sh` chowns it to uid 1000). `.env` variable names (`IMAGE`, `HOSTNAME`, `WORKSPACE_DOMAIN`, `TRUSTED_PROXY_CIDR`, `OAUTH2_CLIENT_ID`, `OAUTH2_CLIENT_SECRET`, `OAUTH2_COOKIE_SECRET`, `E3_AUTH_MODE`, `BACKUP_BUCKET`) must match what the edge profile's compose and Caddyfile read; compose uses `image: ${IMAGE:-e3-tracking:local}` for app, backup and mcp.
 
 ### Cut-over
 

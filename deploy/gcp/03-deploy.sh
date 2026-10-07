@@ -15,13 +15,14 @@ trap 'rm -rf "$STAGE"' EXIT
 # user on the VM); later deploys only change the IMAGE line.
 if [ "$DRY_RUN" = 1 ]; then SECRET="<openssl-rand-base64-32>"; else SECRET="$(openssl rand -base64 32 | tr '+/' '-_')"; fi
 cat > "$STAGE/env.template" <<ENVEOF
+E3_AUTH_MODE=proxy
 IMAGE=$IMAGE_BASE:$TAG
 HOSTNAME=$HOSTNAME
 WORKSPACE_DOMAIN=$WORKSPACE_DOMAIN
-TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.16.0.0/12}
-OAUTH_CLIENT_ID=REPLACE_ME
-OAUTH_CLIENT_SECRET=REPLACE_ME
-COOKIE_SECRET=$SECRET
+TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.28.0.8/29}
+OAUTH2_CLIENT_ID=REPLACE_ME
+OAUTH2_CLIENT_SECRET=REPLACE_ME
+OAUTH2_COOKIE_SECRET=$SECRET
 BACKUP_BUCKET=$BUCKET
 ENVEOF
 
@@ -34,7 +35,7 @@ if [ "$DRY_RUN" != 1 ]; then
 fi
 
 run gcloud compute scp --recurse "${IAP[@]}" "$REPO_ROOT/docker-compose.yml" "$GCP_DIR/docker-compose.gcp.yml" "$REPO_ROOT/deploy/edge" "$STAGE/env.template" "$VM_NAME:$REMOTE/"
-REMOTE_CMD="cd $REMOTE && { [ -f .env ] || cp env.template .env; } && sed -i 's#^IMAGE=.*#IMAGE=$IMAGE_BASE:$TAG#' .env && rm -f env.template && { ! grep -q REPLACE_ME .env || echo 'WARNING: fill OAUTH_CLIENT_ID and OAUTH_CLIENT_SECRET in $REMOTE/.env, then rerun'; } && sudo docker compose -f docker-compose.yml -f docker-compose.gcp.yml --profile edge pull && sudo docker compose -f docker-compose.yml -f docker-compose.gcp.yml --profile edge up -d"
+REMOTE_CMD="cd $REMOTE && { [ -f .env ] || cp env.template .env; } && sed -i 's#^IMAGE=.*#IMAGE=$IMAGE_BASE:$TAG#' .env && rm -f env.template && { ! grep -q REPLACE_ME .env || echo 'WARNING: fill OAUTH2_CLIENT_ID and OAUTH2_CLIENT_SECRET in $REMOTE/.env, then rerun'; } && sudo docker compose --env-file .env -f docker-compose.yml -f docker-compose.gcp.yml --profile edge pull && sudo docker compose --env-file .env -f docker-compose.yml -f docker-compose.gcp.yml --profile edge up -d"
 run gcloud compute ssh "$VM_NAME" "${IAP[@]}" --command "$REMOTE_CMD"
 
 if [ "$DRY_RUN" = 1 ]; then

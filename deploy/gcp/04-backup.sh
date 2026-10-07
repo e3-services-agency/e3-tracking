@@ -6,7 +6,7 @@ set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 plan_header "04 backup"
 IAP=(--tunnel-through-iap --zone "$ZONE" --project "$PROJECT_ID")
-CMD="cd /opt/e3-tracking && { if grep -q '^BACKUP_BUCKET=' .env; then sed -i 's#^BACKUP_BUCKET=.*#BACKUP_BUCKET=$BUCKET#' .env; else echo 'BACKUP_BUCKET=$BUCKET' >> .env; fi; } && sudo docker compose -f docker-compose.yml -f docker-compose.gcp.yml --profile edge up -d backup"
+CMD="cd /opt/e3-tracking && { if grep -q '^BACKUP_BUCKET=' .env; then sed -i 's#^BACKUP_BUCKET=.*#BACKUP_BUCKET=$BUCKET#' .env; else echo 'BACKUP_BUCKET=$BUCKET' >> .env; fi; } && sudo docker compose --env-file .env -f docker-compose.yml -f docker-compose.gcp.yml --profile edge up -d backup"
 run gcloud compute ssh "$VM_NAME" "${IAP[@]}" --command "$CMD"
 say "The backup service runs nightly (BACKUP_HOUR_UTC) and writes /data/backups; uploads to gs://$BUCKET arrive with T-5-08."
 say "Manual run on the VM:"

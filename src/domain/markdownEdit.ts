@@ -15,7 +15,15 @@ export const COMMENT_BODY_MAX = 10000;
 export function wrapSelection(s: EditState, before: string, after: string = before): EditState {
   const { text, start, end } = s;
   const sel = text.slice(start, end);
-  if (start >= before.length && text.slice(start - before.length, start) === before && text.slice(end, end + after.length) === after) {
+  // Measure the contiguous run of the marker character on each side so `**x**` is not read as italic.
+  const ch = before[0];
+  let left = 0;
+  while (before === after && text[start - 1 - left] === ch) left++;
+  let right = 0;
+  while (before === after && text[end + right] === ch) right++;
+  const runOk = (run: number) => (ch === '*' && before.length <= 2 && before === ch.repeat(before.length) ? (before.length === 1 ? run === 1 || run === 3 : run === 2 || run === 3) : run === before.length);
+  const wrapped = before === after ? left === right && runOk(left) : text.slice(start - before.length, start) === before && text.slice(end, end + after.length) === after && start >= before.length;
+  if (wrapped) {
     return {
       text: text.slice(0, start - before.length) + sel + text.slice(end + after.length),
       start: start - before.length,

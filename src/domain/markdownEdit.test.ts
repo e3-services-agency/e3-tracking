@@ -12,6 +12,14 @@ describe('markdownEdit', () => {
     // wrapper only unwraps when outside the selection; snake_case is left alone
     expect(wrapSelection({ text: 'a_b_c', start: 2, end: 3 }, '*').text).toBe('a_*b*_c');
   });
+  it('measures marker runs so bold and italic do not collide', () => {
+    const r = (text: string, start: number, end: number, m: string) => wrapSelection({ text, start, end }, m).text;
+    expect(r('**x**', 2, 3, '*')).toBe('***x***');
+    expect(r('***x***', 3, 4, '*')).toBe('**x**');
+    expect(r('*x*', 1, 2, '**')).toBe('***x***');
+    expect(r('***x***', 3, 4, '**')).toBe('*x*');
+    expect(r('a_b_c', 2, 3, '*')).toBe('a_*b*_c');
+  });
   it('toggles list prefixes over several lines', () => {
     const a = toggleLinePrefix({ text: 'one\ntwo', start: 0, end: 7 }, 'number');
     expect(a.text).toBe('1. one\n2. two');

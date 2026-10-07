@@ -3426,3 +3426,13 @@ Scoped "Requirement status" hint, last two decision codes removed, Catalogs.tsx 
 
 ### 2026-10-07 | supervisor | MERGE | T-4-29 + T-4-31 merged into agent-setup — DONE
 Merge e581ad2. Merged tree: tsc, lint, build clean, 1845 tests / 183 files. Remaining from round 8: T-4-32 (merge of agent-setup + minor fix in progress, then browser QA).
+
+### 2026-10-07 | qa-tester | QA FAIL (1) | T-4-32 d0d965c
+Scenarios 1, 3-7 PASS: intro card, empty state, clickable cells open the right section; Set by modes incl. "Reads as" preview and the "Not defined yet" warning; Carried by writes explicit / [] / null correctly with one history row per changed event, editor and rule row read "none, set by hand", flow and Preview agree; new rule saved twice stays one rule; codegen tabs render, carries-nothing card shows customer_ids {} with the comment; shared view shows Set by / Carried by / flow; 15 open findings; no 500s. FAIL scenario 2: editor labels have title-only hints, no "?" icon (branch predates the T-4-29 merge of FieldLabel), radios/options/Carried-by rows have none. Notes: duplicate identifier_name accepted (no uniqueness check); dialog title stays "Create Identity Rule" after the first save; possible project-switch race showing the previous project's rules on a direct URL load (maybe pre-existing). Report: reports/qa/T-4-32/REPORT.md.
+Supervisor ruling: fix round — FieldLabel on every editor label and section radio/option (hint entries for the new labels, coverage test green), identifier_name unique per project (409 IDENTIFIER_EXISTS + inline message), title switches to "Edit Identity Rule" after create; project-switch race to backlog for investigation. Then merge without a QA re-run (hint rendering is guarded by the coverage test).
+
+### 2026-10-07 | implementer | HANDOFF | T-4-32 QA fix d0bf8d0
+FieldLabel hints across the rule editor (new Identity rules scope entries, coverage test green), identifier_name unique per project (409 IDENTIFIER_EXISTS, inline message), Sheet switches to edit after the first save. Supervisor verified on the branch: tsc, lint clean, 1863 tests / 186 files.
+
+### 2026-10-07 | supervisor | MERGE | T-4-32 merged into agent-setup — DONE; review round 8 complete, nothing running
+Open, waiting on the user: T-4-06 (samples/br-initiatives/), phase 5 step 2 (D-09 go + provider). Decisions D-67 (+2 amendments) and D-68 remain "proposed", implemented and reversible.

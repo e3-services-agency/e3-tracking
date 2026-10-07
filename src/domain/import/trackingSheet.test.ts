@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import ExcelJS from 'exceljs';
-import { readWorkbook } from '../../../scripts/import-tracking-sheet.mjs';
+import { readWorkbook } from '../../../scripts/lib/tracking-sheet-io.mjs';
 import {
   diffFillEmpty,
   mapDataFormats,

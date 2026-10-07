@@ -7,6 +7,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import type { AddressInfo } from 'node:net';
 import Database from 'better-sqlite3';
 import { closeDb, getDb } from '../db';
@@ -48,7 +49,7 @@ const api = (method: string, url: string, body?: unknown) =>
 
 describe('0032_identifiers.sql backfill', () => {
   it('creates one identifier per distinct name (hard wins, cookie flagged) and links the rules', () => {
-    const DIR = path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')), '..', 'db', 'migrations');
+    const DIR = fileURLToPath(new URL('../db/migrations', import.meta.url));
     const db = new Database(':memory:');
     db.pragma('foreign_keys = ON');
     const files = fs.readdirSync(DIR).filter((f) => f.endsWith('.sql')).sort();

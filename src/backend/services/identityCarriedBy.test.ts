@@ -81,8 +81,11 @@ describe('PUT /identity-rules/:id/carried-by', () => {
     const { cart, purchase } = setUp();
     await put(cart.id, { event_ids: [] });
     const row = EventDAL.getEventOrThrow(projectId, purchase.id);
-    // The derived list for the server event was only cart_id, so removing it empties the list: back to derived.
-    expect(row.identifiers_json).toBeNull();
+    // D-67 amendment 2: removing the last identifier is an explicit "carries nothing", not a reset.
+    expect(row.identifiers_json).toEqual([]);
+    expect(changeCount()).toBeGreaterThan(0);
+    const again = await (await put(cart.id, { event_ids: [] })).json();
+    expect(again.changed).toEqual([]);
   });
 
   it('400 for an unknown event id and for a malformed body, 404 for an unknown rule', async () => {

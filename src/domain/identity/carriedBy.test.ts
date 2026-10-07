@@ -34,8 +34,20 @@ describe('diffCarriedBy', () => {
     ]);
   });
 
-  it('an emptied list is stored as null (the derived default applies)', () => {
+  it('removing the last identifier writes an explicit [] (D-67 amendment 2)', () => {
     const only = { ...web, identifiers_json: ['cart_id'] };
-    expect(diffCarriedBy('cart_id', new Set(), [only], rules)).toEqual([{ event_id: 'web', identifiers: null }]);
+    expect(diffCarriedBy('cart_id', new Set(), [only], rules)).toEqual([{ event_id: 'web', identifiers: [] }]);
+    expect(diffCarriedBy('cart_id', new Set(), [server], rules)).toEqual([{ event_id: 'srv', identifiers: [] }]);
+  });
+
+  it('ticking an event that is explicitly empty adds the identifier, and drops no-op changes', () => {
+    const none = { ...server, identifiers_json: [] as string[] };
+    expect(diffCarriedBy('cart_id', new Set(['srv']), [none], rules)).toEqual([{ event_id: 'srv', identifiers: null }]);
+    expect(diffCarriedBy('cart_id', new Set(), [none], rules)).toEqual([]);
+  });
+
+  it('a stale explicit list (no rule left) counts as derived, so unticking writes against the derived list', () => {
+    const stale = { ...web, identifiers_json: ['ghost'] };
+    expect(diffCarriedBy('email_id', new Set(), [stale], rules)).toEqual([{ event_id: 'web', identifiers: ['cookie'] }]);
   });
 });

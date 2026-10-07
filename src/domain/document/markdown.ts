@@ -67,7 +67,9 @@ export function eventCardToMarkdown(card: EventCard): string {
       'Identifiers (customer_ids)',
       card.identifiers && card.identifiers.length > 0
         ? `${card.identifiers.join(', ')}${card.identifiers_derived ? ' (derived)' : ''}`
-        : null
+        : card.identifiers && card.identifiers_derived === false
+          ? 'none, set by hand'
+          : null
     )
   );
   if (header) out.push(header);

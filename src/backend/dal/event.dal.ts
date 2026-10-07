@@ -303,10 +303,10 @@ type EventDbRow = Omit<
   | 'identifiers_json'
 >;
 
+/** D-67 amendment 2: null = derived, a list = explicit, `[]` = carries no identifier. */
 function normalizeIdentifiers(value: unknown): string[] | null {
   if (!Array.isArray(value)) return null;
-  const names = value.filter((v): v is string => typeof v === 'string');
-  return names.length > 0 ? names : null;
+  return value.filter((v): v is string => typeof v === 'string');
 }
 
 /** D-67: every name must be an identifier_name of one of the project's identity rules (400 otherwise); `[]`/null clear to the derived default. */
@@ -316,7 +316,7 @@ function validateIdentifiers(projectId: string, value: unknown): string[] | null
     throw new BadRequestError('identifiers_json must be an array of identifier names or null.', 'identifiers_json');
   }
   const names = [...new Set(value as string[])];
-  if (names.length === 0) return null;
+  if (names.length === 0) return [];
   const known = new Set(
     (getDb().prepare('SELECT identifier_name FROM identity_rules WHERE project_id = ?').all(projectId) as { identifier_name: string }[]).map(
       (r) => r.identifier_name
@@ -509,7 +509,7 @@ export function createEvent(projectId: string, input: EventInput, opts: { applyD
 
   const identifiersJson = (() => {
     const v = validateIdentifiers(projectId, input.identifiers_json);
-    return v ? JSON.stringify(v) : null;
+    return v === null ? null : JSON.stringify(v);
   })();
   const id = newId();
   const now = nowIso();
@@ -634,7 +634,7 @@ export function updateEvent(projectId: string, eventId: string, input: Partial<E
   if (input.dl_event_name !== undefined) patch.dl_event_name = input.dl_event_name?.trim() || null;
   if (input.identifiers_json !== undefined) {
     const v = validateIdentifiers(projectId, input.identifiers_json);
-    patch.identifiers_json = v ? JSON.stringify(v) : null;
+    patch.identifiers_json = v === null ? null : JSON.stringify(v);
   }
   if (input.category !== undefined) patch.category = input.category?.trim() || null;
   if (input.owner_business !== undefined) patch.owner_business = input.owner_business?.trim() || null;

@@ -21,7 +21,7 @@ export interface CarriedByChange {
  * Changes needed so that exactly `selectedEventIds` carry `identifierName`. An event whose effective
  * list already agrees is left alone (derived stays derived: no write). Otherwise its new list is its
  * current effective list plus or minus the name, in rule order; a list equal to the derived default
- * (or empty) is stored as `null`.
+ * is `null`; an empty result is an explicit `[]`.
  */
 export function diffCarriedBy(
   identifierName: string,
@@ -40,7 +40,11 @@ export function diffCarriedBy(
     const ordered = rules.map((r) => r.identifier_name).filter((n, i, all) => next.has(n) && all.indexOf(n) === i);
     const derived = deriveEventIdentifiers(event, rules, sources);
     const sameAsDerived = ordered.length === derived.length && ordered.every((n, i) => n === derived[i]);
-    changes.push({ event_id: event.id, identifiers: ordered.length === 0 || sameAsDerived ? null : ordered });
+    // D-67 amendment 2: null only when the result equals the derived default; an empty result is an explicit [].
+    const value = sameAsDerived ? null : ordered;
+    const stored = event.identifiers_json ?? null;
+    const unchanged = value === null ? stored === null : stored !== null && stored.length === value.length && stored.every((n, i) => n === value[i]);
+    if (!unchanged) changes.push({ event_id: event.id, identifiers: value });
   }
   return changes;
 }

@@ -500,7 +500,7 @@ function EventEditor({
           setImplementationMethod(ev.implementation_method ?? 'client_web');
           setLoadedImplementationMethod(ev.implementation_method ?? 'client_web');
           setDlEventName(ev.dl_event_name ?? '');
-          setIdentifiersOverride(Array.isArray(ev.identifiers_json) && ev.identifiers_json.length > 0 ? ev.identifiers_json : null);
+          setIdentifiersOverride(Array.isArray(ev.identifiers_json) ? ev.identifiers_json : null);
           setOwnerBusiness(ev.owner_business ?? '');
           setOwnerTechnical(ev.owner_technical ?? '');
           setPriority(ev.priority ?? '');
@@ -610,7 +610,7 @@ function EventEditor({
         class: eventClass,
         ...(implementationMethod && implementationMethod !== loadedImplementationMethod ? { implementation_method: implementationMethod } : {}),
         dl_event_name: dlEventName.trim() || null,
-        identifiers_json: identifiersOverride && identifiersOverride.length > 0 ? identifiersOverride : null,
+        identifiers_json: identifiersOverride,
         owner_business: ownerBusiness.trim() || null,
         owner_technical: ownerTechnical.trim() || null,
         priority: priority || null,
@@ -821,7 +821,7 @@ function EventEditor({
         const current = identifiersOverride ?? derived;
         const toggle = (n: string) => {
           const next = current.includes(n) ? current.filter((x) => x !== n) : [...current, n];
-          setIdentifiersOverride(next.length > 0 ? next : null);
+          setIdentifiersOverride(next);
         };
         return (
           <div className="space-y-2" data-testid="identifiers-block">
@@ -835,9 +835,16 @@ function EventEditor({
               ))}
             </div>
             <p className="text-xs text-gray-500">
-              {identifiersOverride ? 'Set by hand for this event.' : `Derived from the implementation method and sources: ${derived.length > 0 ? derived.join(', ') : 'none'}.`}
-              {identifiersOverride && (
+              {identifiersOverride === null
+                ? `Derived from the implementation method and sources: ${derived.length > 0 ? derived.join(', ') : 'none'}.`
+                : identifiersOverride.length === 0
+                  ? 'None, set by hand: this event carries no identifier.'
+                  : 'Set by hand for this event.'}
+              {identifiersOverride !== null && (
                 <button type="button" onClick={() => setIdentifiersOverride(null)} className="ml-2 text-[var(--color-info)] hover:underline">Reset to derived</button>
+              )}
+              {(identifiersOverride === null || identifiersOverride.length > 0) && (
+                <button type="button" onClick={() => setIdentifiersOverride([])} className="ml-2 text-[var(--color-info)] hover:underline">Carries no identifier</button>
               )}
             </p>
           </div>

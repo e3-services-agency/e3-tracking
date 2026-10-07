@@ -30,11 +30,13 @@ import {
   describeTrigger,
   effectiveEventIdentifiers,
   hasExplicitIdentifiers,
+  identifiersAreDerived,
   type IdentifierEventLike,
   type IdentifierSourceLike,
   type IdentityRuleLike,
 } from '@/src/domain/identity/identifiers';
 import { diffCarriedBy } from '@/src/domain/identity/carriedBy';
+import { resolveEventSourceId, resolveSaveTarget } from './ruleSave';
 
 export type IdentityEditorSection = 'identifier' | 'set_by' | 'carried_by' | 'meta';
 
@@ -114,6 +116,7 @@ export function IdentityRuleEditor({
   rules,
   focusSection,
   onSaved,
+  onRefresh,
   onClose,
 }: {
   ruleId: string | null;
@@ -124,9 +127,14 @@ export function IdentityRuleEditor({
   rules: EditorRule[];
   focusSection?: IdentityEditorSection | null;
   onSaved: () => Promise<void>;
+  /** Refreshes the list without closing the sheet (a partly failed save of a new rule). */
+  onRefresh?: () => Promise<void>;
   onClose: () => void;
 }) {
-  const isCreating = ruleId === null;
+  /** Set after the first successful POST of a new rule: later saves PATCH it, never POST again. */
+  const [createdId, setCreatedId] = useState<string | null>(null);
+  const effectiveRuleId = ruleId ?? createdId;
+  const isCreating = effectiveRuleId === null;
   const [loading, setLoading] = useState(!isCreating);
   const [rule, setRule] = useState<{ id: string; name: string } | null>(null);
   const [name, setName] = useState('');
@@ -195,7 +203,10 @@ export function IdentityRuleEditor({
   const trimmedName = name.trim();
   const trimmedField = identifierName.trim();
   const triggerEvent = events.find((e) => e.id === triggerEventId);
-  const eventSource = triggerEvent?.sources?.[0] ?? null;
+  // Source in event mode: keep a hand-set source that is one of the event's sources, else its first
+  // source; an event with no source never clears a source that was already set.
+  const eventSourceId = resolveEventSourceId(triggerEvent?.sources, sourceId);
+  const eventSource = sources.find((s) => s.id === eventSourceId) ?? null;
 
   /** What this rule would be once saved (mode decides which Set by fields count). */
   const draftRule: EditorRule = useMemo(
@@ -207,9 +218,9 @@ export function IdentityRuleEditor({
       sdk_call: mode === 'none' ? null : sdkCall || null,
       trigger_event_id: mode === 'event' ? triggerEventId || null : null,
       trigger_text: mode === 'standalone' ? triggerText.trim() || null : null,
-      source_id: mode === 'event' ? eventSource?.id ?? null : mode === 'standalone' ? sourceId || null : null,
+      source_id: mode === 'event' ? eventSourceId : mode === 'standalone' ? sourceId || null : null,
     }),
-    [ruleId, trimmedName, trimmedField, identityType, mode, sdkCall, triggerEventId, triggerText, sourceId, eventSource?.id]
+    [ruleId, trimmedName, trimmedField, identityType, mode, sdkCall, triggerEventId, triggerText, sourceId, eventSourceId]
   );
 
   const draftRules: EditorRule[] = useMemo(
@@ -273,23 +284,22 @@ export function IdentityRuleEditor({
         sdk_call: draftRule.sdk_call,
         trigger_event_id: draftRule.trigger_event_id,
         trigger_text: draftRule.trigger_text,
-        source_id: mode === 'none' ? sourceId || null : draftRule.source_id,
+        source_id: mode === 'none' ? sourceId || null : mode === 'event' ? eventSourceId : draftRule.source_id,
         owner: owner.trim() || null,
         tracker: tracker.trim() || null,
         priority: priority || null,
         status: status || null,
       };
-      const url = isCreating
-        ? `${API_BASE}/api/projects/${projectId}/identity-rules`
-        : `${API_BASE}/api/projects/${projectId}/identity-rules/${ruleId}`;
-      const res = await fetchWithAuth(url, { method: isCreating ? 'POST' : 'PATCH', body: JSON.stringify(body) });
+      const target = resolveSaveTarget(`${API_BASE}/api/projects/${projectId}/identity-rules`, effectiveRuleId);
+      const res = await fetchWithAuth(target.url, { method: target.method, body: JSON.stringify(body) });
       const data = await parseJson(res);
       if (!res.ok) {
         setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to save.');
         return;
       }
+      const savedId = effectiveRuleId ?? data.id;
+      if (isCreating) setCreatedId(data.id);
       if (Object.keys(overrides).length > 0 || isCreating) {
-        const savedId = isCreating ? data.id : ruleId;
         const carried = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/identity-rules/${savedId}/carried-by`, {
           method: 'PUT',
           body: JSON.stringify({ event_ids: [...selectedIds] }),
@@ -297,6 +307,8 @@ export function IdentityRuleEditor({
         if (!carried.ok) {
           const cd = await parseJson(carried);
           setSaveError(typeof cd?.error === 'string' ? `Rule saved, but the events were not updated: ${cd.error}` : 'Rule saved, but the events were not updated.');
+          // The rule exists now: refresh the list, keep the sheet open on it (the next Save PATCHes).
+          await (onRefresh ?? (async () => {}))();
           return;
         }
       }
@@ -453,7 +465,16 @@ export function IdentityRuleEditor({
             </div>
           </div>
         )}
-        {mode === 'none' && <p className="text-xs text-gray-500">Saving clears the trigger event, the trigger text and the SDK call.</p>}
+        {mode === 'none' && (
+          <div className="text-xs text-gray-500 space-y-1">
+            <p>Saving clears the trigger event, the trigger text and the SDK call.</p>
+            {sdkCall === 'identify' && (
+              <p className="text-amber-700" role="alert" data-testid="identity-editor-none-warning">
+                This rule currently has the identify call. Without it, {trimmedField || 'this identifier'} drops out of the identifiers that web and SDK events carry by default.
+              </p>
+            )}
+          </div>
+        )}
         <p className="text-sm text-gray-700" data-testid="identity-editor-binds">
           <span className="font-medium">Binds: </span>
           {flowRule ? bindsSentence(flowRule) : ''}
@@ -468,14 +489,15 @@ export function IdentityRuleEditor({
             <ul className="grid grid-cols-2 gap-x-3 gap-y-1">
               {g.items.map((e) => {
                 const explicit = hasExplicitIdentifiers(e);
-                const derived = !explicit && deriveEventIdentifiers(e, draftRules, idSources).includes(draftRule.identifier_name);
+                const derived = identifiersAreDerived(e, draftRules) && deriveEventIdentifiers(e, draftRules, idSources).includes(draftRule.identifier_name);
                 return (
                   <li key={e.id}>
                     <label className="flex items-center gap-2 text-sm text-gray-800">
                       <input type="checkbox" checked={isTicked(e)} onChange={(ev) => setOverrides((prev) => ({ ...prev, [e.id]: ev.target.checked }))} />
                       <span>{e.name}</span>
                       {derived && <span className="text-xs text-gray-400">derived</span>}
-                      {explicit && <span className="text-xs text-gray-400">set by hand</span>}
+                      {explicit && (e.identifiers_json ?? []).length === 0 && <span className="text-xs text-gray-400">none, set by hand</span>}
+                      {explicit && (e.identifiers_json ?? []).length > 0 && <span className="text-xs text-gray-400">set by hand</span>}
                     </label>
                   </li>
                 );

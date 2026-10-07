@@ -63,9 +63,23 @@ export function deriveEventIdentifiers(
   return out;
 }
 
-/** True when the event's own list is set (non-empty), i.e. overrides the derived default. */
+/**
+ * True when the event's own list is set, i.e. overrides the derived default (D-67 amendment 2):
+ * `null` = derived, a non-empty list = explicit, `[]` = explicitly carries no identifier.
+ */
 export function hasExplicitIdentifiers(event: Pick<IdentifierEventLike, 'identifiers_json'>): boolean {
-  return Array.isArray(event.identifiers_json) && event.identifiers_json.length > 0;
+  return Array.isArray(event.identifiers_json);
+}
+
+/**
+ * True when the event's identifiers are the derived default: no list, or a non-empty list whose names
+ * match no rule any more (renamed or deleted rules, the T-4-28 fallback). `[]` is never derived.
+ */
+export function identifiersAreDerived(event: IdentifierEventLike, rules: readonly IdentityRuleLike[]): boolean {
+  if (!Array.isArray(event.identifiers_json)) return true;
+  if (event.identifiers_json.length === 0) return false;
+  const names = new Set(rules.map((r) => r.identifier_name));
+  return !event.identifiers_json.some((n) => names.has(n));
 }
 
 /**
@@ -77,14 +91,13 @@ export function effectiveEventIdentifiers(
   rules: readonly IdentityRuleLike[],
   sources?: readonly IdentifierSourceLike[]
 ): string[] {
-  if (!hasExplicitIdentifiers(event)) return deriveEventIdentifiers(event, rules, sources);
+  if (identifiersAreDerived(event, rules)) return deriveEventIdentifiers(event, rules, sources);
   const wanted = new Set(event.identifiers_json);
   const out: string[] = [];
   for (const rule of rules) {
     if (wanted.has(rule.identifier_name) && !out.includes(rule.identifier_name)) out.push(rule.identifier_name);
   }
-  // Every explicit name was renamed or deleted: the stale override carries nothing, so use the default.
-  return out.length > 0 ? out : deriveEventIdentifiers(event, rules, sources);
+  return out;
 }
 
 /** The rule's source with its display label ("Shopify via GTM data layer"). */

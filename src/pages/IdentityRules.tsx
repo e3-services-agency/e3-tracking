@@ -245,6 +245,7 @@ ${flowParagraph}
           rules={rules}
           focusSection={focusSection}
           onSaved={async () => { await load(); setIsSheetOpen(false); }}
+          onRefresh={load}
           onClose={() => setIsSheetOpen(false)}
         />
       </Sheet>

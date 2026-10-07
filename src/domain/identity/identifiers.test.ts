@@ -4,6 +4,7 @@ import {
   buildIdentificationFlow,
   describeTrigger,
   deriveEventIdentifiers,
+  identifiersAreDerived,
   effectiveEventIdentifiers,
   type IdentifierEventLike,
   type IdentityRuleLike,
@@ -44,9 +45,14 @@ describe('effectiveEventIdentifiers', () => {
     const e = { ...server, identifiers_json: ['ghost'] };
     expect(effectiveEventIdentifiers(e, rules, sources)).toEqual(['cart_id']);
   });
-  it('null or empty falls back to the derived default', () => {
+  it('has three states: null derived, a list explicit, [] carries nothing (D-67 amendment 2)', () => {
     expect(effectiveEventIdentifiers({ ...server, identifiers_json: null }, rules, sources)).toEqual(['cart_id']);
-    expect(effectiveEventIdentifiers({ ...server, identifiers_json: [] }, rules, sources)).toEqual(['cart_id']);
+    expect(effectiveEventIdentifiers({ ...server, identifiers_json: [] }, rules, sources)).toEqual([]);
+    expect(effectiveEventIdentifiers({ ...server, identifiers_json: ['registered'] }, rules, sources)).toEqual(['registered']);
+    expect(identifiersAreDerived({ ...server, identifiers_json: null }, rules)).toBe(true);
+    expect(identifiersAreDerived({ ...server, identifiers_json: [] }, rules)).toBe(false);
+    expect(identifiersAreDerived({ ...server, identifiers_json: ['ghost'] }, rules)).toBe(true);
+    expect(identifiersAreDerived({ ...server, identifiers_json: ['registered'] }, rules)).toBe(false);
   });
 });
 

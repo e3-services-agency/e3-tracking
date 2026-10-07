@@ -92,9 +92,24 @@ describe('events.identifiers_json (D-67)', () => {
     expect(EventDAL.updateEvent(projectId, view.id, { identifiers_json: ['cookie', 'cart_id'] }).identifiers_json).toEqual(['cookie', 'cart_id']);
     expect(() => EventDAL.updateEvent(projectId, view.id, { identifiers_json: ['nope'] })).toThrow(BadRequestError);
     expect(() => EventDAL.updateEvent(projectId, view.id, { identifiers_json: 'cookie' as unknown as string[] })).toThrow(BadRequestError);
-    expect(EventDAL.updateEvent(projectId, view.id, { identifiers_json: [] }).identifiers_json).toBeNull();
-    expect(EventDAL.getEventOrThrow(projectId, view.id).identifiers_json).toBeNull();
+    expect(EventDAL.updateEvent(projectId, view.id, { identifiers_json: [] }).identifiers_json).toEqual([]);
+    expect(EventDAL.getEventOrThrow(projectId, view.id).identifiers_json).toEqual([]);
+    expect(EventDAL.updateEvent(projectId, view.id, { identifiers_json: null }).identifiers_json).toBeNull();
+    expect(buildEventCard(projectId, view.id).identifiers_derived).toBe(true);
     expect(() => EventDAL.createEvent(projectId, { name: 'x_event', identifiers_json: ['nope'] })).toThrow(BadRequestError);
+  });
+
+  it('an explicit [] carries nothing: card says none, Tracking API snippet has an empty customer_ids and a comment', () => {
+    const { view } = setUp();
+    EventDAL.updateEvent(projectId, view.id, { implementation_method: 'server_api', identifiers_json: [] });
+    const card = buildEventCard(projectId, view.id);
+    expect(card.identifiers).toEqual([]);
+    expect(card.identifiers_derived).toBe(false);
+    expect(eventCardToMarkdown(card)).toContain('- Identifiers (customer_ids): none, set by hand');
+    expect(card.codegen.tracking_api).toContain('carry no identifier');
+    expect(card.codegen.tracking_api).toContain('"customer_ids": {}');
+    const doc = toPublicTrackingDocument(buildTrackingDocument(projectId));
+    expect(doc.events.find((e) => e.name === 'view_item')).toMatchObject({ identifiers: [], identifiers_derived: false });
   });
 
   it('is part of the change log diff', () => {

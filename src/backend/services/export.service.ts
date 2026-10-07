@@ -280,6 +280,7 @@ async function buildEventSectionHtml(
       <dt>Implementation method</dt><dd>${escapeHtml(event.implementation_method)}</dd>
       ${event.dl_event_name ? `<dt>dataLayer event</dt><dd>${escapeHtml(event.dl_event_name)}</dd>` : ''}
       ${card.sources && card.sources.length > 0 ? `<dt>Collected from</dt><dd>${escapeHtml(card.sources.map((s) => `${s.name} (${sourceViaLabel(s.system, s.method)})`).join('; '))}</dd>` : ''}
+      ${card.identifiers && card.identifiers_derived === false && card.identifiers.length === 0 ? '<dt>Identifiers</dt><dd>none, set by hand</dd>' : ''}
       ${card.identifiers && card.identifiers.length > 0 ? `<dt>Identifiers</dt><dd>${escapeHtml(card.identifiers.join(', '))}${card.identifiers_derived ? ' (derived)' : ''}</dd>` : ''}
       <dt>Status</dt><dd>${escapeHtml(event.status)}</dd>
       ${event.page ? `<dt>Page</dt><dd>${escapeHtml(event.page)}</dd>` : ''}

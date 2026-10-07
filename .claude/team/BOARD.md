@@ -3539,3 +3539,9 @@ Supervisor ruling: fix the cascade cleanup (collect attachments of the root AND 
 
 ### 2026-10-07 | implementer | HANDOFF | T-5-04 QA fix 27cbd42
 listAttachmentsForThread → all files of a root and its replies removed on delete, empty dirs removed; paste on the enclosing form (textarea, reply box, zone). tsc, lint, scoped tests green. Supervisor: merging.
+
+### 2026-10-07 | supervisor | MERGE | T-5-04 merged into agent-setup — DONE
+Merge b6e1234. Merged tree: tsc, lint, build clean, 1918 tests / 190 files. sharp added as a dependency (tsup external).
+
+### 2026-10-07 | implementer | HANDOFF | T-5-03 reactions + share author memory — task/T-5-03-comment-reactions, commit a1ed097 (worktree C:/t/t503, on b7bc3bd)
+1911 tests / 190 files, tsc, build, lint green; not browser-checked. Migration 0034 (comment_reactions with unique expression index on comment_id, lower(author_name), kind; projects.share_require_name); comment-reaction.dal (toggle, aggregate {kind,count,authors,mine}, on_it sets an open root to on_it via setCommentStatus with restricted rules, refused status still records the reaction, on_it on a reply 400); internal POST /comments/:id/reactions + reactions[] in the list; shared POST (comment access, kind + author_name only, getShareVisibleRoot identical 404, post rate limit), public reactions[] on visible comments, GET /:token require_name; require_name → 400 on nameless posts/reactions/status; CommentReactions.tsx, shareName.ts (localStorage e3.share.<token>.name), Settings toggle; T-5-02 minors folded (whole body routes, reply-box name message, shared status select On it / Done with placeholder); backup/CSV/docs. Deviations: on_it changes status only on an open root and removal does not revert; nameless share reactions share the "Share link" identity; internal `mine` computed server-side. Needs the T-5-04 merge (CommentsPanel/CommentItem additive conflicts expected).

@@ -10,6 +10,7 @@ import { useProjectShell } from '@/src/features/projects/context/ProjectShellCon
 import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
+import type { IdentityVariants } from '@/src/domain/codegen/identity';
 import { EventCardView, type EventCardData, type CoverageGridData } from '@/src/features/events/components/EventCardView';
 import { CommentsPanel, type CommentPanelRow } from '@/src/features/comments/CommentsPanel';
 import { CommentCountButton } from '@/src/features/comments/CommentCountButton';
@@ -30,6 +31,7 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
   const setEventCardEventId = useStore((s) => s.setEventCardEventId);
   const [card, setCard] = useState<EventCardData | null>(null);
   const [grid, setGrid] = useState<CoverageGridData | null>(null);
+  const [identifyCodegen, setIdentifyCodegen] = useState<IdentityVariants | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [comments, setComments] = useState<CommentPanelRow[]>([]);
@@ -58,6 +60,7 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
     }
     setLoading(true);
     setError(null);
+    setIdentifyCodegen(null);
     try {
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/events/${eventId}/card`);
       const data = await parseJson(res);
@@ -70,6 +73,9 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
       const gridRes = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/events/${eventId}/coverage`);
       const gridData = await parseJson(gridRes);
       if (gridRes.ok) setGrid(gridData);
+      const idRes = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/identity-rules/codegen`);
+      const idData = await parseJson(idRes);
+      if (idRes.ok && idData?.identify) setIdentifyCodegen(idData.identify);
     } catch {
       setError('Failed to load this event card.');
       setCard(null);
@@ -106,6 +112,7 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
 
         {card && (
           <EventCardView
+            identifyCodegen={identifyCodegen}
             card={card}
             grid={grid}
             fileUrl={(path) => `${API_BASE}/api/projects/${activeProjectId}/files/${path}`}

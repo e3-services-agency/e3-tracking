@@ -108,6 +108,8 @@ describe('standalone identify call (D-67 amendment 1)', () => {
 describe('describeTrigger', () => {
   it('lower-cases the first letter, strips the period and picks on or when', () => {
     expect(describeTrigger('The SMS consent form is submitted.')).toEqual({ preposition: 'when', text: 'the SMS consent form is submitted' });
+    expect(describeTrigger('the checkout page loads')).toEqual({ preposition: 'when', text: 'the checkout page loads' });
+    expect(describeTrigger('First page view of a new visitor')).toEqual({ preposition: 'on', text: 'the first page view of a new visitor' });
     expect(describeTrigger('Checkout page.')).toEqual({ preposition: 'on', text: 'checkout page' });
     expect(describeTrigger('GTM push')).toEqual({ preposition: 'on', text: 'GTM push' });
     expect(describeTrigger('cart_id is set by the page')).toEqual({ preposition: 'when', text: 'cart_id is set by the page' });

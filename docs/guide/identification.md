@@ -28,3 +28,7 @@ The Tracking API snippet on the event card fills `customer_ids` from these ident
 ## Source colours
 
 Every source has a colour from a fixed palette of eight. A new source gets one automatically from its system (Shopify is blue, a custom backend purple and so on); change it in the source editor. The coloured dot appears on the Sources page, the Events table (sortable Source column), the event card, the Identity rules page and the shared view.
+
+## Identity snippets
+
+The Identity rules page, the event card, the HTML export and the shared view show the identify, update and anonymize snippets in the same four forms as event snippets: **GTM / dataLayer** (a proposed contract: a `bloomreach_<call>` push preceded by the reset push; it needs a trigger in the shared E3 GTM template for the `bloomreach_<call>` events, the template ships only the event forwarding today), **Web SDK** (`brweb.identify`, `brweb.update`, `brweb.anonymize`), **Web SDK (legacy)** (`exponea.*`) and **Tracking API** (a customers call with `customer_ids` and `properties`, or the anonymize endpoint). A standalone call keeps its comment with the trigger; when its source collects through the Tracking API, the SDK forms show the server-side instruction instead of an SDK call.

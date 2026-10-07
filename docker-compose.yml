@@ -21,6 +21,16 @@ services:
     volumes:
       - e3_data:/data
     <<: *env
+    # T-5-06: the edge profiles set E3_AUTH_MODE=proxy (shell or .env); only the proxy containers'
+    # fixed addresses on the e3 network are trusted for X-Forwarded-Email.
+    environment:
+      NODE_ENV: production
+      E3_DB_PATH: /data/e3-tracking.sqlite
+      E3_FILES_PATH: /data/files
+      AUTH_MODE: ${E3_AUTH_MODE:-local}
+      TRUSTED_PROXY_CIDR: ${TRUSTED_PROXY_CIDR:-172.28.0.8/29}
+    networks:
+      default:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -54,5 +64,71 @@ services:
     healthcheck:
       disable: true
 
+  # T-5-06 edge profile: TLS reverse proxy + Google sign-in. docs/DEPLOY.md "Edge profile / proxy auth".
+  # Run: E3_AUTH_MODE=proxy docker compose --profile edge up -d
+  caddy:
+    image: caddy:2
+    profiles: ["edge"]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/edge/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    env_file:
+      - path: .env.docker
+        required: false
+    depends_on: [app, oauth2-proxy]
+    networks:
+      default:
+        ipv4_address: 172.28.0.10
+    restart: unless-stopped
+
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    profiles: ["edge"]
+    env_file:
+      - path: .env.docker
+        required: false
+    environment:
+      OAUTH2_PROXY_PROVIDER: google
+      OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
+      OAUTH2_PROXY_REVERSE_PROXY: "true"
+      OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
+      OAUTH2_PROXY_UPSTREAMS: static://202
+      OAUTH2_PROXY_COOKIE_SECURE: "true"
+      OAUTH2_PROXY_REDIRECT_URL: https://${HOSTNAME:-}/oauth2/callback
+      OAUTH2_PROXY_EMAIL_DOMAINS: ${WORKSPACE_DOMAIN:-}
+      OAUTH2_PROXY_CLIENT_ID: ${OAUTH2_CLIENT_ID:-}
+      OAUTH2_PROXY_CLIENT_SECRET: ${OAUTH2_CLIENT_SECRET:-}
+      OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_COOKIE_SECRET:-}
+    restart: unless-stopped
+
+  # T-5-06 local test only: Caddy that injects a fixed identity (no Google). http://127.0.0.1:3030/tracking-plan/
+  # Run: E3_AUTH_MODE=proxy FAKE_EMAIL=you@example.com docker compose --profile edge-fake up -d
+  caddy-fake:
+    image: caddy:2
+    profiles: ["edge-fake"]
+    ports:
+      - "127.0.0.1:3030:80"
+    volumes:
+      - ./deploy/edge/Caddyfile.fake:/etc/caddy/Caddyfile:ro
+    environment:
+      FAKE_EMAIL: ${FAKE_EMAIL:-tester@example.com}
+      FAKE_NAME: ${FAKE_NAME:-Fake Tester}
+    depends_on: [app]
+    networks:
+      default:
+        ipv4_address: 172.28.0.11
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+
 volumes:
+  caddy_data:
+  caddy_config:
   e3_data:

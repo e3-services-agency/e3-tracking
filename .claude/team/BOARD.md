@@ -3559,3 +3559,6 @@ Supervisor ruling: polish commit — shared UI sends a per-link random visitor i
 
 ### 2026-10-07 | implementer | HANDOFF | T-5-03 polish a3c0a97
 Per-link "Visitor xxxx" id (ensureAuthorName) for reactions/status, posts still need a typed name; server drops the "Share link" fallback (400 without author_name) and rejects the literal name; one-time migration of e3-share-author; doc comment; CommentReactions on the Comments page (clicks do not route); shared status select disabled under require_name; docs and tests. tsc, build, lint green; one commentThreads test adjusted (sends author_name). Supervisor: merging, full suite on the merged tree.
+
+### 2026-10-07 | supervisor | MERGE | T-5-03 merged into agent-setup — DONE; D-70 complete (T-5-02/03/04), nothing running
+Merge a9bc0ee. Merged tree: tsc, lint, build clean, 1930 tests / 191 files. Migrations 0033-0035 apply on the next container start. Open, waiting on the user: container rebuild; D-67/D-68/D-69 confirmation; phase 5 step 2 (go + provider; then hosting, identity proxy, MCP transport, backups, digest email, MCP write tools T-5-01); T-4-06 samples.

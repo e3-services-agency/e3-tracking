@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "e3-tracking-gcp": {
+      "command": "cmd",
+      "args": [
+        "/c", "gcloud", "compute", "ssh", "e3-tracking",
+        "--tunnel-through-iap", "--zone", "europe-west1-b", "--project", "e3-tracking", "--quiet",
+        "--command", "cd /opt/e3-tracking && sudo docker compose --env-file .env -f docker-compose.yml -f docker-compose.gcp.yml run --rm -T -e E3_PROJECT_KEY=my-project-key mcp",
+        "--", "-T"
+      ]
+    },
+    "_posix_alternative_for_macos_linux_git_bash": {
+      "command": "gcloud",
+      "args": [
+        "compute", "ssh", "e3-tracking",
+        "--tunnel-through-iap", "--zone", "europe-west1-b", "--project", "e3-tracking", "--quiet",
+        "--command", "cd /opt/e3-tracking && sudo docker compose --env-file .env -f docker-compose.yml -f docker-compose.gcp.yml run --rm -T -e E3_PROJECT_KEY=my-project-key mcp",
+        "--", "-T"
+      ]
+    }
+  }
+}

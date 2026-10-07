@@ -160,6 +160,10 @@ The VM runs compose with `-f docker-compose.yml -f docker-compose.gcp.yml` (`dep
 
 `05-cutover.sh` exports each project's `backup.json` from the local container and restores it on the VM through an IAP SSH tunnel to the app port 127.0.0.1:3020 on the VM (the OAuth proxy blocks scripted calls). If the port is not reachable that way, download the backup from the local app and use the restore form on the Clients page of the deployed app. Restore always creates a new project.
 
+### MCP over the IAP tunnel
+
+Claude Code reaches the MCP server through `gcloud compute ssh --tunnel-through-iap` running `docker compose run --rm -T mcp` on the VM, no extra port. `deploy/gcp/07-mcp.sh` prints the `.mcp.json` block and smoke-tests it; see `docs/MCP.md` "Remote (GCP) access".
+
 ### Rollback
 
 `03-deploy.sh` prints the previous image tag; rerun `03-deploy.sh <previous-tag>`. Data stays on the disk, migrations only move forward, so take a backup before upgrading across a schema change.

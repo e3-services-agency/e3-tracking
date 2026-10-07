@@ -248,3 +248,24 @@ export function deleteComment(projectId: string, id: string): void {
   getCommentOrThrow(projectId, id);
   getDb().prepare('DELETE FROM comments WHERE id = ? AND project_id = ?').run(id, projectId);
 }
+
+/** The one share visibility predicate (D-49 amendment 2, D-70): internal-only never; via_share_only needs a share-posted root. */
+export function isRootShareVisible(root: CommentRow, shareComments: string): boolean {
+  if (root.internal_only) return false;
+  return shareComments !== 'via_share_only' || root.via_share;
+}
+
+/**
+ * Resolves a comment id (a root or a reply) to its ROOT, only when that root is visible to a share
+ * link; otherwise null, identically for missing, other-project and hidden ids.
+ */
+export function getShareVisibleRoot(projectId: string, id: string, shareComments: string): CommentRow | null {
+  let row: CommentRow;
+  try {
+    row = getCommentOrThrow(projectId, id);
+    if (row.parent_id) row = getCommentOrThrow(projectId, row.parent_id);
+  } catch {
+    return null;
+  }
+  return isRootShareVisible(row, shareComments) ? row : null;
+}

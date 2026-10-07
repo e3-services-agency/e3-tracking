@@ -135,6 +135,8 @@ rate limit and field whitelist as posts):
 - `read` links get 403 `SHARE_READ_ONLY`; an internal-only comment (or one hidden by `via_share_only`) answers the identical 404 `SHARE_NOT_FOUND`;
 - internal callers (`PATCH /api/projects/:id/comments/:id {status}`) may set any of the four.
 
+Every hidden or missing comment id (internal-only, hidden by `via_share_only`, nonexistent, a reply id on the status route, or a `parent_id` pointing at any of these) answers the identical 404 `SHARE_NOT_FOUND` body, so a link cannot probe for existence. Internally, `?resolved=false` also matches `on_it` and `wont_do` (it means not done), and `PATCH {resolved}` on a reply is a 400 by design (only a root has a status).
+
 Who changed it last is kept as `status_changed_by`/`status_changed_at` on the comment (stripped from the public response; comments stay out of `change_log`).
 
 ### Comment visibility controls (D-49 amendment 2, T-4-10)

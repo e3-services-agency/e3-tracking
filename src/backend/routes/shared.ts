@@ -238,10 +238,10 @@ router.get('/:token/comments', requireShare, (req: Request, res: Response) => {
       entity_id: entity_id as string | undefined,
       excludeInternalOnly: true,
     });
-    if (project.share_comments === 'via_share_only') {
-      const keptRoots = new Set(comments.filter((c) => !c.parent_id && c.via_share).map((c) => c.id));
-      comments = comments.filter((c) => (c.parent_id ? keptRoots.has(c.parent_id) : keptRoots.has(c.id)));
-    }
+    const keptRoots = new Set(
+      comments.filter((c) => !c.parent_id && CommentDAL.isRootShareVisible(c, project.share_comments)).map((c) => c.id)
+    );
+    comments = comments.filter((c) => keptRoots.has(c.parent_id ?? c.id));
     res.status(200).json(comments.map(toPublicComment));
   } catch (err) {
     handleRouteError(err, res);
@@ -265,6 +265,13 @@ router.post('/:token/comments', express.json({ limit: '20kb' }), requireShare, (
     const authorName = stringOrUndefined(body, 'author_name');
     const commentBody = stringOrUndefined(body, 'body');
     const parentId = stringOrUndefined(body, 'parent_id');
+    if (parentId !== undefined) {
+      const project = ProjectDAL.getProjectOrThrow(req.projectId!);
+      if (!CommentDAL.getShareVisibleRoot(req.projectId!, parentId, project.share_comments)) {
+        shareNotFound(res);
+        return;
+      }
+    }
 
     const comment = CommentDAL.createComment(req.projectId!, {
       entity_type: entityType ?? '',
@@ -294,10 +301,9 @@ router.patch('/:token/comments/:id/status', express.json({ limit: '2kb' }), requ
     }
     checkCommentRateLimit(req.params.token);
     const project = ProjectDAL.getProjectOrThrow(req.projectId!);
-    const existing = CommentDAL.getCommentOrThrow(req.projectId!, req.params.id);
-    // A link can only touch what it can see: internal-only roots and (on a via_share_only link)
-    // internally posted roots answer exactly like a missing comment.
-    if (existing.internal_only || (project.share_comments === 'via_share_only' && !existing.via_share)) {
+    // Hidden, missing, other-project and reply ids all answer the identical SHARE_NOT_FOUND.
+    const root = CommentDAL.getShareVisibleRoot(req.projectId!, req.params.id, project.share_comments);
+    if (!root || root.id !== req.params.id) {
       shareNotFound(res);
       return;
     }

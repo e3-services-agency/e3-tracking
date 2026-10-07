@@ -171,4 +171,27 @@ describe('share routes', () => {
     expect(bodies).not.toContain('vso internal root');
     expect(bodies).not.toContain('vso reply a');
   });
+
+  it('missing, hidden and reply ids give the identical body; no reply is created under a hidden root', async () => {
+    const secret = CommentDAL.createComment(projectId, { ...base(), author_name: 'A', body: 'hid', internal_only: true });
+    const visible = CommentDAL.createComment(projectId, { ...base(), author_name: 'A', body: 'vis' });
+    const reply = CommentDAL.createComment(projectId, { ...base(), author_name: 'A', body: 'rep', parent_id: visible.id });
+    const patch = async (id: string) => {
+      const r = await json('PATCH', sharedUrl(`/comments/${id}/status`), { status: 'done' });
+      return [r.status, await r.json()];
+    };
+    const missing = await patch('does-not-exist');
+    expect(missing[0]).toBe(404);
+    expect(await patch(secret.id)).toEqual(missing);
+    expect(await patch(reply.id)).toEqual(missing);
+    const before = CommentDAL.listComments(projectId).length;
+    const post = async (parent: string) => {
+      const r = await json('POST', sharedUrl('/comments'), { parent_id: parent, author_name: 'C', body: 'x' });
+      return [r.status, await r.json()];
+    };
+    const pm = await post('does-not-exist');
+    expect(pm[0]).toBe(404);
+    expect(await post(secret.id)).toEqual(pm);
+    expect(CommentDAL.listComments(projectId).length).toBe(before);
+  });
 });

@@ -37,6 +37,10 @@ export const STATUS_LABELS: Record<string, string> = {
   open: 'Open',
   resolved: 'Resolved',
   gap: 'Gap',
+  // D-70 comment statuses (open and done reuse the shared keys above where they overlap).
+  on_it: 'On it',
+  done: 'Done',
+  wont_do: "Won't do",
 };
 export const CLASS_LABELS: Record<string, string> = { custom: 'Custom', sdk: 'SDK', platform: 'Platform' };
 export const CATALOG_KIND_LABELS: Record<string, string> = { product: 'Product', variant: 'Variant', other: 'Other' };

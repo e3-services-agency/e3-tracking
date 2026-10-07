@@ -34,3 +34,6 @@ Fixtures: `.claude/team/samples/customer-events-export.json`, `data-mapping.json
 
 ## Reporting
 Post `PASS` or `FAIL` on the board. For each failure: numbered steps, expected, actual, console or network evidence. Save exports under `.claude/team/reports/qa/<TASK-ID>/`.
+
+## Hard rule: stopping servers
+Stop ONLY the processes you started, by their PID (record the PID when you start the API and Vite; `Stop-Process -Id <pid>` / `taskkill /PID <pid> /F`). Never run `taskkill /IM node.exe`, `Stop-Process -Name node`, `pkill node` or any command that kills every Node process: the user's dev server (3000/3001), the Docker proxy and other agents' runs share the machine. A QA report produced after such a kill is a FAIL on process grounds.

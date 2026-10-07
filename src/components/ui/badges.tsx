@@ -118,6 +118,9 @@ const STATUS_TONE: Record<string, BadgeTone> = {
   open: 'amber',
   resolved: 'green',
   gap: 'amber',
+  on_it: 'blue',
+  done: 'green',
+  wont_do: 'neutral',
 };
 
 /** Event, entity, use case, finding and requirement statuses share one look per value. */

@@ -323,7 +323,7 @@ export const CSV_ENTITIES = {
   },
   // T-4-02 (0019_comments.sql) adds the table this reads from (`csvExport.service.ts#buildCommentRows`).
   comments: {
-    headers: ['id', 'entity_type', 'entity_id', 'entity_label', 'author_name', 'via_share', 'internal_only', 'body', 'created_at', 'resolved_at', 'resolved_by'],
+    headers: ['id', 'entity_type', 'entity_id', 'entity_label', 'author_name', 'via_share', 'internal_only', 'body', 'created_at', 'resolved_at', 'resolved_by', 'parent_id', 'status'],
   },
   // T-5-04 (0035_comment_attachments.sql): one row per comment image; the bytes are in the backup, not the CSV.
   comment_attachments: {

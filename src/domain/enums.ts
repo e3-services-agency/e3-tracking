@@ -506,3 +506,9 @@ export const BACKUP_VERSION = 1;
  * it (`entity_label` on read falls back to "removed <kind>" per the target's own resolver). */
 export const COMMENT_ENTITY_TYPES = ['event', 'property', 'use_case', 'requirement'] as const;
 export type CommentEntityType = (typeof COMMENT_ENTITY_TYPES)[number];
+
+/** D-70, T-5-02: comment status on a root comment (replaces the resolved flag; resolved = done). */
+export const COMMENT_STATUSES = ['open', 'on_it', 'done', 'wont_do'] as const;
+export type CommentStatus = (typeof COMMENT_STATUSES)[number];
+/** Statuses a comment-access share link may set; wont_do and reopening stay internal. */
+export const SHARE_SETTABLE_COMMENT_STATUSES = ['on_it', 'done'] as const;

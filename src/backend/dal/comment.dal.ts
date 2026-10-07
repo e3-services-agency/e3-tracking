@@ -12,8 +12,8 @@
  */
 import { getDb } from '../db';
 import { newId, nowIso } from '../db/util';
-import { NotFoundError, ValidationError } from '../errors';
-import { COMMENT_ENTITY_TYPES, type CommentEntityType } from '../../domain/enums';
+import { ForbiddenError, NotFoundError, ValidationError } from '../errors';
+import { COMMENT_ENTITY_TYPES, COMMENT_STATUSES, SHARE_SETTABLE_COMMENT_STATUSES, type CommentEntityType, type CommentStatus } from '../../domain/enums';
 import { getEventById } from './event.dal';
 import { getPropertyById } from './property.dal';
 import { getUseCaseById } from './use-case.dal';
@@ -32,6 +32,15 @@ export interface CommentRow {
   created_at: string;
   resolved_at: string | null;
   resolved_by: string | null;
+  /** D-70, T-5-02: reply -> its root comment id (one level); null on a root. */
+  parent_id: string | null;
+  status: CommentStatus;
+  status_changed_by: string | null;
+  status_changed_at: string | null;
+}
+
+export interface CommentThread extends CommentRow {
+  replies: CommentRow[];
 }
 
 type CommentDbRow = Omit<CommentRow, 'via_share' | 'internal_only'> & { via_share: number; internal_only: number };
@@ -47,11 +56,15 @@ export interface CommentInput {
   body: string;
   via_share?: boolean;
   internal_only?: boolean;
+  /** D-70: makes this a reply; entity and internal_only are inherited from the root. */
+  parent_id?: string | null;
 }
 
 export interface ListCommentsFilter {
   entity_type?: string;
   entity_id?: string;
+  /** D-70: filter by status (replies stay open, so filter roots via groupThreads). */
+  status?: string;
   /** `true`/`false` filters resolved vs. open; omitted lists both. */
   resolved?: boolean;
   /** Public share route (T-4-10): drop internal-only rows. */
@@ -107,11 +120,18 @@ export function listComments(projectId: string, filter: ListCommentsFilter = {})
   if (filter.resolved !== undefined) {
     conditions.push(filter.resolved ? 'resolved_at IS NOT NULL' : 'resolved_at IS NULL');
   }
+  if (filter.status) {
+    if (!(COMMENT_STATUSES as readonly string[]).includes(filter.status)) {
+      throw new ValidationError(`status must be one of ${COMMENT_STATUSES.join(', ')}.`, 'status');
+    }
+    conditions.push('status = ?');
+    params.push(filter.status);
+  }
   if (filter.excludeInternalOnly) conditions.push('internal_only = 0');
   if (filter.viaShareOnly) conditions.push('via_share = 1');
   if (filter.internalOnly !== undefined) conditions.push(filter.internalOnly ? 'internal_only = 1' : 'internal_only = 0');
   const rows = getDb()
-    .prepare(`SELECT * FROM comments WHERE ${conditions.join(' AND ')} ORDER BY created_at, id`)
+    .prepare(`SELECT * FROM comments WHERE ${conditions.join(' AND ')} ORDER BY created_at, rowid`)
     .all(...params) as CommentDbRow[];
   return rows.map(mapCommentRow);
 }
@@ -125,10 +145,23 @@ export function getCommentOrThrow(projectId: string, id: string): CommentRow {
 }
 
 export function createComment(projectId: string, input: CommentInput): CommentRow {
-  validateEntityType(input.entity_type);
-  const entityId = input.entity_id?.trim();
+  let entityType = input.entity_type;
+  let entityIdRaw = input.entity_id;
+  let internalOnlyFlag = !!input.internal_only;
+  let parentId: string | null = null;
+  if (input.parent_id !== undefined && input.parent_id !== null) {
+    // Replies attach to the root; entity and visibility come from it, never from the body.
+    const parent = getCommentOrThrow(projectId, input.parent_id);
+    const root = parent.parent_id ? getCommentOrThrow(projectId, parent.parent_id) : parent;
+    parentId = root.id;
+    entityType = root.entity_type;
+    entityIdRaw = root.entity_id;
+    internalOnlyFlag = root.internal_only;
+  }
+  validateEntityType(entityType);
+  const entityId = entityIdRaw?.trim();
   if (!entityId) throw new ValidationError('entity_id is required.', 'entity_id');
-  assertEntityExists(projectId, input.entity_type, entityId);
+  if (!parentId) assertEntityExists(projectId, entityType, entityId);
 
   const authorName = input.author_name?.trim();
   if (!authorName) throw new ValidationError('author_name is required.', 'author_name');
@@ -146,31 +179,60 @@ export function createComment(projectId: string, input: CommentInput): CommentRo
   const id = newId();
   const now = nowIso();
   db.prepare(
-    `INSERT INTO comments (id, project_id, entity_type, entity_id, author_name, via_share, internal_only, body, created_at, resolved_at, resolved_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)`
-  ).run(id, projectId, input.entity_type, entityId, authorName, input.via_share ? 1 : 0, input.internal_only ? 1 : 0, body, now);
+    `INSERT INTO comments (id, project_id, entity_type, entity_id, author_name, via_share, internal_only, body, created_at, resolved_at, resolved_by, parent_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?)`
+  ).run(id, projectId, entityType, entityId, authorName, input.via_share ? 1 : 0, internalOnlyFlag ? 1 : 0, body, now, parentId);
   return getCommentOrThrow(projectId, id);
 }
 
-/** Internal-only triage toggle; never reachable through the public share route (D-49). */
-export function setCommentResolved(projectId: string, id: string, resolved: boolean, resolvedBy: string): CommentRow {
-  getCommentOrThrow(projectId, id);
-  const db = getDb();
-  if (resolved) {
-    db.prepare('UPDATE comments SET resolved_at = ?, resolved_by = ? WHERE id = ? AND project_id = ?').run(
-      nowIso(),
-      resolvedBy,
-      id,
-      projectId
-    );
-  } else {
-    db.prepare('UPDATE comments SET resolved_at = NULL, resolved_by = NULL WHERE id = ? AND project_id = ?').run(
-      id,
-      projectId
-    );
+export class StatusNotAllowedError extends ForbiddenError {
+  readonly code = 'STATUS_NOT_ALLOWED';
+  constructor(message: string) {
+    super(message);
+    this.name = 'StatusNotAllowedError';
   }
+}
+
+/**
+ * Sets a root comment's status (D-70). `by` records who; `restricted` (the share route) allows only
+ * on_it/done and never a reopen. resolved_at/resolved_by mirror `done` for older readers.
+ */
+export function setCommentStatus(
+  projectId: string,
+  id: string,
+  status: string,
+  by: string,
+  opts: { restricted?: boolean } = {}
+): CommentRow {
+  if (!(COMMENT_STATUSES as readonly string[]).includes(status)) {
+    throw new ValidationError(`status must be one of ${COMMENT_STATUSES.join(', ')}.`, 'status');
+  }
+  const current = getCommentOrThrow(projectId, id);
+  if (current.parent_id) throw new ValidationError('Only a root comment has a status.', 'status');
+  if (opts.restricted) {
+    if (!(SHARE_SETTABLE_COMMENT_STATUSES as readonly string[]).includes(status)) {
+      throw new StatusNotAllowedError('This status cannot be set through a share link.');
+    }
+    if (current.status === 'done' || current.status === 'wont_do') {
+      throw new StatusNotAllowedError('A closed comment cannot be reopened through a share link.');
+    }
+  }
+  const now = nowIso();
+  const done = status === 'done';
+  getDb()
+    .prepare(
+      'UPDATE comments SET status = ?, status_changed_by = ?, status_changed_at = ?, resolved_at = ?, resolved_by = ? WHERE id = ? AND project_id = ?'
+    )
+    .run(status, by, now, done ? now : null, done ? by : null, id, projectId);
   return getCommentOrThrow(projectId, id);
 }
+
+/** Compatibility wrapper for the old resolved flag: true -> done, false -> open. */
+export function setCommentResolved(projectId: string, id: string, resolved: boolean, resolvedBy: string): CommentRow {
+  return setCommentStatus(projectId, id, resolved ? 'done' : 'open', resolvedBy);
+}
+
+export { groupThreads, countByStatus } from '../../domain/commentThreads';
 
 /** Internal-only toggle (T-4-10): flips whether the comment may ever appear on the shared view. */
 export function setCommentInternalOnly(projectId: string, id: string, internalOnly: boolean): CommentRow {
@@ -185,4 +247,25 @@ export function setCommentInternalOnly(projectId: string, id: string, internalOn
 export function deleteComment(projectId: string, id: string): void {
   getCommentOrThrow(projectId, id);
   getDb().prepare('DELETE FROM comments WHERE id = ? AND project_id = ?').run(id, projectId);
+}
+
+/** The one share visibility predicate (D-49 amendment 2, D-70): internal-only never; via_share_only needs a share-posted root. */
+export function isRootShareVisible(root: CommentRow, shareComments: string): boolean {
+  if (root.internal_only) return false;
+  return shareComments !== 'via_share_only' || root.via_share;
+}
+
+/**
+ * Resolves a comment id (a root or a reply) to its ROOT, only when that root is visible to a share
+ * link; otherwise null, identically for missing, other-project and hidden ids.
+ */
+export function getShareVisibleRoot(projectId: string, id: string, shareComments: string): CommentRow | null {
+  let row: CommentRow;
+  try {
+    row = getCommentOrThrow(projectId, id);
+    if (row.parent_id) row = getCommentOrThrow(projectId, row.parent_id);
+  } catch {
+    return null;
+  }
+  return isRootShareVisible(row, shareComments) ? row : null;
 }

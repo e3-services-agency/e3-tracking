@@ -305,6 +305,19 @@ describe('share files path normalisation (review fix)', () => {
   });
 });
 
+describe('reply attachments follow their root', () => {
+  it('a reply image is hidden with an internal_only root and visible with a public one', async () => {
+    const token = await createShare('comment');
+    for (const internalOnly of [true, false]) {
+      const root = await postComment({ internal_only: internalOnly });
+      const reply = await postComment({ parent_id: root.id });
+      const att = await (await upload(`${baseUrl}/api/projects/${projectId}/comments/${reply.id}/attachments`, await png())).json();
+      const status = (await fetch(`${baseUrl}/api/shared/${token}/files/${att.file_path}`)).status;
+      expect(status).toBe(internalOnly ? 404 : 200);
+    }
+  });
+});
+
 describe('cleanup', () => {
   it('deleting a comment removes its image files', async () => {
     const c = await postComment();

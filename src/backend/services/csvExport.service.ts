@@ -610,6 +610,8 @@ function buildCommentsRows(projectId: string): CsvRow[] {
     created_at: c.created_at,
     resolved_at: textCell(c.resolved_at),
     resolved_by: textCell(c.resolved_by),
+    parent_id: textCell(c.parent_id),
+    status: c.status,
   }));
 }
 

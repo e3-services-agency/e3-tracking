@@ -1,0 +1,14 @@
+﻿id,entity_type,entity_id,entity_label,author_name,via_share,internal_only,body,created_at,resolved_at,resolved_by,parent_id,status
+74bcfb47-7daf-452f-84b3-c6744e8a022c,event,15073f2d-44c8-472b-a835-cfa8caab8413,cart_update,Jana (Acme),true,false,Can we also send the cart value in the remove push? Marketing wants to trigger on a cart dropping below 30 EUR.,2026-10-07T14:46:43.066Z,,,,open
+679d346a-239e-4a5c-8fbd-ef5991792b42,event,15073f2d-44c8-472b-a835-cfa8caab8413,cart_update,E3 team,false,false,"Yes, total_price already travels with every push, it is recalculated after the change.",2026-10-07T14:46:43.066Z,,,,open
+1e15345e-fe47-4e36-a7d8-410f44d7ecba,event,15073f2d-44c8-472b-a835-cfa8caab8413,cart_update,E3 team,false,true,Internal: plan one more review round with the client's developer before go-live.,2026-10-07T14:46:43.067Z,,,,open
+058763cd-2bc6-4e05-a6ca-0bad65d75dbc,requirement,815f4cea-1258-4b9d-b4db-5c9f89ca46f7,cart_update[action=add],E3 team,false,false,Abandoned cart needs the add variant only; a remove must not restart the timer.,2026-10-07T14:46:43.067Z,,,,open
+4af0a5a6-76b8-4180-ab76-ef5fd16760df,event,15073f2d-44c8-472b-a835-cfa8caab8413,cart_update,e3-services-agency,false,false,QA root,2026-10-07T16:49:50.325Z,2026-10-07T16:51:36.707Z,e3-services-agency,,done
+5b550619-c3bc-4d35-b6ef-6625f3c5bc49,event,15073f2d-44c8-472b-a835-cfa8caab8413,cart_update,e3-services-agency,false,false,QA reply 1,2026-10-07T16:49:50.552Z,,,4af0a5a6-76b8-4180-ab76-ef5fd16760df,open
+afcbe882-013e-45d6-a2ee-ab38417012ef,event,15073f2d-44c8-472b-a835-cfa8caab8413,cart_update,e3-services-agency,false,false,QA reply 2,2026-10-07T16:49:50.669Z,,,4af0a5a6-76b8-4180-ab76-ef5fd16760df,open
+7b8e0785-2a57-47c1-8f1e-311164ba646e,event,15073f2d-44c8-472b-a835-cfa8caab8413,cart_update,e3-services-agency,false,false,QA reply 3,2026-10-07T16:49:50.779Z,,,4af0a5a6-76b8-4180-ab76-ef5fd16760df,open
+2e13c610-592b-446d-9c78-87d4c22c21ca,event,15073f2d-44c8-472b-a835-cfa8caab8413,cart_update,e3-services-agency,false,true,QA internal,2026-10-07T16:49:50.924Z,,,,open
+4ff86370-c804-4289-8a80-5d9e54dfd202,event,15073f2d-44c8-472b-a835-cfa8caab8413,cart_update,Client QA,true,false,SHARE root,2026-10-07T16:49:59.854Z,,,,wont_do
+1833c3d7-9819-44b5-ac6a-1b590efb90d2,event,15073f2d-44c8-472b-a835-cfa8caab8413,cart_update,e3-services-agency,false,false,internal reply to share root,2026-10-07T16:50:00.094Z,,,4ff86370-c804-4289-8a80-5d9e54dfd202,open
+95e51cbe-9c4f-489a-bbe5-f33df2f5d02e,event,15073f2d-44c8-472b-a835-cfa8caab8413,cart_update,Client QA,true,false,share reply,2026-10-07T16:50:00.199Z,,,4af0a5a6-76b8-4180-ab76-ef5fd16760df,open
+f99766f8-5545-4e16-ae2e-148cefc552a9,event,15073f2d-44c8-472b-a835-cfa8caab8413,cart_update,Client QA,true,false,Client QA UI replyClient QA UI reply,2026-10-07T16:53:45.934Z,,,74bcfb47-7daf-452f-84b3-c6744e8a022c,open

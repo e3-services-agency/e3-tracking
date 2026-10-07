@@ -27,8 +27,11 @@ import { useProjectShell } from '@/src/features/projects/context/ProjectShellCon
 import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
+import { COMMENT_ENTITY_TYPES, COMMENT_STATUSES, type CommentStatus } from '@/src/domain/enums';
+import { enumLabel } from '@/src/domain/enumLabels';
+import { groupThreads } from '@/src/domain/commentThreads';
+import { StatusBadge } from '@/src/components/ui/badges';
 import { CommentAttachments, type CommentAttachmentItem } from '@/src/features/comments/CommentAttachments';
-import { COMMENT_ENTITY_TYPES } from '@/src/domain/enums';
 import { showEmptyState, showLoadingPlaceholder } from '@/src/domain/loadingState';
 
 const REMOVED_PLACEHOLDER_LABELS = new Set(['(removed event)', '(removed property)', '(removed use case)']);
@@ -54,21 +57,26 @@ interface CommentRow {
   created_at: string;
   resolved_at: string | null;
   resolved_by: string | null;
+  parent_id: string | null;
+  status: CommentStatus;
   attachments?: CommentAttachmentItem[];
 }
+
+const fileUrlFor = (projectId: string | null) => (p: string) => `${API_BASE}/api/projects/${projectId}/files/${p}`;
 
 async function parseJson(res: Response): Promise<any> {
   return res.json().catch(() => ({}));
 }
 
-type ResolvedFilter = '' | 'true' | 'false';
+type StatusFilter = '' | 'active' | CommentStatus;
 type InternalFilter = '' | 'true' | 'false';
 
 export function Comments() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
+  const fileUrl = fileUrlFor(activeProjectId);
   const [rows, setRows] = useState<CommentRow[]>([]);
   const [entityType, setEntityType] = useState('');
-  const [resolvedFilter, setResolvedFilter] = useState<ResolvedFilter>('false');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
   const [internalFilter, setInternalFilter] = useState<InternalFilter>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,7 +125,6 @@ export function Comments() {
     try {
       const params = new URLSearchParams();
       if (entityType) params.set('entity_type', entityType);
-      if (resolvedFilter) params.set('resolved', resolvedFilter);
       if (internalFilter) params.set('internal_only', internalFilter);
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/comments?${params.toString()}`);
       const data = await parseJson(res);
@@ -133,20 +140,20 @@ export function Comments() {
     } finally {
       setLoading(false);
     }
-  }, [hasValidProjectContext, activeProjectId, entityType, resolvedFilter, internalFilter]);
+  }, [hasValidProjectContext, activeProjectId, entityType, internalFilter]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const setResolved = async (id: string, resolved: boolean) => {
+  const setStatus = async (id: string, status: CommentStatus) => {
     if (!activeProjectId) return;
     setBusyId(id);
     try {
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/comments/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resolved }),
+        body: JSON.stringify({ status }),
       });
       if (!res.ok) {
         const data = await parseJson(res);
@@ -176,6 +183,11 @@ export function Comments() {
     }
   };
 
+  // D-70: threads (roots with replies); the status filter applies to roots. "Active" = open + on it.
+  const threads = groupThreads(rows).filter((t) =>
+    statusFilter === '' ? true : statusFilter === 'active' ? t.status === 'open' || t.status === 'on_it' : t.status === statusFilter
+  );
+
   if (!hasValidProjectContext || !activeProjectId) {
     return <div className="p-8 text-sm text-gray-500">Select a project first.</div>;
   }
@@ -202,12 +214,14 @@ export function Comments() {
           <div className="space-y-1">
             <FieldLabel className="text-xs font-medium text-gray-500" hintScope="Comments">Status</FieldLabel>
             <select
-              value={resolvedFilter}
-              onChange={(e) => setResolvedFilter(e.target.value as ResolvedFilter)}
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
               className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm"
             >
-              <option value="false">Open</option>
-              <option value="true">Resolved</option>
+              <option value="active">Open and on it</option>
+              {COMMENT_STATUSES.map((st) => (
+                <option key={st} value={st}>{enumLabel('status', st)}</option>
+              ))}
               <option value="">All</option>
             </select>
           </div>
@@ -226,7 +240,7 @@ export function Comments() {
         </div>
 
         <div className="bg-white rounded-lg border shadow-sm divide-y">
-          {rows.map((row) => (
+          {threads.map((row) => (
             <div key={row.id} className="p-4 flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <div className="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
@@ -256,24 +270,34 @@ export function Comments() {
                   )}
                   <span>·</span>
                   <span>{new Date(row.created_at).toLocaleString()}</span>
-                  {row.resolved_at && (
-                    <span className="rounded-full bg-green-50 text-green-700 px-2 py-0.5 text-[10px] font-medium">
-                      resolved{row.resolved_by ? ` by ${row.resolved_by}` : ''}
-                    </span>
-                  )}
+                  <StatusBadge status={row.status} />
                 </div>
                 <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap">{row.body}</p>
-                <CommentAttachments attachments={row.attachments} fileUrl={(p) => `${API_BASE}/api/projects/${activeProjectId}/files/${p}`} />
+                <CommentAttachments attachments={row.attachments} fileUrl={fileUrl} />
+                {row.replies.length > 0 && (
+                  <ul className="mt-2 space-y-1 border-l-2 border-gray-200 pl-3">
+                    {row.replies.map((reply) => (
+                      <li key={reply.id} className="text-sm text-gray-800">
+                        <span className="text-xs font-medium text-gray-600">{reply.author_name}: </span>
+                        <span className="whitespace-pre-wrap">{reply.body}</span>
+                        <CommentAttachments attachments={reply.attachments} fileUrl={fileUrl} />
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
+                <select
+                  aria-label="Set status"
+                  value={row.status}
                   disabled={busyId === row.id}
-                  onClick={() => void setResolved(row.id, !row.resolved_at)}
-                  className="h-8 rounded-md border border-gray-300 px-3 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  onChange={(e) => void setStatus(row.id, e.target.value as CommentStatus)}
+                  className="h-8 rounded-md border border-gray-300 bg-white px-2 text-xs"
                 >
-                  {row.resolved_at ? 'Reopen' : 'Resolve'}
-                </button>
+                  {COMMENT_STATUSES.map((st) => (
+                    <option key={st} value={st}>{enumLabel('status', st)}</option>
+                  ))}
+                </select>
                 <button
                   type="button"
                   disabled={busyId === row.id}
@@ -286,10 +310,10 @@ export function Comments() {
               </div>
             </div>
           ))}
-          {showEmptyState(loading, rows.length) && (
+          {showEmptyState(loading, threads.length) && (
             <div className="px-6 py-8 text-center text-gray-500 text-sm">No comments match these filters.</div>
           )}
-          {showLoadingPlaceholder(loading, rows.length) && (
+          {showLoadingPlaceholder(loading, threads.length) && (
             <div className="px-6 py-8 text-center text-gray-400 text-sm flex items-center justify-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin" /> Loading…
             </div>

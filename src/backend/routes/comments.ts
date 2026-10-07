@@ -40,6 +40,7 @@ router.get('/', (req: Request, res: Response) => {
       entity_type: entity_type as string | undefined,
       entity_id: entity_id as string | undefined,
       resolved: parseResolvedParam(resolved),
+      status: typeof req.query.status === 'string' ? req.query.status : undefined,
       internalOnly: parseBoolParam(req.query.internal_only, 'internal_only'),
     });
     res.status(200).json(withEntityLabels(req.projectId!, comments));
@@ -85,6 +86,7 @@ router.post('/', (req: Request, res: Response) => {
       author_name: authorName ?? req.userName ?? '',
       body: stringOrUndefined(body, 'body') ?? '',
       via_share: false,
+      parent_id: stringOrUndefined(body, 'parent_id') ?? null,
       internal_only: internalOnly ?? false,
     });
     const entity = resolveCommentEntity(req.projectId!, comment);
@@ -98,8 +100,9 @@ router.patch('/:id', (req: Request, res: Response) => {
   try {
     const body = req.body as Record<string, unknown>;
     const internalOnly = optionalBoolean(body, 'internal_only');
-    if (body.resolved === undefined && internalOnly === undefined) {
-      throw new ValidationError('At least one of resolved or internal_only is required.', 'resolved');
+    const status = stringOrUndefined(body, 'status');
+    if (body.resolved === undefined && internalOnly === undefined && status === undefined) {
+      throw new ValidationError('At least one of status, resolved or internal_only is required.', 'status');
     }
     if (body.resolved !== undefined && typeof body.resolved !== 'boolean') {
       throw new ValidationError('resolved must be a boolean.', 'resolved');
@@ -108,8 +111,11 @@ router.patch('/:id', (req: Request, res: Response) => {
     if (internalOnly !== undefined) {
       comment = CommentDAL.setCommentInternalOnly(req.projectId!, req.params.id, internalOnly);
     }
-    if (typeof body.resolved === 'boolean') {
-      comment = CommentDAL.setCommentResolved(req.projectId!, req.params.id, body.resolved, req.userName ?? 'system');
+    const by = req.userName ?? 'system';
+    if (status !== undefined) {
+      comment = CommentDAL.setCommentStatus(req.projectId!, req.params.id, status, by);
+    } else if (typeof body.resolved === 'boolean') {
+      comment = CommentDAL.setCommentResolved(req.projectId!, req.params.id, body.resolved, by);
     }
     const entity = resolveCommentEntity(req.projectId!, comment);
     res.status(200).json({ ...comment, use_case_id: entity.use_case_id, entity_label: entity.label });

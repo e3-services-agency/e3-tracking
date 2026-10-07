@@ -164,18 +164,10 @@ router.get('/:token/files/*', requireShare, async (req: Request, res: Response) 
   }
 });
 
-/** Same filter as `GET /:token/comments`: not internal_only; via_share only on a `via_share_only` link. */
+/** T-5-02 helper: a comment (root or reply) is visible to the link only when its ROOT is. */
 function isCommentVisibleToLink(projectId: string, commentId: string): boolean {
-  let comment: CommentRow;
-  try {
-    comment = CommentDAL.getCommentOrThrow(projectId, commentId);
-  } catch {
-    return false;
-  }
-  if (comment.internal_only) return false;
   const project = ProjectDAL.getProjectOrThrow(projectId);
-  if (project.share_comments === 'via_share_only' && !comment.via_share) return false;
-  return true;
+  return CommentDAL.getShareVisibleRoot(projectId, commentId, project.share_comments) !== null;
 }
 
 /**
@@ -189,12 +181,17 @@ function isCommentVisibleToLink(projectId: string, commentId: string): boolean {
  */
 function toPublicComment(
   comment: CommentRow
-): Omit<CommentRow, 'project_id' | 'resolved_by' | 'resolved_at' | 'internal_only'> {
+): Omit<
+  CommentRow,
+  'project_id' | 'resolved_by' | 'resolved_at' | 'internal_only' | 'status_changed_by' | 'status_changed_at'
+> {
   const {
     project_id: _projectId,
     resolved_by: _resolvedBy,
     resolved_at: _resolvedAt,
     internal_only: _internalOnly,
+    status_changed_by: _statusChangedBy,
+    status_changed_at: _statusChangedAt,
     ...rest
   } = comment;
   return rest;
@@ -238,7 +235,7 @@ function checkCommentRateLimit(token: string): void {
   commentPostTimestampsByToken.set(token, existing);
 }
 
-const COMMENT_POST_FIELDS = new Set(['entity_type', 'entity_id', 'author_name', 'body']);
+const COMMENT_POST_FIELDS = new Set(['entity_type', 'entity_id', 'author_name', 'body', 'parent_id']);
 
 /** Same "present but not a string" guard as `routes/comments.ts`'s own `stringOrUndefined`. */
 function stringOrUndefined(body: Record<string, unknown>, key: string): string | undefined {
@@ -262,12 +259,17 @@ router.get('/:token/comments', requireShare, (req: Request, res: Response) => {
     // D-49 amendment 2 (T-4-10): enforced here, server-side. Internal-only rows never leave; a
     // `via_share_only` link additionally hides comments posted internally.
     const project = ProjectDAL.getProjectOrThrow(req.projectId!);
-    const comments = CommentDAL.listComments(req.projectId!, {
+    // Replies inherit the root's internal_only, so dropping internal rows drops their replies too.
+    // The share_comments rule applies to roots: a kept root keeps all of its (non-internal) replies.
+    let comments = CommentDAL.listComments(req.projectId!, {
       entity_type: entity_type as string | undefined,
       entity_id: entity_id as string | undefined,
       excludeInternalOnly: true,
-      viaShareOnly: project.share_comments === 'via_share_only',
     });
+    const keptRoots = new Set(
+      comments.filter((c) => !c.parent_id && CommentDAL.isRootShareVisible(c, project.share_comments)).map((c) => c.id)
+    );
+    comments = comments.filter((c) => keptRoots.has(c.parent_id ?? c.id));
     const attachments = AttachmentDAL.listAttachmentsByComment(req.projectId!, comments.map((c) => c.id));
     res.status(200).json(
       comments.map((c) => ({ ...toPublicComment(c), attachments: (attachments.get(c.id) ?? []).map(AttachmentDAL.toPublicAttachment) }))
@@ -293,6 +295,14 @@ router.post('/:token/comments', express.json({ limit: '20kb' }), requireShare, (
     const entityId = stringOrUndefined(body, 'entity_id');
     const authorName = stringOrUndefined(body, 'author_name');
     const commentBody = stringOrUndefined(body, 'body');
+    const parentId = stringOrUndefined(body, 'parent_id');
+    if (parentId !== undefined) {
+      const project = ProjectDAL.getProjectOrThrow(req.projectId!);
+      if (!CommentDAL.getShareVisibleRoot(req.projectId!, parentId, project.share_comments)) {
+        shareNotFound(res);
+        return;
+      }
+    }
 
     const comment = CommentDAL.createComment(req.projectId!, {
       entity_type: entityType ?? '',
@@ -300,6 +310,7 @@ router.post('/:token/comments', express.json({ limit: '20kb' }), requireShare, (
       author_name: authorName ?? '',
       body: commentBody ?? '',
       via_share: true,
+      parent_id: parentId ?? null,
     });
     res.status(201).json(toPublicComment(comment));
   } catch (err) {
@@ -373,6 +384,35 @@ router.post(
     }
   }
 );
+
+// D-70, T-5-02: a comment-access link may set on_it/done on a comment it can see, never wont_do and
+// never reopen (403 STATUS_NOT_ALLOWED). Same read-only gate, field whitelist and rate limit as posts.
+router.patch('/:token/comments/:id/status', express.json({ limit: '2kb' }), requireShare, (req: Request, res: Response) => {
+  try {
+    if (req.shareAccess !== 'comment') {
+      throw new ShareReadOnlyError('This share link is read-only; comments cannot be changed through it.');
+    }
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const unknownField = Object.keys(body).find((key) => key !== 'status' && key !== 'author_name');
+    if (unknownField !== undefined) {
+      throw new FieldNotAllowedError(`"${unknownField}" is not accepted on this route.`, unknownField);
+    }
+    checkCommentRateLimit(req.params.token);
+    const project = ProjectDAL.getProjectOrThrow(req.projectId!);
+    // Hidden, missing, other-project and reply ids all answer the identical SHARE_NOT_FOUND.
+    const root = CommentDAL.getShareVisibleRoot(req.projectId!, req.params.id, project.share_comments);
+    if (!root || root.id !== req.params.id) {
+      shareNotFound(res);
+      return;
+    }
+    const status = stringOrUndefined(body, 'status') ?? '';
+    const by = stringOrUndefined(body, 'author_name')?.trim().slice(0, 80) || 'Share link';
+    const comment = CommentDAL.setCommentStatus(req.projectId!, req.params.id, status, by, { restricted: true });
+    res.status(200).json(toPublicComment(comment));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
 
 router.all('*', (_req: Request, res: Response) => {
   shareNotFound(res);

@@ -3423,3 +3423,6 @@ Supervisor ruling: implementer fixes the minor (effectiveRuleId) and merges agen
 
 ### 2026-10-07 | implementer | HANDOFF | T-4-29 + T-4-31 final e914511 (agent-setup 85b9e30 merged in)
 Scoped "Requirement status" hint, last two decision codes removed, Catalogs.tsx conflict resolved on the T-4-33 side, FieldTableEditor headers through HintTh. 1845 tests / 183 files, gates green.
+
+### 2026-10-07 | supervisor | MERGE | T-4-29 + T-4-31 merged into agent-setup — DONE
+Merge e581ad2. Merged tree: tsc, lint, build clean, 1845 tests / 183 files. Remaining from round 8: T-4-32 (merge of agent-setup + minor fix in progress, then browser QA).

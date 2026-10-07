@@ -10,6 +10,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ImagePlus } from 'lucide-react';
 import { FieldLabel } from '@/src/components/ui/FieldHint';
+import { useModalA11y } from '@/src/components/ui/useModalA11y';
 import { lightboxStep } from '@/src/features/shared/viewHelpers';
 
 export const COMMENT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
@@ -32,23 +33,49 @@ export function checkCommentImage(file: { type: string; size: number; name: stri
   return null;
 }
 
+function ImageDialog({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useModalA11y(ref, onClose);
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Comment image"
+      ref={ref}
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80 p-6"
+      onClick={onClose}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function CommentAttachments({ attachments, fileUrl }: { attachments?: CommentAttachmentItem[]; fileUrl: (path: string) => string }) {
   const items = attachments ?? [];
   const [open, setOpen] = useState<number | null>(null);
   const close = useCallback(() => setOpen(null), []);
-  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
 
+  // Arrow keys step; Escape, focus trap and focus return go through the shared modal stack.
   useEffect(() => {
     if (open === null) return;
-    dialogRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
-      else if (e.key === 'ArrowRight') setOpen((i) => (i === null ? i : lightboxStep(i, 1, items.length)));
+      if (e.key === 'ArrowRight') setOpen((i) => (i === null ? i : lightboxStep(i, 1, items.length)));
       else if (e.key === 'ArrowLeft') setOpen((i) => (i === null ? i : lightboxStep(i, -1, items.length)));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, items.length, close]);
+  }, [open, items.length]);
+
+  const openAt = (i: number, el: HTMLElement) => {
+    openerRef.current = el;
+    setOpen(i);
+  };
+  const closeAndRestore = useCallback(() => {
+    close();
+    setTimeout(() => openerRef.current?.focus?.(), 0);
+  }, [close]);
 
   if (items.length === 0) return null;
   const extra = items.length - VISIBLE_THUMBS;
@@ -60,7 +87,7 @@ export function CommentAttachments({ attachments, fileUrl }: { attachments?: Com
           <button
             key={a.id}
             type="button"
-            onClick={() => setOpen(i)}
+            onClick={(e) => openAt(i, e.currentTarget)}
             className="shrink-0 overflow-hidden rounded border hover:ring-2 hover:ring-[var(--color-info)]"
             aria-label={`Enlarge image ${i + 1} of ${items.length}`}
           >
@@ -70,7 +97,7 @@ export function CommentAttachments({ attachments, fileUrl }: { attachments?: Com
         {extra > 0 && (
           <button
             type="button"
-            onClick={() => setOpen(VISIBLE_THUMBS)}
+            onClick={(e) => openAt(VISIBLE_THUMBS, e.currentTarget)}
             className="h-16 rounded border bg-white px-3 text-xs font-medium text-gray-600 hover:bg-gray-50"
             aria-label={`Show ${extra} more images`}
           >
@@ -79,15 +106,7 @@ export function CommentAttachments({ attachments, fileUrl }: { attachments?: Com
         )}
       </div>
       {current && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Comment image"
-          ref={dialogRef}
-          tabIndex={-1}
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80 p-6"
-          onClick={close}
-        >
+        <ImageDialog onClose={closeAndRestore}>
           <img src={fileUrl(current.file_path)} alt="Comment image" className="max-h-[80vh] max-w-full rounded shadow-lg" onClick={(e) => e.stopPropagation()} />
           <p className="mt-3 text-sm text-white" onClick={(e) => e.stopPropagation()}>
             {(open ?? 0) + 1} / {items.length}
@@ -103,11 +122,11 @@ export function CommentAttachments({ attachments, fileUrl }: { attachments?: Com
                 </button>
               </>
             )}
-            <button type="button" className="rounded bg-white px-3 py-1 text-sm" onClick={close}>
+            <button type="button" className="rounded bg-white px-3 py-1 text-sm" onClick={closeAndRestore}>
               Close
             </button>
           </div>
-        </div>
+        </ImageDialog>
       )}
     </>
   );

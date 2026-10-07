@@ -265,6 +265,56 @@ describe('share routes', () => {
   });
 });
 
+describe('share files path normalisation (review fix)', () => {
+  function rawGet(rawPath: string): Promise<number> {
+    return new Promise((resolve, reject) => {
+      const port = Number(new URL(baseUrl).port);
+      const req = http.request({ hostname: '127.0.0.1', port, path: rawPath, method: 'GET' }, (res) => {
+        res.resume();
+        res.on('end', () => resolve(res.statusCode ?? 0));
+      });
+      req.on('error', reject);
+      req.end();
+    });
+  }
+
+  it('odd spellings of a hidden comment image are all refused, the visible one still works', async () => {
+    const token = await createShare('comment');
+    const hidden = await postComment({ internal_only: true });
+    const hAtt = await (await upload(`${baseUrl}/api/projects/${projectId}/comments/${hidden.id}/attachments`, await png())).json();
+    const visible = await postComment();
+    const vAtt = await (await upload(`${baseUrl}/api/projects/${projectId}/comments/${visible.id}/attachments`, await png())).json();
+    const base = `/api/shared/${token}/files/`;
+    const hp: string = hAtt.file_path;
+    const variants = (p: string) => [
+      p.replace('/comments/', '//comments/'),
+      p.replace('/comments/', '/Comments/'),
+      p.replace('/comments/', '/COMMENTS/'),
+      p.replace('/comments/', '/./comments/'),
+      p.replace('/comments/', '/%2Fcomments/'),
+      p.replace('/comments/', '%2Fcomments/'),
+    ];
+    for (const v of variants(hp)) {
+      const status = await rawGet(base + v);
+      expect([400, 404], v).toContain(status);
+    }
+    expect(await rawGet(base + hp)).toBe(404);
+    expect(await rawGet(base + vAtt.file_path)).toBe(200);
+    // case variant of a visible one is refused too, never served from the raw path
+    expect(await rawGet(base + vAtt.file_path.replace('/comments/', '//comments/'))).toBe(404);
+  });
+});
+
+describe('cleanup', () => {
+  it('deleting a comment removes its image files', async () => {
+    const c = await postComment();
+    const att = await (await upload(`${baseUrl}/api/projects/${projectId}/comments/${c.id}/attachments`, await png())).json();
+    expect(fs.existsSync(path.join(tmpFilesDir, att.file_path))).toBe(true);
+    expect((await fetch(`${baseUrl}/api/projects/${projectId}/comments/${c.id}`, { method: 'DELETE' })).status).toBe(204);
+    expect(fs.existsSync(path.join(tmpFilesDir, att.file_path))).toBe(false);
+  });
+});
+
 describe('backup and restore', () => {
   it('embeds the image files, remaps ids and rewrites paths', async () => {
     const c = await postComment({ body: 'backup me' });

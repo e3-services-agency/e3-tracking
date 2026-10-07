@@ -5,6 +5,8 @@
  */
 import { Router, type Request, type Response } from 'express';
 import * as CommentDAL from '../dal/comment.dal';
+import * as AttachmentDAL from '../dal/comment-attachment.dal';
+import { getFileStore } from '../files/FileStore';
 import { withEntityLabels, resolveCommentEntity } from '../services/comments.service';
 import { ValidationError } from '../errors';
 import { handleRouteError } from './routeErrors';
@@ -116,9 +118,18 @@ router.patch('/:id', (req: Request, res: Response) => {
   }
 });
 
-router.delete('/:id', (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request, res: Response) => {
   try {
+    // T-5-04: list the image files first (rows cascade with the comment), remove them after.
+    const attachments = AttachmentDAL.listAttachmentsForComment(req.projectId!, req.params.id);
     CommentDAL.deleteComment(req.projectId!, req.params.id);
+    for (const a of attachments) {
+      try {
+        await getFileStore().removeFile(req.projectId!, a.file_path);
+      } catch (e) {
+        console.error('Could not remove comment image file', a.file_path, e);
+      }
+    }
     res.status(204).end();
   } catch (err) {
     handleRouteError(err, res);

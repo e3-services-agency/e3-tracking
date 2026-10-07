@@ -127,20 +127,28 @@ router.get('/:token/files/*', requireShare, async (req: Request, res: Response) 
     return;
   }
   const isAbsolute = /^(?:[a-zA-Z]:)?[\\/]/.test(relativePath);
-  const segments = relativePath.split(/[\\/]+/).filter(Boolean);
-  if (isAbsolute || segments.some((s) => s === '..' || s === '.')) {
+  const rawSegments = relativePath.split(/[\\/]/);
+  if (isAbsolute || rawSegments.some((s) => s === '..' || s === '.')) {
     res.status(400).json({ error: 'Invalid file path.', code: 'INVALID_PATH' });
     return;
   }
-  if (!relativePath.startsWith(`${req.projectId}/`)) {
+  // T-5-04 review fix: every decision below is made on the normalised path, never the raw string.
+  // An empty segment (`<project>//comments/...`) is refused outright, and the comments prefix is
+  // matched case-insensitively (a case-insensitive filesystem would otherwise still open the file).
+  if (rawSegments.some((s) => s === '')) {
+    res.status(404).json({ error: 'File not found.', code: 'NOT_FOUND' });
+    return;
+  }
+  const normalised = rawSegments.join('/');
+  if (rawSegments[0] !== req.projectId) {
     res.status(404).json({ error: 'File not found.', code: 'NOT_FOUND' });
     return;
   }
   // T-5-04 (D-70): a comment image is served only when its comment is visible to this link (not
   // internal_only, and the project's share_comments rule); anything else is the same 404 as a
   // missing file. A `<project>/comments/...` path with no attachment row is never served.
-  if (relativePath.startsWith(`${req.projectId}/comments/`)) {
-    const attachment = AttachmentDAL.getAttachmentByPath(req.projectId!, relativePath);
+  if (rawSegments[1]?.toLowerCase() === 'comments') {
+    const attachment = AttachmentDAL.getAttachmentByPath(req.projectId!, normalised);
     const visible = attachment ? isCommentVisibleToLink(req.projectId!, attachment.comment_id) : false;
     if (!visible) {
       res.status(404).json({ error: 'File not found.', code: 'NOT_FOUND' });
@@ -148,7 +156,7 @@ router.get('/:token/files/*', requireShare, async (req: Request, res: Response) 
     }
   }
   try {
-    const opened = await getFileStore().openForProject(req.projectId!, relativePath);
+    const opened = await getFileStore().openForProject(req.projectId!, normalised);
     res.setHeader('Content-Type', opened.mime);
     res.status(200).send(opened.buffer);
   } catch {

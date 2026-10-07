@@ -45,7 +45,7 @@ export async function reencodeImage(buf: Buffer): Promise<{ buffer: Buffer; mime
   const mime = sniffImageMime(buf);
   if (!mime) throw new UnsupportedImageError('Only PNG, JPEG and WebP images are accepted.', 'file');
   try {
-    let pipeline = sharp(buf, { limitInputPixels: 50_000_000, failOn: 'error' }).rotate();
+    let pipeline = sharp(buf, { limitInputPixels: 25_000_000, failOn: 'error' }).rotate();
     pipeline = mime === 'image/png' ? pipeline.png() : mime === 'image/jpeg' ? pipeline.jpeg({ quality: 90 }) : pipeline.webp({ quality: 90 });
     const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
     return { buffer: data, mime, width: info.width, height: info.height };
@@ -60,11 +60,16 @@ export async function addCommentAttachment(projectId: string, commentId: string,
   }
   const image = await reencodeImage(raw);
   const stored = await getFileStore().put(projectId, `comments/${commentId}`, `image.${EXT[image.mime]}`, image.buffer, image.mime);
-  return AttachmentDAL.insertAttachment(projectId, commentId, {
-    file_path: stored.path,
-    mime: image.mime,
-    width: image.width,
-    height: image.height,
-    size_bytes: image.buffer.length,
-  });
+  try {
+    return AttachmentDAL.insertAttachment(projectId, commentId, {
+      file_path: stored.path,
+      mime: image.mime,
+      width: image.width,
+      height: image.height,
+      size_bytes: image.buffer.length,
+    });
+  } catch (err) {
+    await getFileStore().removeFile(projectId, stored.path);
+    throw err;
+  }
 }

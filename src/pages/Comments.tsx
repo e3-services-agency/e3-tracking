@@ -31,6 +31,7 @@ import { COMMENT_ENTITY_TYPES, COMMENT_STATUSES, type CommentStatus } from '@/sr
 import { enumLabel } from '@/src/domain/enumLabels';
 import { groupThreads } from '@/src/domain/commentThreads';
 import { StatusBadge } from '@/src/components/ui/badges';
+import { CommentBody, threadAttachments } from '@/src/features/comments/CommentBody';
 import { CommentAttachments, type CommentAttachmentItem } from '@/src/features/comments/CommentAttachments';
 import { CommentReactions, type ReactionSummaryView } from '@/src/features/comments/CommentReactions';
 import type { CommentReactionKind } from '@/src/domain/enums';
@@ -306,7 +307,7 @@ export function Comments() {
                   <span>{new Date(row.created_at).toLocaleString()}</span>
                   <StatusBadge status={row.status} />
                 </div>
-                <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap">{row.body}</p>
+                <CommentBody className="mt-1" body={row.body} attachments={threadAttachments(row, row.replies)} fileUrl={fileUrl} />
                 <CommentAttachments attachments={row.attachments} fileUrl={fileUrl} />
                 <CommentReactions reactions={row.reactions} isRoot ownName="" nameRequired={false} busy={busyId === row.id} onReact={(k) => void react(row.id, k)} />
                 {row.replies.length > 0 && (
@@ -314,7 +315,7 @@ export function Comments() {
                     {row.replies.map((reply) => (
                       <li key={reply.id} className="text-sm text-gray-800">
                         <span className="text-xs font-medium text-gray-600">{reply.author_name}: </span>
-                        <span className="whitespace-pre-wrap">{reply.body}</span>
+                        <CommentBody body={reply.body} attachments={threadAttachments(row, row.replies)} fileUrl={fileUrl} />
                         <CommentAttachments attachments={reply.attachments} fileUrl={fileUrl} />
                         <CommentReactions reactions={reply.reactions} isRoot={false} ownName="" nameRequired={false} busy={busyId === reply.id} onReact={(k) => void react(reply.id, k)} />
                       </li>

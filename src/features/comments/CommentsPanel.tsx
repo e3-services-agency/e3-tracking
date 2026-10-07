@@ -39,6 +39,8 @@ import { groupThreads } from '@/src/domain/commentThreads';
 import { CommentItem } from './CommentItem';
 import type { ReactionSummaryView } from './CommentReactions';
 import { useShareName, ensureAuthorName, isVisitorId } from './shareName';
+import { MarkdownEditor } from '@/src/components/ui/MarkdownEditor';
+import { COMMENT_BODY_MAX, resolveAttachmentSrc } from '@/src/domain/markdownEdit';
 import { AttachmentPicker, CommentAttachments, uploadAttachments, type CommentAttachmentItem } from './CommentAttachments';
 
 export interface CommentPanelRow {
@@ -306,6 +308,7 @@ export function CommentsPanel({
               busy={busyId === thread.id}
               onSetStatus={(status) => void setStatus(thread, status)}
               onReply={(text, files) => post(text, thread.id, files)}
+              fileUrl={(pth) => fileUrl(api, pth)}
               renderAttachments={(c) => <CommentAttachments attachments={c.attachments} fileUrl={(pth) => fileUrl(api, pth)} />}
               onReact={(row, kind) => void react(row, kind)}
               ownName={api.mode === 'shared' ? storedName : ''}
@@ -340,15 +343,19 @@ export function CommentsPanel({
               className="h-9 w-full rounded-md border border-gray-300 bg-white px-2 text-sm"
             />
           )}
-          <textarea
+          <MarkdownEditor
             value={body}
-            onChange={(e) => setBody(e.target.value)}
+            onChange={setBody}
+            onSubmit={() => {
+              if (!posting && body.trim() && !(api.mode === 'shared' && !authorName.trim())) void post(body, null, pendingImages);
+            }}
             placeholder={nameRequired ? 'Enter your name to comment' : 'Add a comment…'}
             disabled={nameRequired}
-            maxLength={4000}
-            rows={2}
+            maxLength={COMMENT_BODY_MAX}
+            rows={3}
             required
-            className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
+            pendingNames={pendingImages.map((f) => f.name)}
+            resolveImage={(src) => resolveAttachmentSrc(src, undefined, (p) => fileUrl(api, p))}
           />
           <AttachmentPicker files={pendingImages} onChange={setPendingImages} disabled={posting} progress={uploadProgress} />
           <button

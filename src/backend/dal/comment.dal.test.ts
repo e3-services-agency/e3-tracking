@@ -106,15 +106,24 @@ describe('comment.dal: createComment', () => {
     ).toThrow(ValidationError);
   });
 
-  it('rejects a body over 4000 characters', () => {
+  it('accepts a body of exactly 10000 characters, stored as-is', () => {
+    const body = '**bold** <b>x</b> ' + 'y'.repeat(9982);
+    const c = CommentDAL.createComment(projectId, { entity_type: 'event', entity_id: eventId, author_name: 'Jan', body });
+    expect(c.body).toBe(body);
+  });
+
+  it('rejects a body over 10000 characters', () => {
     expect(() =>
       CommentDAL.createComment(projectId, {
         entity_type: 'event',
         entity_id: eventId,
         author_name: 'Jan',
-        body: 'x'.repeat(4001),
+        body: 'x'.repeat(10001),
       })
     ).toThrow(ValidationError);
+    expect(
+      CommentDAL.createComment(projectId, { entity_type: 'event', entity_id: eventId, author_name: 'Jan', body: 'x'.repeat(10000) }).body.length
+    ).toBe(10000);
   });
 });
 

@@ -4,6 +4,8 @@ import { closeDb } from '../db';
 import * as ClientDAL from './client.dal';
 import * as ProjectDAL from './project.dal';
 import * as CatalogDAL from './catalog.dal';
+import * as PropertyDAL from './property.dal';
+import * as ChangeLogDAL from './change-log.dal';
 import { ValidationError } from '../errors';
 
 let projectId: string;
@@ -37,5 +39,19 @@ describe('catalog field order', () => {
     CatalogDAL.createCatalogField(projectId, catalogId, { name: 'b' });
     expect(() => CatalogDAL.reorderCatalogFields(projectId, catalogId, [a.id])).toThrow(ValidationError);
     expect(() => CatalogDAL.reorderCatalogFields(projectId, catalogId, [a.id, a.id])).toThrow(ValidationError);
+  });
+});
+
+describe('deleting a linked catalog field', () => {
+  it('clears the property link and logs the property update', () => {
+    const f = CatalogDAL.createCatalogField(projectId, catalogId, { name: 'item_id' });
+    const prop = PropertyDAL.createProperty(projectId, { scope: 'event', name: 'product_id', data_type: 'string', mapped_catalog_id: catalogId, mapped_catalog_field_id: f.id } as never);
+    CatalogDAL.deleteCatalogField(projectId, catalogId, f.id);
+    const after = PropertyDAL.getPropertyOrThrow(projectId, prop.id);
+    expect(after.mapped_catalog_field_id).toBeNull();
+    expect(after.mapped_catalog_id).toBe(catalogId);
+    const log = ChangeLogDAL.listChanges(projectId, {} as never) as unknown as { items?: { entity_type: string; action: string }[] };
+    const items = log.items ?? (log as unknown as { entity_type: string; action: string }[]);
+    expect(items.some((c) => c.entity_type === 'property' && c.action === 'update')).toBe(true);
   });
 });

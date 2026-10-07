@@ -37,11 +37,14 @@ export function FieldTableEditor({
   fields,
   onChange,
   referencedNames,
+  linkedBy,
 }: {
   fields: CatalogFieldDraft[];
   onChange: (next: CatalogFieldDraft[]) => void;
   /** Field names a property link points at; deleting one asks for confirmation. */
   referencedNames: ReadonlySet<string>;
+  /** Field name -> names of the properties linking to it, for the delete confirmation. */
+  linkedBy?: ReadonlyMap<string, string[]>;
 }) {
   const validation = validateCatalogFields(fields);
   const nameRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -74,7 +77,7 @@ export function FieldTableEditor({
     setFocusKey(copy.key);
   };
   const remove = (f: CatalogFieldDraft) => {
-    if (referencedNames.has(f.name) && !window.confirm(`"${f.name}" is referenced by a property link. Delete it anyway?`)) return;
+    if (referencedNames.has(f.name) && !window.confirm(`${(linkedBy?.get(f.name) ?? ['A property']).join(', ')} links to ${f.name}; the link will be removed. Delete the field anyway?`)) return;
     onChange(fields.filter((x) => x.key !== f.key));
   };
 
@@ -196,6 +199,7 @@ export function FieldTableEditor({
           </tbody>
         </table>
       </div>
+      {searchOver && <p className="text-xs text-red-600" data-testid="searchable-over">{validation.searchableCount} searchable fields, the limit is {CATALOG_SEARCHABLE_LIMIT}.</p>}
       <button type="button" onClick={add} className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 hover:text-blue-900">
         <Plus className="w-3.5 h-3.5" /> Add field
       </button>

@@ -74,7 +74,6 @@ export function validateCatalogFields(fields: readonly CatalogFieldDraftLike[]):
   const searchableCount = fields.filter((f) => f.is_searchable).length;
   if (searchableCount > CATALOG_SEARCHABLE_LIMIT) {
     reasons.push(`${searchableCount} searchable fields, the limit is ${CATALOG_SEARCHABLE_LIMIT}.`);
-    for (const f of fields.filter((x) => x.is_searchable)) (rowErrors[f.key] ??= []).push('Over the searchable limit.');
   }
   return { rowErrors, reasons, searchableCount, ok: reasons.length === 0 };
 }

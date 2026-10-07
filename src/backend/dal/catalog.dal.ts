@@ -577,6 +577,23 @@ export function deleteCatalogField(projectId: string, catalogId: string, fieldId
     // appends a "target removed" note. Runs inside the same transaction as the DELETE (merge note,
     // T-3-02 review): before this it ran outside any transaction of its own.
     markRequirementsGapForCatalogFieldRemoval(projectId, fieldId, before.name);
+    // T-4-33: properties linking to this field (`mapped_catalog_field_id`, no ON DELETE action)
+    // lose the link first, each with its own change_log update row.
+    const linked = db
+      .prepare('SELECT * FROM properties WHERE project_id = ? AND mapped_catalog_field_id = ?')
+      .all(projectId, fieldId) as Record<string, unknown>[];
+    for (const p of linked) {
+      db.prepare('UPDATE properties SET mapped_catalog_field_id = NULL, updated_at = ? WHERE id = ?').run(nowIso(), p.id);
+      ChangeLogDAL.recordChange({
+        projectId,
+        entityType: 'property',
+        entityId: p.id as string,
+        entityLabel: p.name as string,
+        action: 'update',
+        before: p,
+        after: { ...p, mapped_catalog_field_id: null },
+      });
+    }
     const result = db
       .prepare('DELETE FROM catalog_fields WHERE id = ? AND catalog_id = ?')
       .run(fieldId, catalogId);

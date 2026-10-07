@@ -5,7 +5,7 @@ import { StatusBadge } from '@/src/components/ui/badges';
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import { hintFor } from '@/src/components/ui/FieldHint';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -101,6 +101,12 @@ export function Catalogs() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const dirtyRef = useRef(false);
+  const closeSheet = () => {
+    if (dirtyRef.current && !window.confirm('Discard unsaved field changes?')) return;
+    dirtyRef.current = false;
+    setIsSheetOpen(false);
+  };
 
   const load = useCallback(async () => {
     if (!hasValidProjectContext || !activeProjectId) return;
@@ -162,13 +168,14 @@ export function Catalogs() {
         </div>
       </PageBody>
 
-      <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title={isCreating ? 'Create Catalog' : 'Edit Catalog'}>
+      <Sheet isOpen={isSheetOpen} onClose={closeSheet} title={isCreating ? 'Create Catalog' : 'Edit Catalog'}>
         <CatalogEditor
           key={isCreating ? 'create' : selectedId ?? 'none'}
           catalogId={isCreating ? null : selectedId}
           projectId={activeProjectId}
           onSaved={async () => { await load(); setIsSheetOpen(false); }}
-          onClose={() => setIsSheetOpen(false)}
+          onClose={closeSheet}
+          dirtyRef={dirtyRef}
         />
       </Sheet>
     </div>
@@ -180,11 +187,13 @@ function CatalogEditor({
   projectId,
   onSaved,
   onClose,
+  dirtyRef,
 }: {
   catalogId: string | null;
   projectId: string;
   onSaved: () => Promise<void>;
   onClose: () => void;
+  dirtyRef: React.MutableRefObject<boolean>;
 }) {
   const isCreating = catalogId === null;
   const [loading, setLoading] = useState(!isCreating);
@@ -240,7 +249,13 @@ function CatalogEditor({
   const validation = validateCatalogFields(draft);
   const dirty = JSON.stringify(draft.map(stripKey)) !== JSON.stringify(fields.map(toDraft).map(stripKey));
   const referencedNames = new Set((catalog?.looked_up_by ?? []).map((p) => p.field_name).filter((n): n is string => !!n));
-  const blockReasons = [...(trimmedName ? [] : ['The catalog has no name.']), ...(isCreating ? [] : validation.reasons)];
+  const linkedBy = new Map<string, string[]>();
+  for (const p of catalog?.looked_up_by ?? []) if (p.field_name) linkedBy.set(p.field_name, [...(linkedBy.get(p.field_name) ?? []), `${p.property_name} (${p.scope})`]);
+  // A rename whose new name is another saved row's current name only works in a certain order: ask for two saves.
+  const savedById = new Map(fields.map((f) => [f.id, f.name]));
+  const renameClash = draft.filter((d) => d.id && savedById.get(d.id) !== d.name.trim()).some((d) => [...savedById].some(([id, n]) => id !== d.id && n === d.name.trim() && draft.some((o) => o.id === id && o.name.trim() !== n)));
+  useEffect(() => { dirtyRef.current = dirty; return () => { dirtyRef.current = false; }; }, [dirty, dirtyRef]);
+  const blockReasons = [...(trimmedName ? [] : ['The catalog has no name.']), ...(isCreating ? [] : validation.reasons), ...(renameClash ? ['A rename takes a name another field still has: rename in two saves.'] : [])];
 
   const handleSave = async () => {
     if (!trimmedName || !projectId) return;
@@ -460,7 +475,7 @@ function CatalogEditor({
                   <button
                     type="button"
                     className="underline text-blue-700 disabled:opacity-50 disabled:no-underline"
-                    disabled={dirty}
+                    disabled={dirty || saving}
                     title={dirty ? 'Save the field changes first.' : undefined}
                     onClick={() => void setLive(!catalog?.live_at)}
                   >
@@ -471,7 +486,7 @@ function CatalogEditor({
               </div>
             );
           })()}
-          <FieldTableEditor fields={draft} onChange={setDraft} referencedNames={referencedNames} />
+          <FieldTableEditor fields={draft} onChange={setDraft} referencedNames={referencedNames} linkedBy={linkedBy} />
         </div>
       )}
 

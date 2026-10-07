@@ -7,6 +7,7 @@
  * Always-sent properties are included; sometimes-sent properties get a "// Optional:" comment above the line.
  * Output event names may differ per method via `codegen_event_name_overrides` (canonical `events.name` unchanged).
  */
+import { exampleValuesFor } from '../../domain/examples';
 import type {
   CodegenEventNameOverrides,
   ObjectChildFieldSnapshot,
@@ -356,12 +357,17 @@ export function toAttachedPropertyForCodegen(
       Array.isArray(definition?.formats_json) && (definition!.formats_json as unknown[]).length > 0
         ? (definition!.formats_json as string[])
         : ((link.property.data_formats_json as string[] | null) ?? null),
-    property_example_values_json:
-      (definitionExamples && definitionExamples.length > 0 ? definitionExamples : null) ??
-      ((link.property.example_values_json as AttachedPropertyForCodegen['property_example_values_json']) ?.length
-        ? (link.property.example_values_json as AttachedPropertyForCodegen['property_example_values_json'])
-        : null) ??
-      (firstAllowed ? [{ value: firstAllowed.value as string }] : null),
+    // T-5-11: an enum's examples come from its allowed set (stored examples outside it are ignored).
+    property_example_values_json: (() => {
+      const stored =
+        (definitionExamples && definitionExamples.length > 0 ? definitionExamples : null) ??
+        ((link.property.example_values_json as AttachedPropertyForCodegen['property_example_values_json']) ?.length
+          ? (link.property.example_values_json as AttachedPropertyForCodegen['property_example_values_json'])
+          : null);
+      const derived = exampleValuesFor({ allowed_values_json: allowedRaw, example_values_json: stored });
+      if (derived.length > 0) return derived as PropertyExampleValue[];
+      return firstAllowed ? [{ value: firstAllowed.value as string }] : null;
+    })(),
     property_value_schema_json:
       (link.property.value_schema_json as AttachedPropertyForCodegen['property_value_schema_json']) ?? null,
   };

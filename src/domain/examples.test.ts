@@ -33,3 +33,27 @@ describe('example rendering', () => {
     expect(displaySampleValue(null).text).toBe('');
   });
 });
+
+import { exampleValuesFor, isExampleAllowed, exampleWarnings, splitEnumExampleCell } from './examples';
+
+describe('exampleValuesFor (T-5-11)', () => {
+  const allowed = [{ value: 'add' }, { value: 'remove' }, { value: 'view' }];
+  it('uses the stored examples when there is no allowed set', () => {
+    expect(exampleValuesFor({ allowed_values_json: [], example_values_json: [{ value: 'x' }] })).toEqual([{ value: 'x' }]);
+  });
+  it('ignores stored examples outside the set and fills from allowed values', () => {
+    expect(exampleValuesFor({ allowed_values_json: allowed, example_values_json: [{ value: 'click' }] })).toEqual([{ value: 'add' }, { value: 'remove' }]);
+  });
+  it('puts allowed stored examples first, deduped', () => {
+    expect(exampleValuesFor({ allowed_values_json: allowed, example_values_json: [{ value: 'view' }, { value: 'view' }, { value: 'nope' }] })).toEqual([{ value: 'view' }, { value: 'add' }]);
+  });
+  it('validates and warns', () => {
+    expect(isExampleAllowed({ allowed_values_json: allowed, example_values_json: [{ value: 'click' }] })).toBe(false);
+    expect(isExampleAllowed({ allowed_values_json: [], example_values_json: [{ value: 'click' }] })).toBe(true);
+    expect(exampleWarnings({ allowed_values_json: allowed, example_values_json: [{ value: 'click' }] })).toEqual(['example click is not an allowed value']);
+  });
+  it('splits a sheet cell only when all tokens are allowed', () => {
+    expect(splitEnumExampleCell('add / remove / ...', ['add', 'remove'])).toEqual(['add', 'remove']);
+    expect(splitEnumExampleCell('click', ['add'])).toBeNull();
+  });
+});

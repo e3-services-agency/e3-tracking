@@ -7,6 +7,7 @@
  * from the local FileStore (D-14) so the file is fully self-contained (no server round-trip to
  * view it later). System font stack only (D-07) — no external CDN fonts.
  */
+import { exampleValuesFor } from '../../domain/examples';
 import { triggerImages } from '../../domain/document/triggerImages';
 import { enumLabelOr } from '@/src/domain/enumLabels';
 import { getProjectWithClient, type ProjectWithClient } from '../dal/project.dal';
@@ -403,7 +404,7 @@ function buildPropertiesSectionHtml(projectId: string): string {
         ? (d.allowed_values_json as { value: string; label?: string | null }[])
         : null,
       formats: Array.isArray(d.formats_json) ? (d.formats_json as string[]) : [],
-      example_values: d.example_values_json,
+      example_values: exampleValuesFor({ allowed_values_json: d.allowed_values_json, example_values_json: d.example_values_json }),
     })),
   }));
   return renderPropertiesSection(properties);

@@ -8,6 +8,7 @@
  * delete, never overwrite a non-empty value (a differing one is reported as a conflict).
  * Strict-but-forgiving like the other importers: a malformed piece becomes a warning, never a throw.
  */
+import { splitEnumExampleCell } from '../examples';
 import { classifyEventType, PLATFORM_EVENT_TYPES, SDK_EVENT_TYPES } from '../bloomreach';
 import {
   ENTITY_STATUSES,
@@ -1048,7 +1049,17 @@ export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingS
   for (const p of desiredProps) {
     const ex = propByKey.get(`${p.scope}:${p.name}`);
     const body = propertyBody(p);
-    if (p.scope === 'event' && (discriminatorValues.get(p.name)?.length ?? 0) > 0) body.allowed_values_json = discriminatorValues.get(p.name)!.map((value) => ({ value }));
+    if (p.scope === 'event' && (discriminatorValues.get(p.name)?.length ?? 0) > 0) {
+      const allowedList = discriminatorValues.get(p.name)!;
+      body.allowed_values_json = allowedList.map((value) => ({ value }));
+      // T-5-11: an enum's example comes from its allowed values, never from the sheet's example cell.
+      const split = splitEnumExampleCell(p.example_values?.[0], allowedList);
+      if (split) body.example_values_json = split;
+      else {
+        delete body.example_values_json;
+        if (p.example_values?.length) skipped.push({ entity: 'property', key: `${p.scope}:${p.name}`, reason: `sheet example "${p.example_values[0]}" dropped: not made of allowed values` });
+      }
+    }
     ops.push(opFromDiff(fd, 'property', `${p.scope}:${p.name}`, ex, body, body, PROPERTY_DEFAULTS, p.defaultedReason ? [p.defaultedReason] : []));
     if (p.defaultedReason) skipped.push({ entity: 'property', key: `${p.scope}:${p.name}`, reason: p.defaultedReason });
   }
@@ -1180,11 +1191,17 @@ export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingS
       const differs =
         (!!l.attr.description && !sameValue(gen.description ?? '', l.attr.description)) ||
         (l.attr.data_formats.length > 0 && !same(l.attr.data_formats, gen.formats)) ||
-        (!!l.attr.example_values && !same(l.attr.example_values, gen.example)) ||
+        (rowAllowed.length === 0 && !!l.attr.example_values && !same(l.attr.example_values, gen.example)) ||
         (rowAllowed.length > 0 && !same(rowAllowed, gen.allowed));
       if (differs) {
         const formats = l.attr.data_formats.length ? l.attr.data_formats : gen.formats;
-        const example = l.attr.example_values ?? gen.example;
+        let example = l.attr.example_values ?? gen.example;
+        if (rowAllowed.length > 0) {
+          // T-5-11: enum rows take examples from the allowed values only.
+          const split = splitEnumExampleCell(l.attr.example_values?.[0], rowAllowed);
+          example = split ?? [];
+          if (!split && l.attr.example_values?.length) skipped.push({ entity: 'property_definition', key: `${l.property}/${l.event}`, reason: `sheet example "${l.attr.example_values[0]}" dropped: not made of allowed values` });
+        }
         const defBody: Record<string, unknown> = { property: l.property, name: l.event };
         const description = l.attr.description ?? gen.description;
         if (description) defBody.description = description;

@@ -202,7 +202,11 @@ exports[`buildTrackingDocument on the fixture project > matches the recorded sna
             },
           ],
           "description": null,
-          "example_values": [],
+          "example_values": [
+            {
+              "value": "add",
+            },
+          ],
           "formats": [],
           "id": "id-18",
           "name": "general",
@@ -4610,7 +4614,11 @@ exports[`buildTrackingDocument on the fixture project > matches the recorded sna
             },
           ],
           "description": null,
-          "example_values": [],
+          "example_values": [
+            {
+              "value": "success",
+            },
+          ],
           "formats": [],
           "id": "id-407",
           "name": "general",
@@ -7142,7 +7150,7 @@ window.dataLayer.push({
     event: 'back_in_stock_list',
     properties: {
       // Optional:
-      action: 'string',
+      action: 'add',
       product_id: 'string',
       product_title: 'string',
       sku_id: 'string',
@@ -7168,7 +7176,7 @@ window.dataLayer.push({
     event: 'back_in_stock_list',
     properties: {
       // Optional:
-      action: 'string',
+      action: 'add',
       product_id: 'string',
       product_title: 'string',
       sku_id: 'string',
@@ -7220,7 +7228,7 @@ var BR_RULES = [];
   },
   "event_type": "back_in_stock_list",
   "properties": {
-    "action": "string",
+    "action": "add",
     "product_id": "string",
     "product_title": "string",
     "sku_id": "string",
@@ -7232,11 +7240,11 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"back_in_stock_list","properties":{"action":"string","product_id":"string","product_title":"string","sku_id":"string","store_id":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"back_in_stock_list","properties":{"action":"add","product_id":"string","product_title":"string","sku_id":"string","store_id":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
 brweb.track('back_in_stock_list', {
   // Optional:
-  action: 'string',
+  action: 'add',
   product_id: 'string',
   product_title: 'string',
   sku_id: 'string',
@@ -7245,7 +7253,7 @@ brweb.track('back_in_stock_list', {
         "web_sdk_legacy": "// Final payload, as brPayload produces it from the dataLayer object.
 exponea.track('back_in_stock_list', {
   // Optional:
-  action: 'string',
+  action: 'add',
   product_id: 'string',
   product_title: 'string',
   sku_id: 'string',
@@ -7375,7 +7383,7 @@ exponea.track('back_in_stock_list', {
           "definition_name": "general",
           "derivation": null,
           "description": null,
-          "example": "string",
+          "example": "add",
           "item_schema": null,
           "kind": "event",
           "name": "action",
@@ -11110,7 +11118,7 @@ window.dataLayer.push({
       acq_level_2: 'string',
       acq_level_3: 'string',
       acq_level_4: 'string',
-      action: 'string',
+      action: 'add',
       campaign_context: 'string',
       campaign_name: 'string',
       consent_list: 'string',
@@ -11159,7 +11167,7 @@ window.dataLayer.push({
       acq_level_2: 'string',
       acq_level_3: 'string',
       acq_level_4: 'string',
-      action: 'string',
+      action: 'add',
       campaign_context: 'string',
       campaign_name: 'string',
       consent_list: 'string',
@@ -11234,7 +11242,7 @@ var BR_RULES = [];
     "acq_level_2": "string",
     "acq_level_3": "string",
     "acq_level_4": "string",
-    "action": "string",
+    "action": "add",
     "campaign_context": "string",
     "campaign_name": "string",
     "consent_list": "string",
@@ -11272,7 +11280,7 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"double_opt_in_study_interest","properties":{"acq_level_1":"string","acq_level_2":"string","acq_level_3":"string","acq_level_4":"string","action":"string","campaign_context":"string","campaign_name":"string","consent_list":"string","consent_version":"string","country":"string","email":"string","fbclid":"string","first_name":"string","gclid":"string","iframe_url":"string","incentive_type":"string","language":"string","language_tag":"string","last_name":"string","login_state":"string","message":"string","opt_in_method":"string","page_url":"string","parent_referrer_url":"string","source":"string","source_risk_level":"string","store_id":"string","subscription_source":"string","survey_answers_json":"string","survey_brand":"string","survey_id":"string","survey_name":"string","utm_campaign":"string","utm_medium":"string","utm_source":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"double_opt_in_study_interest","properties":{"acq_level_1":"string","acq_level_2":"string","acq_level_3":"string","acq_level_4":"string","action":"add","campaign_context":"string","campaign_name":"string","consent_list":"string","consent_version":"string","country":"string","email":"string","fbclid":"string","first_name":"string","gclid":"string","iframe_url":"string","incentive_type":"string","language":"string","language_tag":"string","last_name":"string","login_state":"string","message":"string","opt_in_method":"string","page_url":"string","parent_referrer_url":"string","source":"string","source_risk_level":"string","store_id":"string","subscription_source":"string","survey_answers_json":"string","survey_brand":"string","survey_id":"string","survey_name":"string","utm_campaign":"string","utm_medium":"string","utm_source":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
 brweb.track('double_opt_in_study_interest', {
   // Optional:
@@ -11280,7 +11288,7 @@ brweb.track('double_opt_in_study_interest', {
   acq_level_2: 'string',
   acq_level_3: 'string',
   acq_level_4: 'string',
-  action: 'string',
+  action: 'add',
   campaign_context: 'string',
   campaign_name: 'string',
   consent_list: 'string',
@@ -11319,7 +11327,7 @@ exponea.track('double_opt_in_study_interest', {
   acq_level_2: 'string',
   acq_level_3: 'string',
   acq_level_4: 'string',
-  action: 'string',
+  action: 'add',
   campaign_context: 'string',
   campaign_name: 'string',
   consent_list: 'string',
@@ -11498,7 +11506,7 @@ exponea.track('double_opt_in_study_interest', {
           "definition_name": "general",
           "derivation": null,
           "description": null,
-          "example": "string",
+          "example": "add",
           "item_schema": null,
           "kind": "event",
           "name": "action",
@@ -13744,7 +13752,7 @@ window.dataLayer.push({
     event: 'loyalty_update',
     properties: {
       // Optional:
-      action: 'string',
+      action: 'add',
       final_points: 'string',
       points_change: 'string',
       status: 'string',
@@ -13762,7 +13770,7 @@ window.dataLayer.push({
     event: 'loyalty_update',
     properties: {
       // Optional:
-      action: 'string',
+      action: 'add',
       final_points: 'string',
       points_change: 'string',
       status: 'string',
@@ -13806,7 +13814,7 @@ var BR_RULES = [];
   },
   "event_type": "loyalty_update",
   "properties": {
-    "action": "string",
+    "action": "add",
     "final_points": "string",
     "points_change": "string",
     "status": "string"
@@ -13817,11 +13825,11 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"loyalty_update","properties":{"action":"string","final_points":"string","points_change":"string","status":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"loyalty_update","properties":{"action":"add","final_points":"string","points_change":"string","status":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
 brweb.track('loyalty_update', {
   // Optional:
-  action: 'string',
+  action: 'add',
   final_points: 'string',
   points_change: 'string',
   status: 'string',
@@ -13829,7 +13837,7 @@ brweb.track('loyalty_update', {
         "web_sdk_legacy": "// Final payload, as brPayload produces it from the dataLayer object.
 exponea.track('loyalty_update', {
   // Optional:
-  action: 'string',
+  action: 'add',
   final_points: 'string',
   points_change: 'string',
   status: 'string',
@@ -13920,7 +13928,7 @@ exponea.track('loyalty_update', {
           "definition_name": "general",
           "derivation": null,
           "description": null,
-          "example": "string",
+          "example": "add",
           "item_schema": null,
           "kind": "event",
           "name": "action",
@@ -15648,7 +15656,7 @@ window.dataLayer.push({
       parcel_inserts_low_value: true,
       payment_method: 'string',
       purchase_id: 'string',
-      purchase_status: 'string',
+      purchase_status: 'success',
       purchased_aroma_lifetime: true,
       shipping_country: 'string',
       store_id: 'string',
@@ -15697,7 +15705,7 @@ window.dataLayer.push({
       parcel_inserts_low_value: true,
       payment_method: 'string',
       purchase_id: 'string',
-      purchase_status: 'string',
+      purchase_status: 'success',
       purchased_aroma_lifetime: true,
       shipping_country: 'string',
       store_id: 'string',
@@ -15779,7 +15787,7 @@ var BR_RULES = [
     "parcel_inserts_low_value": true,
     "payment_method": "string",
     "purchase_id": "string",
-    "purchase_status": "string",
+    "purchase_status": "success",
     "purchased_aroma_lifetime": true,
     "shipping_country": "string",
     "store_id": "string",
@@ -15792,7 +15800,7 @@ var BR_RULES = [
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"parcel_insert","properties":{"ab_test_variant":"string","aov":123,"categories_string":"string","email":"string","has_purchased_sports":true,"in_preview":true,"inserted_item":"string","inserted_items":[],"is_referrer":true,"is_therapist":true,"is_women_health_interest":true,"item_ids":["string"],"managed_endpoint_version":"string","no_parcel_insert_180d":true,"order_count":123,"order_date":"string","order_value":123,"parcel_inserts_inactive_customer":true,"parcel_inserts_low_value":true,"payment_method":"string","purchase_id":"string","purchase_status":"string","purchased_aroma_lifetime":true,"shipping_country":"string","store_id":"string","type":"string","use_case":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"parcel_insert","properties":{"ab_test_variant":"string","aov":123,"categories_string":"string","email":"string","has_purchased_sports":true,"in_preview":true,"inserted_item":"string","inserted_items":[],"is_referrer":true,"is_therapist":true,"is_women_health_interest":true,"item_ids":["string"],"managed_endpoint_version":"string","no_parcel_insert_180d":true,"order_count":123,"order_date":"string","order_value":123,"parcel_inserts_inactive_customer":true,"parcel_inserts_low_value":true,"payment_method":"string","purchase_id":"string","purchase_status":"success","purchased_aroma_lifetime":true,"shipping_country":"string","store_id":"string","type":"string","use_case":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
 brweb.track('parcel_insert', {
   // Optional:
@@ -15817,7 +15825,7 @@ brweb.track('parcel_insert', {
   parcel_inserts_low_value: true,
   payment_method: 'string',
   purchase_id: 'string',
-  purchase_status: 'string',
+  purchase_status: 'success',
   purchased_aroma_lifetime: true,
   shipping_country: 'string',
   store_id: 'string',
@@ -15848,7 +15856,7 @@ exponea.track('parcel_insert', {
   parcel_inserts_low_value: true,
   payment_method: 'string',
   purchase_id: 'string',
-  purchase_status: 'string',
+  purchase_status: 'success',
   purchased_aroma_lifetime: true,
   shipping_country: 'string',
   store_id: 'string',
@@ -16379,7 +16387,7 @@ exponea.track('parcel_insert', {
           "definition_name": "general",
           "derivation": null,
           "description": null,
-          "example": "string",
+          "example": "success",
           "item_schema": null,
           "kind": "event",
           "name": "purchase_status",
@@ -17693,7 +17701,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
     "product_id": "string",
     "purchase_id": "string",
     "purchase_source_type": "string",
-    "purchase_status": "string",
+    "purchase_status": "success",
     "quantity": 123,
     "size": "string",
     "title": "string"
@@ -17704,7 +17712,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"purchase_item","properties":{"brand":"string","category_level_1":"string","category_level_2":"string","category_level_3":"string","color":"string","is_new":"string","price":123,"product_id":"string","purchase_id":"string","purchase_source_type":"string","purchase_status":"string","quantity":123,"size":"string","title":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"purchase_item","properties":{"brand":"string","category_level_1":"string","category_level_2":"string","category_level_3":"string","color":"string","is_new":"string","price":123,"product_id":"string","purchase_id":"string","purchase_source_type":"string","purchase_status":"success","quantity":123,"size":"string","title":"string"}}'",
         "web_sdk": "",
         "web_sdk_legacy": "",
       },
@@ -18144,7 +18152,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "definition_name": "general",
           "derivation": null,
           "description": null,
-          "example": "string",
+          "example": "success",
           "item_schema": null,
           "kind": "event",
           "name": "purchase_status",
@@ -22657,7 +22665,7 @@ window.dataLayer.push({
       // Optional:
       price: 123,
       product_id: 'string',
-      purchase_status: 'string',
+      purchase_status: 'success',
       return_reason: 'string',
       title: 'string',
     },
@@ -22683,7 +22691,7 @@ window.dataLayer.push({
       // Optional:
       price: 123,
       product_id: 'string',
-      purchase_status: 'string',
+      purchase_status: 'success',
       return_reason: 'string',
       title: 'string',
     },
@@ -22735,7 +22743,7 @@ var BR_RULES = [];
   "properties": {
     "price": 123,
     "product_id": "string",
-    "purchase_status": "string",
+    "purchase_status": "success",
     "return_reason": "string",
     "title": "string"
   }
@@ -22745,13 +22753,13 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"return","properties":{"price":123,"product_id":"string","purchase_status":"string","return_reason":"string","title":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"return","properties":{"price":123,"product_id":"string","purchase_status":"success","return_reason":"string","title":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
 brweb.track('return', {
   // Optional:
   price: 123,
   product_id: 'string',
-  purchase_status: 'string',
+  purchase_status: 'success',
   return_reason: 'string',
   title: 'string',
 });",
@@ -22760,7 +22768,7 @@ exponea.track('return', {
   // Optional:
   price: 123,
   product_id: 'string',
-  purchase_status: 'string',
+  purchase_status: 'success',
   return_reason: 'string',
   title: 'string',
 });",
@@ -22913,7 +22921,7 @@ exponea.track('return', {
           "definition_name": "general",
           "derivation": null,
           "description": null,
-          "example": "string",
+          "example": "success",
           "item_schema": null,
           "kind": "event",
           "name": "purchase_status",
@@ -23411,7 +23419,7 @@ window.dataLayer.push({
       delivery_date: 'string',
       purchase_date: 'string',
       purchase_id: 'string',
-      purchase_status: 'string',
+      purchase_status: 'success',
       shipment_status: 'string',
       shipping_city: 'string',
       shipping_cost: 123,
@@ -23436,7 +23444,7 @@ window.dataLayer.push({
       delivery_date: 'string',
       purchase_date: 'string',
       purchase_id: 'string',
-      purchase_status: 'string',
+      purchase_status: 'success',
       shipment_status: 'string',
       shipping_city: 'string',
       shipping_cost: 123,
@@ -23487,7 +23495,7 @@ var BR_RULES = [];
     "delivery_date": "string",
     "purchase_date": "string",
     "purchase_id": "string",
-    "purchase_status": "string",
+    "purchase_status": "success",
     "shipment_status": "string",
     "shipping_city": "string",
     "shipping_cost": 123,
@@ -23502,14 +23510,14 @@ var BR_RULES = [];
 curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\
   -H "Authorization: Basic YOUR_BASE64_API_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"shipment","properties":{"delivery_date":"string","purchase_date":"string","purchase_id":"string","purchase_status":"string","shipment_status":"string","shipping_city":"string","shipping_cost":123,"shipping_country":"string","shipping_date":"string","shipping_postal_code":123,"shipping_type":"string"}}'",
+  -d '{"customer_ids":{"<hard_id>":"<customer_id>"},"event_type":"shipment","properties":{"delivery_date":"string","purchase_date":"string","purchase_id":"string","purchase_status":"success","shipment_status":"string","shipping_city":"string","shipping_cost":123,"shipping_country":"string","shipping_date":"string","shipping_postal_code":123,"shipping_type":"string"}}'",
         "web_sdk": "// Final payload, as brPayload produces it from the dataLayer object.
 brweb.track('shipment', {
   // Optional:
   delivery_date: 'string',
   purchase_date: 'string',
   purchase_id: 'string',
-  purchase_status: 'string',
+  purchase_status: 'success',
   shipment_status: 'string',
   shipping_city: 'string',
   shipping_cost: 123,
@@ -23524,7 +23532,7 @@ exponea.track('shipment', {
   delivery_date: 'string',
   purchase_date: 'string',
   purchase_id: 'string',
-  purchase_status: 'string',
+  purchase_status: 'success',
   shipment_status: 'string',
   shipping_city: 'string',
   shipping_cost: 123,
@@ -23680,7 +23688,7 @@ exponea.track('shipment', {
           "definition_name": "general",
           "derivation": null,
           "description": null,
-          "example": "string",
+          "example": "success",
           "item_schema": null,
           "kind": "event",
           "name": "purchase_status",

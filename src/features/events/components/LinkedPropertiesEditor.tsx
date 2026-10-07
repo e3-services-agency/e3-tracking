@@ -5,6 +5,7 @@
  * and show their allowed values inline (the linked definition's own, falling back to the
  * property's) with the standard-event hint per value (D-03).
  */
+import { exampleValuesFor } from '@/src/domain/examples';
 import { effectivePayloadKey } from '@/src/domain/payloadKey';
 import { EnumSelect } from '@/src/components/ui/EnumSelect';
 import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
@@ -193,7 +194,7 @@ export function LinkedPropertiesEditor({
                           : '—'}
                       </td>
                       <td className="px-2 py-1 text-gray-600">{Array.isArray(d.formats_json) && d.formats_json.length > 0 ? d.formats_json.join(', ') : '—'}</td>
-                      <td className="px-2 py-1 text-gray-600">{exampleText(d.example_values_json)}</td>
+                      <td className="px-2 py-1 text-gray-600">{exampleText(exampleValuesFor(d).map((x) => x.value))}</td>
                     </tr>
                   ))}
                 </tbody>

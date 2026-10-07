@@ -17,12 +17,12 @@ if [ "$DRY_RUN" = 1 ]; then
   for p in "${ARGS[@]}"; do
     show curl -fsS "$LOCAL/api/projects/$p/export/backup.json" -o "$OUT/backup-$p.json"
   done
-  show gcloud compute ssh "$VM_NAME" "${IAP[@]}" -- -N -L "$TUNNEL_PORT:127.0.0.1:3001"
+  show gcloud compute ssh "$VM_NAME" "${IAP[@]}" -- -N -L "$TUNNEL_PORT:127.0.0.1:3020"
   for p in "${ARGS[@]}"; do
     show curl -fsS -X POST "http://127.0.0.1:$TUNNEL_PORT/api/projects/restore-backup/preview" -H 'Content-Type: application/json' --data-binary "@$OUT/backup-$p.json"
     show curl -fsS -X POST "http://127.0.0.1:$TUNNEL_PORT/api/projects/restore-backup/apply" -H 'Content-Type: application/json' --data-binary "@$OUT/apply-$p.json"
   done
-  say "NOTE: the VM app port must be reachable from inside the VM (the edge profile publishes it on 127.0.0.1:3001); otherwise restore through the Clients page."
+  say "NOTE: the app publishes 127.0.0.1:3020 on the VM (main compose file), so the tunnel targets it. Fallback: download the backup and use the restore form on the Clients page of the deployed app."
   exit 0
 fi
 confirm_once
@@ -31,7 +31,7 @@ for p in "${ARGS[@]}"; do
   curl -fsS "$LOCAL/api/projects/$p/export/backup.json" -o "$OUT/backup-$p.json"
   say "exported $p ($(wc -c < "$OUT/backup-$p.json") bytes)"
 done
-gcloud compute ssh "$VM_NAME" "${IAP[@]}" -- -N -L "$TUNNEL_PORT:127.0.0.1:3001" &
+gcloud compute ssh "$VM_NAME" "${IAP[@]}" -- -N -L "$TUNNEL_PORT:127.0.0.1:3020" &
 TUN=$!
 trap 'kill $TUN 2>/dev/null || true' EXIT
 sleep 8

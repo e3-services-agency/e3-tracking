@@ -24,6 +24,8 @@ ensure "uptime check" "${G[*]} monitoring uptime list-configs --filter 'displayN
   "${G[@]}" monitoring uptime create "$NAME" --resource-type uptime-url \
   --resource-labels "host=$HOSTNAME,project_id=$PROJECT_ID" --protocol https --path /api/health --port 443 \
   --period 5 --timeout 10 --validate-ssl true
+# CHECK AFTER THE FIRST RUN: the uptime-check metric filter and aggregation below are unverified against a live
+# project; open Cloud Monitoring > Alerting and confirm the policy fires on a failing check (e.g. stop the app briefly).
 POLICY="$GCP_DIR/alert-policy.json"
 if [ "$DRY_RUN" != 1 ]; then
   CHECK_ID="$(gcloud --project "$PROJECT_ID" monitoring uptime list-configs --filter "displayName=$NAME" --format 'value(name)' | head -1)"

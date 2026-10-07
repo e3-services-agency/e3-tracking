@@ -29,5 +29,6 @@ if [ -e "$DEV" ]; then
   grep -q 'LABEL=e3data' /etc/fstab || echo 'LABEL=e3data /data ext4 discard,defaults,nofail 0 2' >> /etc/fstab
   mountpoint -q /data || mount /data
 fi
+chown 1000:1000 /data 2>/dev/null || true
 mkdir -p /opt/e3-tracking
 chmod 755 /opt/e3-tracking

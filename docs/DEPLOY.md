@@ -127,11 +127,11 @@ deploy/gcp/05-cutover.sh <project-id>...   # move local projects (exports from 1
 deploy/gcp/06-monitoring.sh            # uptime check on /api/health, email alert
 ```
 
-`.env` variable names (`IMAGE`, `HOSTNAME`, `WORKSPACE_DOMAIN`, `TRUSTED_PROXY_CIDR`, `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`, `COOKIE_SECRET`, `BACKUP_BUCKET`) must match what the edge profile's compose and Caddyfile read; compose uses `image: ${IMAGE:-e3-tracking:local}` for app, backup and mcp.
+The VM runs compose with `-f docker-compose.yml -f docker-compose.gcp.yml` (`deploy/gcp/docker-compose.gcp.yml` binds `/data` of app, backup and mcp to the mounted data disk; `startup.sh` chowns it to uid 1000). `.env` variable names (`IMAGE`, `HOSTNAME`, `WORKSPACE_DOMAIN`, `TRUSTED_PROXY_CIDR`, `OAUTH_CLIENT_ID`, `OAUTH_CLIENT_SECRET`, `COOKIE_SECRET`, `BACKUP_BUCKET`) must match what the edge profile's compose and Caddyfile read; compose uses `image: ${IMAGE:-e3-tracking:local}` for app, backup and mcp.
 
 ### Cut-over
 
-`05-cutover.sh` exports each project's `backup.json` from the local container and restores it on the VM through an IAP SSH tunnel to the app's port (the OAuth proxy blocks scripted calls). If the port is not reachable that way, download the backup from the local app and use the restore form on the Clients page of the deployed app. Restore always creates a new project.
+`05-cutover.sh` exports each project's `backup.json` from the local container and restores it on the VM through an IAP SSH tunnel to the app port 127.0.0.1:3020 on the VM (the OAuth proxy blocks scripted calls). If the port is not reachable that way, download the backup from the local app and use the restore form on the Clients page of the deployed app. Restore always creates a new project.
 
 ### Rollback
 

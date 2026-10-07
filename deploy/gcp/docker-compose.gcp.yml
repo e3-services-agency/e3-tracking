@@ -1,0 +1,13 @@
+# T-5-07 override, applied on the VM: docker compose -f docker-compose.yml -f docker-compose.gcp.yml ...
+# Binds /data in every service to the mounted 20 GB data disk (/data on the VM host) instead of the
+# named volume e3_data, so app data lives on the persistent disk. Same-target volumes replace the base ones.
+services:
+  app:
+    volumes:
+      - /data:/data
+  backup:
+    volumes:
+      - /data:/data
+  mcp:
+    volumes:
+      - /data:/data

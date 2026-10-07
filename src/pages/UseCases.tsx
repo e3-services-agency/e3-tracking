@@ -879,7 +879,7 @@ function UseCaseDetail({
                 <HintTh className="px-4 py-2 font-medium text-gray-500" hint="Target kind" hintScope="UseCases">Target kind</HintTh>
                 <HintTh className="px-4 py-2 font-medium text-gray-500" hint="Target" hintScope="UseCases">Target</HintTh>
                 <HintTh className="px-4 py-2 font-medium text-gray-500 w-20" hint="Level" hintScope="UseCases">Level</HintTh>
-                <HintTh className="px-4 py-2 font-medium text-gray-500 w-32" hint="Status" hintScope="UseCases">Status</HintTh>
+                <HintTh className="px-4 py-2 font-medium text-gray-500 w-32" hint="Requirement status" hintScope="UseCases">Status</HintTh>
                 <HintTh className="px-4 py-2 font-medium text-gray-500" hint="Note" hintScope="UseCases">Note</HintTh>
                 <th className="px-4 py-2 w-10" />
               </tr>

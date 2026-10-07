@@ -167,7 +167,7 @@ export function StandardEvents() {
       <PageHeader>
         <h1 className="text-2xl font-bold text-gray-900">Standard events</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Bloomreach standard events (seed + project additions, D-26) mapped to a project event and variant.
+          Bloomreach standard events mapped to a project event and variant.
         </p>
       </PageHeader>
 

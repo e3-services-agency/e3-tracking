@@ -234,6 +234,7 @@ export const FIELD_HINTS: Record<string, string> = {
   'UseCases.Priority': 'How important the use case is to the client. Example: critical for the abandoned cart flow.',
   'UseCases.Description': 'What the use case does for the customer and the business. Example: Remind customers who left items in the cart.',
   'UseCases.Owner': 'Who owns this use case on the client side. Example: CRM manager.',
+  'Requirement status': 'open = still to be covered; resolved = covered by the project definition; gap = required but missing. Example: gap.',
   'UseCases.Level': 'Required (R): the use case cannot run without it; Optional (O): it improves it. Example: R for cart_update.',
   'UseCases.Actions': 'Open or delete this use case.',
   'Identity.Type': 'hard = identifies a known customer (email, customer id); soft = a cookie or device id. Example: hard.',

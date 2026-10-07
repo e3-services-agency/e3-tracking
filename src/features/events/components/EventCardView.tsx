@@ -529,7 +529,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
       </Section>
       )}
 
-      {identifyCodegen && (
+      {identifyCodegen && (card.implementation_method ?? 'client_web') === 'client_web' && (card.identifiers?.length ?? 0) > 0 && (
       <Section title="Identity">
         <p className="text-sm text-gray-700 mb-2" data-testid="card-identity-block">
           Identifiers sent in customer_ids: {card.identifiers && card.identifiers.length > 0 ? card.identifiers.join(', ') : 'none'}

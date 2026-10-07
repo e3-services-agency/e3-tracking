@@ -60,6 +60,7 @@ export function EventCard({ eventId, onBack }: { eventId: string; onBack: () => 
     }
     setLoading(true);
     setError(null);
+    setIdentifyCodegen(null);
     try {
       const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/events/${eventId}/card`);
       const data = await parseJson(res);

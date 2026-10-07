@@ -29034,14 +29034,15 @@ track: {
     "identify": {
       "gtm_datalayer": "// No hard identity rules configured; there is no identify push to send yet.
 
-// The shared E3 GTM template reads the 'bloomreach' object of the dataLayer push and forwards it to the Bloomreach
-// Web SDK. Do not call the SDK from the site for this.",
+// This push needs a trigger in the shared E3 GTM template for the \`bloomreach_<call>\` events; the template ships only the
+// event forwarding today. Do not call the SDK from the site for this.",
       "tracking_api": "// No hard identity rules configured; the Tracking API customers call has no customer_ids to send yet.",
       "web_sdk": "// No hard identity rules configured; brweb.identify() has nothing to send yet.",
       "web_sdk_legacy": "// No hard identity rules configured; exponea.identify() has nothing to send yet.",
     },
     "update": {
       "gtm_datalayer": "window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({ bloomreach: null });
 window.dataLayer.push({
   event: 'bloomreach_update',
   bloomreach: {
@@ -29056,9 +29057,10 @@ window.dataLayer.push({
   },
 });
 
-// The shared E3 GTM template reads the 'bloomreach' object of the dataLayer push and forwards it to the Bloomreach
-// Web SDK. Do not call the SDK from the site for this.",
+// This push needs a trigger in the shared E3 GTM template for the \`bloomreach_<call>\` events; the template ships only the
+// event forwarding today. Do not call the SDK from the site for this.",
       "tracking_api": "// Customer attributes are updated with the same customers call; the customer is addressed by its hard id.
+// no hard id configured yet: replace \`registered\` with the project's hard id
 // Tracking API: POST /track/v2/projects/{project_token}/customers (see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview)
 {
   "customer_ids": {

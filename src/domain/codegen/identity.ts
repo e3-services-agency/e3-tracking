@@ -219,8 +219,8 @@ function identifyTrackingApi(hardRules: IdentityRuleForCodegen[], standalone: Id
 }
 
 const GTM_NOTE = [
-  "// The shared E3 GTM template reads the 'bloomreach' object of the dataLayer push and forwards it to the Bloomreach",
-  '// Web SDK. Do not call the SDK from the site for this.',
+  '// This push needs a trigger in the shared E3 GTM template for the `bloomreach_<call>` events; the template ships only the',
+  '// event forwarding today. Do not call the SDK from the site for this.',
 ].join(NL);
 
 function dlPush(call: string, body: string[], comment?: string): string {
@@ -228,6 +228,7 @@ function dlPush(call: string, body: string[], comment?: string): string {
   return [
     ...(comment ? [comment] : []),
     'window.dataLayer = window.dataLayer || [];',
+    'window.dataLayer.push({ bloomreach: null });',
     'window.dataLayer.push({',
     `  event: 'bloomreach_${call}',`,
     '  bloomreach: {',
@@ -293,6 +294,7 @@ function sortedMapped(customerProperties: CustomerPropertyForCodegen[]): { key: 
     });
 }
 
+const NOHARD = "// no hard id configured yet: replace `registered` with the project's hard id";
 const NO_UPDATE = '// No customer properties mapped to a Bloomreach customer attribute yet.';
 
 function updateFor(ns: Ns, customerProperties: CustomerPropertyForCodegen[]): string {
@@ -307,6 +309,7 @@ function updateTrackingApi(customerProperties: CustomerPropertyForCodegen[], har
   const ids = hardRules.length > 0 ? hardRules.map((r) => r.identifier_name) : ['registered'];
   return [
     '// Customer attributes are updated with the same customers call; the customer is addressed by its hard id.',
+    ...(hardRules.length === 0 ? [NOHARD] : []),
     API_NOTE,
     jsonBody({ customer_ids: idsPlaceholders(ids), properties: Object.fromEntries(rows.map((r) => [r.key, `<${r.rawVar}>`])) }),
   ].join(NL);
@@ -340,6 +343,7 @@ function anonymizeTrackingApi(rules: IdentityRuleForCodegen[], hardRules: Identi
     ...anonymizeHeader(rules),
     '// Server-side anonymization removes the customer\'s personal data; it is not the SDK logout. For a plain logout the SDK form',
     '// (or the GTM push) starts a new anonymous profile.',
+    ...(hardRules.length === 0 ? [NOHARD] : []),
     '// POST /data/v2/projects/{project_token}/customers/anonymize',
     jsonBody({ customer_ids: idsPlaceholders(ids) }),
   ].join(NL);

@@ -124,3 +124,19 @@ describe('standalone calls (D-67 amendment 1) in every form', () => {
     expect(s.web_sdk.match(/brweb\.identify\(/g)).toHaveLength(1);
   });
 });
+
+describe('T-4-30 fix round', () => {
+  it('emits the reset push before each identity push and a proposed-contract note', () => {
+    const s = buildIdentityCodegen([rule({ identifier_name: 'registered' }), logout], props);
+    for (const v of [s.identify.gtm_datalayer, s.update.gtm_datalayer, s.anonymize.gtm_datalayer]) {
+      expect(v.indexOf('window.dataLayer.push({ bloomreach: null });')).toBeGreaterThan(-1);
+      expect(v.indexOf('bloomreach: null')).toBeLessThan(v.indexOf("event: 'bloomreach_"));
+      expect(v).toContain('needs a trigger in the shared E3 GTM template');
+    }
+  });
+  it('comments the registered placeholder when no hard rule exists', () => {
+    const s = buildIdentityCodegen([logout], props);
+    expect(s.anonymize.tracking_api).toContain('// no hard id configured yet: replace `registered`');
+    expect(s.update.tracking_api).toContain('// no hard id configured yet: replace `registered`');
+  });
+});

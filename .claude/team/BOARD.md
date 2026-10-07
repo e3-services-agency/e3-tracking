@@ -3494,3 +3494,5 @@ Apply on 3020: 56 definitions created, 56 links moved, 0 failed; action = genera
 
 ### 2026-10-07 | supervisor | MERGE | T-4-35 merged (21dc711 + 9d30465 test path fix) — DONE; round 9 complete, nothing running
 Merged tree: tsc, lint, build clean, 1886 tests / 188 files. Airshoppen seeded on the container (events 23, properties 194, 56 named definitions, 2 catalogs, 3 identity rules). Open, waiting on the user: container rebuild to pick up rounds 8-9 (migrations 0031-0032 apply on start: identifiers backfilled from the three rules); D-67/D-68/D-69 confirmation; T-4-06 samples; phase 5 go + provider; client collaboration scope (threads, status, reactions, images) proposed in chat.
+
+### 2026-10-07 | supervisor | TASK | D-70 start (user: "start"): T-5-02 threads+status and T-5-04 images in parallel (C:/t/t502, C:/t/t504; migrations 0033 and 0035 assigned), T-5-03 reactions after T-5-02 merges (0034)

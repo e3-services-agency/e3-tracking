@@ -5,7 +5,7 @@ import { StatusBadge } from '@/src/components/ui/badges';
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
 import { hintFor } from '@/src/components/ui/FieldHint';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -15,9 +15,9 @@ import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
-import { PRIORITIES, ENTITY_STATUSES, CATALOG_MAPPING_ROLES, CATALOG_KINDS, CATALOG_VERSIONS, CATALOG_SEARCHABLE_LIMIT, PROPERTY_DATA_TYPES } from '@/src/domain/enums';
-import { catalogMarketLabel } from '@/src/domain/catalogs';
-import { CATALOG_MAIN_COLUMNS } from '@/src/domain/bloomreach';
+import { PRIORITIES, ENTITY_STATUSES, CATALOG_MAPPING_ROLES, CATALOG_KINDS, CATALOG_VERSIONS, CATALOG_SEARCHABLE_LIMIT } from '@/src/domain/enums';
+import { catalogMarketLabel, validateCatalogFields } from '@/src/domain/catalogs';
+import { FieldTableEditor, type CatalogFieldDraft } from '@/src/features/catalogs/FieldTableEditor';
 import { HistorySection } from '@/src/features/history/HistorySection';
 
 interface CatalogRow {
@@ -51,6 +51,46 @@ interface CatalogFieldRow {
   bloomreach_column: string | null;
 }
 
+function toDraft(f: CatalogFieldRow): CatalogFieldDraft {
+  return {
+    key: f.id,
+    id: f.id,
+    name: f.name,
+    data_type: f.data_type ?? 'string',
+    is_lookup_key: f.is_lookup_key,
+    is_searchable: f.is_searchable,
+    is_required: f.is_required,
+    client_field_name: f.client_field_name ?? '',
+    bloomreach_column: f.bloomreach_column ?? '',
+  };
+}
+
+function stripKey(d: CatalogFieldDraft) {
+  const { key: _key, ...rest } = d;
+  return rest;
+}
+
+function draftBody(d: CatalogFieldDraft) {
+  return {
+    name: d.name.trim(),
+    data_type: d.data_type ?? 'string',
+    is_lookup_key: d.is_lookup_key,
+    is_searchable: d.is_searchable,
+    is_required: d.is_required,
+    client_field_name: d.client_field_name.trim() || null,
+    bloomreach_column: d.bloomreach_column || null,
+  };
+}
+
+/** The PATCH body for what changed between the saved row and its draft, or null when nothing did. */
+function diffDraft(saved: CatalogFieldRow, d: CatalogFieldDraft): Record<string, unknown> | null {
+  const next = draftBody(d);
+  const was = draftBody(toDraft(saved));
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(next) as (keyof typeof next)[]) if (next[k] !== was[k]) out[k] = next[k];
+  return Object.keys(out).length ? out : null;
+}
+
 async function parseJson(res: Response): Promise<any> {
   return res.json().catch(() => ({}));
 }
@@ -61,6 +101,12 @@ export function Catalogs() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const dirtyRef = useRef(false);
+  const closeSheet = () => {
+    if (dirtyRef.current && !window.confirm('Discard unsaved field changes?')) return;
+    dirtyRef.current = false;
+    setIsSheetOpen(false);
+  };
 
   const load = useCallback(async () => {
     if (!hasValidProjectContext || !activeProjectId) return;
@@ -122,13 +168,14 @@ export function Catalogs() {
         </div>
       </PageBody>
 
-      <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title={isCreating ? 'Create Catalog' : 'Edit Catalog'}>
+      <Sheet isOpen={isSheetOpen} onClose={closeSheet} title={isCreating ? 'Create Catalog' : 'Edit Catalog'}>
         <CatalogEditor
           key={isCreating ? 'create' : selectedId ?? 'none'}
           catalogId={isCreating ? null : selectedId}
           projectId={activeProjectId}
           onSaved={async () => { await load(); setIsSheetOpen(false); }}
-          onClose={() => setIsSheetOpen(false)}
+          onClose={closeSheet}
+          dirtyRef={dirtyRef}
         />
       </Sheet>
     </div>
@@ -140,11 +187,13 @@ function CatalogEditor({
   projectId,
   onSaved,
   onClose,
+  dirtyRef,
 }: {
   catalogId: string | null;
   projectId: string;
   onSaved: () => Promise<void>;
   onClose: () => void;
+  dirtyRef: React.MutableRefObject<boolean>;
 }) {
   const isCreating = catalogId === null;
   const [loading, setLoading] = useState(!isCreating);
@@ -160,7 +209,7 @@ function CatalogEditor({
   const [version, setVersion] = useState('v1');
   const [priority, setPriority] = useState('');
   const [status, setStatus] = useState('');
-  const [newFieldName, setNewFieldName] = useState('');
+  const [draft, setDraft] = useState<CatalogFieldDraft[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -185,7 +234,9 @@ function CatalogEditor({
         setVersion(data.version ?? 'v1');
         setPriority(data.priority ?? '');
         setStatus(data.status ?? '');
-        setFields(Array.isArray(data.fields) ? data.fields : []);
+        const rows: CatalogFieldRow[] = Array.isArray(data.fields) ? data.fields : [];
+        setFields(rows);
+        setDraft(rows.map(toDraft));
       } else {
         setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to load catalog.');
       }
@@ -195,6 +246,16 @@ function CatalogEditor({
 
   const trimmedName = name.trim();
   const nameError = trimmedName ? null : 'Name is required.';
+  const validation = validateCatalogFields(draft);
+  const dirty = JSON.stringify(draft.map(stripKey)) !== JSON.stringify(fields.map(toDraft).map(stripKey));
+  const referencedNames = new Set((catalog?.looked_up_by ?? []).map((p) => p.field_name).filter((n): n is string => !!n));
+  const linkedBy = new Map<string, string[]>();
+  for (const p of catalog?.looked_up_by ?? []) if (p.field_name) linkedBy.set(p.field_name, [...(linkedBy.get(p.field_name) ?? []), `${p.property_name} (${p.scope})`]);
+  // A rename whose new name is another saved row's current name only works in a certain order: ask for two saves.
+  const savedById = new Map(fields.map((f) => [f.id, f.name]));
+  const renameClash = draft.filter((d) => d.id && savedById.get(d.id) !== d.name.trim()).some((d) => [...savedById].some(([id, n]) => id !== d.id && n === d.name.trim() && draft.some((o) => o.id === id && o.name.trim() !== n)));
+  useEffect(() => { dirtyRef.current = dirty; return () => { dirtyRef.current = false; }; }, [dirty, dirtyRef]);
+  const blockReasons = [...(trimmedName ? [] : ['The catalog has no name.']), ...(isCreating ? [] : validation.reasons), ...(renameClash ? ['A rename takes a name another field still has: rename in two saves.'] : [])];
 
   const handleSave = async () => {
     if (!trimmedName || !projectId) return;
@@ -221,10 +282,62 @@ function CatalogEditor({
         setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to save.');
         return;
       }
+      if (!isCreating) {
+        const fieldError = await applyFieldChanges();
+        if (fieldError) {
+          setSaveError(fieldError);
+          return;
+        }
+      }
       await onSaved();
     } finally {
       setSaving(false);
     }
+  };
+
+  /** Saves the table: deletes, edits, creates, then the order. On a failure reloads the saved state. */
+  const applyFieldChanges = async (): Promise<string | null> => {
+    const base = `${API_BASE}/api/projects/${projectId}/catalogs/${catalogId}`;
+    const fail = async (msg: string) => {
+      const res = await fetchWithAuth(base);
+      const data = await parseJson(res);
+      if (res.ok && Array.isArray(data.fields)) {
+        setFields(data.fields);
+        setDraft(data.fields.map(toDraft));
+      }
+      return `${msg} Fields saved before the error were kept; the table was reloaded.`;
+    };
+    const send = async (url: string, method: string, body?: unknown) => {
+      const res = await fetchWithAuth(url, { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+      const data = await parseJson(res);
+      return { ok: res.ok, data };
+    };
+    const kept = new Set(draft.filter((d) => d.id).map((d) => d.id));
+    for (const f of fields.filter((f) => !kept.has(f.id))) {
+      const r = await send(`${base}/fields/${f.id}`, 'DELETE');
+      if (!r.ok) return fail(r.data?.error ?? `Could not delete ${f.name}.`);
+    }
+    const byId = new Map(fields.map((f) => [f.id, f]));
+    for (const d of draft.filter((d) => d.id)) {
+      const body = diffDraft(byId.get(d.id!)!, d);
+      if (!body) continue;
+      const r = await send(`${base}/fields/${d.id}`, 'PATCH', body);
+      if (!r.ok) return fail(r.data?.error ?? `Could not update ${d.name}.`);
+    }
+    const ids: string[] = [];
+    for (const d of draft) {
+      if (d.id) { ids.push(d.id); continue; }
+      const r = await send(`${base}/fields`, 'POST', draftBody(d));
+      if (!r.ok) return fail(r.data?.error ?? `Could not add ${d.name}.`);
+      ids.push(r.data.id);
+    }
+    if (ids.length > 0) {
+      const r = await send(`${base}/fields/order`, 'PUT', { ids });
+      if (!r.ok) return fail(r.data?.error ?? 'Could not save the field order.');
+      setFields(r.data);
+      setDraft(r.data.map(toDraft));
+    }
+    return null;
   };
 
   const handleDelete = async () => {
@@ -255,48 +368,6 @@ function CatalogEditor({
     const data = await parseJson(res);
     if (res.ok) setCatalog((prev) => (prev ? { ...prev, ...data } : prev));
     else setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to update live state.');
-  };
-
-  const addField = async () => {
-    if (!newFieldName.trim() || !projectId || !catalogId) return;
-    setSaveError(null);
-    const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/catalogs/${catalogId}/fields`, {
-      method: 'POST',
-      body: JSON.stringify({ name: newFieldName.trim() }),
-    });
-    const data = await parseJson(res);
-    if (res.ok) {
-      setFields((prev) => [...prev, data]);
-      setNewFieldName('');
-    } else {
-      setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to add field.');
-    }
-  };
-
-  const removeField = async (fieldId: string) => {
-    if (!projectId || !catalogId) return;
-    setSaveError(null);
-    const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/catalogs/${catalogId}/fields/${fieldId}`, { method: 'DELETE' });
-    if (res.ok || res.status === 204) {
-      setFields((prev) => prev.filter((f) => f.id !== fieldId));
-    } else {
-      const data = await parseJson(res);
-      setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to remove field.');
-    }
-  };
-
-  const patchField = async (fieldId: string, patch: Record<string, unknown>): Promise<string | null> => {
-    if (!projectId || !catalogId) return 'No catalog selected.';
-    const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/catalogs/${catalogId}/fields/${fieldId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(patch),
-    });
-    const data = await parseJson(res);
-    if (!res.ok) {
-      return typeof data?.error === 'string' ? data.error : 'Failed to update field.';
-    }
-    setFields((prev) => prev.map((f) => (f.id === fieldId ? data : f)));
-    return null;
   };
 
   if (loading) return <div className="text-sm text-gray-500 p-4">Loading…</div>;
@@ -389,35 +460,33 @@ function CatalogEditor({
         <div className="space-y-3 border-t pt-4">
           <h3 className="text-sm font-semibold text-gray-900">Fields</h3>
           {(() => {
-            const searchableCount = fields.filter((f) => f.is_searchable).length;
-            const keys = fields.filter((f) => f.is_lookup_key);
+            const keys = draft.filter((f) => f.is_lookup_key);
+            const keyText = keys.length === 1 ? keys[0].name : keys.length === 0 ? 'none yet' : `${keys.length} fields, must be one`;
+            const searchableCount = validation.searchableCount;
+            const live = catalog?.live_at ? `Live since ${catalog.live_at.slice(0, 10)}.` : 'Not marked live.';
             return (
-              <div className="text-xs text-gray-600 space-y-1" data-testid="catalog-field-summary">
-                <p className={searchableCount > CATALOG_SEARCHABLE_LIMIT ? 'text-red-700' : searchableCount === CATALOG_SEARCHABLE_LIMIT ? 'text-amber-700' : undefined}>
-                  Searchable fields: {searchableCount} of {CATALOG_SEARCHABLE_LIMIT}
+              <div className="text-xs text-gray-600 space-y-0.5" data-testid="catalog-field-summary">
+                <p data-testid="catalog-live">
+                  Lookup key: {keyText}. Searchable:{' '}
+                  <span className={searchableCount > CATALOG_SEARCHABLE_LIMIT ? 'text-red-700' : searchableCount === CATALOG_SEARCHABLE_LIMIT ? 'text-amber-700' : undefined}>
+                    {searchableCount} of {CATALOG_SEARCHABLE_LIMIT}
+                  </span>
+                  . {live}{' '}
+                  <button
+                    type="button"
+                    className="underline text-blue-700 disabled:opacity-50 disabled:no-underline"
+                    disabled={dirty || saving}
+                    title={dirty ? 'Save the field changes first.' : undefined}
+                    onClick={() => void setLive(!catalog?.live_at)}
+                  >
+                    {catalog?.live_at ? 'Take off live' : 'Mark live'}
+                  </button>
                 </p>
-                <p>
-                  Lookup key: {keys.length === 1 ? keys[0].name : keys.length === 0 ? 'none yet' : `${keys.length} fields, must be one`}.
-                  The lookup key is the item_id column, which Jinja cannot read, because Jinja reads only catalog properties: add a regular product_id (or variant_id) field with the same value. If the key field already has that name, treat it as item_id (rename it) first.
-                </p>
+                <p className="text-gray-500">Jinja reads catalog properties, not the key column: keep a product_id or variant_id field with the same value.</p>
               </div>
             );
           })()}
-          <div className="flex items-center gap-3 text-xs" data-testid="catalog-live">
-            <span className="text-gray-600">
-              {catalog?.live_at ? `Live since ${catalog.live_at.slice(0, 10)}; searchable snapshot: ${(catalog.searchable_snapshot_json ?? []).length} fields.` : 'Not marked live.'}
-            </span>
-            <Button type="button" variant="outline" onClick={() => void setLive(!catalog?.live_at)}>
-              {catalog?.live_at ? 'Take off live' : 'Mark live'}
-            </Button>
-          </div>
-          {fields.map((f) => (
-            <CatalogFieldRowEditor key={f.id} field={f} onPatch={patchField} onRemove={removeField} />
-          ))}
-          <div className="flex gap-2">
-            <Input value={newFieldName} onChange={(e) => setNewFieldName(e.target.value)} placeholder="Field name" className="flex-1" />
-            <Button type="button" variant="outline" onClick={addField} disabled={!newFieldName.trim()}>Add field</Button>
-          </div>
+          <FieldTableEditor fields={draft} onChange={setDraft} referencedNames={referencedNames} linkedBy={linkedBy} />
         </div>
       )}
 
@@ -425,6 +494,12 @@ function CatalogEditor({
 
       {!isCreating && catalog && (
         <HistorySection projectId={projectId} entityType="catalog" entityId={catalog.id} parentEntityId={catalog.id} />
+      )}
+
+      {blockReasons.length > 0 && (
+        <ul className="text-xs text-red-600 list-disc pl-5" data-testid="catalog-save-reasons">
+          {blockReasons.map((r) => <li key={r}>{r}</li>)}
+        </ul>
       )}
 
       <div className="pt-6 border-t flex justify-between">
@@ -435,165 +510,9 @@ function CatalogEditor({
         ) : <div />}
         <div className="flex gap-2">
           <Button variant="outline" onClick={onClose} disabled={saving || deleting}>Cancel</Button>
-          <Button onClick={() => void handleSave()} disabled={saving || deleting || !trimmedName}>{saving ? 'Saving…' : 'Save Catalog'}</Button>
+          <Button onClick={() => void handleSave()} disabled={saving || deleting || blockReasons.length > 0}>{saving ? 'Saving…' : 'Save Catalog'}</Button>
         </div>
       </div>
-    </div>
-  );
-}
-
-/**
- * One catalog field row: inline rename (blur/Enter commits, a duplicate name surfaces the DAL's
- * 409 ConflictError message inline instead of silently reverting — qa-tester observation on
- * T-1-02), searchable/required checkboxes, client field name, and a Bloomreach column select
- * built from the `main_columns` seed (`src/domain/bloomreach.ts`).
- */
-function CatalogFieldRowEditor({
-  field,
-  onPatch,
-  onRemove,
-}: {
-  field: CatalogFieldRow;
-  onPatch: (fieldId: string, patch: Record<string, unknown>) => Promise<string | null>;
-  onRemove: (fieldId: string) => Promise<void>;
-}) {
-  const [name, setName] = useState(field.name);
-  const [clientFieldName, setClientFieldName] = useState(field.client_field_name ?? '');
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    setName(field.name);
-    setClientFieldName(field.client_field_name ?? '');
-  }, [field.id, field.name, field.client_field_name]);
-
-  const commitRename = async () => {
-    const trimmed = name.trim();
-    if (!trimmed || trimmed === field.name) {
-      setName(field.name);
-      return;
-    }
-    setBusy(true);
-    const err = await onPatch(field.id, { name: trimmed });
-    setBusy(false);
-    if (err) {
-      setError(err);
-      setName(field.name);
-    } else {
-      setError(null);
-    }
-  };
-
-  const commitClientFieldName = async () => {
-    const trimmed = clientFieldName.trim();
-    if (trimmed === (field.client_field_name ?? '')) return;
-    setBusy(true);
-    const err = await onPatch(field.id, { client_field_name: trimmed || null });
-    setBusy(false);
-    if (err) setError(err);
-  };
-
-  const toggle = async (key: 'is_searchable' | 'is_required', value: boolean) => {
-    setBusy(true);
-    const err = await onPatch(field.id, { [key]: value });
-    setBusy(false);
-    if (err) setError(err);
-  };
-
-  const patchSimple = async (patch: Record<string, unknown>) => {
-    setBusy(true);
-    const err = await onPatch(field.id, patch);
-    setBusy(false);
-    if (err) setError(err);
-  };
-
-  const setBloomreachColumn = async (value: string) => {
-    setBusy(true);
-    const err = await onPatch(field.id, { bloomreach_column: value || null });
-    setBusy(false);
-    if (err) setError(err);
-  };
-
-  return (
-    <div className="border rounded-md px-3 py-2 bg-gray-50 space-y-2">
-      <div className="flex items-center gap-2">
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={() => void commitRename()}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-          }}
-          disabled={busy}
-          className="flex-1"
-        />
-        <CopyNameButton name={field.name} />
-        <button type="button" onClick={() => void onRemove(field.id)} className="text-red-500 hover:text-red-700" title="Remove field">
-          <Trash2 className="w-4 h-4" />
-        </button>
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        <div className="space-y-1">
-          <label className="text-xs text-gray-500" title={hintFor('Data type', 'Catalogs')}>Data type</label>
-          <select
-            value={field.data_type ?? 'string'}
-            onChange={(e) => void patchSimple({ data_type: e.target.value })}
-            disabled={busy}
-            className="w-full h-8 rounded-md border border-gray-300 bg-white px-2 text-xs"
-          >
-            {[...new Set([...PROPERTY_DATA_TYPES, field.data_type ?? 'string'])].map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
-        <label className="flex items-center gap-2 text-xs text-gray-700 self-end pb-1">
-          <input type="checkbox" checked={field.is_lookup_key} onChange={(e) => void patchSimple({ is_lookup_key: e.target.checked })} disabled={busy} />
-          Lookup key
-        </label>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <label className="flex items-center gap-2 text-xs text-gray-700">
-          <input
-            type="checkbox"
-            checked={field.is_searchable}
-            onChange={(e) => void toggle('is_searchable', e.target.checked)}
-            disabled={busy}
-          />
-          Searchable
-        </label>
-        <label className="flex items-center gap-2 text-xs text-gray-700">
-          <input
-            type="checkbox"
-            checked={field.is_required}
-            onChange={(e) => void toggle('is_required', e.target.checked)}
-            disabled={busy}
-          />
-          Required
-        </label>
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <div className="space-y-1">
-          <label className="text-xs text-gray-500" title={hintFor('Client field name', 'Catalogs')}>Client field name</label>
-          <Input
-            value={clientFieldName}
-            onChange={(e) => setClientFieldName(e.target.value)}
-            onBlur={() => void commitClientFieldName()}
-            disabled={busy}
-            className="h-8 text-xs"
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs text-gray-500" title={hintFor('Bloomreach column', 'Catalogs')}>Bloomreach column</label>
-          <select
-            value={field.bloomreach_column ?? ''}
-            onChange={(e) => void setBloomreachColumn(e.target.value)}
-            disabled={busy}
-            className="w-full h-8 rounded-md border border-gray-300 bg-white px-2 text-xs"
-          >
-            <option value="">—</option>
-            {CATALOG_MAIN_COLUMNS.map((col) => <option key={col} value={col}>{col}</option>)}
-          </select>
-        </div>
-      </div>
-      {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
 }

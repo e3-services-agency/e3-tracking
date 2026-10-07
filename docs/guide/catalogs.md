@@ -19,7 +19,7 @@ On the Catalogs page each catalog has a name, description, owner, priority, stat
 - **variant**: the catalog Bloomreach uses at variant (SKU) level.
 - empty: any other lookup table.
 
-Each mapping role can be held by only one catalog per project. A catalog lists its **fields** (columns) and marks which one is the **lookup key**.
+Each mapping role can be held by only one catalog per project. A catalog lists its **fields** (columns) and marks which one is the **lookup key**. Fields are edited in one table, one row per field (drag or use the arrows to reorder; one lookup key, which must be a string; "Searchable n/40" warns at the limit); changes are saved with the catalog.
 
 ## Why the roles matter
 

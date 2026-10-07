@@ -472,6 +472,16 @@ export async function applyRestore(
           );
         }
 
+        // T-4-33: a backup from before 0031 carries no sort_order (every field 0): rank by name.
+        const rankDb = getDb();
+        for (const c of rankDb.prepare('SELECT DISTINCT catalog_id FROM catalog_fields WHERE catalog_id IN (SELECT id FROM catalogs WHERE project_id = ?)').all(newProjectId) as { catalog_id: string }[]) {
+          const rows = rankDb.prepare('SELECT id, sort_order FROM catalog_fields WHERE catalog_id = ? ORDER BY name').all(c.catalog_id) as { id: string; sort_order: number }[];
+          if (rows.length > 1 && rows.every((r) => r.sort_order === 0)) {
+            const upd = rankDb.prepare('UPDATE catalog_fields SET sort_order = ? WHERE id = ?');
+            rows.forEach((r, i) => upd.run(i, r.id));
+          }
+        }
+
         recordChange({
           projectId: newProjectId,
           entityType: 'project',

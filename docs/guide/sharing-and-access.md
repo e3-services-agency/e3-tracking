@@ -34,3 +34,7 @@ Every comment can be answered with a reply; replies show under the comment (the 
 internal pages you can set any of them (the Comments page has a status filter). A client with a
 comment link can mark a thread On it or Done, but cannot reopen it or set Won't do. Section headers
 of the shared page show how many threads are still open.
+
+## Images on comments
+
+In any comment form, drop, paste (Ctrl+V while the dashed zone is focused) or click to add screenshots: PNG, JPEG or WebP, 5 MB each, up to 10 per comment. The images upload right after the comment is posted and show as small thumbnails under it (three visible, then "+n"); click one to open it full size and step through the rest with the arrow keys. Images are re-encoded on upload, so location data and other hidden metadata are removed. An image on an "Internal only" comment is never visible through the share link. Clients with a comment link can attach images to the comment they just wrote (within 15 minutes); the team can add and delete images from the internal API.

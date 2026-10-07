@@ -216,6 +216,7 @@ export const FIELD_HINTS: Record<string, string> = {
   'Show internal comments on the shared view': 'Internal comments never appear on the shared view; this setting controls the other comments.',
   'Require a name on the share link': 'Visitors must enter a name before commenting, replying, reacting or changing a status through the link.',
   'Jump to': 'Go straight to an event or section of this document.',
+  'Attach images': 'Screenshots on a comment: PNG, JPEG or WebP, 5 MB each, up to 10. Example: a screenshot of the checkout page.',
   'Comments': 'Discussion on this item. Example: a question about what the event means.',
   'Gaps only': 'Show only rows where a use case requires data the project does not define.',
 

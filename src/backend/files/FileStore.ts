@@ -37,6 +37,8 @@ export interface FileStore {
    * useful to do if the cleanup itself fails -- the caller is already reporting a different error).
    */
   removeProjectFiles(projectId: string): Promise<void>;
+  /** Best-effort removal of one file under a project (T-5-04: deleted comment images); never throws. */
+  removeFile(projectId: string, relativePath: string): Promise<void>;
 }
 
 function filesRoot(): string {
@@ -74,7 +76,8 @@ export class LocalFileStore implements FileStore {
     mime: string
   ): Promise<StoredFile> {
     const safeProjectId = safeSegment(projectId);
-    const safeKind = safeSegment(kind);
+    // `kind` may be nested (`comments/<id>`, T-5-04); each segment is sanitized on its own.
+    const safeKind = kind.split('/').filter(Boolean).map(safeSegment).join('/') || 'file';
     const safeName = safeSegment(filename);
     const storedName = `${randomUUID()}-${safeName}`;
     const relativePath = path.posix.join(safeProjectId, safeKind, storedName);
@@ -130,6 +133,23 @@ export class LocalFileStore implements FileStore {
     }
     const buffer = fs.readFileSync(resolvedTarget);
     return { buffer, mime: guessMimeFromExt(resolvedTarget) };
+  }
+
+  async removeFile(projectId: string, relativePath: string): Promise<void> {
+    try {
+      const root = filesRoot();
+      const projectRoot = path.resolve(root, safeSegment(projectId)) + path.sep;
+      const target = path.resolve(root, relativePath);
+      if (!target.startsWith(projectRoot)) return;
+      fs.rmSync(target, { force: true });
+      try {
+        fs.rmdirSync(path.dirname(target)); // only succeeds when now empty (comments/<id>/)
+      } catch {
+        // not empty or already gone
+      }
+    } catch {
+      // best-effort
+    }
   }
 
   async removeProjectFiles(projectId: string): Promise<void> {

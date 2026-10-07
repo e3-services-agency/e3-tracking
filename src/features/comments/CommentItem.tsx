@@ -15,6 +15,7 @@ import { enumLabel } from '@/src/domain/enumLabels';
 import type { CommentPanelRow } from './CommentsPanel';
 import { CommentReactions } from './CommentReactions';
 import type { CommentReactionKind } from '@/src/domain/enums';
+import { AttachmentPicker } from './CommentAttachments';
 
 export const REPLIES_COLLAPSED_AFTER = 2;
 
@@ -42,7 +43,7 @@ export function CommentItem({
   busy: boolean;
   onSetStatus: (status: CommentStatus) => void;
   /** Resolves true when the reply was posted (the box then clears). */
-  onReply: (body: string) => Promise<boolean>;
+  onReply: (body: string, files: File[]) => Promise<boolean>;
   /** T-5-04 slot: attachments (thumbnails) under a comment's body. */
   renderAttachments?: (comment: CommentPanelRow) => React.ReactNode;
   /** T-5-03: reaction toggle (any comment id, root or reply); omit to hide the row. */
@@ -59,6 +60,7 @@ export function CommentItem({
   const [replying, setReplying] = useState(false);
   const [replyError, setReplyError] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [replyFiles, setReplyFiles] = useState<File[]>([]);
 
   const hidden = thread.replies.length - REPLIES_COLLAPSED_AFTER;
   const visibleReplies = showAll || hidden <= 0 ? thread.replies : thread.replies.slice(0, REPLIES_COLLAPSED_AFTER);
@@ -154,7 +156,7 @@ export function CommentItem({
 
       {canComment && (
         <form
-          className="mt-2 flex items-start gap-2"
+          className="mt-2 flex flex-wrap items-start gap-2"
           onSubmit={(e) => {
             e.preventDefault();
             if (!replyBody.trim()) return;
@@ -164,8 +166,11 @@ export function CommentItem({
             }
             setReplyError(null);
             setReplying(true);
-            void onReply(replyBody).then((ok) => {
-              if (ok) setReplyBody('');
+            void onReply(replyBody, replyFiles).then((ok) => {
+              if (ok) {
+                setReplyBody('');
+                setReplyFiles([]);
+              }
               setReplying(false);
             });
           }}
@@ -187,6 +192,9 @@ export function CommentItem({
             Reply
           </button>
           {replyError && <span className="text-[11px] text-red-700 self-center">{replyError}</span>}
+          <div className="w-full">
+            <AttachmentPicker files={replyFiles} onChange={setReplyFiles} disabled={replying} />
+          </div>
         </form>
       )}
     </li>

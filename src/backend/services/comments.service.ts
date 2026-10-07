@@ -15,6 +15,7 @@
  * other entity_type, and for a requirement whose owning use case cannot be recovered at all) so the
  * frontend never has to re-derive it.
  */
+import { listAttachmentsByComment, type CommentAttachmentRow } from '../dal/comment-attachment.dal';
 import { getEventById } from '../dal/event.dal';
 import { getPropertyById } from '../dal/property.dal';
 import { getUseCaseById } from '../dal/use-case.dal';
@@ -34,6 +35,8 @@ export interface CommentWithLabel extends CommentRow {
   entity_label: string;
   /** See `CommentEntityInfo.use_case_id`. */
   use_case_id: string | null;
+  /** T-5-04: comment images, in order (absent on a freshly created comment). */
+  attachments?: CommentAttachmentRow[];
 }
 
 function resolveRequirementEntity(projectId: string, entityId: string, labelFor: TargetLabelResolver): CommentEntityInfo {
@@ -104,8 +107,9 @@ export function resolveCommentEntityLabel(
 /** Attaches `entity_label`/`use_case_id` to every row (one requirement-label-resolver build for the whole list, not per row). */
 export function withEntityLabels(projectId: string, comments: CommentRow[]): CommentWithLabel[] {
   const labelFor = buildTargetLabelResolver(projectId);
+  const attachments = listAttachmentsByComment(projectId, comments.map((c) => c.id));
   return comments.map((comment) => {
     const { label, use_case_id } = resolveCommentEntity(projectId, comment, labelFor);
-    return { ...comment, entity_label: label, use_case_id };
+    return { ...comment, entity_label: label, use_case_id, attachments: attachments.get(comment.id) ?? [] };
   });
 }

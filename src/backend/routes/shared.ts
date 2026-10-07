@@ -58,6 +58,9 @@ import * as CommentDAL from '../dal/comment.dal';
 import * as ProjectDAL from '../dal/project.dal';
 import type { CommentRow } from '../dal/comment.dal';
 import { attachReactions, listReactionSummaries, toggleReaction } from '../dal/comment-reaction.dal';
+import * as AttachmentDAL from '../dal/comment-attachment.dal';
+import { addCommentAttachment } from '../services/commentAttachments.service';
+import { singleImageUpload, requireUploadedFile } from './commentAttachments';
 
 const router = Router();
 
@@ -126,23 +129,48 @@ router.get('/:token/files/*', requireShare, async (req: Request, res: Response) 
     return;
   }
   const isAbsolute = /^(?:[a-zA-Z]:)?[\\/]/.test(relativePath);
-  const segments = relativePath.split(/[\\/]+/).filter(Boolean);
-  if (isAbsolute || segments.some((s) => s === '..' || s === '.')) {
+  const rawSegments = relativePath.split(/[\\/]/);
+  if (isAbsolute || rawSegments.some((s) => s === '..' || s === '.')) {
     res.status(400).json({ error: 'Invalid file path.', code: 'INVALID_PATH' });
     return;
   }
-  if (!relativePath.startsWith(`${req.projectId}/`)) {
+  // T-5-04 review fix: every decision below is made on the normalised path, never the raw string.
+  // An empty segment (`<project>//comments/...`) is refused outright, and the comments prefix is
+  // matched case-insensitively (a case-insensitive filesystem would otherwise still open the file).
+  if (rawSegments.some((s) => s === '')) {
     res.status(404).json({ error: 'File not found.', code: 'NOT_FOUND' });
     return;
   }
+  const normalised = rawSegments.join('/');
+  if (rawSegments[0] !== req.projectId) {
+    res.status(404).json({ error: 'File not found.', code: 'NOT_FOUND' });
+    return;
+  }
+  // T-5-04 (D-70): a comment image is served only when its comment is visible to this link (not
+  // internal_only, and the project's share_comments rule); anything else is the same 404 as a
+  // missing file. A `<project>/comments/...` path with no attachment row is never served.
+  if (rawSegments[1]?.toLowerCase() === 'comments') {
+    const attachment = AttachmentDAL.getAttachmentByPath(req.projectId!, normalised);
+    const visible = attachment ? isCommentVisibleToLink(req.projectId!, attachment.comment_id) : false;
+    if (!visible) {
+      res.status(404).json({ error: 'File not found.', code: 'NOT_FOUND' });
+      return;
+    }
+  }
   try {
-    const opened = await getFileStore().openForProject(req.projectId!, relativePath);
+    const opened = await getFileStore().openForProject(req.projectId!, normalised);
     res.setHeader('Content-Type', opened.mime);
     res.status(200).send(opened.buffer);
   } catch {
     res.status(404).json({ error: 'File not found.', code: 'NOT_FOUND' });
   }
 });
+
+/** T-5-02 helper: a comment (root or reply) is visible to the link only when its ROOT is. */
+function isCommentVisibleToLink(projectId: string, commentId: string): boolean {
+  const project = ProjectDAL.getProjectOrThrow(projectId);
+  return CommentDAL.getShareVisibleRoot(projectId, commentId, project.share_comments) !== null;
+}
 
 /**
  * Strips fields a public commenter must never see (D-49 amendment, T-4-04): `project_id` (an
@@ -244,7 +272,13 @@ router.get('/:token/comments', requireShare, (req: Request, res: Response) => {
       comments.filter((c) => !c.parent_id && CommentDAL.isRootShareVisible(c, project.share_comments)).map((c) => c.id)
     );
     comments = comments.filter((c) => keptRoots.has(c.parent_id ?? c.id));
-    res.status(200).json(attachReactions(req.projectId!, comments.map(toPublicComment)));
+    const attachments = AttachmentDAL.listAttachmentsByComment(req.projectId!, comments.map((c) => c.id));
+    res.status(200).json(
+      attachReactions(
+        req.projectId!,
+        comments.map((c) => ({ ...toPublicComment(c), attachments: (attachments.get(c.id) ?? []).map(AttachmentDAL.toPublicAttachment) }))
+      )
+    );
   } catch (err) {
     handleRouteError(err, res);
   }
@@ -289,6 +323,73 @@ router.post('/:token/comments', express.json({ limit: '20kb' }), requireShare, (
     handleRouteError(err, res);
   }
 });
+
+// D-70 item 4, T-5-04: image upload for a comment. Comment access only; the target comment must be
+// visible to this link, posted through a share link and at most 15 minutes old (a visitor can add
+// screenshots to the comment they just wrote, not to someone else's or an old one). Per-token limits:
+// 60 uploads per 10 minutes and 200 MB per rolling 24 hours (in-memory, like the post limit).
+const UPLOAD_DAILY_BYTES = 200 * 1024 * 1024;
+const UPLOAD_DAY_MS = 24 * 60 * 60 * 1000;
+const ATTACH_WINDOW_MS = 15 * 60 * 1000;
+const uploadTimestampsByToken = new Map<string, number[]>();
+const uploadBytesByToken = new Map<string, { at: number; bytes: number }[]>();
+
+function checkUploadLimits(token: string, incomingBytes: number): void {
+  const now = Date.now();
+  const recent = (uploadTimestampsByToken.get(token) ?? []).filter((t) => t > now - COMMENT_RATE_WINDOW_MS);
+  const day = (uploadBytesByToken.get(token) ?? []).filter((e) => e.at > now - UPLOAD_DAY_MS);
+  const used = day.reduce((sum, e) => sum + e.bytes, 0);
+  if (recent.length >= COMMENT_RATE_LIMIT || used + incomingBytes > UPLOAD_DAILY_BYTES) {
+    uploadTimestampsByToken.set(token, recent);
+    uploadBytesByToken.set(token, day);
+    throw new RateLimitedError('Too many images uploaded through this link recently; try again later.');
+  }
+  recent.push(now);
+  day.push({ at: now, bytes: incomingBytes });
+  uploadTimestampsByToken.set(token, recent);
+  uploadBytesByToken.set(token, day);
+}
+
+router.post(
+  '/:token/comments/:commentId/attachments',
+  requireShare,
+  (req: Request, res: Response, next: NextFunction) => {
+    try {
+      if (req.shareAccess !== 'comment') {
+        throw new ShareReadOnlyError('This share link is read-only; images cannot be uploaded through it.');
+      }
+      next();
+    } catch (err) {
+      handleRouteError(err, res);
+    }
+  },
+  singleImageUpload,
+  async (req: Request, res: Response) => {
+    try {
+      const buffer = requireUploadedFile(req);
+      let comment: CommentRow | null = null;
+      try {
+        comment = CommentDAL.getCommentOrThrow(req.projectId!, req.params.commentId);
+      } catch {
+        comment = null;
+      }
+      if (
+        !comment ||
+        !comment.via_share ||
+        !isCommentVisibleToLink(req.projectId!, comment.id) ||
+        Date.now() - Date.parse(comment.created_at) > ATTACH_WINDOW_MS
+      ) {
+        res.status(404).json({ error: 'Comment not found.', code: 'NOT_FOUND' });
+        return;
+      }
+      checkUploadLimits(req.params.token, buffer.length);
+      const row = await addCommentAttachment(req.projectId!, comment.id, buffer);
+      res.status(201).json(AttachmentDAL.toPublicAttachment(row));
+    } catch (err) {
+      handleRouteError(err, res);
+    }
+  }
+);
 
 // D-70, T-5-02: a comment-access link may set on_it/done on a comment it can see, never wont_do and
 // never reopen (403 STATUS_NOT_ALLOWED). Same read-only gate, field whitelist and rate limit as posts.

@@ -37,6 +37,7 @@ import { groupThreads } from '@/src/domain/commentThreads';
 import { CommentItem } from './CommentItem';
 import type { ReactionSummaryView } from './CommentReactions';
 import { useShareName } from './shareName';
+import { AttachmentPicker, CommentAttachments, uploadAttachments, type CommentAttachmentItem } from './CommentAttachments';
 
 export interface CommentPanelRow {
   id: string;
@@ -55,6 +56,8 @@ export interface CommentPanelRow {
   status: CommentStatus;
   /** D-70 item 3, T-5-03: aggregated reactions (kinds with none are absent). */
   reactions?: ReactionSummaryView[];
+  /** D-70 item 4, T-5-04: comment images, in order. */
+  attachments?: CommentAttachmentItem[];
 }
 
 export type CommentsPanelApi =
@@ -82,6 +85,12 @@ function reactionUrl(api: CommentsPanelApi, id: string): string {
   return api.mode === 'internal'
     ? `${API_BASE}/api/projects/${api.projectId}/comments/${id}/reactions`
     : `${API_BASE}/api/shared/${encodeURIComponent(api.token)}/comments/${id}/reactions`;
+}
+
+function fileUrl(api: CommentsPanelApi, path: string): string {
+  return api.mode === 'internal'
+    ? `${API_BASE}/api/projects/${api.projectId}/files/${path}`
+    : `${API_BASE}/api/shared/${encodeURIComponent(api.token)}/files/${path}`;
 }
 
 function patchUrl(api: Extract<CommentsPanelApi, { mode: 'internal' }>, id: string): string {
@@ -129,6 +138,8 @@ export function CommentsPanel({
   const [internalOnly, setInternalOnly] = useState(false);
   const [posting, setPosting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [pendingImages, setPendingImages] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
 
   const rows = controlled ? (controlledRows as CommentPanelRow[]) : ownRows;
 
@@ -166,7 +177,7 @@ export function CommentsPanel({
     await load();
   }, [controlled, onChanged, load]);
 
-  const post = async (text: string, parentId: string | null): Promise<boolean> => {
+  const post = async (text: string, parentId: string | null, files: File[] = []): Promise<boolean> => {
     if (!text.trim()) return false;
     if (api.mode === 'shared' && !authorName.trim()) {
       setError('Enter your name first.');
@@ -189,7 +200,13 @@ export function CommentsPanel({
         setError(typeof data?.error === 'string' ? data.error : 'Failed to post comment.');
         return false;
       }
+      // T-5-04: images go up after the comment exists, one request each.
+      if (files.length > 0 && typeof data?.id === 'string') {
+        const failures = await uploadAttachments(`${postUrl(api)}/${data.id}/attachments`, files, (u, init) => doFetch(api, u, init), setUploadProgress);
+        if (failures.length > 0) setError(`Comment posted, but some images were not attached. ${failures.join(' ')}`);
+      }
       if (!parentId) {
+        setPendingImages([]);
         setBody('');
         setInternalOnly(false);
       }
@@ -207,7 +224,7 @@ export function CommentsPanel({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await post(body, null);
+    await post(body, null, pendingImages);
   };
 
   const setStatus = async (row: CommentPanelRow, status: CommentStatus) => {
@@ -284,7 +301,8 @@ export function CommentsPanel({
               canComment={canComment}
               busy={busyId === thread.id}
               onSetStatus={(status) => void setStatus(thread, status)}
-              onReply={(text) => post(text, thread.id)}
+              onReply={(text, files) => post(text, thread.id, files)}
+              renderAttachments={(c) => <CommentAttachments attachments={c.attachments} fileUrl={(pth) => fileUrl(api, pth)} />}
               onReact={(row, kind) => void react(row, kind)}
               ownName={api.mode === 'shared' ? authorName : ''}
               nameMissing={api.mode === 'shared' && !authorName.trim()}
@@ -328,6 +346,7 @@ export function CommentsPanel({
             required
             className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
           />
+          <AttachmentPicker files={pendingImages} onChange={setPendingImages} disabled={posting} progress={uploadProgress} />
           <button
             type="submit"
             disabled={posting || !body.trim() || (api.mode === 'shared' && !authorName.trim())}

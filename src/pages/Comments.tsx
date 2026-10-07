@@ -31,6 +31,7 @@ import { COMMENT_ENTITY_TYPES, COMMENT_STATUSES, type CommentStatus } from '@/sr
 import { enumLabel } from '@/src/domain/enumLabels';
 import { groupThreads } from '@/src/domain/commentThreads';
 import { StatusBadge } from '@/src/components/ui/badges';
+import { CommentAttachments, type CommentAttachmentItem } from '@/src/features/comments/CommentAttachments';
 import { showEmptyState, showLoadingPlaceholder } from '@/src/domain/loadingState';
 
 const REMOVED_PLACEHOLDER_LABELS = new Set(['(removed event)', '(removed property)', '(removed use case)']);
@@ -58,7 +59,10 @@ interface CommentRow {
   resolved_by: string | null;
   parent_id: string | null;
   status: CommentStatus;
+  attachments?: CommentAttachmentItem[];
 }
+
+const fileUrlFor = (projectId: string | null) => (p: string) => `${API_BASE}/api/projects/${projectId}/files/${p}`;
 
 async function parseJson(res: Response): Promise<any> {
   return res.json().catch(() => ({}));
@@ -69,6 +73,7 @@ type InternalFilter = '' | 'true' | 'false';
 
 export function Comments() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
+  const fileUrl = fileUrlFor(activeProjectId);
   const [rows, setRows] = useState<CommentRow[]>([]);
   const [entityType, setEntityType] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
@@ -278,12 +283,14 @@ export function Comments() {
                   <StatusBadge status={row.status} />
                 </div>
                 <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap">{row.body}</p>
+                <CommentAttachments attachments={row.attachments} fileUrl={fileUrl} />
                 {row.replies.length > 0 && (
                   <ul className="mt-2 space-y-1 border-l-2 border-gray-200 pl-3">
                     {row.replies.map((reply) => (
                       <li key={reply.id} className="text-sm text-gray-800">
                         <span className="text-xs font-medium text-gray-600">{reply.author_name}: </span>
                         <span className="whitespace-pre-wrap">{reply.body}</span>
+                        <CommentAttachments attachments={reply.attachments} fileUrl={fileUrl} />
                       </li>
                     ))}
                   </ul>

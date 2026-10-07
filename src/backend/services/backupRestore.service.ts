@@ -342,7 +342,8 @@ async function restoreFiles(
   for (const file of files) {
     try {
       const segments = file.path.split('/').filter(Boolean);
-      const kind = segments.length >= 2 ? segments[segments.length - 2] : 'restored';
+      // segments[0] is the old project id; keep any nested kind (`comments/<id>`, T-5-04).
+      const kind = segments.length >= 3 ? segments.slice(1, -1).join('/') : segments.length === 2 ? segments[0] : 'restored';
       const filename = segments[segments.length - 1] || 'file';
       const buffer = Buffer.from(file.base64, 'base64');
       const stored = await store.put(newProjectId, kind, filename, buffer, file.mime);

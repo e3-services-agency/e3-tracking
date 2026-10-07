@@ -54,6 +54,7 @@ export const PROJECT_SCOPED_TABLES = [
   'change_log',
   'comments',
   'comment_reactions',
+  'comment_attachments',
 ] as const;
 
 export type ProjectScopedTable = (typeof PROJECT_SCOPED_TABLES)[number];

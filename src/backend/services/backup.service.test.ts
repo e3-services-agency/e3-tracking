@@ -125,6 +125,7 @@ const EXPECTED_KEYS = [
   'change_log',
   'comment_reactions',
   'comments',
+  'comment_attachments',
   'files',
   'files_missing',
   'warnings',

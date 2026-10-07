@@ -171,6 +171,31 @@ Two controls narrow the "one shared thread" default. Both are enforced server-si
   (400 for any other value; `GET /:id/share` returns it). The setting belongs to the project, so it
   survives rotating or revoking the link.
 
+### Comment images (D-70 item 4, T-5-04, migration `0035`)
+
+A comment can carry up to 10 images (`comment_attachments`). Rules, enforced server-side:
+
+- **Types**: PNG, JPEG and WebP only, decided from the file's magic bytes (the extension and the
+  declared type are ignored; SVG and GIF are refused, 400 `UNSUPPORTED_IMAGE_TYPE`).
+- **Size**: 5 MB per file (400 `FILE_TOO_LARGE`); the 11th image on a comment is 409 `ATTACHMENT_LIMIT`.
+- **Re-encoding**: every upload is decoded and re-encoded with `sharp` before it is stored, so no
+  EXIF/XMP/text chunks or appended bytes survive (EXIF orientation is applied first). Stored through
+  the FileStore at `<project>/comments/<comment_id>/...`; width, height and size are recorded.
+- **Internal**: `POST /api/projects/:id/comments/:commentId/attachments` (multipart field `file`, one
+  image per request) and `DELETE .../attachments/:attId`; the internal files route serves all.
+- **Shared**: `POST /api/shared/:token/comments/:commentId/attachments`, comment access only (403
+  `SHARE_READ_ONLY` otherwise). The target must be a comment posted through a share link, visible to
+  that link, and at most 15 minutes old, so a visitor can attach screenshots to the comment they just
+  wrote but not to anyone else's. Limits per token (in memory, reset on restart): 60 uploads per 10
+  minutes and 200 MB per rolling 24 hours, both 429 `RATE_LIMITED`. A visitor cannot delete images.
+- **Serving**: `GET /api/shared/:token/files/<project>/comments/...` returns the image only when its
+  comment is visible to that link (not `internal_only`, and the `share_comments` rule); anything
+  else, including a comments path with no attachment row, is the same 404 `NOT_FOUND` as a missing
+  file. The public comment list carries `attachments[]` without `project_id`, and only on the
+  comments that pass the public filters.
+- Backup embeds the files like trigger screenshots (`files_missing[]` warning), restore rewrites ids
+  and paths; CSV entity `comment_attachments`.
+
 Both columns are picked up by the JSON backup/restore and the `comments` CSV (`internal_only`).
 
 There is no edit, on either side — only resolve (internal-only,

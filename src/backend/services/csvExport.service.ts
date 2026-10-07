@@ -630,6 +630,25 @@ function buildCommentReactionsRows(projectId: string): CsvRow[] {
   }));
 }
 
+/** T-5-04: one row per comment image, oldest comment first. */
+function buildCommentAttachmentsRows(projectId: string): CsvRow[] {
+  if (!tableExists('comment_attachments')) return [];
+  const rows = getDb()
+    .prepare('SELECT * FROM comment_attachments WHERE project_id = ? ORDER BY created_at, id')
+    .all(projectId) as Record<string, unknown>[];
+  return rows.map((r) => ({
+    id: String(r.id),
+    comment_id: String(r.comment_id),
+    file_path: String(r.file_path),
+    mime: String(r.mime),
+    width: String(r.width),
+    height: String(r.height),
+    size_bytes: String(r.size_bytes),
+    sort_order: String(r.sort_order),
+    created_at: String(r.created_at),
+  }));
+}
+
 interface ChangeLogDbRow {
   id: string;
   changed_at: string;
@@ -697,6 +716,7 @@ const ROW_BUILDERS: Record<CsvEntity, (projectId: string) => CsvRow[]> = {
   change_log: buildChangeLogRows,
   comments: buildCommentsRows,
   comment_reactions: buildCommentReactionsRows,
+  comment_attachments: buildCommentAttachmentsRows,
 };
 
 export function buildCsvRows(projectId: string, entity: CsvEntity): CsvRow[] {
@@ -771,6 +791,8 @@ const COUNT_QUERIES: Record<CsvEntity, (projectId: string) => number> = {
   comment_reactions: (projectId) =>
     tableExists('comment_reactions') ? countOf('SELECT COUNT(*) as n FROM comment_reactions WHERE project_id = ?', projectId) : 0,
   comments: (projectId) => (tableExists('comments') ? countOf('SELECT COUNT(*) as n FROM comments WHERE project_id = ?', projectId) : 0),
+  comment_attachments: (projectId) =>
+    tableExists('comment_attachments') ? countOf('SELECT COUNT(*) as n FROM comment_attachments WHERE project_id = ?', projectId) : 0,
 };
 
 /** `GET /export/csv`: every declared entity with its current row count (D-46). */

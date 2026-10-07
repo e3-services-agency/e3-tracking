@@ -1,0 +1,38 @@
+# T-5-06 (D-72 item 4): edge profile. TLS for {$HOSTNAME} is automatic (ports 80/443 must reach this host).
+# Everything except the public share paths goes through oauth2-proxy forward-auth; the app only trusts
+# X-Forwarded-Email from this container's address (TRUSTED_PROXY_CIDR).
+{$HOSTNAME} {
+	encode gzip
+
+	# Sign-in, callback and sign-out endpoints of oauth2-proxy.
+	handle /oauth2/* {
+		reverse_proxy oauth2-proxy:4180
+	}
+
+	# Public: the shared documentation page, its API, health, and the static assets it needs.
+	# Client-supplied identity headers are stripped here too.
+	@public path /tracking-plan/shared/* /api/shared/* /tracking-plan/api/shared/* /api/health /tracking-plan/api/health /tracking-plan/assets/* /tracking-plan/favicon*
+	handle @public {
+		reverse_proxy app:3001 {
+			header_up -X-Forwarded-Email
+			header_up -X-Forwarded-User
+			header_up -X-Forwarded-Preferred-Username
+		}
+	}
+
+	# Everything else: signed-in Workspace users only.
+	handle {
+		forward_auth oauth2-proxy:4180 {
+			uri /oauth2/auth
+			header_up -X-Forwarded-Email
+			header_up -X-Forwarded-User
+			header_up -X-Forwarded-Preferred-Username
+			copy_headers X-Auth-Request-Email>X-Forwarded-Email X-Auth-Request-User>X-Forwarded-User X-Auth-Request-Preferred-Username>X-Forwarded-Preferred-Username
+			@unauth status 401
+			handle_response @unauth {
+				redir * /oauth2/sign_in?rd={scheme}://{host}{uri} 302
+			}
+		}
+		reverse_proxy app:3001
+	}
+}

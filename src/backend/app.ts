@@ -39,7 +39,7 @@ import historyRouter from './routes/history';
 import commentsRouter from './routes/comments';
 import commentAttachmentsRouter from './routes/commentAttachments';
 import restoreBackupRouter from './routes/restore-backup';
-import { optionalAuth } from './middleware/auth';
+import { optionalAuth, proxyGate, assertAuthConfig, getTrustedProxyCidrs } from './middleware/auth';
 import { actorContext } from './middleware/actor';
 import { requireProject } from './middleware/project';
 import { getDb } from './db';
@@ -64,8 +64,10 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   // Open the database and run pending migrations before the first request (D-12); safe to call
   // more than once (singleton connection), so `server.ts` calling `getDb()` too is a no-op.
   getDb();
+  assertAuthConfig();
 
   const app = express();
+  if ((process.env.AUTH_MODE ?? '').trim().toLowerCase() === 'proxy') app.set('trust proxy', getTrustedProxyCidrs());
 
   app.use(
     cors({
@@ -88,6 +90,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   app.use(rejectBadEscape);
 
   app.use(optionalAuth);
+  app.use(proxyGate);
   // D-44, T-3-01: every request runs inside an actor context (AsyncLocalStorage) so
   // change-log.dal.ts's recordChange sees {actor: req.userName, source: 'ui'} without any route
   // threading a value through; must run after optionalAuth so req.userName is already set.

@@ -106,7 +106,7 @@ describe('GET /api/projects/:projectId/identity-rules/codegen (T-2-12 fix round 
     expect(body).toHaveProperty('identify');
     expect(body).toHaveProperty('update');
     expect(body).toHaveProperty('anonymize');
-    expect(body.identify).toContain('exponea.identify(String(registered).trim().toLowerCase());');
+    expect(body.identify.web_sdk_legacy).toContain('exponea.identify(String(registered).trim().toLowerCase());');
   });
 });
 

@@ -172,7 +172,10 @@ describe('document, export and codegen', () => {
     const cartRule = doc.identity_rules.find((r) => r.identifier_name === 'cart_id')!;
     expect(cartRule.set_by?.kind).toBe('standalone_call');
     expect(cartRule.carried_by).toContain('cart_update');
+    expect(doc.identity_codegen?.identify.web_sdk).toContain('brweb.identify');
+    expect(doc.identity_codegen?.identify.tracking_api).toContain('customer_ids');
     const pub = toPublicTrackingDocument(doc);
+    expect(pub.identity_codegen).toEqual(doc.identity_codegen);
     expect(pub.identification_flow).toBe(doc.identification_flow);
     expect(pub.events.find((e) => e.name === 'view_item')?.identifiers).toEqual(['cookie', 'cart_id', 'email_id']);
   });
@@ -200,9 +203,9 @@ describe('document, export and codegen', () => {
   it('the identify snippet lists the identifiers a standalone call binds', () => {
     setUp();
     const snippets = buildIdentityCodegen(listIdentityRulesForCodegen(projectId), []);
-    expect(snippets.identify).toContain('// Standalone identify call when the checkout page loads: binds cart_id, cookie');
-    expect(snippets.identify).toContain('cart_id: cartId,');
-    expect(snippets.identify).not.toContain('cookie:');
+    expect(snippets.identify.web_sdk_legacy).toContain('// Standalone identify call when the checkout page loads: binds cart_id, cookie');
+    expect(snippets.identify.web_sdk_legacy).toContain('cart_id: cartId,');
+    expect(snippets.identify.web_sdk_legacy).not.toContain('cookie:');
   });
 });
 
@@ -244,7 +247,7 @@ describe('identity codegen: standalone rules', () => {
     const web = SourceDAL.createSource(projectId, { name: 'Storefront', system: 'shopify', method: 'web_sdk_gtm_datalayer' });
     IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'cookie', identity_type: 'soft', name: 'Cookie' });
     IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'email_id', identity_type: 'hard', name: 'Email', sdk_call: 'identify', trigger_text: 'login', source_id: web.id });
-    const identify = buildIdentityCodegen(listIdentityRulesForCodegen(projectId), []).identify;
+    const identify = buildIdentityCodegen(listIdentityRulesForCodegen(projectId), []).identify.web_sdk_legacy;
     expect(identify.match(/exponea\.identify\(/g)).toHaveLength(1);
     expect(identify).toContain('Standalone identify call on login');
   });
@@ -252,7 +255,7 @@ describe('identity codegen: standalone rules', () => {
   it('a standalone rule on a Tracking API source gets the server-side form', () => {
     const api = SourceDAL.createSource(projectId, { name: 'Order system', system: 'custom_backend', method: 'tracking_api' });
     IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'cart_id', identity_type: 'soft', name: 'Cart', sdk_call: 'identify', trigger_text: 'checkout', source_id: api.id });
-    const identify = buildIdentityCodegen(listIdentityRulesForCodegen(projectId), []).identify;
+    const identify = buildIdentityCodegen(listIdentityRulesForCodegen(projectId), []).identify.web_sdk_legacy;
     expect(identify).not.toContain('exponea.identify({');
     expect(identify).toContain('Tracking API');
     expect(identify).toContain('customer_ids: { cart_id: cartId }');
@@ -264,7 +267,7 @@ describe('identity codegen and Tracking API note polish', () => {
     const web = SourceDAL.createSource(projectId, { name: 'Storefront', system: 'shopify', method: 'web_sdk_gtm_datalayer' });
     IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'cookie', identity_type: 'soft', name: 'Cookie', sdk_call: 'identify', trigger_text: 'First page view of a new visitor.', source_id: web.id });
     IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'cart_id', identity_type: 'soft', name: 'Cart', sdk_call: 'identify', trigger_text: 'Checkout page.', source_id: web.id });
-    const identify = buildIdentityCodegen(listIdentityRulesForCodegen(projectId), []).identify;
+    const identify = buildIdentityCodegen(listIdentityRulesForCodegen(projectId), []).identify.web_sdk_legacy;
     expect(identify).not.toContain('exponea.identify({\n});');
     expect(identify).not.toContain('.:');
     expect(identify).toContain('Standalone identify call on checkout page: binds cart_id, cookie');

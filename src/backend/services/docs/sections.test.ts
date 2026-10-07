@@ -210,11 +210,15 @@ describe('renderIdentityRulesSection', () => {
 
 describe('renderIdentityCodegenSection', () => {
   it('renders the three snippets in <pre> blocks, escaped', () => {
+    const v = (code: string) => ({ web_sdk: code.replace('exponea', 'brweb'), web_sdk_legacy: code, tracking_api: '', gtm_datalayer: '' });
     const html = renderIdentityCodegenSection({
-      identify: "exponea.identify({ registered: '<x>' });",
-      update: 'exponea.update({});',
-      anonymize: 'exponea.anonymize();',
+      identify: v("exponea.identify({ registered: '<x>' });"),
+      update: v('exponea.update({});'),
+      anonymize: v('exponea.anonymize();'),
     });
+    expect(html).toContain('Bloomreach Web SDK (legacy)');
+    expect(html).toContain('brweb.update({});');
+    expect(html).not.toContain('Tracking API');
     expect(html).toContain('id="identity-codegen"');
     expect(html).toContain('&lt;x&gt;');
     expect(html).toContain('exponea.update({});');

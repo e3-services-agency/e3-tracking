@@ -124,6 +124,7 @@ export interface CatalogFieldRow {
   field_family: string | null;
   item_level: string | null;
   source_mapping_json: unknown;
+  sort_order: number;
   created_at: string;
   updated_at: string;
 }
@@ -373,7 +374,7 @@ export function deleteCatalog(projectId: string, catalogId: string): void {
 export function listCatalogFields(projectId: string, catalogId: string): CatalogFieldRow[] {
   getCatalogOrThrow(projectId, catalogId);
   const rows = getDb()
-    .prepare('SELECT * FROM catalog_fields WHERE catalog_id = ? ORDER BY name')
+    .prepare('SELECT * FROM catalog_fields WHERE catalog_id = ? ORDER BY sort_order, name')
     .all(catalogId) as Record<string, unknown>[];
   return rows.map(mapCatalogFieldRow);
 }
@@ -413,10 +414,10 @@ export function createCatalogField(
         `INSERT INTO catalog_fields (
           id, catalog_id, name, description, data_type, is_lookup_key, is_searchable, is_required,
           client_field_name, bloomreach_column, purpose, priority, status, field_family, item_level,
-          source_mapping_json, created_at, updated_at
+          source_mapping_json, sort_order, created_at, updated_at
         ) VALUES (@id, @catalog_id, @name, @description, @data_type, @is_lookup_key, @is_searchable,
           @is_required, @client_field_name, @bloomreach_column, @purpose, @priority, @status,
-          @field_family, @item_level, @source_mapping_json, @created_at, @updated_at)`
+          @field_family, @item_level, @source_mapping_json, (SELECT COALESCE(MAX(sort_order) + 1, 0) FROM catalog_fields WHERE catalog_id = @catalog_id), @created_at, @updated_at)`
       )
         .run({
           id,
@@ -544,6 +545,22 @@ export function updateCatalogField(
   return mapCatalogFieldRow(row);
 }
 
+/**
+ * T-4-33: persists the order of a catalog's fields. `orderedIds` must be exactly the catalog's
+ * field ids. Presentation only, so it is not written to the change log.
+ */
+export function reorderCatalogFields(projectId: string, catalogId: string, orderedIds: string[]): CatalogFieldRow[] {
+  getCatalogOrThrow(projectId, catalogId);
+  const db = getDb();
+  const existing = (db.prepare('SELECT id FROM catalog_fields WHERE catalog_id = ?').all(catalogId) as { id: string }[]).map((r) => r.id);
+  if (orderedIds.length !== existing.length || new Set(orderedIds).size !== orderedIds.length || !orderedIds.every((id) => existing.includes(id))) {
+    throw new ValidationError('order must list every field of the catalog exactly once.', 'order');
+  }
+  const upd = db.prepare('UPDATE catalog_fields SET sort_order = ? WHERE id = ? AND catalog_id = ?');
+  db.transaction(() => orderedIds.forEach((id, i) => upd.run(i, id, catalogId)))();
+  return listCatalogFields(projectId, catalogId);
+}
+
 export function deleteCatalogField(projectId: string, catalogId: string, fieldId: string): void {
   const catalog = getCatalogOrThrow(projectId, catalogId);
   const db = getDb();
@@ -560,6 +577,23 @@ export function deleteCatalogField(projectId: string, catalogId: string, fieldId
     // appends a "target removed" note. Runs inside the same transaction as the DELETE (merge note,
     // T-3-02 review): before this it ran outside any transaction of its own.
     markRequirementsGapForCatalogFieldRemoval(projectId, fieldId, before.name);
+    // T-4-33: properties linking to this field (`mapped_catalog_field_id`, no ON DELETE action)
+    // lose the link first, each with its own change_log update row.
+    const linked = db
+      .prepare('SELECT * FROM properties WHERE project_id = ? AND mapped_catalog_field_id = ?')
+      .all(projectId, fieldId) as Record<string, unknown>[];
+    for (const p of linked) {
+      db.prepare('UPDATE properties SET mapped_catalog_field_id = NULL, updated_at = ? WHERE id = ?').run(nowIso(), p.id);
+      ChangeLogDAL.recordChange({
+        projectId,
+        entityType: 'property',
+        entityId: p.id as string,
+        entityLabel: p.name as string,
+        action: 'update',
+        before: p,
+        after: { ...p, mapped_catalog_field_id: null },
+      });
+    }
     const result = db
       .prepare('DELETE FROM catalog_fields WHERE id = ? AND catalog_id = ?')
       .run(fieldId, catalogId);

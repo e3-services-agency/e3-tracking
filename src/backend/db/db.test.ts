@@ -266,6 +266,7 @@ const ALL_MIGRATION_FILES = [
   '0028_project_naming_convention.sql',
   '0029_catalogs_sources.sql',
   '0030_identifiers_source_color.sql',
+  '0031_catalog_field_order.sql',
 ];
 
 describe('listMigrationFiles', () => {

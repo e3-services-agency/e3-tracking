@@ -4,6 +4,7 @@
  * (D-13), so there is no Members tab here.
  */
 import React, { useState, useCallback, useEffect } from 'react';
+import { FieldLabel } from '@/src/components/ui/FieldHint';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { useClients } from '@/src/features/clients/hooks/useClients';
 import { fetchWithAuth } from '@/src/lib/api';
@@ -361,12 +362,12 @@ export function ProjectSettings() {
       {error && <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm">{error}</div>}
 
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Project name</label>
+        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Settings">Project name</FieldLabel>
         <Input value={name} onChange={(e) => setName(e.target.value)} className="max-w-md" />
       </div>
 
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Client</label>
+        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Settings">Client</FieldLabel>
         <select
           value={clientId}
           onChange={(e) => setClientId(e.target.value)}
@@ -379,7 +380,7 @@ export function ProjectSettings() {
       </div>
 
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Client primary color</label>
+        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Settings">Client primary color</FieldLabel>
         <div className="flex items-center gap-2 max-w-md">
           <input
             type="color"
@@ -392,27 +393,27 @@ export function ProjectSettings() {
       </div>
 
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Bloomreach API customer identifier</label>
+        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Settings">Bloomreach API customer identifier</FieldLabel>
         <Input value={customerIdKey} onChange={(e) => setCustomerIdKey(e.target.value)} placeholder="registered" className="max-w-md font-mono" />
       </div>
 
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Bloomreach project token</label>
+        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Settings">Bloomreach project token</FieldLabel>
         <Input value={projectToken} onChange={(e) => setProjectToken(e.target.value)} className="max-w-md font-mono" />
       </div>
 
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Bloomreach API base URL</label>
+        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Settings">Bloomreach API base URL</FieldLabel>
         <Input value={apiBaseUrl} onChange={(e) => setApiBaseUrl(e.target.value)} placeholder="https://api.exponea.com" className="max-w-md" />
       </div>
 
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Bloomreach project URL</label>
+        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Settings">Bloomreach project URL</FieldLabel>
         <Input value={projectUrl} onChange={(e) => setProjectUrl(e.target.value)} placeholder="https://app.exponea.com/..." className="max-w-md" />
       </div>
 
       <div className="space-y-2 border-t pt-4">
-        <label className="block text-sm font-medium text-gray-700">Share link (D-48)</label>
+        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Settings">Share link</FieldLabel>
         <p className="text-xs text-gray-500">
           A public link to this project's tracking document -- no login required. Rotating replaces
           the old link, which stops working immediately; revoking clears it entirely.
@@ -426,6 +427,7 @@ export function ProjectSettings() {
         {shareError && (
           <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm">{shareError}</div>
         )}
+        <FieldLabel className="block text-sm font-medium text-gray-700" hint="Share access" hintScope="Settings">Share access</FieldLabel>
         <div className="flex flex-wrap items-center gap-2 max-w-md">
           <select
             value={shareAccessSelect}
@@ -467,7 +469,7 @@ export function ProjectSettings() {
         {!share?.share_token && <div className="text-xs text-gray-500">No share link yet.</div>}
         {share?.share_token && (
           <div className="space-y-1 max-w-md">
-            <label className="block text-xs font-medium text-gray-700">Show internal comments on the shared view</label>
+            <FieldLabel className="block text-xs font-medium text-gray-700" hintScope="Settings">Show internal comments on the shared view</FieldLabel>
             <select
               value={share.share_comments ?? SHARE_COMMENT_VISIBILITIES[0]}
               onChange={(e) => void handleShareCommentsChange(e.target.value)}
@@ -488,10 +490,10 @@ export function ProjectSettings() {
       </div>
 
       <div className="space-y-2 border-t pt-4">
-        <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+        <FieldLabel className="flex items-center gap-2 text-sm font-medium text-gray-700" hintScope="Settings">
           <input type="checkbox" checked={expirationEnabled} onChange={(e) => setExpirationEnabled(e.target.checked)} />
           Default event expiration
-        </label>
+        </FieldLabel>
         <div className="flex items-center gap-2 max-w-md">
           <Input
             type="number"
@@ -514,7 +516,7 @@ export function ProjectSettings() {
       </div>
 
       <div className="space-y-2 border-t pt-4">
-        <label className="block text-sm font-medium text-gray-700" htmlFor="naming-convention">Naming convention</label>
+        <FieldLabel className="block text-sm font-medium text-gray-700" htmlFor="naming-convention" hintScope="Settings">Naming convention</FieldLabel>
         <p className="text-xs text-gray-500">
           Applies to custom events, their properties and customer properties. SDK and platform events, SDK default
           properties, the reserved system customer properties and standard event keys are exempt. A name that does not
@@ -533,8 +535,8 @@ export function ProjectSettings() {
       </div>
 
       <div className="space-y-2 border-t pt-4">
-        <label className="block text-sm font-medium text-gray-700" htmlFor="default-source">Default source</label>
-        <p className="text-xs text-gray-500">Linked to every new event that names no source of its own (D-62). Its collection method also sets the new event's implementation method.</p>
+        <FieldLabel className="block text-sm font-medium text-gray-700" htmlFor="default-source" hintScope="Settings">Default source</FieldLabel>
+        <p className="text-xs text-gray-500">Linked to every new event that names no source of its own. Its collection method also sets the new event's implementation method.</p>
         <select
           id="default-source"
           value={defaultSourceId}
@@ -549,8 +551,8 @@ export function ProjectSettings() {
       </div>
 
       <div className="space-y-2 border-t pt-4">
-        <label className="block text-sm font-medium text-gray-700">Industry</label>
-        <p className="text-xs text-gray-500">Used as the use case templates page's default industry filter (D-57).</p>
+        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Settings">Industry</FieldLabel>
+        <p className="text-xs text-gray-500">Used as the use case templates page's default industry filter.</p>
         <select
           value={industrySelect}
           onChange={(e) => setIndustrySelect(e.target.value)}
@@ -573,7 +575,7 @@ export function ProjectSettings() {
       </div>
 
       <div className="space-y-2 border-t pt-4">
-        <label className="block text-sm font-medium text-gray-700">Money tolerance (rules, D-30)</label>
+        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Settings">Money tolerance (rules)</FieldLabel>
         <p className="text-xs text-gray-500">Used by rules with `tolerance_mode: money` (e.g. purchase totals vs items): tolerance = max(floor, percent% of the target).</p>
         <div className="flex items-center gap-3 max-w-md">
           <div className="flex items-center gap-1">

@@ -20,6 +20,9 @@
  * `EventCard.coverage` summary counts, same as this component does when `grid` is omitted.
  */
 import React from 'react';
+import { enumLabel } from '@/src/domain/enumLabels';
+import { EntityIcon } from '@/src/components/ui/EntityIcon';
+import { HintTh } from '@/src/components/ui/FieldHint';
 import { summarizeCertification } from '@/src/domain/certification';
 import { anyNameDiffersFromKey } from '@/src/domain/payloadKey';
 import { GlossaryTerm, FindingTerm } from '@/src/components/ui/GlossaryTerm';
@@ -29,7 +32,6 @@ import { hasCodegen, type CodegenData } from '@/src/features/shared/codegenMetho
 import { TriggersBlock } from '@/src/features/shared/TriggersBlock';
 import { derivedMetricsText, eventCardVisibility, variantsAnchor } from '@/src/features/shared/viewHelpers';
 import { CategoryBadge, ClassBadge, KindBadge, PriorityBadge, RoleBadge, SeverityBadge, StatusBadge } from '@/src/components/ui/badges';
-import { hintFor } from '@/src/components/ui/FieldHint';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import type { PropertyCategory } from '@/src/domain/propertyCategory';
 import { displaySampleValue } from '@/src/domain/examples';
@@ -235,7 +237,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
       {!hideHeader && (
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{card.name}</h1>
+          <h1 className="text-2xl font-bold text-gray-900 inline-flex items-center gap-2"><EntityIcon kind="event" size="header" />{card.name}</h1>
           {card.business_name && <p className="text-sm text-gray-500 mt-1">{card.business_name}</p>}
           {card.sources && card.sources.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-3" data-testid="card-header-sources">
@@ -258,7 +260,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
         <dl className="grid grid-cols-2 gap-3 text-sm">
           {[
             ['Class', <ClassBadge key="c" eventClass={card.class} />, true],
-            ['Implementation method', card.implementation_method ?? 'client_web', true],
+            ['Implementation method', enumLabel('implementation', card.implementation_method ?? 'client_web'), true],
             ['dataLayer event', card.dl_event_name ?? '—', true],
             ['Source', card.sources && card.sources.length > 0 ? (
               <span key="src" className="flex flex-col gap-0.5">
@@ -302,7 +304,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
       )}
 
       {(!shared || card.properties.length > 0) && (
-      <Section title={`Properties (${card.properties.length})`}>
+      <Section title={<span className="inline-flex items-center gap-2"><EntityIcon kind="property" size="header" />{`Properties (${card.properties.length})`}</span>}>
         {shared ? (
           <Table
             head={[...SHARED_PROPERTY_HEAD]}
@@ -361,12 +363,12 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
       )}
 
       {(!shared || visible.variants) && (
-      <Section id={variantsAnchor(card.name)} title={`Variants (${card.variants.length})`}>
+      <Section id={variantsAnchor(card.name)} title={<span className="inline-flex items-center gap-2"><EntityIcon kind="variant" size="header" />{`Variants (${card.variants.length})`}</span>}>
         {card.variants.length === 0 && <p className="text-sm text-gray-500">No variants.</p>}
         {card.variants.map((v) => (
           <div key={v.id} className="mb-4 border rounded-md p-3">
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-semibold text-gray-800">{v.name}</h4>
+              <h4 className="text-sm font-semibold text-gray-800 inline-flex items-center gap-1.5"><EntityIcon kind="variant" />{v.name}</h4>
               <span className="text-xs text-gray-500">{v.standard_event ? `standard event: ${v.standard_event}` : ''}</span>
             </div>
             <p className="text-xs text-gray-500 mb-2">
@@ -609,8 +611,8 @@ export function StandardMappingBlock({
         <table className="mt-2 w-full text-left text-xs">
           <thead className="border-b bg-gray-50">
             <tr>
-              <th className="w-1/2 px-3 py-1.5 font-medium text-gray-500">Bloomreach field</th>
-              <th className="px-3 py-1.5 font-medium text-gray-500">Project property</th>
+              <HintTh className="w-1/2 px-3 py-1.5 font-medium text-gray-500" hintScope="Events">Bloomreach field</HintTh>
+              <HintTh className="px-3 py-1.5 font-medium text-gray-500" hintScope="Events">Project property</HintTh>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -640,9 +642,9 @@ export function Table({ head, rows, wideColumns = [] }: { head: string[]; rows: 
         <thead className="bg-gray-50 border-b">
           <tr>
             {head.map((h, j) => (
-              <th key={h} title={hintFor(h)} className={`px-3 py-2 font-medium text-gray-500 ${wideColumns.includes(j) ? 'w-full' : ''}`}>
+              <HintTh key={h} hint={h} className={`px-3 py-2 font-medium text-gray-500 ${wideColumns.includes(j) ? 'w-full' : ''}`} hintScope="Events">
                 {h}
-              </th>
+              </HintTh>
             ))}
           </tr>
         </thead>

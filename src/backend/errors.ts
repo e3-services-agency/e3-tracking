@@ -11,6 +11,15 @@ export class ConflictError extends Error {
   }
 }
 
+/** 409 with a stable code: an identity rule with this identifier name already exists in the project (T-4-32). */
+export class IdentifierExistsError extends ConflictError {
+  readonly code = 'IDENTIFIER_EXISTS';
+  constructor(identifierName: string) {
+    super(`An identity rule for "${identifierName}" already exists in this project.`);
+    this.name = 'IdentifierExistsError';
+  }
+}
+
 export class DatabaseError extends Error {
   readonly code = 'DATABASE_ERROR';
   constructor(message: string, public readonly cause?: unknown) {

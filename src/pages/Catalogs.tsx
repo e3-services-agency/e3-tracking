@@ -1,10 +1,11 @@
 import { StatusBadge } from '@/src/components/ui/badges';
+import { EnumSelect } from '@/src/components/ui/EnumSelect';
+import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 /**
  * Catalogs: table + plain editor with nested fields against
  * `/api/projects/:projectId/catalogs` (kept, extended per the plan).
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
-import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -136,12 +137,12 @@ export function Catalogs() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'Catalogs')}>Name</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Kind', 'Catalogs')}>Kind</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Market / language', 'Catalogs')}>Market / language</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Version', 'Catalogs')}>Version</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Mapping role', 'Catalogs')}>Mapping role</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Catalogs')}>Status</th>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Name" hintScope="Catalogs">Name</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Kind" hintScope="Catalogs">Kind</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Market / language" hintScope="Catalogs">Market / language</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Version" hintScope="Catalogs">Version</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Mapping role" hintScope="Catalogs">Mapping role</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Status" hintScope="Catalogs">Status</HintTh>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -375,7 +376,7 @@ function CatalogEditor({
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Name', 'Catalogs')}>Name</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Name" hintScope="Catalogs">Name</FieldLabel>
         <div className="flex items-center gap-2">
           <Input value={name} onChange={(e) => setName(e.target.value)} />
           {name.trim() && <CopyNameButton name={name.trim()} />}
@@ -383,33 +384,27 @@ function CatalogEditor({
         {nameError && <p className="text-xs text-red-600">{nameError}</p>}
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Description', 'Catalogs')}>Description</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Description" hintScope="Catalogs">Description</FieldLabel>
         <Input value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Owner', 'Catalogs')}>Owner</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Owner" hintScope="Catalogs">Owner</FieldLabel>
           <Input value={owner} onChange={(e) => setOwner(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Mapping role', 'Catalogs')}>Mapping role</label>
-          <select value={mappingRole} onChange={(e) => setMappingRole(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            <option value="">—</option>
-            {CATALOG_MAPPING_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Mapping role" hintScope="Catalogs">Mapping role</FieldLabel>
+          <EnumSelect kind="mapping_role" values={CATALOG_MAPPING_ROLES} emptyLabel="—" value={mappingRole} onChange={(e) => setMappingRole(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Kind', 'Catalogs')}>Kind</label>
-          <select value={kind} onChange={(e) => setKind(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            {isCreating && <option value="">Automatic (from mapping role)</option>}
-            {CATALOG_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-          </select>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Kind" hintScope="Catalogs">Kind</FieldLabel>
+          <EnumSelect kind="catalog_kind" values={CATALOG_KINDS} emptyLabel={isCreating ? 'Automatic (from mapping role)' : undefined} value={kind} onChange={(e) => setKind(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
           <p className="text-xs text-gray-500">Catalogs of the same kind (one per market) must share one schema.</p>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Version', 'Catalogs')}>Version</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Version" hintScope="Catalogs">Version</FieldLabel>
           <select value={version} onChange={(e) => setVersion(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             {CATALOG_VERSIONS.map((v) => <option key={v} value={v}>{v}</option>)}
           </select>
@@ -418,28 +413,22 @@ function CatalogEditor({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Market', 'Catalogs')}>Market</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Market" hintScope="Catalogs">Market</FieldLabel>
           <Input value={market} onChange={(e) => setMarket(e.target.value)} placeholder="e.g. GB" />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Language', 'Catalogs')}>Language</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Language" hintScope="Catalogs">Language</FieldLabel>
           <Input value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="e.g. en-GB" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Priority', 'Catalogs')}>Priority</label>
-          <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            <option value="">—</option>
-            {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Priority" hintScope="Catalogs">Priority</FieldLabel>
+          <EnumSelect kind="priority" values={PRIORITIES} emptyLabel="—" value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Status', 'Catalogs')}>Status</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            <option value="">—</option>
-            {ENTITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Status" hintScope="Catalogs">Status</FieldLabel>
+          <EnumSelect kind="status" values={ENTITY_STATUSES} emptyLabel="—" value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
         </div>
       </div>
 

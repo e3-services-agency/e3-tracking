@@ -116,3 +116,9 @@ body {
   color: inherit;
   padding: 0;
 }
+
+/* Shared tooltip surface (T-4-29) */
+.tooltip-surface {
+  background: var(--e3-space-blue);
+  color: #fff;
+}

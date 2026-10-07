@@ -4,6 +4,8 @@
  * Use cases tables; `SortableTh` renders the header cell with the arrow and `aria-sort`.
  */
 import React, { useMemo, useState } from 'react';
+import { hintFor, HintIcon, textOf } from '@/src/components/ui/FieldHint';
+import { useTooltip } from '@/src/components/ui/Tooltip';
 import { sortRows, type SortDir, type SortValue } from '@/src/domain/sortRows';
 
 export type SortAccessors<T> = Record<string, (row: T) => SortValue>;
@@ -44,26 +46,36 @@ export function SortableTh({
   sort,
   column,
   className = '',
-  title,
+  hint,
+  hintScope,
   children,
 }: {
   sort: SortState;
   column: string;
   className?: string;
-  title?: string;
+  hint?: string;
+  hintScope?: string;
   children: React.ReactNode;
 }) {
   const active = sort.key === column;
+  const text = hintFor(hint ?? textOf(children), hintScope);
+  const tip = useTooltip(text);
   return (
-    <th
-      className={className}
-      title={title}
-      aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
-    >
-      <button type="button" onClick={() => sort.toggle(column)} className="inline-flex items-center font-[inherit] text-inherit select-none cursor-pointer">
-        {children}
-        <span className="ml-1 text-gray-400" aria-hidden="true">{active ? (sort.dir === 'asc' ? '▲' : '▼') : ''}</span>
-      </button>
-    </th>
+    <>
+      <th
+        className={className}
+        ref={tip.anchorRef as React.Ref<HTMLTableCellElement>}
+        onMouseEnter={tip.triggerProps.onMouseEnter}
+        onMouseLeave={tip.triggerProps.onMouseLeave}
+        aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+      >
+        <button type="button" onClick={() => sort.toggle(column)} className="inline-flex items-center font-[inherit] text-inherit select-none cursor-pointer">
+          {children}
+          <span className="ml-1 text-gray-400" aria-hidden="true">{active ? (sort.dir === 'asc' ? '▲' : '▼') : ''}</span>
+        </button>
+        <HintIcon text={text} tip={tip} />
+      </th>
+      {tip.portal}
+    </>
   );
 }

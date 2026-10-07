@@ -5,6 +5,7 @@
  * JSON. No DOM, server or database import, so the MCP server can reuse these later.
  */
 import { describeCertificationReason } from '../certification';
+import { enumLabelOr } from '../enumLabels';
 import { sourceViaLabel } from '../sources';
 import type { EventCard, TrackingDocumentCustomerProperty, TrackingDocumentUseCase } from './trackingDocument';
 import type { PropertyKind } from '../enums';
@@ -51,12 +52,12 @@ export function eventCardToMarkdown(card: EventCard): string {
   out.push(`# Event: ${card.name}`);
   const header = joinLines(
     bullet('Business name', card.business_name),
-    bullet('Class', card.class),
-    bullet('Implementation method', card.implementation_method),
+    bullet('Class', enumLabelOr('class', card.class)),
+    bullet('Implementation method', enumLabelOr('implementation', card.implementation_method)),
     bullet('dataLayer event', card.dl_event_name),
     bullet('Source', card.sources && card.sources.length > 0 ? card.sources.map((s) => sourceViaLabel(s.system, s.method)).join(', ') : null),
-    bullet('Status', card.status),
-    bullet('Priority', card.priority),
+    bullet('Status', enumLabelOr('status', card.status)),
+    bullet('Priority', enumLabelOr('priority', card.priority)),
     bullet('Business owner', card.owners?.business),
     bullet('Technical owner', card.owners?.technical),
     bullet('Grain', card.grain),
@@ -102,7 +103,7 @@ export function eventCardToMarkdown(card: EventCard): string {
           p.data_formats.map(formatDisplayName).join(', '),
           p.required ? 'yes' : 'no',
           p.role,
-          p.kind ?? '',
+          enumLabelOr('property_kind', p.kind),
           p.datalayer_path === null ? 'n/a' : (p.datalayer_path ?? ''),
           p.bundle ?? '',
           p.catalog_field ?? '',
@@ -180,7 +181,7 @@ export function eventCardToMarkdown(card: EventCard): string {
 
   if (card.use_cases.length > 0) {
     out.push('## Used by use cases');
-    out.push(table(['Code', 'Name', 'Level'], card.use_cases.map((u) => [u.code ?? '', u.name, u.level])));
+    out.push(table(['Code', 'Name', 'Level'], card.use_cases.map((u) => [u.code ?? '', u.name, enumLabelOr('level', u.level)])));
   }
 
   out.push('## Findings');
@@ -190,7 +191,7 @@ export function eventCardToMarkdown(card: EventCard): string {
     out.push(
       table(
         ['Severity', 'Kind', 'Variant', 'Property', 'Message'],
-        card.findings.map((f) => [f.severity, f.kind, f.variant ?? '', f.property ?? '', f.message ?? ''])
+        card.findings.map((f) => [enumLabelOr('severity', f.severity), f.kind, f.variant ?? '', f.property ?? '', f.message ?? ''])
       )
     );
   }
@@ -207,7 +208,7 @@ export function eventCardToMarkdown(card: EventCard): string {
 export function useCaseToMarkdown(useCase: TrackingDocumentUseCase): string {
   const out: string[] = [];
   out.push(`# Use case: ${useCase.code ? `${useCase.code} - ` : ''}${useCase.name}`);
-  const header = joinLines(bullet('Type', useCase.type), bullet('Status', useCase.status), bullet('Documentation', useCase.documentation_url));
+  const header = joinLines(bullet('Type', enumLabelOr('use_case_type', useCase.type)), bullet('Status', enumLabelOr('status', useCase.status)), bullet('Documentation', useCase.documentation_url));
   if (header) out.push(header);
   out.push('## Narrative');
   out.push(useCase.narrative?.trim() ? useCase.narrative.trim() : 'No narrative yet.');
@@ -215,7 +216,7 @@ export function useCaseToMarkdown(useCase: TrackingDocumentUseCase): string {
   if (useCase.requirements.length === 0) {
     out.push('No requirements.');
   } else {
-    out.push(table(['#', 'Target', 'Level', 'Status'], useCase.requirements.map((r, i) => [i + 1, r.target_label, r.level, r.status ?? ''])));
+    out.push(table(['#', 'Target', 'Level', 'Status'], useCase.requirements.map((r, i) => [i + 1, r.target_label, enumLabelOr('level', r.level), enumLabelOr('status', r.status)])));
   }
   return out.join('\n\n') + '\n';
 }

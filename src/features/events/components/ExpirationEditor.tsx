@@ -4,6 +4,7 @@
  * `ProjectSettings.tsx`'s default-expiration editor and `Variant.expiration_json` (T-1-05).
  */
 import React from 'react';
+import { FieldLabel } from '@/src/components/ui/FieldHint';
 import { Input } from '@/src/components/ui/Input';
 import { EXPIRATION_UNITS } from '@/src/domain/enums';
 
@@ -25,14 +26,14 @@ export function ExpirationEditor({
 }) {
   return (
     <div className="space-y-2 border-t pt-4">
-      <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+      <FieldLabel className="flex items-center gap-2 text-sm font-medium text-gray-700" hintScope="Events">
         <input
           type="checkbox"
           checked={value.enabled}
           onChange={(e) => onChange({ ...value, enabled: e.target.checked })}
         />
         Expiration
-      </label>
+      </FieldLabel>
       {!value.enabled && inheritHint && <p className="text-xs text-gray-500">{inheritHint}</p>}
       <div className="flex items-center gap-2 max-w-md">
         <Input

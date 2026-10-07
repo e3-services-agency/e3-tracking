@@ -15,6 +15,7 @@
  * instant reload.
  */
 import React, { useState } from 'react';
+import { FieldLabel } from '@/src/components/ui/FieldHint';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { useStore } from '@/src/store';
@@ -175,7 +176,7 @@ export function RestoreBackupForm({ clients }: { clients: ClientRow[] }) {
       </div>
 
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Backup file</label>
+        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Restore">Backup file</FieldLabel>
         <input
           type="file"
           accept="application/json"
@@ -187,7 +188,7 @@ export function RestoreBackupForm({ clients }: { clients: ClientRow[] }) {
       </div>
 
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">or paste backup JSON</label>
+        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Restore">or paste backup JSON</FieldLabel>
         <textarea
           className="w-full h-32 border rounded p-2 font-mono text-xs"
           value={raw}
@@ -237,7 +238,7 @@ export function RestoreBackupForm({ clients }: { clients: ClientRow[] }) {
           )}
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">Client</label>
+            <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Restore">Client</FieldLabel>
             <select
               className="w-full border rounded h-10 px-3 text-sm"
               value={clientId}
@@ -253,12 +254,12 @@ export function RestoreBackupForm({ clients }: { clients: ClientRow[] }) {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">New project name</label>
+            <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Restore">New project name</FieldLabel>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">New project key (URL-safe)</label>
+            <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Restore">New project key (URL-safe)</FieldLabel>
             <Input value={key} onChange={(e) => setKey(e.target.value)} className="font-mono" />
           </div>
 

@@ -11,7 +11,7 @@ import { Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { SourceBadge, humanize } from '@/src/components/ui/badges';
-import { hintFor } from '@/src/components/ui/FieldHint';
+import { FieldHint, FieldLabel } from '@/src/components/ui/FieldHint';
 import { HistorySection } from '@/src/features/history/HistorySection';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
@@ -70,9 +70,18 @@ const SELECT = 'w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2
 
 function Label({ children, hint }: { children: React.ReactNode; hint?: string }) {
   return (
-    <label className="text-sm font-medium text-gray-700" title={hint ?? hintFor(String(children), 'Identity')}>
+    <FieldLabel className="text-sm font-medium text-gray-700" hint={hint} hintScope="Identity">
       {children}
-    </label>
+    </FieldLabel>
+  );
+}
+
+/** A radio or checkbox option label with a hint keyed by `hint` (Identity scope). */
+function Option({ hint, className = 'flex items-center gap-2 text-sm text-gray-700', children }: { hint: string; className?: string; children: React.ReactNode }) {
+  return (
+    <FieldLabel className={className} hint={hint} hintScope="Identity">
+      {children}
+    </FieldLabel>
   );
 }
 
@@ -100,7 +109,9 @@ function SectionBox({
       className={`rounded-md border p-4 space-y-3 outline-none ${focused ? 'border-[var(--color-info)]' : 'border-gray-200'}`}
     >
       <div>
-        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+        <h3 className="text-sm font-semibold text-gray-900">
+          <FieldHint label={title} scope="Identity" />
+        </h3>
         {intro && <p className="text-xs text-gray-500 mt-0.5">{intro}</p>}
       </div>
       {children}
@@ -128,7 +139,7 @@ export function IdentityRuleEditor({
   focusSection?: IdentityEditorSection | null;
   onSaved: () => Promise<void>;
   /** Refreshes the list without closing the sheet (a partly failed save of a new rule). */
-  onRefresh?: () => Promise<void>;
+  onRefresh?: (createdId?: string) => Promise<void>;
   onClose: () => void;
 }) {
   /** Set after the first successful POST of a new rule: later saves PATCH it, never POST again. */
@@ -158,6 +169,7 @@ export function IdentityRuleEditor({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [identifierError, setIdentifierError] = useState<string | null>(null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
 
   useEffect(() => {
@@ -294,6 +306,10 @@ export function IdentityRuleEditor({
       const res = await fetchWithAuth(target.url, { method: target.method, body: JSON.stringify(body) });
       const data = await parseJson(res);
       if (!res.ok) {
+        if (data?.code === 'IDENTIFIER_EXISTS') {
+          setIdentifierError(typeof data?.error === 'string' ? data.error : 'An identity rule with this identifier name already exists.');
+          return;
+        }
         setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to save.');
         return;
       }
@@ -308,7 +324,7 @@ export function IdentityRuleEditor({
           const cd = await parseJson(carried);
           setSaveError(typeof cd?.error === 'string' ? `Rule saved, but the events were not updated: ${cd.error}` : 'Rule saved, but the events were not updated.');
           // The rule exists now: refresh the list, keep the sheet open on it (the next Save PATCHes).
-          await (onRefresh ?? (async () => {}))();
+          await (onRefresh ?? (async () => {}))(savedId);
           return;
         }
       }
@@ -353,7 +369,8 @@ export function IdentityRuleEditor({
           </div>
           <div className="space-y-2">
             <Label>Identifier name</Label>
-            <Input value={identifierName} onChange={(e) => setIdentifierName(e.target.value)} placeholder="e.g. registered, cookie, email_id" />
+            <Input value={identifierName} onChange={(e) => { setIdentifierName(e.target.value); setIdentifierError(null); }} placeholder="e.g. registered, cookie, email_id" />
+            {identifierError && <p className="text-xs text-red-600" role="alert" data-testid="identifier-exists-error">{identifierError}</p>}
             {!trimmedField && <p className="text-xs text-red-600">Identifier name is required.</p>}
           </div>
         </div>
@@ -361,10 +378,10 @@ export function IdentityRuleEditor({
           <Label>Identity type</Label>
           <div className="flex gap-4">
             {IDENTITY_TYPES.map((t) => (
-              <label key={t} className="flex items-center gap-2 text-sm text-gray-700">
+              <Option key={t} hint={t}>
                 <input type="radio" name="identity-type" checked={identityType === t} onChange={() => setIdentityType(t)} />
                 {t}
-              </label>
+              </Option>
             ))}
           </div>
         </div>
@@ -372,10 +389,10 @@ export function IdentityRuleEditor({
           <Label>Transformations</Label>
           <div className="flex gap-4">
             {IDENTITY_TRANSFORMATIONS.map((t) => (
-              <label key={t} className="flex items-center gap-2 text-sm text-gray-700">
+              <Option key={t} hint={t}>
                 <input type="checkbox" checked={transformations.includes(t)} onChange={() => toggleTransformation(t)} />
                 {t}
-              </label>
+              </Option>
             ))}
           </div>
         </div>
@@ -402,10 +419,10 @@ export function IdentityRuleEditor({
             ['standalone', 'By a standalone identify call'],
             ['none', 'Not defined yet'],
           ] as [SetByMode, string][]).map(([value, label]) => (
-            <label key={value} className="flex items-center gap-2 text-sm text-gray-800">
+            <Option key={value} hint={label} className="flex items-center gap-2 text-sm text-gray-800">
               <input type="radio" name="set-by-mode" checked={mode === value} onChange={() => setMode(value)} />
               {label}
-            </label>
+            </Option>
           ))}
         </div>
         {mode === 'event' && (
@@ -476,7 +493,7 @@ export function IdentityRuleEditor({
           </div>
         )}
         <p className="text-sm text-gray-700" data-testid="identity-editor-binds">
-          <span className="font-medium">Binds: </span>
+          <span className="font-medium"><FieldHint label="Binds" scope="Identity" />: </span>
           {flowRule ? bindsSentence(flowRule) : ''}
         </p>
       </SectionBox>
@@ -485,20 +502,22 @@ export function IdentityRuleEditor({
         {grouped.length === 0 && <p className="text-sm text-gray-500">No events in this project yet.</p>}
         {grouped.map((g) => (
           <div key={g.method}>
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">{humanize(g.method)}</h4>
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
+              <FieldHint label="Carried by" scope="Identity">{humanize(g.method)}</FieldHint>
+            </h4>
             <ul className="grid grid-cols-2 gap-x-3 gap-y-1">
               {g.items.map((e) => {
                 const explicit = hasExplicitIdentifiers(e);
                 const derived = identifiersAreDerived(e, draftRules) && deriveEventIdentifiers(e, draftRules, idSources).includes(draftRule.identifier_name);
                 return (
                   <li key={e.id}>
-                    <label className="flex items-center gap-2 text-sm text-gray-800">
+                    <Option hint="Carried by" className="flex items-center gap-2 text-sm text-gray-800">
                       <input type="checkbox" checked={isTicked(e)} onChange={(ev) => setOverrides((prev) => ({ ...prev, [e.id]: ev.target.checked }))} />
                       <span>{e.name}</span>
                       {derived && <span className="text-xs text-gray-400">derived</span>}
                       {explicit && (e.identifiers_json ?? []).length === 0 && <span className="text-xs text-gray-400">none, set by hand</span>}
                       {explicit && (e.identifiers_json ?? []).length > 0 && <span className="text-xs text-gray-400">set by hand</span>}
-                    </label>
+                    </Option>
                   </li>
                 );
               })}
@@ -506,7 +525,7 @@ export function IdentityRuleEditor({
           </div>
         ))}
         <div className="rounded-md bg-gray-50 border border-gray-200 p-3" data-testid="identity-editor-preview">
-          <h4 className="text-xs font-semibold text-gray-700 mb-1">Preview</h4>
+          <h4 className="text-xs font-semibold text-gray-700 mb-1"><FieldHint label="Preview" scope="Identity" /></h4>
           <p className="text-sm text-gray-700">{flowRule?.sentence || 'Fill in the identifier to see its sentence.'}</p>
         </div>
       </SectionBox>

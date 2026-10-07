@@ -4,7 +4,7 @@
  * paged via `next_cursor`. Enums (entity type) come from `src/domain/enums.ts`, never hardcoded.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
-import { hintFor } from '@/src/components/ui/FieldHint';
+import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
@@ -158,7 +158,7 @@ export function History() {
     <div className="flex-1 flex flex-col">
       <PageHeader>
         <h1 className="text-2xl font-bold text-gray-900">History</h1>
-        <p className="text-sm text-gray-500 mt-1">Every definition change (D-44): who, when, from where, and what changed.</p>
+        <p className="text-sm text-gray-500 mt-1">Every definition change: who, when, from where, and what changed.</p>
       </PageHeader>
 
       <PageBody className="space-y-4">
@@ -167,31 +167,31 @@ export function History() {
         )}
         <div className="bg-white rounded-lg border shadow-sm p-4 flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500" title={hintFor('Entity type', 'History')}>Entity type</label>
+            <FieldLabel className="text-xs font-medium text-gray-500" hint="Entity type" hintScope="History">Entity type</FieldLabel>
             <select value={entityType} onChange={(e) => setEntityType(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
               {CHANGE_LOG_ENTITY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500" title={hintFor('Action', 'History')}>Action</label>
+            <FieldLabel className="text-xs font-medium text-gray-500" hint="Action" hintScope="History">Action</FieldLabel>
             <select value={action} onChange={(e) => setAction(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
               {CHANGE_LOG_ACTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500" title={hintFor('Actor', 'History')}>Actor</label>
+            <FieldLabel className="text-xs font-medium text-gray-500" hint="Actor" hintScope="History">Actor</FieldLabel>
             <input value={actor} onChange={(e) => setActor(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm" placeholder="Any actor" />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500" title={hintFor('Source', 'History')}>Source</label>
+            <FieldLabel className="text-xs font-medium text-gray-500" hint="Source" hintScope="History">Source</FieldLabel>
             <input value={source} onChange={(e) => setSource(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm" placeholder="ui, mcp, import:…" />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">
+            <FieldLabel className="text-xs font-medium text-gray-500" hintScope="History">
               <GlossaryTerm glossaryKey="batch">Batch</GlossaryTerm> id
-            </label>
+            </FieldLabel>
             <input value={batchId} onChange={(e) => setBatchId(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm" placeholder="Any batch" />
           </div>
         </div>
@@ -221,12 +221,12 @@ export function History() {
                   <div className="overflow-x-auto"><table className="w-full text-left text-xs mt-3">
                     <thead className="text-gray-500">
                       <tr>
-                        <th className="py-1 pr-3 font-medium" title={hintFor('Type', 'History')}>Type</th>
-                        <th className="py-1 pr-3 font-medium" title={hintFor('Entity', 'History')}>Entity</th>
-                        <th className="py-1 pr-3 font-medium" title={hintFor('Action', 'History')}>Action</th>
-                        <th className="py-1 pr-3 font-medium" title={hintFor('Field', 'History')}>Field</th>
-                        <th className="py-1 pr-3 font-medium" title={hintFor('Before', 'History')}>Before</th>
-                        <th className="py-1 pr-3 font-medium" title={hintFor('After', 'History')}>After</th>
+                        <HintTh className="py-1 pr-3 font-medium" hint="Type" hintScope="History">Type</HintTh>
+                        <HintTh className="py-1 pr-3 font-medium" hint="Entity" hintScope="History">Entity</HintTh>
+                        <HintTh className="py-1 pr-3 font-medium" hint="Action" hintScope="History">Action</HintTh>
+                        <HintTh className="py-1 pr-3 font-medium" hint="Field" hintScope="History">Field</HintTh>
+                        <HintTh className="py-1 pr-3 font-medium" hint="Before" hintScope="History">Before</HintTh>
+                        <HintTh className="py-1 pr-3 font-medium" hint="After" hintScope="History">After</HintTh>
                       </tr>
                     </thead>
                     <tbody className="divide-y">

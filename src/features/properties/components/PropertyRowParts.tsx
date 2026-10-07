@@ -1,5 +1,6 @@
 /** T-4-26: presentational parts of the Properties table, mirroring the Events variant sub-rows. */
 import React, { useRef } from 'react';
+import { HintTh } from '@/src/components/ui/FieldHint';
 import { useModalA11y } from '@/src/components/ui/useModalA11y';
 import { Button } from '@/src/components/ui/Button';
 
@@ -88,7 +89,7 @@ export function UsedByModal({
         ) : (
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="text-gray-500"><th className="py-1">Event</th><th className="py-1">Role</th><th className="py-1">Definition</th></tr>
+              <tr className="text-gray-500"><HintTh className="py-1" hintScope="Properties">Event</HintTh><HintTh className="py-1" hintScope="Properties">Role</HintTh><HintTh className="py-1" hintScope="Properties">Definition</HintTh></tr>
             </thead>
             <tbody className="divide-y">
               {events.map((e) => (

@@ -98,3 +98,25 @@ describe('PUT /identity-rules/:id/carried-by', () => {
     expect(changeCount()).toBe(before);
   });
 });
+
+describe('identifier_name is unique per project (T-4-32)', () => {
+  const post = (body: unknown) =>
+    fetch(`${base}/api/projects/${projectId}/identity-rules`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const patch = (id: string, body: unknown) =>
+    fetch(`${base}/api/projects/${projectId}/identity-rules/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+
+  it('409 IDENTIFIER_EXISTS on create (case-insensitive) and on rename; the same name on the same rule is fine', async () => {
+    const { cart } = setUp();
+    const dup = await post({ name: 'Other', identifier_name: 'CART_ID', identity_type: 'soft' });
+    expect(dup.status).toBe(409);
+    expect((await dup.json()).code).toBe('IDENTIFIER_EXISTS');
+    const fresh = await post({ name: 'Email', identifier_name: 'email_id', identity_type: 'hard' });
+    expect(fresh.status).toBe(201);
+    const email = await fresh.json();
+    const rename = await patch(email.id, { identifier_name: 'Cookie' });
+    expect(rename.status).toBe(409);
+    expect((await rename.json()).code).toBe('IDENTIFIER_EXISTS');
+    expect((await patch(cart.id, { identifier_name: 'cart_id', name: 'Cart renamed' })).status).toBe(200);
+    expect((await patch(cart.id, { identifier_name: 'Cart_Id' })).status).toBe(200);
+  });
+});

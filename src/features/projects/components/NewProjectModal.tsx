@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { FieldLabel } from '@/src/components/ui/FieldHint';
 import { X } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -112,9 +113,9 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
         </div>
         <form onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
           <div>
-            <label htmlFor="project-client" className="block text-sm font-medium text-gray-700 mb-1">
+            <FieldLabel htmlFor="project-client" className="block text-sm font-medium text-gray-700 mb-1" hintScope="Projects">
               Client <span className="text-red-500">*</span>
-            </label>
+            </FieldLabel>
             {!creatingClient && (
               <select
                 id="project-client"
@@ -147,9 +148,9 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
             {creatingClient && (
               <div className="mt-2 space-y-2 rounded-md border border-gray-200 bg-gray-50 p-3">
                 <div>
-                  <label htmlFor="new-client-name" className="block text-xs font-medium text-gray-700 mb-1">
+                  <FieldLabel htmlFor="new-client-name" className="block text-xs font-medium text-gray-700 mb-1" hintScope="Projects">
                     Client name
-                  </label>
+                  </FieldLabel>
                   <Input
                     id="new-client-name"
                     type="text"
@@ -162,9 +163,9 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
                   />
                 </div>
                 <div>
-                  <label htmlFor="new-client-key" className="block text-xs font-medium text-gray-700 mb-1">
+                  <FieldLabel htmlFor="new-client-key" className="block text-xs font-medium text-gray-700 mb-1" hintScope="Projects">
                     Client key (URL-safe)
-                  </label>
+                  </FieldLabel>
                   <Input
                     id="new-client-key"
                     type="text"
@@ -194,9 +195,9 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
             )}
           </div>
           <div>
-            <label htmlFor="project-name" className="block text-sm font-medium text-gray-700 mb-1">
+            <FieldLabel htmlFor="project-name" className="block text-sm font-medium text-gray-700 mb-1" hintScope="Projects">
               Project Name <span className="text-red-500">*</span>
-            </label>
+            </FieldLabel>
             <Input id="project-name" type="text" value={name} onChange={(e) => {
                 const v = e.target.value;
                 setName(v);
@@ -206,9 +207,9 @@ export function NewProjectModal({ isOpen, onClose, onSuccess }: NewProjectModalP
             {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
           </div>
           <div>
-            <label htmlFor="project-key" className="block text-sm font-medium text-gray-700 mb-1">
+            <FieldLabel htmlFor="project-key" className="block text-sm font-medium text-gray-700 mb-1" hintScope="Projects">
               Key (URL-safe) <span className="text-red-500">*</span>
-            </label>
+            </FieldLabel>
             <Input id="project-key" type="text" value={key} onChange={(e) => { setKeyTouched(true); setKey(e.target.value); }} placeholder="acme-eu" className="w-full font-mono" />
             {errors.key && <p className="text-xs text-red-600 mt-1">{errors.key}</p>}
           </div>

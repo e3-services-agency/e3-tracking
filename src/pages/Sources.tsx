@@ -3,7 +3,7 @@
  * Simplified UI (D-07).
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
-import { hintFor } from '@/src/components/ui/FieldHint';
+import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Search, Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -110,10 +110,10 @@ export function Sources() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'Sources')}>Name</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('System via method', 'Sources')}>System via method</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Color', 'Sources')}>Color</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Used In', 'Sources')}>Used In</th>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Name" hintScope="Sources">Name</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="System via method" hintScope="Sources">System via method</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Color" hintScope="Sources">Color</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Used In" hintScope="Sources">Used In</HintTh>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -241,17 +241,17 @@ function SourceEditor({
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Source Name', 'Sources')}>Source Name</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Source Name" hintScope="Sources">Source Name</FieldLabel>
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. iOS App" disabled={isSaving} />
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" htmlFor="source-system" title={hintFor('System', 'Sources')}>System</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" htmlFor="source-system" hint="System" hintScope="Sources">System</FieldLabel>
         <select id="source-system" value={system} onChange={(e) => setSystem(e.target.value)} disabled={isSaving} className="block h-9 w-full rounded-md border border-gray-300 bg-white px-2 text-sm">
           {SOURCE_SYSTEMS.map((s) => <option key={s} value={s}>{SOURCE_SYSTEM_LABELS[s]}</option>)}
         </select>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" htmlFor="source-method" title={hintFor('Collection method', 'Sources')}>Collection method</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" htmlFor="source-method" hint="Collection method" hintScope="Sources">Collection method</FieldLabel>
         <select id="source-method" value={method} onChange={(e) => setMethod(e.target.value)} disabled={isSaving} className="block h-9 w-full rounded-md border border-gray-300 bg-white px-2 text-sm">
           <option value="">Not recorded</option>
           {SOURCE_METHODS.map((m) => <option key={m} value={m}>{SOURCE_METHOD_LABELS[m]}</option>)}
@@ -259,7 +259,7 @@ function SourceEditor({
         <p className="text-xs text-gray-500">A Tracking API source makes a linked event server-side by default; a web source keeps it client-side. An event's own choice is never overridden.</p>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" htmlFor="source-color" title={hintFor('Color (optional)', 'Sources')}>Color</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" htmlFor="source-color" hint="Color (optional)" hintScope="Sources">Color</FieldLabel>
         <div className="flex items-center gap-2">
           <span
             aria-hidden="true"

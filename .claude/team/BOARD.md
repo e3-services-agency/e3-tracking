@@ -3420,3 +3420,9 @@ Merge 309d8d6. Merged tree: tsc, lint clean, 1824 tests / 179 files.
 ### 2026-10-07 | reviewer | REVIEW | T-4-32 re-check 7ec1b65 PASS (1 minor); conflicts with agent-setup
 Full suite 1815/179 green. All four findings fixed and consistent across DAL, card, markdown, HTML, codegen, editors. Minor: after a POST-then-PUT failure the preview/Binds line keys off ruleId (null) instead of the created id. Merge check vs e9765ac: conflicts in docs/guide/identification.md and document.service.ts#buildEventCard (T-4-30 touched the same area). API note: identifiers_json [] now means "carries nothing" (D-67 amendment 2).
 Supervisor ruling: implementer fixes the minor (effectiveRuleId) and merges agent-setup (309d8d6) into the branch, re-runs gates; then QA of the editor in the browser (never browser-checked yet), then merge.
+
+### 2026-10-07 | implementer | HANDOFF | T-4-29 + T-4-31 final e914511 (agent-setup 85b9e30 merged in)
+Scoped "Requirement status" hint, last two decision codes removed, Catalogs.tsx conflict resolved on the T-4-33 side, FieldTableEditor headers through HintTh. 1845 tests / 183 files, gates green.
+
+### 2026-10-07 | supervisor | MERGE | T-4-29 + T-4-31 merged into agent-setup — DONE
+Merge e581ad2. Merged tree: tsc, lint, build clean, 1845 tests / 183 files. Remaining from round 8: T-4-32 (merge of agent-setup + minor fix in progress, then browser QA).

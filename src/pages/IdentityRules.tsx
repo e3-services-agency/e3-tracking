@@ -1,11 +1,12 @@
 import { StatusBadge } from '@/src/components/ui/badges';
+import { EnumSelect } from '@/src/components/ui/EnumSelect';
+import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 /**
  * Identity rules: plain table + form against `/api/projects/:projectId/identity-rules`
  * (plan "Target data model" section IdentityRule; T-1-06). Simplified UI (D-07): a single
  * sheet form with every field, plus move up/down for `sort_order`.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
-import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -66,7 +67,10 @@ export function IdentityRules() {
   const [flowParagraph, setFlowParagraph] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [focusSection, setFocusSection] = useState<IdentityEditorSection | null>(null);
+  // Bumped only when the sheet is opened, so saving a new rule (which sets selectedId) does not remount the editor.
+  const [editorKey, setEditorKey] = useState(0);
   const openRule = (id: string, section: IdentityEditorSection | null = null) => {
+    setEditorKey((k) => k + 1);
     setSelectedId(id);
     setFocusSection(section);
     setIsCreating(false);
@@ -133,7 +137,7 @@ export function IdentityRules() {
             When hard and soft identities are set, and which events/properties may be sent.
           </p>
         </div>
-        <Button onClick={() => { setSelectedId(null); setFocusSection(null); setIsCreating(true); setIsSheetOpen(true); }} className="gap-2">
+        <Button onClick={() => { setEditorKey((k) => k + 1); setSelectedId(null); setFocusSection(null); setIsCreating(true); setIsSheetOpen(true); }} className="gap-2">
           <Plus className="w-4 h-4" /> Add Identity Rule
         </Button>
       </PageHeader>
@@ -168,15 +172,15 @@ ${flowParagraph}
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500 w-20" title={hintFor('Order', 'Identity')}>Order</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'Identity')}>Name</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Identifier name', 'Identity')}>Identifier name</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Type', 'Identity')}>Type</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('SDK call', 'Identity')}>SDK call</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Trigger event', 'Identity')}>Trigger event</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Set by', 'Identity')}>Set by</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Carried by', 'Identity')}>Carried by</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Identity')}>Status</th>
+                <HintTh className="px-6 py-3 font-medium text-gray-500 w-20" hint="Order" hintScope="Identity">Order</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Name" hintScope="Identity">Name</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Identifier name" hintScope="Identity">Identifier name</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Type" hintScope="Identity">Type</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="SDK call" hintScope="Identity">SDK call</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Trigger event" hintScope="Identity">Trigger event</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Set by" hintScope="Identity">Set by</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Carried by" hintScope="Identity">Carried by</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Status" hintScope="Identity">Status</HintTh>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -235,7 +239,7 @@ ${flowParagraph}
 
       <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title={isCreating ? 'Create Identity Rule' : 'Edit Identity Rule'}>
         <IdentityRuleEditor
-          key={isCreating ? 'create' : selectedId ?? 'none'}
+          key={editorKey}
           ruleId={isCreating ? null : selectedId}
           projectId={activeProjectId}
           events={events}
@@ -243,7 +247,11 @@ ${flowParagraph}
           rules={rules}
           focusSection={focusSection}
           onSaved={async () => { await load(); setIsSheetOpen(false); }}
-          onRefresh={load}
+          onRefresh={async (createdId) => {
+            await load();
+            // A new rule that saved but whose events failed stays open as an edit of the created rule.
+            if (createdId) { setSelectedId(createdId); setIsCreating(false); }
+          }}
           onClose={() => setIsSheetOpen(false)}
         />
       </Sheet>

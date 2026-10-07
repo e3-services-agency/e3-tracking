@@ -196,7 +196,7 @@ describe('card properties: kind, dataLayer path, bundle', () => {
   it('eventCardToMarkdown shows method, dataLayer event, kind and path', () => {
     const { event } = setUpWishlist();
     const md = eventCardToMarkdown(buildEventCard(projectId, event.id));
-    expect(md).toContain('- Implementation method: client_web');
+    expect(md).toContain('- Implementation method: Client web (dataLayer)');
     expect(md).toContain('- dataLayer event: add_to_wishlist');
     expect(md).toContain('| Kind |');
     expect(md).toContain('bloomreach.item.product_id');

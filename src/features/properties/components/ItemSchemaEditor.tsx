@@ -5,6 +5,8 @@
  * `haystack` operands and `runItemSchemaChecks` (`item_schema_violation`).
  */
 import React from 'react';
+import { EnumSelect } from '@/src/components/ui/EnumSelect';
+import { FieldLabel } from '@/src/components/ui/FieldHint';
 import { Plus, Trash2 } from 'lucide-react';
 import { Input } from '@/src/components/ui/Input';
 import { Button } from '@/src/components/ui/Button';
@@ -36,7 +38,7 @@ export function ItemSchemaEditor({
   return (
     <div className="space-y-2 border-t pt-3">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-gray-700">Item schema (array items)</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hintScope="Properties">Item schema (array items)</FieldLabel>
         <Button type="button" variant="outline" size="sm" onClick={addRow} className="gap-1">
           <Plus className="w-3 h-3" /> Add field
         </Button>
@@ -47,23 +49,21 @@ export function ItemSchemaEditor({
           <div key={i} className="border rounded-md p-2 space-y-1 bg-gray-50">
             <div className="flex flex-wrap gap-2 items-center">
               <Input value={f.field} onChange={(e) => updateRow(i, { field: e.target.value })} placeholder="field name" className="h-8 w-36 text-xs" />
-              <select value={f.data_type} onChange={(e) => updateRow(i, { data_type: e.target.value })} className="h-8 rounded border border-gray-300 px-2 text-xs">
-                {PROPERTY_DATA_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-              <label className="flex items-center gap-1 text-xs">
+              <EnumSelect kind="data_type" values={PROPERTY_DATA_TYPES} value={f.data_type} onChange={(e) => updateRow(i, { data_type: e.target.value })} className="h-8 rounded border border-gray-300 px-2 text-xs" />
+              <FieldLabel className="flex items-center gap-1 text-xs" hintScope="Properties">
                 <input type="checkbox" checked={f.required ?? false} onChange={(e) => updateRow(i, { required: e.target.checked })} />
                 required
-              </label>
+              </FieldLabel>
               <button type="button" onClick={() => removeRow(i)} className="text-red-500 hover:text-red-700 ml-auto">
                 <Trash2 className="w-3 h-3" />
               </button>
             </div>
             <div className="flex flex-wrap gap-1">
               {PROPERTY_DATA_FORMATS.map((fmt) => (
-                <label key={fmt} className="flex items-center gap-1 text-[10px] bg-white border rounded px-1.5 py-0.5">
+                <FieldLabel key={fmt} className="flex items-center gap-1 text-[10px] bg-white border rounded px-1.5 py-0.5" hintScope="Properties">
                   <input type="checkbox" checked={(f.data_formats ?? []).includes(fmt)} onChange={() => toggleFormat(i, fmt)} />
                   {fmt}
-                </label>
+                </FieldLabel>
               ))}
             </div>
           </div>

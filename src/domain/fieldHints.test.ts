@@ -4,7 +4,7 @@ import { FIELD_HINTS, hintFor } from './fieldHints';
 describe('hintFor', () => {
   it('prefers the page-scoped entry over the generic one', () => {
     expect(hintFor('Status', 'Events')).toContain('in review');
-    expect(hintFor('Status', 'Properties')).toBe(FIELD_HINTS.Status);
+    expect(hintFor('Status', 'NoSuchPage')).toBe(FIELD_HINTS.Status);
   });
   it('ignores trailing colons and asterisks and extra whitespace', () => {
     expect(hintFor('  Name *', 'Events')).toBe(FIELD_HINTS['Events.Name']);

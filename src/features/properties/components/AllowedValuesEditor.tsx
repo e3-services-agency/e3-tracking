@@ -5,6 +5,7 @@
  * which Bloomreach standard event a discriminator value maps to (D-03 rule 5).
  */
 import React from 'react';
+import { FieldLabel } from '@/src/components/ui/FieldHint';
 import { Plus, Trash2 } from 'lucide-react';
 import { Input } from '@/src/components/ui/Input';
 import { Button } from '@/src/components/ui/Button';
@@ -40,7 +41,7 @@ export function AllowedValuesEditor({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-gray-700">Allowed values</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hintScope="Properties">Allowed values</FieldLabel>
         <span className="text-xs text-gray-500">{values.length} value(s)</span>
       </div>
       {values.length > 0 && (

@@ -3,6 +3,7 @@
  * `revenue = purchase.total_price where purchase_status = success`.
  */
 import React from 'react';
+import { FieldLabel } from '@/src/components/ui/FieldHint';
 import { Plus, Trash2 } from 'lucide-react';
 import { Input } from '@/src/components/ui/Input';
 import { Button } from '@/src/components/ui/Button';
@@ -27,7 +28,7 @@ export function DerivedMetricsEditor({
 
   return (
     <div className="space-y-2 border-t pt-4">
-      <label className="text-sm font-medium text-gray-700">Derived metrics</label>
+      <FieldLabel className="text-sm font-medium text-gray-700" hintScope="Events">Derived metrics</FieldLabel>
       {values.map((row, index) => (
         <div key={index} className="border rounded-md p-2 bg-gray-50 grid grid-cols-12 gap-2 items-center">
           <Input

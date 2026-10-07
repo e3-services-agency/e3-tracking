@@ -107,7 +107,7 @@ describe('renderFindingsTable (D-40 Q9 fix round)', () => {
         message: 'Expected number, got string.',
       },
     ]);
-    expect(html).toContain('error');
+    expect(html).toContain('Error');
     expect(html).toContain('type_mismatch');
     expect(html).toContain('definition_vs_observations');
     expect(html).toContain('total_price');
@@ -241,7 +241,7 @@ describe('renderConsentCategoriesSection', () => {
     expect(html).toContain('brand_consent');
     expect(html).toContain('newsletter');
     expect(html).toContain('Marketing emails');
-    expect(html).toContain('implemented');
+    expect(html).toContain('Implemented');
   });
 });
 
@@ -513,7 +513,7 @@ describe('renderUseCasesSection', () => {
     const html = renderUseCasesSection(useCases);
     expect(html).toContain('UC-01 — Checkout tracking');
     expect(html).toContain('transactional');
-    expect(html).toContain('high');
+    expect(html).toContain('High');
     expect(html).toContain('Jane');
     expect(html).toContain('Fires when the customer completes checkout.');
     expect(html).toContain('checkout');

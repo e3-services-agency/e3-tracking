@@ -6,6 +6,7 @@
  * with the prerequisites card (resolve status per group for the current project).
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -367,7 +368,7 @@ export function UseCaseTemplates() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Use case templates</h1>
           <p className="text-sm text-gray-500 mt-1">
-            The shared library (D-06): import, filter, and add use cases to the current project.
+            The shared library: import, filter, and add use cases to the current project.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -437,11 +438,11 @@ export function UseCaseTemplates() {
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-4 py-2 w-8" />
-                <th className="px-4 py-2 font-medium text-gray-500">Code</th>
-                <th className="px-4 py-2 font-medium text-gray-500">Name</th>
-                <th className="px-4 py-2 font-medium text-gray-500">Type</th>
-                <th className="px-4 py-2 font-medium text-gray-500">Flags</th>
-                <th className="px-4 py-2 font-medium text-gray-500">Requirements</th>
+                <HintTh className="px-4 py-2 font-medium text-gray-500" hintScope="Templates">Code</HintTh>
+                <HintTh className="px-4 py-2 font-medium text-gray-500" hintScope="Templates">Name</HintTh>
+                <HintTh className="px-4 py-2 font-medium text-gray-500" hintScope="Templates">Type</HintTh>
+                <HintTh className="px-4 py-2 font-medium text-gray-500" hintScope="Templates">Flags</HintTh>
+                <HintTh className="px-4 py-2 font-medium text-gray-500" hintScope="Templates">Requirements</HintTh>
                 <th className="px-4 py-2 w-48" />
               </tr>
             </thead>
@@ -604,9 +605,9 @@ function InstantiateMappingDialog({
           </button>
         </div>
         <div className="space-y-1">
-          <label className="text-xs font-medium text-gray-500" htmlFor="instantiate-type">
+          <FieldLabel className="text-xs font-medium text-gray-500" htmlFor="instantiate-type" hintScope="Templates">
             Type
-          </label>
+          </FieldLabel>
           <select
             id="instantiate-type"
             value={useCaseType}
@@ -660,10 +661,10 @@ function InstantiateMappingDialog({
         <table className="w-full text-left text-xs border rounded-md overflow-hidden">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-3 py-2 font-medium text-gray-500">Target</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Event</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Variant</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Property</th>
+                <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Templates">Target</HintTh>
+                <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Templates">Event</HintTh>
+                <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Templates">Variant</HintTh>
+                <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Templates">Property</HintTh>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -878,10 +879,10 @@ function TemplateDetail({
         <table className="w-full text-left text-xs border rounded-md overflow-hidden">
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="px-3 py-2 font-medium text-gray-500">Target kind</th>
-              <th className="px-3 py-2 font-medium text-gray-500">Target</th>
-              <th className="px-3 py-2 font-medium text-gray-500">Level</th>
-              <th className="px-3 py-2 font-medium text-gray-500">Note</th>
+              <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Templates">Target kind</HintTh>
+              <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Templates">Target</HintTh>
+              <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Templates">Level</HintTh>
+              <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Templates">Note</HintTh>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -905,7 +906,7 @@ function TemplateDetail({
         <h3 className="text-sm font-semibold text-gray-900 mb-2">Internal (never shown to the client)</h3>
         <div className="space-y-2">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-700">Internal notes</label>
+            <FieldLabel className="text-xs font-medium text-gray-700" hintScope="Templates">Internal notes</FieldLabel>
             <textarea
               className="w-full h-16 rounded-md border border-gray-300 px-3 py-2 text-xs"
               defaultValue={template.internal_notes ?? ''}
@@ -913,7 +914,7 @@ function TemplateDetail({
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-700">Internal link</label>
+            <FieldLabel className="text-xs font-medium text-gray-700" hintScope="Templates">Internal link</FieldLabel>
             <Input
               defaultValue={template.internal_url ?? ''}
               onBlur={(e) => void saveTemplateField('internal_url', e.target.value)}
@@ -1046,9 +1047,9 @@ function ImportLibraryBox({ onImported }: { onImported: () => Promise<void> }) {
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-3 py-2 w-8" />
-                <th className="px-3 py-2 font-medium text-gray-500">Op</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Code</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Changes</th>
+                <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Templates">Op</HintTh>
+                <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Templates">Code</HintTh>
+                <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Templates">Changes</HintTh>
               </tr>
             </thead>
             <tbody className="divide-y">

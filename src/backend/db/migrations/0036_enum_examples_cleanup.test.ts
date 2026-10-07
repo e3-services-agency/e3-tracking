@@ -30,12 +30,15 @@ describe('0036_enum_examples_cleanup.sql', () => {
       ['b_all_bad', allowed, [{ value: 'add / remove / ...' }], []],
       ['c_ok', allowed, [{ value: 'add' }], [{ value: 'add' }]],
       ['e_numeric', [{ value: 1 }, { value: 2 }], [{ value: '1' }, { value: 3 }], [{ value: '1' }]],
+      ['f_strings', [{ value: 'bronze' }, { value: 'silver' }], ['silver', 'gold'], ['silver']],
+      ['g_string_allowed', ['a', 'b'], ['x', 'b'], ['b']],
+      ['h_scalar', allowed, 5, 5],
       ['d_free_text', [], [{ value: 'anything' }], [{ value: 'anything' }]],
     ];
     const ins = db.prepare(
       "INSERT INTO properties (id, project_id, name, scope, data_type, allowed_values_json, example_values_json, created_at, updated_at) VALUES (?, ?, ?, 'event', 'string', ?, ?, ?, ?)"
     );
-    for (const [name, al, ex] of cases) ins.run(randomUUID(), projectId, name, JSON.stringify(al), JSON.stringify(ex), ts, ts);
+    for (const [name, al, ex] of cases) ins.run(randomUUID(), projectId, name, JSON.stringify(al), typeof ex === 'number' ? 'oops' : JSON.stringify(ex), ts, ts);
     const propId = (db.prepare('SELECT id FROM properties WHERE name = ?').get('a_mixed') as { id: string }).id;
     db.prepare(
       'INSERT INTO property_definitions (id, project_id, property_id, name, allowed_values_json, example_values_json, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)'
@@ -48,6 +51,7 @@ describe('0036_enum_examples_cleanup.sql', () => {
     db.exec(sql);
     for (const [name, , , after] of cases) {
       const row = db.prepare('SELECT example_values_json AS e FROM properties WHERE name = ?').get(name) as { e: string };
+      if (name === 'h_scalar') { expect(row.e).toBe('oops'); continue; }
       expect(JSON.parse(row.e), name).toEqual(after);
     }
     const def = db.prepare('SELECT example_values_json AS e FROM property_definitions').get() as { e: string };

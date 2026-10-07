@@ -449,6 +449,7 @@ function EventEditor({
   const [dlEventName, setDlEventName] = useState('');
   // D-67 (T-4-28): null = derived default; a list = the event's own override of its customer_ids identifiers.
   const [identifiersOverride, setIdentifiersOverride] = useState<string[] | null>(null);
+  const [registry, setRegistry] = useState<{ id: string; name: string; type: string; is_cookie: boolean; rule_count: number }[]>([]);
   const [idRules, setIdRules] = useState<{ id: string; identifier_name: string; identity_type: string; sdk_call: string | null; source_id: string | null }[]>([]);
   const [ownerBusiness, setOwnerBusiness] = useState('');
   const [ownerTechnical, setOwnerTechnical] = useState('');
@@ -479,6 +480,10 @@ function EventEditor({
       const idRulesRes = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/identity-rules`);
       const idRulesData = await parseJson(idRulesRes);
       if (idRulesRes.ok) setIdRules(Array.isArray(idRulesData) ? idRulesData : []);
+
+      const registryRes = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/identifiers`);
+      const registryData = await parseJson(registryRes);
+      if (registryRes.ok) setRegistry(Array.isArray(registryData) ? registryData : []);
 
       const bundlesRes = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/bundles`);
       const bundlesData = await parseJson(bundlesRes);
@@ -808,11 +813,12 @@ function EventEditor({
         </div>
       )}
 
-      {idRules.length > 0 && (() => {
+      {(registry.length > 0 || idRules.length > 0) && (() => {
         const derived = deriveEventIdentifiers(
           { id: eventId ?? 'new', name, implementation_method: implementationMethod || loadedImplementationMethod || 'client_web', source_ids: sourceIds },
           idRules,
-          allSources
+          allSources,
+          registry
         );
         const current = identifiersOverride ?? derived;
         const toggle = (n: string) => {
@@ -823,10 +829,11 @@ function EventEditor({
           <div className="space-y-2" data-testid="identifiers-block">
             <FieldLabel className="text-sm font-medium text-gray-700" hint="Identifiers" hintScope="Events">Identifiers (customer_ids)</FieldLabel>
             <div className="flex flex-wrap gap-2">
-              {idRules.map((r) => (
+              {registry.map((r) => (
                 <FieldLabel key={r.id} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1" hint="" hintScope="Events">
-                  <input type="checkbox" checked={current.includes(r.identifier_name)} onChange={() => toggle(r.identifier_name)} />
-                  {r.identifier_name} <span className="text-gray-500">({r.identity_type})</span>
+                  <input type="checkbox" checked={current.includes(r.name)} onChange={() => toggle(r.name)} />
+                  {r.name} <span className="text-gray-500">({r.type})</span>
+                  {r.rule_count === 0 && <span className="text-gray-400" data-testid="no-act-tag">no act yet</span>}
                 </FieldLabel>
               ))}
             </div>

@@ -452,3 +452,12 @@ export class IdentifierInUseError extends ConflictError {
     this.name = 'IdentifierInUseError';
   }
 }
+
+/** 409: an identity rule asked for a type that differs from the registry's; types change only in Settings (D-69 amendment 1). */
+export class IdentifierTypeMismatchError extends ConflictError {
+  readonly code = 'IDENTIFIER_TYPE_MISMATCH';
+  constructor(identifierName: string, registryType: string, requestedType: string) {
+    super(`Identifier "${identifierName}" is a ${registryType} identifier in the registry, not ${requestedType}. Change its type in Settings, Identifiers.`);
+    this.name = 'IdentifierTypeMismatchError';
+  }
+}

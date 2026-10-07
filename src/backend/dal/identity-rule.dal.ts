@@ -6,7 +6,7 @@
  */
 import { getDb } from '../db';
 import { newId, nowIso, mapWriteError, parseJsonColumn, toJsonColumn } from '../db/util';
-import { BadRequestError, NotFoundError, ValidationError } from '../errors';
+import { BadRequestError, IdentifierTypeMismatchError, NotFoundError, ValidationError } from '../errors';
 import { IDENTITY_TYPES, IDENTITY_TRANSFORMATIONS, IDENTITY_SDK_CALLS, PRIORITIES, ENTITY_STATUSES } from '../../domain/enums';
 import { validateAsciiName } from './validators';
 import * as ChangeLogDAL from './change-log.dal';
@@ -157,6 +157,11 @@ function assertSourceInProject(projectId: string, sourceId: string | null | unde
   if (!row) throw new BadRequestError('source_id does not belong to this project.', 'source_id');
 }
 
+/** D-69 amendment 1: the type is the registry's; a different requested type is a 409, never a retype. */
+function assertTypeMatches(identifier: IdentifierDAL.IdentifierRow, requested: string | undefined): void {
+  if (requested && requested !== identifier.type) throw new IdentifierTypeMismatchError(identifier.name, identifier.type, requested);
+}
+
 /**
  * Resolves the registry identifier for a rule write (D-69): `identifier_id` wins, else
  * `identifier_name` finds or creates (a new one needs a valid `identity_type`).
@@ -165,13 +170,17 @@ function resolveIdentifier(projectId: string, input: Pick<IdentityRuleInput, 'id
   if (input.identifier_id) {
     const row = IdentifierDAL.getIdentifierById(projectId, input.identifier_id);
     if (!row) throw new BadRequestError('identifier_id does not belong to this project.', 'identifier_id');
+    assertTypeMatches(row, input.identity_type);
     return row;
   }
   const identifierName = input.identifier_name?.trim() ?? '';
   if (!identifierName) throw new ValidationError('Identifier name is required.', 'identifier_name');
   validateAsciiName(identifierName, 'identifier_name');
   const existing = IdentifierDAL.findIdentifierByName(projectId, identifierName);
-  if (existing) return existing;
+  if (existing) {
+    assertTypeMatches(existing, input.identity_type);
+    return existing;
+  }
   validateIdentityType(input.identity_type ?? '');
   return IdentifierDAL.createIdentifier(projectId, { name: identifierName, type: input.identity_type! });
 }
@@ -296,21 +305,16 @@ export function updateIdentityRule(
 
   const db = getDb();
   const run = db.transaction(() => {
-    // D-69: repoint to another identifier (by id or name); a bare identity_type changes the identifier's type.
+    // D-69: repoint to another identifier (by id or name); a bare identity_type is ignored (types change only in Settings).
     if (updates.identifier_id !== undefined || updates.identifier_name !== undefined) {
       const same = updates.identifier_id === undefined && updates.identifier_name!.trim().toLowerCase() === existing.identifier_name.toLowerCase();
-      if (!same) {
+      if (same && existing.identifier_id) {
+        assertTypeMatches(IdentifierDAL.getIdentifierOrThrow(projectId, existing.identifier_id), updates.identity_type);
+      } else if (!same) {
         const identifier = resolveIdentifier(projectId, updates);
         patch.identifier_id = identifier.id;
         patch.identifier_name = identifier.name;
         patch.identity_type = identifier.type;
-      }
-    }
-    if (updates.identity_type !== undefined) {
-      const target = IdentifierDAL.getIdentifierOrThrow(projectId, (patch.identifier_id as string | undefined) ?? existing.identifier_id ?? '');
-      if (target.type !== updates.identity_type && patch.identifier_id === undefined) {
-        IdentifierDAL.updateIdentifier(projectId, target.id, { type: updates.identity_type });
-        patch.identity_type = updates.identity_type;
       }
     }
     const setClause = Object.keys(patch).map((k) => `${k} = @${k}`).join(', ');

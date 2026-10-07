@@ -64,14 +64,16 @@ export function IdentifiersBlock({ projectId }: { projectId: string }) {
     if (await send(base, 'POST', { name, type })) setNewName((n) => ({ ...n, [type]: '' }));
   };
 
-  const move = async (index: number, direction: -1 | 1) => {
+  /** Reorders within one type's own list, then sends the merged order (hard list, then soft list). */
+  const move = async (type: string, index: number, direction: -1 | 1) => {
+    const own = items.filter((i) => i.type === type);
     const target = index + direction;
-    if (target < 0 || target >= items.length) return;
-    const reordered = [...items];
-    const [item] = reordered.splice(index, 1);
-    reordered.splice(target, 0, item);
-    setItems(reordered);
-    await send(`${base}/order`, 'PUT', { ids: reordered.map((i) => i.id) });
+    if (target < 0 || target >= own.length) return;
+    const [item] = own.splice(index, 1);
+    own.splice(target, 0, item);
+    const merged = IDENTITY_TYPES.flatMap((t) => (t === type ? own : items.filter((i) => i.type === t)));
+    setItems(merged);
+    await send(`${base}/order`, 'PUT', { ids: merged.map((i) => i.id) });
   };
 
   const rename = async (item: IdentifierItem) => {
@@ -95,13 +97,13 @@ export function IdentifiersBlock({ projectId }: { projectId: string }) {
             <h3 className="text-sm font-semibold text-gray-700 mb-2">{TYPE_TITLES[type] ?? type}</h3>
             <ul className="divide-y rounded-md border">
               {list.map((item) => {
-                const index = items.indexOf(item);
+                const index = list.indexOf(item);
                 const inUse = item.rule_count > 0 || item.event_count > 0;
                 return (
                   <li key={item.id} className="flex items-center gap-3 px-3 py-2 text-sm">
                     <div className="flex gap-1">
-                      <button type="button" aria-label={`Move ${item.name} up`} onClick={() => void move(index, -1)} disabled={index === 0} className="text-gray-400 hover:text-gray-900 disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
-                      <button type="button" aria-label={`Move ${item.name} down`} onClick={() => void move(index, 1)} disabled={index === items.length - 1} className="text-gray-400 hover:text-gray-900 disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
+                      <button type="button" aria-label={`Move ${item.name} up`} onClick={() => void move(type, index, -1)} disabled={index === 0} className="text-gray-400 hover:text-gray-900 disabled:opacity-30"><ArrowUp className="w-4 h-4" /></button>
+                      <button type="button" aria-label={`Move ${item.name} down`} onClick={() => void move(type, index, 1)} disabled={index === list.length - 1} className="text-gray-400 hover:text-gray-900 disabled:opacity-30"><ArrowDown className="w-4 h-4" /></button>
                     </div>
                     <button type="button" className="font-medium text-gray-900 hover:underline" title="Open its identity rules" onClick={() => setRequestedTab('identityRules')}>
                       {item.name}
@@ -130,17 +132,18 @@ export function IdentifiersBlock({ projectId }: { projectId: string }) {
                       cookie
                     </span>
                     <Button type="button" variant="outline" size="sm" onClick={() => void rename(item)}>Rename</Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      aria-label={`Delete ${item.name}`}
-                      disabled={inUse}
-                      title={inUse ? `In use by ${item.rule_count} identity rule(s) and ${item.event_count} event(s); remove those first.` : 'Delete identifier'}
-                      onClick={() => void send(`${base}/${item.id}`, 'DELETE')}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <span title={inUse ? `In use by ${item.rule_count} identity rule(s) and ${item.event_count} event(s); remove those first.` : 'Delete identifier'}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        aria-label={`Delete ${item.name}`}
+                        disabled={inUse}
+                        onClick={() => void send(`${base}/${item.id}`, 'DELETE')}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </span>
                   </li>
                 );
               })}

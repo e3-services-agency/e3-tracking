@@ -396,7 +396,7 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
     definitionsById: PropertyDefinitionDAL.listAllDefinitionsById(projectId),
     bundleNameByPropertyId: new Map([...bundleNames].map(([id, names]) => [id, names.join(', ')])),
     projectContextProperties,
-    hardIdKey: identityRules.find((r) => r.identity_type === 'hard')?.identifier_name ?? null,
+    hardIdKey: identifierRows.find((i) => i.type === 'hard')?.name ?? identityRules.find((r) => r.identity_type === 'hard')?.identifier_name ?? null,
     identityRules,
     identifiers: identifierRows,
     allSources,

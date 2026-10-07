@@ -146,24 +146,88 @@ describe('rules API compatibility (D-69)', () => {
     const first = await (await api('POST', 'identity-rules', { name: 'Cart on checkout', identifier_name: 'cart_id', identity_type: 'soft' })).json();
     expect(first.identifier_id).toBeTruthy();
     expect(first.identity_type).toBe('soft');
-    const second = await (await api('POST', 'identity-rules', { name: 'Cart by backend', identifier_name: 'Cart_ID', identity_type: 'hard' })).json();
+    const second = await (await api('POST', 'identity-rules', { name: 'Cart by backend', identifier_name: 'Cart_ID', identity_type: 'soft' })).json();
     expect(second.identifier_id).toBe(first.identifier_id);
-    // The type comes from the registry, not from the second request.
     expect(second.identity_type).toBe('soft');
     const list = await (await api('GET', 'identifiers')).json();
     expect(list).toHaveLength(1);
     expect(list[0].rule_count).toBe(2);
   });
 
-  it('POST with identifier_id works, a new name without a valid type is 400, a bare identity_type PATCH retypes the identifier', async () => {
+  it('POST with identifier_id works, a new name without a valid type is 400, a bare identity_type PATCH is ignored', async () => {
     const ident = IdentifierDAL.createIdentifier(projectId, { name: 'email_id', type: 'hard' });
     const rule = await (await api('POST', 'identity-rules', { name: 'Email', identifier_id: ident.id })).json();
     expect(rule).toMatchObject({ identifier_name: 'email_id', identity_type: 'hard' });
     expect((await api('POST', 'identity-rules', { name: 'X', identifier_name: 'brand_new' })).status).toBe(400);
     expect((await api('POST', 'identity-rules', { name: 'X', identifier_id: 'nope' })).status).toBe(400);
-    const retyped = await api('PATCH', `identity-rules/${rule.id}`, { identity_type: 'soft' });
-    expect(retyped.status).toBe(200);
-    expect(IdentifierDAL.getIdentifierOrThrow(projectId, ident.id).type).toBe('soft');
+    const ignored = await api('PATCH', `identity-rules/${rule.id}`, { identity_type: 'soft' });
+    expect(ignored.status).toBe(200);
+    expect(IdentifierDAL.getIdentifierOrThrow(projectId, ident.id).type).toBe('hard');
+  });
+});
+
+describe('type mismatch (D-69 amendment 1)', () => {
+  it('409 IDENTIFIER_TYPE_MISMATCH for an existing identifier by name or id, on POST and PATCH; a matching type is fine', async () => {
+    const ident = IdentifierDAL.createIdentifier(projectId, { name: 'email_id', type: 'hard' });
+    const byName = await api('POST', 'identity-rules', { name: 'A', identifier_name: 'EMAIL_ID', identity_type: 'soft' });
+    expect(byName.status).toBe(409);
+    const body = await byName.json();
+    expect(body.code).toBe('IDENTIFIER_TYPE_MISMATCH');
+    expect(body.error).toMatch(/hard/);
+    expect(body.error).toMatch(/Settings/);
+    expect((await api('POST', 'identity-rules', { name: 'A', identifier_id: ident.id, identity_type: 'soft' })).status).toBe(409);
+    const ok = await api('POST', 'identity-rules', { name: 'A', identifier_name: 'email_id', identity_type: 'hard' });
+    expect(ok.status).toBe(201);
+    const rule = await ok.json();
+    expect((await api('PATCH', `identity-rules/${rule.id}`, { identifier_name: 'email_id', identity_type: 'soft' })).status).toBe(409);
+    expect((await api('PATCH', `identity-rules/${rule.id}`, { identity_type: 'soft' })).status).toBe(200);
+    expect(IdentifierDAL.getIdentifierOrThrow(projectId, ident.id).type).toBe('hard');
+  });
+});
+
+describe('cascade details', () => {
+  it('logs each rewritten rule, matches case-insensitively and rewrites soft-deleted events but does not count them', () => {
+    const ident = IdentifierDAL.createIdentifier(projectId, { name: 'cart_id', type: 'soft' });
+    const rule = IdentityRuleDAL.createIdentityRule(projectId, { identifier_id: ident.id, name: 'Cart' });
+    const live = EventDAL.createEvent(projectId, { name: 'view_item', implementation_method: 'client_web' });
+    const gone = EventDAL.createEvent(projectId, { name: 'old_event', implementation_method: 'client_web' });
+    EventDAL.updateEvent(projectId, live.id, { identifiers_json: ['cart_id'] });
+    EventDAL.deleteEvent(projectId, gone.id);
+    getDb().prepare('UPDATE events SET identifiers_json = ? WHERE id = ?').run(JSON.stringify(['Cart_ID']), gone.id);
+    IdentifierDAL.updateIdentifier(projectId, ident.id, { name: 'basket_id' });
+    const logged = getDb().prepare("SELECT COUNT(*) n FROM change_log WHERE entity_type = 'identity_rule' AND entity_id = ? AND action = 'update'").get(rule.id) as { n: number };
+    expect(logged.n).toBe(1);
+    const row = getDb().prepare('SELECT identifiers_json FROM events WHERE id = ?').get(gone.id) as { identifiers_json: string };
+    expect(JSON.parse(row.identifiers_json)).toEqual(['basket_id']);
+    expect(EventDAL.getEventOrThrow(projectId, live.id).identifiers_json).toEqual(['basket_id']);
+    const guard = IdentifierDAL.usageOf(projectId, IdentifierDAL.getIdentifierOrThrow(projectId, ident.id));
+    expect(guard.events).toBe(1);
+  });
+});
+
+describe('registry-driven consumers', () => {
+  it('hardIdKey comes from the registry even with no rule', async () => {
+    IdentifierDAL.createIdentifier(projectId, { name: 'email_id', type: 'hard' });
+    const { buildEventCardContext } = await import('./document.service');
+    expect(buildEventCardContext(projectId).hardIdKey).toBe('email_id');
+  });
+});
+
+describe('restore of a pre-0032 backup', () => {
+  it('backfills the registry from the rules and links them', async () => {
+    IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'cookie', identity_type: 'soft', name: 'Cookie' });
+    IdentityRuleDAL.createIdentityRule(projectId, { identifier_name: 'email_id', identity_type: 'hard', name: 'Email' });
+    const { buildBackup } = await import('./backup.service');
+    const { previewRestore, applyRestore } = await import('./backupRestore.service');
+    const backup = JSON.parse(JSON.stringify(await buildBackup(projectId))) as Record<string, unknown>;
+    delete backup.identifiers;
+    for (const r of backup.identity_rules as Record<string, unknown>[]) delete r.identifier_id;
+    const preview = previewRestore(backup);
+    const client = ClientDAL.createClient({ key: 'old', name: 'Old Co' });
+    const { project } = await applyRestore(backup, preview.payload_hash, { name: 'Restored', key: 'restored-old', client_id: client.id });
+    const names = IdentifierDAL.listIdentifiers(project.id).map((i) => [i.name, i.type, i.is_cookie]);
+    expect(names).toEqual([['cookie', 'soft', true], ['email_id', 'hard', false]]);
+    expect(IdentityRuleDAL.listIdentityRules(project.id).every((r) => r.identifier_id)).toBe(true);
   });
 });
 

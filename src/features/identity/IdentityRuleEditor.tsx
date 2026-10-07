@@ -412,6 +412,11 @@ export function IdentityRuleEditor({
             {isNewIdentifier && (
               <Input value={identifierName} onChange={(e) => { setIdentifierName(e.target.value); setIdentifierError(null); }} placeholder="e.g. registered, cookie, email_id" aria-label="New identifier name" />
             )}
+            {isNewIdentifier && registry.some((i) => i.name.toLowerCase() === trimmedField.toLowerCase()) && (
+              <p className="text-xs text-gray-600" data-testid="identifier-joins-existing">
+                "{trimmedField}" already exists, so this rule joins it as a {registry.find((i) => i.name.toLowerCase() === trimmedField.toLowerCase())?.type} identifier. Its type is set in Settings.
+              </p>
+            )}
             {identifierError && <p className="text-xs text-red-600" role="alert" data-testid="identifier-exists-error">{identifierError}</p>}
             {!trimmedField && <p className="text-xs text-red-600">Identifier is required. Identifiers are managed in Settings.</p>}
           </div>

@@ -68,15 +68,16 @@ export function findIdentifierByName(projectId: string, name: string): Identifie
   return row ? mapRow(row) : null;
 }
 
-/** Events whose `identifiers_json` lists `name` (names are stored verbatim). */
-function eventsUsing(projectId: string, name: string): { id: string; identifiers: string[] }[] {
+/** Events whose `identifiers_json` lists `name` (case-insensitive); soft-deleted ones only when `includeDeleted` (the rename cascade, not the delete guard). */
+function eventsUsing(projectId: string, name: string, includeDeleted = false): { id: string; identifiers: string[]; deleted: boolean }[] {
   const rows = getDb()
-    .prepare('SELECT id, identifiers_json FROM events WHERE project_id = ? AND deleted_at IS NULL AND identifiers_json IS NOT NULL')
-    .all(projectId) as { id: string; identifiers_json: string }[];
-  const out: { id: string; identifiers: string[] }[] = [];
+    .prepare(`SELECT id, identifiers_json, deleted_at FROM events WHERE project_id = ? ${includeDeleted ? '' : 'AND deleted_at IS NULL'} AND identifiers_json IS NOT NULL`)
+    .all(projectId) as { id: string; identifiers_json: string; deleted_at: string | null }[];
+  const lower = name.toLowerCase();
+  const out: { id: string; identifiers: string[]; deleted: boolean }[] = [];
   for (const r of rows) {
     const list = parseJsonColumn<string[]>(r.identifiers_json, []);
-    if (list.includes(name)) out.push({ id: r.id, identifiers: list });
+    if (list.some((n) => n.toLowerCase() === lower)) out.push({ id: r.id, identifiers: list, deleted: r.deleted_at !== null });
   }
   return out;
 }
@@ -103,9 +104,9 @@ export function listIdentifiersWithUsage(projectId: string): IdentifierWithUsage
     .prepare('SELECT identifiers_json FROM events WHERE project_id = ? AND deleted_at IS NULL AND identifiers_json IS NOT NULL')
     .all(projectId) as { identifiers_json: string }[];
   for (const r of rows) {
-    for (const n of new Set(parseJsonColumn<string[]>(r.identifiers_json, []))) eventCounts.set(n, (eventCounts.get(n) ?? 0) + 1);
+    for (const n of new Set(parseJsonColumn<string[]>(r.identifiers_json, []).map((x) => x.toLowerCase()))) eventCounts.set(n, (eventCounts.get(n) ?? 0) + 1);
   }
-  return ids.map((i) => ({ ...i, rule_count: ruleCounts.get(i.id) ?? 0, event_count: eventCounts.get(i.name) ?? 0 }));
+  return ids.map((i) => ({ ...i, rule_count: ruleCounts.get(i.id) ?? 0, event_count: eventCounts.get(i.name.toLowerCase()) ?? 0 }));
 }
 
 function validateType(type: string): void {
@@ -198,18 +199,30 @@ export function updateIdentifier(projectId: string, id: string, updates: Partial
     const after = getIdentifierOrThrow(projectId, id);
     // Cascade: rules keep identifier_name/identity_type in sync; events list names.
     if (after.name !== existing.name || after.type !== existing.type) {
-      db.prepare('UPDATE identity_rules SET identifier_name = ?, identity_type = ?, updated_at = ? WHERE project_id = ? AND identifier_id = ?').run(
-        after.name,
-        after.type,
-        patch.updated_at as string,
-        projectId,
-        id
-      );
+      const ruleRows = db.prepare('SELECT id, name, identifier_name, identity_type FROM identity_rules WHERE project_id = ? AND identifier_id = ?').all(projectId, id) as {
+        id: string;
+        name: string;
+        identifier_name: string;
+        identity_type: string;
+      }[];
+      for (const r of ruleRows) {
+        db.prepare('UPDATE identity_rules SET identifier_name = ?, identity_type = ?, updated_at = ? WHERE id = ?').run(after.name, after.type, patch.updated_at as string, r.id);
+        ChangeLogDAL.recordChange({
+          projectId,
+          entityType: 'identity_rule',
+          entityId: r.id,
+          entityLabel: r.name,
+          action: 'update',
+          before: { identifier_name: r.identifier_name, identity_type: r.identity_type },
+          after: { identifier_name: after.name, identity_type: after.type },
+        });
+      }
     }
     if (after.name !== existing.name) {
-      for (const ev of eventsUsing(projectId, existing.name)) {
-        const renamed = [...new Set(ev.identifiers.map((n) => (n === existing.name ? after.name : n)))];
-        EventDAL.updateEvent(projectId, ev.id, { identifiers_json: renamed });
+      for (const ev of eventsUsing(projectId, existing.name, true)) {
+        const renamed = [...new Set(ev.identifiers.map((n) => (n.toLowerCase() === existing.name.toLowerCase() ? after.name : n)))];
+        if (ev.deleted) db.prepare('UPDATE events SET identifiers_json = ? WHERE id = ?').run(JSON.stringify(renamed), ev.id);
+        else EventDAL.updateEvent(projectId, ev.id, { identifiers_json: renamed });
       }
     }
     ChangeLogDAL.recordChange({

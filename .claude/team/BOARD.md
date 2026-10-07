@@ -3645,3 +3645,16 @@ Merge a22a7de. Merged tree: tsc, lint clean, 1962 tests / 196 files. T-5-07 Part
 ### 2026-10-07 | reviewer | REVIEW | T-5-01 PASS (3 low, 2 info)
 Gates green (1970/195); stdio smoke: 29 tools listed, clean isError for a missing project, server alive. Rollback sentinel always fires; nested DAL transactions become savepoints; no sequences leak; apply via the same DAL functions as REST, no raw writes; D-69/D-67 checks live in the DAL; errors mapped, nothing on stdout. LOW: change_log_ids collected by rowid > mark without an actor/batch filter (another process's rows could be attributed); link/unlink default property_scope=event never raise AMBIGUOUS_PROPERTY (document); History filter: batch writes are `import:mcp`, single `mcp` (document). INFO: zod strips unknown keys (typos silent; use .strict()); error details dropped.
 Supervisor ruling: polish commit (filter change_log rows by actor + source/batch id; `.strict()` schemas; docs notes on property_scope default and the two source values); then merge without QA (covered by the wrapper tests and the smoke run).
+
+### 2026-10-07 | implementer | HANDOFF | T-5-01 polish 0dcbf2a
+change_log ids scoped to the current actor/source/batch; strict schemas on tools and batch ops (unknown keys → VALIDATION_ERROR); docs on property_scope default and History sources; error details appended. src/mcp 50 tests green. Supervisor: merging.
+
+### 2026-10-07 | supervisor | MERGE | T-5-01 merged into agent-setup — DONE
+Merge 6e85f3c. Merged tree: tsc, lint clean, 1978 tests pass (2 skipped); caddyEdge.test.ts failed at suite level in the full run while another worktree ran the same suite (hardcoded port 3041 / container names, the known residual) and passes alone. Fix promoted from backlog to T-5-06 follow-up now.
+
+### 2026-10-07 | implementer | HANDOFF | T-5-07 Part B 9d7517e (agent-setup 1967892 merged)
+.env template uses the compose edge names (E3_AUTH_MODE=proxy, IMAGE, HOSTNAME, WORKSPACE_DOMAIN, TRUSTED_PROXY_CIDR=172.28.0.8/29, OAUTH2_CLIENT_ID/SECRET, OAUTH2_COOKIE_SECRET base64 url-safe, BACKUP_BUCKET), printed in the dry run; 03/04 run `--env-file .env -f docker-compose.yml -f docker-compose.gcp.yml --profile edge`; DEPLOY.md variable names, HOSTNAME shell note, OAuth console steps; test needles updated (src/deploy 11/11). Cookie secret length vs oauth2-proxy accepted lengths not verified. To review.
+
+### 2026-10-07 | supervisor | DECISION | D-72 amendment 1: e2-micro + 2 GB swap default, hostname tracking.e3-services.com confirmed (user). Folded into the T-5-07 fix round after review.
+
+### 2026-10-07 | supervisor | MERGE | T-5-06b caddyEdge test collision-free (random port 20000-39999, random names, skip on a surviving conflict) merged; leftover e3qa-ct-* test containers from the earlier colliding run removed.

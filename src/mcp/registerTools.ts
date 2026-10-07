@@ -34,6 +34,7 @@ import { submitObservation, submitObservationsBatch, updateObservation, deleteOb
 import { runComparison } from './tools/comparison';
 import { finishQaRun, deleteQaRun } from './tools/qaRuns';
 import { getHistory } from './tools/history';
+import { WRITE_TOOLS, writeHandler, writeCommonShape, batchApply } from './tools/writeTools';
 
 type ToolHandler<I> = (input: I) => Promise<unknown>;
 
@@ -60,7 +61,12 @@ function register<Shape extends ZodRawShape>(
       return { content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }] };
     } catch (err) {
       const code = (err as { code?: string })?.code ?? 'INTERNAL_ERROR';
-      const message = err instanceof Error ? err.message : String(err);
+      let message = err instanceof Error ? err.message : String(err);
+      // T-5-01 polish: DAL errors carry optional `details` (409 detail string, 400 {property_id,value,allowed}).
+      const details = (err as { details?: unknown })?.details;
+      if (details !== undefined && details !== null && details !== '') {
+        message += ` (details: ${typeof details === 'string' ? details : JSON.stringify(details)})`;
+      }
       if (code === 'INTERNAL_ERROR') log.error(`tool ${name} failed unexpectedly`, err);
       return { isError: true, content: [{ type: 'text' as const, text: `${code}: ${message}` }] };
     }
@@ -254,5 +260,29 @@ export function registerTools(server: McpServer): void {
     'Change history for one entity (event, property, use case, etc.): who changed what and when, newest first.',
     { ...projectKeyShape, entity_type: z.string(), entity_id: z.string(), limit: z.number().optional() },
     getHistory
+  );
+
+  // T-5-01 (D-11, D-44, D-04): the write tools. Each takes project_key, agent_name (change_log actor)
+  // and dry_run (default true: a rolled-back preview diff); see `tools/writeCore.ts`.
+  for (const tool of WRITE_TOOLS) {
+    register(
+      server,
+      tool.name,
+      tool.description,
+      // strict: a typo'd key is a validation error, not silently dropped (the SDK accepts a zod object).
+      z.object({ ...writeCommonShape, ...tool.shape }).strict() as unknown as ZodRawShape,
+      writeHandler(tool) as ToolHandler<never>
+    );
+  }
+
+  register(
+    server,
+    'batch_apply',
+    'Runs an ordered list of write operations ({op: "create_event" | "update_event" | "create_property" | "update_property" | "link_event_property" | "unlink_event_property" | "create_identity_rule" | "set_event_identifiers" | "create_catalog_field", plus the arguments of that tool}) with one dry_run flag (default true). Applied operations share one change_log batch_id; stops at the first error and reports applied/failed/not_run counts. A dry run executes the whole list in a rolled-back transaction, so later operations see earlier ones.',
+    z.object({
+      ...writeCommonShape,
+      operations: z.array(z.object({ op: z.string() }).passthrough()),
+    }).strict() as unknown as ZodRawShape,
+    batchApply as ToolHandler<never>
   );
 }

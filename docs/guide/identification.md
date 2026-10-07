@@ -28,3 +28,7 @@ The Tracking API snippet on the event card fills `customer_ids` from these ident
 ## Source colours
 
 Every source has a colour from a fixed palette of eight. A new source gets one automatically from its system (Shopify is blue, a custom backend purple and so on); change it in the source editor. The coloured dot appears on the Sources page, the Events table (sortable Source column), the event card, the Identity rules page and the shared view.
+
+## Configuring an identity rule
+
+Open a rule from the Identity rules page; the sheet has four sections. **Identifier** names it and says whether it is hard or soft. **Set by** says how it is learned: when an event is sent (the source is taken from that event), by a standalone identify call with no event (SDK call, trigger text and source; a live line shows how the trigger reads and which identifiers the call binds), or not defined yet. **Carried by** lists the project events grouped by implementation method; events that carry the identifier by default are ticked and marked derived. Ticking or unticking an event changes that event's own identifiers list, the same list the event editor shows, and a live preview shows this rule's sentence of the identification flow. Clicking the Set by or Carried by cell in the table opens the sheet on that section. An event that would end up with no identifiers of its own goes back to the derived default. **Meta** holds owner, tracker, priority and status.

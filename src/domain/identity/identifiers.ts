@@ -114,6 +114,8 @@ export interface IdentifierFlowRule {
   /** Standalone call only: the identifiers it binds together (the rule's own, the cookie for a web source, the source's other identifiers for a server source). */
   binds: string[];
   carried_by: { id: string; name: string }[];
+  /** This rule's own sentence of the paragraph (the editor's live preview). */
+  sentence: string;
 }
 
 export interface IdentificationFlow {
@@ -122,6 +124,15 @@ export interface IdentificationFlow {
 }
 
 const MAX_NAMED_EVENTS = 8;
+
+/** The "Binds" line of the rule editor: what a standalone call sets together (D-67 amendment 1). */
+export function bindsSentence(rule: Pick<IdentifierFlowRule, 'identifier_name' | 'set_by' | 'binds'>): string {
+  if (rule.set_by.kind !== 'standalone_call') return 'Not a standalone call, so nothing is bound together by it.';
+  const others = rule.binds.filter((b) => b !== rule.identifier_name);
+  return others.length > 0
+    ? `This call binds ${rule.identifier_name} together with ${others.join(', ')}.`
+    : `This call binds ${rule.identifier_name} on its own.`;
+}
 
 /**
  * Normalises a rule's free-text trigger for splicing into a sentence: trailing period stripped, first
@@ -219,6 +230,7 @@ export function buildIdentificationFlow(
       set_by,
       binds: set_by.kind === 'standalone_call' ? bindsFor(rule, rules, source) : [],
       carried_by: carried.get(rule.identifier_name) ?? [],
+      sentence: '',
     };
   });
 
@@ -252,13 +264,15 @@ export function buildIdentificationFlow(
       const rest = fr.carried_by.filter((e) => !only.includes(e));
       const restText = rest.length > 0 ? ` Other events that send it in customer_ids: ${listNames(rest.map((e) => e.name))}.` : '';
       const none = fr.carried_by.length === 0 ? ' No event sends it in customer_ids yet.' : '';
-      parts.push(`${id} is set by a standalone ${call} call${on}${via}${together}${merge}.${restText}${none}`);
+      fr.sentence = `${id} is set by a standalone ${call} call${on}${via}${together}${merge}.${restText}${none}`;
+      parts.push(fr.sentence);
       return;
     }
     const carriedText = fr.carried_by.length
       ? `Events that send it in customer_ids: ${listNames(fr.carried_by.map((e) => e.name))}.`
       : 'No event sends it in customer_ids yet.';
-    parts.push(`${rule.identifier_name} ${whenSentence(rule, fr.set_by)}. ${carriedText}`);
+    fr.sentence = `${rule.identifier_name} ${whenSentence(rule, fr.set_by)}. ${carriedText}`;
+    parts.push(fr.sentence);
   });
   if (rules.some((r) => r.identity_type === 'hard') && rules.some((r) => r.identity_type === 'soft')) {
     parts.push(

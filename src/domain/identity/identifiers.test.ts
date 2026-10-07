@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  bindsSentence,
   buildIdentificationFlow,
   describeTrigger,
   deriveEventIdentifiers,
@@ -111,5 +112,23 @@ describe('describeTrigger', () => {
     expect(describeTrigger('Checkout page.')).toEqual({ preposition: 'on', text: 'checkout page' });
     expect(describeTrigger('GTM push')).toEqual({ preposition: 'on', text: 'GTM push' });
     expect(describeTrigger('cart_id is set by the page')).toEqual({ preposition: 'when', text: 'cart_id is set by the page' });
+  });
+});
+
+describe('rule sentence and binds line (T-4-32)', () => {
+  const rs: IdentityRuleLike[] = [
+    { id: 'c', identifier_name: 'cookie', identity_type: 'soft' },
+    { id: 'k', identifier_name: 'cart_id', identity_type: 'soft', sdk_call: 'identify', trigger_text: 'the checkout page', source_id: 's-web' },
+    { id: 'e', identifier_name: 'email_id', identity_type: 'hard', trigger_event_id: 'e-login', sdk_call: 'identify' },
+  ];
+  const flow = buildIdentificationFlow(rs, [web, login], sources);
+  it('carries each rule its own sentence', () => {
+    expect(flow.rules[1].sentence).toContain('cart_id is set by a standalone identify call on the checkout page');
+    expect(flow.rules[2].sentence).toContain('email_id is set when the login event fires');
+    expect(flow.paragraph).toContain(flow.rules[1].sentence);
+  });
+  it('bindsSentence names the bound ids for a standalone call and nothing otherwise', () => {
+    expect(bindsSentence(flow.rules[1])).toBe('This call binds cart_id together with cookie.');
+    expect(bindsSentence(flow.rules[2])).toContain('Not a standalone call');
   });
 });

@@ -53,3 +53,7 @@ The project industry is set from the profile when it is empty.
 ## Missing sheets
 
 A sheet that is not in the workbook produces a warning and the rest still imports.
+
+## Per-event text becomes named definitions
+
+The Properties sheet gives each property one general text, but "Events & Event Attributes" often words the same property differently per event (`action` on `cart_update` is add, remove, update; on `consent` it is accept, reject). For every event and property row the importer compares the row's description, format, example and allowed values (read from a parenthesised list or the bullet names in the description) with the property's general definition. If they differ, the property gets a named definition called after the event, with that row's text, and the event's link points at it. If the row matches the general definition, the link stays on general. Existing definitions are matched by name, so a re-run only fills empty fields and reports differences as conflicts. The dry run lists the definitions it would create per property.

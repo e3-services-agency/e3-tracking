@@ -118,6 +118,9 @@ export const STATUS_ICONS: Record<string, LucideIcon> = {
   open: AlertTriangle,
   resolved: CheckCircle2,
   gap: AlertTriangle,
+  on_it: Activity,
+  done: CheckCircle2,
+  wont_do: XCircle,
 };
 export const SEVERITY_ICONS: Record<string, LucideIcon> = { error: OctagonAlert, warning: AlertTriangle, info: Info };
 /** Requirement target kind -> icon (requirements matrix, use case requirement rows). */

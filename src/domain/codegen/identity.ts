@@ -148,6 +148,11 @@ function identifyClient(ns: Ns, hardRules: IdentityRuleForCodegen[]): string {
   return lines.join(NL);
 }
 
+function standaloneValue(rule: IdentityRuleForCodegen, name: string): string {
+  const v = toCamelCaseVariable(name);
+  return name === rule.identifier_name && rule.transformations_json.length > 0 ? wrapWithTransformations(v, rule.transformations_json) : v;
+}
+
 function identifyStandaloneClient(ns: Ns, rule: IdentityRuleForCodegen): string | null {
   const binds = rule.binds ?? [];
   const sent = binds.filter((b) => b !== 'cookie');
@@ -155,7 +160,7 @@ function identifyStandaloneClient(ns: Ns, rule: IdentityRuleForCodegen): string 
     return [
       standaloneHeader(rule, 'server-side identification'),
       '// Send these as customer_ids with the Tracking API (POST /track/v2/projects/{project_token}/customers); there is no SDK identify call.',
-      `// customer_ids: { ${sent.map((n) => `${formatObjectKey(n)}: ${toCamelCaseVariable(n)}`).join(', ')} }`,
+      `// customer_ids: { ${sent.map((n) => `${formatObjectKey(n)}: ${standaloneValue(rule, n)}`).join(', ')} }`,
     ].join(NL);
   }
   // The cookie alone is bound by the SDK itself: nothing to send, so no block.
@@ -163,7 +168,7 @@ function identifyStandaloneClient(ns: Ns, rule: IdentityRuleForCodegen): string 
   const lines = [standaloneHeader(rule, 'identify call')];
   if (binds.includes('cookie')) lines.push('// The cookie is bound by the SDK automatically.');
   lines.push(`${ns}.identify({`);
-  for (const name of sent) lines.push(`  ${formatObjectKey(name)}: ${toCamelCaseVariable(name)},`);
+  for (const name of sent) lines.push(`  ${formatObjectKey(name)}: ${standaloneValue(rule, name)},`);
   lines.push('});');
   return lines.join(NL);
 }
@@ -264,7 +269,7 @@ function identifyGtm(hardRules: IdentityRuleForCodegen[], standalone: IdentityRu
     blocks.push(
       dlPush(
         'identify',
-        sent.map((n) => `${formatObjectKey(n)}: ${toCamelCaseVariable(n)},`),
+        sent.map((n) => `${formatObjectKey(n)}: ${standaloneValue(rule, n)},`),
         [standaloneHeader(rule, 'identify push'), ...(binds.includes('cookie') ? ['// The cookie is bound by the SDK automatically.'] : [])].join(NL)
       )
     );
@@ -367,7 +372,7 @@ export function buildIdentityCodegen(
 ): IdentityCodegenSnippets {
   const hardRules = dedupeHardRulesByIdentifierName(rules.filter((r) => r.identity_type === 'hard' && !isStandalone(r)));
   const anonymizeRules = rules.filter((r) => r.sdk_call === 'anonymize');
-  const standalone = rules.filter(isStandalone);
+  const standalone = rules.filter((r) => isStandalone(r) && (r.sdk_call == null || r.sdk_call === 'identify'));
   const cookie = rules.some((r) => r.identifier_name === 'cookie');
   const allHard = dedupeHardRulesByIdentifierName(rules.filter((r) => r.identity_type === 'hard'));
   return {

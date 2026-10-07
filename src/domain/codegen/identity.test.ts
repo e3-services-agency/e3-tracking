@@ -140,3 +140,20 @@ describe('T-4-30 fix round', () => {
     expect(s.update.tracking_api).toContain('// no hard id configured yet: replace `registered`');
   });
 });
+
+describe('T-4-30 QA fixes', () => {
+  const anon = rule({ identifier_name: 'registered', sdk_call: 'anonymize', trigger_text: 'The user logs out of the shop', binds: ['registered'], standalone_on: 'The user logs out of the shop', identity_type: 'soft' });
+  it('an anonymize rule with a trigger appears in the anonymize forms only', () => {
+    const s = buildIdentityCodegen([anon], props);
+    expect(s.identify.web_sdk).not.toContain('Standalone');
+    expect(s.identify.gtm_datalayer).not.toContain('Standalone');
+    expect(s.anonymize.web_sdk).toContain('brweb.anonymize();');
+  });
+  it('applies transformations on standalone identify calls', () => {
+    const r = rule({ identifier_name: 'email_id', transformations_json: ['trim', 'lowercase'], binds: ['email_id', 'cookie'], standalone_on: 'the checkout page loads' });
+    const s = buildIdentityCodegen([r], props).identify;
+    expect(s.web_sdk).toContain('email_id: String(emailId).trim().toLowerCase(),');
+    expect(s.web_sdk_legacy).toContain('String(emailId).trim().toLowerCase()');
+    expect(s.gtm_datalayer).toContain('String(emailId).trim().toLowerCase()');
+  });
+});

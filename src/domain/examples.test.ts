@@ -64,3 +64,12 @@ describe('exampleValuesFor typed enums', () => {
     expect(exampleValuesFor({ allowed_values_json: [{ value: true }], example_values_json: [] })).toEqual([{ value: true }]);
   });
 });
+
+describe('string-shaped stored examples', () => {
+  const al = [{ value: 'bronze' }, { value: 'silver' }];
+  it('handles ["silver"]', () => {
+    expect(exampleValuesFor({ allowed_values_json: al, example_values_json: ['silver'] })).toEqual([{ value: 'silver' }, { value: 'bronze' }]);
+    expect(isExampleAllowed({ allowed_values_json: al, example_values_json: ['silver'] })).toBe(true);
+    expect(isExampleAllowed({ allowed_values_json: al, example_values_json: ['gold'] })).toBe(false);
+  });
+});

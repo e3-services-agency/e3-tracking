@@ -3609,3 +3609,6 @@ wrapSelection counts contiguous marker runs before unwrapping (italic on runs 1/
 
 ### 2026-10-07 | supervisor | MERGE | T-5-05 merged into agent-setup — DONE; nothing running
 Merge b8c6d12. Merged tree: tsc, lint, build clean, 1953 tests / 194 files. Migrations 0031-0036 pending on the container. Open, waiting on the user: D-72 approval (GCP project id, region, hostname); container rebuild; T-4-06 samples.
+
+### 2026-10-07 | INCIDENT | migration 0036 crashed the user's container (restart loop, "malformed JSON")
+Cause: example_values_json holds plain strings (["silver"]) while 0036 assumed {value} objects and called json_type on json_each element text. 0031-0035 had applied; 0036 rolled back each start, data intact. Fix 7280e3d (T-5-11 follow-up): json_each `type` column, both shapes, guard for malformed/non-array; verified OK on a copy of the container DB. Lesson for the fixtures: migration tests must include the shapes the app actually writes (string examples); added to the backlog as a check for every data migration.

@@ -20,3 +20,23 @@ export function resolveEventSourceId(
   if (currentSourceId && list.some((s) => s.id === currentSourceId)) return currentSourceId;
   return list[0]?.id ?? (currentSourceId || null);
 }
+
+/**
+ * The sdk_call a rule saves and previews (T-4-35 QA): a standalone identify call with no explicit
+ * choice defaults to `identify` for a hard identifier; an explicit choice is kept; no mode, no call.
+ */
+export function resolveSdkCall(mode: 'none' | 'event' | 'standalone' | string, sdkCall: string, identityType: string): string | null {
+  if (mode === 'none') return null;
+  if (sdkCall) return sdkCall;
+  return mode === 'standalone' && identityType === 'hard' ? 'identify' : null;
+}
+
+/** The type of a new identifier whose typed name matches a registry entry follows that entry (case-insensitive). */
+export function effectiveNewIdentifierType(
+  registry: readonly { name: string; type: string }[],
+  typedName: string,
+  chosenType: string
+): { type: string; joinsExisting: boolean } {
+  const found = registry.find((i) => i.name.toLowerCase() === typedName.trim().toLowerCase());
+  return found ? { type: found.type, joinsExisting: true } : { type: chosenType, joinsExisting: false };
+}

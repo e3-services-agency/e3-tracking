@@ -36,7 +36,7 @@ import {
   type IdentityRuleLike,
 } from '@/src/domain/identity/identifiers';
 import { diffCarriedBy } from '@/src/domain/identity/carriedBy';
-import { resolveEventSourceId, resolveSaveTarget } from './ruleSave';
+import { effectiveNewIdentifierType, resolveEventSourceId, resolveSaveTarget, resolveSdkCall } from './ruleSave';
 
 /** Dropdown value that reveals the inline name + type fields of a new identifier (D-69). */
 const NEW_IDENTIFIER = '__new_identifier__';
@@ -131,6 +131,7 @@ export function IdentityRuleEditor({
   focusSection,
   onSaved,
   onRefresh,
+  onCreated,
   onClose,
 }: {
   ruleId: string | null;
@@ -143,6 +144,8 @@ export function IdentityRuleEditor({
   onSaved: () => Promise<void>;
   /** Refreshes the list without closing the sheet (a partly failed save of a new rule). */
   onRefresh?: (createdId?: string) => Promise<void>;
+  /** Called once, right after a new rule is first saved (the sheet then reads "Edit Identity Rule"). */
+  onCreated?: (id: string) => void;
   onClose: () => void;
 }) {
   /** Set after the first successful POST of a new rule: later saves PATCH it, never POST again. */
@@ -241,8 +244,8 @@ export function IdentityRuleEditor({
       id: effectiveRuleId ?? 'draft',
       name: trimmedName,
       identifier_name: trimmedField || 'this identifier',
-      identity_type: registry.find((i) => i.name.toLowerCase() === trimmedField.toLowerCase())?.type ?? identityType,
-      sdk_call: mode === 'none' ? null : sdkCall || null,
+      identity_type: effectiveNewIdentifierType(registry, trimmedField, identityType).type,
+      sdk_call: resolveSdkCall(mode, sdkCall, registry.find((i) => i.name.toLowerCase() === trimmedField.toLowerCase())?.type ?? identityType),
       trigger_event_id: mode === 'event' ? triggerEventId || null : null,
       trigger_text: mode === 'standalone' ? triggerText.trim() || null : null,
       source_id: mode === 'event' ? eventSourceId : mode === 'standalone' ? sourceId || null : null,
@@ -303,7 +306,7 @@ export function IdentityRuleEditor({
       const body = {
         name: trimmedName,
         identifier_name: trimmedField,
-        identity_type: identityType,
+        identity_type: effectiveNewIdentifierType(registry, trimmedField, identityType).type,
         transformations_json: transformations,
         description: description.trim() || null,
         example: example.trim() || null,
@@ -329,7 +332,10 @@ export function IdentityRuleEditor({
         return;
       }
       const savedId = effectiveRuleId ?? data.id;
-      if (isCreating) setCreatedId(data.id);
+      if (isCreating) {
+        setCreatedId(data.id);
+        onCreated?.(data.id);
+      }
       if (Object.keys(overrides).length > 0 || isCreating) {
         const carried = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/identity-rules/${savedId}/carried-by`, {
           method: 'PUT',
@@ -424,10 +430,10 @@ export function IdentityRuleEditor({
         <div className="space-y-2">
           <Label>Identity type</Label>
           {isNewIdentifier ? (
-            <div className="flex gap-4">
+            <div className="flex gap-4" data-testid="new-identifier-type">
               {IDENTITY_TYPES.map((t) => (
                 <Option key={t} hint={t}>
-                  <input type="radio" name="identity-type" checked={identityType === t} onChange={() => setIdentityType(t)} />
+                  <input type="radio" name="identity-type" checked={effectiveNewIdentifierType(registry, trimmedField, identityType).type === t} disabled={effectiveNewIdentifierType(registry, trimmedField, identityType).joinsExisting} onChange={() => setIdentityType(t)} />
                   {t}
                 </Option>
               ))}

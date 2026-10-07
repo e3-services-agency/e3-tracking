@@ -20,3 +20,23 @@ describe('resolveEventSourceId', () => {
     expect(resolveEventSourceId(undefined, null)).toBeNull();
   });
 });
+
+import { resolveSdkCall, effectiveNewIdentifierType } from './ruleSave';
+
+describe('resolveSdkCall (T-4-35 QA)', () => {
+  it('defaults a standalone hard rule to identify, keeps explicit choices, none for no mode', () => {
+    expect(resolveSdkCall('standalone', '', 'hard')).toBe('identify');
+    expect(resolveSdkCall('standalone', '', 'soft')).toBeNull();
+    expect(resolveSdkCall('standalone', 'update', 'hard')).toBe('update');
+    expect(resolveSdkCall('event', '', 'hard')).toBeNull();
+    expect(resolveSdkCall('none', 'identify', 'hard')).toBeNull();
+  });
+});
+
+describe('effectiveNewIdentifierType', () => {
+  it('follows an existing entry case-insensitively, else the chosen type', () => {
+    const reg = [{ name: 'cart_id', type: 'soft' }];
+    expect(effectiveNewIdentifierType(reg, 'CART_ID', 'hard')).toEqual({ type: 'soft', joinsExisting: true });
+    expect(effectiveNewIdentifierType(reg, 'email_id', 'hard')).toEqual({ type: 'hard', joinsExisting: false });
+  });
+});

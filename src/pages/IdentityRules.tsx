@@ -254,6 +254,7 @@ ${flowParagraph}
             // A new rule that saved but whose events failed stays open as an edit of the created rule.
             if (createdId) { setSelectedId(createdId); setIsCreating(false); }
           }}
+          onCreated={(id) => { setSelectedId(id); setIsCreating(false); }}
           onClose={() => setIsSheetOpen(false)}
         />
       </Sheet>

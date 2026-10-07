@@ -5,7 +5,7 @@ import { Router, type Request, type Response } from 'express';
 import * as IdentityRuleDAL from '../dal/identity-rule.dal';
 import { buildIdentityCodegen } from '../services/codegen.service';
 import { listProperties } from '../dal/property.dal';
-import { getProjectIdentificationFlow, listIdentityRulesForCodegen, listIdentityRulesWithFlow } from '../services/identification.service';
+import { setRuleCarriedBy, getProjectIdentificationFlow, listIdentityRulesForCodegen, listIdentityRulesWithFlow } from '../services/identification.service';
 import { handleRouteError } from './routeErrors';
 
 const router = Router({ mergeParams: true });
@@ -93,6 +93,15 @@ router.get('/codegen', (req: Request, res: Response) => {
     const rules = listIdentityRulesForCodegen(req.projectId!);
     const customerProperties = listProperties(req.projectId!, { scope: 'customer' });
     res.status(200).json(buildIdentityCodegen(rules, customerProperties));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+/** `PUT .../:id/carried-by` body `{ event_ids: string[] }`: the events that should carry this identifier (D-67, T-4-32). */
+router.put('/:id/carried-by', (req: Request, res: Response) => {
+  try {
+    res.status(200).json(setRuleCarriedBy(req.projectId!, req.params.id, (req.body as Record<string, unknown>).event_ids));
   } catch (err) {
     handleRouteError(err, res);
   }

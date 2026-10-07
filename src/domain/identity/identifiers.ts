@@ -63,9 +63,23 @@ export function deriveEventIdentifiers(
   return out;
 }
 
-/** True when the event's own list is set (non-empty), i.e. overrides the derived default. */
+/**
+ * True when the event's own list is set, i.e. overrides the derived default (D-67 amendment 2):
+ * `null` = derived, a non-empty list = explicit, `[]` = explicitly carries no identifier.
+ */
 export function hasExplicitIdentifiers(event: Pick<IdentifierEventLike, 'identifiers_json'>): boolean {
-  return Array.isArray(event.identifiers_json) && event.identifiers_json.length > 0;
+  return Array.isArray(event.identifiers_json);
+}
+
+/**
+ * True when the event's identifiers are the derived default: no list, or a non-empty list whose names
+ * match no rule any more (renamed or deleted rules, the T-4-28 fallback). `[]` is never derived.
+ */
+export function identifiersAreDerived(event: IdentifierEventLike, rules: readonly IdentityRuleLike[]): boolean {
+  if (!Array.isArray(event.identifiers_json)) return true;
+  if (event.identifiers_json.length === 0) return false;
+  const names = new Set(rules.map((r) => r.identifier_name));
+  return !event.identifiers_json.some((n) => names.has(n));
 }
 
 /**
@@ -77,14 +91,13 @@ export function effectiveEventIdentifiers(
   rules: readonly IdentityRuleLike[],
   sources?: readonly IdentifierSourceLike[]
 ): string[] {
-  if (!hasExplicitIdentifiers(event)) return deriveEventIdentifiers(event, rules, sources);
+  if (identifiersAreDerived(event, rules)) return deriveEventIdentifiers(event, rules, sources);
   const wanted = new Set(event.identifiers_json);
   const out: string[] = [];
   for (const rule of rules) {
     if (wanted.has(rule.identifier_name) && !out.includes(rule.identifier_name)) out.push(rule.identifier_name);
   }
-  // Every explicit name was renamed or deleted: the stale override carries nothing, so use the default.
-  return out.length > 0 ? out : deriveEventIdentifiers(event, rules, sources);
+  return out;
 }
 
 /** The rule's source with its display label ("Shopify via GTM data layer"). */
@@ -114,6 +127,8 @@ export interface IdentifierFlowRule {
   /** Standalone call only: the identifiers it binds together (the rule's own, the cookie for a web source, the source's other identifiers for a server source). */
   binds: string[];
   carried_by: { id: string; name: string }[];
+  /** This rule's own sentence of the paragraph (the editor's live preview). */
+  sentence: string;
 }
 
 export interface IdentificationFlow {
@@ -122,6 +137,15 @@ export interface IdentificationFlow {
 }
 
 const MAX_NAMED_EVENTS = 8;
+
+/** The "Binds" line of the rule editor: what a standalone call sets together (D-67 amendment 1). */
+export function bindsSentence(rule: Pick<IdentifierFlowRule, 'identifier_name' | 'set_by' | 'binds'>): string {
+  if (rule.set_by.kind !== 'standalone_call') return 'Not a standalone call, so nothing is bound together by it.';
+  const others = rule.binds.filter((b) => b !== rule.identifier_name);
+  return others.length > 0
+    ? `This call binds ${rule.identifier_name} together with ${others.join(', ')}.`
+    : `This call binds ${rule.identifier_name} on its own.`;
+}
 
 /**
  * Normalises a rule's free-text trigger for splicing into a sentence: trailing period stripped, first
@@ -225,6 +249,7 @@ export function buildIdentificationFlow(
       set_by,
       binds: set_by.kind === 'standalone_call' ? bindsFor(rule, rules, source) : [],
       carried_by: carried.get(rule.identifier_name) ?? [],
+      sentence: '',
     };
   });
 
@@ -258,13 +283,15 @@ export function buildIdentificationFlow(
       const rest = fr.carried_by.filter((e) => !only.includes(e));
       const restText = rest.length > 0 ? ` Other events that send it in customer_ids: ${listNames(rest.map((e) => e.name))}.` : '';
       const none = fr.carried_by.length === 0 ? ' No event sends it in customer_ids yet.' : '';
-      parts.push(`${id} is set by a standalone ${call} call${on}${via}${together}${merge}.${restText}${none}`);
+      fr.sentence = `${id} is set by a standalone ${call} call${on}${via}${together}${merge}.${restText}${none}`;
+      parts.push(fr.sentence);
       return;
     }
     const carriedText = fr.carried_by.length
       ? `Events that send it in customer_ids: ${listNames(fr.carried_by.map((e) => e.name))}.`
       : 'No event sends it in customer_ids yet.';
-    parts.push(`${rule.identifier_name} ${whenSentence(rule, fr.set_by)}. ${carriedText}`);
+    fr.sentence = `${rule.identifier_name} ${whenSentence(rule, fr.set_by)}. ${carriedText}`;
+    parts.push(fr.sentence);
   });
   if (rules.some((r) => r.identity_type === 'hard') && rules.some((r) => r.identity_type === 'soft')) {
     parts.push(

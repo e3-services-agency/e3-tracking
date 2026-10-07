@@ -78,10 +78,15 @@ export type CodegenProjectConfig = {
   identifierKeys?: string[] | null;
   /** True when at least one of `identifierKeys` is a soft identifier (changes the customer_ids note). */
   identifierHasSoft?: boolean;
+  /** D-67 amendment 2: the event explicitly carries no identifier (`identifiers_json = []`). */
+  identifierNone?: boolean;
 };
 
 export const SOFT_CUSTOMER_IDS_COMMENT =
   'customer_ids carry the identifiers this event uses (soft ids are merged into the profile; a hard id must be present somewhere in the session); see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview';
+
+export const NO_IDENTIFIER_COMMENT =
+  'This event is set to carry no identifier in customer_ids; add one in the event Identifiers block, otherwise the call cannot be attached to a customer';
 
 export const CUSTOMER_IDS_COMMENT =
   "customer_ids must match the project's hard ID; see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview";
@@ -546,14 +551,17 @@ function buildBloomreachApiSnippet(
   }
   const body = {
     customer_ids:
-      identifierKeys.length > 0
+      projectConfig?.identifierNone
+        ? {}
+        : identifierKeys.length > 0
         ? Object.fromEntries(identifierKeys.map((k) => [k, `<${k}>`]))
         : { [customerIdKey]: '<customer_id>' },
     event_type: eventName,
     ...(Object.keys(properties).length > 0 ? { properties } : {}),
   };
   const json = JSON.stringify(body, null, 2);
-  const idComment = `// ${identifierKeys.length > 0 && projectConfig?.identifierHasSoft ? SOFT_CUSTOMER_IDS_COMMENT : CUSTOMER_IDS_COMMENT}\n`;
+  const idComment = projectConfig?.identifierNone ? `// ${NO_IDENTIFIER_COMMENT}
+` : `// ${identifierKeys.length > 0 && projectConfig?.identifierHasSoft ? SOFT_CUSTOMER_IDS_COMMENT : CUSTOMER_IDS_COMMENT}\n`;
   const optionalProps = props.filter((p) => !isRequiredForCodegenSnippet(p));
   const curlExample =
     `curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/customers/events" \\\n` +
@@ -604,6 +612,7 @@ export interface CodegenV2Options {
   /** D-67 (T-4-28): the event's effective identifier names, the Tracking API `customer_ids` keys. */
   identifierKeys?: string[] | null;
   identifierHasSoft?: boolean;
+  identifierNone?: boolean;
 }
 
 export function toCodegenProperty(p: AttachedPropertyForCodegen): CodegenProperty {
@@ -644,7 +653,7 @@ export function buildCodegenV2(
       safeCanonical,
       props,
       overrides,
-      projectConfig ?? { bloomreachApiCustomerIdKey: options.hardIdKey, identifierKeys: options.identifierKeys, identifierHasSoft: options.identifierHasSoft },
+      projectConfig ?? { bloomreachApiCustomerIdKey: options.hardIdKey, identifierKeys: options.identifierKeys, identifierHasSoft: options.identifierHasSoft, identifierNone: options.identifierNone },
       model.payload
     ), comment);
 

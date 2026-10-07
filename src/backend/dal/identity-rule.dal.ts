@@ -6,7 +6,7 @@
  */
 import { getDb } from '../db';
 import { newId, nowIso, mapWriteError, parseJsonColumn, toJsonColumn } from '../db/util';
-import { BadRequestError, NotFoundError, ValidationError } from '../errors';
+import { BadRequestError, IdentifierExistsError, NotFoundError, ValidationError } from '../errors';
 import { IDENTITY_TYPES, IDENTITY_TRANSFORMATIONS, IDENTITY_SDK_CALLS, PRIORITIES, ENTITY_STATUSES } from '../../domain/enums';
 import { validateAsciiName } from './validators';
 import * as ChangeLogDAL from './change-log.dal';
@@ -147,6 +147,14 @@ function assertSourceInProject(projectId: string, sourceId: string | null | unde
   if (!row) throw new BadRequestError('source_id does not belong to this project.', 'source_id');
 }
 
+/** identifier_name is unique per project, case-insensitive (T-4-32): 409 IDENTIFIER_EXISTS. */
+function assertIdentifierFree(projectId: string, identifierName: string, exceptId?: string): void {
+  const row = getDb()
+    .prepare('SELECT id FROM identity_rules WHERE project_id = ? AND lower(identifier_name) = lower(?) AND id != ?')
+    .get(projectId, identifierName, exceptId ?? '');
+  if (row) throw new IdentifierExistsError(identifierName);
+}
+
 export function createIdentityRule(projectId: string, input: IdentityRuleInput): IdentityRuleRow {
   const name = input.name.trim();
   if (!name) throw new ValidationError('Identity rule name is required.', 'name');
@@ -155,6 +163,7 @@ export function createIdentityRule(projectId: string, input: IdentityRuleInput):
     throw new ValidationError('Identifier name is required.', 'identifier_name');
   }
   validateAsciiName(identifierName, 'identifier_name');
+  assertIdentifierFree(projectId, identifierName);
   validateIdentityType(input.identity_type);
   validatePriority(input.priority);
   validateStatus(input.status);
@@ -237,6 +246,7 @@ export function updateIdentityRule(
       throw new ValidationError('Identifier name is required.', 'identifier_name');
     }
     validateAsciiName(identifierName, 'identifier_name');
+    if (identifierName.toLowerCase() !== existing.identifier_name.toLowerCase()) assertIdentifierFree(projectId, identifierName, id);
   }
   if (updates.identity_type !== undefined) validateIdentityType(updates.identity_type);
   // Defensive (T-1-06 integration fix): deleteEvent now nulls out trigger_event_id for rules that

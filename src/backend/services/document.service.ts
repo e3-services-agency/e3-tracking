@@ -25,7 +25,7 @@ import * as PropertyDAL from '../dal/property.dal';
 import * as IdentityRuleDAL from '../dal/identity-rule.dal';
 import { buildIdentityCodegen } from './codegen.service';
 import { listIdentityRulesForCodegen } from './identification.service';
-import { buildIdentificationFlow, effectiveEventIdentifiers, hasExplicitIdentifiers, type IdentificationFlow } from '../../domain/identity/identifiers';
+import { buildIdentificationFlow, effectiveEventIdentifiers, identifiersAreDerived, type IdentificationFlow } from '../../domain/identity/identifiers';
 import * as ConsentCategoryDAL from '../dal/consent-category.dal';
 import * as CatalogDAL from '../dal/catalog.dal';
 import * as SourceDAL from '../dal/source.dal';
@@ -735,6 +735,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
       projectContext: context.projectContextProperties,
       hardIdKey: context.hardIdKey,
       identifierKeys: identifiers,
+      identifierNone: Array.isArray(event.identifiers_json) && event.identifiers_json.length === 0,
       identifierHasSoft: context.identityRules.some((r) => r.identity_type === 'soft' && identifiers.includes(r.identifier_name)),
       catalogLinks: catalogLinksForProperties(properties, context),
     },
@@ -750,7 +751,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
     dl_event_name: event.dl_event_name,
     sources: (context.sourcesByEventId.get(event.id) ?? []).map((s) => ({ id: s.id, name: s.name, system: s.system, method: s.method, color: s.color })),
     identifiers,
-    identifiers_derived: !hasExplicitIdentifiers(event),
+    identifiers_derived: identifiersAreDerived(identifierEvent, context.identityRules),
     description: event.description,
     purpose: event.purpose,
     page: event.page,

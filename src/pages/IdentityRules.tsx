@@ -22,6 +22,7 @@ import type { IdentityCodegenSnippets as IdentityCodegenData } from '@/src/domai
 import { HistorySection } from '@/src/features/history/HistorySection';
 import { CopyMarkdownButton } from '@/src/components/ui/CopyMarkdownButton';
 import { CarriedByCell, SetByCell } from '@/src/features/identity/SetByCell';
+import { IdentityRuleEditor, type EditorEvent, type EditorSource, type IdentityEditorSection } from '@/src/features/identity/IdentityRuleEditor';
 import type { IdentifierSetBy } from '@/src/domain/identity/identifiers';
 
 interface IdentityRuleRow {
@@ -50,15 +51,8 @@ interface IdentityRuleRow {
 
 type IdentityCodegenSnippets = IdentityCodegenData;
 
-interface EventOption {
-  id: string;
-  name: string;
-}
-
-interface SourceOption {
-  id: string;
-  name: string;
-}
+type EventOption = EditorEvent;
+type SourceOption = EditorSource;
 
 async function parseJson(res: Response): Promise<any> {
   return res.json().catch(() => ({}));
@@ -72,6 +66,16 @@ export function IdentityRules() {
   const [codegen, setCodegen] = useState<IdentityCodegenSnippets | null>(null);
   const [flowParagraph, setFlowParagraph] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [focusSection, setFocusSection] = useState<IdentityEditorSection | null>(null);
+  // Bumped only when the sheet is opened, so saving a new rule (which sets selectedId) does not remount the editor.
+  const [editorKey, setEditorKey] = useState(0);
+  const openRule = (id: string, section: IdentityEditorSection | null = null) => {
+    setEditorKey((k) => k + 1);
+    setSelectedId(id);
+    setFocusSection(section);
+    setIsCreating(false);
+    setIsSheetOpen(true);
+  };
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [reorderError, setReorderError] = useState<string | null>(null);
@@ -133,7 +137,7 @@ export function IdentityRules() {
             When hard and soft identities are set, and which events/properties may be sent.
           </p>
         </div>
-        <Button onClick={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }} className="gap-2">
+        <Button onClick={() => { setEditorKey((k) => k + 1); setSelectedId(null); setFocusSection(null); setIsCreating(true); setIsSheetOpen(true); }} className="gap-2">
           <Plus className="w-4 h-4" /> Add Identity Rule
         </Button>
       </PageHeader>
@@ -149,6 +153,18 @@ ${flowParagraph}
           </div>
           <p className="text-sm text-gray-700">{flowParagraph || 'No identification flow yet.'}</p>
         </div>
+        <ol className="mb-6 grid grid-cols-3 gap-3 text-sm" data-testid="identity-intro">
+          {([
+            ['1', 'Define each identifier', 'Name it, say whether it is hard or soft, and how its value is cleaned.'],
+            ['2', 'Say how it is set', 'An event that sends it, or a standalone identify call with no event.'],
+            ['3', 'Say which events carry it', 'The events that send it in customer_ids. Defaults come from the implementation method and source.'],
+          ] as const).map(([n, title, text]) => (
+            <li key={n} className="rounded-lg border bg-white p-3 shadow-sm">
+              <span className="font-semibold text-gray-900">{n} {title}</span>
+              <p className="text-xs text-gray-500 mt-1">{text}</p>
+            </li>
+          ))}
+        </ol>
         {reorderError && (
           <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{reorderError}</div>
         )}
@@ -180,13 +196,13 @@ ${flowParagraph}
                       </button>
                     </div>
                   </td>
-                  <td className="px-6 py-4 font-medium text-gray-900 cursor-pointer" onClick={() => { setSelectedId(rule.id); setIsCreating(false); setIsSheetOpen(true); }}>{rule.name}</td>
+                  <td className="px-6 py-4 font-medium text-gray-900 cursor-pointer" onClick={() => openRule(rule.id)}>{rule.name}</td>
                   <td className="px-6 py-4 text-gray-500">{rule.identifier_name}</td>
                   <td className="px-6 py-4 text-gray-500">{rule.identity_type}</td>
                   <td className="px-6 py-4 text-gray-500">{rule.sdk_call ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{eventName(rule.trigger_event_id)}</td>
-                  <td className="px-6 py-4 text-gray-500"><SetByCell setBy={rule.set_by} binds={rule.binds} /></td>
-                  <td className="px-6 py-4 text-gray-500"><CarriedByCell events={rule.carried_by} /></td>
+                  <td className="px-6 py-4 text-gray-500 cursor-pointer" title="Edit how this identifier is set" onClick={() => openRule(rule.id, 'set_by')}><SetByCell setBy={rule.set_by} binds={rule.binds} /></td>
+                  <td className="px-6 py-4 text-gray-500 cursor-pointer" title="Edit which events carry this identifier" onClick={() => openRule(rule.id, 'carried_by')}><CarriedByCell events={rule.carried_by} /></td>
                   <td className="px-6 py-4 text-gray-500"><StatusBadge status={rule.status} /></td>
                 </tr>
               ))}
@@ -223,266 +239,22 @@ ${flowParagraph}
 
       <Sheet isOpen={isSheetOpen} onClose={() => setIsSheetOpen(false)} title={isCreating ? 'Create Identity Rule' : 'Edit Identity Rule'}>
         <IdentityRuleEditor
-          key={isCreating ? 'create' : selectedId ?? 'none'}
+          key={editorKey}
           ruleId={isCreating ? null : selectedId}
           projectId={activeProjectId}
           events={events}
           sources={sources}
+          rules={rules}
+          focusSection={focusSection}
           onSaved={async () => { await load(); setIsSheetOpen(false); }}
+          onRefresh={async (createdId) => {
+            await load();
+            // A new rule that saved but whose events failed stays open as an edit of the created rule.
+            if (createdId) { setSelectedId(createdId); setIsCreating(false); }
+          }}
           onClose={() => setIsSheetOpen(false)}
         />
       </Sheet>
-    </div>
-  );
-}
-
-function IdentityRuleEditor({
-  ruleId,
-  projectId,
-  events,
-  sources,
-  onSaved,
-  onClose,
-}: {
-  ruleId: string | null;
-  projectId: string;
-  events: EventOption[];
-  sources: SourceOption[];
-  onSaved: () => Promise<void>;
-  onClose: () => void;
-}) {
-  const isCreating = ruleId === null;
-  const [loading, setLoading] = useState(!isCreating);
-  const [rule, setRule] = useState<IdentityRuleRow | null>(null);
-  const [name, setName] = useState('');
-  const [identifierName, setIdentifierName] = useState('');
-  const [identityType, setIdentityType] = useState<string>(IDENTITY_TYPES[0]);
-  const [transformations, setTransformations] = useState<string[]>([]);
-  const [sdkCall, setSdkCall] = useState<string>('');
-  const [description, setDescription] = useState('');
-  const [triggerEventId, setTriggerEventId] = useState('');
-  const [triggerText, setTriggerText] = useState('');
-  const [valueRule, setValueRule] = useState('');
-  const [example, setExample] = useState('');
-  const [owner, setOwner] = useState('');
-  const [sourceId, setSourceId] = useState('');
-  const [tracker, setTracker] = useState('');
-  const [priority, setPriority] = useState('');
-  const [status, setStatus] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!projectId || !ruleId) {
-      setLoading(false);
-      return;
-    }
-    (async () => {
-      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/identity-rules/${ruleId}`);
-      const data = await parseJson(res);
-      if (res.ok) {
-        setRule(data);
-        setName(data.name ?? '');
-        setIdentifierName(data.identifier_name ?? '');
-        setIdentityType(data.identity_type ?? IDENTITY_TYPES[0]);
-        setTransformations(Array.isArray(data.transformations_json) ? data.transformations_json : []);
-        setSdkCall(data.sdk_call ?? '');
-        setDescription(data.description ?? '');
-        setTriggerEventId(data.trigger_event_id ?? '');
-        setTriggerText(data.trigger_text ?? '');
-        setValueRule(data.value_rule ?? '');
-        setExample(data.example ?? '');
-        setOwner(data.owner ?? '');
-        setSourceId(data.source_id ?? '');
-        setTracker(data.tracker ?? '');
-        setPriority(data.priority ?? '');
-        setStatus(data.status ?? '');
-      } else {
-        setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to load identity rule.');
-      }
-      setLoading(false);
-    })();
-  }, [projectId, ruleId]);
-
-  const trimmedName = name.trim();
-  const trimmedField = identifierName.trim();
-
-  const toggleTransformation = (t: string) => {
-    setTransformations((prev) => (prev.includes(t) ? prev.filter((v) => v !== t) : [...prev, t]));
-  };
-
-  const handleSave = async () => {
-    if (!trimmedName || !trimmedField || !projectId) return;
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const body = {
-        name: trimmedName,
-        identifier_name: trimmedField,
-        identity_type: identityType,
-        transformations_json: transformations,
-        sdk_call: sdkCall || null,
-        description: description.trim() || null,
-        trigger_event_id: triggerEventId || null,
-        trigger_text: triggerText.trim() || null,
-        value_rule: valueRule.trim() || null,
-        example: example.trim() || null,
-        owner: owner.trim() || null,
-        source_id: sourceId || null,
-        tracker: tracker.trim() || null,
-        priority: priority || null,
-        status: status || null,
-      };
-      const url = isCreating
-        ? `${API_BASE}/api/projects/${projectId}/identity-rules`
-        : `${API_BASE}/api/projects/${projectId}/identity-rules/${ruleId}`;
-      const res = await fetchWithAuth(url, { method: isCreating ? 'POST' : 'PATCH', body: JSON.stringify(body) });
-      const data = await parseJson(res);
-      if (!res.ok) {
-        setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to save.');
-        return;
-      }
-      await onSaved();
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!rule || !projectId) return;
-    if (!window.confirm(`Delete identity rule "${rule.name}"?`)) return;
-    setDeleting(true);
-    setSaveError(null);
-    try {
-      const res = await fetchWithAuth(`${API_BASE}/api/projects/${projectId}/identity-rules/${rule.id}`, { method: 'DELETE' });
-      if (res.ok || res.status === 204) {
-        await onSaved();
-      } else {
-        const data = await parseJson(res);
-        setSaveError(typeof data?.error === 'string' ? data.error : 'Failed to delete.');
-      }
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  if (loading) return <div className="text-sm text-gray-500 p-4">Loading…</div>;
-
-  return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <FieldLabel className="text-sm font-medium text-gray-700" hint="Name" hintScope="Identity">Name</FieldLabel>
-          <Input value={name} onChange={(e) => setName(e.target.value)} />
-          {!trimmedName && <p className="text-xs text-red-600">Name is required.</p>}
-        </div>
-        <div className="space-y-2">
-          <FieldLabel className="text-sm font-medium text-gray-700" hint="Identifier name" hintScope="Identity">Identifier name</FieldLabel>
-          <Input value={identifierName} onChange={(e) => setIdentifierName(e.target.value)} placeholder="e.g. registered, cookie, email_id" />
-          {!trimmedField && <p className="text-xs text-red-600">Identifier name is required.</p>}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <FieldLabel className="text-sm font-medium text-gray-700" hint="Identity type" hintScope="Identity">Identity type</FieldLabel>
-          <EnumSelect kind="identity_type" values={IDENTITY_TYPES} value={identityType} onChange={(e) => setIdentityType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
-        </div>
-        <div className="space-y-2">
-          <FieldLabel className="text-sm font-medium text-gray-700" hint="SDK call" hintScope="Identity">SDK call</FieldLabel>
-          <EnumSelect kind="sdk_call" values={IDENTITY_SDK_CALLS} emptyLabel="—" value={sdkCall} onChange={(e) => setSdkCall(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <FieldLabel className="text-sm font-medium text-gray-700" hint="Transformations" hintScope="Identity">Transformations</FieldLabel>
-        <div className="flex gap-4">
-          {IDENTITY_TRANSFORMATIONS.map((t) => (
-            <FieldLabel key={t} className="flex items-center gap-2 text-sm text-gray-700" hintScope="Identity">
-              <input type="checkbox" checked={transformations.includes(t)} onChange={() => toggleTransformation(t)} />
-              {t}
-            </FieldLabel>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <FieldLabel className="text-sm font-medium text-gray-700" hint="Description" hintScope="Identity">Description</FieldLabel>
-        <Input value={description} onChange={(e) => setDescription(e.target.value)} />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <FieldLabel className="text-sm font-medium text-gray-700" hint="Trigger event" hintScope="Identity">Trigger event</FieldLabel>
-          <select value={triggerEventId} onChange={(e) => setTriggerEventId(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            <option value="">—</option>
-            {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
-          </select>
-        </div>
-        <div className="space-y-2">
-          <FieldLabel className="text-sm font-medium text-gray-700" hint="Trigger text" hintScope="Identity">Trigger text</FieldLabel>
-          <Input value={triggerText} onChange={(e) => setTriggerText(e.target.value)} />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <FieldLabel className="text-sm font-medium text-gray-700" hint="Value rule" hintScope="Identity">Value rule</FieldLabel>
-        <Input value={valueRule} onChange={(e) => setValueRule(e.target.value)} />
-      </div>
-
-      <div className="space-y-2">
-        <FieldLabel className="text-sm font-medium text-gray-700" hint="Example" hintScope="Identity">Example</FieldLabel>
-        <Input value={example} onChange={(e) => setExample(e.target.value)} />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <FieldLabel className="text-sm font-medium text-gray-700" hint="Owner" hintScope="Identity">Owner</FieldLabel>
-          <Input value={owner} onChange={(e) => setOwner(e.target.value)} />
-        </div>
-        <div className="space-y-2">
-          <FieldLabel className="text-sm font-medium text-gray-700" hint="Source" hintScope="Identity">Source</FieldLabel>
-          <select value={sourceId} onChange={(e) => setSourceId(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            <option value="">—</option>
-            {sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <FieldLabel className="text-sm font-medium text-gray-700" hint="Tracker" hintScope="Identity">Tracker</FieldLabel>
-        <Input value={tracker} onChange={(e) => setTracker(e.target.value)} />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <FieldLabel className="text-sm font-medium text-gray-700" hint="Priority" hintScope="Identity">Priority</FieldLabel>
-          <EnumSelect kind="priority" values={PRIORITIES} emptyLabel="—" value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
-        </div>
-        <div className="space-y-2">
-          <FieldLabel className="text-sm font-medium text-gray-700" hint="Status" hintScope="Identity">Status</FieldLabel>
-          <EnumSelect kind="status" values={ENTITY_STATUSES} emptyLabel="—" value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
-        </div>
-      </div>
-
-      {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{saveError}</div>}
-
-      {!isCreating && rule && (
-        <HistorySection projectId={projectId} entityType="identity_rule" entityId={rule.id} />
-      )}
-
-      <div className="pt-6 border-t flex justify-between">
-        {!isCreating && rule ? (
-          <Button variant="destructive" onClick={() => void handleDelete()} disabled={saving || deleting} className="gap-2">
-            {deleting ? (<><Loader2 className="w-4 h-4 animate-spin" /> Deleting…</>) : (<><Trash2 className="w-4 h-4" /> Delete</>)}
-          </Button>
-        ) : <div />}
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={onClose} disabled={saving || deleting}>Cancel</Button>
-          <Button onClick={() => void handleSave()} disabled={saving || deleting || !trimmedName || !trimmedField}>{saving ? 'Saving…' : 'Save Identity Rule'}</Button>
-        </div>
-      </div>
     </div>
   );
 }

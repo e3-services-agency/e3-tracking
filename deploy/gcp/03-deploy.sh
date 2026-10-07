@@ -26,6 +26,10 @@ OAUTH2_COOKIE_SECRET=$SECRET
 BACKUP_BUCKET=$BUCKET
 ENVEOF
 
+if [ "$DRY_RUN" = 1 ]; then
+  say "# .env template (used on the first deploy only):"
+  while IFS= read -r l; do say "#   $l"; done < "$STAGE/env.template"
+fi
 say "Previous image on the VM (rollback target):"
 PREV_CMD="grep '^IMAGE=' $REMOTE/.env 2>/dev/null || true"
 show gcloud compute ssh "$VM_NAME" "${IAP[@]}" --command "$PREV_CMD"

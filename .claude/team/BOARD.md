@@ -3413,3 +3413,10 @@ Three identifiers_json states (identifiersAreDerived, hasExplicitIdentifiers; di
 ### 2026-10-07 | qa-tester | QA PASS | T-4-29 re-check 0a50ef3 (3 minor) and T-4-33 re-check 6b5c851
 T-4-29: F1 fixed (icon clicks swallowed, label text toggles, keyboard works), F2 hints match real options, exports free of raw enum values, selects labelled with raw values stored, create sends implementation_method null. Minor: requirements-table "Status" header uses the use case status hint; "(4, D-21/D-28)" in the Findings intro; "(seed + project additions, D-26)" in the Standard events subtitle. T-4-33: linked-field delete clears the link with history rows, dirty confirm on Cancel and X, one over-limit message, rename clash blocked, Mark live disabled while saving. Reports appended.
 Supervisor ruling: T-4-33 merges now (D-53 amendment 12 records 0031). T-4-29: fix the three nits (scoped "Status" hint for the requirements table, strip both codes) and merge agent-setup into the branch, then merge.
+
+### 2026-10-07 | supervisor | MERGE | T-4-33 merged into agent-setup — DONE
+Merge 309d8d6. Merged tree: tsc, lint clean, 1824 tests / 179 files.
+
+### 2026-10-07 | reviewer | REVIEW | T-4-32 re-check 7ec1b65 PASS (1 minor); conflicts with agent-setup
+Full suite 1815/179 green. All four findings fixed and consistent across DAL, card, markdown, HTML, codegen, editors. Minor: after a POST-then-PUT failure the preview/Binds line keys off ruleId (null) instead of the created id. Merge check vs e9765ac: conflicts in docs/guide/identification.md and document.service.ts#buildEventCard (T-4-30 touched the same area). API note: identifiers_json [] now means "carries nothing" (D-67 amendment 2).
+Supervisor ruling: implementer fixes the minor (effectiveRuleId) and merges agent-setup (309d8d6) into the branch, re-runs gates; then QA of the editor in the browser (never browser-checked yet), then merge.

@@ -3491,3 +3491,6 @@ Planner compares each event-property row (description, formats, example, allowed
 
 ### 2026-10-07 | supervisor | APPLY + MERGE | Airshoppen definitions applied; T-4-34 b4b024e merged
 Apply on 3020: 56 definitions created, 56 links moved, 0 failed; action = general, cart_update, view_item, consent; 23 properties with named definitions. T-4-35 merged at 21dc711; one test (identifiers.registry.test.ts) fails only on the non-ASCII main-checkout path (import.meta.url not decoded), fix in progress.
+
+### 2026-10-07 | supervisor | MERGE | T-4-35 merged (21dc711 + 9d30465 test path fix) — DONE; round 9 complete, nothing running
+Merged tree: tsc, lint, build clean, 1886 tests / 188 files. Airshoppen seeded on the container (events 23, properties 194, 56 named definitions, 2 catalogs, 3 identity rules). Open, waiting on the user: container rebuild to pick up rounds 8-9 (migrations 0031-0032 apply on start: identifiers backfilled from the three rules); D-67/D-68/D-69 confirmation; T-4-06 samples; phase 5 go + provider; client collaboration scope (threads, status, reactions, images) proposed in chat.

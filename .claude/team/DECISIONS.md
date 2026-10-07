@@ -480,3 +480,6 @@ An identifier can be set by a standalone `identify` call with no event (e.g. GTM
 
 ### D-67 amendment 2 (2026-10-07, supervisor, from the T-4-32 review): explicit "carries nothing"
 `events.identifiers_json` has three states: `null` = derived default; a non-empty list = explicit; `[]` = explicitly carries no identifier (allowed, shown as "none, set by hand"). The T-4-28 fallback stays only for a non-empty explicit list whose names no longer match any rule (renamed or deleted rules): that list is treated as derived until edited. The rule editor's Carried-by checklist can therefore untick the last identifier of an event, and the event editor offers "Carries no identifier" beside "Reset to derived".
+
+### D-53 amendment 12 (2026-10-07, T-4-33): migration 0031
+`0031_catalog_field_order.sql` adds `catalog_fields.sort_order` (INTEGER NOT NULL DEFAULT 0, backfilled as a rank by name within each catalog). Fields list by `sort_order, name`; new fields append; `PUT /catalogs/:id/fields/order` saves an order; restore ranks by name when a catalog's fields all carry 0 (pre-0031 backups). Order is presentation only and not written to `change_log`.

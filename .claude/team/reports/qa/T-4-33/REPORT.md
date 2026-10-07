@@ -19,3 +19,15 @@ Minor notes
 - change_log sort_order values on created fields look relative (1..4), order is not logged (as announced).
 - Dirty-Cancel prompt, swap-rename 409, Mark live while saving: reviewer notes, not retested.
 - Rule item schema editor not reused or changed; the card's Item schemas section renders.
+
+## Re-check 6b5c851
+
+Sandbox project, API 3014, Vite 3011 (throwaway config), servers stopped, QA db and config removed. The browser pane was intermittently unrendered (viewport 0x0, React updates deferred until it woke); results were read from the DOM after the page drew, and window.confirm was recorded by an override.
+
+Overall: PASS (F1 fixed; items 2 to 5 PASS; one note on item 5).
+
+1. F1 PASS. products_gb, Delete on item_id: confirm text "product_id (event) links to item_id; the link will be removed. Delete the field anyway?" (names the property, says the link is removed). Save Catalog: requests PATCH catalog, DELETE field, PUT field order, no 500, no error text, no console errors. API: product_id.mapped_catalog_field_id is now null; the property editor's "Catalog field" shows "Not linked". History: `property product_id update mapped_catalog_field_id <old id> -> —` and `catalog_field products_gb.item_id delete` rows.
+2. Dirty Cancel PASS. After editing a field name, Cancel and the Sheet X ("Close") both call confirm "Discard unsaved field changes?"; declining keeps the sheet open, accepting closes it.
+3. Over-limit message PASS. 43 searchable ticks: header "Searchable 43/40" and one `<p>` under the table "43 searchable fields, the limit is 40." (the same sentence is also listed once in the Save-disabled reason list); zero messages inside table rows; Save disabled.
+4. Rename clash PASS. Renaming image to item_id while item_id is renamed to item_id_new (no duplicate in the draft, but item_id is another field's saved name): Save disabled, reason "A rename takes a name another field still has: rename in two saves." A plain duplicate still shows `Duplicate name "item_id".`
+5. Mark live while saving PASS (note). With the draft dirty, Save clicked with writes delayed 2.5 s each: the Mark live link was disabled during "Saving…", and enabled again after the reload (about 7 s, three delayed writes). The disabled state during saving cannot be separated from the dirty guard in the browser, since the draft is still dirty until the reload; the source has `disabled={dirty || saving}`.

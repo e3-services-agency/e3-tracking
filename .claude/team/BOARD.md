@@ -3565,3 +3565,5 @@ Merge a9bc0ee. Merged tree: tsc, lint, build clean, 1930 tests / 191 files. Migr
 
 ### 2026-10-07 | supervisor | DECISION | D-67 (+2 amendments), D-68, D-69 (+1 amendment) confirmed by the user
 Status updated to accepted in DECISIONS.md. Open: phase 5 step 2 (go + provider), T-4-06 samples.
+
+### 2026-10-07 | supervisor | TASK + DECISION | D-71 Markdown comments → T-5-05 (C:/t/t505); user: "go phase 5", provider GCP Compute VM with a dedicated project and billing, deployment via the gcloud CLI on the user's machine → D-72 draft for approval

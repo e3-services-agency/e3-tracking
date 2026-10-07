@@ -142,6 +142,11 @@ export class LocalFileStore implements FileStore {
       const target = path.resolve(root, relativePath);
       if (!target.startsWith(projectRoot)) return;
       fs.rmSync(target, { force: true });
+      try {
+        fs.rmdirSync(path.dirname(target)); // only succeeds when now empty (comments/<id>/)
+      } catch {
+        // not empty or already gone
+      }
     } catch {
       // best-effort
     }

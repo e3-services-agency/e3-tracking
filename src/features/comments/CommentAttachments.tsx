@@ -148,6 +148,7 @@ export function AttachmentPicker({
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const zoneRef = useRef<HTMLDivElement | null>(null);
 
   const add = (incoming: FileList | File[]) => {
     const picked = Array.from(incoming);
@@ -163,12 +164,30 @@ export function AttachmentPicker({
     if (accepted.length > 0) onChange([...files, ...accepted]);
   };
 
+  // Paste anywhere in the surrounding form (comment textarea, reply box, the zone itself).
+  const addRef = useRef(add);
+  addRef.current = add;
+  useEffect(() => {
+    const host: HTMLElement | null = zoneRef.current?.closest('form') ?? zoneRef.current;
+    if (!host || disabled) return;
+    const onPaste = (e: Event) => {
+      const pasted = Array.from((e as ClipboardEvent).clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'));
+      if (pasted.length > 0) {
+        e.preventDefault();
+        addRef.current(pasted);
+      }
+    };
+    host.addEventListener('paste', onPaste);
+    return () => host.removeEventListener('paste', onPaste);
+  }, [disabled]);
+
   return (
     <div className="space-y-1">
       <FieldLabel className="block text-xs text-gray-700" hintScope="Comments" hint="Attach images">
         Images (optional)
       </FieldLabel>
       <div
+        ref={zoneRef}
         tabIndex={0}
         data-testid="comment-dropzone"
         onDragOver={(e) => {
@@ -180,13 +199,6 @@ export function AttachmentPicker({
           e.preventDefault();
           setDragging(false);
           if (!disabled) add(e.dataTransfer.files);
-        }}
-        onPaste={(e) => {
-          const pasted = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith('image/'));
-          if (pasted.length > 0 && !disabled) {
-            e.preventDefault();
-            add(pasted);
-          }
         }}
         onClick={() => !disabled && inputRef.current?.click()}
         className={`flex cursor-pointer items-center justify-center gap-2 rounded-md border-2 border-dashed px-3 py-2 text-xs ${

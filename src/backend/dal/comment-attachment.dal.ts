@@ -93,3 +93,13 @@ export function deleteAttachment(projectId: string, commentId: string, id: strin
   getDb().prepare('DELETE FROM comment_attachments WHERE id = ?').run(id);
   return row;
 }
+
+/** Attachments of a comment and of all its replies (for file cleanup before a thread delete). */
+export function listAttachmentsForThread(projectId: string, rootId: string): CommentAttachmentRow[] {
+  return getDb()
+    .prepare(
+      `SELECT a.* FROM comment_attachments a JOIN comments c ON c.id = a.comment_id
+       WHERE a.project_id = ? AND (c.id = ? OR c.parent_id = ?)`
+    )
+    .all(projectId, rootId, rootId) as CommentAttachmentRow[];
+}

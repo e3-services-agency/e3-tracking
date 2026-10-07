@@ -319,6 +319,18 @@ describe('reply attachments follow their root', () => {
 });
 
 describe('cleanup', () => {
+  it('deleting a root removes its replies image files and the empty directories', async () => {
+    const root = await postComment();
+    const reply = await postComment({ parent_id: root.id });
+    const a1 = await (await upload(`${baseUrl}/api/projects/${projectId}/comments/${root.id}/attachments`, await png())).json();
+    const a2 = await (await upload(`${baseUrl}/api/projects/${projectId}/comments/${reply.id}/attachments`, await png())).json();
+    expect((await fetch(`${baseUrl}/api/projects/${projectId}/comments/${root.id}`, { method: 'DELETE' })).status).toBe(204);
+    expect(fs.existsSync(path.join(tmpFilesDir, a1.file_path))).toBe(false);
+    expect(fs.existsSync(path.join(tmpFilesDir, a2.file_path))).toBe(false);
+    expect(fs.existsSync(path.dirname(path.join(tmpFilesDir, a2.file_path)))).toBe(false);
+  });
+
+
   it('deleting a comment removes its image files', async () => {
     const c = await postComment();
     const att = await (await upload(`${baseUrl}/api/projects/${projectId}/comments/${c.id}/attachments`, await png())).json();

@@ -3656,3 +3656,5 @@ Merge 6e85f3c. Merged tree: tsc, lint clean, 1978 tests pass (2 skipped); caddyE
 .env template uses the compose edge names (E3_AUTH_MODE=proxy, IMAGE, HOSTNAME, WORKSPACE_DOMAIN, TRUSTED_PROXY_CIDR=172.28.0.8/29, OAUTH2_CLIENT_ID/SECRET, OAUTH2_COOKIE_SECRET base64 url-safe, BACKUP_BUCKET), printed in the dry run; 03/04 run `--env-file .env -f docker-compose.yml -f docker-compose.gcp.yml --profile edge`; DEPLOY.md variable names, HOSTNAME shell note, OAuth console steps; test needles updated (src/deploy 11/11). Cookie secret length vs oauth2-proxy accepted lengths not verified. To review.
 
 ### 2026-10-07 | supervisor | DECISION | D-72 amendment 1: e2-micro + 2 GB swap default, hostname tracking.e3-services.com confirmed (user). Folded into the T-5-07 fix round after review.
+
+### 2026-10-07 | supervisor | MERGE | T-5-06b caddyEdge test collision-free (random port 20000-39999, random names, skip on a surviving conflict) merged; leftover e3qa-ct-* test containers from the earlier colliding run removed.

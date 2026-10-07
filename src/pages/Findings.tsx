@@ -1,4 +1,6 @@
 import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
+import { EnumSelect } from '@/src/components/ui/EnumSelect';
+import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 import { SeverityBadge, StatusBadge } from '@/src/components/ui/badges';
 /**
  * Findings page (T-1-09, D-07 simplified UI; T-2-04 adds comparison 4, `data_manager`): a table of
@@ -8,7 +10,6 @@ import { SeverityBadge, StatusBadge } from '@/src/components/ui/badges';
  * and by `Import.tsx`'s customer-events-export apply) to pre-filter by the observation's run.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
-import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { GlossaryTerm, FindingTerm } from '@/src/components/ui/GlossaryTerm';
@@ -222,7 +223,7 @@ export function Findings() {
       <PageHeader className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Findings</h1>
-          <p className="text-sm text-gray-500 mt-1">Definition vs mapping (1), mapping vs observations (2), definition vs observations (3) and definition vs Data Manager (4, D-21/D-28). A finding resolved by hand while it still reproduces is <GlossaryTerm glossaryKey="acknowledged">acknowledged</GlossaryTerm>.</p>
+          <p className="text-sm text-gray-500 mt-1">Definition vs mapping (1), mapping vs observations (2), definition vs observations (3) and definition vs Data Manager (4). A finding resolved by hand while it still reproduces is <GlossaryTerm glossaryKey="acknowledged">acknowledged</GlossaryTerm>.</p>
         </div>
         <Button type="button" onClick={() => void runComparison()} disabled={running} className="gap-2">
           {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
@@ -236,39 +237,33 @@ export function Findings() {
         )}
         <div className="bg-white rounded-lg border shadow-sm p-4 flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500" title={hintFor('Comparison', 'Findings')}>Comparison</label>
+            <FieldLabel className="text-xs font-medium text-gray-500" hint="Comparison" hintScope="Findings">Comparison</FieldLabel>
             <select value={comparison} onChange={(e) => setComparison(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
               {COMPARISON_IDS.map((c) => <option key={c} value={c}>{comparisonLabel(c)}</option>)}
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500" title={hintFor('Kind', 'Findings')}>Kind</label>
+            <FieldLabel className="text-xs font-medium text-gray-500" hint="Kind" hintScope="Findings">Kind</FieldLabel>
             <select value={kind} onChange={(e) => setKind(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
               {FINDING_KINDS.map((k) => <option key={k} value={k}>{kindLabel(k)}</option>)}
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500" title={hintFor('Severity', 'Findings')}>Severity</label>
-            <select value={severity} onChange={(e) => setSeverity(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
-              <option value="">All</option>
-              {FINDING_SEVERITIES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <FieldLabel className="text-xs font-medium text-gray-500" hint="Severity" hintScope="Findings">Severity</FieldLabel>
+            <EnumSelect kind="severity" values={FINDING_SEVERITIES} emptyLabel="All" value={severity} onChange={(e) => setSeverity(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm" />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500" title={hintFor('Event', 'Findings')}>Event</label>
+            <FieldLabel className="text-xs font-medium text-gray-500" hint="Event" hintScope="Findings">Event</FieldLabel>
             <select value={eventId} onChange={(e) => setEventId(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
               {events.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500" title={hintFor('Status', 'Findings')}>Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
-              <option value="">All</option>
-              {FINDING_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            <FieldLabel className="text-xs font-medium text-gray-500" hint="Status" hintScope="Findings">Status</FieldLabel>
+            <EnumSelect kind="status" values={FINDING_STATUSES} emptyLabel="All" value={status} onChange={(e) => setStatus(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm" />
           </div>
           {runIdFilter && (
             <Button type="button" variant="outline" onClick={() => setRunIdFilter(null)}>
@@ -281,15 +276,15 @@ export function Findings() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <SortableTh sort={sort} column="severity" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Severity', 'Findings')}>Severity</SortableTh>
-                <SortableTh sort={sort} column="kind" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Kind', 'Findings')}>Kind</SortableTh>
-                <SortableTh sort={sort} column="rule" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Rule', 'Findings')}>Rule</SortableTh>
-                <SortableTh sort={sort} column="comparison" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Comparison', 'Findings')}>Comparison</SortableTh>
-                <SortableTh sort={sort} column="event" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Event', 'Findings')}>Event</SortableTh>
-                <SortableTh sort={sort} column="message" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Message', 'Findings')}>Message</SortableTh>
-                <SortableTh sort={sort} column="status" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Findings')}>Status</SortableTh>
-                <SortableTh sort={sort} column="last_seen" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Last seen', 'Findings')}>Last seen</SortableTh>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Actions', 'Findings')}>Actions</th>
+                <SortableTh sort={sort} column="severity" className="px-6 py-3 font-medium text-gray-500" hint="Severity" hintScope="Findings">Severity</SortableTh>
+                <SortableTh sort={sort} column="kind" className="px-6 py-3 font-medium text-gray-500" hint="Kind" hintScope="Findings">Kind</SortableTh>
+                <SortableTh sort={sort} column="rule" className="px-6 py-3 font-medium text-gray-500" hint="Rule" hintScope="Findings">Rule</SortableTh>
+                <SortableTh sort={sort} column="comparison" className="px-6 py-3 font-medium text-gray-500" hint="Comparison" hintScope="Findings">Comparison</SortableTh>
+                <SortableTh sort={sort} column="event" className="px-6 py-3 font-medium text-gray-500" hint="Event" hintScope="Findings">Event</SortableTh>
+                <SortableTh sort={sort} column="message" className="px-6 py-3 font-medium text-gray-500" hint="Message" hintScope="Findings">Message</SortableTh>
+                <SortableTh sort={sort} column="status" className="px-6 py-3 font-medium text-gray-500" hint="Status" hintScope="Findings">Status</SortableTh>
+                <SortableTh sort={sort} column="last_seen" className="px-6 py-3 font-medium text-gray-500" hint="Last seen" hintScope="Findings">Last seen</SortableTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Actions" hintScope="Findings">Actions</HintTh>
               </tr>
             </thead>
             <tbody className="divide-y">

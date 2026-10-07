@@ -1,4 +1,6 @@
 import { SeverityBadge } from '@/src/components/ui/badges';
+import { EnumSelect } from '@/src/components/ui/EnumSelect';
+import { HintTh } from '@/src/components/ui/FieldHint';
 /**
  * Rules section for the event editor (D-30, D-31, T-2-07, D-07 simplified UI): a table of the
  * event's rules (name, kind, scope, severity, message, enabled, delete), "Apply template" buttons
@@ -326,12 +328,12 @@ export function RulesSection({
       <table className="w-full text-left text-xs border">
         <thead className="bg-gray-50 border-b">
           <tr>
-            <th className="px-3 py-2 font-medium text-gray-500">Name</th>
-            <th className="px-3 py-2 font-medium text-gray-500">Kind</th>
-            <th className="px-3 py-2 font-medium text-gray-500">Scope</th>
-            <th className="px-3 py-2 font-medium text-gray-500">Severity</th>
-            <th className="px-3 py-2 font-medium text-gray-500">Message</th>
-            <th className="px-3 py-2 font-medium text-gray-500">Enabled</th>
+            <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Rules">Name</HintTh>
+            <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Rules">Kind</HintTh>
+            <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Rules">Scope</HintTh>
+            <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Rules">Severity</HintTh>
+            <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Rules">Message</HintTh>
+            <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Rules">Enabled</HintTh>
             <th className="px-3 py-2 font-medium text-gray-500 w-10" />
           </tr>
         </thead>
@@ -377,9 +379,7 @@ export function RulesSection({
             <option value="">scope: whole event</option>
             {variants.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
-          <select value={form.severity} onChange={(e) => setForm((f) => ({ ...f, severity: e.target.value }))} className="h-9 rounded border border-gray-300 px-2 text-sm">
-            {RULE_SEVERITIES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <EnumSelect kind="severity" values={RULE_SEVERITIES} value={form.severity} onChange={(e) => setForm((f) => ({ ...f, severity: e.target.value }))} className="h-9 rounded border border-gray-300 px-2 text-sm" />
         </div>
 
         {form.kind === 'membership' && (

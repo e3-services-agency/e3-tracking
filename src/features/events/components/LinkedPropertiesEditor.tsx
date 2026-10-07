@@ -6,6 +6,8 @@
  * property's) with the standard-event hint per value (D-03).
  */
 import { effectivePayloadKey } from '@/src/domain/payloadKey';
+import { EnumSelect } from '@/src/components/ui/EnumSelect';
+import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 import React, { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { RoleBadge } from '@/src/components/ui/badges';
@@ -125,21 +127,15 @@ export function LinkedPropertiesEditor({
               </button>
             </div>
             <div className="flex flex-wrap gap-2 items-center text-xs">
-              <label className="flex items-center gap-1">
+              <FieldLabel className="flex items-center gap-1" hintScope="Events">
                 <input type="checkbox" checked={link.required} onChange={(e) => updateLink(link.property_id, { required: e.target.checked })} />
                 Required
-              </label>
+              </FieldLabel>
               <select value={link.role} onChange={(e) => updateLink(link.property_id, { role: e.target.value })} className="h-8 rounded border border-gray-300 px-2">
                 {EVENT_PROPERTY_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
               </select>
-              <select value={link.priority ?? ''} onChange={(e) => updateLink(link.property_id, { priority: e.target.value || null })} className="h-8 rounded border border-gray-300 px-2">
-                <option value="">priority —</option>
-                {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
-              <select value={link.status ?? ''} onChange={(e) => updateLink(link.property_id, { status: e.target.value || null })} className="h-8 rounded border border-gray-300 px-2">
-                <option value="">status —</option>
-                {ENTITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <EnumSelect kind="priority" values={PRIORITIES} emptyLabel="priority —" value={link.priority ?? ''} onChange={(e) => updateLink(link.property_id, { priority: e.target.value || null })} className="h-8 rounded border border-gray-300 px-2" />
+              <EnumSelect kind="status" values={ENTITY_STATUSES} emptyLabel="status —" value={link.status ?? ''} onChange={(e) => updateLink(link.property_id, { status: e.target.value || null })} className="h-8 rounded border border-gray-300 px-2" />
               {sources.length > 0 && (
                 <select value={link.source_id ?? ''} onChange={(e) => updateLink(link.property_id, { source_id: e.target.value || null })} className="h-8 rounded border border-gray-300 px-2">
                   <option value="">source —</option>
@@ -157,7 +153,7 @@ export function LinkedPropertiesEditor({
                   value={effectiveDefinitionId}
                   onChange={(e) => updateLink(link.property_id, { definition_id: e.target.value || null })}
                   className="h-8 rounded border border-gray-300 px-2"
-                  title="Which of this property's named meanings this event uses (D-58)"
+                  title="Which of this property's named meanings this event uses"
                 >
                   {definitions.map((d) => (
                     <option key={d.id} value={d.id}>{d.name}</option>
@@ -169,12 +165,12 @@ export function LinkedPropertiesEditor({
               <table className="w-full text-left text-xs bg-white border rounded" data-testid="nested-definitions">
                 <thead className="bg-gray-50 border-b">
                   <tr>
-                    <th className="px-2 py-1 font-medium text-gray-500 w-10" title="The definition this event uses">Use</th>
-                    <th className="px-2 py-1 font-medium text-gray-500">Name</th>
-                    <th className="px-2 py-1 font-medium text-gray-500">Description</th>
-                    <th className="px-2 py-1 font-medium text-gray-500">Allowed values</th>
-                    <th className="px-2 py-1 font-medium text-gray-500">Formats</th>
-                    <th className="px-2 py-1 font-medium text-gray-500">Example</th>
+                    <HintTh className="px-2 py-1 font-medium text-gray-500 w-10" title="The definition this event uses" hintScope="Events">Use</HintTh>
+                    <HintTh className="px-2 py-1 font-medium text-gray-500" hintScope="Events">Name</HintTh>
+                    <HintTh className="px-2 py-1 font-medium text-gray-500" hintScope="Events">Description</HintTh>
+                    <HintTh className="px-2 py-1 font-medium text-gray-500" hintScope="Events">Allowed values</HintTh>
+                    <HintTh className="px-2 py-1 font-medium text-gray-500" hintScope="Events">Formats</HintTh>
+                    <HintTh className="px-2 py-1 font-medium text-gray-500" hintScope="Events">Example</HintTh>
                   </tr>
                 </thead>
                 <tbody className="divide-y">

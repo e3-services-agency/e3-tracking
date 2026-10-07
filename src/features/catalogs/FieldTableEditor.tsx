@@ -8,7 +8,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, Copy, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { PROPERTY_DATA_TYPES, CATALOG_SEARCHABLE_LIMIT } from '@/src/domain/enums';
 import { CATALOG_MAIN_COLUMNS } from '@/src/domain/bloomreach';
-import { hintFor } from '@/src/components/ui/FieldHint';
+import { HintTh } from '@/src/components/ui/FieldHint';
 import { moveItem } from '@/src/domain/moveItem';
 import { moveFieldByKey, setLookupKey, validateCatalogFields, type CatalogFieldDraftLike } from '@/src/domain/catalogs';
 
@@ -92,15 +92,15 @@ export function FieldTableEditor({
           <thead>
             <tr>
               <th className={th} aria-label="Reorder" />
-              <th className={th} title={hintFor('Name', 'Catalogs')}>Name</th>
-              <th className={th} title={hintFor('Data type', 'Catalogs')}>Data type</th>
-              <th className={th} title={hintFor('Lookup key', 'Catalogs')}>Lookup key</th>
-              <th className={`${th} ${searchOver ? 'text-red-700' : searchWarn ? 'text-amber-700' : ''}`} title={hintFor('Searchable', 'Catalogs')} data-testid="searchable-header">
+              <HintTh className={th} hint="Name" hintScope="Catalogs">Name</HintTh>
+              <HintTh className={th} hint="Data type" hintScope="Catalogs">Data type</HintTh>
+              <HintTh className={th} hint="Lookup key" hintScope="Catalogs">Lookup key</HintTh>
+              <HintTh className={`${th} ${searchOver ? 'text-red-700' : searchWarn ? 'text-amber-700' : ''}`} hint="Searchable" hintScope="Catalogs" data-testid="searchable-header">
                 Searchable {validation.searchableCount}/{CATALOG_SEARCHABLE_LIMIT}
-              </th>
-              <th className={th} title={hintFor('Required', 'Catalogs')}>Required</th>
-              <th className={th} title={hintFor('Client field name', 'Catalogs')}>Client field name</th>
-              <th className={th} title={hintFor('Bloomreach column', 'Catalogs')}>Bloomreach column</th>
+              </HintTh>
+              <HintTh className={th} hint="Required" hintScope="Catalogs">Required</HintTh>
+              <HintTh className={th} hint="Client field name" hintScope="Catalogs">Client field name</HintTh>
+              <HintTh className={th} hint="Bloomreach column" hintScope="Catalogs">Bloomreach column</HintTh>
               <th className={th} aria-label="Actions" />
             </tr>
           </thead>

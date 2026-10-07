@@ -4,6 +4,7 @@
  * Variant) and a field map editor (T-1-05). "Add standard event" appends a project addition.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -166,18 +167,18 @@ export function StandardEvents() {
       <PageHeader>
         <h1 className="text-2xl font-bold text-gray-900">Standard events</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Bloomreach standard events (seed + project additions, D-26) mapped to a project event and variant.
+          Bloomreach standard events mapped to a project event and variant.
         </p>
       </PageHeader>
 
       <PageBody className="space-y-6">
         <div className="bg-white rounded-lg border shadow-sm p-4 flex items-end gap-2">
           <div className="flex-1 space-y-1">
-            <label className="text-sm font-medium text-gray-700">Key</label>
+            <FieldLabel className="text-sm font-medium text-gray-700" hintScope="StandardEvents">Key</FieldLabel>
             <Input value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="e.g. loyalty_scan" />
           </div>
           <div className="flex-1 space-y-1">
-            <label className="text-sm font-medium text-gray-700">Fields (comma-separated)</label>
+            <FieldLabel className="text-sm font-medium text-gray-700" hintScope="StandardEvents">Fields (comma-separated)</FieldLabel>
             <Input value={newFields} onChange={(e) => setNewFields(e.target.value)} placeholder="card_id, points" />
           </div>
           <Button type="button" variant="outline" onClick={() => void addStandardEvent()} disabled={!newKey.trim() || addingKey}>
@@ -191,10 +192,10 @@ export function StandardEvents() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500">Standard event</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Fields</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Mapped event</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Variant</th>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hintScope="StandardEvents">Standard event</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hintScope="StandardEvents">Fields</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hintScope="StandardEvents">Mapped event</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hintScope="StandardEvents">Variant</HintTh>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -318,7 +319,7 @@ function StandardEventMappingEditor({
         <CopyNameButton name={standardEvent} />
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Event</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hintScope="StandardEvents">Event</FieldLabel>
         <select value={eventId} onChange={(e) => { setEventId(e.target.value); setVariantId(''); setFieldMap({}); }} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
           <option value="">Select an event…</option>
           {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
@@ -326,7 +327,7 @@ function StandardEventMappingEditor({
       </div>
       {eventId && (
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Variant (optional)</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hintScope="StandardEvents">Variant (optional)</FieldLabel>
           <select value={variantId} onChange={(e) => setVariantId(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">Whole event (no filter)</option>
             {variants.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
@@ -335,7 +336,7 @@ function StandardEventMappingEditor({
       )}
       {eventId && fields.length > 0 && (
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Field map</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hintScope="StandardEvents">Field map</FieldLabel>
           <div className="space-y-1">
             {fields.map((field) => (
               <div key={field} className="flex items-center gap-2 text-xs">

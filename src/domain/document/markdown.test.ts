@@ -68,8 +68,8 @@ describe('eventCardToMarkdown', () => {
     const md = eventCardToMarkdown(card());
     expect(md).toContain('# Event: cart_update');
     expect(md).toContain('Not certified. Reasons: 2 open error finding(s). No observation of this event exists in a non-archived QA run.');
-    expect(md).toContain('| action | action |  | string |  | yes | discriminator | event | bloomreach.properties.action | Core |  | add, remove | add | a\\|b |');
-    expect(md).toContain('- Implementation method: client_web');
+    expect(md).toContain('| action | action |  | string |  | yes | discriminator | Event | bloomreach.properties.action | Core |  | add, remove | add | a\\|b |');
+    expect(md).toContain('- Implementation method: Client web (dataLayer)');
     expect(md).toContain('- dataLayer event: cart_update');
     expect(md).toContain('| cart_update[action=add] | action = add |');
     expect(md).toContain('https://shop.example/p/1');
@@ -111,7 +111,7 @@ describe('useCaseToMarkdown', () => {
     const md = useCaseToMarkdown(uc);
     expect(md).toContain('# Use case: UC-1 - Welcome');
     expect(md).toContain('Send a welcome.');
-    expect(md).toContain('| 1 | consent: newsletter | required | gap |');
+    expect(md).toContain('| 1 | consent: newsletter | required | Gap |');
   });
   it('says so when there is no narrative or requirement', () => {
     const md = useCaseToMarkdown({ ...uc, narrative: null, requirements: [] });

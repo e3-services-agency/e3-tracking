@@ -1,4 +1,7 @@
 import { ClassBadge, SourceBadge, StatusBadge } from '@/src/components/ui/badges';
+import { EntityIcon } from '@/src/components/ui/EntityIcon';
+import { EnumSelect } from '@/src/components/ui/EnumSelect';
+import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 import { ExpandChevron } from '@/src/components/ui/ExpandChevron';
 import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
 import { useDebouncedValue } from '@/src/hooks/useDebouncedValue';
@@ -10,7 +13,6 @@ import { useDebouncedValue } from '@/src/hooks/useDebouncedValue';
  * `GET /api/projects/:id/files/*`.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
-import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, Loader2, FileDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -285,7 +287,7 @@ export function Events() {
           <Button variant="outline" onClick={toggleAllVariants} disabled={eventsWithVariants.length === 0} className="h-9">
             {allExpanded ? 'Collapse all variants' : 'Expand all variants'}
           </Button>
-          <label className="text-xs font-medium text-gray-500" title={hintFor('Class', 'Events')}>Class</label>
+          <FieldLabel className="text-xs font-medium text-gray-500" hint="Class" hintScope="Events">Class</FieldLabel>
           <select
             value={classFilter}
             onChange={(e) => setClassFilter(e.target.value as typeof classFilter)}
@@ -302,17 +304,17 @@ export function Events() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="w-12 px-2 py-3"><span className="sr-only">Expand</span></th>
-                <SortableTh sort={sort} column="name" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'Events')}>Name</SortableTh>
-                <SortableTh sort={sort} column="class" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Class', 'Events')}>Class</SortableTh>
-                <SortableTh sort={sort} column="source" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Source', 'Events')}>Source</SortableTh>
-                <SortableTh sort={sort} column="status" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Events')}>Status</SortableTh>
-                <SortableTh sort={sort} column="certified" className="px-6 py-3 font-medium text-gray-500">
+                <HintTh className="w-12 px-2 py-3" hintScope="Events"><span className="sr-only">Expand</span></HintTh>
+                <SortableTh sort={sort} column="name" className="px-6 py-3 font-medium text-gray-500" hint="Name" hintScope="Events">Name</SortableTh>
+                <SortableTh sort={sort} column="class" className="px-6 py-3 font-medium text-gray-500" hint="Class" hintScope="Events">Class</SortableTh>
+                <SortableTh sort={sort} column="source" className="px-6 py-3 font-medium text-gray-500" hint="Source" hintScope="Events">Source</SortableTh>
+                <SortableTh sort={sort} column="status" className="px-6 py-3 font-medium text-gray-500" hint="Status" hintScope="Events">Status</SortableTh>
+                <SortableTh sort={sort} column="certified" className="px-6 py-3 font-medium text-gray-500" hint="Certified" hintScope="Events">
                   <GlossaryTerm glossaryKey="certified">Certified</GlossaryTerm>
                 </SortableTh>
-                <SortableTh sort={sort} column="expiration" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Expiration', 'Events')}>Expiration</SortableTh>
-                <SortableTh sort={sort} column="properties" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Properties', 'Events')}>Properties</SortableTh>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Card', 'Events')}>Card</th>
+                <SortableTh sort={sort} column="expiration" className="px-6 py-3 font-medium text-gray-500" hint="Expiration" hintScope="Events">Expiration</SortableTh>
+                <SortableTh sort={sort} column="properties" className="px-6 py-3 font-medium text-gray-500" hint="Properties" hintScope="Events">Properties</SortableTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Card" hintScope="Events">Card</HintTh>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -331,7 +333,7 @@ export function Events() {
                     </td>
                     <td className="px-6 py-4 font-medium text-gray-900">
                       <span className="inline-flex items-center gap-1.5">
-                        {ev.name}<CopyNameButton name={ev.name} />
+                        <EntityIcon kind="event" />{ev.name}<CopyNameButton name={ev.name} />
                       </span>
                     </td>
                     <td className="px-6 py-4"><ClassBadge eventClass={ev.class} /></td>
@@ -361,7 +363,7 @@ export function Events() {
                       <tr key={v.id} className="bg-gray-50 text-xs text-gray-600">
                         <td className="w-12" />
                         <td className="px-6 py-2" colSpan={8}>
-                          <span className="font-medium text-gray-800">{v.name}</span>
+                          <span className="inline-flex items-center gap-1.5 font-medium text-gray-800"><EntityIcon kind="variant" />{v.name}</span>
                           {v.description && <span className="ml-2 text-gray-500">{v.description}</span>}
                         </td>
                       </tr>
@@ -608,7 +610,11 @@ function EventEditor({
         identity_note: identityNote.trim() || null,
         triggers_json: triggers,
         class: eventClass,
-        ...(implementationMethod && implementationMethod !== loadedImplementationMethod ? { implementation_method: implementationMethod } : {}),
+        ...(implementationMethod && implementationMethod !== loadedImplementationMethod
+          ? { implementation_method: implementationMethod }
+          : isCreating
+            ? { implementation_method: null } // Automatic: the server derives it from name, class and sources
+            : {}),
         dl_event_name: dlEventName.trim() || null,
         identifiers_json: identifiersOverride && identifiersOverride.length > 0 ? identifiersOverride : null,
         owner_business: ownerBusiness.trim() || null,
@@ -698,7 +704,7 @@ function EventEditor({
         </div>
       )}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Name', 'Events')}>Name</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Name" hintScope="Events">Name</FieldLabel>
         <div className="flex items-center gap-2">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. purchase" />
           {name.trim() && <CopyNameButton name={name.trim()} />}
@@ -708,91 +714,81 @@ function EventEditor({
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Business name', 'Events')}>Business name</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Business name" hintScope="Events">Business name</FieldLabel>
           <Input value={businessName} onChange={(e) => setBusinessName(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Class', 'Events')}>Class</label>
-          <select value={eventClass} onChange={(e) => setEventClass(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            {EVENT_CLASSES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Class" hintScope="Events">Class</FieldLabel>
+          <EnumSelect kind="class" values={EVENT_CLASSES} value={eventClass} onChange={(e) => setEventClass(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Implementation method', 'Events')}>Implementation method</label>
-          <select value={implementationMethod} onChange={(e) => setImplementationMethod(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            {isCreating && <option value="">Automatic (by name and class)</option>}
-            {IMPLEMENTATION_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Implementation method" hintScope="Events">Implementation method</FieldLabel>
+          <EnumSelect kind="implementation" values={IMPLEMENTATION_METHODS} emptyLabel={isCreating ? 'Automatic (by name and class)' : undefined} value={implementationMethod} onChange={(e) => setImplementationMethod(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('dataLayer event name', 'Events')}>dataLayer event name</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="dataLayer event name" hintScope="Events">dataLayer event name</FieldLabel>
           <Input value={dlEventName} onChange={(e) => setDlEventName(e.target.value)} placeholder="the site's event, e.g. add_to_wishlist" />
         </div>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Description', 'Events')}>Description</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Description" hintScope="Events">Description</FieldLabel>
         <Input value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Purpose', 'Events')}>Purpose</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Purpose" hintScope="Events">Purpose</FieldLabel>
           <Input value={purpose} onChange={(e) => setPurpose(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Page', 'Events')}>Page</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Page" hintScope="Events">Page</FieldLabel>
           <Input value={page} onChange={(e) => setPage(e.target.value)} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Trigger', 'Events')}>Trigger</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Trigger" hintScope="Events">Trigger</FieldLabel>
           <Input value={triggerText} onChange={(e) => setTriggerText(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Grain', 'Events')}>Grain</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Grain" hintScope="Events">Grain</FieldLabel>
           <Input value={grain} onChange={(e) => setGrain(e.target.value)} />
         </div>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Identity note', 'Events')}>Identity note</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Identity note" hintScope="Events">Identity note</FieldLabel>
         <Input value={identityNote} onChange={(e) => setIdentityNote(e.target.value)} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Owner (business)', 'Events')}>Owner (business)</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Owner (business)" hintScope="Events">Owner (business)</FieldLabel>
           <Input value={ownerBusiness} onChange={(e) => setOwnerBusiness(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Owner (technical)', 'Events')}>Owner (technical)</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Owner (technical)" hintScope="Events">Owner (technical)</FieldLabel>
           <Input value={ownerTechnical} onChange={(e) => setOwnerTechnical(e.target.value)} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Priority', 'Events')}>Priority</label>
-          <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            <option value="">—</option>
-            {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Priority" hintScope="Events">Priority</FieldLabel>
+          <EnumSelect kind="priority" values={PRIORITIES} emptyLabel="—" value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Status', 'Events')}>Status</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            {EVENT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Status" hintScope="Events">Status</FieldLabel>
+          <EnumSelect kind="status" values={EVENT_STATUSES} value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
         </div>
       </div>
 
       <ExpirationEditor value={expiration} onChange={setExpiration} inheritHint="Disabled: inherits the project default expiration." />
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Not suitable for', 'Events')}>Not suitable for</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Not suitable for" hintScope="Events">Not suitable for</FieldLabel>
         <Input value={notSuitableFor} onChange={(e) => setNotSuitableFor(e.target.value)} />
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Agent instructions', 'Events')}>Agent instructions</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Agent instructions" hintScope="Events">Agent instructions</FieldLabel>
         <Input value={agentInstructions} onChange={(e) => setAgentInstructions(e.target.value)} />
       </div>
 
@@ -800,13 +796,13 @@ function EventEditor({
 
       {allSources.length > 0 && (
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Sources (system via method)', 'Events')}>Sources (system via method)</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Sources (system via method)" hintScope="Events">Sources (system via method)</FieldLabel>
           <div className="flex flex-wrap gap-2">
             {allSources.map((s) => (
-              <label key={s.id} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1">
+              <FieldLabel key={s.id} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1" hint="" hintScope="Events">
                 <input type="checkbox" checked={sourceIds.includes(s.id)} onChange={() => toggleSource(s.id)} />
                 {s.name} <span className="text-gray-500">({sourceViaLabel(s.system, s.method)})</span>
-              </label>
+              </FieldLabel>
             ))}
           </div>
         </div>
@@ -825,13 +821,13 @@ function EventEditor({
         };
         return (
           <div className="space-y-2" data-testid="identifiers-block">
-            <label className="text-sm font-medium text-gray-700" title={hintFor('Identifiers', 'Events')}>Identifiers (customer_ids)</label>
+            <FieldLabel className="text-sm font-medium text-gray-700" hint="Identifiers" hintScope="Events">Identifiers (customer_ids)</FieldLabel>
             <div className="flex flex-wrap gap-2">
               {idRules.map((r) => (
-                <label key={r.id} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1">
+                <FieldLabel key={r.id} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1" hint="" hintScope="Events">
                   <input type="checkbox" checked={current.includes(r.identifier_name)} onChange={() => toggle(r.identifier_name)} />
                   {r.identifier_name} <span className="text-gray-500">({r.identity_type})</span>
-                </label>
+                </FieldLabel>
               ))}
             </div>
             <p className="text-xs text-gray-500">

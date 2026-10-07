@@ -3,7 +3,9 @@
  * a dropdown below 1024px. The item whose target is on screen is highlighted (`activeId`).
  */
 import React, { useEffect, useRef, useState } from 'react';
+import { FieldLabel } from '@/src/components/ui/FieldHint';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { EntityIcon } from '@/src/components/ui/EntityIcon';
 import { SHARED_SECTION_ICONS } from '@/src/components/layout/navIcons';
 import { flattenNav, scrollTopToReveal, toggleInSet, type NavItem } from './viewHelpers';
 
@@ -40,7 +42,11 @@ export function SharedNav({
     const isOpen = filtering || !collapsed.has(item.id);
     // D-64: the sidebar's icon on each top-level section entry.
     const Icon = depth === 0 ? SHARED_SECTION_ICONS[item.id] : undefined;
-    const icon = Icon ? <Icon size={14} className="mr-1.5 shrink-0 text-gray-500" aria-hidden="true" /> : null;
+    const icon = Icon ? (
+      <Icon size={14} className="mr-1.5 shrink-0 text-gray-500" aria-hidden="true" />
+    ) : depth > 0 && !hasChildren && item.id.startsWith('event-') ? (
+      <EntityIcon kind="event" className="mr-1.5" />
+    ) : null;
     return (
       <li key={item.id}>
         <div className="flex items-center" style={{ paddingLeft: `${depth * 0.75}rem` }}>
@@ -103,9 +109,9 @@ export function SharedNav({
   return (
     <>
       <div className="lg:hidden mb-4">
-        <label className="block text-xs font-medium text-gray-500 mb-1" htmlFor="shared-nav-select">
+        <FieldLabel className="block text-xs font-medium text-gray-500 mb-1" htmlFor="shared-nav-select" hintScope="Shared">
           Jump to
-        </label>
+        </FieldLabel>
         <select
           id="shared-nav-select"
           value={activeId ?? ''}

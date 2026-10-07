@@ -63,6 +63,7 @@ function inputFromBody(body: Record<string, unknown>): Partial<EventDAL.EventInp
   if ('identity_note' in body) input.identity_note = body.identity_note as string | null;
   if ('triggers_json' in body) input.triggers_json = body.triggers_json;
   if (typeof body.class === 'string') input.class = body.class;
+  // null = Automatic: leave unset so the DAL derives it (name, class, sources).
   if (typeof body.implementation_method === 'string') input.implementation_method = body.implementation_method;
   if ('dl_event_name' in body) input.dl_event_name = body.dl_event_name as string | null;
   if ('identifiers_json' in body) input.identifiers_json = body.identifiers_json as string[] | null;

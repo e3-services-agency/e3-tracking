@@ -3,6 +3,7 @@
  * switcher and from Settings. Simplified UI (D-07): no design work.
  */
 import React, { useState } from 'react';
+import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 import { useClients, type ClientRow } from '@/src/features/clients/hooks/useClients';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { Button } from '@/src/components/ui/Button';
@@ -51,9 +52,9 @@ export function Clients() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500">Name</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Key</th>
-                <th className="px-6 py-3 font-medium text-gray-500">Bloomreach account id</th>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hintScope="Clients">Name</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hintScope="Clients">Key</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hintScope="Clients">Bloomreach account id</HintTh>
                 <th className="px-6 py-3 font-medium text-gray-500" />
               </tr>
             </thead>
@@ -161,19 +162,19 @@ function ClientForm({
     <div className={`bg-white p-6 rounded-lg border shadow-sm space-y-4 ${FORM_CARD_WIDTH_CLASS}`}>
       <h2 className="text-lg font-semibold text-gray-900">{client ? 'Edit client' : 'New client'}</h2>
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Name</label>
+        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Clients">Name</FieldLabel>
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Corp" />
       </div>
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Key (URL-safe)</label>
+        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Clients">Key (URL-safe)</FieldLabel>
         <Input value={key} onChange={(e) => setKey(e.target.value)} placeholder="acme" className="font-mono" />
       </div>
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Bloomreach account id (optional)</label>
+        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Clients">Bloomreach account id (optional)</FieldLabel>
         <Input value={bloomreachAccountId} onChange={(e) => setBloomreachAccountId(e.target.value)} />
       </div>
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Notes (optional)</label>
+        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Clients">Notes (optional)</FieldLabel>
         <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
       {formError && <p className="text-sm text-red-600">{formError}</p>}

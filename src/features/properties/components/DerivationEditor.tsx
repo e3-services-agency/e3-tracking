@@ -5,6 +5,8 @@
  * shape is `src/domain/codegen/derivation.ts`'s `PropertyDerivation`.
  */
 import React from 'react';
+import { EnumSelect } from '@/src/components/ui/EnumSelect';
+import { FieldLabel } from '@/src/components/ui/FieldHint';
 import { Input } from '@/src/components/ui/Input';
 import { PROPERTY_KINDS, DERIVATION_FORMS } from '@/src/domain/enums';
 import { isSumDerivation, parseDerivation, type PropertyDerivation } from '@/src/domain/codegen/derivation';
@@ -60,10 +62,8 @@ export function DerivationEditor({
   return (
     <div className="space-y-3">
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700">Kind</label>
-        <select value={kind} onChange={(e) => onKindChange(e.target.value)} className={selectClass}>
-          {PROPERTY_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-        </select>
+        <FieldLabel className="text-sm font-medium text-gray-700" hintScope="Properties">Kind</FieldLabel>
+        <EnumSelect kind="property_kind" values={PROPERTY_KINDS} value={kind} onChange={(e) => onKindChange(e.target.value)} className={selectClass} />
         <p className="text-xs text-gray-500">
           event: event-level attribute. item: attribute of the one item interacted with. state_list: computed from all items.
           context: project-wide context, tracked as an SDK default property.
@@ -72,7 +72,7 @@ export function DerivationEditor({
       {kind === 'state_list' && (
         <div className="space-y-3 rounded-md border bg-gray-50 p-3">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">Computed as</label>
+            <FieldLabel className="text-sm font-medium text-gray-700" hintScope="Properties">Computed as</FieldLabel>
             <select value={draft.mode} onChange={(e) => patch({ mode: e.target.value as DerivationDraft['mode'] })} className={selectClass}>
               <option value="list">a list built from each item</option>
               <option value="sum">a total summed over the items</option>
@@ -81,18 +81,18 @@ export function DerivationEditor({
           {draft.mode === 'list' ? (
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Id field</label>
+                <FieldLabel className="text-sm font-medium text-gray-700" hintScope="Properties">Id field</FieldLabel>
                 <Input value={draft.idField} onChange={(e) => patch({ idField: e.target.value })} placeholder="product_id" />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Form</label>
+                <FieldLabel className="text-sm font-medium text-gray-700" hintScope="Properties">Form</FieldLabel>
                 <select value={draft.form} onChange={(e) => patch({ form: e.target.value })} className={selectClass}>
                   {DERIVATION_FORMS.map((f) => <option key={f} value={f}>{f}</option>)}
                 </select>
               </div>
               {draft.form === 'id_quantity' && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Quantity field</label>
+                  <FieldLabel className="text-sm font-medium text-gray-700" hintScope="Properties">Quantity field</FieldLabel>
                   <Input value={draft.quantityField} onChange={(e) => patch({ quantityField: e.target.value })} placeholder="quantity" />
                   <p className="text-xs text-gray-500">The item field the quantity is read from. The list entries always use the key quantity.</p>
                 </div>
@@ -100,7 +100,7 @@ export function DerivationEditor({
             </div>
           ) : (
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Sum of item fields</label>
+              <FieldLabel className="text-sm font-medium text-gray-700" hintScope="Properties">Sum of item fields</FieldLabel>
               <Input value={draft.sum} onChange={(e) => patch({ sum: e.target.value })} placeholder="price*quantity" />
               <p className="text-xs text-gray-500">Item field names joined by *, e.g. price*quantity. A value supplied in the dataLayer wins over the computed one.</p>
             </div>

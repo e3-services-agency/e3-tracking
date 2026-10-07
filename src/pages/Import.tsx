@@ -7,6 +7,7 @@
  * the two data-mapping/expiration-settings formats as `.json`.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { HintTh } from '@/src/components/ui/FieldHint';
 import React, { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -227,12 +228,12 @@ function ImportBox({
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-3 py-2 w-8" />
-                <th className="px-3 py-2 font-medium text-gray-500">Op</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Entity</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Key</th>
-                {showClassColumn && <th className="px-3 py-2 font-medium text-gray-500">Class</th>}
-                <th className="px-3 py-2 font-medium text-gray-500">Changes</th>
-                <th className="px-3 py-2 font-medium text-gray-500">Note</th>
+                <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Import">Op</HintTh>
+                <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Import">Entity</HintTh>
+                <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Import">Key</HintTh>
+                {showClassColumn && <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Import">Class</HintTh>}
+                <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Import">Changes</HintTh>
+                <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Import">Note</HintTh>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -454,10 +455,10 @@ function CustomerEventsImportBox({ projectId }: { projectId: string }) {
             <table className="w-full text-left text-xs">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="px-3 py-2 font-medium text-gray-500">Type</th>
-                  <th className="px-3 py-2 font-medium text-gray-500">Count</th>
-                  <th className="px-3 py-2 font-medium text-gray-500">Resolution</th>
-                  <th className="px-3 py-2 font-medium text-gray-500">Variant(s)</th>
+                  <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Import">Type</HintTh>
+                  <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Import">Count</HintTh>
+                  <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Import">Resolution</HintTh>
+                  <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Import">Variant(s)</HintTh>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -479,8 +480,8 @@ function CustomerEventsImportBox({ projectId }: { projectId: string }) {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="px-3 py-2 w-8" />
-                  <th className="px-3 py-2 font-medium text-gray-500">Event</th>
-                  <th className="px-3 py-2 font-medium text-gray-500">Note</th>
+                  <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Import">Event</HintTh>
+                  <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Import">Note</HintTh>
                 </tr>
               </thead>
               <tbody className="divide-y">
@@ -524,7 +525,7 @@ export function Import() {
       <PageHeader>
         <h1 className="text-2xl font-bold text-gray-900">Import</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Paste a Bloomreach JSON export, preview the diff, select what to apply (D-04, D-22).
+          Paste a Bloomreach JSON export, preview the diff, select what to apply.
         </p>
       </PageHeader>
 

@@ -108,6 +108,8 @@ E3_AUTH_MODE=proxy FAKE_EMAIL=you@example.com docker compose -p e3qa --profile e
 docker compose -p e3qa --profile edge-fake down -v
 ```
 
+Notes: the fixed subnet `172.28.0.0/24` applies to the whole compose network, so an existing stack's network is recreated on the next `up` and the subnet must not collide with another local network. The SPA shell (static files) is gated only at the edge; the API is gated at the app (401 without a trusted identity).
+
 The default profile (no `--profile`) is unchanged: `AUTH_MODE=local` on 127.0.0.1:3020.
 
 ## Step 2: remote deployment (not started, needs the user's go, D-09)

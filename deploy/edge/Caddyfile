@@ -33,10 +33,6 @@
 				redir * /oauth2/sign_in?rd={scheme}://{host}{uri} 302
 			}
 		}
-		reverse_proxy app:3001 {
-			header_up -X-Forwarded-Email
-			header_up -X-Forwarded-User
-			header_up -X-Forwarded-Preferred-Username
-		}
+		reverse_proxy app:3001
 	}
 }

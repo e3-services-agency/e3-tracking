@@ -78,6 +78,7 @@ export function getTrustedProxyCidrs(): string[] {
 
 /** Startup guard: proxy mode in production must name its trusted network explicitly. */
 export function assertAuthConfig(): void {
+  if (getAuthProvider() === 'proxy') buildBlockList(getTrustedProxyCidrs()); // warns on invalid entries
   if (getAuthProvider() === 'proxy' && process.env.NODE_ENV === 'production' && !process.env.TRUSTED_PROXY_CIDR?.trim()) {
     throw new Error(
       'AUTH_MODE=proxy requires TRUSTED_PROXY_CIDR to be set explicitly in production (the network the reverse proxy connects from, e.g. 172.18.0.0/16).'
@@ -85,15 +86,25 @@ export function assertAuthConfig(): void {
   }
 }
 
+let cachedKey: string | null = null;
+let cachedList: BlockList | null = null;
+
 function buildBlockList(cidrs: string[]): BlockList {
+  const key = cidrs.join(',');
+  if (cachedList && cachedKey === key) return cachedList;
   const list = new BlockList();
   for (const c of cidrs) {
     const [addr, prefix] = c.split('/');
-    if (!isIP(addr)) continue;
+    if (!isIP(addr)) {
+      console.warn(`[e3-tracking] ignoring invalid TRUSTED_PROXY_CIDR entry: ${c}`);
+      continue;
+    }
     const type = isIP(addr) === 6 ? 'ipv6' : 'ipv4';
     if (prefix === undefined) list.addAddress(addr, type);
     else list.addSubnet(addr, Number(prefix), type);
   }
+  cachedKey = key;
+  cachedList = list;
   return list;
 }
 
@@ -110,7 +121,7 @@ function applyProxyIdentity(req: Request): void {
   if (!isTrustedPeer(req)) return;
   const v = req.headers['x-forwarded-email'];
   const email = (Array.isArray(v) ? v[0] : v)?.trim().toLowerCase();
-  if (!email) return;
+  if (!email || !email.includes('@')) return;
   req.userId = email;
   // The email is the actor, so change_log and comments attribute to the signed-in person.
   req.userName = email;

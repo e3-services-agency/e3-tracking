@@ -3,6 +3,7 @@
  * `GET ?scope=event|customer` filters; the rest is plain CRUD (D-24). T-1-04 adds the
  * allowed-values / role validation described in the plan; this task stores what it is given.
  */
+import { exampleWarnings } from '../../domain/examples';
 import { Router, type Request, type Response } from 'express';
 import * as PropertyDAL from '../dal/property.dal';
 import * as PropertyDefinitionDAL from '../dal/property-definition.dal';
@@ -52,6 +53,12 @@ router.get('/', (req: Request, res: Response) => {
     handleRouteError(err, res);
   }
 });
+
+/** T-5-11: additive `warnings` when a stored example is not an allowed value (never a 400). */
+function withExampleWarnings<T extends { allowed_values_json?: unknown; example_values_json?: unknown }>(row: T): T | (T & { warnings: string[] }) {
+  const warnings = exampleWarnings(row);
+  return warnings.length ? { ...row, warnings } : row;
+}
 
 function inputFromBody(body: Record<string, unknown>): Partial<PropertyDAL.PropertyInput> {
   const input: Partial<PropertyDAL.PropertyInput> = {};
@@ -112,7 +119,7 @@ router.post('/', (req: Request, res: Response) => {
       name,
       data_type,
     } as PropertyDAL.PropertyInput);
-    res.status(201).json(property);
+    res.status(201).json(withExampleWarnings(property));
   } catch (err) {
     handleRouteError(err, res);
   }
@@ -134,7 +141,7 @@ router.patch('/:id', (req: Request, res: Response) => {
       req.params.id,
       inputFromBody(req.body as Record<string, unknown>)
     );
-    res.status(200).json(property);
+    res.status(200).json(withExampleWarnings(property));
   } catch (err) {
     handleRouteError(err, res);
   }
@@ -186,7 +193,7 @@ router.post('/:id/definitions', (req: Request, res: Response) => {
       ...definitionInputFromBody(body),
       name,
     } as PropertyDefinitionDAL.PropertyDefinitionInput);
-    res.status(201).json(definition);
+    res.status(201).json(withExampleWarnings(definition));
   } catch (err) {
     handleRouteError(err, res);
   }
@@ -200,7 +207,7 @@ router.patch('/:id/definitions/:definitionId', (req: Request, res: Response) => 
       req.params.definitionId,
       definitionInputFromBody(req.body as Record<string, unknown>)
     );
-    res.status(200).json(definition);
+    res.status(200).json(withExampleWarnings(definition));
   } catch (err) {
     handleRouteError(err, res);
   }

@@ -71,3 +71,75 @@ export function displaySampleValue(v: unknown): DisplayExample {
   }
   return { text: JSON.stringify(v, null, 2), block: true };
 }
+
+// ---------------------------------------------------------------------------
+// Enum examples (T-5-11): examples of a property with allowed values come from the allowed set.
+// ---------------------------------------------------------------------------
+
+/** Number of examples shown for an enum when the stored ones do not fill it up. */
+export const ENUM_EXAMPLE_COUNT = 2;
+
+export interface ExampleSource {
+  allowed_values_json?: unknown;
+  example_values_json?: unknown;
+  data_type?: string | null;
+}
+
+/** Allowed value strings out of a stored `allowed_values_json` (`{value}[]` or plain strings). */
+export function allowedValueStrings(raw: unknown): string[] {
+  return exampleValueStrings(raw);
+}
+
+/**
+ * Examples to render/export. With a non-empty allowed set: stored examples that are allowed values
+ * first (deduped, stored order), then allowed values until two examples; stored examples outside
+ * the set are ignored. With no allowed set: the stored examples as they are.
+ */
+export function exampleValuesFor(src: ExampleSource): { value: unknown }[] {
+  const stored = exampleValueStrings(src.example_values_json);
+  // Allowed values keep their original type (a numeric enum yields numbers); membership is by string.
+  const typed = new Map<string, unknown>();
+  if (Array.isArray(src.allowed_values_json)) {
+    for (const item of src.allowed_values_json) {
+      const x = item !== null && typeof item === 'object' && 'value' in (item as object) ? (item as { value: unknown }).value : item;
+      const str = typeof x === 'string' ? x : x !== null && typeof x === 'object' ? JSON.stringify(x) : String(x ?? '');
+      if (str !== '' && !typed.has(str)) typed.set(str, x);
+    }
+  } else {
+    for (const a of allowedValueStrings(src.allowed_values_json)) typed.set(a, a);
+  }
+  if (typed.size === 0) return stored.map((value) => ({ value }));
+  const out: string[] = [];
+  for (const s of stored) if (typed.has(s) && !out.includes(s)) out.push(s);
+  for (const a of typed.keys()) {
+    if (out.length >= ENUM_EXAMPLE_COUNT) break;
+    if (!out.includes(a)) out.push(a);
+  }
+  return out.map((k) => ({ value: typed.get(k) }));
+}
+
+/** Stored examples that are not in the allowed set (empty when there is no allowed set). */
+export function disallowedExamples(src: ExampleSource): string[] {
+  const allowed = new Set(allowedValueStrings(src.allowed_values_json));
+  if (allowed.size === 0) return [];
+  return exampleValueStrings(src.example_values_json).filter((s) => !allowed.has(s));
+}
+
+/** True when every stored example is an allowed value (or there is no allowed set). */
+export function isExampleAllowed(src: ExampleSource): boolean {
+  return disallowedExamples(src).length === 0;
+}
+
+/** Warning strings for the write responses. */
+export function exampleWarnings(src: ExampleSource): string[] {
+  return disallowedExamples(src).map((v) => `example ${v} is not an allowed value`);
+}
+
+/** Splits a sheet example cell of the form "a / b / ..." into tokens that are all allowed values; else null. */
+export function splitEnumExampleCell(cell: string | null | undefined, allowed: string[]): string[] | null {
+  if (!cell) return null;
+  const set = new Set(allowed);
+  const tokens = cell.split('/').map((t) => t.trim()).filter((t) => t !== '' && t !== '...' && t !== '…');
+  if (tokens.length === 0) return null;
+  return tokens.every((t) => set.has(t)) ? [...new Set(tokens)] : null;
+}

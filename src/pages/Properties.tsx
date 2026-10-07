@@ -1,3 +1,4 @@
+import { exampleValuesFor, exampleWarnings } from '@/src/domain/examples';
 import { ExpandChevron } from '@/src/components/ui/ExpandChevron';
 import { EnumSelect } from '@/src/components/ui/EnumSelect';
 import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
@@ -850,6 +851,9 @@ function DefinitionsSection({ projectId, propertyId, focus }: { projectId: strin
                     {d.allowed_values_json.map((v) => v.value).join(', ')}
                   </div>
                 )}
+                {exampleValuesFor(d).length > 0 && (
+                  <div className="text-xs text-gray-400 mt-1">Example: {exampleValuesFor(d).map((x) => x.value).join(', ')}</div>
+                )}
                 {Array.isArray(d.using_events) && d.using_events.length > 0 && (
                   <div className="text-xs text-gray-400 mt-1">Used by: {d.using_events.join(', ')}</div>
                 )}
@@ -894,7 +898,7 @@ function DefinitionEditor({
   const [description, setDescription] = useState(definition?.description ?? '');
   const [allowedValues, setAllowedValues] = useState<AllowedValueRow[]>(definition?.allowed_values_json ?? []);
   const [formats, setFormats] = useState<string[]>(definition?.formats_json ?? []);
-  const [example, setExample] = useState(definition?.example_values_json?.[0]?.value ?? '');
+  const [example, setExample] = useState(definition ? String(exampleValuesFor(definition)[0]?.value ?? '') : '');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -966,6 +970,9 @@ function DefinitionEditor({
       <div className="space-y-1">
         <FieldLabel className="text-xs font-medium text-gray-700" hint="Example value" hintScope="Properties">Example value</FieldLabel>
         <Input value={example} onChange={(e) => setExample(e.target.value)} />
+        {exampleWarnings({ allowed_values_json: allowedValues.filter((v) => v.value.trim()).map((v) => ({ value: v.value.trim() })), example_values_json: example.trim() ? [{ value: example.trim() }] : [] }).map((w) => (
+          <p key={w} className="text-xs text-amber-700">{w}</p>
+        ))}
       </div>
       {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{saveError}</div>}
       <div className="flex justify-end gap-2">

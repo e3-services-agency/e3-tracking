@@ -271,6 +271,7 @@ const ALL_MIGRATION_FILES = [
   '0033_comment_threads_status.sql',
   '0034_comment_reactions.sql',
   '0035_comment_attachments.sql',
+  '0036_enum_examples_cleanup.sql',
 ];
 
 describe('listMigrationFiles', () => {

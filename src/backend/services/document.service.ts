@@ -11,6 +11,7 @@
  * resolution `useCaseCoverage.service.ts` uses -- an observation counts as soon as the definitions
  * catch up, with no need to run a comparison recompute first).
  */
+import { exampleValuesFor } from '../../domain/examples';
 import { triggerImages } from '../../domain/document/triggerImages';
 import * as EventDAL from '../dal/event.dal';
 import * as VariantDAL from '../dal/variant.dal';
@@ -374,7 +375,7 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
         required: false,
         property_data_type: p.data_type,
         property_data_formats: (p.data_formats_json as string[] | null) ?? null,
-        property_example_values_json: (p.example_values_json as PropertyExampleValue[] | null) ?? null,
+        property_example_values_json: exampleValuesFor(p) as PropertyExampleValue[],
       }),
     }));
 
@@ -903,7 +904,7 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
           }))
         : null,
       formats: Array.isArray(d.formats_json) ? (d.formats_json as string[]) : [],
-      example_values: d.example_values_json,
+      example_values: exampleValuesFor({ allowed_values_json: d.allowed_values_json, example_values_json: d.example_values_json }),
     }));
 
   const usedInEvents = new Map<string, Set<string>>();

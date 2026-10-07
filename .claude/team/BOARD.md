@@ -3612,3 +3612,5 @@ Merge b8c6d12. Merged tree: tsc, lint, build clean, 1953 tests / 194 files. Migr
 
 ### 2026-10-07 | INCIDENT | migration 0036 crashed the user's container (restart loop, "malformed JSON")
 Cause: example_values_json holds plain strings (["silver"]) while 0036 assumed {value} objects and called json_type on json_each element text. 0031-0035 had applied; 0036 rolled back each start, data intact. Fix 7280e3d (T-5-11 follow-up): json_each `type` column, both shapes, guard for malformed/non-array; verified OK on a copy of the container DB. Lesson for the fixtures: migration tests must include the shapes the app actually writes (string examples); added to the backlog as a check for every data migration.
+
+### 2026-10-07 | supervisor | MERGE | 0036 fix merged — agent-setup 43f53a2; all migrations verified on a copy of the container DB (MIGRATIONS_OK, action examples ["add"]); tsc, lint clean, 1954 tests / 194 files. User to rebuild the container. GCP project id received: e3-tracking (console link); region and hostname still needed for D-72.

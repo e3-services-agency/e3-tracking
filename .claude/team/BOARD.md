@@ -3403,3 +3403,9 @@ deleteCatalogField clears properties.mapped_catalog_field_id in the transaction 
 
 ### 2026-10-07 | implementer | HANDOFF | T-4-30 QA fix c168fc1
 Standalone blocks only for rules whose sdk_call matches the call; transformations on the rule's own id in standalone forms; describeTrigger verb heuristic ("on the first page view of a new visitor", "when the SMS consent form is submitted"). 1815 tests / 177 files, gates green. Supervisor: merging per ruling.
+
+### 2026-10-07 | supervisor | MERGE | T-4-30 merged into agent-setup — DONE
+Merge e9765ac. Merged tree: tsc, lint clean, 1815 tests / 177 files.
+
+### 2026-10-07 | implementer | HANDOFF | T-4-32 fix round 7ec1b65
+Three identifiers_json states (identifiersAreDerived, hasExplicitIdentifiers; diffCarriedBy writes [] / null / drops no-ops; DAL stores []; card, markdown, HTML "none, set by hand"; Tracking API customer_ids {} with a comment; event editor "Carries no identifier"); resolveSaveTarget keeps the created id and PATCHes (ruleSave.ts), onRefresh on PUT failure; resolveEventSourceId keeps a hand-set source; "Not defined yet" warning. tsc, lint green; full suite 1815/179 with one test fixed after (not re-run). To re-review (reviewer runs the full suite) then QA.

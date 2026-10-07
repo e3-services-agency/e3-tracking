@@ -3466,3 +3466,6 @@ Supervisor ruling: D-69 amendment 1 (type changes only via the registry, 409 IDE
 
 ### 2026-10-07 | implementer | HANDOFF | T-4-34 CRLF fix 1cedbec
 readWorkbook/plainCell moved to scripts/lib/tracking-sheet-io.mjs (no shebang), test imports the lib; `scripts/**/*.mjs text eol=lf`; verified under CRLF. 1870 tests / 187 files, gates green.
+
+### 2026-10-07 | supervisor | MERGE | T-4-34 (incl. CRLF fix) merged into agent-setup — DONE
+Merges 3356f9b + f4ece0f. Merged tree on the main checkout (CRLF): tsc, lint clean, 1870 tests / 187 files. Airshoppen apply on the container is the user's action (permission); verification read-only afterwards. Remaining from round 9: T-4-35 (fix round in progress, then QA).

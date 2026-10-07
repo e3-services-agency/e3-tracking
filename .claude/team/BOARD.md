@@ -3469,3 +3469,6 @@ readWorkbook/plainCell moved to scripts/lib/tracking-sheet-io.mjs (no shebang), 
 
 ### 2026-10-07 | supervisor | MERGE | T-4-34 (incl. CRLF fix) merged into agent-setup — DONE
 Merges 3356f9b + f4ece0f. Merged tree on the main checkout (CRLF): tsc, lint clean, 1870 tests / 187 files. Airshoppen apply on the container is the user's action (permission); verification read-only afterwards. Remaining from round 9: T-4-35 (fix round in progress, then QA).
+
+### 2026-10-07 | supervisor | APPLY | Airshoppen seeded on the container (3020) with T-4-34
+User instruction "proceed with airshoppen seed"; permission granted this time. 538/538 operations, 0 failed. Second dry run: all unchanged (23 events, 194 properties, 241 links, 2 catalogs / 73 fields, 3 identity rules), the 2 real view_item conflicts kept. Flow paragraph: customer_id and passenger_id have no set-by yet; cookie set by the SDK standalone call and derived onto every event incl. the airline ones (created client_web by default). Findings 0 (no comparison run yet). Follow-ups for the user in the UI: set airline/backend events to server_api, define set-by for customer_id (login/registration) and passenger_id (booking_link), fix view_item, pick catalog data types and searchable fields, rebuild the container to get rounds 8-9.

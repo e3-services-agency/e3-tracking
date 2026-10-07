@@ -33,6 +33,7 @@ import { FieldLabel } from '@/src/components/ui/FieldHint';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import type { CommentEntityType } from '@/src/domain/enums';
+import { AttachmentPicker, CommentAttachments, uploadAttachments, type CommentAttachmentItem } from './CommentAttachments';
 
 const AUTHOR_STORAGE_KEY = 'e3-share-author';
 
@@ -64,6 +65,8 @@ export interface CommentPanelRow {
   created_at: string;
   resolved_at: string | null;
   resolved_by: string | null;
+  /** D-70 item 4, T-5-04: comment images, in order. */
+  attachments?: CommentAttachmentItem[];
 }
 
 export type CommentsPanelApi =
@@ -85,6 +88,12 @@ function postUrl(api: CommentsPanelApi): string {
   return api.mode === 'internal'
     ? `${API_BASE}/api/projects/${api.projectId}/comments`
     : `${API_BASE}/api/shared/${encodeURIComponent(api.token)}/comments`;
+}
+
+function fileUrl(api: CommentsPanelApi, path: string): string {
+  return api.mode === 'internal'
+    ? `${API_BASE}/api/projects/${api.projectId}/files/${path}`
+    : `${API_BASE}/api/shared/${encodeURIComponent(api.token)}/files/${path}`;
 }
 
 function patchUrl(api: Extract<CommentsPanelApi, { mode: 'internal' }>, id: string): string {
@@ -125,6 +134,8 @@ export function CommentsPanel({
   const [internalOnly, setInternalOnly] = useState(false);
   const [posting, setPosting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [pendingImages, setPendingImages] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
 
   const rows = controlled ? (controlledRows as CommentPanelRow[]) : ownRows;
 
@@ -183,6 +194,12 @@ export function CommentsPanel({
         return;
       }
       if (api.mode === 'shared') storeAuthor(authorName.trim());
+      // T-5-04: images go up after the comment exists, one request each.
+      if (pendingImages.length > 0 && typeof data?.id === 'string') {
+        const failures = await uploadAttachments(`${postUrl(api)}/${data.id}/attachments`, pendingImages, (u, init) => doFetch(api, u, init), setUploadProgress);
+        if (failures.length > 0) setError(`Comment posted, but some images were not attached. ${failures.join(' ')}`);
+        setPendingImages([]);
+      }
       setBody('');
       setInternalOnly(false);
       await refresh();
@@ -267,6 +284,7 @@ export function CommentsPanel({
                 )}
               </div>
               <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap">{row.body}</p>
+              <CommentAttachments attachments={row.attachments} fileUrl={(p) => fileUrl(api, p)} />
             </li>
           ))}
         </ul>
@@ -305,6 +323,7 @@ export function CommentsPanel({
             required
             className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
           />
+          <AttachmentPicker files={pendingImages} onChange={setPendingImages} disabled={posting} progress={uploadProgress} />
           <button
             type="submit"
             disabled={posting || !body.trim() || (api.mode === 'shared' && !authorName.trim())}

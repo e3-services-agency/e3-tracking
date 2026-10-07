@@ -215,6 +215,7 @@ export const FIELD_HINTS: Record<string, string> = {
   'Share link': 'A public read-only link to the documentation; rotate or revoke at any time.',
   'Show internal comments on the shared view': 'Internal comments never appear on the shared view; this setting controls the other comments.',
   'Jump to': 'Go straight to an event or section of this document.',
+  'Attach images': 'Screenshots on a comment: PNG, JPEG or WebP, 5 MB each, up to 10. Example: a screenshot of the checkout page.',
   'Comments': 'Discussion on this item. Example: a question about what the event means.',
   'Gaps only': 'Show only rows where a use case requires data the project does not define.',
 

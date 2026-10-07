@@ -27,6 +27,7 @@ import { useProjectShell } from '@/src/features/projects/context/ProjectShellCon
 import { useStore } from '@/src/store';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
+import { CommentAttachments, type CommentAttachmentItem } from '@/src/features/comments/CommentAttachments';
 import { COMMENT_ENTITY_TYPES } from '@/src/domain/enums';
 import { showEmptyState, showLoadingPlaceholder } from '@/src/domain/loadingState';
 
@@ -53,6 +54,7 @@ interface CommentRow {
   created_at: string;
   resolved_at: string | null;
   resolved_by: string | null;
+  attachments?: CommentAttachmentItem[];
 }
 
 async function parseJson(res: Response): Promise<any> {
@@ -261,6 +263,7 @@ export function Comments() {
                   )}
                 </div>
                 <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap">{row.body}</p>
+                <CommentAttachments attachments={row.attachments} fileUrl={(p) => `${API_BASE}/api/projects/${activeProjectId}/files/${p}`} />
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button

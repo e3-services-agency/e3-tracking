@@ -22,3 +22,7 @@ You can comment on an event, property, use case or requirement, from the panels 
 ## Agents
 
 An MCP server exposes the definitions, findings and QA tools to AI agents on the same database. See the MCP server reference. Agent writes are attributed to the agent name in History.
+
+## Images on comments
+
+In any comment form, drop, paste (Ctrl+V while the dashed zone is focused) or click to add screenshots: PNG, JPEG or WebP, 5 MB each, up to 10 per comment. The images upload right after the comment is posted and show as small thumbnails under it (three visible, then "+n"); click one to open it full size and step through the rest with the arrow keys. Images are re-encoded on upload, so location data and other hidden metadata are removed. An image on an "Internal only" comment is never visible through the share link. Clients with a comment link can attach images to the comment they just wrote (within 15 minutes); the team can add and delete images from the internal API.

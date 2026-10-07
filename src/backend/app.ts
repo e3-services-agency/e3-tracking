@@ -37,6 +37,7 @@ import rulesRouter from './routes/rules';
 import ruleTemplatesRouter from './routes/rule-templates';
 import historyRouter from './routes/history';
 import commentsRouter from './routes/comments';
+import commentAttachmentsRouter from './routes/commentAttachments';
 import restoreBackupRouter from './routes/restore-backup';
 import { optionalAuth } from './middleware/auth';
 import { actorContext } from './middleware/actor';
@@ -119,6 +120,8 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   app.use('/api/projects/:projectId/history', requireProject, historyRouter);
   // D-49, T-4-02: internal comments API; the public counterpart (`/api/shared/:token/comments`)
   // is added by T-4-04 on top of `routes/shared.ts`.
+  // D-70, T-5-04: comment images (multipart, so mounted ahead of nothing JSON-specific).
+  app.use('/api/projects/:projectId/comments/:commentId/attachments', requireProject, commentAttachmentsRouter);
   app.use('/api/projects/:projectId/comments', requireProject, commentsRouter);
   app.use('/api/projects/:projectId/identity-rules', requireProject, identityRulesRouter);
   app.use('/api/projects/:projectId/identifiers', requireProject, identifiersRouter);

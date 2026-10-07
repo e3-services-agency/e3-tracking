@@ -3648,3 +3648,9 @@ Supervisor ruling: polish commit (filter change_log rows by actor + source/batch
 
 ### 2026-10-07 | implementer | HANDOFF | T-5-01 polish 0dcbf2a
 change_log ids scoped to the current actor/source/batch; strict schemas on tools and batch ops (unknown keys → VALIDATION_ERROR); docs on property_scope default and History sources; error details appended. src/mcp 50 tests green. Supervisor: merging.
+
+### 2026-10-07 | supervisor | MERGE | T-5-01 merged into agent-setup — DONE
+Merge 6e85f3c. Merged tree: tsc, lint clean, 1978 tests pass (2 skipped); caddyEdge.test.ts failed at suite level in the full run while another worktree ran the same suite (hardcoded port 3041 / container names, the known residual) and passes alone. Fix promoted from backlog to T-5-06 follow-up now.
+
+### 2026-10-07 | implementer | HANDOFF | T-5-07 Part B 9d7517e (agent-setup 1967892 merged)
+.env template uses the compose edge names (E3_AUTH_MODE=proxy, IMAGE, HOSTNAME, WORKSPACE_DOMAIN, TRUSTED_PROXY_CIDR=172.28.0.8/29, OAUTH2_CLIENT_ID/SECRET, OAUTH2_COOKIE_SECRET base64 url-safe, BACKUP_BUCKET), printed in the dry run; 03/04 run `--env-file .env -f docker-compose.yml -f docker-compose.gcp.yml --profile edge`; DEPLOY.md variable names, HOSTNAME shell note, OAuth console steps; test needles updated (src/deploy 11/11). Cookie secret length vs oauth2-proxy accepted lengths not verified. To review.

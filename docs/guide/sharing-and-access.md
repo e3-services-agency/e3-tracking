@@ -22,3 +22,11 @@ You can comment on an event, property, use case or requirement, from the panels 
 ## Agents
 
 An MCP server exposes the definitions, findings and QA tools to AI agents on the same database. See the MCP server reference. Agent writes are attributed to the agent name in History.
+
+## Replies and status
+
+Every comment can be answered with a reply; replies show under the comment (the first two, then
+"Show n more"). The first comment of a thread has a status: Open, On it, Done or Won't do. On the
+internal pages you can set any of them (the Comments page has a status filter). A client with a
+comment link can mark a thread On it or Done, but cannot reopen it or set Won't do. Section headers
+of the shared page show how many threads are still open.

@@ -32,7 +32,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { FieldLabel } from '@/src/components/ui/FieldHint';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
-import type { CommentEntityType } from '@/src/domain/enums';
+import type { CommentEntityType, CommentStatus } from '@/src/domain/enums';
+import { groupThreads } from '@/src/domain/commentThreads';
+import { CommentItem } from './CommentItem';
 
 const AUTHOR_STORAGE_KEY = 'e3-share-author';
 
@@ -64,6 +66,9 @@ export interface CommentPanelRow {
   created_at: string;
   resolved_at: string | null;
   resolved_by: string | null;
+  /** D-70, T-5-02: a reply points at its root; the status lives on the root. */
+  parent_id: string | null;
+  status: CommentStatus;
 }
 
 export type CommentsPanelApi =
@@ -89,6 +94,12 @@ function postUrl(api: CommentsPanelApi): string {
 
 function patchUrl(api: Extract<CommentsPanelApi, { mode: 'internal' }>, id: string): string {
   return `${API_BASE}/api/projects/${api.projectId}/comments/${id}`;
+}
+
+function statusUrl(api: CommentsPanelApi, id: string): string {
+  return api.mode === 'internal'
+    ? `${API_BASE}/api/projects/${api.projectId}/comments/${id}`
+    : `${API_BASE}/api/shared/${encodeURIComponent(api.token)}/comments/${id}/status`;
 }
 
 async function doFetch(api: CommentsPanelApi, url: string, init?: RequestInit): Promise<Response> {
@@ -162,16 +173,19 @@ export function CommentsPanel({
     await load();
   }, [controlled, onChanged, load]);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!body.trim()) return;
-    if (api.mode === 'shared' && !authorName.trim()) return;
+  const post = async (text: string, parentId: string | null): Promise<boolean> => {
+    if (!text.trim()) return false;
+    if (api.mode === 'shared' && !authorName.trim()) {
+      setError('Enter your name first.');
+      return false;
+    }
     setPosting(true);
     setError(null);
     try {
-      const payload: Record<string, unknown> = { entity_type: entityType, entity_id: entityId, body };
+      const payload: Record<string, unknown> = { entity_type: entityType, entity_id: entityId, body: text };
+      if (parentId) payload.parent_id = parentId;
       if (api.mode === 'shared') payload.author_name = authorName;
-      else payload.internal_only = internalOnly;
+      else if (!parentId) payload.internal_only = internalOnly;
       const res = await doFetch(api, postUrl(api), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -180,29 +194,40 @@ export function CommentsPanel({
       const data = await parseJson(res);
       if (!res.ok) {
         setError(typeof data?.error === 'string' ? data.error : 'Failed to post comment.');
-        return;
+        return false;
       }
       if (api.mode === 'shared') storeAuthor(authorName.trim());
-      setBody('');
-      setInternalOnly(false);
+      if (!parentId) {
+        setBody('');
+        setInternalOnly(false);
+      }
       await refresh();
+      return true;
     } catch {
       // L4 fix round: a network failure (server down, offline) must surface, not disappear as an
       // unhandled rejection -- the form's own state (body text) is left intact so nothing is lost.
       setError('Failed to post comment. Check your connection and try again.');
+      return false;
     } finally {
       setPosting(false);
     }
   };
 
-  const toggleResolved = async (row: CommentPanelRow) => {
-    if (api.mode !== 'internal') return;
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await post(body, null);
+  };
+
+  const setStatus = async (row: CommentPanelRow, status: CommentStatus) => {
     setBusyId(row.id);
+    setError(null);
     try {
-      const res = await fetchWithAuth(patchUrl(api, row.id), {
+      const payload: Record<string, unknown> = { status };
+      if (api.mode === 'shared' && authorName.trim()) payload.author_name = authorName.trim();
+      const res = await doFetch(api, statusUrl(api, row.id), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resolved: !row.resolved_at }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const data = await parseJson(res);
@@ -211,13 +236,13 @@ export function CommentsPanel({
       }
       await refresh();
     } catch {
-      // L4 fix round: same as `submit` above.
       setError('Failed to update comment. Check your connection and try again.');
     } finally {
       setBusyId(null);
     }
   };
 
+  const threads = groupThreads(rows);
   const canComment = api.mode === 'internal' || api.access === 'comment';
 
   return (
@@ -234,40 +259,16 @@ export function CommentsPanel({
         <p className="text-sm text-gray-500">No comments yet.</p>
       ) : (
         <ul className="space-y-2">
-          {rows.map((row) => (
-            <li key={row.id} className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
-              <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
-                <span className="font-medium text-gray-700">{row.author_name}</span>
-                {api.mode === 'internal' && row.via_share && (
-                  <span className="rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-[10px] font-medium">
-                    via share link
-                  </span>
-                )}
-                {api.mode === 'internal' && row.internal_only && (
-                  <span className="rounded-full bg-amber-50 text-amber-700 px-2 py-0.5 text-[10px] font-medium">
-                    Internal only
-                  </span>
-                )}
-                <span>·</span>
-                <span>{new Date(row.created_at).toLocaleString()}</span>
-                {row.resolved_at && (
-                  <span className="rounded-full bg-green-50 text-green-700 px-2 py-0.5 text-[10px] font-medium">
-                    resolved{row.resolved_by ? ` by ${row.resolved_by}` : ''}
-                  </span>
-                )}
-                {api.mode === 'internal' && (
-                  <button
-                    type="button"
-                    disabled={busyId === row.id}
-                    onClick={() => void toggleResolved(row)}
-                    className="ml-auto text-[var(--brand-primary)] hover:underline disabled:opacity-50"
-                  >
-                    {row.resolved_at ? 'Reopen' : 'Resolve'}
-                  </button>
-                )}
-              </div>
-              <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap">{row.body}</p>
-            </li>
+          {threads.map((thread) => (
+            <CommentItem
+              key={thread.id}
+              thread={thread}
+              mode={api.mode}
+              canComment={canComment}
+              busy={busyId === thread.id}
+              onSetStatus={(status) => void setStatus(thread, status)}
+              onReply={(text) => post(text, thread.id)}
+            />
           ))}
         </ul>
       )}

@@ -118,6 +118,25 @@ stripped from the public `GET` response (`toPublicComment`).
   429 `RATE_LIMITED` past the limit — a cheap guard against a script hammering a leaked link, not
   real rate limiting (see "Phase 5" below).
 
+### Threads and status (D-70, T-5-02, migration `0033`)
+
+A comment can have **replies** (`comments.parent_id`; `parent_id` is an allowed `POST` key). A reply
+always attaches to the root and inherits its entity and `internal_only` from it, so an internal-only
+thread never appears, replies included. On a `via_share_only` link the rule applies to roots: a
+visible root keeps its replies.
+
+The root carries a **status**: `open`, `on_it`, `done`, `wont_do` (`resolved_at`/`resolved_by` are
+mirrored for `done`, so `PATCH {resolved: true|false}` still works internally: done / open).
+`PATCH /api/shared/:token/comments/:id/status {status, author_name?}` (comment access, same
+rate limit and field whitelist as posts):
+
+- a link may set `on_it` or `done` only; `wont_do` is 403 `STATUS_NOT_ALLOWED`;
+- a link may not reopen: any change on a `done`/`wont_do` comment is 403 `STATUS_NOT_ALLOWED`;
+- `read` links get 403 `SHARE_READ_ONLY`; an internal-only comment (or one hidden by `via_share_only`) answers the identical 404 `SHARE_NOT_FOUND`;
+- internal callers (`PATCH /api/projects/:id/comments/:id {status}`) may set any of the four.
+
+Who changed it last is kept as `status_changed_by`/`status_changed_at` on the comment (stripped from the public response; comments stay out of `change_log`).
+
 ### Comment visibility controls (D-49 amendment 2, T-4-10)
 
 Two controls narrow the "one shared thread" default. Both are enforced server-side in

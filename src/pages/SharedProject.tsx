@@ -152,6 +152,16 @@ function SectionTitle({ id, children }: { id: string; children: React.ReactNode 
   );
 }
 
+/** D-70: "n open" comment threads in a section's header (status open only; nothing when zero). */
+function OpenCommentsCount({ n }: { n: number }) {
+  if (n === 0) return null;
+  return (
+    <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800" data-testid="open-comments-count">
+      {n} open
+    </span>
+  );
+}
+
 function SectionCard({ id, title, actions, children }: { id: string; title: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section id={id} style={marginTop('section')} className="bg-white rounded-lg border shadow-sm">
@@ -410,6 +420,10 @@ export function SharedProject({ token }: { token: string }) {
     }
   }, [token]);
 
+  const openCommentCount = useCallback(
+    (types: string[]) => comments.filter((c) => !c.parent_id && c.status === 'open' && c.entity_type && types.includes(c.entity_type)).length,
+    [comments]
+  );
   const commentsFor = useCallback(
     (entityType: string, entityId: string) => comments.filter((c) => c.entity_type === entityType && c.entity_id === entityId),
     [comments]
@@ -662,7 +676,10 @@ export function SharedProject({ token }: { token: string }) {
                 style={{ height: STICKY_PX.sectionHeader }}
                 className={`sticky ${HEADER_TOP_CLASS} z-10 flex items-center bg-gray-50 text-lg font-semibold text-gray-900`}
               >
-                <SectionTitle id={SECTION_IDS.events}>Events ({doc.events.length})</SectionTitle>
+                <SectionTitle id={SECTION_IDS.events}>
+                  Events ({doc.events.length})
+                  <OpenCommentsCount n={openCommentCount(['event'])} />
+                </SectionTitle>
               </h2>
               {namingLine}
               {(doc.sources ?? []).length > 0 && (
@@ -828,7 +845,7 @@ export function SharedProject({ token }: { token: string }) {
           {present.useCases && (
             <SectionCard
               id={SECTION_IDS.useCases}
-              title={`Use cases (${doc.use_cases.length})`}
+              title={<>{`Use cases (${doc.use_cases.length})`}<OpenCommentsCount n={openCommentCount(['use_case', 'requirement'])} /></>}
               actions={<ExpandToggles label="use cases" onExpand={() => setUseCases(allUseCaseIds, true)} onCollapse={() => setUseCases(allUseCaseIds, false)} />}
             >
               <div className="space-y-4">

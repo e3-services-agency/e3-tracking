@@ -3638,3 +3638,10 @@ Caddyfile final reverse_proxy no longer strips the identity; caddyEdge.test.ts (
 
 ### 2026-10-07 | reviewer | REVIEW | T-5-06 re-check ba2a610 PASS
 Caddyfile fixed and proven by the real-Caddy test (8 tests incl. Docker suite ran); BlockList cache, CIDR warning, `@` requirement; subnet documentation acceptable (a profile-scoped subnet cannot work since the network is shared). Residuals: caddyEdge.test.ts hardcodes port 3041 and container names (flaky under parallel runs); @public static allow-list may miss root-level static files. Supervisor: merging (QA = the reviewer's Docker exercise; the Google sign-in path is verified on the VM at go-live); residuals to backlog.
+
+### 2026-10-07 | supervisor | MERGE | T-5-06 merged into agent-setup — DONE
+Merge a22a7de. Merged tree: tsc, lint clean, 1962 tests / 196 files. T-5-07 Part B (env reconciliation with the edge profile) released.
+
+### 2026-10-07 | reviewer | REVIEW | T-5-01 PASS (3 low, 2 info)
+Gates green (1970/195); stdio smoke: 29 tools listed, clean isError for a missing project, server alive. Rollback sentinel always fires; nested DAL transactions become savepoints; no sequences leak; apply via the same DAL functions as REST, no raw writes; D-69/D-67 checks live in the DAL; errors mapped, nothing on stdout. LOW: change_log_ids collected by rowid > mark without an actor/batch filter (another process's rows could be attributed); link/unlink default property_scope=event never raise AMBIGUOUS_PROPERTY (document); History filter: batch writes are `import:mcp`, single `mcp` (document). INFO: zod strips unknown keys (typos silent; use .strict()); error details dropped.
+Supervisor ruling: polish commit (filter change_log rows by actor + source/batch id; `.strict()` schemas; docs notes on property_scope default and the two source values); then merge without QA (covered by the wrapper tests and the smoke run).

@@ -3520,3 +3520,9 @@ All three fixed through one predicate (isRootShareVisible) and getShareVisibleRo
 ### 2026-10-07 | qa-tester | QA PASS | T-5-02 2811e4a, 6/6
 Collapse after two, reply box, status menu rules internal vs shared, read-only link, identical SHARE_NOT_FOUND body for missing/hidden/reply ids on PATCH and POST parent, FIELD_NOT_ALLOWED, STATUS_NOT_ALLOWED on wont_do/reopen, via_share_only filtering, Comments page threads/filter/select, header counts, exports/backup/CSV, 15 findings, no 500s. Minor: comment body on the Comments page not clickable (label only); shared reply without a name shows the message at the bottom form; shared status select also lists the current status. Process FAIL: the agent stopped servers with `taskkill /IM node.exe` (killed every Node process incl. the user's dev API if running); qa-roundtrip skill gains a hard rule (stop only own PIDs). Report: reports/qa/T-5-02/REPORT.md.
 Supervisor ruling: merge; the three UX minors fold into T-5-03 (same panel).
+
+### 2026-10-07 | supervisor | MERGE | T-5-02 merged into agent-setup — DONE
+Merge b100b40. Merged tree: tsc, lint clean, 1899 tests / 189 files.
+
+### 2026-10-07 | implementer | HANDOFF | T-5-04 fix round 02feb86
+Shared files route decides on normalised segments (empty segment → identical 404, `.`/`..` → 400 as before, project id exact, comments prefix case-insensitive; tests for //, /Comments/, /COMMENTS/, /./, %2F variants); files removed on comment delete and on failed insert; limitInputPixels 25 Mpx; lightbox on useModalA11y with focus trap/return. 1903 tests / 189 files, gates green. Next: merge agent-setup (T-5-02) and resolve the six conflicts, then re-review + QA. T-5-03 reactions starts now on C:/t/t503 (migration 0034), folding the three T-5-02 QA UX minors.

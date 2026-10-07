@@ -13,6 +13,7 @@ import { StatusBadge } from '@/src/components/ui/badges';
 import { COMMENT_STATUSES, SHARE_SETTABLE_COMMENT_STATUSES, type CommentStatus } from '@/src/domain/enums';
 import { enumLabel } from '@/src/domain/enumLabels';
 import type { CommentPanelRow } from './CommentsPanel';
+import { AttachmentPicker } from './CommentAttachments';
 
 export const REPLIES_COLLAPSED_AFTER = 2;
 
@@ -36,13 +37,14 @@ export function CommentItem({
   busy: boolean;
   onSetStatus: (status: CommentStatus) => void;
   /** Resolves true when the reply was posted (the box then clears). */
-  onReply: (body: string) => Promise<boolean>;
+  onReply: (body: string, files: File[]) => Promise<boolean>;
   /** T-5-04 slot: attachments (thumbnails) under a comment's body. */
   renderAttachments?: (comment: CommentPanelRow) => React.ReactNode;
 }) {
   const [showAll, setShowAll] = useState(false);
   const [replyBody, setReplyBody] = useState('');
   const [replying, setReplying] = useState(false);
+  const [replyFiles, setReplyFiles] = useState<File[]>([]);
 
   const hidden = thread.replies.length - REPLIES_COLLAPSED_AFTER;
   const visibleReplies = showAll || hidden <= 0 ? thread.replies : thread.replies.slice(0, REPLIES_COLLAPSED_AFTER);
@@ -115,13 +117,16 @@ export function CommentItem({
 
       {canComment && (
         <form
-          className="mt-2 flex items-start gap-2"
+          className="mt-2 flex flex-wrap items-start gap-2"
           onSubmit={(e) => {
             e.preventDefault();
             if (!replyBody.trim()) return;
             setReplying(true);
-            void onReply(replyBody).then((ok) => {
-              if (ok) setReplyBody('');
+            void onReply(replyBody, replyFiles).then((ok) => {
+              if (ok) {
+                setReplyBody('');
+                setReplyFiles([]);
+              }
               setReplying(false);
             });
           }}
@@ -142,6 +147,9 @@ export function CommentItem({
           >
             Reply
           </button>
+          <div className="w-full">
+            <AttachmentPicker files={replyFiles} onChange={setReplyFiles} disabled={replying} />
+          </div>
         </form>
       )}
     </li>

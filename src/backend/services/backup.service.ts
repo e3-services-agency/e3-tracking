@@ -168,6 +168,7 @@ export interface BackupPayload {
   findings: Row[];
   change_log: Row[];
   comments: Row[];
+  comment_attachments: Row[];
   files: BackupFileEntry[];
   files_missing: string[];
   /** Malformed `*_json` cells kept as raw strings instead of being silently nulled (pre-QA fix INFO 2). */
@@ -195,9 +196,12 @@ function triggerImagePaths(events: Row[]): string[] {
 async function collectFiles(
   projectId: string,
   events: Row[],
-  clientLogoPath: unknown
+  clientLogoPath: unknown,
+  attachments: Row[] = []
 ): Promise<{ files: BackupFileEntry[]; files_missing: string[] }> {
   const paths = new Set(triggerImagePaths(events));
+  // T-5-04: comment images travel with the backup like trigger screenshots.
+  for (const a of attachments) if (typeof a.file_path === 'string' && a.file_path.trim()) paths.add(a.file_path);
   if (typeof clientLogoPath === 'string' && clientLogoPath.trim()) paths.add(clientLogoPath);
 
   const store = getFileStore();
@@ -248,7 +252,10 @@ export async function buildBackup(projectId: string): Promise<BackupPayload> {
     useCaseTemplates = rows.map((r) => parseRow(r, columns, 'use_case_templates', warnings));
   }
 
-  const { files, files_missing } = await collectFiles(projectId, events, project.client_logo_path);
+  const commentAttachments = tableExists('comment_attachments')
+    ? directRows('comment_attachments', projectId, warnings, 'created_at, id')
+    : [];
+  const { files, files_missing } = await collectFiles(projectId, events, project.client_logo_path, commentAttachments);
 
   return {
     format: BACKUP_FORMAT,
@@ -312,6 +319,7 @@ export async function buildBackup(projectId: string): Promise<BackupPayload> {
     // T-4-02 (D-49), fix round LOW 2: ordered like every other array (created_at, id tiebreak) so
     // two backups of the same project never differ in comment order.
     comments: directRows('comments', projectId, warnings, 'created_at, id'),
+    comment_attachments: commentAttachments,
     files,
     files_missing,
     warnings,

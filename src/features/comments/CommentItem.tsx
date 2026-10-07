@@ -59,7 +59,6 @@ export function CommentItem({
   const [replyBody, setReplyBody] = useState('');
   const [replying, setReplying] = useState(false);
   const [replyError, setReplyError] = useState<string | null>(null);
-  const [statusError, setStatusError] = useState<string | null>(null);
   const [replyFiles, setReplyFiles] = useState<File[]>([]);
 
   const hidden = thread.replies.length - REPLIES_COLLAPSED_AFTER;
@@ -105,14 +104,9 @@ export function CommentItem({
             <select
               aria-label="Set status"
               value={mode === 'shared' ? '' : thread.status}
-              disabled={busy}
+              disabled={busy || nameRequired}
               onChange={(e) => {
                 if (!e.target.value) return;
-                if (nameRequired) {
-                  setStatusError('Enter your name first.');
-                  return;
-                }
-                setStatusError(null);
                 onSetStatus(e.target.value as CommentStatus);
               }}
               className="h-7 rounded border border-gray-300 bg-white px-1 text-xs"
@@ -126,7 +120,7 @@ export function CommentItem({
                   </option>
                 ))}
             </select>
-            {statusError && <span className="text-[11px] text-red-700">{statusError}</span>}
+            {nameRequired && <span className="text-[11px] text-red-700">Enter your name first.</span>}
           </span>
         )}
       </div>

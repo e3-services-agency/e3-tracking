@@ -161,7 +161,14 @@ describe('shared routes', () => {
     expect((await json('POST', shared(`/comments/${c.id}/reactions`), { kind: 'seen', author_name: 'Carl' })).status).toBe(200);
     ProjectDAL.updateShareSettings(projectId, { share_require_name: false });
     expect((await (await fetch(shared(''))).json()).require_name).toBe(false);
-    expect((await json('POST', shared(`/comments/${c.id}/reactions`), { kind: 'like' })).status).toBe(200);
+    // No server-side anonymous fallback: a name (the UI's per-link visitor id at least) is always sent.
+    expect((await json('POST', shared(`/comments/${c.id}/reactions`), { kind: 'like' })).status).toBe(400);
+    expect((await json('POST', shared(`/comments/${c.id}/reactions`), { kind: 'like', author_name: 'Visitor 4f2a' })).status).toBe(200);
+    for (const path of [`/comments/${c.id}/reactions`]) {
+      expect((await json('POST', shared(path), { kind: 'like', author_name: 'share link' })).status).toBe(400);
+    }
+    expect((await json('PATCH', shared(`/comments/${c.id}/status`), { status: 'on_it', author_name: 'Share Link' })).status).toBe(400);
+    expect((await json('POST', shared('/comments'), { ...base(), body: 'x', author_name: 'Share link' })).status).toBe(400);
   });
 
   it('PATCH /projects/:id accepts share_require_name as a boolean only', async () => {

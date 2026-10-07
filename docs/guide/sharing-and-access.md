@@ -21,7 +21,7 @@ You can comment on an event, property, use case or requirement, from the panels 
 
 ## Reactions and names
 
-Under every comment are three buttons: **Seen**, **Like** and **On it**. Press one to react, press it again to take it back; hover a button to see who reacted. **On it** also marks an open thread as On it. On a share link the visitor's name is remembered in their browser for that link. If you tick **Settings, Share link, Require a name on the share link**, visitors must enter a name before they can comment, reply, react or change a status.
+Under every comment are three buttons: **Seen**, **Like** and **On it**. Press one to react, press it again to take it back; hover a button to see who reacted. **On it** also marks an open thread as On it. On a share link the visitor's name is remembered in their browser for that link; a visitor who has not entered one reacts as an automatic "Visitor 4f2a" id. If you tick **Settings, Share link, Require a name on the share link**, visitors must enter a name before they can comment, reply, react or change a status.
 
 ## Agents
 

@@ -118,14 +118,14 @@ describe('share routes', () => {
     const c = CommentDAL.createComment(projectId, { ...base(), author_name: 'A', body: 'share status' });
     const url = sharedUrl(`/comments/${c.id}/status`);
     expect((await json('PATCH', url, { status: 'on_it', author_name: 'Client' })).status).toBe(200);
-    const wont = await json('PATCH', url, { status: 'wont_do' });
+    const wont = await json('PATCH', url, { status: 'wont_do', author_name: 'Client' });
     expect(wont.status).toBe(403);
     expect((await wont.json()).code).toBe('STATUS_NOT_ALLOWED');
-    expect((await json('PATCH', url, { status: 'done' })).status).toBe(200);
-    const reopen = await json('PATCH', url, { status: 'open' });
+    expect((await json('PATCH', url, { status: 'done', author_name: 'Client' })).status).toBe(200);
+    const reopen = await json('PATCH', url, { status: 'open', author_name: 'Client' });
     expect(reopen.status).toBe(403);
     expect((await reopen.json()).code).toBe('STATUS_NOT_ALLOWED');
-    expect((await json('PATCH', url, { status: 'on_it' })).status).toBe(403);
+    expect((await json('PATCH', url, { status: 'on_it', author_name: 'Client' })).status).toBe(403);
     expect((await json('PATCH', url, { status: 'done', extra: 1 })).status).toBe(400);
   });
 

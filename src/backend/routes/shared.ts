@@ -413,7 +413,8 @@ router.patch('/:token/comments/:id/status', express.json({ limit: '2kb' }), requ
     }
     requireNameIfSet(project.share_require_name, body.author_name);
     const status = stringOrUndefined(body, 'status') ?? '';
-    const by = stringOrUndefined(body, 'author_name')?.trim().slice(0, 80) || 'Share link';
+    const by = stringOrUndefined(body, 'author_name')?.trim().slice(0, 80);
+    if (!by) throw new ValidationError('author_name is required.', 'author_name');
     const comment = CommentDAL.setCommentStatus(req.projectId!, req.params.id, status, by, { restricted: true });
     res.status(200).json(toPublicComment(comment));
   } catch (err) {
@@ -422,7 +423,15 @@ router.patch('/:token/comments/:id/status', express.json({ limit: '2kb' }), requ
 });
 
 /** D-70 item 5 (T-5-03): a link that requires a name refuses an anonymous write. */
+/** The pre-T-5-03 anonymous fallback; no visitor may use it as a name (the UI sends a per-link "Visitor xxxx" id instead). */
+function assertNameNotReserved(name: unknown): void {
+  if (typeof name === 'string' && name.trim().toLowerCase() === 'share link') {
+    throw new ValidationError('"Share link" is reserved and cannot be used as a name.', 'author_name');
+  }
+}
+
 function requireNameIfSet(projectRequires: boolean, name: unknown): void {
+  assertNameNotReserved(name);
   if (projectRequires && !(typeof name === 'string' && name.trim())) {
     throw new ValidationError('Enter your name first.', 'author_name');
   }
@@ -447,7 +456,7 @@ router.post('/:token/comments/:id/reactions', express.json({ limit: '2kb' }), re
     }
     const author = stringOrUndefined(body, 'author_name');
     requireNameIfSet(project.share_require_name, author);
-    const result = toggleReaction(req.projectId!, req.params.id, body.kind, author?.trim() || 'Share link', { viaShare: true });
+    const result = toggleReaction(req.projectId!, req.params.id, body.kind, author ?? '', { viaShare: true });
     res.status(200).json({
       added: result.added,
       comment: toPublicComment(result.comment),

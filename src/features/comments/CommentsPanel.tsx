@@ -16,8 +16,10 @@
  * `shared` hits the public `/api/shared/:token/comments` (T-4-04) with a plain `fetch` and no auth,
  * and hides the form entirely when `access !== 'comment'` (403 `SHARE_READ_ONLY` on the server side
  * is the same rule, this is just not showing a control that would fail). The shared form's author
- * name is remembered in `localStorage['e3-share-author']` (guarded with try/catch: a private window
- * or a disabled storage API must not break the form, just not remember the name across reloads).
+ * name is remembered per link in `localStorage['e3.share.<token>.name']` (`shareName.ts`, guarded
+ * with try/catch: a private window must not break the form). With no name entered, reactions and
+ * status changes send a generated per-link "Visitor xxxx" id instead; posts and replies still need a
+ * real name.
  *
  * Fix round (W1): a page mounting many panels for the same project (the shared view: one per event
  * card, use case and requirement row; the internal use case page: one per requirement row) used to
@@ -36,7 +38,7 @@ import type { CommentEntityType, CommentStatus } from '@/src/domain/enums';
 import { groupThreads } from '@/src/domain/commentThreads';
 import { CommentItem } from './CommentItem';
 import type { ReactionSummaryView } from './CommentReactions';
-import { useShareName } from './shareName';
+import { useShareName, ensureAuthorName, isVisitorId } from './shareName';
 import { AttachmentPicker, CommentAttachments, uploadAttachments, type CommentAttachmentItem } from './CommentAttachments';
 
 export interface CommentPanelRow {
@@ -134,7 +136,9 @@ export function CommentsPanel({
   const [error, setError] = useState<string | null>(null);
   const [body, setBody] = useState('');
   // D-70 item 5, T-5-03: the shared visitor's name is remembered per link (`e3.share.<token>.name`).
-  const [authorName, setAuthorName] = useShareName(api.mode === 'shared' ? api.token : null);
+  const [storedName, setAuthorName] = useShareName(api.mode === 'shared' ? api.token : null);
+  // A generated visitor id is not a typed name: the form shows empty and posts still ask for one.
+  const authorName = isVisitorId(storedName) ? '' : storedName;
   const [internalOnly, setInternalOnly] = useState(false);
   const [posting, setPosting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -232,7 +236,7 @@ export function CommentsPanel({
     setError(null);
     try {
       const payload: Record<string, unknown> = { status };
-      if (api.mode === 'shared' && authorName.trim()) payload.author_name = authorName.trim();
+      if (api.mode === 'shared') payload.author_name = ensureAuthorName(api.token);
       const res = await doFetch(api, statusUrl(api, row.id), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -256,7 +260,7 @@ export function CommentsPanel({
     setError(null);
     try {
       const payload: Record<string, unknown> = { kind };
-      if (api.mode === 'shared' && authorName.trim()) payload.author_name = authorName.trim();
+      if (api.mode === 'shared') payload.author_name = ensureAuthorName(api.token);
       const res = await doFetch(api, reactionUrl(api, row.id), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -304,7 +308,7 @@ export function CommentsPanel({
               onReply={(text, files) => post(text, thread.id, files)}
               renderAttachments={(c) => <CommentAttachments attachments={c.attachments} fileUrl={(pth) => fileUrl(api, pth)} />}
               onReact={(row, kind) => void react(row, kind)}
-              ownName={api.mode === 'shared' ? authorName : ''}
+              ownName={api.mode === 'shared' ? storedName : ''}
               nameMissing={api.mode === 'shared' && !authorName.trim()}
               nameRequired={nameRequired}
             />

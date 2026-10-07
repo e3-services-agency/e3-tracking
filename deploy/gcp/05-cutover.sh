@@ -24,7 +24,7 @@ OUT="${OUT_DIR:-$GCP_DIR/cutover-out}"
 CLIENT_NAME="${CLIENT_NAME:-Imported}"
 DC="cd /opt/e3-tracking && sudo docker compose --env-file .env -f docker-compose.yml -f docker-compose.gcp.yml --profile edge"
 # Remote helper: node one-liner inside the app container. Args: METHOD PATH; body on stdin.
-NODE_POST='let b="";process.stdin.on("data",d=>b+=d).on("end",async()=>{const r=await fetch("http://127.0.0.1:3001"+process.argv[2],{method:process.argv[1],headers:{"content-type":"application/json","x-forwarded-email":"cutover@'"$WORKSPACE_DOMAIN"'"},body:process.argv[1]==="GET"?undefined:b});process.stdout.write(await r.text())})'
+NODE_POST='let b="";process.stdin.setEncoding("utf8");process.stdin.on("data",d=>b+=d).on("end",async()=>{const r=await fetch("http://127.0.0.1:3001"+process.argv[2],{method:process.argv[1],headers:{"content-type":"application/json","x-forwarded-email":"cutover@'"$WORKSPACE_DOMAIN"'"},body:process.argv[1]==="GET"?undefined:b});const t=await r.text();if(!r.ok){process.stderr.write("HTTP "+r.status+" "+t);process.exit(1)}process.stdout.write(t)})'
 vm_call() { # METHOD PATH (stdin = body)
   gcloud compute ssh "$VM_NAME" "${IAP[@]}" --command "$DC exec -T app node -e '$NODE_POST' $1 $2"
 }
@@ -71,8 +71,10 @@ done
 [ -n "$clients" ] || { echo "The app on the VM did not answer over ssh." >&2; exit 1; }
 cid="$(node -e 'const l=JSON.parse(process.argv[1]);const a=Array.isArray(l)?l:(l.clients||[]);const c=a.find(x=>x.name===process.argv[2]);process.stdout.write(c?c.id:"")' "$clients" "$CLIENT_NAME")"
 if [ -z "$cid" ]; then
-  created="$(printf '{"name":"%s"}' "$CLIENT_NAME" | vm_call POST /api/clients)"
-  cid="$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).id)' "$created")"
+  ckey="$(printf '%s' "$CLIENT_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-//; s/-$//')"
+  created="$(printf '{"name":"%s","key":"%s"}' "$CLIENT_NAME" "$ckey" | vm_call POST /api/clients)" || { echo "Creating client failed: $created" >&2; exit 1; }
+  cid="$(node -e 'try{const c=JSON.parse(process.argv[1]);process.stdout.write(c.id||"")}catch{}' "$created")"
+  [ -n "$cid" ] || { echo "Client creation returned no id: $created" >&2; exit 1; }
   say "created client $CLIENT_NAME ($cid)"
 fi
 for p in "${PROJECTS[@]}"; do

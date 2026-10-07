@@ -166,7 +166,7 @@ The VM runs compose with `-f docker-compose.yml -f docker-compose.gcp.yml` (`dep
 
 ### Costs (estimate)
 
-e2-small about 13 EUR, 20 GB pd-balanced about 2 EUR, 20 GB boot disk about 2 EUR, static IP in use free, Artifact Registry and bucket cents, uptime checks within the free tier: roughly 15 to 25 EUR per month. Teardown is manual in the console and not scripted.
+e2-micro about 6 to 7 EUR (upgrade to e2-small, about 13 EUR, if memory is tight), 20 GB pd-balanced about 2 EUR, 20 GB boot disk about 2 EUR, static IP in use free, Artifact Registry and bucket cents, uptime checks within the free tier: roughly 15 to 25 EUR per month. Teardown is manual in the console and not scripted.
 
 ### GCP deployment: addenda (T-5-07 review fixes)
 

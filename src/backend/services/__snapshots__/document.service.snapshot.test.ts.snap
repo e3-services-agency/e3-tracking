@@ -29024,6 +29024,7 @@ track: {
   },
   "format": "e3-tracking-document",
   "identification_flow": "No identity rules are defined yet, so the plan does not say how a customer is identified.",
+  "identifiers": [],
   "identity_codegen": {
     "anonymize": {
       "gtm_datalayer": "// No logout (anonymize) rule configured.",

@@ -246,9 +246,29 @@ function cell(value: string | null | undefined): string {
  * Renders the "Identity rules" documentation section: one row per rule, ordered as passed in
  * (callers pass `listIdentityRules`'s already sort_order-ordered result).
  */
-export function renderIdentityRulesSection(rules: IdentityRuleForDocs[], identificationFlow?: string | null): string {
+export interface IdentifierForDocs {
+  name: string;
+  type: string;
+  description?: string | null;
+  is_cookie?: boolean;
+}
+
+/** D-69: the identifiers registry as two lists, hard ids and soft ids (the cookie is marked). */
+function renderIdentifiersBlock(identifiers: IdentifierForDocs[]): string {
+  if (identifiers.length === 0) return '';
+  const list = (type: string) => {
+    const items = identifiers.filter((i) => i.type === type);
+    if (items.length === 0) return '<p>None.</p>';
+    return `<ul>${items
+      .map((i) => `<li><code>${escapeHtml(i.name)}</code>${i.is_cookie ? ' (cookie)' : ''}${i.description ? ` - ${escapeHtml(i.description)}` : ''}</li>`)
+      .join('')}</ul>`;
+  };
+  return `<h3>Identifiers</h3><div class="identifiers"><h4>Hard IDs</h4>${list('hard')}<h4>Soft IDs</h4>${list('soft')}</div>`;
+}
+
+export function renderIdentityRulesSection(rules: IdentityRuleForDocs[], identificationFlow?: string | null, identifiers: IdentifierForDocs[] = []): string {
   if (rules.length === 0) {
-    return '<section id="identity-rules"><h2>Identity rules</h2><p>No identity rules defined.</p></section>';
+    return `<section id="identity-rules"><h2>Identity rules</h2>${renderIdentifiersBlock(identifiers)}<p>No identity rules defined.</p></section>`;
   }
   const rows = rules
     .map(
@@ -273,6 +293,7 @@ export function renderIdentityRulesSection(rules: IdentityRuleForDocs[], identif
     .join('\n');
   return `<section id="identity-rules">
     <h2>Identity rules</h2>
+    ${renderIdentifiersBlock(identifiers)}
     ${identificationFlow ? `<h3>Identification flow</h3><p class="identification-flow">${escapeHtml(identificationFlow)}</p>` : ''}
     <table>
       <thead>

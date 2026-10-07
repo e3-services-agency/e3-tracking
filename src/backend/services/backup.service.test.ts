@@ -109,6 +109,7 @@ const EXPECTED_KEYS = [
   'event_properties',
   'variants',
   'standard_event_mappings',
+  'identifiers',
   'identity_rules',
   'catalogs',
   'catalog_fields',

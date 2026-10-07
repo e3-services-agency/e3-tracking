@@ -31,6 +31,7 @@ import { dataLayerPath, parseDerivation } from '../../domain/codegen/derivation'
 import { getFileStore } from '../files/FileStore';
 import type { CodegenEventNameOverrides } from '../../types/schema';
 import { listIdentityRules } from '../dal/identity-rule.dal';
+import { listIdentifiers } from '../dal/identifier.dal';
 import { getProjectIdentificationFlow, listIdentityRulesForCodegen } from './identification.service';
 import { listProperties, listPropertiesLookingUpCatalog } from '../dal/property.dal';
 import { listConsentCategories } from '../dal/consent-category.dal';
@@ -364,7 +365,7 @@ function buildIdentityAndConsentSectionsHtml(projectId: string, publicView: bool
   const identityCodegen = buildIdentityCodegen(listIdentityRulesForCodegen(projectId), customerProperties);
 
   return [
-    renderIdentityRulesSection(rulesForDocs, flow.paragraph),
+    renderIdentityRulesSection(rulesForDocs, flow.paragraph, listIdentifiers(projectId)),
     renderIdentityCodegenSection(identityCodegen),
     renderConsentCategoriesSection(categories),
   ].join('\n');

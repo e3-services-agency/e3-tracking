@@ -27,6 +27,7 @@ import type { IdentifierSetBy } from '@/src/domain/identity/identifiers';
 
 interface IdentityRuleRow {
   id: string;
+  identifier_id?: string | null;
   identifier_name: string;
   identity_type: string;
   name: string;
@@ -105,6 +106,7 @@ export function IdentityRules() {
     load();
   }, [load]);
 
+  const sameIdentifierCount = (rule: IdentityRuleRow) => rules.filter((r) => r.identifier_name === rule.identifier_name).length;
   const eventName = (id: string | null) => events.find((e) => e.id === id)?.name ?? '—';
   const sourceName = (id: string | null) => sources.find((s) => s.id === id)?.name ?? '—';
 
@@ -155,7 +157,7 @@ ${flowParagraph}
         </div>
         <ol className="mb-6 grid grid-cols-3 gap-3 text-sm" data-testid="identity-intro">
           {([
-            ['1', 'Define each identifier', 'Name it, say whether it is hard or soft, and how its value is cleaned.'],
+            ['1', 'Define the identifiers (Settings)', 'The hard IDs, soft IDs and cookie of the project are set once in Settings. A rule is one act of identifying with one of them.'],
             ['2', 'Say how it is set', 'An event that sends it, or a standalone identify call with no event.'],
             ['3', 'Say which events carry it', 'The events that send it in customer_ids. Defaults come from the implementation method and source.'],
           ] as const).map(([n, title, text]) => (
@@ -174,7 +176,7 @@ ${flowParagraph}
               <tr>
                 <HintTh className="px-6 py-3 font-medium text-gray-500 w-20" hint="Order" hintScope="Identity">Order</HintTh>
                 <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Name" hintScope="Identity">Name</HintTh>
-                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Identifier name" hintScope="Identity">Identifier name</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Identifier name" hintScope="Identity">Identifier</HintTh>
                 <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Type" hintScope="Identity">Type</HintTh>
                 <HintTh className="px-6 py-3 font-medium text-gray-500" hint="SDK call" hintScope="Identity">SDK call</HintTh>
                 <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Trigger event" hintScope="Identity">Trigger event</HintTh>
@@ -197,7 +199,7 @@ ${flowParagraph}
                     </div>
                   </td>
                   <td className="px-6 py-4 font-medium text-gray-900 cursor-pointer" onClick={() => openRule(rule.id)}>{rule.name}</td>
-                  <td className="px-6 py-4 text-gray-500">{rule.identifier_name}</td>
+                  <td className="px-6 py-4 text-gray-500">{rule.identifier_name}{sameIdentifierCount(rule) > 1 && <span className="ml-1 text-xs text-gray-400">({sameIdentifierCount(rule)} acts)</span>}</td>
                   <td className="px-6 py-4 text-gray-500">{rule.identity_type}</td>
                   <td className="px-6 py-4 text-gray-500">{rule.sdk_call ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500">{eventName(rule.trigger_event_id)}</td>

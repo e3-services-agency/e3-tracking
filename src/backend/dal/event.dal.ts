@@ -309,7 +309,7 @@ function normalizeIdentifiers(value: unknown): string[] | null {
   return value.filter((v): v is string => typeof v === 'string');
 }
 
-/** D-67: every name must be an identifier_name of one of the project's identity rules (400 otherwise); `[]`/null clear to the derived default. */
+/** D-67: every name must be an identifier of the project's registry (D-69) (400 otherwise); `[]`/null clear to the derived default. */
 function validateIdentifiers(projectId: string, value: unknown): string[] | null {
   if (value === null || value === undefined) return null;
   if (!Array.isArray(value) || value.some((v) => typeof v !== 'string')) {
@@ -318,14 +318,12 @@ function validateIdentifiers(projectId: string, value: unknown): string[] | null
   const names = [...new Set(value as string[])];
   if (names.length === 0) return [];
   const known = new Set(
-    (getDb().prepare('SELECT identifier_name FROM identity_rules WHERE project_id = ?').all(projectId) as { identifier_name: string }[]).map(
-      (r) => r.identifier_name
-    )
+    (getDb().prepare('SELECT name FROM identifiers WHERE project_id = ?').all(projectId) as { name: string }[]).map((r) => r.name)
   );
   const unknown = names.filter((n) => !known.has(n));
   if (unknown.length > 0) {
     throw new BadRequestError(
-      `identifiers_json names no identity rule: ${unknown.join(', ')}.`,
+      `identifiers_json names no registered identifier: ${unknown.join(', ')}.`,
       'identifiers_json'
     );
   }

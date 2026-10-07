@@ -153,6 +153,7 @@ export interface BackupPayload {
   event_properties: Row[];
   variants: Row[];
   standard_event_mappings: Row[];
+  identifiers: Row[];
   identity_rules: Row[];
   catalogs: Row[];
   catalog_fields: Row[];
@@ -276,6 +277,7 @@ export async function buildBackup(projectId: string): Promise<BackupPayload> {
     ),
     variants: directRows('variants', projectId, warnings, 'created_at'),
     standard_event_mappings: directRows('standard_event_mappings', projectId, warnings, 'created_at'),
+    identifiers: directRows('identifiers', projectId, warnings, 'sort_order, created_at'),
     identity_rules: directRows('identity_rules', projectId, warnings, 'sort_order, created_at'),
     catalogs: directRows('catalogs', projectId, warnings, 'created_at'),
     catalog_fields: joinedRows('catalog_fields', 'catalogs', 'id', 'catalog_id', projectId, warnings, 'c.created_at'),

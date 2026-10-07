@@ -12,6 +12,7 @@ const router = Router({ mergeParams: true });
 
 function inputFromBody(body: Record<string, unknown>): Partial<IdentityRuleDAL.IdentityRuleInput> {
   const input: Partial<IdentityRuleDAL.IdentityRuleInput> = {};
+  if (typeof body.identifier_id === 'string') input.identifier_id = body.identifier_id;
   if (typeof body.identifier_name === 'string') input.identifier_name = body.identifier_name;
   if (typeof body.identity_type === 'string') input.identity_type = body.identity_type;
   if (typeof body.name === 'string') input.name = body.name;
@@ -61,7 +62,7 @@ router.post('/', (req: Request, res: Response) => {
     res.status(400).json({ error: 'name is required.', code: 'NAME_REQUIRED', field: 'name' });
     return;
   }
-  if (!identifierName) {
+  if (!identifierName && typeof body.identifier_id !== 'string') {
     res.status(400).json({
       error: 'identifier_name is required.',
       code: 'IDENTIFIER_NAME_REQUIRED',
@@ -74,7 +75,7 @@ router.post('/', (req: Request, res: Response) => {
       ...inputFromBody(body),
       name,
       identifier_name: identifierName,
-      identity_type: identityType,
+      identity_type: identityType || undefined,
     });
     res.status(201).json(rule);
   } catch (err) {

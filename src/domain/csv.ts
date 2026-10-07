@@ -128,9 +128,14 @@ export const CSV_ENTITIES = {
   standard_event_mappings: {
     headers: ['id', 'standard_event', 'event_id', 'event_name', 'variant_id', 'variant_name', 'field_map_json'],
   },
+  // D-69 (0032_identifiers.sql): the project's hard ids, soft ids and cookie.
+  identifiers: {
+    headers: ['id', 'name', 'type', 'description', 'is_cookie', 'sort_order'],
+  },
   identity_rules: {
     headers: [
       'id',
+      'identifier_id',
       'identifier_name',
       'identity_type',
       'name',

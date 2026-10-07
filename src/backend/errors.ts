@@ -11,11 +11,11 @@ export class ConflictError extends Error {
   }
 }
 
-/** 409 with a stable code: an identity rule with this identifier name already exists in the project (T-4-32). */
+/** 409 with a stable code: an identifier with this name already exists in the project (T-4-32, D-69). */
 export class IdentifierExistsError extends ConflictError {
   readonly code = 'IDENTIFIER_EXISTS';
   constructor(identifierName: string) {
-    super(`An identity rule for "${identifierName}" already exists in this project.`);
+    super(`An identifier "${identifierName}" already exists in this project.`);
     this.name = 'IdentifierExistsError';
   }
 }
@@ -442,4 +442,13 @@ export class RateLimitedError extends Error {
 /** T-4-24: deleting a bundle whose properties are all linked to an event; `?force=true` overrides. */
 export class BundleInUseError extends ConflictError {
   readonly code = 'BUNDLE_IN_USE';
+}
+
+/** 409 with a stable code: the identifier is still referenced by identity rules or events (D-69). */
+export class IdentifierInUseError extends ConflictError {
+  readonly code = 'IDENTIFIER_IN_USE';
+  constructor(identifierName: string, public readonly usage: { rules: number; events: number }) {
+    super(`Identifier "${identifierName}" is used by ${usage.rules} identity rule(s) and ${usage.events} event(s); remove those first.`);
+    this.name = 'IdentifierInUseError';
+  }
 }

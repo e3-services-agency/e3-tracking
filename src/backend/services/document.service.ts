@@ -23,6 +23,7 @@ import * as RequirementDAL from '../dal/requirement.dal';
 import * as ProjectDAL from '../dal/project.dal';
 import * as PropertyDAL from '../dal/property.dal';
 import * as IdentityRuleDAL from '../dal/identity-rule.dal';
+import * as IdentifierDAL from '../dal/identifier.dal';
 import { buildIdentityCodegen } from './codegen.service';
 import { listIdentityRulesForCodegen } from './identification.service';
 import { buildIdentificationFlow, effectiveEventIdentifiers, identifiersAreDerived, type IdentificationFlow } from '../../domain/identity/identifiers';
@@ -291,6 +292,8 @@ export interface EventCardBuildContext {
   hardIdKey: string | null;
   /** D-67 (T-4-28): the project's identity rules, sources and the batched identification flow (built once). */
   identityRules: IdentityRuleDAL.IdentityRuleRow[];
+  /** D-69 (T-4-35): the project's identifiers registry. */
+  identifiers: IdentifierDAL.IdentifierRow[];
   allSources: SourceDAL.SourceRow[];
   identificationFlow: IdentificationFlow;
   /** D-62 (T-4-11B): each event's linked sources, keyed by event id. */
@@ -376,6 +379,7 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
     }));
 
   const identityRules = IdentityRuleDAL.listIdentityRules(projectId);
+  const identifierRows = IdentifierDAL.listIdentifiers(projectId);
   const allSources = SourceDAL.listSources(projectId);
   const sourcesByEventId = SourceDAL.listEventSourcesByProject(projectId);
   return {
@@ -394,11 +398,13 @@ export function buildEventCardContext(projectId: string): EventCardBuildContext 
     projectContextProperties,
     hardIdKey: identityRules.find((r) => r.identity_type === 'hard')?.identifier_name ?? null,
     identityRules,
+    identifiers: identifierRows,
     allSources,
     identificationFlow: buildIdentificationFlow(
       identityRules,
       events.map((e) => ({ ...e, source_ids: (sourcesByEventId.get(e.id) ?? []).map((s) => s.id) })),
-      allSources
+      allSources,
+      identifierRows
     ),
     sourcesByEventId,
     catalogFieldLabelById,
@@ -724,7 +730,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
   const attachedForCodegen =
     variants.length > 0 ? attachedPropertiesForVariant(properties, variants[0]) : properties.map(toAttachedPropertyForCodegen);
   const identifierEvent = { ...event, source_ids: (context.sourcesByEventId.get(event.id) ?? []).map((s) => s.id) };
-  const identifiers = effectiveEventIdentifiers(identifierEvent, context.identityRules, context.allSources);
+  const identifiers = effectiveEventIdentifiers(identifierEvent, context.identityRules, context.allSources, context.identifiers);
   const codegenSnippets = buildCodegenV2(
     event.name,
     attachedForCodegen,
@@ -736,7 +742,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
       hardIdKey: context.hardIdKey,
       identifierKeys: identifiers,
       identifierNone: Array.isArray(event.identifiers_json) && event.identifiers_json.length === 0,
-      identifierHasSoft: context.identityRules.some((r) => r.identity_type === 'soft' && identifiers.includes(r.identifier_name)),
+      identifierHasSoft: context.identifiers.some((i) => i.type === 'soft' && identifiers.includes(i.name)),
       catalogLinks: catalogLinksForProperties(properties, context),
     },
     event.codegen_event_name_overrides_json as CodegenEventNameOverrides | null
@@ -751,7 +757,7 @@ export function buildEventCard(projectId: string, eventId: string, ctx?: EventCa
     dl_event_name: event.dl_event_name,
     sources: (context.sourcesByEventId.get(event.id) ?? []).map((s) => ({ id: s.id, name: s.name, system: s.system, method: s.method, color: s.color })),
     identifiers,
-    identifiers_derived: identifiersAreDerived(identifierEvent, context.identityRules),
+    identifiers_derived: identifiersAreDerived(identifierEvent, context.identityRules, context.identifiers),
     description: event.description,
     purpose: event.purpose,
     page: event.page,
@@ -1054,6 +1060,13 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
     events: eventCards,
     properties: customerProperties,
     event_properties: eventProperties,
+    identifiers: ctx.identifiers.map((i) => ({
+      name: i.name,
+      type: i.type,
+      description: i.description,
+      is_cookie: i.is_cookie,
+      acts: ctx.identityRules.filter((r) => r.identifier_id === i.id).map((r) => r.name),
+    })),
     identity_rules: identityRules,
     identification_flow: ctx.identificationFlow.paragraph,
     identity_codegen: buildIdentityCodegen(listIdentityRulesForCodegen(projectId), customerPropertyRows),

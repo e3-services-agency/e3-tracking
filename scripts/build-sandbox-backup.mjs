@@ -89,6 +89,7 @@ async function main() {
   const SourceDAL = await import('../src/backend/dal/source.dal.ts');
   const ConsentDAL = await import('../src/backend/dal/consent-category.dal.ts');
   const IdentityDAL = await import('../src/backend/dal/identity-rule.dal.ts');
+  const IdentifierDAL = await import('../src/backend/dal/identifier.dal.ts');
   const QaRunDAL = await import('../src/backend/dal/qa-run.dal.ts');
   const ObservationDAL = await import('../src/backend/dal/observation.dal.ts');
   const FindingDAL = await import('../src/backend/dal/finding.dal.ts');
@@ -238,6 +239,7 @@ async function main() {
       PropertyDAL.updateProperty(projectId, ep(propertyName).id, { mapped_catalog_id: link.catalogId, mapped_catalog_field_id: link.fieldId });
     }
     seed.CONSENT_CATEGORIES.forEach((c, sort_order) => ConsentDAL.createConsentCategory(projectId, { ...c, sort_order }));
+    for (const ident of seed.IDENTIFIERS) IdentifierDAL.createIdentifier(projectId, ident);
     seed.IDENTITY_RULES.forEach((r, sort_order) => {
       const { trigger_event, transformations, source, ...rest } = r;
       IdentityDAL.createIdentityRule(projectId, {

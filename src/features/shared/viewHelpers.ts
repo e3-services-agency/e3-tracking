@@ -143,6 +143,7 @@ export interface NavDocInput {
   event_properties?: unknown[];
   use_cases: { id?: string; name?: string; code?: string | null; type?: string | null }[];
   identity_rules: unknown[];
+  identifiers?: unknown[];
   consent_categories: { name: string; standard_key?: string | null }[];
   catalogs: unknown[];
   standard_event_mappings: { standard_event?: string; event_name?: string | null; variant_name?: string | null }[];
@@ -259,7 +260,7 @@ export function sectionPresence(doc: NavDocInput) {
     events: doc.events.length > 0,
     properties: doc.properties.length + (doc.event_properties?.length ?? 0) > 0,
     useCases: doc.use_cases.length > 0,
-    identity: doc.identity_rules.length > 0,
+    identity: doc.identity_rules.length > 0 || (doc.identifiers?.length ?? 0) > 0,
     consents: doc.consent_categories.length > 0,
     catalogs: doc.catalogs.length > 0,
     mapping: doc.standard_event_mappings.length > 0,

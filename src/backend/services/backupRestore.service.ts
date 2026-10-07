@@ -44,6 +44,7 @@ import { runWithActor, getActor } from '../context/actor';
 import { getFileStore } from '../files/FileStore';
 import { tableColumns, tableExists } from './backup.service';
 import { runComparison } from './comparison.service';
+import { backfillIdentifiersFromRules } from '../dal/identifier.dal';
 import { parseBackupFile, PROJECT_SCOPED_TABLES, type BackupRow } from '../../domain/import/backup';
 import { payloadHash } from '../../domain/diff/hash';
 import { BACKUP_FORMAT, BACKUP_VERSION } from '../../domain/enums';
@@ -481,6 +482,9 @@ export async function applyRestore(
             rows.forEach((r, i) => upd.run(i, r.id));
           }
         }
+
+        // D-69: a backup from before 0032 has rules without a registry; create the identifiers from them.
+        backfillIdentifiersFromRules(newProjectId);
 
         recordChange({
           projectId: newProjectId,

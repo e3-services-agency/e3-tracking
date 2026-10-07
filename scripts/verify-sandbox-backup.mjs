@@ -33,6 +33,7 @@ const counts = {
   use_cases: count('SELECT COUNT(*) n FROM use_cases WHERE project_id = ? AND deleted_at IS NULL'),
   requirements: count('SELECT COUNT(*) n FROM requirements WHERE use_case_id IN (SELECT id FROM use_cases WHERE project_id = ?)'),
   consent_categories: count('SELECT COUNT(*) n FROM consent_categories WHERE project_id = ?'),
+  identifiers: count('SELECT COUNT(*) n FROM identifiers WHERE project_id = ?'),
   identity_rules: count('SELECT COUNT(*) n FROM identity_rules WHERE project_id = ?'),
   standard_event_mappings: count('SELECT COUNT(*) n FROM standard_event_mappings WHERE project_id = ?'),
   rules: count('SELECT COUNT(*) n FROM rules WHERE project_id = ?'),

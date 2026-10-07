@@ -6,14 +6,16 @@
  */
 import { getDb } from '../db';
 import { newId, nowIso, mapWriteError, parseJsonColumn, toJsonColumn } from '../db/util';
-import { BadRequestError, IdentifierExistsError, NotFoundError, ValidationError } from '../errors';
+import { BadRequestError, NotFoundError, ValidationError } from '../errors';
 import { IDENTITY_TYPES, IDENTITY_TRANSFORMATIONS, IDENTITY_SDK_CALLS, PRIORITIES, ENTITY_STATUSES } from '../../domain/enums';
 import { validateAsciiName } from './validators';
 import * as ChangeLogDAL from './change-log.dal';
+import * as IdentifierDAL from './identifier.dal';
 
 export interface IdentityRuleRow {
   id: string;
   project_id: string;
+  identifier_id: string | null;
   identifier_name: string;
   identity_type: string;
   name: string;
@@ -40,8 +42,12 @@ export interface IdentityRuleRow {
 type IdentityRuleDbRow = Omit<IdentityRuleRow, 'transformations_json'> & { transformations_json: string | null };
 
 export interface IdentityRuleInput {
-  identifier_name: string;
-  identity_type: string;
+  /** D-69: the registry entry this rule is an act of; wins over `identifier_name`. */
+  identifier_id?: string | null;
+  /** Compatibility: finds or creates the registry entry by name (case-insensitive). */
+  identifier_name?: string;
+  /** Used only when the name creates a new identifier; the type otherwise comes from the registry. */
+  identity_type?: string;
   name: string;
   description?: string | null;
   trigger_event_id?: string | null;
@@ -67,14 +73,18 @@ function mapIdentityRuleRow(row: IdentityRuleDbRow): IdentityRuleRow {
 
 export function listIdentityRules(projectId: string): IdentityRuleRow[] {
   const rows = getDb()
-    .prepare('SELECT * FROM identity_rules WHERE project_id = ? ORDER BY sort_order, created_at')
+    .prepare(`SELECT r.*, COALESCE(i.name, r.identifier_name) AS identifier_name, COALESCE(i.type, r.identity_type) AS identity_type
+      FROM identity_rules r LEFT JOIN identifiers i ON i.id = r.identifier_id
+      WHERE r.project_id = ? ORDER BY r.sort_order, r.created_at`)
     .all(projectId) as IdentityRuleDbRow[];
   return rows.map(mapIdentityRuleRow);
 }
 
 export function getIdentityRuleById(projectId: string, id: string): IdentityRuleRow | null {
   const row = getDb()
-    .prepare('SELECT * FROM identity_rules WHERE id = ? AND project_id = ?')
+    .prepare(`SELECT r.*, COALESCE(i.name, r.identifier_name) AS identifier_name, COALESCE(i.type, r.identity_type) AS identity_type
+      FROM identity_rules r LEFT JOIN identifiers i ON i.id = r.identifier_id
+      WHERE r.id = ? AND r.project_id = ?`)
     .get(id, projectId) as IdentityRuleDbRow | undefined;
   return row ? mapIdentityRuleRow(row) : null;
 }
@@ -147,24 +157,31 @@ function assertSourceInProject(projectId: string, sourceId: string | null | unde
   if (!row) throw new BadRequestError('source_id does not belong to this project.', 'source_id');
 }
 
-/** identifier_name is unique per project, case-insensitive (T-4-32): 409 IDENTIFIER_EXISTS. */
-function assertIdentifierFree(projectId: string, identifierName: string, exceptId?: string): void {
-  const row = getDb()
-    .prepare('SELECT id FROM identity_rules WHERE project_id = ? AND lower(identifier_name) = lower(?) AND id != ?')
-    .get(projectId, identifierName, exceptId ?? '');
-  if (row) throw new IdentifierExistsError(identifierName);
+/**
+ * Resolves the registry identifier for a rule write (D-69): `identifier_id` wins, else
+ * `identifier_name` finds or creates (a new one needs a valid `identity_type`).
+ */
+function resolveIdentifier(projectId: string, input: Pick<IdentityRuleInput, 'identifier_id' | 'identifier_name' | 'identity_type'>): IdentifierDAL.IdentifierRow {
+  if (input.identifier_id) {
+    const row = IdentifierDAL.getIdentifierById(projectId, input.identifier_id);
+    if (!row) throw new BadRequestError('identifier_id does not belong to this project.', 'identifier_id');
+    return row;
+  }
+  const identifierName = input.identifier_name?.trim() ?? '';
+  if (!identifierName) throw new ValidationError('Identifier name is required.', 'identifier_name');
+  validateAsciiName(identifierName, 'identifier_name');
+  const existing = IdentifierDAL.findIdentifierByName(projectId, identifierName);
+  if (existing) return existing;
+  validateIdentityType(input.identity_type ?? '');
+  return IdentifierDAL.createIdentifier(projectId, { name: identifierName, type: input.identity_type! });
 }
 
 export function createIdentityRule(projectId: string, input: IdentityRuleInput): IdentityRuleRow {
   const name = input.name.trim();
   if (!name) throw new ValidationError('Identity rule name is required.', 'name');
-  const identifierName = input.identifier_name?.trim() ?? '';
-  if (!identifierName) {
+  if (!input.identifier_id && !input.identifier_name?.trim()) {
     throw new ValidationError('Identifier name is required.', 'identifier_name');
   }
-  validateAsciiName(identifierName, 'identifier_name');
-  assertIdentifierFree(projectId, identifierName);
-  validateIdentityType(input.identity_type);
   validatePriority(input.priority);
   validateStatus(input.status);
   validateTransformations(input.transformations_json);
@@ -182,20 +199,22 @@ export function createIdentityRule(projectId: string, input: IdentityRuleInput):
   ).m;
 
   const run = db.transaction(() => {
+    const identifier = resolveIdentifier(projectId, input);
     try {
       db.prepare(
         `INSERT INTO identity_rules (
-          id, project_id, identifier_name, identity_type, name, description, trigger_event_id,
+          id, project_id, identifier_id, identifier_name, identity_type, name, description, trigger_event_id,
           trigger_text, value_rule, example, owner, source_id, tracker, priority, status,
           sort_order, transformations_json, sdk_call, created_at, updated_at
-        ) VALUES (@id, @project_id, @identifier_name, @identity_type, @name, @description,
+        ) VALUES (@id, @project_id, @identifier_id, @identifier_name, @identity_type, @name, @description,
           @trigger_event_id, @trigger_text, @value_rule, @example, @owner, @source_id, @tracker,
           @priority, @status, @sort_order, @transformations_json, @sdk_call, @created_at, @updated_at)`
       ).run({
         id,
         project_id: projectId,
-        identifier_name: identifierName,
-        identity_type: input.identity_type,
+        identifier_id: identifier.id,
+        identifier_name: identifier.name,
+        identity_type: identifier.type,
         name,
         description: input.description?.trim() || null,
         trigger_event_id: input.trigger_event_id ?? null,
@@ -240,15 +259,10 @@ export function updateIdentityRule(
   if (updates.name !== undefined && !updates.name.trim()) {
     throw new ValidationError('Identity rule name is required.', 'name');
   }
-  if (updates.identifier_name !== undefined) {
-    const identifierName = updates.identifier_name.trim();
-    if (!identifierName) {
-      throw new ValidationError('Identifier name is required.', 'identifier_name');
-    }
-    validateAsciiName(identifierName, 'identifier_name');
-    if (identifierName.toLowerCase() !== existing.identifier_name.toLowerCase()) assertIdentifierFree(projectId, identifierName, id);
-  }
   if (updates.identity_type !== undefined) validateIdentityType(updates.identity_type);
+  if (updates.identifier_name !== undefined && !updates.identifier_name.trim()) {
+    throw new ValidationError('Identifier name is required.', 'identifier_name');
+  }
   // Defensive (T-1-06 integration fix): deleteEvent now nulls out trigger_event_id for rules that
   // point at the event it removes, so a stale reference should no longer occur; but skip
   // re-validating an unchanged value regardless, so a save that doesn't touch trigger_event_id
@@ -263,8 +277,6 @@ export function updateIdentityRule(
   if (updates.sdk_call !== undefined) validateSdkCall(updates.sdk_call);
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
-  if (updates.identifier_name !== undefined) patch.identifier_name = updates.identifier_name.trim();
-  if (updates.identity_type !== undefined) patch.identity_type = updates.identity_type;
   if (updates.name !== undefined) patch.name = updates.name.trim();
   if (updates.description !== undefined) patch.description = updates.description?.trim() || null;
   if (updates.trigger_event_id !== undefined) patch.trigger_event_id = updates.trigger_event_id;
@@ -282,11 +294,26 @@ export function updateIdentityRule(
   }
   if (updates.sdk_call !== undefined) patch.sdk_call = updates.sdk_call;
 
-  const setClause = Object.keys(patch)
-    .map((k) => `${k} = @${k}`)
-    .join(', ');
   const db = getDb();
   const run = db.transaction(() => {
+    // D-69: repoint to another identifier (by id or name); a bare identity_type changes the identifier's type.
+    if (updates.identifier_id !== undefined || updates.identifier_name !== undefined) {
+      const same = updates.identifier_id === undefined && updates.identifier_name!.trim().toLowerCase() === existing.identifier_name.toLowerCase();
+      if (!same) {
+        const identifier = resolveIdentifier(projectId, updates);
+        patch.identifier_id = identifier.id;
+        patch.identifier_name = identifier.name;
+        patch.identity_type = identifier.type;
+      }
+    }
+    if (updates.identity_type !== undefined) {
+      const target = IdentifierDAL.getIdentifierOrThrow(projectId, (patch.identifier_id as string | undefined) ?? existing.identifier_id ?? '');
+      if (target.type !== updates.identity_type && patch.identifier_id === undefined) {
+        IdentifierDAL.updateIdentifier(projectId, target.id, { type: updates.identity_type });
+        patch.identity_type = updates.identity_type;
+      }
+    }
+    const setClause = Object.keys(patch).map((k) => `${k} = @${k}`).join(', ');
     try {
       db.prepare(`UPDATE identity_rules SET ${setClause} WHERE id = @id AND project_id = @project_id`)
         .run({ ...patch, id, project_id: projectId });

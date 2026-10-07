@@ -356,6 +356,15 @@ export interface TrackingDocumentEventProperty {
 import type { IdentityCodegenSnippets } from '../codegen/identity';
 import type { IdentifierSetBy } from '../identity/identifiers';
 
+/** D-69 (T-4-35), additive: one registry identifier (hard id, soft id or the cookie) and the names of its identification acts. */
+export interface TrackingDocumentIdentifier {
+  name: string;
+  type: string;
+  description: string | null;
+  is_cookie: boolean;
+  acts: string[];
+}
+
 export interface TrackingDocumentIdentityRule {
   identifier_name: string;
   identity_type: string;
@@ -475,6 +484,8 @@ export interface TrackingDocument {
   properties: TrackingDocumentCustomerProperty[];
   /** D-64 (T-4-20), additive: event-scope properties with category and kind. */
   event_properties: TrackingDocumentEventProperty[];
+  /** D-69 (T-4-35), additive: the identifiers registry. */
+  identifiers?: TrackingDocumentIdentifier[];
   identity_rules: TrackingDocumentIdentityRule[];
   /** D-67 (T-4-28), additive: the generated "Identification flow" paragraph. */
   identification_flow?: string;

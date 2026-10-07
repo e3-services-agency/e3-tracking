@@ -1,0 +1,22 @@
+{
+  "extra_events": [
+    { "name": "booking" },
+    { "name": "booking_passenger" },
+    { "name": "booking_flight" },
+    { "name": "booking_link" },
+    { "name": "booking_flight_shopping_context" },
+    { "name": "activity" },
+    { "name": "invite_fellow_traveller" },
+    { "name": "campaign" },
+    { "name": "managed_endpoint" }
+  ],
+  "attach_properties": {
+    "booking": ["booking_id", "booking_number", "cancelled", "main_passenger_id", "touroperator", "created", "last_modified"]
+  },
+  "industry": "travel",
+  "discriminators": {
+    "cart_update": "action",
+    "view_item": "action",
+    "consent": "action"
+  }
+}

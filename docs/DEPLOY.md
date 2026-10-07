@@ -167,3 +167,12 @@ The VM runs compose with `-f docker-compose.yml -f docker-compose.gcp.yml` (`dep
 ### Costs (estimate)
 
 e2-small about 13 EUR, 20 GB pd-balanced about 2 EUR, 20 GB boot disk about 2 EUR, static IP in use free, Artifact Registry and bucket cents, uptime checks within the free tier: roughly 15 to 25 EUR per month. Teardown is manual in the console and not scripted.
+
+### GCP deployment: addenda (T-5-07 review fixes)
+
+- **Machine size (D-72 amendment 1):** the default is `e2-micro` (1 GB) with a 2 GB swapfile created by `startup.sh`. To upgrade, stop the VM, `gcloud compute instances set-machine-type <vm> --machine-type e2-small --zone <zone>`, start it, and set `MACHINE_TYPE` in `config.env`. The data disk is kept.
+- **Permissions:** your Google account needs `roles/iap.tunnelResourceAccessor` (plus Compute instance admin or OS Login rights) to use `--tunnel-through-iap`. The first `gcloud compute ssh` generates an SSH key and asks for an optional passphrase, and may take a minute to propagate.
+- **File layout on the VM:** `03-deploy.sh` uploads to `~/e3-deploy/`, then installs with sudo into `/opt/e3-tracking/` (`docker-compose.yml`, `docker-compose.gcp.yml`, `deploy/edge/Caddyfile`, `.env` mode 600). The override passes `HOSTNAME` to caddy and `BACKUP_BUCKET` to the backup service.
+- **First deploy:** `03-deploy.sh` writes a `.env` with `REPLACE_ME` OAuth values and stops (exit 1) before `up -d`. Edit `OAUTH2_CLIENT_ID` and `OAUTH2_CLIENT_SECRET` on the VM (`gcloud compute ssh <vm> --tunnel-through-iap` then `sudo nano /opt/e3-tracking/.env`) and rerun the same command. The health check is non-fatal (DNS or the certificate may still be pending).
+- **Cut-over order:** the app must be deployed and healthy first. The default `05-cutover.sh <project-id>...` downloads each backup and prints the browser steps: open `https://<HOSTNAME>/tracking-plan/`, create the client, Clients page, Restore backup, choose the file, confirm the preview. `--via-tunnel` automates this: it creates or reuses the client (`CLIENT_NAME`, default "Imported") and posts preview and apply from inside the VM's app container over IAP ssh. The peer is 127.0.0.1, which is why the default `TRUSTED_PROXY_CIDR` written to `.env` is `172.28.0.8/29,127.0.0.1/32`; only processes inside the app container can connect from loopback, so nothing external gains trust.
+- **Monitoring:** `06-monitoring.sh` uses `gcloud alpha monitoring policies`, which may be unavailable; if it fails, create the alert policy in the console from the uptime check. The script continues.

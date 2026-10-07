@@ -38,5 +38,9 @@ if [ "$DRY_RUN" != 1 ]; then
   "aggregations":[{"alignmentPeriod":"300s","perSeriesAligner":"ALIGN_NEXT_OLDER","crossSeriesReducer":"REDUCE_COUNT_FALSE","groupByFields":["resource.label.*"]}]}}]}
 POLEOF
 fi
-ensure "alert policy ($CH)" "${G[*]} alpha monitoring policies list --filter 'displayName=\"$NAME failing\"' --format 'value(name)' | grep -q ." -- \
-  "${G[@]}" alpha monitoring policies create --policy-from-file "$POLICY"
+say "# NOTE: 'gcloud alpha monitoring policies' is an alpha command and may be missing or prompt to install the alpha component."
+say "# If the next step fails, create the alert policy in the console (Monitoring > Alerting) from the uptime check; the script continues."
+if ! ensure "alert policy ($CH)" "${G[*]} alpha monitoring policies list --filter 'displayName=\"$NAME failing\"' --format 'value(name)' | grep -q ." -- \
+  "${G[@]}" alpha monitoring policies create --policy-from-file "$POLICY"; then
+  say "Alert policy step failed or alpha is unavailable: create it in the console. The uptime check and email channel exist."
+fi

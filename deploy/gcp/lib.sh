@@ -27,7 +27,7 @@ fi
 # shellcheck disable=SC1090
 . "$CONFIG_FILE"
 : "${PROJECT_ID:?}" "${REGION:?}" "${ZONE:?}" "${HOSTNAME:?}" "${VM_NAME:?}" "${REPO:?}" "${BUCKET:?}"
-MACHINE_TYPE="${MACHINE_TYPE:-e2-small}"
+MACHINE_TYPE="${MACHINE_TYPE:-e2-micro}"
 DATA_DISK_GB="${DATA_DISK_GB:-20}"
 SA_NAME="e3-tracking-vm"
 SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"

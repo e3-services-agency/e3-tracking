@@ -1,6 +1,9 @@
-# T-5-07 override, applied on the VM: docker compose -f docker-compose.yml -f docker-compose.gcp.yml ...
-# Binds /data in every service to the mounted 20 GB data disk (/data on the VM host) instead of the
-# named volume e3_data, so app data lives on the persistent disk. Same-target volumes replace the base ones.
+# T-5-07 override, applied on the VM: docker compose --env-file .env -f docker-compose.yml -f docker-compose.gcp.yml ...
+# 1. Binds /data in every service to the mounted 20 GB data disk (/data on the VM host) instead of the
+#    named volume e3_data (same-target volumes replace the base ones).
+# 2. Passes values from the VM .env into containers whose base definition reads them from .env.docker
+#    (not present on the VM): caddy needs HOSTNAME, backup needs BACKUP_BUCKET. oauth2-proxy and app already
+#    get their variables through ${...} interpolation of --env-file .env in the base file.
 services:
   app:
     volumes:
@@ -8,6 +11,11 @@ services:
   backup:
     volumes:
       - /data:/data
+    environment:
+      BACKUP_BUCKET: ${BACKUP_BUCKET:-}
   mcp:
     volumes:
       - /data:/data
+  caddy:
+    environment:
+      HOSTNAME: ${HOSTNAME}

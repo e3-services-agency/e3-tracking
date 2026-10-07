@@ -30,5 +30,12 @@ if [ -e "$DEV" ]; then
   mountpoint -q /data || mount /data
 fi
 chown 1000:1000 /data 2>/dev/null || true
+if [ ! -f /swapfile ]; then
+  fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+  chmod 600 /swapfile
+  mkswap /swapfile
+fi
+swapon --show=NAME | grep -q /swapfile || swapon /swapfile
+grep -q "^/swapfile" /etc/fstab || echo "/swapfile none swap sw 0 0" >> /etc/fstab
 mkdir -p /opt/e3-tracking
 chmod 755 /opt/e3-tracking

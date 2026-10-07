@@ -9,7 +9,8 @@ describe('markdownEdit', () => {
     expect(w.text).toBe('a **bold** b');
     expect(w.text.slice(w.start, w.end)).toBe('bold');
     expect(wrapSelection(w, '**').text).toBe('a bold b');
-    expect(wrapSelection({ text: '**x**', start: 0, end: 5 }, '**').text).toBe('x');
+    // wrapper only unwraps when outside the selection; snake_case is left alone
+    expect(wrapSelection({ text: 'a_b_c', start: 2, end: 3 }, '*').text).toBe('a_*b*_c');
   });
   it('toggles list prefixes over several lines', () => {
     const a = toggleLinePrefix({ text: 'one\ntwo', start: 0, end: 7 }, 'number');
@@ -30,6 +31,11 @@ describe('markdownEdit', () => {
     expect(indentList({ text: '  - a', start: 5, end: 5 }, true)!.text).toBe('- a');
     expect(indentList({ text: 'a', start: 1, end: 1 }, false)).toBeNull();
   });
+  it('handles caret at 0 on an empty first line and splits lines', () => {
+    expect(toggleLinePrefix({ text: '\nabc', start: 0, end: 0 }, 'bullet').text).toBe('- \nabc');
+    expect(continueList({ text: '- \nrest', start: 2, end: 2 })!.text).toBe('\nrest');
+    expect(continueList({ text: '- ab cd', start: 4, end: 4 })!.text).toBe('- ab\n-  cd');
+  });
   it('inserts a link and selects the url', () => {
     const r = insertLink({ text: 'see docs', start: 4, end: 8 });
     expect(r.text).toBe('see [docs](https://)');
@@ -44,5 +50,6 @@ describe('markdownEdit', () => {
     expect(attachmentImageMarkdown('a1', 'sh[o]t')).toBe('![shot](attachment:a1)');
     expect(externalHost('https://example.com/a')).toBe('example.com');
     expect(externalHost('/local')).toBeNull();
+    expect(externalHost('//cdn.example.com/x')).toBe('cdn.example.com');
   });
 });

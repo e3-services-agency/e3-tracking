@@ -16,7 +16,7 @@ import type { CommentPanelRow } from './CommentsPanel';
 import { CommentReactions } from './CommentReactions';
 import type { CommentReactionKind } from '@/src/domain/enums';
 import { AttachmentPicker } from './CommentAttachments';
-import { CommentBody } from './CommentBody';
+import { CommentBody, threadAttachments as threadAttachmentsOf } from './CommentBody';
 import { MarkdownEditor } from '@/src/components/ui/MarkdownEditor';
 import { COMMENT_BODY_MAX, resolveAttachmentSrc } from '@/src/domain/markdownEdit';
 
@@ -72,6 +72,9 @@ export function CommentItem({
   const statusOptions: readonly CommentStatus[] = mode === 'internal' ? COMMENT_STATUSES : SHARE_SETTABLE_COMMENT_STATUSES;
   // A share link may not reopen: once closed, the menu is gone for it.
   const canSetStatus = canComment && (mode === 'internal' || (thread.status !== 'done' && thread.status !== 'wont_do'));
+
+  // An `attachment:<id>` reference resolves across the whole thread (root and every reply).
+  const threadAttachments = threadAttachmentsOf(thread, thread.replies);
 
   const sendReply = () => {
     if (!replyBody.trim() || replying) return;
@@ -147,7 +150,7 @@ export function CommentItem({
           </span>
         )}
       </div>
-      <CommentBody className="mt-1" body={thread.body} attachments={thread.attachments} fileUrl={fileUrl} />
+      <CommentBody className="mt-1" body={thread.body} attachments={threadAttachments} fileUrl={fileUrl} />
       {renderAttachments?.(thread)}
       {reactionsRow(thread, true)}
 
@@ -156,7 +159,7 @@ export function CommentItem({
           {visibleReplies.map((reply) => (
             <li key={reply.id} data-testid="comment-reply">
               <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">{meta(reply)}</div>
-              <CommentBody className="mt-0.5" body={reply.body} attachments={reply.attachments} fileUrl={fileUrl} />
+              <CommentBody className="mt-0.5" body={reply.body} attachments={threadAttachments} fileUrl={fileUrl} />
               {renderAttachments?.(reply)}
               {reactionsRow(reply, false)}
             </li>
@@ -188,9 +191,9 @@ export function CommentItem({
             rows={2}
             maxLength={COMMENT_BODY_MAX}
             disabled={replying}
-            attachments={(thread.attachments ?? []).map((a, i) => ({ id: a.id, label: `Image ${i + 1}` }))}
+            attachments={threadAttachments.map((a, i) => ({ id: a.id, label: `Image ${i + 1}` }))}
             pendingNames={replyFiles.map((f) => f.name)}
-            resolveImage={(src) => resolveAttachmentSrc(src, thread.attachments, fileUrl)}
+            resolveImage={(src) => resolveAttachmentSrc(src, threadAttachments, fileUrl)}
           />
           <div className="flex items-center gap-2">
             <button

@@ -15,10 +15,6 @@ export const COMMENT_BODY_MAX = 10000;
 export function wrapSelection(s: EditState, before: string, after: string = before): EditState {
   const { text, start, end } = s;
   const sel = text.slice(start, end);
-  if (sel.length >= before.length + after.length && sel.startsWith(before) && sel.endsWith(after)) {
-    const inner = sel.slice(before.length, sel.length - after.length);
-    return { text: text.slice(0, start) + inner + text.slice(end), start, end: start + inner.length };
-  }
   if (start >= before.length && text.slice(start - before.length, start) === before && text.slice(end, end + after.length) === after) {
     return {
       text: text.slice(0, start - before.length) + sel + text.slice(end + after.length),
@@ -27,6 +23,10 @@ export function wrapSelection(s: EditState, before: string, after: string = befo
     };
   }
   return { text: text.slice(0, start) + before + sel + after + text.slice(end), start: start + before.length, end: end + before.length };
+}
+
+function lineStartOf(text: string, pos: number): number {
+  return pos <= 0 ? 0 : text.lastIndexOf('\n', pos - 1) + 1;
 }
 
 export type LineKind = 'bullet' | 'number' | 'quote' | 'task';
@@ -49,7 +49,7 @@ function prefixPattern(kind: LineKind): RegExp {
 /** Toggles a list/quote prefix on every line the selection touches (removes it when all lines have it). */
 export function toggleLinePrefix(s: EditState, kind: LineKind): EditState {
   const { text, start, end } = s;
-  const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+  const lineStart = lineStartOf(text, start);
   let lineEnd = text.indexOf('\n', end);
   if (lineEnd === -1) lineEnd = text.length;
   const lines = text.slice(lineStart, lineEnd).split('\n');
@@ -70,18 +70,21 @@ export function toggleLinePrefix(s: EditState, kind: LineKind): EditState {
 export function continueList(s: EditState): EditState | null {
   const { text, start, end } = s;
   if (start !== end) return null;
-  const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+  const lineStart = lineStartOf(text, start);
   const line = text.slice(lineStart, start);
   const m = /^(\s*)(- \[[ xX]\] |[-*+] |\d+\. |> )(.*)$/.exec(line);
   if (!m) return null;
   const [, indent, marker, rest] = m;
-  if (rest.trim() === '') {
+  let lineEnd = text.indexOf('\n', start);
+  if (lineEnd === -1) lineEnd = text.length;
+  const after = text.slice(start, lineEnd);
+  if (rest.trim() === '' && after.trim() === '') {
     if (indent.length >= 2) {
       const outdented = indent.slice(2);
       const caret = lineStart + outdented.length + marker.length;
       return { text: text.slice(0, lineStart) + outdented + marker + text.slice(start), start: caret, end: caret };
     }
-    return { text: text.slice(0, lineStart) + text.slice(start), start: lineStart, end: lineStart };
+    return { text: text.slice(0, lineStart) + text.slice(lineEnd), start: lineStart, end: lineStart };
   }
   let nextMarker = marker;
   const num = /^(\d+)\. $/.exec(marker);
@@ -94,7 +97,7 @@ export function continueList(s: EditState): EditState | null {
 /** Tab / Shift+Tab inside list lines: indents or outdents by two spaces. Null when a selected line is not a list item. */
 export function indentList(s: EditState, outdent: boolean): EditState | null {
   const { text, start, end } = s;
-  const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+  const lineStart = lineStartOf(text, start);
   let lineEnd = text.indexOf('\n', end);
   if (lineEnd === -1) lineEnd = text.length;
   const lines = text.slice(lineStart, lineEnd).split('\n');
@@ -153,9 +156,9 @@ export function resolveAttachmentSrc(
 
 /** Host of an absolute http(s) link for the muted suffix, else null. */
 export function externalHost(href: string | undefined): string | null {
-  if (!href || !/^https?:\/\//i.test(href)) return null;
+  if (!href || !/^(https?:)?\/\//i.test(href)) return null;
   try {
-    return new URL(href).host;
+    return new URL(href.startsWith('//') ? `https:${href}` : href).host;
   } catch {
     return null;
   }

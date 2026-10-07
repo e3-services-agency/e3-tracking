@@ -89,7 +89,7 @@ export function MarkdownEditor({
 
   const actions = {
     bold: () => apply(wrapSelection(state(), '**')),
-    italic: () => apply(wrapSelection(state(), '_')),
+    italic: () => apply(wrapSelection(state(), '*')),
     strike: () => apply(wrapSelection(state(), '~~')),
     code: () => apply(wrapSelection(state(), '`')),
     link: () => apply(insertLink(state())),

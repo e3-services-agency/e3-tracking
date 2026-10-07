@@ -8,6 +8,11 @@ import { MarkdownView } from '@/src/components/ui/MarkdownView';
 import { resolveAttachmentSrc } from '@/src/domain/markdownEdit';
 import type { CommentAttachmentItem } from './CommentAttachments';
 
+/** Attachments of a whole thread (root first, then replies): the pool `attachment:<id>` resolves against. */
+export function threadAttachments(root: { attachments?: CommentAttachmentItem[] }, replies: Array<{ attachments?: CommentAttachmentItem[] }>): CommentAttachmentItem[] {
+  return [...(root.attachments ?? []), ...replies.flatMap((r) => r.attachments ?? [])];
+}
+
 export function CommentBody({
   body,
   attachments,

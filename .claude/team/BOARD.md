@@ -3526,3 +3526,16 @@ Merge b100b40. Merged tree: tsc, lint clean, 1899 tests / 189 files.
 
 ### 2026-10-07 | implementer | HANDOFF | T-5-04 fix round 02feb86
 Shared files route decides on normalised segments (empty segment → identical 404, `.`/`..` → 400 as before, project id exact, comments prefix case-insensitive; tests for //, /Comments/, /COMMENTS/, /./, %2F variants); files removed on comment delete and on failed insert; limitInputPixels 25 Mpx; lightbox on useModalA11y with focus trap/return. 1903 tests / 189 files, gates green. Next: merge agent-setup (T-5-02) and resolve the six conflicts, then re-review + QA. T-5-03 reactions starts now on C:/t/t503 (migration 0034), folding the three T-5-02 QA UX minors.
+
+### 2026-10-07 | implementer | HANDOFF | T-5-04 merge with T-5-02 910ac5b
+Six conflicts resolved; isCommentVisibleToLink uses getShareVisibleRoot (replies follow the root) in the files and upload routes; CommentItem renders CommentAttachments via renderAttachments for roots and replies, reply form has its own AttachmentPicker; Comments page thumbnails; new reply-visibility test. 1917 tests / 190 files, gates green. To re-review + QA.
+
+### 2026-10-07 | reviewer | REVIEW | T-5-04 re-check 910ac5b PASS
+Path bypass fixed on normalised segments (empty → identical 404, `.`/`..` → 400, exact project id, case-insensitive comments prefix, backslashes split), variant tests pass; file cleanup on delete and failed insert; 25 Mpx; lightbox on useModalA11y with focus return; merge: isCommentVisibleToLink delegates to getShareVisibleRoot for files and upload routes, replies follow the root, public list strips status_changed_*. Routes tests 302/26 green. QA in progress.
+
+### 2026-10-07 | qa-tester | QA FAIL (1 medium) | T-5-04 910ac5b
+Scenarios 1-4, 6 PASS: drop/paste on the dropzone, thumbnails + "Show n more", lightbox a11y, 409/400 limits, EXIF stripped, shared post with images, aged comment 404, read-only 403, identical 404 for hidden roots/replies and every path variant, via_share_only, 61st upload 429, backup 65 rows / 67 files restored, 15 findings, no 500s; servers stopped by PID. FAIL scenario 5: deleting a root with replies cascades the rows but leaves the replies' image files on disk (unreachable, disk leak only). Minor: upload-route 404 body is NOT_FOUND "Comment not found." (same for all three cases, documented); paste only on the dropzone, not the textarea; composer lists file names without preview; empty comments/<id>/ directory left; restore-apply malformed body 500 (pre-existing backlog). Report: reports/qa/T-5-04/REPORT.md.
+Supervisor ruling: fix the cascade cleanup (collect attachments of the root AND its replies before delete; remove empty directories), textarea paste, then merge without re-QA; composer previews to backlog.
+
+### 2026-10-07 | implementer | HANDOFF | T-5-04 QA fix 27cbd42
+listAttachmentsForThread → all files of a root and its replies removed on delete, empty dirs removed; paste on the enclosing form (textarea, reply box, zone). tsc, lint, scoped tests green. Supervisor: merging.

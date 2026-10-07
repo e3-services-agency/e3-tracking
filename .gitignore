@@ -13,3 +13,7 @@ data/
 .claude/worktrees/
 
 .claude/settings.local.json
+
+# Importer reports (T-4-34): preview and apply output hold client data
+airshoppen-*.json
+scripts/*-report.json

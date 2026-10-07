@@ -15,6 +15,7 @@ import {
   planTrackingSheetImport,
   stripEmoji,
   type ExistingState,
+  type ImportProfile,
   type PlanOp,
 } from './trackingSheet';
 
@@ -95,6 +96,13 @@ async function buildWorkbook(): Promise<string> {
   return file;
 }
 
+const PROFILE: ImportProfile = {
+  extra_events: [{ name: 'booking' }, { name: 'campaign' }, { name: 'managed_endpoint' }],
+  attach_properties: { booking: ['booking_id', 'missing_prop'] },
+  industry: 'travel',
+  discriminators: { view_item: 'action', cart_update: 'action', consent: 'action' },
+};
+
 const emptyState = (over: Partial<ExistingState> = {}): ExistingState => ({
   project: { id: 'p1', key: 'demo', industry: null },
   sources: [
@@ -113,6 +121,7 @@ const find = (ops: PlanOp[], entity: string, key: string) => ops.find((o) => o.e
 describe('value mappers', () => {
   it('strips emoji and maps statuses, types and formats', () => {
     expect(stripEmoji('🛍️ Product Related')).toBe('Product Related');
+    expect(stripEmoji('Acme® Pro™ ©')).toBe('Acme® Pro™ ©');
     expect(mapEventStatus('code review')).toBe('in_review');
     expect(mapEventStatus('TBD')).toBeNull();
     expect(mapDataType('DateTime').data_type).toBe('timestamp');
@@ -166,7 +175,7 @@ describe('parseTrackingSheet on a synthetic workbook', () => {
 describe('planTrackingSheetImport', () => {
   it('plans creates against an empty project', async () => {
     const parsed = parseTrackingSheet(await readWorkbook(await buildWorkbook()));
-    const plan = planTrackingSheetImport(parsed, emptyState());
+    const plan = planTrackingSheetImport(parsed, emptyState(), { profile: PROFILE });
     expect(find(plan.ops, 'project', 'demo')).toMatchObject({ action: 'update', patch: { industry: 'travel' } });
     const purchase = find(plan.ops, 'event', 'purchase')!;
     expect(purchase.body).toMatchObject({ class: 'custom', implementation_method: 'server_api', status: 'in_review', priority: 'critical', source_ids: ['s-back'] });
@@ -180,7 +189,9 @@ describe('planTrackingSheetImport', () => {
     expect(find(plan.ops, 'event_property', 'booking/booking_id')).toBeTruthy();
     expect(find(plan.ops, 'property', 'customer:email')!.body).not.toHaveProperty('category_override');
     expect(find(plan.ops, 'property', 'customer:loyalty_tier')!.body).toMatchObject({ category_override: 'customer', category: 'Flags & Statuses' });
-    expect(find(plan.ops, 'identity_rule', 'cookie')!.body).toMatchObject({ identity_type: 'soft', source_id: 's-front', sdk_call: 'identify', trigger_text: 'Bloomreach JS SDK loads' });
+    const cookie = find(plan.ops, 'identity_rule', 'cookie')!.body!;
+    expect(cookie).toMatchObject({ identity_type: 'soft', source_id: 's-front', trigger_text: 'Bloomreach JS SDK loads' });
+    expect(cookie).not.toHaveProperty('sdk_call'); // identify is for hard ids only
     expect(find(plan.ops, 'identity_rule', 'login_id')!.body).toMatchObject({ trigger_event: 'login' });
     expect(find(plan.ops, 'catalog', 'products')!.body).toMatchObject({ kind: 'product' });
     expect(find(plan.ops, 'catalog_field', 'products/item_id')!.body).toMatchObject({ is_lookup_key: true });
@@ -189,13 +200,13 @@ describe('planTrackingSheetImport', () => {
     expect(find(plan.ops, 'catalog_field', 'products/brand')).toMatchObject({ needsClientInput: true });
     expect(find(plan.ops, 'property', 'event:variant_id')).toMatchObject({ action: 'create' });
     expect(find(plan.ops, 'property_catalog_link', 'product_id')!.body).toMatchObject({ catalog: 'products', field: 'item_id' });
-    expect(plan.summary.event.create).toBe(13); // 5 from the sheet plus the 8 airline events only on their own tab
+    expect(plan.summary.event.create).toBe(7); // 5 from the sheet plus the 2 extra events only on their own tab
     expect(plan.needsClientInput.some((n) => n.key === 'products/brand')).toBe(true);
   });
 
   it('is idempotent: fill-empty, conflict, unchanged, never overwrite', async () => {
     const parsed = parseTrackingSheet(await readWorkbook(await buildWorkbook()));
-    const first = planTrackingSheetImport(parsed, emptyState());
+    const first = planTrackingSheetImport(parsed, emptyState(), { profile: PROFILE });
     const existing = emptyState({
       project: { id: 'p1', key: 'demo', industry: 'travel' },
       properties: [
@@ -207,7 +218,7 @@ describe('planTrackingSheetImport', () => {
         { id: 'e2', name: 'view_item', description: 'Viewing a product', purpose: 'Recommendations', page: 'Product page', trigger_text: 'Customer opens it', identity_note: 'Identity: cookie', owner_business: 'Client', priority: 'high', status: 'planned', class: 'custom', implementation_method: 'client_web', source_ids: ['s-front'], links: [] },
       ],
     });
-    const plan = planTrackingSheetImport(parsed, existing);
+    const plan = planTrackingSheetImport(parsed, existing, { profile: PROFILE });
     // fill empty: total_price description is empty, category equal ignoring emoji
     expect(find(plan.ops, 'property', 'event:total_price')).toMatchObject({ action: 'update', patch: { description: 'Total' } });
     // conflict: product_id description differs and is kept
@@ -217,7 +228,19 @@ describe('planTrackingSheetImport', () => {
     // event update fills priority/implementation_method (a schema default counts as empty) and keeps the description
     const purchase = find(plan.ops, 'event', 'purchase')!;
     expect(purchase.action).toBe('update');
-    expect(purchase.patch).toMatchObject({ priority: 'critical', implementation_method: 'server_api', status: 'in_review', source_ids: ['s-back'] });
+    // A schema default (status planned, implementation_method client_web) is a conflict flagged default, not overwritten.
+    expect(purchase.patch).toMatchObject({ priority: 'critical', source_ids: ['s-back'] });
+    expect(purchase.patch).not.toHaveProperty('status');
+    expect(purchase.patch).not.toHaveProperty('implementation_method');
+    expect(purchase.conflicts).toEqual(
+      expect.arrayContaining([
+        { field: 'status', existing: 'planned', desired: 'in_review', default: true },
+        { field: 'implementation_method', existing: 'client_web', desired: 'server_api', default: true },
+      ])
+    );
+    const filled = find(planTrackingSheetImport(parsed, existing, { profile: PROFILE, fillDefaults: true }).ops, 'event', 'purchase')!;
+    expect(filled.patch).toMatchObject({ status: 'in_review', implementation_method: 'server_api' });
+    expect(filled.conflicts.some((c) => c.field === 'description')).toBe(true); // a set value is still never overwritten
     expect(purchase.patch).not.toHaveProperty('description');
     expect(purchase.conflicts[0]).toMatchObject({ field: 'description', existing: 'Hand written' });
     // unchanged: view_item matches fully
@@ -229,7 +252,7 @@ describe('planTrackingSheetImport', () => {
       const row = [...existing.events, ...existing.properties].find((r) => r.id === op.existingId) as Record<string, unknown> | undefined;
       for (const k of Object.keys(op.patch ?? {})) {
         const have = row?.[k];
-        const empty = have === null || have === undefined || have === '' || have === 'planned' || have === 'client_web' || have === 'custom' || (Array.isArray(have) && have.length === 0);
+        const empty = have === null || have === undefined || have === '' || (Array.isArray(have) && have.length === 0);
         expect(empty, `${op.key}.${k}`).toBe(true);
       }
     }

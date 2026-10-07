@@ -4,8 +4,11 @@
  * EXISTING project through the REST API, idempotent by name (create missing, fill only empty fields,
  * never delete, never overwrite: a differing value is reported as a conflict).
  *
- *   node scripts/import-tracking-sheet.mjs --xlsx <file> --api http://127.0.0.1:3020 --project <key> [--apply] [--report <path>]
+ *   node scripts/import-tracking-sheet.mjs --xlsx <file> --api http://127.0.0.1:3020 --project <key> [--apply] [--report <path>] [--profile <path>] [--fill-defaults]
  *
+ * --profile <json> carries the per-client specifics (see `ImportProfile` in trackingSheet.ts and
+ * scripts/profiles/). A schema-default value on an existing row (status planned, class custom, ...) is listed
+ * as a conflict flagged `default`; --fill-defaults overwrites exactly those.
  * Without --apply it is a dry run (GET requests only): prints the preview and writes it as JSON to
  * --report. Parsing and planning are pure and live in `src/domain/import/trackingSheet.ts`.
  * Auth: local mode needs nothing (every request is `local-user`, src/backend/middleware/auth.ts).
@@ -19,10 +22,11 @@ import ExcelJS from 'exceljs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function parseArgs(argv) {
-  const args = { apply: false };
+  const args = { apply: false, fillDefaults: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--apply') args.apply = true;
+    else if (a === '--fill-defaults') args.fillDefaults = true;
     else if (a.startsWith('--')) args[a.slice(2)] = argv[++i];
   }
   return args;
@@ -226,7 +230,7 @@ async function applyPlan(client, base, plan, state) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (!args.xlsx || !args.api || !args.project) {
-    console.error('Usage: node scripts/import-tracking-sheet.mjs --xlsx <file> --api <base url> --project <key> [--apply] [--report <path>]');
+    console.error('Usage: node scripts/import-tracking-sheet.mjs --xlsx <file> --api <base url> --project <key> [--apply] [--report <path>] [--profile <path>] [--fill-defaults]');
     process.exit(2);
   }
   // The pure helpers are TypeScript: load them through tsx so plain `node` works.
@@ -238,7 +242,8 @@ async function main() {
   const parsed = sheet.parseTrackingSheet(raw);
   const client = makeClient(args.api);
   const { base, state } = await fetchExistingState(client, args.project);
-  const plan = sheet.planTrackingSheetImport(parsed, state);
+  const profile = args.profile ? JSON.parse(fs.readFileSync(args.profile, 'utf8')) : undefined;
+  const plan = sheet.planTrackingSheetImport(parsed, state, { profile, fillDefaults: args.fillDefaults });
 
   console.log(`${args.apply ? 'APPLY' : 'DRY RUN'} against ${args.api} project ${args.project}\n`);
   console.log(sheet.formatPlan(plan));

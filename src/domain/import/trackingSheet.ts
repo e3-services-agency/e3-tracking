@@ -55,7 +55,7 @@ export function cellBool(v: Cell): boolean | null {
 export function stripEmoji(label: string | null | undefined): string | null {
   if (!label) return null;
   const s = label
-    .replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}‍︎️]/gu, '')
+    .replace(/(?![©®™])[\p{Extended_Pictographic}\p{Emoji_Presentation}‍︎️]/gu, '')
     .replace(/\s+/g, ' ')
     .trim();
   return s === '' ? null : s;
@@ -513,12 +513,6 @@ export function parseTrackingSheet(raw: RawSheets): ParsedSheet {
   else {
     const masterByName = new Map(out.properties.map((p) => [p.name, p]));
     const seen = new Set<string>();
-    const colOf = (r: TableRow, header: string) => {
-      // position of a header in this table: re-derive from the header row
-      void r;
-      return header;
-    };
-    void colOf;
     const headerCells = (attrGrid![attrTable.headerRow - 1] ?? []).map(normHeader);
     const ci = (h: string) => headerCells.indexOf(h);
     for (const r of attrTable.rows) {
@@ -750,6 +744,8 @@ export interface Conflict {
   field: string;
   existing: unknown;
   desired: unknown;
+  /** True when the existing value is the column schema default (overwritten only with fillDefaults). */
+  default?: boolean;
 }
 
 export interface PlanOp {
@@ -809,14 +805,17 @@ export interface FillDiff {
 }
 
 /**
- * Fill-empty diff: for each non-empty desired field, patch it when the existing value is empty (or
- * one of `defaults` for that field, the column's schema default), keep it when equal, and report a
- * conflict when it differs. Never produces a change to a non-empty existing value.
+ * Fill-empty diff: for each non-empty desired field, patch it when the existing value is empty
+ * (null, empty text, empty list; a false flag), keep it when equal, and report a conflict when it
+ * differs. A difference where the existing value is the column's schema default (`defaults`) is a
+ * conflict flagged `default: true`; only with `fillDefaults` is it overwritten. A value somebody set
+ * is never changed.
  */
 export function diffFillEmpty(
   existing: Record<string, unknown>,
   desired: Record<string, unknown>,
-  defaults: Record<string, unknown[]> = {}
+  defaults: Record<string, unknown[]> = {},
+  fillDefaults = false
 ): FillDiff {
   const patch: Record<string, unknown> = {};
   const conflicts: Conflict[] = [];
@@ -825,17 +824,20 @@ export function diffFillEmpty(
     if (typeof want !== 'boolean' && isEmptyValue(want)) continue;
     if (want === false) continue; // false is the empty value of a flag; nothing to fill
     const have = existing[field];
-    const isDefault = (defaults[field] ?? []).some((d) => sameValue(d, have));
-    if (isEmptyValue(have) || isDefault) {
-      if (!sameValue(have, want)) patch[field] = want;
-    } else if (!sameValue(have, want)) {
-      conflicts.push({ field, existing: have, desired: want });
+    if (sameValue(have, want)) continue;
+    if (isEmptyValue(have)) {
+      patch[field] = want;
+      continue;
     }
+    const isDefault = (defaults[field] ?? []).some((d) => sameValue(d, have));
+    if (isDefault && fillDefaults) patch[field] = want;
+    else conflicts.push(isDefault ? { field, existing: have, desired: want, default: true } : { field, existing: have, desired: want });
   }
   return { patch, conflicts };
 }
 
 function opFromDiff(
+  fillDefaults: boolean,
   entity: EntityKind,
   key: string,
   existingRow: { id: string } | undefined,
@@ -845,7 +847,7 @@ function opFromDiff(
   notes: string[] = []
 ): PlanOp {
   if (!existingRow) return { entity, key, action: 'create', body, conflicts: [], notes };
-  const { patch, conflicts } = diffFillEmpty(existingRow as unknown as Record<string, unknown>, desiredForDiff, defaults);
+  const { patch, conflicts } = diffFillEmpty(existingRow as unknown as Record<string, unknown>, desiredForDiff, defaults, fillDefaults);
   const action: PlanAction = Object.keys(patch).length ? 'update' : 'unchanged';
   return { entity, key, action, patch: action === 'update' ? patch : undefined, existingId: existingRow.id, conflicts, notes };
 }
@@ -890,37 +892,27 @@ export function resolveProjectSources(sources: ExistingSource[]): ResolvedSource
 
 // ---- Names used by the planner ----------------------------------------------
 
-/** Events the client has not defined yet; created thin and reported as "needs client input". */
-export const AIRLINE_EVENTS = [
-  'booking',
-  'booking_passenger',
-  'booking_flight',
-  'booking_link',
-  'booking_flight_shopping_context',
-  'activity',
-  'invite_fellow_traveller',
-  'campaign',
-  'managed_endpoint',
-] as const;
+/**
+ * Per-client import profile (`--profile <path>` JSON); the generic code carries no client specifics.
+ * - extra_events: events the client has not defined yet; created thin (sheet fields only, status planned,
+ *   no property links from the attribute sheet) and listed as "needs client input". `class` and
+ *   `implementation_method` are used for the ones the Events sheet does not list.
+ * - attach_properties: event -> property names (from the Properties master) linked to that event.
+ * - industry: set on the project when it is empty.
+ * - discriminators: event -> property whose link is a discriminator (D-03).
+ */
+export interface ImportProfile {
+  extra_events?: Array<{ name: string; class?: string; implementation_method?: string }>;
+  attach_properties?: Record<string, string[]>;
+  industry?: string;
+  discriminators?: Record<string, string>;
+}
 
-export const BOOKING_PROPERTIES = [
-  'booking_id',
-  'booking_number',
-  'cancelled',
-  'main_passenger_id',
-  'touroperator',
-  'created',
-  'last_modified',
-] as const;
-
-/** (event, property) pairs whose link is a discriminator (D-03). */
-export const DISCRIMINATOR_LINKS: ReadonlyArray<[string, string]> = [
-  ['cart_update', 'action'],
-  ['view_item', 'action'],
-  ['consent', 'action'],
-];
-
-export const PROJECT_INDUSTRY = 'travel';
+export interface PlanOptions {
+  profile?: ImportProfile;
+  /** Overwrite schema-default values (status planned, class custom, ...) instead of listing them as conflicts. */
+  fillDefaults?: boolean;
+}
 
 const PROPERTY_DEFAULTS: Record<string, unknown[]> = { property_type: ['custom'], status: ['planned'] };
 
@@ -964,7 +956,11 @@ function catalogKindOf(name: string): 'product' | 'variant' | 'other' {
 // The planner
 // ---------------------------------------------------------------------------
 
-export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingState): Plan {
+export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingState, opts: PlanOptions = {}): Plan {
+  const profile = opts.profile ?? {};
+  const fd = opts.fillDefaults === true;
+  const discLinks: Array<[string, string]> = Object.entries(profile.discriminators ?? {});
+  const isDiscLink = (event: string, property: string) => discLinks.some(([e, p]) => e === event && p === property);
   const ops: PlanOp[] = [];
   const warnings = [...parsed.warnings];
   const needs: NeedsClientInput[] = [];
@@ -982,17 +978,19 @@ export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingS
 
   const propByKey = new Map(existing.properties.map((p) => [`${p.scope}:${p.name}`, p]));
   const eventByName = new Map(existing.events.map((e) => [e.name, e]));
-  const propById = new Map(existing.properties.map((p) => [p.id, p]));
 
   // ---- project industry
-  if (isEmptyValue(existing.project.industry)) {
-    ops.push({ entity: 'project', key: existing.project.key, action: 'update', patch: { industry: PROJECT_INDUSTRY }, existingId: existing.project.id, conflicts: [], notes: [] });
-  } else if (existing.project.industry !== PROJECT_INDUSTRY) {
+  const industry = profile.industry;
+  if (!industry) {
+    // no profile industry: leave the project alone
+  } else if (isEmptyValue(existing.project.industry)) {
+    ops.push({ entity: 'project', key: existing.project.key, action: 'update', patch: { industry }, existingId: existing.project.id, conflicts: [], notes: [] });
+  } else if (existing.project.industry !== industry) {
     ops.push({
       entity: 'project',
       key: existing.project.key,
       action: 'unchanged',
-      conflicts: [{ field: 'industry', existing: existing.project.industry, desired: PROJECT_INDUSTRY }],
+      conflicts: [{ field: 'industry', existing: existing.project.industry, desired: industry }],
       notes: [],
     });
   } else {
@@ -1022,7 +1020,7 @@ export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingS
   // Discriminator links need an enum property (D-03): the union of the values each event's description names.
   const discriminatorValues = new Map<string, string[]>();
   for (const a of parsed.attributes) {
-    if (!DISCRIMINATOR_LINKS.some(([e, pn]) => e === a.event && pn === a.property)) continue;
+    if (!isDiscLink(a.event, a.property)) continue;
     const vals = extractAllowedValues(a.description);
     discriminatorValues.set(a.property, [...new Set([...(discriminatorValues.get(a.property) ?? []), ...vals])]);
   }
@@ -1030,14 +1028,14 @@ export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingS
     const ex = propByKey.get(`${p.scope}:${p.name}`);
     const body = propertyBody(p);
     if (p.scope === 'event' && (discriminatorValues.get(p.name)?.length ?? 0) > 0) body.allowed_values_json = discriminatorValues.get(p.name)!.map((value) => ({ value }));
-    ops.push(opFromDiff('property', `${p.scope}:${p.name}`, ex, body, body, PROPERTY_DEFAULTS, p.defaultedReason ? [p.defaultedReason] : []));
+    ops.push(opFromDiff(fd, 'property', `${p.scope}:${p.name}`, ex, body, body, PROPERTY_DEFAULTS, p.defaultedReason ? [p.defaultedReason] : []));
     if (p.defaultedReason) skipped.push({ entity: 'property', key: `${p.scope}:${p.name}`, reason: p.defaultedReason });
   }
 
   // ---- events
   const sheetEventNames = new Set(parsed.events.map((e) => e.name));
-  const bookingProps = new Set(parsed.properties.map((p) => p.name));
-  const airline = new Set<string>(AIRLINE_EVENTS);
+  const extraEvents = profile.extra_events ?? [];
+  const airline = new Set<string>(extraEvents.map((x) => x.name));
   for (const e of parsed.events) {
     const eventClass = mapEventClass(e.eventType, e.name);
     if (eventClass === 'custom' && classifyEventType(e.name) !== 'custom') {
@@ -1053,6 +1051,7 @@ export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingS
     }
     const isAirline = airline.has(e.name);
     const method = mapImplementationMethod(e.name, eventClass, e.sourceType);
+    const extraSpec = extraEvents.find((x) => x.name === e.name);
     const body: Record<string, unknown> = { name: e.name, class: eventClass };
     const set = (k: string, v: unknown) => {
       if (v !== null && v !== undefined && !(typeof v === 'string' && v === '')) body[k] = v;
@@ -1066,6 +1065,7 @@ export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingS
     set('priority', e.priority);
     body.status = isAirline ? 'planned' : (e.trackingStatus ?? 'planned');
     if (!isAirline) set('implementation_method', method);
+    else set('implementation_method', extraSpec?.implementation_method);
     if (sourceIds.length) body.source_ids = sourceIds;
     const ex = eventByName.get(e.name);
     const diffDesired: Record<string, unknown> = { ...body };
@@ -1074,32 +1074,34 @@ export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingS
       // source_ids: fill only when the event has none.
       if (ex.source_ids.length > 0) delete diffDesired.source_ids;
     }
-    const op = opFromDiff('event', e.name, ex, body, diffDesired, {
+    const op = opFromDiff(fd, 'event', e.name, ex, body, diffDesired, {
       status: ['planned'],
       implementation_method: ['client_web'],
       class: ['custom'],
     });
     if (isAirline) {
       op.needsClientInput = true;
-      op.notes.push('airline event: description, purpose, identity and priority only; properties await client input');
-      needs.push({ entity: 'event', key: e.name, why: 'airline event: definition and properties to be confirmed by the client' });
+      op.notes.push('extra event: sheet fields only; properties await client input');
+      needs.push({ entity: 'event', key: e.name, why: 'definition and properties to be confirmed by the client' });
     }
     if (e.sourceKinds.length === 0 && !isAirline && e.eventType !== 'system') {
       needs.push({ entity: 'event', key: e.name, why: `SOURCE TYPE is ${e.sourceType ?? 'empty'}; no source linked` });
     }
     ops.push(op);
   }
-  // Airline events the Events sheet does not list (their own tab only): created thin, class from the Bloomreach lists.
-  for (const a of AIRLINE_EVENTS) {
+  // Extra events the Events sheet does not list (their own tab only): created thin, class from the profile or the Bloomreach lists.
+  for (const x of extraEvents) {
+    const a = x.name;
     if (sheetEventNames.has(a) || parsed.events.length === 0) continue;
-    const body: Record<string, unknown> = { name: a, class: classifyEventType(a), status: 'planned' };
+    const body: Record<string, unknown> = { name: a, class: x.class ?? classifyEventType(a), status: 'planned' };
+    if (x.implementation_method) body.implementation_method = x.implementation_method;
     const ex = eventByName.get(a);
     const diffDesired = { ...body };
     delete diffDesired.name;
-    const op = opFromDiff('event', a, ex, body, diffDesired, { status: ['planned'], class: ['custom'] });
+    const op = opFromDiff(fd, 'event', a, ex, body, diffDesired, { status: ['planned'], class: ['custom'], implementation_method: ['client_web'] });
     op.needsClientInput = true;
-    op.notes.push('airline event not in the Events sheet: name only; definition awaits client input');
-    needs.push({ entity: 'event', key: a, why: 'airline event not in the Events sheet: definition and properties to be provided by the client' });
+    op.notes.push('extra event not in the Events sheet: name only; definition awaits client input');
+    needs.push({ entity: 'event', key: a, why: 'not in the Events sheet: definition and properties to be provided by the client' });
     ops.push(op);
   }
 
@@ -1113,7 +1115,7 @@ export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingS
       skipped.push({ entity: 'event_property', key: `${a.event}/${a.property}`, reason: `event "${a.event}" is not in the Events sheet or the project` });
       continue;
     }
-    let isDisc = DISCRIMINATOR_LINKS.some(([e, p]) => e === a.event && p === a.property);
+    let isDisc = isDiscLink(a.event, a.property);
     if (isDisc && (discriminatorValues.get(a.property)?.length ?? 0) === 0) {
       isDisc = false;
       needs.push({ entity: 'event_property', key: `${a.event}/${a.property}`, why: 'discriminator, but no allowed values could be read from the description; linked as a normal property' });
@@ -1122,13 +1124,15 @@ export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingS
       event: a.event, property: a.property, required: a.required, role: isDisc ? 'discriminator' : undefined, priority: a.priority, status: a.status,
     });
   }
-  if (sheetEventNames.has('booking') || eventByName.has('booking')) {
-    for (const pn of BOOKING_PROPERTIES) {
-      if (!bookingProps.has(pn) && !propByKey.has(`event:${pn}`)) {
-        skipped.push({ entity: 'event_property', key: `booking/${pn}`, reason: 'property not in the Properties master' });
+  const masterNames = new Set(parsed.properties.map((p) => p.name));
+  for (const [event, names] of Object.entries(profile.attach_properties ?? {})) {
+    if (!knownEvent(event) && !airline.has(event)) continue;
+    for (const pn of names) {
+      if (!masterNames.has(pn) && !propByKey.has(`event:${pn}`)) {
+        skipped.push({ entity: 'event_property', key: `${event}/${pn}`, reason: 'property not in the Properties master' });
         continue;
       }
-      linkDesired.set(`booking/${pn}`, { event: 'booking', property: pn, required: false, priority: null, status: null });
+      linkDesired.set(`${event}/${pn}`, { event, property: pn, required: false, priority: null, status: null });
     }
   }
   for (const [key, l] of linkDesired) {
@@ -1147,14 +1151,13 @@ export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingS
       ops.push({ entity: 'event_property', key, action: 'create', body, conflicts: [], notes: [] });
     } else {
       const desired: Record<string, unknown> = { required: l.required, role: l.role, priority: l.priority, status: l.status };
-      const { patch, conflicts } = diffFillEmpty(exLink as unknown as Record<string, unknown>, desired, { role: ['normal'], status: ['planned'] });
+      const { patch, conflicts } = diffFillEmpty(exLink as unknown as Record<string, unknown>, desired, { role: ['normal'], status: ['planned'] }, fd);
       ops.push({
         entity: 'event_property', key, action: Object.keys(patch).length ? 'update' : 'unchanged',
         patch: Object.keys(patch).length ? patch : undefined, body: { event: l.event, property: l.property }, conflicts, notes: [],
       });
     }
   }
-  void propById;
 
   // ---- catalogs and fields
   const fieldsByCatalog = new Map<string, SheetCatalogField[]>();
@@ -1176,7 +1179,7 @@ export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingS
     const exc = catalogByName.get(cname);
     const cdiff = { ...cbody };
     delete cdiff.name;
-    ops.push(opFromDiff('catalog', cname, exc, cbody, cdiff, { kind: ['other'], version: ['v1'], status: ['planned'] }));
+    ops.push(opFromDiff(fd, 'catalog', cname, exc, cbody, cdiff, { kind: ['other'], version: ['v1'], status: ['planned'] }));
 
     // Fields: sheet rows, plus the D-61 lookup key (item_id) and the id companion field.
     const desiredFields: Array<Record<string, unknown> & { name: string }> = [];
@@ -1212,7 +1215,7 @@ export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingS
       const ef = exFields.get(fb.name);
       const diffDesired = { ...fb };
       delete diffDesired.name;
-      const op = opFromDiff('catalog_field', `${cname}/${fb.name}`, ef, { ...fb, catalog: cname }, diffDesired, { status: ['planned'], data_type: ['string'] });
+      const op = opFromDiff(fd, 'catalog_field', `${cname}/${fb.name}`, ef, { ...fb, catalog: cname }, diffDesired, { status: ['planned'], data_type: ['string'] });
       const src = fields.find((f) => f.name === fb.name);
       if (src?.defaultedReason) {
         op.notes.push(src.defaultedReason);
@@ -1276,15 +1279,16 @@ export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingS
       else body.trigger_text = r.trigger;
     }
     const src = r.source?.toLowerCase() ?? '';
-    if (/js sdk|javascript sdk|web sdk/.test(src)) {
+    // A cookie, or a JS SDK / GTM / frontend source, is set by the frontend; only a hard id is an identify call.
+    if (r.field === 'cookie' || /js sdk|javascript|web sdk|gtm|frontend|front-end/.test(src)) {
       if (sources.frontend) body.source_id = sources.frontend.id;
-      body.sdk_call = 'identify';
+      if (r.type === 'hard') body.sdk_call = 'identify';
     }
     const ex = ruleByIdent.get(r.field);
     const diffDesired = { ...body };
     delete diffDesired.identifier_name;
     delete diffDesired.trigger_event;
-    ops.push(opFromDiff('identity_rule', r.field, ex, body, diffDesired, { status: ['planned'] }));
+    ops.push(opFromDiff(fd, 'identity_rule', r.field, ex, body, diffDesired, { status: ['planned'] }));
   }
 
   return finishPlan(ops, skipped, needs, warnings);

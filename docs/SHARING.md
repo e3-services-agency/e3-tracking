@@ -139,6 +139,16 @@ Every hidden or missing comment id (internal-only, hidden by `via_share_only`, n
 
 Who changed it last is kept as `status_changed_by`/`status_changed_at` on the comment (stripped from the public response; comments stay out of `change_log`).
 
+### Reactions and the name requirement (D-70 items 3 and 5, T-5-03, migration `0034`)
+
+Exactly three reactions, `seen`, `like` and `on_it`, one per author per comment per kind (author compared case-insensitively; table `comment_reactions`, cascade-deleted with the comment, not change-logged). Pressing a reaction again removes it. `on_it` only exists on a root comment (400 on a reply) and also moves an *open* root to `on_it`; through a share link the status goes through the restricted rules, and if the status change is refused the reaction is still recorded. Removing `on_it` does not revert the status.
+
+- Internal: `POST /api/projects/:id/comments/:id/reactions {kind, author_name?}` toggles (author defaults to the signed-in user); the comments list carries `reactions[]` per comment as `{kind, count, authors[], mine}`.
+- Shared: `POST /api/shared/:token/comments/:id/reactions {kind, author_name?}` needs `comment` access, accepts only `kind` and `author_name` (else 400 `FIELD_NOT_ALLOWED`), is rate-limited with comment posts, and answers the identical 404 `SHARE_NOT_FOUND` for hidden, missing or reply-of-hidden ids. The public list carries `reactions[]` (`{kind, count, authors[]}`, names as typed) only on comments the link may see. Without a name the reaction is recorded as "Share link".
+- **Require a name** (`projects.share_require_name`, default off): Settings > Share link > "Require a name on the share link" (`PATCH /api/projects/:id/share {share_require_name}`, also accepted by `PATCH /api/projects/:id`). `GET /api/shared/:token` carries `require_name`. When set, posts, replies, reactions and status changes without `author_name` are 400. The shared view remembers the visitor's name per link in the browser (`localStorage['e3.share.<token>.name']`) and prefills it everywhere.
+
+The backup carries `comment_reactions`; CSV entity `comment_reactions`.
+
 ### Comment visibility controls (D-49 amendment 2, T-4-10)
 
 Two controls narrow the "one shared thread" default. Both are enforced server-side in

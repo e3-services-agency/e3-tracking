@@ -325,6 +325,10 @@ export const CSV_ENTITIES = {
   comments: {
     headers: ['id', 'entity_type', 'entity_id', 'entity_label', 'author_name', 'via_share', 'internal_only', 'body', 'created_at', 'resolved_at', 'resolved_by', 'parent_id', 'status'],
   },
+  // T-5-03 (0034_comment_reactions.sql): one row per (comment, author, kind).
+  comment_reactions: {
+    headers: ['id', 'comment_id', 'author_name', 'kind', 'via_share', 'created_at'],
+  },
 } as const satisfies Record<string, CsvEntityDefinition>;
 
 export type CsvEntity = keyof typeof CSV_ENTITIES;

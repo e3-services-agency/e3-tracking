@@ -65,6 +65,8 @@ export interface ProjectRow {
   share_access: string | null;
   /** D-49 amendment 2, T-4-10: which non-internal comments the shared view shows. */
   share_comments: ShareCommentVisibility;
+  /** D-70 item 5, T-5-03: the share link needs an author name for every write. */
+  share_require_name: boolean;
   /** When the current `share_token` was created or last rotated (D-48, T-4-01); `null` when no
    * share link has ever been generated, or after a revoke clears all three share columns. */
   share_created_at: string | null;
@@ -95,6 +97,7 @@ export interface ProjectWithClient extends ProjectRow {
 
 type ProjectDbRow = Omit<
   ProjectRow,
+  | 'share_require_name'
   | 'default_expiration_json'
   | 'standard_event_additions_json'
   | 'consent_key_additions_json'
@@ -122,6 +125,7 @@ function mapProjectRow(row: ProjectDbRow): ProjectRow {
   const settings = parseSettingsJson((row as unknown as Record<string, unknown>).settings_json);
   return {
     ...row,
+    share_require_name: !!(row as unknown as Record<string, unknown>).share_require_name,
     settings_json: settings,
     is_sandbox: settings.is_sandbox === true,
     default_expiration_json: parseJsonColumn(
@@ -293,6 +297,8 @@ export interface UpdateProjectInput {
   naming_convention?: unknown;
   /** D-62 (T-4-11B): a source of this project, or `null` to clear. */
   default_source_id?: string | null;
+  /** D-70 item 5 (T-5-03). */
+  share_require_name?: unknown;
 }
 
 /** Range validation for the D-30 money tolerance fields (T-2-06 plan: "range validation"). */
@@ -476,6 +482,10 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
     throw new ValidationError(`naming_convention must be one of: ${NAMING_CONVENTIONS.join(', ')}.`, 'naming_convention');
   }
 
+  if (updates.share_require_name !== undefined && typeof updates.share_require_name !== 'boolean') {
+    throw new ValidationError('share_require_name must be a boolean.', 'share_require_name');
+  }
+
   if (updates.default_source_id !== undefined && updates.default_source_id !== null) {
     const src = db.prepare('SELECT id FROM sources WHERE id = ? AND project_id = ?').get(updates.default_source_id, id);
     if (!src) throw new ValidationError('default_source_id must be a source of this project.', 'default_source_id');
@@ -483,6 +493,7 @@ export function updateProject(id: string, updates: UpdateProjectInput): ProjectR
 
   const patch: Record<string, unknown> = { updated_at: nowIso() };
   if (updates.default_source_id !== undefined) patch.default_source_id = updates.default_source_id;
+  if (updates.share_require_name !== undefined) patch.share_require_name = updates.share_require_name ? 1 : 0;
   if (updates.naming_convention !== undefined) patch.naming_convention = updates.naming_convention;
   if (updates.name !== undefined) patch.name = updates.name.trim();
   if (updates.key !== undefined) patch.key = updates.key.trim();
@@ -655,9 +666,15 @@ export function updateShareAccess(id: string, access: unknown): ProjectRow {
 }
 
 /** Changes `access` and/or `share_comments` (T-4-10) of an active share link; at least one is required. */
-export function updateShareSettings(id: string, settings: { access?: unknown; share_comments?: unknown }): ProjectRow {
-  if (settings.access === undefined && settings.share_comments === undefined) {
-    throw new ValidationError('At least one of access or share_comments is required.', 'access');
+export function updateShareSettings(
+  id: string,
+  settings: { access?: unknown; share_comments?: unknown; share_require_name?: unknown }
+): ProjectRow {
+  if (settings.access === undefined && settings.share_comments === undefined && settings.share_require_name === undefined) {
+    throw new ValidationError('At least one of access, share_comments or share_require_name is required.', 'access');
+  }
+  if (settings.share_require_name !== undefined && typeof settings.share_require_name !== 'boolean') {
+    throw new ValidationError('share_require_name must be a boolean.', 'share_require_name');
   }
   if (settings.access !== undefined) assertShareAccess(settings.access);
   if (settings.share_comments !== undefined) assertShareComments(settings.share_comments);
@@ -668,9 +685,10 @@ export function updateShareSettings(id: string, settings: { access?: unknown; sh
   const db = getDb();
   const now = nowIso();
   const run = db.transaction(() => {
-    db.prepare('UPDATE projects SET share_access = ?, share_comments = ?, updated_at = ? WHERE id = ?').run(
+    db.prepare('UPDATE projects SET share_access = ?, share_comments = ?, share_require_name = ?, updated_at = ? WHERE id = ?').run(
       settings.access ?? before.share_access,
       settings.share_comments ?? before.share_comments,
+      (settings.share_require_name ?? before.share_require_name) ? 1 : 0,
       now,
       id
     );

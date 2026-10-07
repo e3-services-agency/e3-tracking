@@ -269,6 +269,7 @@ const ALL_MIGRATION_FILES = [
   '0031_catalog_field_order.sql',
   '0032_identifiers.sql',
   '0033_comment_threads_status.sql',
+  '0034_comment_reactions.sql',
 ];
 
 describe('listMigrationFiles', () => {

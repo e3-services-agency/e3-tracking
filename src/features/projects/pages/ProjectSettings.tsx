@@ -56,6 +56,7 @@ interface ShareState {
   share_token: string | null;
   share_access: string | null;
   share_comments?: string;
+  share_require_name?: boolean;
   share_created_at: string | null;
   url: string | null;
 }
@@ -256,6 +257,29 @@ export function ProjectSettings() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setShareError(typeof data?.error === 'string' ? data.error : 'Failed to update comment visibility');
+        return;
+      }
+      setShare(data as ShareState);
+    } catch (e) {
+      setShareError(e instanceof Error ? e.message : 'Network error');
+    } finally {
+      setShareLoading(false);
+    }
+  };
+
+  const handleRequireNameChange = async (share_require_name: boolean) => {
+    if (!activeProjectId || !share?.share_token) return;
+    setShareLoading(true);
+    setShareError(null);
+    try {
+      const res = await fetchWithAuth(`${API_BASE}/api/projects/${activeProjectId}/share`, {
+        method: 'PATCH',
+        headers: { Accept: 'application/json' },
+        body: JSON.stringify({ share_require_name }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setShareError(typeof data?.error === 'string' ? data.error : 'Failed to update the name requirement');
         return;
       }
       setShare(data as ShareState);
@@ -484,6 +508,18 @@ export function ProjectSettings() {
             </select>
             <p className="text-xs text-gray-500">
               Comments marked "Internal only" are never shown on the shared view, whatever this is set to.
+            </p>
+            <FieldLabel className="flex items-center gap-2 pt-2 text-sm text-gray-700" hintScope="Settings">
+              <input
+                type="checkbox"
+                checked={!!share.share_require_name}
+                disabled={shareLoading}
+                onChange={(e) => void handleRequireNameChange(e.target.checked)}
+              />
+              Require a name on the share link
+            </FieldLabel>
+            <p className="text-xs text-gray-500">
+              Visitors must enter a name before commenting, replying, reacting or changing a status.
             </p>
           </div>
         )}

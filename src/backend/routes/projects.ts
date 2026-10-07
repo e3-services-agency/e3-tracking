@@ -120,6 +120,7 @@ router.patch('/:id', (req: Request, res: Response) => {
       money_tolerance_floor: typeof body.money_tolerance_floor === 'number' ? body.money_tolerance_floor : undefined,
       industry: pick('industry'),
       naming_convention: body.naming_convention,
+      share_require_name: body.share_require_name,
       default_source_id: pick('default_source_id'),
     });
     res.status(200).json(project);
@@ -148,6 +149,7 @@ function shareResponse(req: Request, project: ProjectDAL.ProjectRow) {
     share_token: project.share_token,
     share_access: project.share_access,
     share_comments: project.share_comments,
+    share_require_name: project.share_require_name,
     share_created_at: project.share_created_at,
     url: project.share_token ? shareUrl(req, project.share_token) : null,
   };
@@ -185,6 +187,7 @@ router.patch('/:id/share', (req: Request, res: Response) => {
     const project = ProjectDAL.updateShareSettings(req.params.id, {
       access: body.access,
       share_comments: body.share_comments,
+      share_require_name: body.share_require_name,
     });
     res.status(200).json(shareResponse(req, project));
   } catch (err) {

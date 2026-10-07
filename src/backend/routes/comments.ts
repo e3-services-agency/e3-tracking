@@ -5,6 +5,7 @@
  */
 import { Router, type Request, type Response } from 'express';
 import * as CommentDAL from '../dal/comment.dal';
+import { attachReactions, toggleReaction, listReactionSummaries } from '../dal/comment-reaction.dal';
 import { withEntityLabels, resolveCommentEntity } from '../services/comments.service';
 import { ValidationError } from '../errors';
 import { handleRouteError } from './routeErrors';
@@ -41,7 +42,7 @@ router.get('/', (req: Request, res: Response) => {
       status: typeof req.query.status === 'string' ? req.query.status : undefined,
       internalOnly: parseBoolParam(req.query.internal_only, 'internal_only'),
     });
-    res.status(200).json(withEntityLabels(req.projectId!, comments));
+    res.status(200).json(attachReactions(req.projectId!, withEntityLabels(req.projectId!, comments), req.userName));
   } catch (err) {
     handleRouteError(err, res);
   }
@@ -117,6 +118,28 @@ router.patch('/:id', (req: Request, res: Response) => {
     }
     const entity = resolveCommentEntity(req.projectId!, comment);
     res.status(200).json({ ...comment, use_case_id: entity.use_case_id, entity_label: entity.label });
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
+/** Toggles the caller's reaction (D-70 item 3, T-5-03): adds it when absent, removes it when present. */
+router.post('/:id/reactions', (req: Request, res: Response) => {
+  try {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const result = toggleReaction(
+      req.projectId!,
+      req.params.id,
+      body.kind,
+      stringOrUndefined(body, 'author_name') ?? req.userName ?? '',
+      { viaShare: false }
+    );
+    const entity = resolveCommentEntity(req.projectId!, result.comment);
+    res.status(200).json({
+      added: result.added,
+      comment: { ...result.comment, use_case_id: entity.use_case_id, entity_label: entity.label },
+      reactions: listReactionSummaries(req.projectId!, [req.params.id], req.userName).get(req.params.id) ?? [],
+    });
   } catch (err) {
     handleRouteError(err, res);
   }

@@ -110,6 +110,9 @@ export function Comments() {
     [setEventCardEventId, setRequestedTab, setSelectedItemIdToEdit]
   );
 
+  const canOpen = (row: CommentRow) =>
+    !isRemovedPlaceholderLabel(row) && (row.entity_type !== 'requirement' || !!row.use_case_id);
+
   const load = useCallback(async () => {
     if (!hasValidProjectContext || !activeProjectId) {
       setLoading(false);
@@ -237,7 +240,14 @@ export function Comments() {
         <div className="bg-white rounded-lg border shadow-sm divide-y">
           {threads.map((row) => (
             <div key={row.id} className="p-4 flex items-start justify-between gap-4">
-              <div className="min-w-0">
+              <div
+                className={`min-w-0 flex-1 ${canOpen(row) ? 'cursor-pointer' : ''}`}
+                onClick={(e) => {
+                  // The whole comment routes to its entity; real controls inside keep their own behaviour.
+                  if ((e.target as HTMLElement).closest('button, select, a, input')) return;
+                  if (canOpen(row)) openEntity(row);
+                }}
+              >
                 <div className="text-xs text-gray-500 flex items-center gap-2 flex-wrap">
                   <span className="font-mono">{row.entity_type}</span>
                   {!isRemovedPlaceholderLabel(row) && (row.entity_type !== 'requirement' || row.use_case_id) ? (

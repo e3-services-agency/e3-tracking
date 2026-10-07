@@ -211,7 +211,7 @@ export function IdentityRuleEditor({
   /** What this rule would be once saved (mode decides which Set by fields count). */
   const draftRule: EditorRule = useMemo(
     () => ({
-      id: ruleId ?? 'draft',
+      id: effectiveRuleId ?? 'draft',
       name: trimmedName,
       identifier_name: trimmedField || 'this identifier',
       identity_type: identityType,
@@ -220,12 +220,12 @@ export function IdentityRuleEditor({
       trigger_text: mode === 'standalone' ? triggerText.trim() || null : null,
       source_id: mode === 'event' ? eventSourceId : mode === 'standalone' ? sourceId || null : null,
     }),
-    [ruleId, trimmedName, trimmedField, identityType, mode, sdkCall, triggerEventId, triggerText, sourceId, eventSourceId]
+    [effectiveRuleId, trimmedName, trimmedField, identityType, mode, sdkCall, triggerEventId, triggerText, sourceId, eventSourceId]
   );
 
   const draftRules: EditorRule[] = useMemo(
-    () => (isCreating ? [...rules, draftRule] : rules.map((r) => (r.id === ruleId ? { ...r, ...draftRule } : r))),
-    [rules, draftRule, isCreating, ruleId]
+    () => (isCreating ? [...rules, draftRule] : rules.map((r) => (r.id === effectiveRuleId ? { ...r, ...draftRule } : r))),
+    [rules, draftRule, isCreating, effectiveRuleId]
   );
   const idSources: IdentifierSourceLike[] = sources;
   const idEvents: IdentifierEventLike[] = useMemo(

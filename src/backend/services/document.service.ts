@@ -23,6 +23,8 @@ import * as RequirementDAL from '../dal/requirement.dal';
 import * as ProjectDAL from '../dal/project.dal';
 import * as PropertyDAL from '../dal/property.dal';
 import * as IdentityRuleDAL from '../dal/identity-rule.dal';
+import { buildIdentityCodegen } from './codegen.service';
+import { listIdentityRulesForCodegen } from './identification.service';
 import { buildIdentificationFlow, effectiveEventIdentifiers, hasExplicitIdentifiers, type IdentificationFlow } from '../../domain/identity/identifiers';
 import * as ConsentCategoryDAL from '../dal/consent-category.dal';
 import * as CatalogDAL from '../dal/catalog.dal';
@@ -1053,6 +1055,7 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
     event_properties: eventProperties,
     identity_rules: identityRules,
     identification_flow: ctx.identificationFlow.paragraph,
+    identity_codegen: buildIdentityCodegen(listIdentityRulesForCodegen(projectId), customerPropertyRows),
     consent_categories: consentCategories,
     catalogs,
     sources: sourceRows.map((s) => ({ id: s.id, name: s.name, system: s.system, method: s.method, color: s.color, event_count: eventSourceCounts.get(s.id) ?? 0 })),

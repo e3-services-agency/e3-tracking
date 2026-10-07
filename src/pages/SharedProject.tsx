@@ -37,6 +37,7 @@ import { FindingTerm } from '@/src/components/ui/GlossaryTerm';
 import { FAMILY_INFO } from '@/src/domain/findingsCatalog';
 import { sourceViaLabel } from '@/src/domain/sources';
 import { SourceBadge } from '@/src/components/ui/badges';
+import { IdentityCodegenTabs } from '@/src/features/shared/IdentityCodegenTabs';
 import { SetByCell } from '@/src/features/identity/SetByCell';
 import { catalogMarketLabel } from '@/src/domain/catalogs';
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -746,6 +747,7 @@ export function SharedProject({ token }: { token: string }) {
                               )}
                               <EventCardView
                                 card={event as unknown as EventCardData}
+                                identifyCodegen={doc.identity_codegen?.identify ?? null}
                                 fileUrl={fileUrl}
                                 mode="shared"
                                 hideHeader
@@ -952,6 +954,16 @@ export function SharedProject({ token }: { token: string }) {
                 <div className="mb-3" data-testid="shared-identification-flow">
                   <h3 className="text-sm font-semibold text-gray-900">Identification flow</h3>
                   <p className="text-sm text-gray-700 mt-1">{doc.identification_flow}</p>
+                </div>
+              )}
+              {doc.identity_codegen && (
+                <div className="mb-3 space-y-2" data-testid="shared-identity-codegen">
+                  {(['identify', 'update', 'anonymize'] as const).map((k) => (
+                    <div key={k}>
+                      <h3 className="text-sm font-semibold text-gray-900">{k}</h3>
+                      <IdentityCodegenTabs snippets={doc.identity_codegen![k]} />
+                    </div>
+                  ))}
                 </div>
               )}
               <SimpleTable

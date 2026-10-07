@@ -29024,6 +29024,73 @@ track: {
   },
   "format": "e3-tracking-document",
   "identification_flow": "No identity rules are defined yet, so the plan does not say how a customer is identified.",
+  "identity_codegen": {
+    "anonymize": {
+      "gtm_datalayer": "// No logout (anonymize) rule configured.",
+      "tracking_api": "// No logout (anonymize) rule configured.",
+      "web_sdk": "// No logout (anonymize) rule configured.",
+      "web_sdk_legacy": "// No logout (anonymize) rule configured.",
+    },
+    "identify": {
+      "gtm_datalayer": "// No hard identity rules configured; there is no identify push to send yet.
+
+// The shared E3 GTM template reads the 'bloomreach' object of the dataLayer push and forwards it to the Bloomreach
+// Web SDK. Do not call the SDK from the site for this.",
+      "tracking_api": "// No hard identity rules configured; the Tracking API customers call has no customer_ids to send yet.",
+      "web_sdk": "// No hard identity rules configured; brweb.identify() has nothing to send yet.",
+      "web_sdk_legacy": "// No hard identity rules configured; exponea.identify() has nothing to send yet.",
+    },
+    "update": {
+      "gtm_datalayer": "window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+  event: 'bloomreach_update',
+  bloomreach: {
+    update: {
+      address: address,
+      email: email, // special attribute
+      first_name: firstName, // special attribute
+      gender: gender,
+      last_name: lastName, // special attribute
+      phone: phone, // special attribute, E.164 format (e.g. +14155550123)
+    },
+  },
+});
+
+// The shared E3 GTM template reads the 'bloomreach' object of the dataLayer push and forwards it to the Bloomreach
+// Web SDK. Do not call the SDK from the site for this.",
+      "tracking_api": "// Customer attributes are updated with the same customers call; the customer is addressed by its hard id.
+// Tracking API: POST /track/v2/projects/{project_token}/customers (see https://documentation.bloomreach.com/data-hub/reference/tracking-api-overview)
+{
+  "customer_ids": {
+    "registered": "<registered>"
+  },
+  "properties": {
+    "address": "<address>",
+    "email": "<email>",
+    "first_name": "<firstName>",
+    "gender": "<gender>",
+    "last_name": "<lastName>",
+    "phone": "<phone>"
+  }
+}",
+      "web_sdk": "brweb.update({
+  address: address,
+  email: email, // special attribute
+  first_name: firstName, // special attribute
+  gender: gender,
+  last_name: lastName, // special attribute
+  phone: phone, // special attribute, E.164 format (e.g. +14155550123)
+});",
+      "web_sdk_legacy": "exponea.update({
+  address: address,
+  email: email, // special attribute
+  first_name: firstName, // special attribute
+  gender: gender,
+  last_name: lastName, // special attribute
+  phone: phone, // special attribute, E.164 format (e.g. +14155550123)
+});",
+    },
+  },
   "identity_rules": [],
   "limits": {
     "event_types": {

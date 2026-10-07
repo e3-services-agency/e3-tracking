@@ -72,6 +72,7 @@ field list is present:
 | `implementation_method`, `dl_event_name` | D-63 (T-4-17), additive: how the event reaches Bloomreach (`client_web` | `server_api` | `sdk_auto`; absent on an older document means `client_web`) and the site's dataLayer event that carries it (`null` when not recorded). Kept in the public projection. |
 | `name`, `business_name`, `class`, `description`, `purpose`, `page`, `trigger`, `grain`, `identity_note` | Straight from the `Event` row. |
 | `identifiers`, `identifiers_derived` | D-67, additive: the identity-rule identifier names the event sends in `customer_ids` (its own list, else the derived default) and whether that list is derived. Kept in the public projection. |
+| top level `identity_codegen` | T-4-30, additive: `identify`, `update`, `anonymize`, each `{web_sdk, web_sdk_legacy, tracking_api, gtm_datalayer}` (the four event-card tab forms). Built by `src/domain/codegen/identity.ts`. Kept in the public projection. |
 | `sources[].color` | D-68, additive: the source's palette token. |
 | top level `identification_flow`; `identity_rules[].set_by`, `.binds`, `.carried_by` | D-67, additive: the generated Identification flow paragraph; per rule how it is set (`{kind: 'event', event, source}`, `{kind: 'standalone_call', sdk_call, trigger_text, source}` or `{kind: 'unknown'}`), the identifiers a standalone call binds, and the events that carry it. Kept in the public projection. |
 | `owners` | `{business, technical}`. |

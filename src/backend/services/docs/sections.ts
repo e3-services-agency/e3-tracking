@@ -145,10 +145,12 @@ export interface IdentityRuleForDocs {
 }
 
 /** Minimal shape the identity codegen block needs (D-38, `buildIdentityCodegen`'s output). */
+import type { IdentityVariants } from '../../../domain/codegen/identity';
+
 export interface IdentityCodegenForDocs {
-  identify: string;
-  update: string;
-  anonymize: string;
+  identify: IdentityVariants;
+  update: IdentityVariants;
+  anonymize: IdentityVariants;
 }
 
 /** Minimal shape the consent categories section needs; matches `ConsentCategoryRow`. */
@@ -292,22 +294,26 @@ export function renderIdentityRulesSection(rules: IdentityRuleForDocs[], identif
  * `buildIdentityCodegen` produces from the project's identity rules and mapped customer
  * properties, so the migration engineer can copy them straight from the exported HTML.
  */
+const IDENTITY_VARIANT_LABELS: [keyof IdentityVariants, string][] = [
+  ['gtm_datalayer', 'GTM / dataLayer'],
+  ['web_sdk', 'Bloomreach Web SDK'],
+  ['web_sdk_legacy', 'Bloomreach Web SDK (legacy)'],
+  ['tracking_api', 'Bloomreach Tracking API'],
+];
+
 export function renderIdentityCodegenSection(snippets: IdentityCodegenForDocs): string {
+  const block = (name: 'identify' | 'update' | 'anonymize') => `<div>
+        <h3>${name}</h3>
+        ${IDENTITY_VARIANT_LABELS.filter(([key]) => snippets[name][key].trim())
+          .map(([key, label]) => `<div class="codegen-snippet"><h4>${escapeHtml(label)}</h4><pre>${escapeHtml(snippets[name][key])}</pre></div>`)
+          .join('')}
+      </div>`;
   return `<section id="identity-codegen">
     <h2>Identity codegen</h2>
     <div class="codegen">
-      <div>
-        <h3>identify</h3>
-        <pre>${escapeHtml(snippets.identify)}</pre>
-      </div>
-      <div>
-        <h3>update</h3>
-        <pre>${escapeHtml(snippets.update)}</pre>
-      </div>
-      <div>
-        <h3>anonymize</h3>
-        <pre>${escapeHtml(snippets.anonymize)}</pre>
-      </div>
+      ${block('identify')}
+      ${block('update')}
+      ${block('anonymize')}
     </div>
   </section>`;
 }

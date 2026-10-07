@@ -16,6 +16,8 @@ import { useProjectShell } from '@/src/features/projects/context/ProjectShellCon
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import { PRIORITIES, ENTITY_STATUSES, IDENTITY_TYPES, IDENTITY_TRANSFORMATIONS, IDENTITY_SDK_CALLS } from '@/src/domain/enums';
+import { IdentityCodegenTabs } from '@/src/features/shared/IdentityCodegenTabs';
+import type { IdentityCodegenSnippets as IdentityCodegenData } from '@/src/domain/codegen/identity';
 import { HistorySection } from '@/src/features/history/HistorySection';
 import { CopyMarkdownButton } from '@/src/components/ui/CopyMarkdownButton';
 import { CarriedByCell, SetByCell } from '@/src/features/identity/SetByCell';
@@ -45,11 +47,7 @@ interface IdentityRuleRow {
   carried_by?: { id: string; name: string }[];
 }
 
-interface IdentityCodegenSnippets {
-  identify: string;
-  update: string;
-  anonymize: string;
-}
+type IdentityCodegenSnippets = IdentityCodegenData;
 
 interface EventOption {
   id: string;
@@ -208,15 +206,15 @@ ${flowParagraph}
             <h2 className="text-lg font-semibold text-gray-900">Identity codegen</h2>
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-1">identify</h3>
-              <pre className="bg-gray-900 text-gray-100 text-xs rounded-md p-3 overflow-x-auto whitespace-pre-wrap">{codegen.identify}</pre>
+              <IdentityCodegenTabs snippets={codegen.identify} defaultOpen />
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-1">update</h3>
-              <pre className="bg-gray-900 text-gray-100 text-xs rounded-md p-3 overflow-x-auto whitespace-pre-wrap">{codegen.update}</pre>
+              <IdentityCodegenTabs snippets={codegen.update} defaultOpen />
             </div>
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-1">anonymize</h3>
-              <pre className="bg-gray-900 text-gray-100 text-xs rounded-md p-3 overflow-x-auto whitespace-pre-wrap">{codegen.anonymize}</pre>
+              <IdentityCodegenTabs snippets={codegen.anonymize} defaultOpen />
             </div>
           </div>
         )}

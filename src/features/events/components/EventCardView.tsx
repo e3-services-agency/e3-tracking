@@ -33,6 +33,8 @@ import { hintFor } from '@/src/components/ui/FieldHint';
 import { CopyNameButton } from '@/src/components/ui/CopyNameButton';
 import type { PropertyCategory } from '@/src/domain/propertyCategory';
 import { displaySampleValue } from '@/src/domain/examples';
+import { IdentityCodegenTabs } from '@/src/features/shared/IdentityCodegenTabs';
+import type { IdentityVariants } from '@/src/domain/codegen/identity';
 import { SourceBadge } from '@/src/components/ui/badges';
 import { sourceViaLabel } from '@/src/domain/sources';
 import { groupFieldMap, mappingHeading } from '@/src/domain/document/standardMappings';
@@ -212,9 +214,11 @@ export interface EventCardViewProps {
   /** T-4-22: renders a property's payload key as a link to the property (shared anchor or internal
    * editor); omit for plain text. The caller owns the mode-specific target. */
   renderPropertyLink?: (property: EventCardData['properties'][number], label: string) => React.ReactNode;
+  /** T-4-30: the project's identify snippets (all four forms); shown in an Identity block with the event's identifiers. */
+  identifyCodegen?: IdentityVariants | null;
 }
 
-export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'internal', hideHeader = false, headerActions, renderPropertyLink }: EventCardViewProps) {
+export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'internal', hideHeader = false, headerActions, renderPropertyLink, identifyCodegen }: EventCardViewProps) {
   const showNames = anyNameDiffersFromKey(card.properties);
   const shared = mode === 'shared';
   const visible = eventCardVisibility(card);
@@ -522,6 +526,16 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
       {(!shared || hasCodegen(card.codegen, card.implementation_method)) && (
       <Section title="Implementation">
         <CodegenTabs codegen={card.codegen} method={card.implementation_method} sourceMethod={card.sources?.find((s) => s.method)?.method ?? null} defaultOpen={!shared} />
+      </Section>
+      )}
+
+      {identifyCodegen && (
+      <Section title="Identity">
+        <p className="text-sm text-gray-700 mb-2" data-testid="card-identity-block">
+          Identifiers sent in customer_ids: {card.identifiers && card.identifiers.length > 0 ? card.identifiers.join(', ') : 'none'}
+          {card.identifiers_derived ? ' (derived)' : ''}
+        </p>
+        <IdentityCodegenTabs snippets={identifyCodegen} defaultOpen={!shared} sourceMethod={card.sources?.find((s) => s.method)?.method ?? null} />
       </Section>
       )}
 

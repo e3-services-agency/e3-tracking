@@ -353,6 +353,7 @@ export interface TrackingDocumentEventProperty {
   definitions: TrackingDocumentPropertyDefinition[];
 }
 
+import type { IdentityCodegenSnippets } from '../codegen/identity';
 import type { IdentifierSetBy } from '../identity/identifiers';
 
 export interface TrackingDocumentIdentityRule {
@@ -477,6 +478,8 @@ export interface TrackingDocument {
   identity_rules: TrackingDocumentIdentityRule[];
   /** D-67 (T-4-28), additive: the generated "Identification flow" paragraph. */
   identification_flow?: string;
+  /** T-4-30, additive: identify / update / anonymize in the four forms (GTM dataLayer, Web SDK, legacy, Tracking API). */
+  identity_codegen?: IdentityCodegenSnippets;
   consent_categories: TrackingDocumentConsentCategory[];
   catalogs: TrackingDocumentCatalog[];
   /** D-62 (T-4-11B), additive. */

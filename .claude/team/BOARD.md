@@ -3675,3 +3675,5 @@ Supervisor ruling: fix all four, then merge without a further round (reviewer ve
 
 ### 2026-10-07 | supervisor | MERGE | T-5-07 merged into agent-setup — DONE (fa114b5)
 Merged tree: tsc, lint clean, 1991/1992 tests; the one failure is gcpScripts.test.ts's scp needle, which assumes an unquoted local path (fails on the main checkout path with a space and accent, passes in C:/t) → T-5-07b. T-5-08 (backup upload + rehearsal, C:/t/t508) and T-5-09 (MCP over IAP SSH, C:/t/t509) launched.
+
+### 2026-10-07 | supervisor | MERGE | T-5-07b merged: deploy test assertions path-agnostic (pass on the main checkout path with a space and accent).

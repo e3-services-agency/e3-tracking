@@ -147,6 +147,19 @@ router.post('/:id/fields', (req: Request, res: Response) => {
   }
 });
 
+router.put('/:id/fields/order', (req: Request, res: Response) => {
+  const ids = (req.body as Record<string, unknown>)?.ids;
+  if (!Array.isArray(ids) || !ids.every((i) => typeof i === 'string')) {
+    res.status(400).json({ error: 'ids must be an array of field ids.', code: 'VALIDATION_ERROR', field: 'ids' });
+    return;
+  }
+  try {
+    res.status(200).json(CatalogDAL.reorderCatalogFields(req.projectId!, req.params.id, ids as string[]));
+  } catch (err) {
+    handleRouteError(err, res);
+  }
+});
+
 router.patch('/:id/fields/:fieldId', (req: Request, res: Response) => {
   try {
     const field = CatalogDAL.updateCatalogField(

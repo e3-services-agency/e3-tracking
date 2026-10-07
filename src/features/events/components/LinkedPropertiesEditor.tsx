@@ -153,7 +153,7 @@ export function LinkedPropertiesEditor({
                   value={effectiveDefinitionId}
                   onChange={(e) => updateLink(link.property_id, { definition_id: e.target.value || null })}
                   className="h-8 rounded border border-gray-300 px-2"
-                  title="Which of this property's named meanings this event uses (D-58)"
+                  title="Which of this property's named meanings this event uses"
                 >
                   {definitions.map((d) => (
                     <option key={d.id} value={d.id}>{d.name}</option>

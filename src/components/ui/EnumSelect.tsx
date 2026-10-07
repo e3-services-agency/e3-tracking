@@ -19,6 +19,7 @@ export function EnumBadge({ kind, value }: { kind: EnumKind; value: string }) {
     case 'target_kind': return <TargetKindBadge kind={value} />;
     case 'implementation': return <Badge tone="neutral" icon={IMPLEMENTATION_ICONS[value]}>{enumLabel(kind, value)}</Badge>;
     case 'level': return <Badge tone={value === 'R' ? 'red' : 'neutral'} icon={LEVEL_ICONS[value]}>{enumLabel(kind, value)}</Badge>;
+    default: return null;
     case 'catalog_kind': return <Badge tone="neutral" icon={CATALOG_KIND_ICONS[value]}>{enumLabel(kind, value)}</Badge>;
   }
 }

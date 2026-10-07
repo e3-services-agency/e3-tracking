@@ -5,6 +5,7 @@
  * `haystack` operands and `runItemSchemaChecks` (`item_schema_violation`).
  */
 import React from 'react';
+import { EnumSelect } from '@/src/components/ui/EnumSelect';
 import { FieldLabel } from '@/src/components/ui/FieldHint';
 import { Plus, Trash2 } from 'lucide-react';
 import { Input } from '@/src/components/ui/Input';
@@ -48,9 +49,7 @@ export function ItemSchemaEditor({
           <div key={i} className="border rounded-md p-2 space-y-1 bg-gray-50">
             <div className="flex flex-wrap gap-2 items-center">
               <Input value={f.field} onChange={(e) => updateRow(i, { field: e.target.value })} placeholder="field name" className="h-8 w-36 text-xs" />
-              <select value={f.data_type} onChange={(e) => updateRow(i, { data_type: e.target.value })} className="h-8 rounded border border-gray-300 px-2 text-xs">
-                {PROPERTY_DATA_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <EnumSelect kind="data_type" values={PROPERTY_DATA_TYPES} value={f.data_type} onChange={(e) => updateRow(i, { data_type: e.target.value })} className="h-8 rounded border border-gray-300 px-2 text-xs" />
               <FieldLabel className="flex items-center gap-1 text-xs" hintScope="Properties">
                 <input type="checkbox" checked={f.required ?? false} onChange={(e) => updateRow(i, { required: e.target.checked })} />
                 required

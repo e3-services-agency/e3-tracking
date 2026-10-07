@@ -413,7 +413,7 @@ export function ProjectSettings() {
       </div>
 
       <div className="space-y-2 border-t pt-4">
-        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Settings">Share link (D-48)</FieldLabel>
+        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Settings">Share link</FieldLabel>
         <p className="text-xs text-gray-500">
           A public link to this project's tracking document -- no login required. Rotating replaces
           the old link, which stops working immediately; revoking clears it entirely.
@@ -427,6 +427,7 @@ export function ProjectSettings() {
         {shareError && (
           <div className="rounded-md bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm">{shareError}</div>
         )}
+        <FieldLabel className="block text-sm font-medium text-gray-700" hint="Share access" hintScope="Settings">Share access</FieldLabel>
         <div className="flex flex-wrap items-center gap-2 max-w-md">
           <select
             value={shareAccessSelect}
@@ -535,7 +536,7 @@ export function ProjectSettings() {
 
       <div className="space-y-2 border-t pt-4">
         <FieldLabel className="block text-sm font-medium text-gray-700" htmlFor="default-source" hintScope="Settings">Default source</FieldLabel>
-        <p className="text-xs text-gray-500">Linked to every new event that names no source of its own (D-62). Its collection method also sets the new event's implementation method.</p>
+        <p className="text-xs text-gray-500">Linked to every new event that names no source of its own. Its collection method also sets the new event's implementation method.</p>
         <select
           id="default-source"
           value={defaultSourceId}
@@ -551,7 +552,7 @@ export function ProjectSettings() {
 
       <div className="space-y-2 border-t pt-4">
         <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Settings">Industry</FieldLabel>
-        <p className="text-xs text-gray-500">Used as the use case templates page's default industry filter (D-57).</p>
+        <p className="text-xs text-gray-500">Used as the use case templates page's default industry filter.</p>
         <select
           value={industrySelect}
           onChange={(e) => setIndustrySelect(e.target.value)}
@@ -574,7 +575,7 @@ export function ProjectSettings() {
       </div>
 
       <div className="space-y-2 border-t pt-4">
-        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Settings">Money tolerance (rules, D-30)</FieldLabel>
+        <FieldLabel className="block text-sm font-medium text-gray-700" hintScope="Settings">Money tolerance (rules)</FieldLabel>
         <p className="text-xs text-gray-500">Used by rules with `tolerance_mode: money` (e.g. purchase totals vs items): tolerance = max(floor, percent% of the target).</p>
         <div className="flex items-center gap-3 max-w-md">
           <div className="flex items-center gap-1">

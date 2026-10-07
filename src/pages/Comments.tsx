@@ -182,7 +182,7 @@ export function Comments() {
     <div className="flex-1 flex flex-col">
       <PageHeader>
         <h1 className="text-2xl font-bold text-gray-900">Comments</h1>
-        <p className="text-sm text-gray-500 mt-1">Client and team discussion on events, properties, use cases and requirements (D-49).</p>
+        <p className="text-sm text-gray-500 mt-1">Client and team discussion on events, properties, use cases and requirements.</p>
       </PageHeader>
 
       <PageBody className="space-y-4">

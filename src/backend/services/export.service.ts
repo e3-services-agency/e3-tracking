@@ -8,6 +8,7 @@
  * view it later). System font stack only (D-07) — no external CDN fonts.
  */
 import { triggerImages } from '../../domain/document/triggerImages';
+import { enumLabelOr } from '@/src/domain/enumLabels';
 import { getProjectWithClient, type ProjectWithClient } from '../dal/project.dal';
 import {
   listEvents,
@@ -113,7 +114,7 @@ export function buildPropertyDetailsTable(
         <td>${escapeHtml(link.role)}</td>
         <td>${escapeHtml(link.property.data_type)}</td>
         <td>${escapeHtml(link.payload_key?.trim() || link.property.name)}</td>
-        <td>${escapeHtml(link.property.kind ?? 'event')}</td>
+        <td>${escapeHtml(enumLabelOr('property_kind', link.property.kind ?? 'event'))}</td>
         <td>${method === 'client_web' ? escapeHtml(dataLayerPath(link.property.kind ?? 'event', link.payload_key?.trim() || link.property.name, parseDerivation(link.property.derivation_json))) : 'n/a'}</td>
         ${catalogFieldLabelById ? `<td>${escapeHtml(link.property.mapped_catalog_field_id ? (catalogFieldLabelById.get(link.property.mapped_catalog_field_id) ?? '') : '')}</td>` : ''}
         <td>${escapeHtml(description)}</td>
@@ -276,12 +277,12 @@ async function buildEventSectionHtml(
     <h2>${escapeHtml(event.name)}</h2>
     <dl class="event-meta">
       ${event.business_name ? `<dt>Business name</dt><dd>${escapeHtml(event.business_name)}</dd>` : ''}
-      <dt>Class</dt><dd><span class="class-badge ${escapeHtml(event.class)}">${escapeHtml(event.class)}</span></dd>
-      <dt>Implementation method</dt><dd>${escapeHtml(event.implementation_method)}</dd>
+      <dt>Class</dt><dd><span class="class-badge ${escapeHtml(event.class)}">${escapeHtml(enumLabelOr('class', event.class))}</span></dd>
+      <dt>Implementation method</dt><dd>${escapeHtml(enumLabelOr('implementation', event.implementation_method))}</dd>
       ${event.dl_event_name ? `<dt>dataLayer event</dt><dd>${escapeHtml(event.dl_event_name)}</dd>` : ''}
       ${card.sources && card.sources.length > 0 ? `<dt>Collected from</dt><dd>${escapeHtml(card.sources.map((s) => `${s.name} (${sourceViaLabel(s.system, s.method)})`).join('; '))}</dd>` : ''}
       ${card.identifiers && card.identifiers.length > 0 ? `<dt>Identifiers</dt><dd>${escapeHtml(card.identifiers.join(', '))}${card.identifiers_derived ? ' (derived)' : ''}</dd>` : ''}
-      <dt>Status</dt><dd>${escapeHtml(event.status)}</dd>
+      <dt>Status</dt><dd>${escapeHtml(enumLabelOr('status', event.status))}</dd>
       ${event.page ? `<dt>Page</dt><dd>${escapeHtml(event.page)}</dd>` : ''}
       ${event.trigger_text ? `<dt>Trigger</dt><dd>${escapeHtml(event.trigger_text)}</dd>` : ''}
       ${!publicView && event.identity_note ? `<dt>Identity note</dt><dd>${escapeHtml(event.identity_note)}</dd>` : ''}

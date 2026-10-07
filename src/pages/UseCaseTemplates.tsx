@@ -368,7 +368,7 @@ export function UseCaseTemplates() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Use case templates</h1>
           <p className="text-sm text-gray-500 mt-1">
-            The shared library (D-06): import, filter, and add use cases to the current project.
+            The shared library: import, filter, and add use cases to the current project.
           </p>
         </div>
         <div className="flex items-center gap-2">

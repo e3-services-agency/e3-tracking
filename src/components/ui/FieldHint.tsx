@@ -17,6 +17,12 @@ export function textOf(node: React.ReactNode): string {
   return '';
 }
 
+/** A click on the icon must never toggle a checkbox or focus the control of the label it sits in. */
+export function swallowClick(e: { preventDefault: () => void; stopPropagation: () => void }) {
+  e.preventDefault();
+  e.stopPropagation();
+}
+
 /** The "?" icon (also the keyboard-focus target); the tooltip itself is rendered by the owner. */
 export function HintIcon({ text, tip }: { text: string | undefined; tip: ReturnType<typeof useTooltip> }) {
   if (!text) return null;
@@ -24,6 +30,7 @@ export function HintIcon({ text, tip }: { text: string | undefined; tip: ReturnT
     <span
       tabIndex={0}
       className="ml-1 inline-flex align-middle text-gray-400 hover:text-gray-600 cursor-help"
+      onClick={swallowClick}
       onFocus={tip.triggerProps.onFocus}
       onBlur={tip.triggerProps.onBlur}
       aria-describedby={tip.triggerProps['aria-describedby']}

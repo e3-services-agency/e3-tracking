@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { hintFor } from './fieldHints';
+import { FIELD_HINTS, hintFor } from './fieldHints';
 
 /** `file:text` entries allowed to have no hint, each with a reason. */
 const EXEMPT: Record<string, string> = {};
@@ -49,6 +49,26 @@ function staticText(inner: string): string {
 }
 
 const OPEN = /<(FieldLabel|HintTh|SortableTh)(\s(?:[^<>]|=>|\{[^{}]*\})*?)>/g;
+
+describe('page-scoped hints (F2)', () => {
+  const SCOPED: [string, string][] = [
+    ['Properties', 'Kind'], ['UseCases', 'Status'], ['Identity', 'Type'], ['Identity', 'Name'], ['Sources', 'Name'],
+    ['Catalogs', 'Priority'], ['Identity', 'Priority'], ['UseCases', 'Priority'], ['Catalogs', 'Description'],
+    ['Identity', 'Description'], ['UseCases', 'Description'], ['UseCases', 'Level'], ['Sources', 'Method'],
+    ['Properties', 'Actions'], ['Sources', 'Actions'], ['UseCases', 'Actions'], ['Events', 'Actions'],
+  ];
+  it('resolves a page-specific entry, not the generic one', () => {
+    for (const [scope, key] of SCOPED) {
+      expect(FIELD_HINTS[`${scope}.${key}`], `${scope}.${key}`).toBeTruthy();
+      expect(hintFor(key, scope)).toBe(FIELD_HINTS[`${scope}.${key}`]);
+    }
+    expect(hintFor('Share access', 'Settings')).toBeTruthy();
+    expect(hintFor('Definition')).toBeTruthy();
+  });
+  it('keeps every hint under 160 characters', () => {
+    for (const [k, v] of Object.entries(FIELD_HINTS)) expect(v.length, k).toBeLessThan(160);
+  });
+});
 
 describe('field hint coverage', () => {
   const files = [...walk('src/pages'), ...walk('src/features')];

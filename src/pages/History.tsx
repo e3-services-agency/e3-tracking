@@ -158,7 +158,7 @@ export function History() {
     <div className="flex-1 flex flex-col">
       <PageHeader>
         <h1 className="text-2xl font-bold text-gray-900">History</h1>
-        <p className="text-sm text-gray-500 mt-1">Every definition change (D-44): who, when, from where, and what changed.</p>
+        <p className="text-sm text-gray-500 mt-1">Every definition change: who, when, from where, and what changed.</p>
       </PageHeader>
 
       <PageBody className="space-y-4">

@@ -323,10 +323,7 @@ function CatalogEditor({
         </div>
         <div className="space-y-2">
           <FieldLabel className="text-sm font-medium text-gray-700" hint="Mapping role" hintScope="Catalogs">Mapping role</FieldLabel>
-          <select value={mappingRole} onChange={(e) => setMappingRole(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            <option value="">—</option>
-            {CATALOG_MAPPING_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
+          <EnumSelect kind="mapping_role" values={CATALOG_MAPPING_ROLES} emptyLabel="—" value={mappingRole} onChange={(e) => setMappingRole(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">

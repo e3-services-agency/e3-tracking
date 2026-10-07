@@ -247,7 +247,7 @@ export function Properties() {
       <PageHeader className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Properties</h1>
-          <p className="text-sm text-gray-500 mt-1">Event and customer properties (D-24). Each property has one or more named <GlossaryTerm glossaryKey="definition">definitions</GlossaryTerm>.</p>
+          <p className="text-sm text-gray-500 mt-1">Event and customer properties. Each property has one or more named <GlossaryTerm glossaryKey="definition">definitions</GlossaryTerm>.</p>
         </div>
         <Button onClick={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); setOrderFrozen(true); }} className="gap-2">
           <Plus className="w-4 h-4" /> Add Property
@@ -283,12 +283,7 @@ export function Properties() {
             onChange={(e) => setSearch(e.target.value)}
             className="h-10 w-64"
           />
-          <select value={scopeFilter} onChange={(e) => setScopeFilter(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            <option value="">All scopes</option>
-            {PROPERTY_SCOPES.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
+          <EnumSelect kind="scope" values={PROPERTY_SCOPES} emptyLabel="All scopes" value={scopeFilter} onChange={(e) => setScopeFilter(e.target.value)} className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
           <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} aria-label="Filter by category" className="h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">All categories</option>
             {PROPERTY_CATEGORIES.map((c) => (
@@ -608,9 +603,7 @@ function PropertyEditor({
     <div className="space-y-5">
       <div className="space-y-2">
         <FieldLabel className="text-sm font-medium text-gray-700" hint="Scope" hintScope="Properties">Scope</FieldLabel>
-        <select value={scope} onChange={(e) => setScope(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-          {PROPERTY_SCOPES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+        <EnumSelect kind="scope" values={PROPERTY_SCOPES} value={scope} onChange={(e) => setScope(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
       </div>
       <div className="space-y-2">
         <FieldLabel className="text-sm font-medium text-gray-700" hint="Name" hintScope="Properties">Name</FieldLabel>
@@ -632,9 +625,7 @@ function PropertyEditor({
         </div>
         <div className="space-y-2">
           <FieldLabel className="text-sm font-medium text-gray-700" hint="Data type" hintScope="Properties">Data type</FieldLabel>
-          <select value={dataType} onChange={(e) => setDataType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            {PROPERTY_DATA_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <EnumSelect kind="data_type" values={PROPERTY_DATA_TYPES} value={dataType} onChange={(e) => setDataType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
         </div>
       </div>
       <div className="space-y-2">
@@ -714,9 +705,7 @@ function PropertyEditor({
       </div>
       <div className="space-y-2">
         <FieldLabel className="text-sm font-medium text-gray-700" hint="Property type" hintScope="Properties">Property type</FieldLabel>
-        <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-          {ORIGIN_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
+        <EnumSelect kind="origin_type" values={ORIGIN_TYPES} value={propertyType} onChange={(e) => setPropertyType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
       </div>
       <FieldLabel className="flex items-center gap-2 text-sm text-gray-700" hintScope="Properties">
         <input type="checkbox" checked={pii} onChange={(e) => setPii(e.target.checked)} /> Contains PII

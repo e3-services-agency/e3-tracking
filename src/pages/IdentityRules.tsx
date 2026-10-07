@@ -389,16 +389,11 @@ function IdentityRuleEditor({
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
           <FieldLabel className="text-sm font-medium text-gray-700" hint="Identity type" hintScope="Identity">Identity type</FieldLabel>
-          <select value={identityType} onChange={(e) => setIdentityType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            {IDENTITY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <EnumSelect kind="identity_type" values={IDENTITY_TYPES} value={identityType} onChange={(e) => setIdentityType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
         </div>
         <div className="space-y-2">
           <FieldLabel className="text-sm font-medium text-gray-700" hint="SDK call" hintScope="Identity">SDK call</FieldLabel>
-          <select value={sdkCall} onChange={(e) => setSdkCall(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            <option value="">—</option>
-            {IDENTITY_SDK_CALLS.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+          <EnumSelect kind="sdk_call" values={IDENTITY_SDK_CALLS} emptyLabel="—" value={sdkCall} onChange={(e) => setSdkCall(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
         </div>
       </div>
 

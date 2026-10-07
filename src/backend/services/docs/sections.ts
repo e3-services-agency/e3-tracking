@@ -7,6 +7,7 @@
  * `trigger_event_name`/`source_name` from ids before calling in.
  */
 import { escapeHtml } from '../htmlEscape';
+import { enumLabelOr } from '@/src/domain/enumLabels';
 import { formatExampleValues } from '../../../domain/examples';
 import { groupFieldMap, mappingHeading } from '../../../domain/document/standardMappings';
 import type { FindingsSummaryView } from '../../../domain/document/findingsSummary';
@@ -262,8 +263,8 @@ export function renderIdentityRulesSection(rules: IdentityRuleForDocs[], identif
         ${cell(rule.owner)}
         ${cell(rule.source_name)}
         ${cell(rule.tracker)}
-        ${cell(rule.priority)}
-        ${cell(rule.status)}
+        ${cell(enumLabelOr('priority', rule.priority))}
+        ${cell(enumLabelOr('status', rule.status))}
         ${cell(Array.isArray(rule.carried_by) && rule.carried_by.length > 0 ? rule.carried_by.join(', ') : null)}
       </tr>`
     )
@@ -327,7 +328,7 @@ export function renderConsentCategoriesSection(categories: ConsentCategoryForDoc
         ${cell(category.name)}
         ${cell(category.standard_key)}
         ${cell(category.description)}
-        ${cell(category.status)}
+        ${cell(enumLabelOr('status', category.status))}
       </tr>`
     )
     .join('\n');
@@ -443,7 +444,7 @@ export function renderCatalogsSection(catalogs: CatalogForDocs[]): string {
         catalog.kind ? `${searchableCount} searchable` : '',
         catalog.kind && lookupKey ? `lookup key: ${lookupKey}` : '',
         catalog.mapping_role ? `mapping role: ${catalog.mapping_role}` : '',
-        catalog.status ?? '',
+        enumLabelOr('status', catalog.status),
         catalog.source_system ? `source: ${catalog.source_system}` : '',
         catalog.sync_method ? `sync: ${catalog.sync_method}` : '',
         catalog.update_frequency ? `updates: ${catalog.update_frequency}` : '',
@@ -614,8 +615,8 @@ export function renderUseCasesSection(useCases: UseCaseForDocs[]): string {
         .map(
           (req) => `<tr>
             ${cell(req.target_label)}
-            ${cell(req.level)}
-            ${cell(req.status)}
+            ${cell(enumLabelOr('level', req.level))}
+            ${cell(enumLabelOr('status', req.status))}
             ${cell(req.note)}
           </tr>`
         )
@@ -631,8 +632,8 @@ export function renderUseCasesSection(useCases: UseCaseForDocs[]): string {
         <h3>${escapeHtml(useCase.code ? `${useCase.code} — ${useCase.name}` : useCase.name)}</h3>
         <dl class="use-case-meta">
           ${useCase.type ? `<dt>Type</dt><dd>${escapeHtml(useCase.type)}</dd>` : ''}
-          ${useCase.priority ? `<dt>Priority</dt><dd>${escapeHtml(useCase.priority)}</dd>` : ''}
-          ${useCase.status ? `<dt>Status</dt><dd>${escapeHtml(useCase.status)}</dd>` : ''}
+          ${useCase.priority ? `<dt>Priority</dt><dd>${escapeHtml(enumLabelOr('priority', useCase.priority))}</dd>` : ''}
+          ${useCase.status ? `<dt>Status</dt><dd>${escapeHtml(enumLabelOr('status', useCase.status))}</dd>` : ''}
           ${useCase.owner ? `<dt>Owner</dt><dd>${escapeHtml(useCase.owner)}</dd>` : ''}
         </dl>
         ${useCase.description ? `<p class="description">${escapeHtml(useCase.description)}</p>` : ''}
@@ -741,7 +742,7 @@ export function renderFindingsTable(findings: FindingForDocs[], heading = 'Open 
   const rows = findings
     .map(
       (f) => `<tr>
-        ${cell(f.severity)}
+        ${cell(enumLabelOr('severity', f.severity))}
         <td><span title="${escapeHtml(f.kind)}: ${escapeHtml(kindTooltip(f.kind))}">${escapeHtml(kindLabel(f.kind))}</span></td>
         <td><span title="${escapeHtml(f.comparison)}: ${escapeHtml(comparisonTooltip(f.comparison))}">${escapeHtml(comparisonLabel(f.comparison))}</span></td>
         ${cell(f.property)}

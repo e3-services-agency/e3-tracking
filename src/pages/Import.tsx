@@ -525,7 +525,7 @@ export function Import() {
       <PageHeader>
         <h1 className="text-2xl font-bold text-gray-900">Import</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Paste a Bloomreach JSON export, preview the diff, select what to apply (D-04, D-22).
+          Paste a Bloomreach JSON export, preview the diff, select what to apply.
         </p>
       </PageHeader>
 

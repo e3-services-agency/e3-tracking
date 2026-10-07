@@ -29,6 +29,7 @@
  * decisions live in `src/features/shared/viewHelpers.ts`.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { enumLabelOr } from '@/src/domain/enumLabels';
 import { HintTh } from '@/src/components/ui/FieldHint';
 import { ClassBadge } from '@/src/components/ui/ClassBadge';
 import { ExampleCell, StandardMappingBlock } from '@/src/features/events/components/EventCardView';
@@ -896,8 +897,8 @@ export function SharedProject({ token }: { token: string }) {
                                     <React.Fragment key={r.id}>
                                       <tr>
                                         <td className="px-3 py-2">{renderRequirementTarget(r, refIndex, navigateTo)}</td>
-                                        <td className="px-3 py-2">{r.level}</td>
-                                        <td className="px-3 py-2">{r.status ?? '—'}</td>
+                                        <td className="px-3 py-2">{enumLabelOr('level', r.level) || '—'}</td>
+                                        <td className="px-3 py-2">{enumLabelOr('status', r.status) || '—'}</td>
                                         <td className="px-3 py-2 text-right">
                                           <CommentCountButton
                                             count={commentsFor('requirement', r.id).length}
@@ -985,7 +986,7 @@ export function SharedProject({ token }: { token: string }) {
                           <CopyNameButton name={c.name} />
                         </span>,
                         c.standard_key ?? '—',
-                        (c as { status?: string | null }).status ?? '—',
+                        enumLabelOr('status', (c as { status?: string | null }).status) || '—',
                       ])}
                     />
                   </div>
@@ -1005,7 +1006,7 @@ export function SharedProject({ token }: { token: string }) {
                     typeof c.searchable_count === 'number' ? `${c.searchable_count} searchable` : '',
                     c.lookup_key ? `lookup key: ${c.lookup_key}` : '',
                     c.mapping_role ? `mapping role: ${c.mapping_role}` : '',
-                    c.status ?? '',
+                    enumLabelOr('status', c.status),
                     c.source_system ? `source: ${c.source_system}` : '',
                     c.sync_method ? `sync: ${c.sync_method}` : '',
                     c.update_frequency ? `updates: ${c.update_frequency}` : '',

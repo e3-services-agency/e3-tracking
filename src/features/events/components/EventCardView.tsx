@@ -20,6 +20,7 @@
  * `EventCard.coverage` summary counts, same as this component does when `grid` is omitted.
  */
 import React from 'react';
+import { enumLabel } from '@/src/domain/enumLabels';
 import { EntityIcon } from '@/src/components/ui/EntityIcon';
 import { HintTh } from '@/src/components/ui/FieldHint';
 import { summarizeCertification } from '@/src/domain/certification';
@@ -255,7 +256,7 @@ export function EventCardView({ card, fileUrl, grid, commentsSlot, mode = 'inter
         <dl className="grid grid-cols-2 gap-3 text-sm">
           {[
             ['Class', <ClassBadge key="c" eventClass={card.class} />, true],
-            ['Implementation method', card.implementation_method ?? 'client_web', true],
+            ['Implementation method', enumLabel('implementation', card.implementation_method ?? 'client_web'), true],
             ['dataLayer event', card.dl_event_name ?? '—', true],
             ['Source', card.sources && card.sources.length > 0 ? (
               <span key="src" className="flex flex-col gap-0.5">

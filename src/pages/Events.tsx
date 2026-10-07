@@ -610,7 +610,11 @@ function EventEditor({
         identity_note: identityNote.trim() || null,
         triggers_json: triggers,
         class: eventClass,
-        ...(implementationMethod && implementationMethod !== loadedImplementationMethod ? { implementation_method: implementationMethod } : {}),
+        ...(implementationMethod && implementationMethod !== loadedImplementationMethod
+          ? { implementation_method: implementationMethod }
+          : isCreating
+            ? { implementation_method: null } // Automatic: the server derives it from name, class and sources
+            : {}),
         dl_event_name: dlEventName.trim() || null,
         identifiers_json: identifiersOverride && identifiersOverride.length > 0 ? identifiersOverride : null,
         owner_business: ownerBusiness.trim() || null,

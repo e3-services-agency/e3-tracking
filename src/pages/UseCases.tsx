@@ -350,10 +350,7 @@ function UseCaseCreateForm({
       </div>
       <div className="space-y-2">
         <FieldLabel className="text-sm font-medium text-gray-700" hint="Type" hintScope="UseCases">Type</FieldLabel>
-        <select value={type} onChange={(e) => setType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-          <option value="">—</option>
-          {USE_CASE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
+        <EnumSelect kind="use_case_type" values={USE_CASE_TYPES} emptyLabel="—" value={type} onChange={(e) => setType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
       </div>
       <div className="space-y-2">
         <FieldLabel className="text-sm font-medium text-gray-700" hint="Priority" hintScope="UseCases">Priority</FieldLabel>
@@ -714,14 +711,10 @@ function UseCaseDetail({
           </div>
           <div className="space-y-2">
             <FieldLabel className="text-sm font-medium text-gray-700" hint="Type" hintScope="UseCases">Type</FieldLabel>
-            <select
+            <EnumSelect kind="use_case_type" values={USE_CASE_TYPES} emptyLabel="—" 
               defaultValue={useCase.type ?? ''}
               onChange={(e) => void saveFields({ type: e.target.value || null })}
-              className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-            >
-              <option value="">—</option>
-              {USE_CASE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
+              className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
           </div>
           <div className="space-y-2">
             <FieldLabel className="text-sm font-medium text-gray-700" hint="Priority" hintScope="UseCases">Priority</FieldLabel>

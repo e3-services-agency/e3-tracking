@@ -28,3 +28,9 @@ Toolbar present, Ctrl+B/Ctrl+I wrap, Preview tab renders `<strong><em>`, Ctrl+En
 
 ## 6. Regression: PASS
 Threads, reply, like reaction toggle (200), resolve/unresolve (200), thumbnails; Comments page renders; comparison run 200 with 15 open findings; no 500s in API log. Console: Vite HMR websocket errors plus one unattributed "409 (Conflict)" resource error (same as in T-5-03 report; no 409 reproduced via API).
+
+## Re-check 7dd59be: PASS
+Fresh API 3014 (PID 37936), Vite 3011 (PID 35000), new sandbox + comment link; both stopped by PID, QA db and config deleted. T-5-11 definition examples skipped as instructed.
+1. Root with two images; reply `![Image 2](attachment:<root image id>)` chosen from the Image menu, posted with Ctrl+Enter: image renders inline in the reply (naturalWidth 60) internally, on the Comments page and in the shared view; editor preview innerHTML identical to the posted render. PASS (scenario 3 failure fixed).
+2. `[x](javascript:alert(1))` renders as plain text `<p>x</p>` with no anchor; fenced block renders `<pre><code>` with line breaks kept (internal, Comments page, shared); bare URL link has no "(host)" suffix, while a `[ex](url)` link keeps "(example.com)". PASS.
+3. Ctrl+I on "case" inside `snake_case_name` gives `snake_*case*_name` (underscores intact), again restores the original with the selection kept; "- itemtext" with caret after "- item" + Enter gives "- item\n- text" with the caret before "text". PASS.

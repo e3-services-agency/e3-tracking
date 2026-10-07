@@ -3594,3 +3594,15 @@ Typed example values (string match, original type returned), 0036 compares CAST 
 
 ### 2026-10-07 | supervisor | MERGE | T-5-11 merged into agent-setup — DONE
 Merge cf50945. Merged tree: tsc, lint clean, 1937 tests / 192 files. Remaining: T-5-05 fix round, then re-review + QA re-check (reply inline image, definition examples on the merged tree).
+
+### 2026-10-07 | implementer | HANDOFF | T-5-05 fix round 7dd59be
+threadAttachments(root, replies) pool for root/reply bodies, reply Image menu and Preview, Comments page (shared view via CommentItem); script-scheme links plain text, `//host` external, no host suffix when text is the URL; fenced blocks always in <pre>; italic `*`, unwrap only with markers outside the selection, lineStartOf, continueList splits with trailing text; tests. 1945 tests / 193 files, gates green. To re-review + QA re-check.
+
+### 2026-10-07 | reviewer | REVIEW | T-5-05 re-check 7dd59be: one new minor
+Thread pool, no escape beyond the thread, script-scheme links as text, `//host`, host suffix, <pre> for fences, lineStartOf, continueList all verified. New: Ctrl+I on `**x**` unwraps one pair → `*x*` (marker `*` is half of `**`). Ruling: unwrap only when the contiguous marker run equals the marker length; tests; then merge after the QA re-check.
+
+### 2026-10-07 | qa-tester | QA PASS | T-5-05 re-check 7dd59be
+Inline image in a reply renders in all three views with preview = posted render; javascript link plain text; fenced block in <pre><code>; bare URL without host suffix; italic inside snake_case keeps underscores; list split with trailing text. Servers stopped by PID. Merge after the italic-on-bold fix commit.
+
+### 2026-10-07 | implementer | HANDOFF | T-5-05 italic fix ff128d1
+wrapSelection counts contiguous marker runs before unwrapping (italic on runs 1/3, bold on 2/3, exact match otherwise); five cases tested. tsc + markdownEdit tests green. Supervisor: merging.

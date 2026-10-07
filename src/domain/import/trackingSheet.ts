@@ -341,6 +341,8 @@ export interface SheetAttribute {
   status: string | null;
   required: boolean;
   description: string | null;
+  data_formats: string[];
+  example_values: string[] | null;
 }
 
 export interface SheetIdentity {
@@ -536,6 +538,7 @@ export function parseTrackingSheet(raw: RawSheets): ParsedSheet {
       const formatCell = shifted ? null : r.get('DATA FORMAT');
       const exampleCell = shifted ? r.cells[typeIdx + 2] : r.get('EXAMPLE');
       const piiCell = r.get('PII');
+      const rowFormats = mapDataFormats(formatCell);
       out.attributes.push({
         row: r.row,
         event,
@@ -544,6 +547,8 @@ export function parseTrackingSheet(raw: RawSheets): ParsedSheet {
         status: mapEntityStatus(r.get('STATUS')),
         required: cellBool(r.get('REQUIRED')) === true,
         description: cellText(r.get('DESCRIPTION')),
+        data_formats: rowFormats.data_formats,
+        example_values: exampleValues(exampleCell),
       });
       if (!masterByName.has(property)) {
         const type = mapDataType(dataTypeCell);
@@ -672,10 +677,21 @@ export interface ExistingSource {
   system?: string | null;
   method?: string | null;
 }
+export interface ExistingDefinition {
+  id: string;
+  name: string;
+  description?: string | null;
+  formats_json?: unknown;
+  example_values_json?: unknown;
+  allowed_values_json?: unknown;
+  [field: string]: unknown;
+}
 export interface ExistingProperty {
   id: string;
   scope: 'event' | 'customer';
   name: string;
+  /** The property's named definitions (D-58), fetched per property by the CLI. */
+  definitions?: ExistingDefinition[];
   [field: string]: unknown;
 }
 export interface ExistingLink {
@@ -684,6 +700,7 @@ export interface ExistingLink {
   role: string;
   priority: string | null;
   status: string | null;
+  definition_id?: string | null;
 }
 export interface ExistingEvent {
   id: string;
@@ -720,6 +737,7 @@ export interface ExistingState {
 export type EntityKind =
   | 'project'
   | 'property'
+  | 'property_definition'
   | 'event'
   | 'event_property'
   | 'catalog'
@@ -730,6 +748,7 @@ export type EntityKind =
 export const ENTITY_ORDER: EntityKind[] = [
   'project',
   'property',
+  'property_definition',
   'event',
   'event_property',
   'catalog',
@@ -777,6 +796,8 @@ export interface Plan {
   conflicts: Array<Conflict & { entity: EntityKind; key: string }>;
   skipped: Array<{ entity: EntityKind | string; key: string; reason: string }>;
   needsClientInput: NeedsClientInput[];
+  /** Named definitions to create, per property (D-58): per-event text that differs from the general definition. */
+  definitionsByProperty: Record<string, string[]>;
   warnings: string[];
 }
 
@@ -1032,6 +1053,9 @@ export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingS
     if (p.defaultedReason) skipped.push({ entity: 'property', key: `${p.scope}:${p.name}`, reason: p.defaultedReason });
   }
 
+  const propBodyByName = new Map<string, Record<string, unknown>>();
+  for (const p of desiredProps) if (p.scope === 'event') propBodyByName.set(p.name, propertyBody(p));
+
   // ---- events
   const sheetEventNames = new Set(parsed.events.map((e) => e.name));
   const extraEvents = profile.extra_events ?? [];
@@ -1108,7 +1132,7 @@ export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingS
   // ---- event property links
   const knownEvent = (name: string) => sheetEventNames.has(name) || eventByName.has(name);
   const knownProperty = (name: string) => desiredProps.some((p) => p.scope === 'event' && p.name === name) || propByKey.has(`event:${name}`);
-  const linkDesired = new Map<string, { event: string; property: string; required: boolean; role?: string; priority: string | null; status: string | null }>();
+  const linkDesired = new Map<string, { event: string; property: string; required: boolean; role?: string; priority: string | null; status: string | null; attr?: SheetAttribute; definition?: string }>();
   for (const a of parsed.attributes) {
     if (airline.has(a.event)) continue;
     if (!knownEvent(a.event)) {
@@ -1121,7 +1145,7 @@ export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingS
       needs.push({ entity: 'event_property', key: `${a.event}/${a.property}`, why: 'discriminator, but no allowed values could be read from the description; linked as a normal property' });
     }
     linkDesired.set(`${a.event}/${a.property}`, {
-      event: a.event, property: a.property, required: a.required, role: isDisc ? 'discriminator' : undefined, priority: a.priority, status: a.status,
+      event: a.event, property: a.property, required: a.required, role: isDisc ? 'discriminator' : undefined, priority: a.priority, status: a.status, attr: a,
     });
   }
   const masterNames = new Set(parsed.properties.map((p) => p.name));
@@ -1142,16 +1166,58 @@ export function planTrackingSheetImport(parsed: ParsedSheet, existing: ExistingS
     }
     const exEvent = eventByName.get(l.event);
     const exProp = propByKey.get(`event:${l.property}`);
+    // D-58: per-event text that differs from the general definition becomes a definition named after the event.
+    let exDef: ExistingDefinition | undefined;
+    if (l.attr) {
+      const exGeneral = exProp?.definitions?.find((d) => d.name === 'general');
+      const pb = propBodyByName.get(l.property) ?? {};
+      const asValues = (v: unknown): string[] => (Array.isArray(v) ? v.map((x) => (x && typeof x === 'object' ? String((x as { value?: unknown }).value) : String(x))) : []);
+      const gen = exGeneral
+        ? { description: exGeneral.description ?? null, formats: asValues(exGeneral.formats_json), example: asValues(exGeneral.example_values_json), allowed: asValues(exGeneral.allowed_values_json) }
+        : { description: (pb.description as string | undefined) ?? null, formats: asValues(pb.data_formats_json), example: asValues(pb.example_values_json), allowed: asValues(pb.allowed_values_json) };
+      const rowAllowed = extractAllowedValues(l.attr.description);
+      const same = (a: string[], b: string[]) => JSON.stringify(a) === JSON.stringify(b);
+      const differs =
+        (!!l.attr.description && !sameValue(gen.description ?? '', l.attr.description)) ||
+        (l.attr.data_formats.length > 0 && !same(l.attr.data_formats, gen.formats)) ||
+        (!!l.attr.example_values && !same(l.attr.example_values, gen.example)) ||
+        (rowAllowed.length > 0 && !same(rowAllowed, gen.allowed));
+      if (differs) {
+        const formats = l.attr.data_formats.length ? l.attr.data_formats : gen.formats;
+        const example = l.attr.example_values ?? gen.example;
+        const defBody: Record<string, unknown> = { property: l.property, name: l.event };
+        const description = l.attr.description ?? gen.description;
+        if (description) defBody.description = description;
+        if (formats.length) defBody.formats_json = formats;
+        if (example.length) defBody.example_values_json = example;
+        if (rowAllowed.length) defBody.allowed_values_json = rowAllowed.map((value) => ({ value }));
+        exDef = exProp?.definitions?.find((d) => d.name === l.event);
+        const diffDesired = { ...defBody };
+        delete diffDesired.property;
+        delete diffDesired.name;
+        ops.push(opFromDiff(fd, 'property_definition', `${l.property}/${l.event}`, exDef, defBody, diffDesired, {}));
+        l.definition = l.event;
+      }
+    }
     const exLink = exEvent && exProp ? exEvent.links.find((x) => x.property_id === exProp.id) : undefined;
     const body: Record<string, unknown> = { event: l.event, property: l.property, required: l.required };
     if (l.role) body.role = l.role;
     if (l.priority) body.priority = l.priority;
     if (l.status) body.status = l.status;
+    if (l.definition) body.definition = l.definition;
     if (!exLink) {
       ops.push({ entity: 'event_property', key, action: 'create', body, conflicts: [], notes: [] });
     } else {
       const desired: Record<string, unknown> = { required: l.required, role: l.role, priority: l.priority, status: l.status };
       const { patch, conflicts } = diffFillEmpty(exLink as unknown as Record<string, unknown>, desired, { role: ['normal'], status: ['planned'] }, fd);
+      if (l.definition) {
+        const generalId = exProp?.definitions?.find((d) => d.name === 'general')?.id;
+        const cur = exLink.definition_id ?? null;
+        if (exDef && cur === exDef.id) {
+          // already on the named definition
+        } else if (!cur || cur === generalId) patch.definition = l.definition;
+        else conflicts.push({ field: 'definition_id', existing: cur, desired: exDef?.id ?? l.definition });
+      }
       ops.push({
         entity: 'event_property', key, action: Object.keys(patch).length ? 'update' : 'unchanged',
         patch: Object.keys(patch).length ? patch : undefined, body: { event: l.event, property: l.property }, conflicts, notes: [],
@@ -1308,7 +1374,13 @@ function finishPlan(ops: PlanOp[], skipped: Plan['skipped'], needs: NeedsClientI
     if (summary[e]) summary[e].skipped++;
   }
   ops.sort((a, b) => ENTITY_ORDER.indexOf(a.entity) - ENTITY_ORDER.indexOf(b.entity));
-  return { ops, summary, conflicts, skipped, needsClientInput: needs, warnings };
+  const definitionsByProperty: Record<string, string[]> = {};
+  for (const op of ops) {
+    if (op.entity !== 'property_definition' || op.action !== 'create') continue;
+    const prop = String(op.body?.property);
+    (definitionsByProperty[prop] ??= []).push(String(op.body?.name));
+  }
+  return { ops, summary, conflicts, skipped, needsClientInput: needs, definitionsByProperty, warnings };
 }
 
 /** Plain-text preview of a plan (the dry-run output). */
@@ -1319,6 +1391,10 @@ export function formatPlan(plan: Plan): string {
     const s = plan.summary[e];
     lines.push(`${e.padEnd(24)} ${String(s.create).padStart(6)}  ${String(s.update).padStart(6)}  ${String(s.unchanged).padStart(9)}  ${String(s.skipped).padStart(7)}`);
   }
+  lines.push('');
+  const defProps = Object.entries(plan.definitionsByProperty);
+  lines.push(`definitions created per property: ${defProps.reduce((n, [, v]) => n + v.length, 0)} on ${defProps.length} properties`);
+  for (const [prop, names] of defProps) lines.push(`  ${prop}: ${names.join(', ')}`);
   lines.push('');
   lines.push(`conflicts: ${plan.conflicts.length}`);
   for (const c of plan.conflicts.slice(0, 40)) lines.push(`  ${c.entity} ${c.key}: ${c.field} existing=${JSON.stringify(c.existing)} sheet=${JSON.stringify(c.desired)}`);

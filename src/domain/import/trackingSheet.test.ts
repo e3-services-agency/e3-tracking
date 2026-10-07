@@ -15,6 +15,7 @@ import {
   planTrackingSheetImport,
   stripEmoji,
   type ExistingState,
+  type ExistingDefinition,
   type ImportProfile,
   type PlanOp,
 } from './trackingSheet';
@@ -83,7 +84,9 @@ async function buildWorkbook(): Promise<string> {
     ['view_item', '✏️ Edit Source', 'ℹ️ Info', 'Total: 2'],
     ['view_item', 'action', '🆔Identifiers & Status', 'What happened (view, select_size)', null, 'planned', true, false, 'String', 'lowercase', 'view'],
     ['view_item', 'product_id', '🛍️ Product Related', 'Id of the product', null, 'planned', false, false, 'String', 'trimmed', 'abc'],
-    ['purchase', 'total_price', '📦Order Summary', 'Total', null, 'planned', false, false, 'Number', 'float', 1],
+    ['purchase', 'total_price', '📦Order Summary', 'Total', null, 'planned', false, false, 'Number', 'float', 77.9],
+    ['view_item', 'total_price', '📦Order Summary', 'Line total', null, 'planned', false, false, 'Number', 'float', 2],
+    ['purchase', 'action', '🆔Identifiers & Status', 'Purchase step (pay, refund)', null, 'planned', false, false, 'String', 'lowercase', 'pay'],
     ['session_start', 'browser', '🌍Browsing Context', 'Browser', null, 'planned', false, false, false, 'String', 'Chrome'],
   ]);
   add('⚙️Dropdowns', [
@@ -256,6 +259,45 @@ describe('planTrackingSheetImport', () => {
         expect(empty, `${op.key}.${k}`).toBe(true);
       }
     }
+  });
+
+  it('turns per-event text into named definitions (D-58), idempotently', async () => {
+    const parsed = parseTrackingSheet(await readWorkbook(await buildWorkbook()));
+    const plan = planTrackingSheetImport(parsed, emptyState(), { profile: PROFILE });
+    // different text on view_item -> a definition named after the event, and the link points at it
+    const line = find(plan.ops, 'property_definition', 'total_price/view_item')!;
+    expect(line).toMatchObject({ action: 'create', body: { property: 'total_price', name: 'view_item', description: 'Line total', example_values_json: ['2'] } });
+    expect(find(plan.ops, 'event_property', 'view_item/total_price')!.body).toMatchObject({ definition: 'view_item' });
+    // identical text on purchase -> general only
+    expect(find(plan.ops, 'property_definition', 'total_price/purchase')).toBeUndefined();
+    expect(find(plan.ops, 'event_property', 'purchase/total_price')!.body).not.toHaveProperty('definition');
+    // allowed values parsed from the description's parenthesised list
+    expect(find(plan.ops, 'property_definition', 'action/purchase')!.body).toMatchObject({ allowed_values_json: [{ value: 'pay' }, { value: 'refund' }] });
+    expect(plan.definitionsByProperty.total_price).toEqual(['view_item']);
+    expect(plan.definitionsByProperty.action).toEqual(['view_item', 'purchase']); // the property carries the union, each event its own list
+    expect(plan.definitionsByProperty.product_id).toEqual(['view_item']); // same text, different example
+
+    // second run: the definitions exist and the links point at them -> unchanged
+    const general: ExistingDefinition = { id: 'g1', name: 'general', description: 'Total', formats_json: [], example_values_json: ['77.9'], allowed_values_json: [] };
+    const named: ExistingDefinition = { id: 'd1', name: 'view_item', description: 'Line total', formats_json: [], example_values_json: ['2'], allowed_values_json: [] };
+    const existing = emptyState({
+      properties: [{ id: 'pr1', scope: 'event', name: 'total_price', definitions: [general, named] }],
+      events: [{ id: 'e2', name: 'view_item', source_ids: [], links: [{ property_id: 'pr1', required: false, role: 'normal', priority: null, status: 'planned', definition_id: 'd1' }] }],
+    });
+    const again = planTrackingSheetImport(parsed, existing, { profile: PROFILE });
+    expect(find(again.ops, 'property_definition', 'total_price/view_item')!.action).toBe('unchanged');
+    expect(find(again.ops, 'event_property', 'view_item/total_price')!.action).toBe('unchanged');
+    // a link still on general is moved to the named definition (fill), one on another definition is a conflict
+    const onGeneral = emptyState({
+      properties: [{ id: 'pr1', scope: 'event', name: 'total_price', definitions: [general, named] }],
+      events: [{ id: 'e2', name: 'view_item', source_ids: [], links: [{ property_id: 'pr1', required: false, role: 'normal', priority: null, status: 'planned', definition_id: 'g1' }] }],
+    });
+    expect(find(planTrackingSheetImport(parsed, onGeneral, { profile: PROFILE }).ops, 'event_property', 'view_item/total_price')).toMatchObject({ action: 'update', patch: { definition: 'view_item' } });
+    const other = emptyState({
+      properties: [{ id: 'pr1', scope: 'event', name: 'total_price', definitions: [general, named, { id: 'd9', name: 'mine' }] }],
+      events: [{ id: 'e2', name: 'view_item', source_ids: [], links: [{ property_id: 'pr1', required: false, role: 'normal', priority: null, status: 'planned', definition_id: 'd9' }] }],
+    });
+    expect(find(planTrackingSheetImport(parsed, other, { profile: PROFILE }).ops, 'event_property', 'view_item/total_price')!.conflicts).toEqual([{ field: 'definition_id', existing: 'd9', desired: 'd1' }]);
   });
 
   it('diffFillEmpty basics', () => {

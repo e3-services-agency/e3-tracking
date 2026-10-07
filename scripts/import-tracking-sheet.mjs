@@ -84,9 +84,10 @@ async function fetchExistingState(client, projectKey) {
     client.get(`${base}/catalogs`),
     client.get(`${base}/identity-rules`),
   ]);
+  const withDefs = await mapLimit(properties, 6, async (p) => ({ ...p, definitions: await client.get(`${base}/properties/${p.id}/definitions`) }));
   const events = await mapLimit(eventsList, 4, async (e) => {
     const detail = await client.get(`${base}/events/${e.id}`);
-    return { ...e, source_ids: detail.source_ids ?? [], links: (detail.properties ?? []).map((l) => ({ property_id: l.property_id, required: l.required, role: l.role, priority: l.priority, status: l.status })) };
+    return { ...e, source_ids: detail.source_ids ?? [], links: (detail.properties ?? []).map((l) => ({ property_id: l.property_id, required: l.required, role: l.role, priority: l.priority, status: l.status, definition_id: l.definition_id ?? null })) };
   });
   const catalogs = await mapLimit(catalogsList, 4, async (c) => {
     const detail = await client.get(`${base}/catalogs/${c.id}`);
@@ -97,7 +98,7 @@ async function fetchExistingState(client, projectKey) {
     state: {
       project: { id: project.id, key: project.key, industry: project.industry ?? null },
       sources,
-      properties,
+      properties: withDefs,
       events,
       catalogs,
       identityRules,
@@ -109,6 +110,7 @@ async function fetchExistingState(client, projectKey) {
 async function applyPlan(client, base, plan, state) {
   const ids = {
     property: new Map(state.properties.map((p) => [`${p.scope}:${p.name}`, p.id])),
+    def: new Map(state.properties.flatMap((p) => (p.definitions ?? []).map((d) => [`${p.scope}:${p.name}/${d.name}`, d.id]))),
     event: new Map(state.events.map((e) => [e.name, e.id])),
     catalog: new Map(state.catalogs.map((c) => [c.name, c.id])),
     field: new Map(state.catalogs.flatMap((c) => c.fields.map((f) => [`${c.name}/${f.name}`, f.id]))),
@@ -128,6 +130,17 @@ async function applyPlan(client, base, plan, state) {
           } else await client.patch(`${base}/properties/${op.existingId}`, op.patch);
           break;
         }
+        case 'property_definition': {
+          const [propName, defName] = op.key.split('/');
+          const propId = ids.property.get(`event:${propName}`);
+          if (!propId) throw new Error(`unresolved property ${propName}`);
+          if (op.action === 'create') {
+            const { property: _p, ...rest } = op.body;
+            const created = await client.post(`${base}/properties/${propId}/definitions`, rest);
+            ids.def.set(`event:${propName}/${defName}`, created.id);
+          } else await client.patch(`${base}/properties/${propId}/definitions/${op.existingId}`, op.patch);
+          break;
+        }
         case 'event': {
           if (op.action === 'create') {
             const created = await client.post(`${base}/events`, op.body);
@@ -140,9 +153,14 @@ async function applyPlan(client, base, plan, state) {
           const propId = ids.property.get(`event:${op.body.property}`);
           if (!eventId || !propId) throw new Error(`unresolved reference (${op.body.event} / ${op.body.property})`);
           if (op.action === 'create') {
-            const { event: _e, property: _p, ...rest } = op.body;
+            const { event: _e, property: _p, definition, ...rest } = op.body;
+            if (definition) rest.definition_id = ids.def.get(`event:${op.body.property}/${definition}`);
             await client.post(`${base}/events/${eventId}/properties`, { property_id: propId, ...rest });
-          } else await client.patch(`${base}/events/${eventId}/properties/${propId}`, op.patch);
+          } else {
+            const { definition, ...patch } = op.patch;
+            if (definition) patch.definition_id = ids.def.get(`event:${op.body.property}/${definition}`);
+            await client.patch(`${base}/events/${eventId}/properties/${propId}`, patch);
+          }
           break;
         }
         case 'catalog': {

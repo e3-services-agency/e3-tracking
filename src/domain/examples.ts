@@ -95,18 +95,27 @@ export function allowedValueStrings(raw: unknown): string[] {
  * first (deduped, stored order), then allowed values until two examples; stored examples outside
  * the set are ignored. With no allowed set: the stored examples as they are.
  */
-export function exampleValuesFor(src: ExampleSource): { value: string }[] {
+export function exampleValuesFor(src: ExampleSource): { value: unknown }[] {
   const stored = exampleValueStrings(src.example_values_json);
-  const allowed = [...new Set(allowedValueStrings(src.allowed_values_json))];
-  if (allowed.length === 0) return stored.map((value) => ({ value }));
-  const set = new Set(allowed);
+  // Allowed values keep their original type (a numeric enum yields numbers); membership is by string.
+  const typed = new Map<string, unknown>();
+  if (Array.isArray(src.allowed_values_json)) {
+    for (const item of src.allowed_values_json) {
+      const x = item !== null && typeof item === 'object' && 'value' in (item as object) ? (item as { value: unknown }).value : item;
+      const str = typeof x === 'string' ? x : x !== null && typeof x === 'object' ? JSON.stringify(x) : String(x ?? '');
+      if (str !== '' && !typed.has(str)) typed.set(str, x);
+    }
+  } else {
+    for (const a of allowedValueStrings(src.allowed_values_json)) typed.set(a, a);
+  }
+  if (typed.size === 0) return stored.map((value) => ({ value }));
   const out: string[] = [];
-  for (const s of stored) if (set.has(s) && !out.includes(s)) out.push(s);
-  for (const a of allowed) {
+  for (const s of stored) if (typed.has(s) && !out.includes(s)) out.push(s);
+  for (const a of typed.keys()) {
     if (out.length >= ENUM_EXAMPLE_COUNT) break;
     if (!out.includes(a)) out.push(a);
   }
-  return out.map((value) => ({ value }));
+  return out.map((k) => ({ value: typed.get(k) }));
 }
 
 /** Stored examples that are not in the allowed set (empty when there is no allowed set). */

@@ -898,7 +898,7 @@ function DefinitionEditor({
   const [description, setDescription] = useState(definition?.description ?? '');
   const [allowedValues, setAllowedValues] = useState<AllowedValueRow[]>(definition?.allowed_values_json ?? []);
   const [formats, setFormats] = useState<string[]>(definition?.formats_json ?? []);
-  const [example, setExample] = useState(definition ? (exampleValuesFor(definition)[0]?.value ?? '') : '');
+  const [example, setExample] = useState(definition ? String(exampleValuesFor(definition)[0]?.value ?? '') : '');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 

@@ -10,8 +10,8 @@ SET example_values_json = COALESCE((
   SELECT json_group_array(json(e.value))
   FROM (SELECT value, key FROM json_each(properties.example_values_json) ORDER BY key) e
   WHERE json_type(e.value) = 'object'
-    AND json_extract(e.value, '$.value') IN (
-      SELECT json_extract(a.value, '$.value') FROM json_each(properties.allowed_values_json) a)
+    AND CAST(json_extract(e.value, '$.value') AS TEXT) IN (
+      SELECT CAST(json_extract(a.value, '$.value') AS TEXT) FROM json_each(properties.allowed_values_json) a)
 ), '[]')
 WHERE example_values_json IS NOT NULL AND json_valid(example_values_json) AND json_type(example_values_json) = 'array'
   AND json_array_length(example_values_json) > 0
@@ -24,8 +24,8 @@ SET example_values_json = COALESCE((
   SELECT json_group_array(json(e.value))
   FROM (SELECT value, key FROM json_each(property_definitions.example_values_json) ORDER BY key) e
   WHERE json_type(e.value) = 'object'
-    AND json_extract(e.value, '$.value') IN (
-      SELECT json_extract(a.value, '$.value') FROM json_each(property_definitions.allowed_values_json) a)
+    AND CAST(json_extract(e.value, '$.value') AS TEXT) IN (
+      SELECT CAST(json_extract(a.value, '$.value') AS TEXT) FROM json_each(property_definitions.allowed_values_json) a)
 ), '[]')
 WHERE example_values_json IS NOT NULL AND json_valid(example_values_json) AND json_type(example_values_json) = 'array'
   AND json_array_length(example_values_json) > 0

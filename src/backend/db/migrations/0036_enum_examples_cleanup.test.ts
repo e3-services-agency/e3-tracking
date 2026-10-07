@@ -29,6 +29,7 @@ describe('0036_enum_examples_cleanup.sql', () => {
       ['a_mixed', allowed, [{ value: 'click' }, { value: 'view' }, { value: 'add' }], [{ value: 'view' }, { value: 'add' }]],
       ['b_all_bad', allowed, [{ value: 'add / remove / ...' }], []],
       ['c_ok', allowed, [{ value: 'add' }], [{ value: 'add' }]],
+      ['e_numeric', [{ value: 1 }, { value: 2 }], [{ value: '1' }, { value: 3 }], [{ value: '1' }]],
       ['d_free_text', [], [{ value: 'anything' }], [{ value: 'anything' }]],
     ];
     const ins = db.prepare(

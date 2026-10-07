@@ -57,3 +57,10 @@ describe('exampleValuesFor (T-5-11)', () => {
     expect(splitEnumExampleCell('click', ['add'])).toBeNull();
   });
 });
+
+describe('exampleValuesFor typed enums', () => {
+  it('keeps the allowed value type', () => {
+    expect(exampleValuesFor({ allowed_values_json: [{ value: 1 }, { value: 2 }, { value: 3 }], example_values_json: [{ value: '2' }] })).toEqual([{ value: 2 }, { value: 1 }]);
+    expect(exampleValuesFor({ allowed_values_json: [{ value: true }], example_values_json: [] })).toEqual([{ value: true }]);
+  });
+});

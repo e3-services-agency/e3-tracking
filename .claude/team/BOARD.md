@@ -3436,3 +3436,23 @@ FieldLabel hints across the rule editor (new Identity rules scope entries, cover
 
 ### 2026-10-07 | supervisor | MERGE | T-4-32 merged into agent-setup — DONE; review round 8 complete, nothing running
 Open, waiting on the user: T-4-06 (samples/br-initiatives/), phase 5 step 2 (D-09 go + provider). Decisions D-67 (+2 amendments) and D-68 remain "proposed", implemented and reversible.
+
+### 2026-10-07 | supervisor | TASK | T-4-34 legacy tracking-sheet importer; first run seeds the Airshoppen project on the container
+User supplied the ATR tracking document (xlsx, client data, stays outside the repo) and created the project airshoppen (industry travel, two sources backend/frontend) on 3020. Implementer builds the importer on C:/t/t434, dry-runs against 3020, posts the preview; supervisor confirms, then apply.
+
+### 2026-10-07 | supervisor | TASK | T-4-35 identifiers registry (D-69, user review)
+Identifiers are project configuration (Bloomreach settings screen), identity rules are acts over them. Implementer on C:/t/t435; T-4-34 importer runs in parallel and stays compatible through identifier_name + identity_type on the rules API.
+
+### 2026-10-07 | implementer | HANDOFF | T-4-34 sheet importer — task/T-4-34-sheet-importer, commit da4593b (worktree C:/t/t434)
+scripts/import-tracking-sheet.mjs + src/domain/import/trackingSheet.ts (parser, mappers, idempotent planner), 7 tests on a synthetic exceljs workbook, guide page, exceljs devDependency. 1870 tests / 187 files, tsc, lint green (2 vitest teardown "errors", listOnTimeout, uninvestigated). End-to-end on a throwaway API: apply then a second dry run shows all unchanged. Dry run on 3020/airshoppen: create 193 properties, 22 events, 241 links, 2 catalogs, 73 fields, 3 identity rules; 2 conflicts on view_item (priority critical vs high, implementation sdk_auto vs client_web; existing kept); 57 #N/A catalog types default to string; 68 needs-client-input (11 airline events, consent/voucher without source, #N/A fields). Judgment: item_id lookup key + product_id/variant_id companions (D-61 amendment); discriminator allowed values read from the action descriptions.
+Supervisor: apply approved (user: proceed with the seed; sheet ids customer_id/passenger_id/cookie are the authority).
+
+### 2026-10-07 | supervisor | NOTE | T-4-34 apply blocked by permissions
+Both the implementer and the supervisor were denied writing to the user's container (3020); the apply is handed to the user as a command. Held until the review fix lands.
+
+### 2026-10-07 | reviewer | REVIEW | T-4-34 FAIL (1 high, 2 medium, 3 low)
+Gates green (1870/187; the teardown error is vitest's onTaskUpdate RPC timeout under load, not exceljs/tsx). HIGH "schema defaults count as empty" overwrites deliberate values (status planned, class custom, implementation_method client_web, link role normal, property_type custom, catalog kind other, field data_type string) and breaks the "never overwrite" promise. MEDIUM every Identity row with "JS SDK" source gets sdk_call identify, wrong for soft ids (cookie); cookie not always linked to the frontend source. MEDIUM the generic importer hardcodes Airshoppen specifics (airline event list, booking properties, industry travel, discriminator events). LOW allowed-values union not merged, examples unsplit, cellBool ignores 1/0/x, false never fills; no retry/429 handling; nits. Verified: purity, parser robustness, enum mapping, catalogs per D-61, REST bodies, tsx loading, packaging, docs wiring.
+Supervisor ruling: fix HIGH (only null/empty count as empty; default-valued differences reported as conflicts flagged "default", opt-in `--fill-defaults`), MEDIUM 1 (identify only for hard ids; cookie → frontend source), MEDIUM 2 (`--profile <json>` file for client specifics: extra events, extra property attachments, industry, discriminator events; ship `scripts/profiles/airshoppen.json` with no client data beyond event names; default profile none), gitignore the report files, remove dead code; re-review; then the user applies.
+
+### 2026-10-07 | implementer + reviewer | T-4-34 fix a70f9aa, re-review PASS
+Empty = null/''/[]/false only; default-valued differences are conflicts flagged default, `--fill-defaults` opt-in; identify only for hard ids, cookie/frontend source linking; `--profile` JSON (scripts/profiles/airshoppen.json: names, travel, three discriminators only); gitignore, dead code, emoji regex. Dry run on 3020 unchanged (22 events, 193 properties, 241 links, 2 catalogs/73 fields, 3 rules; 2 real conflicts on view_item). Apply handed to the user (permission). Supervisor: merging; QA = the container dry run + unit tests.

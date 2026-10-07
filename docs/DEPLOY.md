@@ -121,3 +121,58 @@ The same image can run on a VM or container host. Before any remote exposure, pe
 - Share-link hardening (D-48 phase 5 items), a restore rehearsal into a fresh container, and the decision on the Vercel scaffold (`api/index.ts`, `vercel.json`, untouched, D-23).
 - Backups copied off the host (the volume is a single disk).
 - Account, billing, DNS and identity-provider registration stay with the user.
+
+## GCP deployment
+
+Scripts in `deploy/gcp/` (D-72, T-5-07) create one Compute Engine VM with Docker, Caddy and the identity proxy (the compose `edge` profile). Run them from Git Bash on Windows or from Linux. Every script supports `--dry-run` (prints each gcloud command, executes nothing), is safe to re-run (it probes before creating), and asks `y/N` once before its first mutating command unless `--yes` is given.
+
+### What you do, what the scripts do
+
+You: create the GCP project and attach billing; `gcloud auth login`; create the OAuth client; create the DNS record; fill the OAuth values on the VM; review each dry run. Scripts: enable APIs, create the IP, firewall, service account, bucket, disk and VM, build and push the image, deploy, monitoring.
+
+### Prerequisites
+
+1. Install the gcloud CLI and Docker. `gcloud auth login`, then `gcloud config set project e3-tracking`.
+2. Create the project (default id `e3-tracking`) in the console and link a billing account.
+3. `cp deploy/gcp/config.env.example deploy/gcp/config.env` and adjust (project, region `europe-west1`, zone, hostname `tracking.e3-services.com`, `WORKSPACE_DOMAIN`, machine type, disk size, `ALERT_EMAIL`). `config.env` is gitignored.
+
+### OAuth client (console, once)
+
+APIs and Services > OAuth consent screen: user type **Internal** (limits sign-in to the Workspace). Credentials > Create credentials > OAuth client ID > Web application, authorized redirect URI `https://<HOSTNAME>/oauth2/callback`. Keep the client id and secret; they go into `/opt/e3-tracking/.env` on the VM (`OAUTH2_CLIENT_ID`, `OAUTH2_CLIENT_SECRET`).
+
+### Step order
+
+```
+deploy/gcp/00-preflight.sh --dry-run   # then without --dry-run: login, billing, enable APIs
+deploy/gcp/01-infra.sh                 # IP, firewall, service account, bucket, disk, VM; prints the DNS A record
+# create the DNS A record <HOSTNAME> -> the printed IP
+deploy/gcp/02-build-push.sh            # build and push to Artifact Registry; prints the tag
+deploy/gcp/03-deploy.sh <tag>          # first run writes /opt/e3-tracking/.env with placeholders
+# on the VM (gcloud compute ssh <vm> --tunnel-through-iap): edit .env, set the OAuth id and secret, then rerun 03-deploy.sh <tag>
+deploy/gcp/04-backup.sh                # BACKUP_BUCKET in the VM .env (upload code: T-5-08)
+deploy/gcp/05-cutover.sh <project-id>...   # move local projects (exports from 127.0.0.1:3020)
+deploy/gcp/06-monitoring.sh            # uptime check on /api/health, email alert
+```
+
+The VM runs compose with `-f docker-compose.yml -f docker-compose.gcp.yml` (`deploy/gcp/docker-compose.gcp.yml` binds `/data` of app, backup and mcp to the mounted data disk; `startup.sh` chowns it to uid 1000). `.env` variable names (`IMAGE`, `HOSTNAME`, `WORKSPACE_DOMAIN`, `TRUSTED_PROXY_CIDR`, `OAUTH2_CLIENT_ID`, `OAUTH2_CLIENT_SECRET`, `OAUTH2_COOKIE_SECRET`, `E3_AUTH_MODE`, `BACKUP_BUCKET`) must match what the edge profile's compose and Caddyfile read; compose uses `image: ${IMAGE:-e3-tracking:local}` for app, backup and mcp.
+
+### Cut-over
+
+`05-cutover.sh` exports each project's `backup.json` from the local container and restores it on the VM through an IAP SSH tunnel to the app port 127.0.0.1:3020 on the VM (the OAuth proxy blocks scripted calls). If the port is not reachable that way, download the backup from the local app and use the restore form on the Clients page of the deployed app. Restore always creates a new project.
+
+### Rollback
+
+`03-deploy.sh` prints the previous image tag; rerun `03-deploy.sh <previous-tag>`. Data stays on the disk, migrations only move forward, so take a backup before upgrading across a schema change.
+
+### Costs (estimate)
+
+e2-micro about 6 to 7 EUR (upgrade to e2-small, about 13 EUR, if memory is tight), 20 GB pd-balanced about 2 EUR, 20 GB boot disk about 2 EUR, static IP in use free, Artifact Registry and bucket cents, uptime checks within the free tier: roughly 15 to 25 EUR per month. Teardown is manual in the console and not scripted.
+
+### GCP deployment: addenda (T-5-07 review fixes)
+
+- **Machine size (D-72 amendment 1):** the default is `e2-micro` (1 GB) with a 2 GB swapfile created by `startup.sh`. To upgrade, stop the VM, `gcloud compute instances set-machine-type <vm> --machine-type e2-small --zone <zone>`, start it, and set `MACHINE_TYPE` in `config.env`. The data disk is kept.
+- **Permissions:** your Google account needs `roles/iap.tunnelResourceAccessor` (plus Compute instance admin or OS Login rights) to use `--tunnel-through-iap`. The first `gcloud compute ssh` generates an SSH key and asks for an optional passphrase, and may take a minute to propagate.
+- **File layout on the VM:** `03-deploy.sh` uploads to `~/e3-deploy/`, then installs with sudo into `/opt/e3-tracking/` (`docker-compose.yml`, `docker-compose.gcp.yml`, `deploy/edge/Caddyfile`, `.env` mode 600). The override passes `HOSTNAME` to caddy and `BACKUP_BUCKET` to the backup service.
+- **First deploy:** `03-deploy.sh` writes a `.env` with `REPLACE_ME` OAuth values and stops (exit 1) before `up -d`. Edit `OAUTH2_CLIENT_ID` and `OAUTH2_CLIENT_SECRET` on the VM (`gcloud compute ssh <vm> --tunnel-through-iap` then `sudo nano /opt/e3-tracking/.env`) and rerun the same command. The health check is non-fatal (DNS or the certificate may still be pending).
+- **Cut-over order:** the app must be deployed and healthy first. The default `05-cutover.sh <project-id>...` downloads each backup and prints the browser steps: open `https://<HOSTNAME>/tracking-plan/`, create the client, Clients page, Restore backup, choose the file, confirm the preview. `--via-tunnel` automates this: it creates or reuses the client (`CLIENT_NAME`, default "Imported") and posts preview and apply from inside the VM's app container over IAP ssh. The peer is 127.0.0.1, which is why the default `TRUSTED_PROXY_CIDR` written to `.env` is `172.28.0.8/29,127.0.0.1/32`; only processes inside the app container can connect from loopback, so nothing external gains trust.
+- **Monitoring:** `06-monitoring.sh` uses `gcloud alpha monitoring policies`, which may be unavailable; if it fails, create the alert policy in the console from the uptime check. The script continues.

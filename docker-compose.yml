@@ -14,7 +14,7 @@ x-env: &env
 services:
   app:
     build: .
-    image: e3-tracking:local
+    image: ${IMAGE:-e3-tracking:local}
     command: ["app"]
     ports:
       - "127.0.0.1:3020:3001"
@@ -40,7 +40,7 @@ services:
       retries: 3
 
   backup:
-    image: e3-tracking:local
+    image: ${IMAGE:-e3-tracking:local}
     command: ["backup"]
     depends_on:
       app:
@@ -54,7 +54,7 @@ services:
 
   # `docker compose run -T --rm mcp` -- stdio MCP server against the same DB file (D-33).
   mcp:
-    image: e3-tracking:local
+    image: ${IMAGE:-e3-tracking:local}
     command: ["mcp"]
     profiles: ["mcp"]
     stdin_open: true

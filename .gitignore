@@ -17,3 +17,8 @@ data/
 # Importer reports (T-4-34): preview and apply output hold client data
 airshoppen-*.json
 scripts/*-report.json
+
+# GCP deploy (T-5-07): local config and generated output
+deploy/gcp/config.env
+deploy/gcp/cutover-out/
+deploy/gcp/alert-policy.json

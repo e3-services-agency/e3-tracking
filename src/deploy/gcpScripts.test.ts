@@ -71,7 +71,8 @@ describe.skipIf(!hasBash)('deploy/gcp --dry-run', () => {
   it('03-deploy.sh uploads to ~/e3-deploy with the repo layout and aborts on REPLACE_ME before up', () => {
     const out = dry('03-deploy.sh', ['v1']);
     expect(out).toContain('~/e3-deploy/deploy/');
-    expect(out).toContain('deploy/edge e3-tracking:~/e3-deploy/deploy/');
+    // The local path may be shell-quoted (spaces, accents), so assert source and destination separately.
+    expect(out).toMatch(/deploy\/edge'? e3-tracking:~\/e3-deploy\/deploy\//);
     expect(out).toContain('sudo install -d -m 755 /opt/e3-tracking/deploy');
     expect(out).toContain('sudo install -m 600');
     const cmd = out.split('\n').find((l) => l.includes('install -d -m 755')) ?? '';

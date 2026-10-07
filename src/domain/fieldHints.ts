@@ -214,6 +214,7 @@ export const FIELD_HINTS: Record<string, string> = {
   'Naming convention': 'Naming style for custom events and properties: snake_case, kebab_case or camel_case. Example: snake_case.',
   'Share link': 'A public read-only link to the documentation; rotate or revoke at any time.',
   'Show internal comments on the shared view': 'Internal comments never appear on the shared view; this setting controls the other comments.',
+  'Require a name on the share link': 'Visitors must enter a name before commenting, replying, reacting or changing a status through the link.',
   'Jump to': 'Go straight to an event or section of this document.',
   'Comments': 'Discussion on this item. Example: a question about what the event means.',
   'Gaps only': 'Show only rows where a use case requires data the project does not define.',

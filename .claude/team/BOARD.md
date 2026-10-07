@@ -3562,3 +3562,6 @@ Per-link "Visitor xxxx" id (ensureAuthorName) for reactions/status, posts still 
 
 ### 2026-10-07 | supervisor | MERGE | T-5-03 merged into agent-setup — DONE; D-70 complete (T-5-02/03/04), nothing running
 Merge a9bc0ee. Merged tree: tsc, lint, build clean, 1930 tests / 191 files. Migrations 0033-0035 apply on the next container start. Open, waiting on the user: container rebuild; D-67/D-68/D-69 confirmation; phase 5 step 2 (go + provider; then hosting, identity proxy, MCP transport, backups, digest email, MCP write tools T-5-01); T-4-06 samples.
+
+### 2026-10-07 | supervisor | DECISION | D-67 (+2 amendments), D-68, D-69 (+1 amendment) confirmed by the user
+Status updated to accepted in DECISIONS.md. Open: phase 5 step 2 (go + provider), T-4-06 samples.

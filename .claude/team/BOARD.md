@@ -3591,3 +3591,6 @@ Supervisor ruling: fix both minors (preserve the allowed value's type; CAST both
 
 ### 2026-10-07 | implementer | HANDOFF | T-5-11 fix 4106956
 Typed example values (string match, original type returned), 0036 compares CAST AS TEXT both sides, tests. tsc, lint, scoped tests green. Supervisor: merging.
+
+### 2026-10-07 | supervisor | MERGE | T-5-11 merged into agent-setup — DONE
+Merge cf50945. Merged tree: tsc, lint clean, 1937 tests / 192 files. Remaining: T-5-05 fix round, then re-review + QA re-check (reply inline image, definition examples on the merged tree).

@@ -3485,3 +3485,9 @@ Supervisor ruling: fix the radios (follow the existing entry, disabled) and set 
 
 ### 2026-10-07 | implementer | HANDOFF | T-4-35 QA polish ed7a1bb
 Type radios follow an existing identifier (disabled), resolveSdkCall shared by preview and save (standalone + hard → identify), onCreated switches the Sheet to edit. tsc, lint, identity tests green. Supervisor: merging.
+
+### 2026-10-07 | implementer | HANDOFF | T-4-34 per-event definitions b4b024e
+Planner compares each event-property row (description, formats, example, allowed values) with the property's general definition and plans a definition named after the event where any differs, linking the event property to it (fill from general; conflict on another definition); idempotent; dry-run table gains property_definition and a per-property list; guide paragraph; test. 1871 tests / 187 files, gates green. Dry run on 3020: 56 definitions on 23 properties, 56 link updates, otherwise unchanged. Example-only differences also create a definition (kept, examples are per-event meaning).
+
+### 2026-10-07 | supervisor | APPLY + MERGE | Airshoppen definitions applied; T-4-34 b4b024e merged
+Apply on 3020: 56 definitions created, 56 links moved, 0 failed; action = general, cart_update, view_item, consent; 23 properties with named definitions. T-4-35 merged at 21dc711; one test (identifiers.registry.test.ts) fails only on the non-ASCII main-checkout path (import.meta.url not decoded), fix in progress.

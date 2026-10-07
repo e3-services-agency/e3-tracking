@@ -11,7 +11,7 @@ export default defineConfig({
   resolve: { alias: { '@': path.resolve(__dirname, '.') } },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
     // T-2-03 review carry-over: the full suite (esp. the Data Manager events fixture tests, ~60
     // events/500+ property occurrences) exceeds vitest's 5s default under parallel CI/local load.
     testTimeout: 15000,

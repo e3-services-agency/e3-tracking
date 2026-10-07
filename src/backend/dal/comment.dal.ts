@@ -10,6 +10,7 @@
  * Not change-logged (D-44 lists comments as their own lightweight trail, not a definition write).
  * `entity_label` is resolved on read, not stored here -- see `src/backend/services/comments.service.ts`.
  */
+import { COMMENT_BODY_MAX } from '../../domain/markdownEdit';
 import { getDb } from '../db';
 import { newId, nowIso } from '../db/util';
 import { ForbiddenError, NotFoundError, ValidationError } from '../errors';
@@ -171,8 +172,8 @@ export function createComment(projectId: string, input: CommentInput): CommentRo
 
   const body = input.body?.trim();
   if (!body) throw new ValidationError('body is required.', 'body');
-  if (body.length > 4000) {
-    throw new ValidationError('body must be 4000 characters or fewer.', 'body');
+  if (body.length > COMMENT_BODY_MAX) {
+    throw new ValidationError('body must be 10000 characters or fewer.', 'body');
   }
 
   const db = getDb();

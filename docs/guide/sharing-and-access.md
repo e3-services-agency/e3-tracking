@@ -38,3 +38,7 @@ of the shared page show how many threads are still open.
 ## Images on comments
 
 In any comment form, drop, paste (Ctrl+V while the dashed zone is focused) or click to add screenshots: PNG, JPEG or WebP, 5 MB each, up to 10 per comment. The images upload right after the comment is posted and show as small thumbnails under it (three visible, then "+n"); click one to open it full size and step through the rest with the arrow keys. Images are re-encoded on upload, so location data and other hidden metadata are removed. An image on an "Internal only" comment is never visible through the share link. Clients with a comment link can attach images to the comment they just wrote (within 15 minutes); the team can add and delete images from the internal API.
+
+## Writing comments (Markdown)
+
+Comments, replies and share-link comments are written in Markdown. The editor above the Post button has buttons for bold, italic, strikethrough, code, link, lists, quote, task item and inserting an image already attached to the comment. Shortcuts: Ctrl/Cmd+B bold, I italic, K link, E code, Ctrl/Cmd+Shift+X strikethrough, Ctrl/Cmd+Enter posts. Enter continues a list (and ends it on an empty item); Tab and Shift+Tab indent list items. Use the Preview tab to see the result. Raw HTML is not rendered. A comment can be up to 10,000 characters. Images picked for a comment get an id once it is posted, so insert them inline only when replying to a comment that already has them.

@@ -16,6 +16,9 @@ import type { CommentPanelRow } from './CommentsPanel';
 import { CommentReactions } from './CommentReactions';
 import type { CommentReactionKind } from '@/src/domain/enums';
 import { AttachmentPicker } from './CommentAttachments';
+import { CommentBody } from './CommentBody';
+import { MarkdownEditor } from '@/src/components/ui/MarkdownEditor';
+import { COMMENT_BODY_MAX, resolveAttachmentSrc } from '@/src/domain/markdownEdit';
 
 export const REPLIES_COLLAPSED_AFTER = 2;
 
@@ -31,6 +34,7 @@ export function CommentItem({
   onSetStatus,
   onReply,
   renderAttachments,
+  fileUrl,
   onReact,
   ownName = '',
   nameMissing = false,
@@ -46,6 +50,8 @@ export function CommentItem({
   onReply: (body: string, files: File[]) => Promise<boolean>;
   /** T-5-04 slot: attachments (thumbnails) under a comment's body. */
   renderAttachments?: (comment: CommentPanelRow) => React.ReactNode;
+  /** Files URL of the current view; resolves `attachment:<id>` images in Markdown bodies (D-71). */
+  fileUrl: (path: string) => string;
   /** T-5-03: reaction toggle (any comment id, root or reply); omit to hide the row. */
   onReact?: (comment: CommentPanelRow, kind: CommentReactionKind) => void;
   /** Shared visitor's remembered name (to highlight their own reactions). */
@@ -66,6 +72,23 @@ export function CommentItem({
   const statusOptions: readonly CommentStatus[] = mode === 'internal' ? COMMENT_STATUSES : SHARE_SETTABLE_COMMENT_STATUSES;
   // A share link may not reopen: once closed, the menu is gone for it.
   const canSetStatus = canComment && (mode === 'internal' || (thread.status !== 'done' && thread.status !== 'wont_do'));
+
+  const sendReply = () => {
+    if (!replyBody.trim() || replying) return;
+    if (nameMissing) {
+      setReplyError('Enter your name first.');
+      return;
+    }
+    setReplyError(null);
+    setReplying(true);
+    void onReply(replyBody, replyFiles).then((ok) => {
+      if (ok) {
+        setReplyBody('');
+        setReplyFiles([]);
+      }
+      setReplying(false);
+    });
+  };
 
   const reactionsRow = (row: CommentPanelRow, isRoot: boolean) =>
     onReact ? (
@@ -124,7 +147,7 @@ export function CommentItem({
           </span>
         )}
       </div>
-      <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap">{thread.body}</p>
+      <CommentBody className="mt-1" body={thread.body} attachments={thread.attachments} fileUrl={fileUrl} />
       {renderAttachments?.(thread)}
       {reactionsRow(thread, true)}
 
@@ -133,7 +156,7 @@ export function CommentItem({
           {visibleReplies.map((reply) => (
             <li key={reply.id} data-testid="comment-reply">
               <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">{meta(reply)}</div>
-              <p className="text-sm text-gray-900 mt-0.5 whitespace-pre-wrap">{reply.body}</p>
+              <CommentBody className="mt-0.5" body={reply.body} attachments={reply.attachments} fileUrl={fileUrl} />
               {renderAttachments?.(reply)}
               {reactionsRow(reply, false)}
             </li>
@@ -150,45 +173,36 @@ export function CommentItem({
 
       {canComment && (
         <form
-          className="mt-2 flex flex-wrap items-start gap-2"
+          className="mt-2 space-y-2"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!replyBody.trim()) return;
-            if (nameMissing) {
-              setReplyError('Enter your name first.');
-              return;
-            }
-            setReplyError(null);
-            setReplying(true);
-            void onReply(replyBody, replyFiles).then((ok) => {
-              if (ok) {
-                setReplyBody('');
-                setReplyFiles([]);
-              }
-              setReplying(false);
-            });
+            sendReply();
           }}
         >
-          <input
-            type="text"
+          <MarkdownEditor
             value={replyBody}
-            onChange={(e) => setReplyBody(e.target.value)}
+            onChange={setReplyBody}
+            onSubmit={sendReply}
             placeholder="Reply…"
-            aria-label="Reply"
-            maxLength={4000}
-            className="h-8 flex-1 rounded-md border border-gray-300 bg-white px-2 text-xs"
+            ariaLabel="Reply"
+            rows={2}
+            maxLength={COMMENT_BODY_MAX}
+            disabled={replying}
+            attachments={(thread.attachments ?? []).map((a, i) => ({ id: a.id, label: `Image ${i + 1}` }))}
+            pendingNames={replyFiles.map((f) => f.name)}
+            resolveImage={(src) => resolveAttachmentSrc(src, thread.attachments, fileUrl)}
           />
-          <button
-            type="submit"
-            disabled={replying || !replyBody.trim()}
-            className="h-8 rounded-md border border-gray-300 bg-white px-2 text-xs font-medium text-gray-700 disabled:opacity-50"
-          >
-            Reply
-          </button>
-          {replyError && <span className="text-[11px] text-red-700 self-center">{replyError}</span>}
-          <div className="w-full">
-            <AttachmentPicker files={replyFiles} onChange={setReplyFiles} disabled={replying} />
+          <div className="flex items-center gap-2">
+            <button
+              type="submit"
+              disabled={replying || !replyBody.trim()}
+              className="h-8 rounded-md border border-gray-300 bg-white px-2 text-xs font-medium text-gray-700 disabled:opacity-50"
+            >
+              Reply
+            </button>
+            {replyError && <span className="text-[11px] text-red-700 self-center">{replyError}</span>}
           </div>
+          <AttachmentPicker files={replyFiles} onChange={setReplyFiles} disabled={replying} />
         </form>
       )}
     </li>

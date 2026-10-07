@@ -202,6 +202,10 @@ There is no edit, on either side — only resolve (internal-only,
 `PATCH /api/projects/:id/comments/:id {resolved}`) and delete (internal-only,
 `DELETE /api/projects/:id/comments/:id`, from the project-wide Comments page).
 
+### Markdown bodies (D-71, T-5-05)
+
+A comment body is Markdown text, stored exactly as typed (the public `GET` is unchanged: Markdown is text). Supported: bold, italic, strikethrough, inline code and code blocks, links, bullet, numbered and task lists, quotes. Raw HTML is never rendered (it shows as text). Links open in a new tab with `rel="noopener noreferrer nofollow"` and external links show their host. Images only render as `![alt](attachment:<id>)` for an image attached to that comment (resolved to the internal files URL, or the share files URL in the shared view); any other image source shows the alt text only. The body limit is 10,000 characters on both the internal and the shared `POST` (400 `VALIDATION_ERROR`). The composer is the shared `MarkdownEditor` (toolbar, Write/Preview, Ctrl/Cmd+Enter posts).
+
 ## The shared view page (`src/pages/SharedProject.tsx`, D-50)
 
 `/tracking-plan/shared/<token>` is matched before `ProtectedRoute` (`src/App.tsx`), so it never

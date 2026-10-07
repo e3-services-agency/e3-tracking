@@ -20,6 +20,7 @@
  * a removed *requirement* is handled separately, by whether `use_case_id` could be recovered at all).
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { FieldLabel } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Loader2, Trash2 } from 'lucide-react';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
@@ -190,14 +191,14 @@ export function Comments() {
         )}
         <div className="bg-white rounded-lg border shadow-sm p-4 flex flex-wrap items-end gap-3">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Entity type</label>
+            <FieldLabel className="text-xs font-medium text-gray-500" hintScope="Comments">Entity type</FieldLabel>
             <select value={entityType} onChange={(e) => setEntityType(e.target.value)} className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm">
               <option value="">All</option>
               {COMMENT_ENTITY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Status</label>
+            <FieldLabel className="text-xs font-medium text-gray-500" hintScope="Comments">Status</FieldLabel>
             <select
               value={resolvedFilter}
               onChange={(e) => setResolvedFilter(e.target.value as ResolvedFilter)}
@@ -209,7 +210,7 @@ export function Comments() {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-gray-500">Visibility</label>
+            <FieldLabel className="text-xs font-medium text-gray-500" hintScope="Comments">Visibility</FieldLabel>
             <select
               value={internalFilter}
               onChange={(e) => setInternalFilter(e.target.value as InternalFilter)}

@@ -5,6 +5,7 @@
  * note on hover / in the expanded row, never as the label), legend, use case filter, gaps-only toggle.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
+import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useProjectShell } from '@/src/features/projects/context/ProjectShellContext';
 import { fetchWithAuth } from '@/src/lib/api';
@@ -147,15 +148,15 @@ export function RequirementsMatrix() {
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
               <span className="font-medium text-gray-700">Use cases:</span>
               {matrix.use_cases.map((uc) => (
-                <label key={uc.id} className="flex items-center gap-1 text-gray-700">
+                <FieldLabel key={uc.id} className="flex items-center gap-1 text-gray-700" hintScope="Matrix">
                   <input type="checkbox" checked={selectedUseCaseIds.includes(uc.id)} onChange={() => toggleUseCase(uc.id)} />
                   {uc.code ?? uc.name}
-                </label>
+                </FieldLabel>
               ))}
-              <label className="flex items-center gap-1 text-gray-700 ml-4">
+              <FieldLabel className="flex items-center gap-1 text-gray-700 ml-4" hintScope="Matrix">
                 <input type="checkbox" checked={gapsOnly} onChange={(e) => setGapsOnly(e.target.checked)} />
                 Gaps only
-              </label>
+              </FieldLabel>
               {selectedUseCaseIds.length > 0 && (
                 <button type="button" className="text-xs text-gray-500 hover:text-gray-900" onClick={() => setSelectedUseCaseIds([])}>
                   Clear use case filter
@@ -167,25 +168,25 @@ export function RequirementsMatrix() {
               <table className="text-left text-sm border-collapse min-w-full">
                 <thead className="bg-gray-50 border-b">
                   <tr>
-                    <th className="px-4 py-3 font-medium text-gray-500 sticky left-0 bg-gray-50">Target</th>
+                    <HintTh className="px-4 py-3 font-medium text-gray-500 sticky left-0 bg-gray-50" hintScope="Matrix">Target</HintTh>
                     {visibleUseCases.map((uc) => (
-                      <th key={uc.id} className="px-4 py-3 font-medium text-gray-500 whitespace-nowrap">
+                      <HintTh key={uc.id} className="px-4 py-3 font-medium text-gray-500 whitespace-nowrap" hintScope="Matrix">
                         {uc.code ? `${uc.code} — ${uc.name}` : uc.name}
-                      </th>
+                      </HintTh>
                     ))}
                   </tr>
                 </thead>
                 {groups.map((group) => (
                   <tbody key={group.key} className="divide-y">
                     <tr className="bg-gray-100">
-                      <th colSpan={colSpan} className="px-4 py-2 text-xs font-semibold text-gray-700 text-left">
+                      <HintTh colSpan={colSpan} className="px-4 py-2 text-xs font-semibold text-gray-700 text-left" hintScope="Matrix">
                         {(group.kind === 'event' || group.kind === 'variant') && (
                           <TargetKindBadge kind={group.kind} compact className="mr-2 align-middle" />
                         )}
                         {group.label}{(group.kind === 'event' || group.kind === 'variant') && (
                           <span className="font-normal text-gray-500"> ({group.kind})</span>
                         )}
-                      </th>
+                      </HintTh>
                     </tr>
                     {group.rows.map((row) => {
                       const expanded = expandedKeys.has(row.key);

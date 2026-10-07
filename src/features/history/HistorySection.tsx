@@ -8,6 +8,7 @@
  * single section shows both the entity's own edits and its children's.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 import { X } from 'lucide-react';
 import { useModalA11y } from '@/src/components/ui/useModalA11y';
 import { fetchWithAuth } from '@/src/lib/api';
@@ -70,14 +71,14 @@ function HistoryTable({ rows, wrap }: { rows: HistoryRow[]; wrap: boolean }) {
       <table className={`w-full text-left text-xs ${wrap ? 'table-fixed' : ''}`}>
         <thead className="text-gray-500">
           <tr>
-            <th className="py-1 pr-3 font-medium">When</th>
-            <th className="py-1 pr-3 font-medium">Who</th>
-            <th className="py-1 pr-3 font-medium">Source</th>
-            <th className="py-1 pr-3 font-medium">Action</th>
-            <th className="py-1 pr-3 font-medium">What</th>
-            <th className="py-1 pr-3 font-medium">Field</th>
-            <th className="py-1 pr-3 font-medium">Before</th>
-            <th className="py-1 pr-3 font-medium">After</th>
+            <HintTh className="py-1 pr-3 font-medium" hintScope="History">When</HintTh>
+            <HintTh className="py-1 pr-3 font-medium" hintScope="History">Who</HintTh>
+            <HintTh className="py-1 pr-3 font-medium" hintScope="History">Source</HintTh>
+            <HintTh className="py-1 pr-3 font-medium" hintScope="History">Action</HintTh>
+            <HintTh className="py-1 pr-3 font-medium" hintScope="History">What</HintTh>
+            <HintTh className="py-1 pr-3 font-medium" hintScope="History">Field</HintTh>
+            <HintTh className="py-1 pr-3 font-medium" hintScope="History">Before</HintTh>
+            <HintTh className="py-1 pr-3 font-medium" hintScope="History">After</HintTh>
           </tr>
         </thead>
         <tbody className="divide-y">
@@ -141,9 +142,9 @@ function HistoryModal({ rows, title, onClose, alwaysModal, onAlwaysModal }: {
               {actions.map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
             <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Filter text" aria-label="Filter history text" className="h-9 w-56 rounded-md border border-gray-300 px-2 text-sm" />
-            <label className="flex items-center gap-1 text-gray-700">
+            <FieldLabel className="flex items-center gap-1 text-gray-700" hintScope="History">
               <input type="checkbox" checked={alwaysModal} onChange={(e) => onAlwaysModal(e.target.checked)} /> Always open in full view
-            </label>
+            </FieldLabel>
             <button type="button" onClick={onClose} aria-label="Close history" className="p-2 hover:bg-gray-100 rounded-full">
               <X className="w-5 h-5 text-gray-500" />
             </button>

@@ -5,6 +5,8 @@
  * immediately on create/delete rather than batched with the rest of the event form.
  */
 import React, { useCallback, useEffect, useState } from 'react';
+import { EntityIcon } from '@/src/components/ui/EntityIcon';
+import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
@@ -166,16 +168,16 @@ export function VariantsSection({
       <table className="w-full text-left text-xs border">
         <thead className="bg-gray-50 border-b">
           <tr>
-            <th className="px-3 py-2 font-medium text-gray-500">Name</th>
-            <th className="px-3 py-2 font-medium text-gray-500">Conditions</th>
-            <th className="px-3 py-2 font-medium text-gray-500">Standard event</th>
+            <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Variants">Name</HintTh>
+            <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Variants">Conditions</HintTh>
+            <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Variants">Standard event</HintTh>
             <th className="px-3 py-2 font-medium text-gray-500 w-10" />
           </tr>
         </thead>
         <tbody className="divide-y">
           {variants.map((v) => (
             <tr key={v.id}>
-              <td className="px-3 py-2 font-medium text-gray-900 font-mono">{v.name}</td>
+              <td className="px-3 py-2 font-medium text-gray-900 font-mono"><span className="inline-flex items-center gap-1.5"><EntityIcon kind="variant" />{v.name}</span></td>
               <td className="px-3 py-2 text-gray-600">{conditionsSummary(v.conditions_json, discriminators)}</td>
               <td className="px-3 py-2 text-gray-600">{standardEventByVariantId?.[v.id] ?? '—'}</td>
               <td className="px-3 py-2">
@@ -227,7 +229,7 @@ export function VariantsSection({
               ) : (
                 <div className="flex flex-wrap gap-1">
                   {allowedValues.map((v) => (
-                    <label key={v.value} className="flex items-center gap-1 text-xs bg-white border rounded px-1.5 py-0.5">
+                    <FieldLabel key={v.value} className="flex items-center gap-1 text-xs bg-white border rounded px-1.5 py-0.5" hintScope="Variants">
                       <input
                         type="checkbox"
                         checked={condition.values.includes(v.value)}
@@ -241,7 +243,7 @@ export function VariantsSection({
                         }
                       />
                       {v.label || v.value}
-                    </label>
+                    </FieldLabel>
                   ))}
                 </div>
               )}

@@ -1,4 +1,6 @@
 import { ExpandChevron } from '@/src/components/ui/ExpandChevron';
+import { EnumSelect } from '@/src/components/ui/EnumSelect';
+import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 import { groupRowsByCategory, toggleCollapsed } from '@/src/domain/propertyTableGroups';
 import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
 import { useDebouncedValue } from '@/src/hooks/useDebouncedValue';
@@ -11,7 +13,6 @@ import { Badge, KindBadge, PriorityBadge, StatusBadge } from '@/src/components/u
  * `src/domain/enums.ts` and `src/domain/bloomreach.ts` define.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
-import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Trash2, Loader2, ChevronRight, Layers, Link2 } from 'lucide-react';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
@@ -314,15 +315,15 @@ export function Properties() {
             </colgroup>
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-1 py-3"><span className="sr-only">Expand</span></th>
-                <SortableTh sort={sort} column="name" className="px-4 py-3 font-medium text-gray-500" title={hintFor('Name', 'Properties')}>Name</SortableTh>
-                <SortableTh sort={sort} column="scope" className="px-4 py-3 font-medium text-gray-500" title={hintFor('Scope', 'Properties')}>Scope</SortableTh>
-                <SortableTh sort={sort} column="data_type" className="px-4 py-3 font-medium text-gray-500" title={hintFor('Data type', 'Properties')}>Data type</SortableTh>
-                <SortableTh sort={sort} column="kind" className="px-4 py-3 font-medium text-gray-500" title={hintFor('Property type', 'Properties')}>Type</SortableTh>
-                <SortableTh sort={sort} column="enum" className="px-4 py-3 font-medium text-gray-500" title={hintFor('Enum', 'Properties')}>Enum</SortableTh>
-                <SortableTh sort={sort} column="priority" className="px-4 py-3 font-medium text-gray-500" title={hintFor('Priority', 'Properties')}>Priority</SortableTh>
-                <SortableTh sort={sort} column="status" className="px-4 py-3 font-medium text-gray-500" title={hintFor('Status', 'Properties')}>Status</SortableTh>
-                <th className="px-4 py-3 font-medium text-gray-500">Actions</th>
+                <HintTh className="px-1 py-3" hintScope="Properties"><span className="sr-only">Expand</span></HintTh>
+                <SortableTh sort={sort} column="name" className="px-4 py-3 font-medium text-gray-500" hint="Name" hintScope="Properties">Name</SortableTh>
+                <SortableTh sort={sort} column="scope" className="px-4 py-3 font-medium text-gray-500" hint="Scope" hintScope="Properties">Scope</SortableTh>
+                <SortableTh sort={sort} column="data_type" className="px-4 py-3 font-medium text-gray-500" hint="Data type" hintScope="Properties">Data type</SortableTh>
+                <SortableTh sort={sort} column="kind" className="px-4 py-3 font-medium text-gray-500" hint="Property type" hintScope="Properties">Type</SortableTh>
+                <SortableTh sort={sort} column="enum" className="px-4 py-3 font-medium text-gray-500" hint="Enum" hintScope="Properties">Enum</SortableTh>
+                <SortableTh sort={sort} column="priority" className="px-4 py-3 font-medium text-gray-500" hint="Priority" hintScope="Properties">Priority</SortableTh>
+                <SortableTh sort={sort} column="status" className="px-4 py-3 font-medium text-gray-500" hint="Status" hintScope="Properties">Status</SortableTh>
+                <HintTh className="px-4 py-3 font-medium text-gray-500" hintScope="Properties">Actions</HintTh>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -331,7 +332,7 @@ export function Properties() {
                 return (
                   <React.Fragment key={group.category}>
                     <tr className="bg-gray-100" data-testid={`property-group-${group.category}`}>
-                      <th colSpan={9} scope="colgroup" className="px-2 py-1 text-left text-xs font-semibold text-gray-700">
+                      <HintTh colSpan={9} scope="colgroup" hint="" hintScope="Properties" className="px-2 py-1 text-left text-xs font-semibold text-gray-700">
                         <button
                           type="button"
                           aria-expanded={!isCollapsed}
@@ -342,7 +343,7 @@ export function Properties() {
                           <CategoryBadge category={group.category} />
                           <span className="font-normal text-gray-500">({group.rows.length})</span>
                         </button>
-                      </th>
+                      </HintTh>
                     </tr>
                     {!isCollapsed && group.rows.map((p) => {
                       const enumCount = Array.isArray(p.allowed_values_json) ? p.allowed_values_json.length : 0;
@@ -606,13 +607,13 @@ function PropertyEditor({
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Scope', 'Properties')}>Scope</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Scope" hintScope="Properties">Scope</FieldLabel>
         <select value={scope} onChange={(e) => setScope(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
           {PROPERTY_SCOPES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Name', 'Properties')}>Name</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Name" hintScope="Properties">Name</FieldLabel>
         <div className="flex items-center gap-2">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. total_price" />
           {trimmedName && <CopyNameButton name={trimmedName} />}
@@ -621,29 +622,29 @@ function PropertyEditor({
         <NamingWarning entity={{ kind: 'property', scope, name: trimmedName, category_override: categoryOverride || null }} name={trimmedName} />
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Description', 'Properties')}>Description</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Description" hintScope="Properties">Description</FieldLabel>
         <Input value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Category', 'Properties')}>Category</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Category" hintScope="Properties">Category</FieldLabel>
           <Input value={category} onChange={(e) => setCategory(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Data type', 'Properties')}>Data type</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Data type" hintScope="Properties">Data type</FieldLabel>
           <select value={dataType} onChange={(e) => setDataType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             {PROPERTY_DATA_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Data formats', 'Properties')}>Data formats</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Data formats" hintScope="Properties">Data formats</FieldLabel>
         <div className="flex flex-wrap gap-2">
           {PROPERTY_DATA_FORMATS.map((fmt) => (
-            <label key={fmt} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1">
+            <FieldLabel key={fmt} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1" hintScope="Properties">
               <input type="checkbox" checked={dataFormats.includes(fmt)} onChange={() => toggleFormat(fmt)} />
               {formatDisplayName(fmt)}
-            </label>
+            </FieldLabel>
           ))}
         </div>
       </div>
@@ -658,7 +659,7 @@ function PropertyEditor({
       {dataType === 'array' && <ItemSchemaEditor fields={itemSchema} onChange={setItemSchema} />}
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" htmlFor="property-category-override" title={hintFor('Property category', 'Properties')}>Property category</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" htmlFor="property-category-override" hint="Property category" hintScope="Properties">Property category</FieldLabel>
         <select
           id="property-category-override"
           value={categoryOverride}
@@ -678,7 +679,7 @@ function PropertyEditor({
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" htmlFor="property-catalog-field" title={hintFor('Catalog field', 'Properties')}>Catalog field</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" htmlFor="property-catalog-field" hint="Catalog field" hintScope="Properties">Catalog field</FieldLabel>
         <select
           id="property-catalog-field"
           value={mappedCatalogFieldId}
@@ -703,32 +704,26 @@ function PropertyEditor({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Priority', 'Properties')}>Priority</label>
-          <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            <option value="">—</option>
-            {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Priority" hintScope="Properties">Priority</FieldLabel>
+          <EnumSelect kind="priority" values={PRIORITIES} emptyLabel="—" value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Status', 'Properties')}>Status</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            <option value="">—</option>
-            {ENTITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Status" hintScope="Properties">Status</FieldLabel>
+          <EnumSelect kind="status" values={ENTITY_STATUSES} emptyLabel="—" value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
         </div>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Property type', 'Properties')}>Property type</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Property type" hintScope="Properties">Property type</FieldLabel>
         <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
           {ORIGIN_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
       </div>
-      <label className="flex items-center gap-2 text-sm text-gray-700">
+      <FieldLabel className="flex items-center gap-2 text-sm text-gray-700" hintScope="Properties">
         <input type="checkbox" checked={pii} onChange={(e) => setPii(e.target.checked)} /> Contains PII
-      </label>
+      </FieldLabel>
       {scope === 'customer' && (
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Bloomreach customer property', 'Properties')}>Bloomreach customer property</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Bloomreach customer property" hintScope="Properties">Bloomreach customer property</FieldLabel>
           <select
             value={bloomreachCustomerProperty}
             onChange={(e) => setBloomreachCustomerProperty(e.target.value)}
@@ -742,18 +737,18 @@ function PropertyEditor({
         </div>
       )}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Notes', 'Properties')}>Notes</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Notes" hintScope="Properties">Notes</FieldLabel>
         <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
       {bundles.length > 0 && (
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Bundles', 'Properties')}>Bundles</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Bundles" hintScope="Properties">Bundles</FieldLabel>
           <div className="flex flex-wrap gap-2">
             {bundles.map((b) => (
-              <label key={b.id} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1">
+              <FieldLabel key={b.id} className="flex items-center gap-1 text-xs bg-gray-50 border rounded px-2 py-1" hintScope="Properties">
                 <input type="checkbox" checked={bundleIds.includes(b.id)} onChange={() => toggleBundle(b.id)} />
                 {b.name}
-              </label>
+              </FieldLabel>
             ))}
           </div>
         </div>
@@ -846,7 +841,7 @@ function DefinitionsSection({ projectId, propertyId, focus }: { projectId: strin
   return (
     <div ref={sectionRef} tabIndex={-1} className="space-y-2 pt-4 border-t outline-none">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Definitions', 'Properties')}>Definitions</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Definitions" hintScope="Properties">Definitions</FieldLabel>
         <Button variant="outline" size="sm" onClick={() => { setEditingId(null); setIsAdding(true); }} className="gap-1">
           <Plus className="w-3 h-3" /> Add definition
         </Button>
@@ -950,7 +945,7 @@ function DefinitionEditor({
   return (
     <div className="rounded-md border bg-gray-50 p-3 space-y-3">
       <div className="space-y-1">
-        <label className="text-xs font-medium text-gray-700" title={hintFor('Name', 'Properties')}>Name</label>
+        <FieldLabel className="text-xs font-medium text-gray-700" hint="Name" hintScope="Properties">Name</FieldLabel>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -964,23 +959,23 @@ function DefinitionEditor({
         )}
       </div>
       <div className="space-y-1">
-        <label className="text-xs font-medium text-gray-700" title={hintFor('Description', 'Properties')}>Description</label>
+        <FieldLabel className="text-xs font-medium text-gray-700" hint="Description" hintScope="Properties">Description</FieldLabel>
         <Input value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <div className="space-y-1">
-        <label className="text-xs font-medium text-gray-700" title={hintFor('Formats', 'Properties')}>Formats</label>
+        <FieldLabel className="text-xs font-medium text-gray-700" hint="Formats" hintScope="Properties">Formats</FieldLabel>
         <div className="flex flex-wrap gap-2">
           {PROPERTY_DATA_FORMATS.map((fmt) => (
-            <label key={fmt} className="flex items-center gap-1 text-xs bg-white border rounded px-2 py-1">
+            <FieldLabel key={fmt} className="flex items-center gap-1 text-xs bg-white border rounded px-2 py-1" hintScope="Properties">
               <input type="checkbox" checked={formats.includes(fmt)} onChange={() => toggleFormat(fmt)} />
               {formatDisplayName(fmt)}
-            </label>
+            </FieldLabel>
           ))}
         </div>
       </div>
       <AllowedValuesEditor values={allowedValues} onChange={setAllowedValues} standardEventAdditions={null} />
       <div className="space-y-1">
-        <label className="text-xs font-medium text-gray-700" title={hintFor('Example value', 'Properties')}>Example value</label>
+        <FieldLabel className="text-xs font-medium text-gray-700" hint="Example value" hintScope="Properties">Example value</FieldLabel>
         <Input value={example} onChange={(e) => setExample(e.target.value)} />
       </div>
       {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">{saveError}</div>}

@@ -6,11 +6,11 @@
  * checkbox list. Simplified UI (D-07).
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Input } from '@/src/components/ui/Input';
 import { KindBadge } from '@/src/components/ui/badges';
-import { hintFor } from '@/src/components/ui/FieldHint';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 
@@ -169,11 +169,11 @@ export function BundlesSection({ projectId, onChanged }: { projectId: string; on
 
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Name', 'Properties')}>New bundle name</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Name" hintScope="Properties">New bundle name</FieldLabel>
           <Input value={newName} onChange={(e) => setNewName(e.target.value)} className="h-9 w-64" placeholder="e.g. purchase_basics" />
         </div>
         <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Description')}>Description</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Description" hintScope="Properties">Description</FieldLabel>
           <Input value={newDescription} onChange={(e) => setNewDescription(e.target.value)} className="h-9 w-72" />
         </div>
         <Button onClick={() => void create()} disabled={!newName.trim()} className="gap-2">
@@ -196,9 +196,9 @@ export function BundlesSection({ projectId, onChanged }: { projectId: string; on
         <table className="w-full text-left text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'Properties')}>Name</th>
-              <th className="px-6 py-3 font-medium text-gray-500" title="How many properties the bundle contains.">Properties</th>
-              <th className="px-6 py-3 font-medium text-gray-500" title="Events that link every property of this bundle.">Used by events</th>
+              <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Name" hintScope="Properties">Name</HintTh>
+              <HintTh className="px-6 py-3 font-medium text-gray-500" title="How many properties the bundle contains." hintScope="Properties">Properties</HintTh>
+              <HintTh className="px-6 py-3 font-medium text-gray-500" title="Events that link every property of this bundle." hintScope="Properties">Used by events</HintTh>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -243,9 +243,9 @@ export function BundlesSection({ projectId, onChanged }: { projectId: string; on
                             <table className="w-full text-left text-sm bg-white border rounded">
                               <thead className="bg-gray-50 border-b">
                                 <tr>
-                                  <th className="px-3 py-2 font-medium text-gray-500">Name</th>
-                                  <th className="px-3 py-2 font-medium text-gray-500">Data type</th>
-                                  <th className="px-3 py-2 font-medium text-gray-500">Type</th>
+                                  <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Properties">Name</HintTh>
+                                  <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Properties">Data type</HintTh>
+                                  <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Properties">Type</HintTh>
                                 </tr>
                               </thead>
                               <tbody className="divide-y">
@@ -277,7 +277,7 @@ export function BundlesSection({ projectId, onChanged }: { projectId: string; on
                               />
                               <div className="max-h-64 overflow-y-auto rounded border bg-white p-2 grid grid-cols-2 gap-1">
                                 {filteredOptions.map((p) => (
-                                  <label key={p.id} className="flex items-center gap-2 text-sm text-gray-700">
+                                  <FieldLabel key={p.id} className="flex items-center gap-2 text-sm text-gray-700" hintScope="Properties">
                                     <input
                                       type="checkbox"
                                       checked={memberIds.has(p.id)}
@@ -291,7 +291,7 @@ export function BundlesSection({ projectId, onChanged }: { projectId: string; on
                                       }
                                     />
                                     {p.name} <span className="text-xs text-gray-400">{p.data_type}</span>
-                                  </label>
+                                  </FieldLabel>
                                 ))}
                               </div>
                               <Button

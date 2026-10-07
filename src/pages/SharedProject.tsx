@@ -29,6 +29,7 @@
  * decisions live in `src/features/shared/viewHelpers.ts`.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { HintTh } from '@/src/components/ui/FieldHint';
 import { ClassBadge } from '@/src/components/ui/ClassBadge';
 import { ExampleCell, StandardMappingBlock } from '@/src/features/events/components/EventCardView';
 import { formatExampleValues } from '@/src/domain/examples';
@@ -47,7 +48,7 @@ import { CommentsPanel, type CommentPanelRow } from '@/src/features/comments/Com
 import { CommentCountButton } from '@/src/features/comments/CommentCountButton';
 import { CopyLinkButton } from '@/src/features/shared/CopyLinkButton';
 import { CopyMarkdownButton } from '@/src/components/ui/CopyMarkdownButton';
-import { SHARED_SECTION_ICONS, NAV_ICONS } from '@/src/components/layout/navIcons';
+import { SHARED_SECTION_ICONS, ENTITY_ICONS, type EntityKind } from '@/src/components/layout/navIcons';
 import { requirementTargetView } from '@/src/features/shared/requirementTargets';
 import { findingEntity } from '@/src/features/shared/findingEntity';
 import { VARIANTS_ANCHOR_PREFIX } from '@/src/features/shared/references';
@@ -186,9 +187,9 @@ function SimpleTable({ head, rows }: { head: string[]; rows: React.ReactNode[][]
         <thead className="bg-gray-50 border-b">
           <tr>
             {head.map((h) => (
-              <th key={h} className="px-3 py-2 font-medium text-gray-500">
+              <HintTh key={h} className="px-3 py-2 font-medium text-gray-500" hintScope="Shared">
                 {h}
-              </th>
+              </HintTh>
             ))}
           </tr>
         </thead>
@@ -353,12 +354,12 @@ function renderRequirementTarget(
   onNavigate: (anchor: string) => void
 ): React.ReactNode {
   const v = requirementTargetView(r, index);
-  const Icon = v.icon ? NAV_ICONS[v.icon] : null;
+  const Icon = ENTITY_ICONS[r.target_kind as EntityKind] ?? null;
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
       {v.typeLabel && (
         <span data-testid="target-type" className="inline-flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
-          {Icon && <Icon size={12} />}
+          {Icon && <Icon size={14} aria-hidden="true" />}
           {v.typeLabel}
         </span>
       )}
@@ -884,10 +885,10 @@ export function SharedProject({ token }: { token: string }) {
                               <table className="w-full text-left text-xs">
                                 <thead className="bg-gray-50 border-b">
                                   <tr>
-                                    <th className="px-3 py-2 font-medium text-gray-500">Target</th>
-                                    <th className="px-3 py-2 font-medium text-gray-500">Level</th>
-                                    <th className="px-3 py-2 font-medium text-gray-500">Status</th>
-                                    <th className="px-3 py-2 font-medium text-gray-500 text-right">Comments</th>
+                                    <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Shared">Target</HintTh>
+                                    <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Shared">Level</HintTh>
+                                    <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Shared">Status</HintTh>
+                                    <HintTh className="px-3 py-2 font-medium text-gray-500 text-right" hintScope="Shared">Comments</HintTh>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y">

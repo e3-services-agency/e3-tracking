@@ -3,6 +3,7 @@
  * of every sandbox project with bulk delete. Lives on the Clients page.
  */
 import React, { useState } from 'react';
+import { HintTh } from '@/src/components/ui/FieldHint';
 import { Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { fetchWithAuth } from '@/src/lib/api';
@@ -133,9 +134,9 @@ export function SandboxSection({
             <thead className="border-b">
               <tr>
                 <th className="py-2 pr-2 w-6" />
-                <th className="py-2 pr-2 font-medium text-gray-500">Name</th>
-                <th className="py-2 pr-2 font-medium text-gray-500">Key</th>
-                <th className="py-2 pr-2 font-medium text-gray-500">Client</th>
+                <HintTh className="py-2 pr-2 font-medium text-gray-500" hintScope="Clients">Name</HintTh>
+                <HintTh className="py-2 pr-2 font-medium text-gray-500" hintScope="Clients">Key</HintTh>
+                <HintTh className="py-2 pr-2 font-medium text-gray-500" hintScope="Clients">Client</HintTh>
               </tr>
             </thead>
             <tbody className="divide-y">

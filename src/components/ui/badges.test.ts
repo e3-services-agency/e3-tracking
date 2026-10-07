@@ -29,7 +29,7 @@ describe('badge vocabulary', () => {
     const a = html(React.createElement(StatusBadge, { status: 'implemented' }));
     expect(a).toBe(html(React.createElement(StatusBadge, { status: 'implemented' })));
     expect(a).toContain('<svg');
-    expect(html(React.createElement(StatusBadge, { status: 'in_review' }))).toContain('in review');
+    expect(html(React.createElement(StatusBadge, { status: 'in_review' }))).toContain('In review');
   });
   it('renders a dash for empty status, priority and kind', () => {
     expect(html(React.createElement(StatusBadge, { status: null }))).toContain('—');

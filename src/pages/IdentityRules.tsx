@@ -1,11 +1,12 @@
 import { StatusBadge } from '@/src/components/ui/badges';
+import { EnumSelect } from '@/src/components/ui/EnumSelect';
+import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 /**
  * Identity rules: plain table + form against `/api/projects/:projectId/identity-rules`
  * (plan "Target data model" section IdentityRule; T-1-06). Simplified UI (D-07): a single
  * sheet form with every field, plus move up/down for `sort_order`.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
-import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
@@ -157,15 +158,15 @@ ${flowParagraph}
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-6 py-3 font-medium text-gray-500 w-20" title={hintFor('Order', 'Identity')}>Order</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'Identity')}>Name</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Identifier name', 'Identity')}>Identifier name</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Type', 'Identity')}>Type</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('SDK call', 'Identity')}>SDK call</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Trigger event', 'Identity')}>Trigger event</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Set by', 'Identity')}>Set by</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Carried by', 'Identity')}>Carried by</th>
-                <th className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'Identity')}>Status</th>
+                <HintTh className="px-6 py-3 font-medium text-gray-500 w-20" hint="Order" hintScope="Identity">Order</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Name" hintScope="Identity">Name</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Identifier name" hintScope="Identity">Identifier name</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Type" hintScope="Identity">Type</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="SDK call" hintScope="Identity">SDK call</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Trigger event" hintScope="Identity">Trigger event</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Set by" hintScope="Identity">Set by</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Carried by" hintScope="Identity">Carried by</HintTh>
+                <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Status" hintScope="Identity">Status</HintTh>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -374,12 +375,12 @@ function IdentityRuleEditor({
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Name', 'Identity')}>Name</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Name" hintScope="Identity">Name</FieldLabel>
           <Input value={name} onChange={(e) => setName(e.target.value)} />
           {!trimmedName && <p className="text-xs text-red-600">Name is required.</p>}
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Identifier name', 'Identity')}>Identifier name</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Identifier name" hintScope="Identity">Identifier name</FieldLabel>
           <Input value={identifierName} onChange={(e) => setIdentifierName(e.target.value)} placeholder="e.g. registered, cookie, email_id" />
           {!trimmedField && <p className="text-xs text-red-600">Identifier name is required.</p>}
         </div>
@@ -387,13 +388,13 @@ function IdentityRuleEditor({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Identity type', 'Identity')}>Identity type</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Identity type" hintScope="Identity">Identity type</FieldLabel>
           <select value={identityType} onChange={(e) => setIdentityType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             {IDENTITY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('SDK call', 'Identity')}>SDK call</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="SDK call" hintScope="Identity">SDK call</FieldLabel>
           <select value={sdkCall} onChange={(e) => setSdkCall(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
             {IDENTITY_SDK_CALLS.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -402,53 +403,53 @@ function IdentityRuleEditor({
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Transformations', 'Identity')}>Transformations</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Transformations" hintScope="Identity">Transformations</FieldLabel>
         <div className="flex gap-4">
           {IDENTITY_TRANSFORMATIONS.map((t) => (
-            <label key={t} className="flex items-center gap-2 text-sm text-gray-700">
+            <FieldLabel key={t} className="flex items-center gap-2 text-sm text-gray-700" hintScope="Identity">
               <input type="checkbox" checked={transformations.includes(t)} onChange={() => toggleTransformation(t)} />
               {t}
-            </label>
+            </FieldLabel>
           ))}
         </div>
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Description', 'Identity')}>Description</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Description" hintScope="Identity">Description</FieldLabel>
         <Input value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Trigger event', 'Identity')}>Trigger event</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Trigger event" hintScope="Identity">Trigger event</FieldLabel>
           <select value={triggerEventId} onChange={(e) => setTriggerEventId(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
             {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
           </select>
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Trigger text', 'Identity')}>Trigger text</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Trigger text" hintScope="Identity">Trigger text</FieldLabel>
           <Input value={triggerText} onChange={(e) => setTriggerText(e.target.value)} />
         </div>
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Value rule', 'Identity')}>Value rule</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Value rule" hintScope="Identity">Value rule</FieldLabel>
         <Input value={valueRule} onChange={(e) => setValueRule(e.target.value)} />
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Example', 'Identity')}>Example</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Example" hintScope="Identity">Example</FieldLabel>
         <Input value={example} onChange={(e) => setExample(e.target.value)} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Owner', 'Identity')}>Owner</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Owner" hintScope="Identity">Owner</FieldLabel>
           <Input value={owner} onChange={(e) => setOwner(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Source', 'Identity')}>Source</label>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Source" hintScope="Identity">Source</FieldLabel>
           <select value={sourceId} onChange={(e) => setSourceId(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
             <option value="">—</option>
             {sources.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -457,24 +458,18 @@ function IdentityRuleEditor({
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Tracker', 'Identity')}>Tracker</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Tracker" hintScope="Identity">Tracker</FieldLabel>
         <Input value={tracker} onChange={(e) => setTracker(e.target.value)} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Priority', 'Identity')}>Priority</label>
-          <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            <option value="">—</option>
-            {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Priority" hintScope="Identity">Priority</FieldLabel>
+          <EnumSelect kind="priority" values={PRIORITIES} emptyLabel="—" value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700" title={hintFor('Status', 'Identity')}>Status</label>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-            <option value="">—</option>
-            {ENTITY_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <FieldLabel className="text-sm font-medium text-gray-700" hint="Status" hintScope="Identity">Status</FieldLabel>
+          <EnumSelect kind="status" values={ENTITY_STATUSES} emptyLabel="—" value={status} onChange={(e) => setStatus(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
         </div>
       </div>
 

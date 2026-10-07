@@ -50,3 +50,5 @@ A rule is a declarative check on an event (or one variant), for example "the sum
 Open an event card for the complete view: owner, status, certification and its reasons, properties with definitions, variants, contexts, triggers, identity, rules, findings, an expected payload and code snippets (GTM, Web SDK, Tracking API). The card has a **Copy as Markdown** button that copies an AI-friendly text version.
 
 Every side panel has a maximize button next to the close button that turns it into a centred modal (and back); the choice is remembered in this browser and applies to every panel, and Esc closes the open panel or dialog. In the requirements matrix a required cell is a solid green pill, an optional cell an outlined pill and no requirement a faint dot.
+
+Every form label and table column header carries a small circled "?" (hover it, or tab to it): the hint says what belongs in the field and gives one example. The same hints appear on the shared view.

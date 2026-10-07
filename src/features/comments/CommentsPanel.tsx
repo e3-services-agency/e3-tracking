@@ -29,6 +29,7 @@
  * editor, event card) omit both props and the panel fetches and reloads on its own, unchanged.
  */
 import React, { useCallback, useEffect, useState } from 'react';
+import { FieldLabel } from '@/src/components/ui/FieldHint';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
 import type { CommentEntityType } from '@/src/domain/enums';
@@ -275,10 +276,10 @@ export function CommentsPanel({
         <form onSubmit={(e) => void submit(e)} className="space-y-2">
           {api.mode === 'internal' && (
             <div className="space-y-1">
-              <label className="flex items-center gap-2 text-xs text-gray-700">
+              <FieldLabel className="flex items-center gap-2 text-xs text-gray-700" hintScope="Comments">
                 <input type="checkbox" checked={internalOnly} onChange={(e) => setInternalOnly(e.target.checked)} />
                 Internal only
-              </label>
+              </FieldLabel>
               <p className="text-[11px] text-gray-400">
                 {internalOnly ? 'Not visible on the share link.' : 'Visible to anyone with the share link.'}
               </p>

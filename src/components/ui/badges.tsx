@@ -8,6 +8,7 @@ import React from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { PROPERTY_CATEGORY_LABELS, type PropertyCategory } from '@/src/domain/propertyCategory';
 import { PROPERTY_KIND_LABELS } from '@/src/domain/propertyCategory';
+import { enumLabel, TARGET_KIND_LABELS } from '@/src/domain/enumLabels';
 import type { PropertyKind } from '@/src/domain/enums';
 import { isSourceColor, sourceViaLabel } from '@/src/domain/sources';
 import {
@@ -75,7 +76,7 @@ export function isBloomreachCategory(category: PropertyCategory): boolean {
 export function ClassBadge({ eventClass, className = '' }: { eventClass: string; className?: string }) {
   return (
     <Badge tone={isBloomreachClass(eventClass) ? 'accent' : 'neutral'} icon={CLASS_ICONS[eventClass]} className={className}>
-      {eventClass}
+      {enumLabel('class', eventClass)}
     </Badge>
   );
 }
@@ -99,7 +100,7 @@ export function PriorityBadge({ priority, className = '' }: { priority: string |
   if (!priority) return <span className="text-gray-400">—</span>;
   return (
     <Badge tone={PRIORITY_TONE[priority] ?? 'neutral'} icon={PRIORITY_ICONS[priority]} className={className}>
-      {priority}
+      {enumLabel('priority', priority)}
     </Badge>
   );
 }
@@ -124,7 +125,7 @@ export function StatusBadge({ status, className = '' }: { status: string | null 
   if (!status) return <span className="text-gray-400">—</span>;
   return (
     <Badge tone={STATUS_TONE[status] ?? 'neutral'} icon={STATUS_ICONS[status]} className={className}>
-      {humanize(status)}
+      {enumLabel('status', status)}
     </Badge>
   );
 }
@@ -155,7 +156,7 @@ const SEVERITY_TONE: Record<string, BadgeTone> = { error: 'red', warning: 'amber
 export function SeverityBadge({ severity, className = '' }: { severity: string; className?: string }) {
   return (
     <Badge tone={SEVERITY_TONE[severity] ?? 'neutral'} icon={SEVERITY_ICONS[severity]} className={className}>
-      {severity}
+      {enumLabel('severity', severity)}
     </Badge>
   );
 }
@@ -170,15 +171,7 @@ const TARGET_KIND_TONE: Record<string, BadgeTone> = {
   consent: 'green',
 };
 
-export const TARGET_KIND_LABELS: Record<string, string> = {
-  customer_property: 'Customer property',
-  event: 'Event',
-  variant: 'Variant',
-  event_property: 'Event property',
-  variant_property: 'Variant property',
-  catalog_attribute: 'Catalog attribute',
-  consent: 'Consent',
-};
+export { TARGET_KIND_LABELS };
 
 /** Requirement target kind (requirements matrix, use case requirement rows). */
 export function TargetKindBadge({ kind, compact = false, className = '' }: { kind: string; compact?: boolean; className?: string }) {

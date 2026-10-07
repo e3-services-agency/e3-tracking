@@ -1,4 +1,6 @@
 import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
+import { EnumSelect } from '@/src/components/ui/EnumSelect';
+import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 import { PriorityBadge, StatusBadge } from '@/src/components/ui/badges';
 /**
  * Use cases: plain table + form against `/api/projects/:projectId/use-cases`, plus an ordered
@@ -7,7 +9,6 @@ import { PriorityBadge, StatusBadge } from '@/src/components/ui/badges';
  * beyond the create Sheet.
  */
 import { PageBody, PageHeader } from '@/src/components/layout/PageShell';
-import { hintFor } from '@/src/components/ui/FieldHint';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, Trash2, Loader2, ArrowUp, ArrowDown, ArrowLeft, Sparkles, RefreshCw } from 'lucide-react';
 import { GlossaryTerm } from '@/src/components/ui/GlossaryTerm';
@@ -257,12 +258,12 @@ export function UseCases() {
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <SortableTh sort={sort} column="code" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Code', 'UseCases')}>Code</SortableTh>
-                <SortableTh sort={sort} column="name" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Name', 'UseCases')}>Name</SortableTh>
-                <SortableTh sort={sort} column="type" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Type', 'UseCases')}>Type</SortableTh>
-                <SortableTh sort={sort} column="priority" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Priority', 'UseCases')}>Priority</SortableTh>
-                <SortableTh sort={sort} column="status" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Status', 'UseCases')}>Status</SortableTh>
-                <SortableTh sort={sort} column="owner" className="px-6 py-3 font-medium text-gray-500" title={hintFor('Owner', 'UseCases')}>Owner</SortableTh>
+                <SortableTh sort={sort} column="code" className="px-6 py-3 font-medium text-gray-500" hint="Code" hintScope="UseCases">Code</SortableTh>
+                <SortableTh sort={sort} column="name" className="px-6 py-3 font-medium text-gray-500" hint="Name" hintScope="UseCases">Name</SortableTh>
+                <SortableTh sort={sort} column="type" className="px-6 py-3 font-medium text-gray-500" hint="Type" hintScope="UseCases">Type</SortableTh>
+                <SortableTh sort={sort} column="priority" className="px-6 py-3 font-medium text-gray-500" hint="Priority" hintScope="UseCases">Priority</SortableTh>
+                <SortableTh sort={sort} column="status" className="px-6 py-3 font-medium text-gray-500" hint="Status" hintScope="UseCases">Status</SortableTh>
+                <SortableTh sort={sort} column="owner" className="px-6 py-3 font-medium text-gray-500" hint="Owner" hintScope="UseCases">Owner</SortableTh>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -343,23 +344,20 @@ function UseCaseCreateForm({
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Name', 'UseCases')}>Name</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Name" hintScope="UseCases">Name</FieldLabel>
         <Input value={name} onChange={(e) => setName(e.target.value)} />
         {!trimmedName && <p className="text-xs text-red-600">Name is required.</p>}
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Type', 'UseCases')}>Type</label>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Type" hintScope="UseCases">Type</FieldLabel>
         <select value={type} onChange={(e) => setType(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
           <option value="">—</option>
           {USE_CASE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
       </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-700" title={hintFor('Priority', 'UseCases')}>Priority</label>
-        <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm">
-          <option value="">—</option>
-          {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
+        <FieldLabel className="text-sm font-medium text-gray-700" hint="Priority" hintScope="UseCases">Priority</FieldLabel>
+        <EnumSelect kind="priority" values={PRIORITIES} emptyLabel="—" value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
       </div>
       {error && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>}
       <div className="pt-6 border-t flex justify-end gap-2">
@@ -708,14 +706,14 @@ function UseCaseDetail({
 
         <div className="bg-white rounded-lg border shadow-sm p-6 grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700" title={hintFor('Name', 'UseCases')}>Name</label>
+            <FieldLabel className="text-sm font-medium text-gray-700" hint="Name" hintScope="UseCases">Name</FieldLabel>
             <Input
               defaultValue={useCase.name}
               onBlur={(e) => { if (e.target.value.trim() && e.target.value.trim() !== useCase.name) void saveFields({ name: e.target.value.trim() }); }}
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700" title={hintFor('Type', 'UseCases')}>Type</label>
+            <FieldLabel className="text-sm font-medium text-gray-700" hint="Type" hintScope="UseCases">Type</FieldLabel>
             <select
               defaultValue={useCase.type ?? ''}
               onChange={(e) => void saveFields({ type: e.target.value || null })}
@@ -726,36 +724,28 @@ function UseCaseDetail({
             </select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700" title={hintFor('Priority', 'UseCases')}>Priority</label>
-            <select
+            <FieldLabel className="text-sm font-medium text-gray-700" hint="Priority" hintScope="UseCases">Priority</FieldLabel>
+            <EnumSelect kind="priority" values={PRIORITIES} emptyLabel="—" 
               defaultValue={useCase.priority ?? ''}
               onChange={(e) => void saveFields({ priority: e.target.value || null })}
-              className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-            >
-              <option value="">—</option>
-              {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-            </select>
+              className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700" title={hintFor('Status', 'UseCases')}>Status</label>
-            <select
+            <FieldLabel className="text-sm font-medium text-gray-700" hint="Status" hintScope="UseCases">Status</FieldLabel>
+            <EnumSelect kind="status" values={USE_CASE_STATUSES} emptyLabel="—" 
               defaultValue={useCase.status ?? ''}
               onChange={(e) => void saveFields({ status: e.target.value || null })}
-              className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
-            >
-              <option value="">—</option>
-              {USE_CASE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+              className="w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm" />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700" title={hintFor('Owner', 'UseCases')}>Owner</label>
+            <FieldLabel className="text-sm font-medium text-gray-700" hint="Owner" hintScope="UseCases">Owner</FieldLabel>
             <Input
               defaultValue={useCase.owner ?? ''}
               onBlur={(e) => void saveFields({ owner: e.target.value.trim() || null })}
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700" title={hintFor('Documentation link', 'UseCases')}>Documentation link</label>
+            <FieldLabel className="text-sm font-medium text-gray-700" hint="Documentation link" hintScope="UseCases">Documentation link</FieldLabel>
             <Input
               defaultValue={useCase.documentation_url ?? ''}
               onBlur={(e) => void saveFields({ documentation_url: e.target.value.trim() || null })}
@@ -767,7 +757,7 @@ function UseCaseDetail({
             )}
           </div>
           <div className="space-y-2 col-span-2">
-            <label className="text-sm font-medium text-gray-700" title={hintFor('Description', 'UseCases')}>Description</label>
+            <FieldLabel className="text-sm font-medium text-gray-700" hint="Description" hintScope="UseCases">Description</FieldLabel>
             <Input
               defaultValue={useCase.description ?? ''}
               onBlur={(e) => void saveFields({ description: e.target.value.trim() || null })}
@@ -777,7 +767,7 @@ function UseCaseDetail({
             <h3 className="text-sm font-semibold text-gray-900">Internal (never shown to the client)</h3>
           </div>
           <div className="space-y-2 col-span-2">
-            <label className="text-sm font-medium text-gray-700" title={hintFor('Internal notes', 'UseCases')}>Internal notes</label>
+            <FieldLabel className="text-sm font-medium text-gray-700" hint="Internal notes" hintScope="UseCases">Internal notes</FieldLabel>
             <textarea
               className="w-full h-16 rounded-md border border-gray-300 px-3 py-2 text-sm"
               defaultValue={useCase.internal_notes ?? ''}
@@ -785,7 +775,7 @@ function UseCaseDetail({
             />
           </div>
           <div className="space-y-2 col-span-2">
-            <label className="text-sm font-medium text-gray-700" title={hintFor('Internal link', 'UseCases')}>Internal link</label>
+            <FieldLabel className="text-sm font-medium text-gray-700" hint="Internal link" hintScope="UseCases">Internal link</FieldLabel>
             <Input
               defaultValue={useCase.internal_url ?? ''}
               onBlur={(e) => void saveFields({ internal_url: e.target.value.trim() || null })}
@@ -793,7 +783,7 @@ function UseCaseDetail({
           </div>
           <div className="space-y-2 col-span-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-gray-700" title={hintFor('Narrative', 'UseCases')}>Narrative</label>
+              <FieldLabel className="text-sm font-medium text-gray-700" hint="Narrative" hintScope="UseCases">Narrative</FieldLabel>
               <div className="flex items-center gap-2">
                 {useCase.narrative_edited_at && (
                   <span className="text-xs text-amber-600">Edited by hand</span>
@@ -892,12 +882,12 @@ function UseCaseDetail({
           <table className="w-full text-left text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="px-4 py-2 font-medium text-gray-500 w-16" title={hintFor('Order', 'UseCases')}>Order</th>
-                <th className="px-4 py-2 font-medium text-gray-500" title={hintFor('Target kind', 'UseCases')}>Target kind</th>
-                <th className="px-4 py-2 font-medium text-gray-500" title={hintFor('Target', 'UseCases')}>Target</th>
-                <th className="px-4 py-2 font-medium text-gray-500 w-20" title={hintFor('Level', 'UseCases')}>Level</th>
-                <th className="px-4 py-2 font-medium text-gray-500 w-32" title={hintFor('Status', 'UseCases')}>Status</th>
-                <th className="px-4 py-2 font-medium text-gray-500" title={hintFor('Note', 'UseCases')}>Note</th>
+                <HintTh className="px-4 py-2 font-medium text-gray-500 w-16" hint="Order" hintScope="UseCases">Order</HintTh>
+                <HintTh className="px-4 py-2 font-medium text-gray-500" hint="Target kind" hintScope="UseCases">Target kind</HintTh>
+                <HintTh className="px-4 py-2 font-medium text-gray-500" hint="Target" hintScope="UseCases">Target</HintTh>
+                <HintTh className="px-4 py-2 font-medium text-gray-500 w-20" hint="Level" hintScope="UseCases">Level</HintTh>
+                <HintTh className="px-4 py-2 font-medium text-gray-500 w-32" hint="Status" hintScope="UseCases">Status</HintTh>
+                <HintTh className="px-4 py-2 font-medium text-gray-500" hint="Note" hintScope="UseCases">Note</HintTh>
                 <th className="px-4 py-2 w-10" />
               </tr>
             </thead>
@@ -916,7 +906,7 @@ function UseCaseDetail({
                     </div>
                   </td>
                   <td className="px-4 py-2">
-                    <select
+                    <EnumSelect kind="target_kind" values={REQUIREMENT_TARGET_KINDS} 
                       value={req.target_kind}
                       onChange={(e) =>
                         updateRow(index, {
@@ -927,10 +917,7 @@ function UseCaseDetail({
                           _eventContext: null,
                         })
                       }
-                      className="h-9 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm"
-                    >
-                      {REQUIREMENT_TARGET_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-                    </select>
+                      className="h-9 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm" />
                   </td>
                   <td className="px-4 py-2">
                     <TargetPicker
@@ -957,23 +944,16 @@ function UseCaseDetail({
                     )}
                   </td>
                   <td className="px-4 py-2">
-                    <select
+                    <EnumSelect kind="level" values={REQUIREMENT_LEVELS} 
                       value={req.level}
                       onChange={(e) => updateRow(index, { level: e.target.value })}
-                      className="h-9 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm"
-                    >
-                      {REQUIREMENT_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-                    </select>
+                      className="h-9 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm" />
                   </td>
                   <td className="px-4 py-2">
-                    <select
+                    <EnumSelect kind="status" values={REQUIREMENT_STATUSES} emptyLabel="—" 
                       value={req.status ?? ''}
                       onChange={(e) => updateRow(index, { status: e.target.value || null })}
-                      className="h-9 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm"
-                    >
-                      <option value="">—</option>
-                      {REQUIREMENT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                      className="h-9 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm" />
                   </td>
                   <td className="px-4 py-2">
                     <Input

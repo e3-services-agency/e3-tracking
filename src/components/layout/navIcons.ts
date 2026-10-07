@@ -10,6 +10,9 @@ import {
   BookOpen,
   Box,
   CheckCircle2,
+  Circle,
+  CircleAlert,
+  Globe,
   CircleDashed,
   ChevronDown,
   ChevronUp,
@@ -118,13 +121,37 @@ export const STATUS_ICONS: Record<string, LucideIcon> = {
 };
 export const SEVERITY_ICONS: Record<string, LucideIcon> = { error: OctagonAlert, warning: AlertTriangle, info: Info };
 /** Requirement target kind -> icon (requirements matrix, use case requirement rows). */
-export const TARGET_KIND_ICONS: Record<string, LucideIcon> = {
-  customer_property: User,
+export const BUNDLE_ICON: LucideIcon = Box;
+
+/** T-4-31: one entity-kind -> icon map. Variant is `Split` everywhere (internal and shared view). */
+export const ENTITY_ICONS = {
   event: NAV_ICONS.events,
   variant: Split,
+  property: NAV_ICONS.properties,
+  catalog: NAV_ICONS.catalogs,
+  consent: NAV_ICONS.consentCategories,
+  source: NAV_ICONS.sources,
+  use_case: NAV_ICONS.useCases,
+  bundle: BUNDLE_ICON,
+  customer_property: User,
   event_property: NAV_ICONS.properties,
   variant_property: NAV_ICONS.properties,
   catalog_attribute: NAV_ICONS.catalogs,
-  consent: NAV_ICONS.consentCategories,
+} as const satisfies Record<string, LucideIcon>;
+export type EntityKind = keyof typeof ENTITY_ICONS;
+
+/** T-4-31: icons for the enums rendered by `EnumSelect` that had none in the badge vocabulary. */
+export const IMPLEMENTATION_ICONS: Record<string, LucideIcon> = { client_web: Globe, server_api: Server, sdk_auto: Code2 };
+export const LEVEL_ICONS: Record<string, LucideIcon> = { R: CircleAlert, O: Circle };
+export const CATALOG_KIND_ICONS: Record<string, LucideIcon> = { product: Package, variant: Split, other: Box };
+
+/** Requirement target kind -> icon (requirements matrix, use case rows): a view of `ENTITY_ICONS`. */
+export const TARGET_KIND_ICONS: Record<string, LucideIcon> = {
+  customer_property: ENTITY_ICONS.customer_property,
+  event: ENTITY_ICONS.event,
+  variant: ENTITY_ICONS.variant,
+  event_property: ENTITY_ICONS.event_property,
+  variant_property: ENTITY_ICONS.variant_property,
+  catalog_attribute: ENTITY_ICONS.catalog_attribute,
+  consent: ENTITY_ICONS.consent,
 };
-export const BUNDLE_ICON: LucideIcon = Box;

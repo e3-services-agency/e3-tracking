@@ -53,6 +53,7 @@ export const PROJECT_SCOPED_TABLES = [
   'findings',
   'change_log',
   'comments',
+  'comment_reactions',
   'comment_attachments',
 ] as const;
 

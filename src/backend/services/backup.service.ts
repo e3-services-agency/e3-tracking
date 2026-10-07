@@ -168,6 +168,7 @@ export interface BackupPayload {
   findings: Row[];
   change_log: Row[];
   comments: Row[];
+  comment_reactions: Row[];
   comment_attachments: Row[];
   files: BackupFileEntry[];
   files_missing: string[];
@@ -319,6 +320,8 @@ export async function buildBackup(projectId: string): Promise<BackupPayload> {
     // T-4-02 (D-49), fix round LOW 2: ordered like every other array (created_at, id tiebreak) so
     // two backups of the same project never differ in comment order.
     comments: directRows('comments', projectId, warnings, 'created_at, id'),
+    // T-5-03 (D-70): reactions, same ordering rule.
+    comment_reactions: directRows('comment_reactions', projectId, warnings, 'created_at, id'),
     comment_attachments: commentAttachments,
     files,
     files_missing,

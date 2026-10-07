@@ -615,6 +615,21 @@ function buildCommentsRows(projectId: string): CsvRow[] {
   }));
 }
 
+function buildCommentReactionsRows(projectId: string): CsvRow[] {
+  if (!tableExists('comment_reactions')) return [];
+  const rows = getDb()
+    .prepare('SELECT * FROM comment_reactions WHERE project_id = ? ORDER BY created_at, id')
+    .all(projectId) as { id: string; comment_id: string; author_name: string; kind: string; via_share: number; created_at: string }[];
+  return rows.map((r) => ({
+    id: r.id,
+    comment_id: r.comment_id,
+    author_name: r.author_name,
+    kind: r.kind,
+    via_share: boolCell(!!r.via_share),
+    created_at: r.created_at,
+  }));
+}
+
 /** T-5-04: one row per comment image, oldest comment first. */
 function buildCommentAttachmentsRows(projectId: string): CsvRow[] {
   if (!tableExists('comment_attachments')) return [];
@@ -700,6 +715,7 @@ const ROW_BUILDERS: Record<CsvEntity, (projectId: string) => CsvRow[]> = {
   findings: buildFindingsRows,
   change_log: buildChangeLogRows,
   comments: buildCommentsRows,
+  comment_reactions: buildCommentReactionsRows,
   comment_attachments: buildCommentAttachmentsRows,
 };
 
@@ -772,6 +788,8 @@ const COUNT_QUERIES: Record<CsvEntity, (projectId: string) => number> = {
   // QA fix (2026-09-28): matches buildChangeLogRows now that the table exists (T-3-01).
   change_log: (projectId) => (tableExists('change_log') ? countOf('SELECT COUNT(*) as n FROM change_log WHERE project_id = ?', projectId) : 0),
   // T-4-02: matches buildCommentsRows now that `comments` exists.
+  comment_reactions: (projectId) =>
+    tableExists('comment_reactions') ? countOf('SELECT COUNT(*) as n FROM comment_reactions WHERE project_id = ?', projectId) : 0,
   comments: (projectId) => (tableExists('comments') ? countOf('SELECT COUNT(*) as n FROM comments WHERE project_id = ?', projectId) : 0),
   comment_attachments: (projectId) =>
     tableExists('comment_attachments') ? countOf('SELECT COUNT(*) as n FROM comment_attachments WHERE project_id = ?', projectId) : 0,

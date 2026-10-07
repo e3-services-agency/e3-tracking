@@ -325,6 +325,10 @@ export const CSV_ENTITIES = {
   comments: {
     headers: ['id', 'entity_type', 'entity_id', 'entity_label', 'author_name', 'via_share', 'internal_only', 'body', 'created_at', 'resolved_at', 'resolved_by', 'parent_id', 'status'],
   },
+  // T-5-03 (0034_comment_reactions.sql): one row per (comment, author, kind).
+  comment_reactions: {
+    headers: ['id', 'comment_id', 'author_name', 'kind', 'via_share', 'created_at'],
+  },
   // T-5-04 (0035_comment_attachments.sql): one row per comment image; the bytes are in the backup, not the CSV.
   comment_attachments: {
     headers: ['id', 'comment_id', 'file_path', 'mime', 'width', 'height', 'size_bytes', 'sort_order', 'created_at'],

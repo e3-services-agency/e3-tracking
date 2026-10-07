@@ -16,8 +16,10 @@
  * `shared` hits the public `/api/shared/:token/comments` (T-4-04) with a plain `fetch` and no auth,
  * and hides the form entirely when `access !== 'comment'` (403 `SHARE_READ_ONLY` on the server side
  * is the same rule, this is just not showing a control that would fail). The shared form's author
- * name is remembered in `localStorage['e3-share-author']` (guarded with try/catch: a private window
- * or a disabled storage API must not break the form, just not remember the name across reloads).
+ * name is remembered per link in `localStorage['e3.share.<token>.name']` (`shareName.ts`, guarded
+ * with try/catch: a private window must not break the form). With no name entered, reactions and
+ * status changes send a generated per-link "Visitor xxxx" id instead; posts and replies still need a
+ * real name.
  *
  * Fix round (W1): a page mounting many panels for the same project (the shared view: one per event
  * card, use case and requirement row; the internal use case page: one per requirement row) used to
@@ -35,25 +37,9 @@ import { API_BASE } from '@/src/config/env';
 import type { CommentEntityType, CommentStatus } from '@/src/domain/enums';
 import { groupThreads } from '@/src/domain/commentThreads';
 import { CommentItem } from './CommentItem';
+import type { ReactionSummaryView } from './CommentReactions';
+import { useShareName, ensureAuthorName, isVisitorId } from './shareName';
 import { AttachmentPicker, CommentAttachments, uploadAttachments, type CommentAttachmentItem } from './CommentAttachments';
-
-const AUTHOR_STORAGE_KEY = 'e3-share-author';
-
-function readStoredAuthor(): string {
-  try {
-    return window.localStorage.getItem(AUTHOR_STORAGE_KEY) ?? '';
-  } catch {
-    return '';
-  }
-}
-
-function storeAuthor(name: string): void {
-  try {
-    window.localStorage.setItem(AUTHOR_STORAGE_KEY, name);
-  } catch {
-    // ignore: private window / storage disabled, the form still works, just doesn't remember.
-  }
-}
 
 export interface CommentPanelRow {
   id: string;
@@ -70,13 +56,15 @@ export interface CommentPanelRow {
   /** D-70, T-5-02: a reply points at its root; the status lives on the root. */
   parent_id: string | null;
   status: CommentStatus;
+  /** D-70 item 3, T-5-03: aggregated reactions (kinds with none are absent). */
+  reactions?: ReactionSummaryView[];
   /** D-70 item 4, T-5-04: comment images, in order. */
   attachments?: CommentAttachmentItem[];
 }
 
 export type CommentsPanelApi =
   | { mode: 'internal'; projectId: string }
-  | { mode: 'shared'; token: string; access: 'read' | 'comment' };
+  | { mode: 'shared'; token: string; access: 'read' | 'comment'; requireName?: boolean };
 
 async function parseJson(res: Response): Promise<any> {
   return res.json().catch(() => ({}));
@@ -93,6 +81,12 @@ function postUrl(api: CommentsPanelApi): string {
   return api.mode === 'internal'
     ? `${API_BASE}/api/projects/${api.projectId}/comments`
     : `${API_BASE}/api/shared/${encodeURIComponent(api.token)}/comments`;
+}
+
+function reactionUrl(api: CommentsPanelApi, id: string): string {
+  return api.mode === 'internal'
+    ? `${API_BASE}/api/projects/${api.projectId}/comments/${id}/reactions`
+    : `${API_BASE}/api/shared/${encodeURIComponent(api.token)}/comments/${id}/reactions`;
 }
 
 function fileUrl(api: CommentsPanelApi, path: string): string {
@@ -141,7 +135,10 @@ export function CommentsPanel({
   const [loading, setLoading] = useState(!controlled);
   const [error, setError] = useState<string | null>(null);
   const [body, setBody] = useState('');
-  const [authorName, setAuthorName] = useState(() => (api.mode === 'shared' ? readStoredAuthor() : ''));
+  // D-70 item 5, T-5-03: the shared visitor's name is remembered per link (`e3.share.<token>.name`).
+  const [storedName, setAuthorName] = useShareName(api.mode === 'shared' ? api.token : null);
+  // A generated visitor id is not a typed name: the form shows empty and posts still ask for one.
+  const authorName = isVisitorId(storedName) ? '' : storedName;
   const [internalOnly, setInternalOnly] = useState(false);
   const [posting, setPosting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -207,7 +204,6 @@ export function CommentsPanel({
         setError(typeof data?.error === 'string' ? data.error : 'Failed to post comment.');
         return false;
       }
-      if (api.mode === 'shared') storeAuthor(authorName.trim());
       // T-5-04: images go up after the comment exists, one request each.
       if (files.length > 0 && typeof data?.id === 'string') {
         const failures = await uploadAttachments(`${postUrl(api)}/${data.id}/attachments`, files, (u, init) => doFetch(api, u, init), setUploadProgress);
@@ -240,7 +236,7 @@ export function CommentsPanel({
     setError(null);
     try {
       const payload: Record<string, unknown> = { status };
-      if (api.mode === 'shared' && authorName.trim()) payload.author_name = authorName.trim();
+      if (api.mode === 'shared') payload.author_name = ensureAuthorName(api.token);
       const res = await doFetch(api, statusUrl(api, row.id), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -259,6 +255,31 @@ export function CommentsPanel({
     }
   };
 
+  const react = async (row: CommentPanelRow, kind: string) => {
+    setBusyId(row.id);
+    setError(null);
+    try {
+      const payload: Record<string, unknown> = { kind };
+      if (api.mode === 'shared') payload.author_name = ensureAuthorName(api.token);
+      const res = await doFetch(api, reactionUrl(api, row.id), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await parseJson(res);
+        setError(typeof data?.error === 'string' ? data.error : 'Failed to save reaction.');
+        return;
+      }
+      await refresh();
+    } catch {
+      setError('Failed to save reaction. Check your connection and try again.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const nameRequired = api.mode === 'shared' && !!api.requireName && !authorName.trim();
   const threads = groupThreads(rows);
   const canComment = api.mode === 'internal' || api.access === 'comment';
 
@@ -286,6 +307,10 @@ export function CommentsPanel({
               onSetStatus={(status) => void setStatus(thread, status)}
               onReply={(text, files) => post(text, thread.id, files)}
               renderAttachments={(c) => <CommentAttachments attachments={c.attachments} fileUrl={(pth) => fileUrl(api, pth)} />}
+              onReact={(row, kind) => void react(row, kind)}
+              ownName={api.mode === 'shared' ? storedName : ''}
+              nameMissing={api.mode === 'shared' && !authorName.trim()}
+              nameRequired={nameRequired}
             />
           ))}
         </ul>
@@ -318,7 +343,8 @@ export function CommentsPanel({
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="Add a comment…"
+            placeholder={nameRequired ? 'Enter your name to comment' : 'Add a comment…'}
+            disabled={nameRequired}
             maxLength={4000}
             rows={2}
             required

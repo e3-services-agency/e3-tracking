@@ -45,6 +45,7 @@ import {
   Rocket,
   Settings,
   ShieldCheck,
+  ThumbsUp,
   UploadCloud,
   type LucideIcon,
 } from 'lucide-react';
@@ -122,6 +123,8 @@ export const STATUS_ICONS: Record<string, LucideIcon> = {
   done: CheckCircle2,
   wont_do: XCircle,
 };
+/** Comment reactions (D-70, T-5-03), keyed by `COMMENT_REACTION_KINDS`. */
+export const REACTION_ICONS: Record<string, LucideIcon> = { seen: Eye, like: ThumbsUp, on_it: Activity };
 export const SEVERITY_ICONS: Record<string, LucideIcon> = { error: OctagonAlert, warning: AlertTriangle, info: Info };
 /** Requirement target kind -> icon (requirements matrix, use case requirement rows). */
 export const BUNDLE_ICON: LucideIcon = Box;

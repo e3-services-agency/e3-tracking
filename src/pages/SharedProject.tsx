@@ -112,6 +112,8 @@ interface ShareHeader {
   project: { name: string; client_logo_path: string | null };
   client: { name: string | null };
   access: 'read' | 'comment';
+  /** D-70 item 5, T-5-03: the link needs an author name for every write. */
+  require_name?: boolean;
   generated_at: string | null;
 }
 
@@ -591,7 +593,7 @@ export function SharedProject({ token }: { token: string }) {
   const fileUrl = (path: string) => sharedFileUrl(token, path);
   const present = sectionPresence(doc);
   if (!groups) return null;
-  const api = { mode: 'shared' as const, token, access: header.access };
+  const api = { mode: 'shared' as const, token, access: header.access, requireName: !!header.require_name };
   const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, id: string) => setter((prev) => toggleInSet(prev, id));
   const toggleThread = (key: string) => setOpenThreads((prev) => toggleInSet(prev, key));
   const allEventIds = doc.events.map((e) => e.id);

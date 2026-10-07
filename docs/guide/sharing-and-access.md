@@ -19,6 +19,10 @@ See the Sharing reference for the exact routes and guarantees.
 
 You can comment on an event, property, use case or requirement, from the panels on those pages or the project-wide **Comments** page. A comment thread is shared: what a client posts through a comment share link and what you post internally appear on the same anchor. Tick **Internal only** on a comment to keep it off the share link, whatever the link settings are. Otherwise internal replies are visible to the link holder only while **Settings, Share link, Show internal comments on the shared view** is set to **All comments**; with **Only comments posted through the link**, the shared view shows just the comments posted through the link itself. Comments can be resolved (internally) and deleted. Comments never appear in the tracking document, the HTML export or MCP output.
 
+## Reactions and names
+
+Under every comment are three buttons: **Seen**, **Like** and **On it**. Press one to react, press it again to take it back; hover a button to see who reacted. **On it** also marks an open thread as On it. On a share link the visitor's name is remembered in their browser for that link; a visitor who has not entered one reacts as an automatic "Visitor 4f2a" id. If you tick **Settings, Share link, Require a name on the share link**, visitors must enter a name before they can comment, reply, react or change a status.
+
 ## Agents
 
 An MCP server exposes the definitions, findings and QA tools to AI agents on the same database. See the MCP server reference. Agent writes are attributed to the agent name in History.

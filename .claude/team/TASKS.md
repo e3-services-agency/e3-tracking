@@ -105,7 +105,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-5-17 | 5 | Windows deployment-test portability and preserved baseline acceptance | deployment-implementer | T-5-10 | DONE | reports/PLAN-SHARED-PORTAL-2026-10-08.md |
 | T-5-18 | 5 | Property definition counts and category hierarchy | properties-implementer | T-5-16 | DONE | reports/PLAN-UI-CONSISTENCY-2026-10-08.md |
 | T-5-19 | 5 | Shared presentation aligned with internal UI | portal-implementer | T-5-18 | DONE | reports/PLAN-UI-CONSISTENCY-2026-10-08.md |
-| T-5-20 | 5 | UI consistency integration, QA and live release | codex-supervisor | T-5-18, T-5-19 | IN_PROGRESS | reports/PLAN-UI-CONSISTENCY-2026-10-08.md |
+| T-5-20 | 5 | UI consistency integration, QA and live release | codex-supervisor | T-5-18, T-5-19 | DONE | reports/PLAN-UI-CONSISTENCY-2026-10-08.md |
 
 Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktrees after T-1-02 merges. Everything else is sequential per the dependency column.
 

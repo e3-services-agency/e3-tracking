@@ -1,3 +1,7 @@
+# Current deployment handover — UI consistency
+
+Current live release240efde-dirty/schema0038, manifestsha256:c13f97dee02182d0d23a2ed42dc18fdee0a9ba6ec70c660d93c1cc0f05cde39e. T18/T19/T20 complete; accepted counts/hierarchy/shared presentation,2115tests/215files and actual live desktop/390px checks PASS. Current verified data2clients/2projects/11comments; auth/settings and edge containers unchanged. Current private recovery snapshot `/var/backups/e3-tracking/pre-ui-0038-20261008T142650Z`; final off-site backups2026-10-08T14-36-58-362Z restore0warnings, MCP29tools PASS. See [complete current evidence](UI-CONSISTENCY-2026-10-08.md) and [current runbook](GO-LIVE-RUNBOOK.md). Historical records below remain recovery/history evidence, not current operational pointers.
+
 # Deployment reconciliation (T-5-10)
 Read-only checks on 2026-10-08:
 - Local base: agent-setup 18b7883.

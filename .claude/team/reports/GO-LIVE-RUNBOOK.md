@@ -1,8 +1,28 @@
 # Live GCP upgrade runbook: e3-tracking
 
+## Current release — UI consistency, 2026-10-08
+
+Live240efde-dirty, schema0038; registry manifest `sha256:c13f97dee02182d0d23a2ed42dc18fdee0a9ba6ec70c660d93c1cc0f05cde39e`. Reviewed image input240efde; T18/T19 source commits4b18de7/2f3283a. Full2115tests/215files, build/lint, separate review/browserQA and live internal/shared desktop/390px checks PASS. Current data:2clients,2projects,11comments,244properties,303definitions,38events; integrityok/FK0. Existing OAuth/settings and edge services verified unchanged.
+
+Complete current-schema snapshot `/var/backups/e3-tracking/pre-ui-0038-20261008T142650Z`, directory700/archives600, checksums/schema/counts verified. It pins the previous01b4230-dirty image for recovery. Use [the independently reviewed current0038 helper](ops/e3-maintenance-ui-schema0038.sh); SHA256 `A517588CD6BFE2DF3D998DDBD1F5465BD23B7C2BE4DAE96A9759DE269CC11306`. The historical0036 helper below is retained only for the earlier migration recovery.
+
+Final off-site backups2026-10-08T14-36-58-362Z uploaded2/failures0; both actual downloads restored with0warnings. MCP07 dry-run/actual PASS29tools. Credentials/backups remain outside Git. See [UI acceptance and live evidence](UI-CONSISTENCY-2026-10-08.md).
+
+## Procedure for another UI-only upgrade on schema0038
+
+1. Require approved source, independent review and local browser QA, then full tests/build/lint. Run02-build-push with --dry-run before --yes; record source commit/tag/immutable manifest and pre-pull the candidate before downtime. Main, staging and machine-specific MCP config are separate.
+2. Run04-backup --run-now with its dry-run first; independently download/restore the objects. Confirm current image/schema, required tools and free space. Upload the current0038 helper through the Windows SDK wrapper documented in DEPLOY.md; verify its hash. Suspend app/backup/MCP writers and run its snapshot mode. Require its exact verified private snapshot path and current counts. Services remain stopped after snapshot.
+3. Run03-deploy REVIEWED_TAG --dry-run, then --yes after snapshot acceptance. Existing .env must stay intact except IMAGE; compare against the snapshot privately, without printing secrets. Edge images remain unchanged unless separately approved.
+4. Verify expected app/backup manifest,0038/writable health, SQLite integrity/FK/current counts, public logo asset200, internal/shared counts/hierarchy/full text and mobile navigation. Verify comments/identity/read/export boundaries appropriate to the approved change.
+5. Run04 final backup and07 MCP, each dry-run first. Download and restore the final backups; retain snapshot and previous immutable image. Refresh BOARD/TASKS/CONTEXT/DECISIONS and the deployment handover with actual evidence and limits. Retire only owned QA services/tabs.
+
+For recovery, use the current0038 helper's rollback mode with the exact verified snapshot path. It stops writers, preserves failed-release data/config before restoring, verifies0038/ownership, and starts the recorded old image without pulling. Do not start18b7883 on a0037/0038 database. Future migrations require reviewed helper version checks matching that future schema; do not silently reuse a0038 assertion.
+
+## Historical shared-portal upgrade (completed before the UI release)
+
 Production is running at https://tracking.e3-services.com. The user authorized reviewed upgrades and task commits/integration (D-73). Local staging stays untouched. This runbook records the completed shared-portal upgrade from18b7883/schema0036 to01b4230-dirty/schema0038. Credentials remain outside Git.
 
-## Current operator checkpoint
+### Historical operator checkpoint
 
 Live release manifest: `sha256:174829aecdaa55876d29aa3fd98d1d45a471cc51de81f86f062f88a01ffb0128`. Verified complete pre-upgrade snapshot: `/var/backups/e3-tracking/pre-0037-20261008T122119Z`, root-private directory700/archives600. Both post-upgrade off-site backups timestamp2026-10-08T12-27-00-412Z restore with0warnings;29-tool read-only MCP discovery and HTTPS monitoring check pass. Detailed evidence/remaining account-specific limits: DEPLOYMENT-HANDOVER-2026-10-08.md and PORTAL-QA-2026-10-08.md.
 

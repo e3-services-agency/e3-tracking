@@ -4037,3 +4037,18 @@ Accepted T19 commit2f3283a integrated as80ec422 after final separate reviewer an
 
 ### 2026-10-08 15:58 | auth-reviewer -> codex-supervisor | PASS | T-5-20
 Final combined spot review at80ec422 confirms all5T18 and7T19 files exactly match accepted owner commits; sharedbadge and logo hashes intact, identity mountedonce, correctedpl20 preserved. Only12 assignedfrontendfiles in source delta, with no backend/projection/auth/migration/deploy/package expansion. Final integrated fullsuite/build gates ongoing.
+
+### 2026-10-08 16:13 | codex-supervisor -> ALL | FAIL | T-5-20
+Final full run:2114passed/1failed across214passed/1failed files plus1unhandled Vitest RPC reportingtimeout (845s). Soletestfailureexisting deploy/gcpScripts.test.ts00preflight pathconversion: cygpathstatus4294967295 after30s. QAalsohitWindowsresourceerror; no UIassertionfailure. Candidatebuilt/pushed/prepulled240efde-dirty manifestc13f97de; productionunchanged. Retire only owned QA API41608/compiled40168/Vite41392 afterPIDidentitycheck; repeatfailingchecks thenfullgateswithoutconcurrentbuild/browserload. Staging untouched.
+
+
+### 2026-10-08 16:16 | codex-supervisor -> ALL | INFO | T-5-20
+Isolated deployment helper13/13PASS after QAresourcecleanup; full integrated retry now runs1fork without concurrentbuild/browseractivity. No sourcechange wasneeded. Compiledintegratedinternal/shared desktop countclick togglesinline with0dialogs andbundledlogo loaded2000px; independent390pxQAproof retained. Candidateimageinput240efdefb677d6eec6bf63ce2c97815f967f7398, tag240efde-dirty, registrymanifestsha256:c13f97dee02182d0d23a2ed42dc18fdee0a9ba6ec70c660d93c1cc0f05cde39e, prepulledVM. Lint/buildPASS; final03dryrunreviewed. No maintenance started.
+
+
+### 2026-10-08 16:26 | codex-supervisor -> ALL | PASS | T-5-20
+Final controlled full retry PASS2115/2115tests across215files (541s), nofailed/skipped/unhandled errors. Lint/build and separate review/browser gates PASS. InitialWindowsresourcefailures resolved by retiringownedQAservices and serializingfullretry, withoutsourcechanges. Candidate240efde-dirty manifestc13f97dee02182d0d23a2ed42dc18fdee0a9ba6ec70c660d93c1cc0f05cde39e prepulled; reviewedhelperhashA517588...verifiedVM. Beginquiescedcomplete0038snapshot, thenapproved03deploy andliveverification; no schema/auth/edgechangesplanned.
+
+
+### 2026-10-08 17:00 | codex-supervisor -> ALL | PASS | T-5-20
+UI release240efde-dirty/schema0038 complete. App/backup manifestc13f97dee02182d0d23a2ed42dc18fdee0a9ba6ec70c660d93c1cc0f05cde39e verified. Snapshotpre-ui-0038-20261008T142650Z root-private700/archives600/checksums/schema PASS; current2clients/2projects/11comments/244properties/303definitions/38events retained with integrityok/FK0. Private comparison confirms all OAuth/settings exceptIMAGE identical; existing edge containerIDs unchanged. Live internal/shared count4 expandsinline with0dialogs; anonymouslogo200 anddesktop1280/narrow390 body375 PASS. Finalbackup2026-10-08T14-36-58-362Z uploaded2/failures0, bothactualoffsite downloadsrestore0warnings; liveMCP29tools PASS. No production test comments. All cooperation/context/decision/task/runbook/handover pointers refreshed; T18/T19/T20 DONE. OwnedQAservices retired; main/staging/machine.mcp preserved. Existing dependency/consumer-Gmail followups remain separate.

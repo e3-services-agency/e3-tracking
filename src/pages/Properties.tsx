@@ -1,5 +1,6 @@
 import { exampleValuesFor, exampleWarnings } from '@/src/domain/examples';
 import { ExpandChevron } from '@/src/components/ui/ExpandChevron';
+import { DefinitionCountBadge } from '@/src/components/ui/DefinitionCountBadge';
 import { EnumSelect } from '@/src/components/ui/EnumSelect';
 import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
 import { groupRowsByCategory, toggleCollapsed } from '@/src/domain/propertyTableGroups';
@@ -297,7 +298,7 @@ export function Properties() {
         </div>
 
         <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
-          <table className="w-full min-w-[900px] table-fixed text-left text-sm">
+          <table className="w-full min-w-[1100px] table-fixed text-left text-sm">
             <colgroup>
               <col className="w-10" />
               <col />
@@ -327,8 +328,8 @@ export function Properties() {
                 const isCollapsed = collapsedGroups.has(group.category);
                 return (
                   <React.Fragment key={group.category}>
-                    <tr className="bg-gray-100" data-testid={`property-group-${group.category}`}>
-                      <HintTh colSpan={9} scope="colgroup" hint="" hintScope="Properties" className="px-2 py-1 text-left text-xs font-semibold text-gray-700">
+                    <tr className="border-y border-gray-200 bg-gray-100" data-testid={`property-group-${group.category}`}>
+                      <HintTh colSpan={9} scope="colgroup" hint="" hintScope="Properties" className="px-3 py-2 text-left text-xs font-semibold text-gray-700">
                         <button
                           type="button"
                           aria-expanded={!isCollapsed}
@@ -352,14 +353,24 @@ export function Properties() {
                               {defCount > 0 && (
                                 <ExpandChevron
                                   expanded={expandedIds.has(p.id)}
-                                  label={`${defCount} definition(s): click to ${expandedIds.has(p.id) ? 'collapse' : 'expand'}`}
+                                  label={`${expandedIds.has(p.id) ? 'Collapse' : 'Expand'} definitions for ${p.name} (${defCount} ${defCount === 1 ? 'definition' : 'definitions'})`}
                                   onToggle={() => setExpandedIds((s) => toggleId(s, p.id))}
                                 />
                               )}
                             </td>
-                            <td className="px-4 py-3 font-medium text-gray-900">
-                              <span className="flex items-center gap-1.5 min-w-0">
-                                <span className="whitespace-nowrap truncate" title={p.name}>{p.name}</span>
+                            <td className="pl-8 pr-4 py-3 font-medium text-gray-900">
+                              <span className="flex flex-wrap items-center gap-1.5 min-w-0">
+                                <span className="min-w-0 [overflow-wrap:anywhere] whitespace-pre-wrap">{p.name}</span>
+                                <button
+                                  type="button"
+                                  disabled={defCount === 0}
+                                  aria-expanded={expandedIds.has(p.id)}
+                                  aria-label={`${expandedIds.has(p.id) ? 'Collapse' : 'Expand'} definitions for ${p.name} (${defCount} ${defCount === 1 ? 'definition' : 'definitions'})`}
+                                  className="shrink-0 rounded focus-visible:outline-2 focus-visible:outline-blue-600 disabled:cursor-default"
+                                  onClick={(e) => { e.stopPropagation(); setExpandedIds((s) => toggleId(s, p.id)); }}
+                                >
+                                  <DefinitionCountBadge count={defCount} />
+                                </button>
                                 <CopyNameButton name={p.name} />
                                 {isPropertyCategory(p.category_override) && <span className="text-xs font-normal text-gray-400" title="Category set by hand">(set)</span>}
                               </span>

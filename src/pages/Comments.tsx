@@ -31,6 +31,9 @@ import { COMMENT_ENTITY_TYPES, COMMENT_STATUSES, type CommentStatus } from '@/sr
 import { enumLabel } from '@/src/domain/enumLabels';
 import { groupThreads } from '@/src/domain/commentThreads';
 import { StatusBadge } from '@/src/components/ui/badges';
+import { CommentCopyActions } from '@/src/features/comments/CommentCopyActions';
+import { useCommentLink } from '@/src/features/comments/useCommentLink';
+import { COMMENT_TARGET_CLASS, commentDomId, commentLinkUrl, focusComment, resolveCommentTarget } from '@/src/features/comments/commentLinks';
 import { CommentBody, threadAttachments } from '@/src/features/comments/CommentBody';
 import { CommentAttachments, type CommentAttachmentItem } from '@/src/features/comments/CommentAttachments';
 import { CommentReactions, type ReactionSummaryView } from '@/src/features/comments/CommentReactions';
@@ -78,13 +81,24 @@ type InternalFilter = '' | 'true' | 'false';
 export function Comments() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
   const fileUrl = fileUrlFor(activeProjectId);
+  const commentLink = useCommentLink();
+  const projectKey = useStore((state) => state.activeProjectKey);
+  const getCommentLink = (target: Parameters<typeof commentLinkUrl>[1]) => commentLinkUrl({ mode: 'internal', projectKey }, target);
   const [rows, setRows] = useState<CommentRow[]>([]);
   const [entityType, setEntityType] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(commentLink.kind === 'target' ? '' : 'active');
   const [internalFilter, setInternalFilter] = useState<InternalFilter>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (commentLink.kind !== 'target') return;
+    // A copied link must work even when its root is closed or current filters exclude its entity.
+    setStatusFilter('');
+    setEntityType('');
+    setInternalFilter('');
+  }, [commentLink]);
 
   const setRequestedTab = useStore((s) => s.setRequestedTab);
   const setEventCardEventId = useStore((s) => s.setEventCardEventId);
@@ -211,6 +225,11 @@ export function Comments() {
     }
   };
 
+  const linkedComment = commentLink.kind === 'target' ? resolveCommentTarget(rows, commentLink.target) : null;
+  useEffect(() => {
+    if (!loading && linkedComment) focusComment(document.getElementById(commentDomId(linkedComment.comment.id)));
+  }, [linkedComment?.comment.id, loading, statusFilter, entityType, internalFilter]);
+
   // D-70: threads (roots with replies); the status filter applies to roots. "Active" = open + on it.
   const threads = groupThreads(rows).filter((t) =>
     statusFilter === '' ? true : statusFilter === 'active' ? t.status === 'open' || t.status === 'on_it' : t.status === statusFilter
@@ -228,6 +247,8 @@ export function Comments() {
       </PageHeader>
 
       <PageBody className="space-y-4">
+        {commentLink.kind === 'invalid' && <p role="status" className="rounded border border-amber-200 bg-amber-50 p-3 text-sm">This comment link is not valid.</p>}
+        {commentLink.kind === 'target' && !linkedComment && !loading && <p role="status" className="rounded border border-amber-200 bg-amber-50 p-3 text-sm">This comment is unavailable in this view.</p>}
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{error}</div>
         )}
@@ -269,7 +290,7 @@ export function Comments() {
 
         <div className="bg-white rounded-lg border shadow-sm divide-y">
           {threads.map((row) => (
-            <div key={row.id} className="p-4 flex items-start justify-between gap-4">
+            <div key={row.id} id={commentDomId(row.id)} tabIndex={-1} aria-label={`Comment by ${row.author_name}`} data-testid="comment-thread" className={`p-4 flex items-start justify-between gap-4 ${linkedComment?.comment.id === row.id ? COMMENT_TARGET_CLASS : ''}`}>
               <div
                 className={`min-w-0 flex-1 ${canOpen(row) ? 'cursor-pointer' : ''}`}
                 onClick={(e) => {
@@ -306,6 +327,7 @@ export function Comments() {
                   <span>·</span>
                   <span>{new Date(row.created_at).toLocaleString()}</span>
                   <StatusBadge status={row.status} />
+                  <CommentCopyActions mode="internal" row={row} thread={row} getLink={getCommentLink} fileUrl={fileUrl} />
                 </div>
                 <CommentBody className="mt-1" body={row.body} attachments={threadAttachments(row, row.replies)} fileUrl={fileUrl} />
                 <CommentAttachments attachments={row.attachments} fileUrl={fileUrl} />
@@ -313,8 +335,8 @@ export function Comments() {
                 {row.replies.length > 0 && (
                   <ul className="mt-2 space-y-1 border-l-2 border-gray-200 pl-3">
                     {row.replies.map((reply) => (
-                      <li key={reply.id} className="text-sm text-gray-800">
-                        <span className="text-xs font-medium text-gray-600">{reply.author_name}: </span>
+                      <li key={reply.id} id={commentDomId(reply.id)} tabIndex={-1} aria-label={`Reply by ${reply.author_name}`} data-testid="comment-reply" className={`text-sm text-gray-800 ${linkedComment?.comment.id === reply.id ? COMMENT_TARGET_CLASS : ''}`}>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500"><span className="font-medium text-gray-600">{reply.author_name}</span><span>{new Date(reply.created_at).toLocaleString()}</span><CommentCopyActions mode="internal" row={reply} thread={row} getLink={getCommentLink} fileUrl={fileUrl} /></div>
                         <CommentBody body={reply.body} attachments={threadAttachments(row, row.replies)} fileUrl={fileUrl} />
                         <CommentAttachments attachments={reply.attachments} fileUrl={fileUrl} />
                         <CommentReactions reactions={reply.reactions} isRoot={false} ownName="" nameRequired={false} busy={busyId === reply.id} onReact={(k) => void react(reply.id, k)} />

@@ -7,7 +7,7 @@
  * `attachments` is the slot T-5-04 (comment images) fills: a node rendered under each comment's
  * body (root and replies alike), so thumbnails can be added without touching this layout.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Badge } from '@/src/components/ui/badges';
 import { StatusBadge } from '@/src/components/ui/badges';
 import { COMMENT_STATUSES, SHARE_SETTABLE_COMMENT_STATUSES, type CommentStatus } from '@/src/domain/enums';
@@ -20,6 +20,8 @@ import { CommentBody, threadAttachments as threadAttachmentsOf } from './Comment
 import { CommentAvatar } from './CommentIdentity';
 import { MarkdownEditor } from '@/src/components/ui/MarkdownEditor';
 import { COMMENT_BODY_MAX, resolveAttachmentSrc } from '@/src/domain/markdownEdit';
+import { CommentCopyActions } from './CommentCopyActions';
+import { COMMENT_TARGET_CLASS, commentDomId, focusComment, type CommentLinkTarget } from './commentLinks';
 
 export const REPLIES_COLLAPSED_AFTER = 2;
 
@@ -42,6 +44,8 @@ export function CommentItem({
   nameRequired = false,
   composerIdentity,
   identityReady = true,
+  targetCommentId,
+  getCommentLink,
 }: {
   thread: CommentThreadView;
   mode: 'internal' | 'shared';
@@ -66,15 +70,25 @@ export function CommentItem({
   /** Shared root/reply attribution UI, kept synchronized by the parent external store. */
   composerIdentity?: React.ReactNode;
   identityReady?: boolean;
+  targetCommentId?: string;
+  getCommentLink?: (target: CommentLinkTarget) => string;
 }) {
   const [showAll, setShowAll] = useState(false);
+  const elementRef = useRef<HTMLLIElement>(null);
+  const containsTarget = targetCommentId === thread.id || thread.replies.some((reply) => reply.id === targetCommentId);
+  useEffect(() => {
+    if (!containsTarget || !targetCommentId) return;
+    const root = elementRef.current;
+    const element = targetCommentId === thread.id ? root : Array.from(root?.querySelectorAll<HTMLElement>('[data-testid="comment-reply"]') ?? []).find((reply) => reply.id === commentDomId(targetCommentId)) ?? null;
+    focusComment(element);
+  }, [targetCommentId, thread.id, containsTarget]);
   const [replyBody, setReplyBody] = useState('');
   const [replying, setReplying] = useState(false);
   const [replyError, setReplyError] = useState<string | null>(null);
   const [replyFiles, setReplyFiles] = useState<File[]>([]);
 
   const hidden = thread.replies.length - REPLIES_COLLAPSED_AFTER;
-  const visibleReplies = showAll || hidden <= 0 ? thread.replies : thread.replies.slice(0, REPLIES_COLLAPSED_AFTER);
+  const visibleReplies = showAll || containsTarget || hidden <= 0 ? thread.replies : thread.replies.slice(0, REPLIES_COLLAPSED_AFTER);
   const statusOptions: readonly CommentStatus[] = mode === 'internal' ? COMMENT_STATUSES : SHARE_SETTABLE_COMMENT_STATUSES;
   // A share link may not reopen: once closed, the menu is gone for it.
   const canSetStatus = canComment && (mode === 'internal' || (thread.status !== 'done' && thread.status !== 'wont_do'));
@@ -128,10 +142,11 @@ export function CommentItem({
   );
 
   return (
-    <li className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2" data-testid="comment-thread">
+    <li ref={elementRef} id={commentDomId(thread.id)} tabIndex={-1} aria-label={`Comment by ${thread.author_name}`} className={`rounded-md border border-gray-200 bg-gray-50 px-3 py-2 ${targetCommentId === thread.id ? COMMENT_TARGET_CLASS : ''}`} data-testid="comment-thread">
       <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
         {meta(thread)}
         <StatusBadge status={thread.status} />
+        {getCommentLink && <CommentCopyActions mode={mode} row={thread} thread={thread} getLink={getCommentLink} fileUrl={fileUrl} />}
         {canSetStatus && (
           <span className="ml-auto flex items-center gap-1">
             <span className="sr-only">Status</span>
@@ -165,14 +180,14 @@ export function CommentItem({
       {thread.replies.length > 0 && (
         <ul className="mt-2 space-y-2 border-l-2 border-gray-200 pl-3">
           {visibleReplies.map((reply) => (
-            <li key={reply.id} data-testid="comment-reply">
-              <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">{meta(reply)}</div>
+            <li key={reply.id} id={commentDomId(reply.id)} tabIndex={-1} aria-label={`Reply by ${reply.author_name}`} className={targetCommentId === reply.id ? COMMENT_TARGET_CLASS : undefined} data-testid="comment-reply">
+              <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">{meta(reply)}{getCommentLink && <CommentCopyActions mode={mode} row={reply} thread={thread} getLink={getCommentLink} fileUrl={fileUrl} />}</div>
               <CommentBody className="mt-0.5" body={reply.body} attachments={threadAttachments} fileUrl={fileUrl} />
               {renderAttachments?.(reply)}
               {reactionsRow(reply, false)}
             </li>
           ))}
-          {hidden > 0 && !showAll && (
+          {hidden > 0 && !showAll && !containsTarget && (
             <li>
               <button type="button" onClick={() => setShowAll(true)} className="text-xs text-[var(--brand-primary)] hover:underline">
                 Show {hidden} more

@@ -30,6 +30,9 @@
  * editor, event card) omit both props and the panel fetches and reloads on its own, unchanged.
  */
 import React, { useCallback, useEffect, useState } from 'react';
+import { useStore } from '@/src/store';
+import { useCommentLink } from './useCommentLink';
+import { commentLinkUrl, resolveCommentTarget } from './commentLinks';
 import { FieldLabel } from '@/src/components/ui/FieldHint';
 import { fetchWithAuth } from '@/src/lib/api';
 import { API_BASE } from '@/src/config/env';
@@ -292,7 +295,12 @@ export function CommentsPanel({
   };
 
   const nameRequired = api.mode === 'shared' && !!api.requireName && !participant.verified && !authorName.trim();
-  const threads = groupThreads(rows);
+  const permittedRows = rows.filter((row) => (api.mode !== 'shared' || !row.internal_only) && (!row.entity_type || row.entity_type === entityType) && (!row.entity_id || row.entity_id === entityId)).map((row) => ({ ...row, entity_type: row.entity_type ?? entityType, entity_id: row.entity_id ?? entityId }));
+  const threads = groupThreads(permittedRows);
+  const link = useCommentLink();
+  const projectKey = useStore((state) => state.activeProjectKey);
+  const resolvedTarget = link.kind === 'target' ? resolveCommentTarget(permittedRows, link.target) : null;
+  const getCommentLink = (target: Parameters<typeof commentLinkUrl>[1]) => commentLinkUrl(api.mode === 'shared' ? api : { mode: 'internal', projectKey }, target);
   const canComment = api.mode === 'internal' || api.access === 'comment';
 
   return (
@@ -314,6 +322,8 @@ export function CommentsPanel({
             <CommentItem
               key={thread.id}
               thread={thread}
+              getCommentLink={getCommentLink}
+              targetCommentId={resolvedTarget?.comment.id}
               mode={api.mode}
               canComment={canComment}
               busy={busyId === thread.id || !participant.ready}

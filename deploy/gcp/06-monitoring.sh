@@ -5,9 +5,11 @@ set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 : "${ALERT_EMAIL:?set ALERT_EMAIL in config.env}"
 plan_header "06 monitoring"
+# Preserve the HTTP path when Git Bash invokes the native Windows SDK.
+export MSYS2_ARG_CONV_EXCL="${MSYS2_ARG_CONV_EXCL:+$MSYS2_ARG_CONV_EXCL;}/api/health"
 G=(gcloud --project "$PROJECT_ID")
 NAME="$VM_NAME-health"
-CH_FILTER="type=email AND labels.email_address=$ALERT_EMAIL"
+CH_FILTER="type=\"email\" AND labels.email_address=\"$ALERT_EMAIL\""
 say "# notification channel (reused when one for $ALERT_EMAIL exists)"
 if [ "$DRY_RUN" = 1 ]; then
   show "${G[@]}" beta monitoring channels list --filter "$CH_FILTER" --format 'value(name)'

@@ -106,7 +106,7 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-5-18 | 5 | Property definition counts and category hierarchy | properties-implementer | T-5-16 | DONE | reports/PLAN-UI-CONSISTENCY-2026-10-08.md |
 | T-5-19 | 5 | Shared presentation aligned with internal UI | portal-implementer | T-5-18 | DONE | reports/PLAN-UI-CONSISTENCY-2026-10-08.md |
 | T-5-20 | 5 | UI consistency integration, QA and live release | codex-supervisor | T-5-18, T-5-19 | DONE | reports/PLAN-UI-CONSISTENCY-2026-10-08.md |
-| T-5-21 | 5 | Certification help, expansion, unified Actions and single comment progress control | portal-implementer | T-5-20 | IN_PROGRESS | reports/PLAN-COLLABORATION-2026-10-08.md |
+| T-5-21 | 5 | Certification help, expansion, unified Actions and single comment progress control | portal-implementer | T-5-20 | QA | reports/PLAN-COLLABORATION-2026-10-08.md |
 | T-5-22 | 5 | Identity rule, catalog and definition comments and filtered history | collaboration-implementer | T-5-21 | TODO | reports/PLAN-COLLABORATION-2026-10-08.md |
 | T-5-23 | 5 | Immutable numbered QA reports and persistent finding discussions | qa-reports-implementer | T-5-22 | TODO | reports/PLAN-COLLABORATION-2026-10-08.md |
 | T-5-24 | 5 | Collaboration integration, independent review, QA and release | codex-supervisor | T-5-21, T-5-22, T-5-23 | TODO | reports/PLAN-COLLABORATION-2026-10-08.md |

@@ -10,6 +10,12 @@
 import { GLOSSARY } from './glossary';
 
 export const FIELD_HINTS: Record<string, string> = {
+  // Immutable comparison reports
+  'QaReports.Report': 'Permanent project report number. Open it to see the evidence captured by that comparison. Example: Report #003.',
+  'QaReports.Completed': 'When the comparison completed and its report was captured. Recorded evidence does not change afterward.',
+  'QaReports.Scope': 'The comparison covers the whole project, including its definitions and participating QA runs.',
+  'QaReports.Recorded results': 'Unique captured findings: produced by this comparison or newly resolved. Shared totals include only visible findings.',
+  'QaReports.Actions': 'Open the report discussion, copy its link or add a comment about the recorded comparison.',
   // Generic
   'Name': 'The exact identifier used in Bloomreach and in tracking code. Example: purchase, cart_update.',
   'Description': 'What this is and why it exists, in plain words. Example: Fires when a customer completes an order.',

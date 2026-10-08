@@ -6902,6 +6902,7 @@ exponea.track('Opt_in_proof', {
           "expected": {
             "naming_convention": "snake_case",
           },
+          "finding_sequence": 75,
           "first_seen": "TIMESTAMP",
           "id": "id-597",
           "kind": "naming_violation",
@@ -6923,6 +6924,7 @@ exponea.track('Opt_in_proof', {
           "expected": {
             "naming_convention": "snake_case",
           },
+          "finding_sequence": 76,
           "first_seen": "TIMESTAMP",
           "id": "id-598",
           "kind": "naming_violation",
@@ -6942,6 +6944,7 @@ exponea.track('Opt_in_proof', {
           "expected": {
             "event": "Opt_in_proof",
           },
+          "finding_sequence": 15,
           "first_seen": "TIMESTAMP",
           "id": "id-599",
           "kind": "missing_event",
@@ -7292,6 +7295,7 @@ exponea.track('back_in_stock_list', {
           "expected": {
             "data_manager_type": "string",
           },
+          "finding_sequence": 49,
           "first_seen": "TIMESTAMP",
           "id": "id-601",
           "kind": "type_mismatch",
@@ -7313,6 +7317,7 @@ exponea.track('back_in_stock_list', {
           "expected": {
             "data_manager_type": "string",
           },
+          "finding_sequence": 50,
           "first_seen": "TIMESTAMP",
           "id": "id-602",
           "kind": "type_mismatch",
@@ -7332,6 +7337,7 @@ exponea.track('back_in_stock_list', {
           "expected": {
             "event": "back_in_stock_list",
           },
+          "finding_sequence": 16,
           "first_seen": "TIMESTAMP",
           "id": "id-603",
           "kind": "missing_event",
@@ -8081,6 +8087,7 @@ exponea.track('booking_b', {
           "expected": {
             "event": "booking_b",
           },
+          "finding_sequence": 17,
           "first_seen": "TIMESTAMP",
           "id": "id-605",
           "kind": "missing_event",
@@ -10259,6 +10266,7 @@ exponea.track('cart_update', {
           "expected": {
             "data_manager_type": "string",
           },
+          "finding_sequence": 53,
           "first_seen": "TIMESTAMP",
           "id": "id-608",
           "kind": "type_mismatch",
@@ -10280,6 +10288,7 @@ exponea.track('cart_update', {
           "expected": {
             "data_manager_type": "number",
           },
+          "finding_sequence": 51,
           "first_seen": "TIMESTAMP",
           "id": "id-609",
           "kind": "type_mismatch",
@@ -10301,6 +10310,7 @@ exponea.track('cart_update', {
           "expected": {
             "data_manager_type": "number",
           },
+          "finding_sequence": 52,
           "first_seen": "TIMESTAMP",
           "id": "id-610",
           "kind": "type_mismatch",
@@ -10328,6 +10338,7 @@ exponea.track('cart_update', {
           "expected": {
             "data_type": "string",
           },
+          "finding_sequence": 10,
           "first_seen": "TIMESTAMP",
           "id": "id-611",
           "kind": "type_mismatch",
@@ -10350,6 +10361,7 @@ exponea.track('cart_update', {
           "expected": {
             "data_type": "number",
           },
+          "finding_sequence": 8,
           "first_seen": "TIMESTAMP",
           "id": "id-613",
           "kind": "type_mismatch",
@@ -10372,6 +10384,7 @@ exponea.track('cart_update', {
           "expected": {
             "data_type": "number",
           },
+          "finding_sequence": 9,
           "first_seen": "TIMESTAMP",
           "id": "id-614",
           "kind": "type_mismatch",
@@ -10868,6 +10881,7 @@ exponea.track('checkout', {
           "expected": {
             "data_manager_type": "string",
           },
+          "finding_sequence": 54,
           "first_seen": "TIMESTAMP",
           "id": "id-616",
           "kind": "type_mismatch",
@@ -10889,6 +10903,7 @@ exponea.track('checkout', {
           "expected": {
             "data_manager_type": "number",
           },
+          "finding_sequence": 55,
           "first_seen": "TIMESTAMP",
           "id": "id-617",
           "kind": "type_mismatch",
@@ -10916,6 +10931,7 @@ exponea.track('checkout', {
           "expected": {
             "data_type": "string",
           },
+          "finding_sequence": 6,
           "first_seen": "TIMESTAMP",
           "id": "id-618",
           "kind": "type_mismatch",
@@ -10938,6 +10954,7 @@ exponea.track('checkout', {
           "expected": {
             "data_type": "number",
           },
+          "finding_sequence": 7,
           "first_seen": "TIMESTAMP",
           "id": "id-619",
           "kind": "type_mismatch",
@@ -11392,6 +11409,7 @@ exponea.track('double_opt_in_study_interest', {
           "expected": {
             "data_manager_type": "string",
           },
+          "finding_sequence": 56,
           "first_seen": "TIMESTAMP",
           "id": "id-621",
           "kind": "type_mismatch",
@@ -11411,6 +11429,7 @@ exponea.track('double_opt_in_study_interest', {
           "expected": {
             "event": "double_opt_in_study_interest",
           },
+          "finding_sequence": 18,
           "first_seen": "TIMESTAMP",
           "id": "id-622",
           "kind": "missing_event",
@@ -12413,6 +12432,7 @@ exponea.track('flyer', {
           "expected": {
             "data_manager_type": "string",
           },
+          "finding_sequence": 58,
           "first_seen": "TIMESTAMP",
           "id": "id-624",
           "kind": "type_mismatch",
@@ -12434,6 +12454,7 @@ exponea.track('flyer', {
           "expected": {
             "data_manager_type": "string",
           },
+          "finding_sequence": 57,
           "first_seen": "TIMESTAMP",
           "id": "id-625",
           "kind": "type_mismatch",
@@ -12453,6 +12474,7 @@ exponea.track('flyer', {
           "expected": {
             "event": "flyer",
           },
+          "finding_sequence": 19,
           "first_seen": "TIMESTAMP",
           "id": "id-626",
           "kind": "missing_event",
@@ -12781,6 +12803,7 @@ exponea.track('inbound_call', {
           "expected": {
             "event": "inbound_call",
           },
+          "finding_sequence": 20,
           "first_seen": "TIMESTAMP",
           "id": "id-628",
           "kind": "missing_event",
@@ -13087,6 +13110,7 @@ exponea.track('initialize_event', {
           "expected": {
             "event": "initialize_event",
           },
+          "finding_sequence": 21,
           "first_seen": "TIMESTAMP",
           "id": "id-630",
           "kind": "missing_event",
@@ -13440,6 +13464,7 @@ exponea.track('installation', {
           "expected": {
             "event": "installation",
           },
+          "finding_sequence": 22,
           "first_seen": "TIMESTAMP",
           "id": "id-632",
           "kind": "missing_event",
@@ -13877,6 +13902,7 @@ exponea.track('loyalty_update', {
               "add",
             ],
           },
+          "finding_sequence": 13,
           "first_seen": "TIMESTAMP",
           "id": "id-634",
           "kind": "enum_violation",
@@ -14186,6 +14212,7 @@ exponea.track('monitoring', {
           "expected": {
             "naming_convention": "snake_case",
           },
+          "finding_sequence": 77,
           "first_seen": "TIMESTAMP",
           "id": "id-636",
           "kind": "naming_violation",
@@ -14207,6 +14234,7 @@ exponea.track('monitoring', {
           "expected": {
             "naming_convention": "snake_case",
           },
+          "finding_sequence": 78,
           "first_seen": "TIMESTAMP",
           "id": "id-637",
           "kind": "naming_violation",
@@ -14228,6 +14256,7 @@ exponea.track('monitoring', {
           "expected": {
             "naming_convention": "snake_case",
           },
+          "finding_sequence": 79,
           "first_seen": "TIMESTAMP",
           "id": "id-638",
           "kind": "naming_violation",
@@ -14247,6 +14276,7 @@ exponea.track('monitoring', {
           "expected": {
             "event": "monitoring",
           },
+          "finding_sequence": 23,
           "first_seen": "TIMESTAMP",
           "id": "id-639",
           "kind": "missing_event",
@@ -14563,6 +14593,7 @@ exponea.track('newsletter_signup', {
           "expected": {
             "event": "newsletter_signup",
           },
+          "finding_sequence": 24,
           "first_seen": "TIMESTAMP",
           "id": "id-641",
           "kind": "missing_event",
@@ -14913,6 +14944,7 @@ exponea.track('optilyz_campaign', {
           "expected": {
             "event": "optilyz_campaign",
           },
+          "finding_sequence": 25,
           "first_seen": "TIMESTAMP",
           "id": "id-643",
           "kind": "missing_event",
@@ -15236,6 +15268,7 @@ exponea.track('outbound_call', {
           "expected": {
             "event": "outbound_call",
           },
+          "finding_sequence": 26,
           "first_seen": "TIMESTAMP",
           "id": "id-645",
           "kind": "missing_event",
@@ -15896,6 +15929,7 @@ exponea.track('parcel_insert', {
           "expected": {
             "data_manager_type": "string",
           },
+          "finding_sequence": 60,
           "first_seen": "TIMESTAMP",
           "id": "id-648",
           "kind": "type_mismatch",
@@ -15917,6 +15951,7 @@ exponea.track('parcel_insert', {
           "expected": {
             "data_manager_type": "string",
           },
+          "finding_sequence": 59,
           "first_seen": "TIMESTAMP",
           "id": "id-649",
           "kind": "type_mismatch",
@@ -15936,6 +15971,7 @@ exponea.track('parcel_insert', {
           "expected": {
             "event": "parcel_insert",
           },
+          "finding_sequence": 27,
           "first_seen": "TIMESTAMP",
           "id": "id-650",
           "kind": "missing_event",
@@ -16714,6 +16750,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "expected": {
             "data_manager_type": "string",
           },
+          "finding_sequence": 61,
           "first_seen": "TIMESTAMP",
           "id": "id-653",
           "kind": "type_mismatch",
@@ -16735,6 +16772,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "expected": {
             "data_manager_type": "string",
           },
+          "finding_sequence": 62,
           "first_seen": "TIMESTAMP",
           "id": "id-654",
           "kind": "type_mismatch",
@@ -16756,6 +16794,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "expected": {
             "data_manager_type": "number",
           },
+          "finding_sequence": 63,
           "first_seen": "TIMESTAMP",
           "id": "id-655",
           "kind": "type_mismatch",
@@ -16777,6 +16816,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "expected": {
             "data_manager_type": "number",
           },
+          "finding_sequence": 64,
           "first_seen": "TIMESTAMP",
           "id": "id-656",
           "kind": "type_mismatch",
@@ -16801,6 +16841,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "expected": {
             "data_type": "string",
           },
+          "finding_sequence": 3,
           "first_seen": "TIMESTAMP",
           "id": "id-657",
           "kind": "type_mismatch",
@@ -16828,6 +16869,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "expected": {
             "data_type": "string",
           },
+          "finding_sequence": 4,
           "first_seen": "TIMESTAMP",
           "id": "id-658",
           "kind": "type_mismatch",
@@ -16850,6 +16892,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "expected": {
             "data_type": "number",
           },
+          "finding_sequence": 5,
           "first_seen": "TIMESTAMP",
           "id": "id-659",
           "kind": "type_mismatch",
@@ -17748,6 +17791,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "expected": {
             "data_manager_type": "number",
           },
+          "finding_sequence": 65,
           "first_seen": "TIMESTAMP",
           "id": "id-661",
           "kind": "type_mismatch",
@@ -17769,6 +17813,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "expected": {
             "data_manager_type": "number",
           },
+          "finding_sequence": 66,
           "first_seen": "TIMESTAMP",
           "id": "id-662",
           "kind": "type_mismatch",
@@ -17791,6 +17836,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "expected": {
             "data_type": "number",
           },
+          "finding_sequence": 1,
           "first_seen": "TIMESTAMP",
           "id": "id-663",
           "kind": "type_mismatch",
@@ -17813,6 +17859,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
           "expected": {
             "data_type": "number",
           },
+          "finding_sequence": 2,
           "first_seen": "TIMESTAMP",
           "id": "id-664",
           "kind": "type_mismatch",
@@ -17835,6 +17882,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
             "field": "total_price",
             "payload_key": "price",
           },
+          "finding_sequence": 73,
           "first_seen": "TIMESTAMP",
           "id": "id-665",
           "kind": "rename_mismatch",
@@ -17857,6 +17905,7 @@ curl -X POST "https://api.exponea.com/track/v2/projects/YOUR_PROJECT_TOKEN/custo
             "field": "total_quantity",
             "payload_key": "quantity",
           },
+          "finding_sequence": 74,
           "first_seen": "TIMESTAMP",
           "id": "id-666",
           "kind": "rename_mismatch",
@@ -18507,6 +18556,7 @@ exponea.track('qbr_metrics', {
           "expected": {
             "naming_convention": "snake_case",
           },
+          "finding_sequence": 80,
           "first_seen": "TIMESTAMP",
           "id": "id-668",
           "kind": "naming_violation",
@@ -18528,6 +18578,7 @@ exponea.track('qbr_metrics', {
           "expected": {
             "naming_convention": "snake_case",
           },
+          "finding_sequence": 81,
           "first_seen": "TIMESTAMP",
           "id": "id-669",
           "kind": "naming_violation",
@@ -18547,6 +18598,7 @@ exponea.track('qbr_metrics', {
           "expected": {
             "event": "qbr_metrics",
           },
+          "finding_sequence": 28,
           "first_seen": "TIMESTAMP",
           "id": "id-670",
           "kind": "missing_event",
@@ -19344,6 +19396,7 @@ exponea.track('received_referee_reward', {
           "expected": {
             "event": "received_referee_reward",
           },
+          "finding_sequence": 29,
           "first_seen": "TIMESTAMP",
           "id": "id-672",
           "kind": "missing_event",
@@ -20158,6 +20211,7 @@ exponea.track('received_referrer_reward', {
           "expected": {
             "event": "received_referrer_reward",
           },
+          "finding_sequence": 30,
           "first_seen": "TIMESTAMP",
           "id": "id-674",
           "kind": "missing_event",
@@ -20862,6 +20916,7 @@ exponea.track('received_reward_next_order', {
           "expected": {
             "event": "received_reward_next_order",
           },
+          "finding_sequence": 31,
           "first_seen": "TIMESTAMP",
           "id": "id-676",
           "kind": "missing_event",
@@ -21162,6 +21217,7 @@ exponea.track('registered_as_referee', {
           "expected": {
             "event": "registered_as_referee",
           },
+          "finding_sequence": 32,
           "first_seen": "TIMESTAMP",
           "id": "id-678",
           "kind": "missing_event",
@@ -21809,6 +21865,7 @@ exponea.track('registered_as_referrer', {
           "expected": {
             "event": "registered_as_referrer",
           },
+          "finding_sequence": 33,
           "first_seen": "TIMESTAMP",
           "id": "id-680",
           "kind": "missing_event",
@@ -22394,6 +22451,7 @@ exponea.track('registration', {
           "expected": {
             "event": "registration",
           },
+          "finding_sequence": 34,
           "first_seen": "TIMESTAMP",
           "id": "id-682",
           "kind": "missing_event",
@@ -22805,6 +22863,7 @@ exponea.track('return', {
           "expected": {
             "data_manager_type": "number",
           },
+          "finding_sequence": 67,
           "first_seen": "TIMESTAMP",
           "id": "id-684",
           "kind": "type_mismatch",
@@ -22824,6 +22883,7 @@ exponea.track('return', {
           "expected": {
             "event": "return",
           },
+          "finding_sequence": 35,
           "first_seen": "TIMESTAMP",
           "id": "id-685",
           "kind": "missing_event",
@@ -23168,6 +23228,7 @@ exponea.track('sample', {
           "expected": {
             "data_manager_type": "string",
           },
+          "finding_sequence": 69,
           "first_seen": "TIMESTAMP",
           "id": "id-687",
           "kind": "type_mismatch",
@@ -23189,6 +23250,7 @@ exponea.track('sample', {
           "expected": {
             "data_manager_type": "string",
           },
+          "finding_sequence": 68,
           "first_seen": "TIMESTAMP",
           "id": "id-688",
           "kind": "type_mismatch",
@@ -23208,6 +23270,7 @@ exponea.track('sample', {
           "expected": {
             "event": "sample",
           },
+          "finding_sequence": 36,
           "first_seen": "TIMESTAMP",
           "id": "id-689",
           "kind": "missing_event",
@@ -23574,6 +23637,7 @@ exponea.track('shipment', {
           "expected": {
             "data_manager_type": "string",
           },
+          "finding_sequence": 70,
           "first_seen": "TIMESTAMP",
           "id": "id-691",
           "kind": "type_mismatch",
@@ -23593,6 +23657,7 @@ exponea.track('shipment', {
           "expected": {
             "event": "shipment",
           },
+          "finding_sequence": 37,
           "first_seen": "TIMESTAMP",
           "id": "id-692",
           "kind": "missing_event",
@@ -24054,6 +24119,7 @@ exponea.track('store_visit', {
           "expected": {
             "event": "store_visit",
           },
+          "finding_sequence": 38,
           "first_seen": "TIMESTAMP",
           "id": "id-694",
           "kind": "missing_event",
@@ -24301,6 +24367,7 @@ exponea.track('submitted_nps_score', {
           "expected": {
             "event": "submitted_nps_score",
           },
+          "finding_sequence": 39,
           "first_seen": "TIMESTAMP",
           "id": "id-696",
           "kind": "missing_event",
@@ -24533,6 +24600,7 @@ exponea.track('survey_all', {
           "expected": {
             "event": "survey_all",
           },
+          "finding_sequence": 40,
           "first_seen": "TIMESTAMP",
           "id": "id-698",
           "kind": "missing_event",
@@ -24932,6 +25000,7 @@ exponea.track('survey_all_test', {
           "expected": {
             "event": "survey_all_test",
           },
+          "finding_sequence": 41,
           "first_seen": "TIMESTAMP",
           "id": "id-700",
           "kind": "missing_event",
@@ -25262,6 +25331,7 @@ exponea.track('survey_data', {
           "expected": {
             "event": "survey_data",
           },
+          "finding_sequence": 42,
           "first_seen": "TIMESTAMP",
           "id": "id-702",
           "kind": "missing_event",
@@ -25492,6 +25562,7 @@ exponea.track('test', {
           "expected": {
             "event": "test",
           },
+          "finding_sequence": 43,
           "first_seen": "TIMESTAMP",
           "id": "id-704",
           "kind": "missing_event",
@@ -25791,6 +25862,7 @@ exponea.track('ticket_order', {
           "expected": {
             "event": "ticket_order",
           },
+          "finding_sequence": 44,
           "first_seen": "TIMESTAMP",
           "id": "id-706",
           "kind": "missing_event",
@@ -26215,6 +26287,7 @@ exponea.track('ticket_registration', {
           "expected": {
             "event": "ticket_registration",
           },
+          "finding_sequence": 45,
           "first_seen": "TIMESTAMP",
           "id": "id-708",
           "kind": "missing_event",
@@ -26675,6 +26748,7 @@ exponea.track('trigger_push', {
           "expected": {
             "event": "trigger_push",
           },
+          "finding_sequence": 46,
           "first_seen": "TIMESTAMP",
           "id": "id-710",
           "kind": "missing_event",
@@ -27018,6 +27092,7 @@ exponea.track('user_active', {
           "expected": {
             "event": "user_active",
           },
+          "finding_sequence": 47,
           "first_seen": "TIMESTAMP",
           "id": "id-712",
           "kind": "missing_event",
@@ -27723,6 +27798,7 @@ exponea.track('view_item', {
           "expected": {
             "data_manager_type": "number",
           },
+          "finding_sequence": 71,
           "first_seen": "TIMESTAMP",
           "id": "id-715",
           "kind": "type_mismatch",
@@ -27744,6 +27820,7 @@ exponea.track('view_item', {
           "expected": {
             "data_manager_type": "number",
           },
+          "finding_sequence": 72,
           "first_seen": "TIMESTAMP",
           "id": "id-716",
           "kind": "type_mismatch",
@@ -27766,6 +27843,7 @@ exponea.track('view_item', {
           "expected": {
             "data_type": "number",
           },
+          "finding_sequence": 11,
           "first_seen": "TIMESTAMP",
           "id": "id-717",
           "kind": "type_mismatch",
@@ -27788,6 +27866,7 @@ exponea.track('view_item', {
           "expected": {
             "data_type": "number",
           },
+          "finding_sequence": 12,
           "first_seen": "TIMESTAMP",
           "id": "id-718",
           "kind": "type_mismatch",
@@ -28203,6 +28282,7 @@ exponea.track('voucher_notification', {
           "expected": {
             "naming_convention": "snake_case",
           },
+          "finding_sequence": 82,
           "first_seen": "TIMESTAMP",
           "id": "id-720",
           "kind": "naming_violation",
@@ -28222,6 +28302,7 @@ exponea.track('voucher_notification', {
           "expected": {
             "event": "voucher_notification",
           },
+          "finding_sequence": 48,
           "first_seen": "TIMESTAMP",
           "id": "id-721",
           "kind": "missing_event",
@@ -31596,6 +31677,7 @@ window.dataLayer.push({
       },
       "comparison": "definition_vs_observations",
       "expected": null,
+      "finding_sequence": 14,
       "first_seen": "TIMESTAMP",
       "id": "id-931",
       "kind": "shape_inconsistent",
@@ -31617,6 +31699,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 83,
       "first_seen": "TIMESTAMP",
       "id": "id-932",
       "kind": "naming_violation",
@@ -31638,6 +31721,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 84,
       "first_seen": "TIMESTAMP",
       "id": "id-933",
       "kind": "naming_violation",
@@ -31659,6 +31743,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 85,
       "first_seen": "TIMESTAMP",
       "id": "id-934",
       "kind": "naming_violation",
@@ -31680,6 +31765,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 86,
       "first_seen": "TIMESTAMP",
       "id": "id-935",
       "kind": "naming_violation",
@@ -31701,6 +31787,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 87,
       "first_seen": "TIMESTAMP",
       "id": "id-936",
       "kind": "naming_violation",
@@ -31722,6 +31809,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 88,
       "first_seen": "TIMESTAMP",
       "id": "id-937",
       "kind": "naming_violation",
@@ -31743,6 +31831,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 89,
       "first_seen": "TIMESTAMP",
       "id": "id-938",
       "kind": "naming_violation",
@@ -31764,6 +31853,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 90,
       "first_seen": "TIMESTAMP",
       "id": "id-939",
       "kind": "naming_violation",
@@ -31785,6 +31875,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 91,
       "first_seen": "TIMESTAMP",
       "id": "id-940",
       "kind": "naming_violation",
@@ -31806,6 +31897,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 92,
       "first_seen": "TIMESTAMP",
       "id": "id-941",
       "kind": "naming_violation",
@@ -31827,6 +31919,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 93,
       "first_seen": "TIMESTAMP",
       "id": "id-942",
       "kind": "naming_violation",
@@ -31848,6 +31941,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 94,
       "first_seen": "TIMESTAMP",
       "id": "id-943",
       "kind": "naming_violation",
@@ -31869,6 +31963,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 95,
       "first_seen": "TIMESTAMP",
       "id": "id-944",
       "kind": "naming_violation",
@@ -31890,6 +31985,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 96,
       "first_seen": "TIMESTAMP",
       "id": "id-945",
       "kind": "naming_violation",
@@ -31911,6 +32007,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 97,
       "first_seen": "TIMESTAMP",
       "id": "id-946",
       "kind": "naming_violation",
@@ -31932,6 +32029,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 98,
       "first_seen": "TIMESTAMP",
       "id": "id-947",
       "kind": "naming_violation",
@@ -31953,6 +32051,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 99,
       "first_seen": "TIMESTAMP",
       "id": "id-948",
       "kind": "naming_violation",
@@ -31974,6 +32073,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 100,
       "first_seen": "TIMESTAMP",
       "id": "id-949",
       "kind": "naming_violation",
@@ -31995,6 +32095,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 101,
       "first_seen": "TIMESTAMP",
       "id": "id-950",
       "kind": "naming_violation",
@@ -32016,6 +32117,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 102,
       "first_seen": "TIMESTAMP",
       "id": "id-951",
       "kind": "naming_violation",
@@ -32037,6 +32139,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 103,
       "first_seen": "TIMESTAMP",
       "id": "id-952",
       "kind": "naming_violation",
@@ -32058,6 +32161,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 104,
       "first_seen": "TIMESTAMP",
       "id": "id-953",
       "kind": "naming_violation",
@@ -32079,6 +32183,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 105,
       "first_seen": "TIMESTAMP",
       "id": "id-954",
       "kind": "naming_violation",
@@ -32100,6 +32205,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 106,
       "first_seen": "TIMESTAMP",
       "id": "id-955",
       "kind": "naming_violation",
@@ -32121,6 +32227,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 107,
       "first_seen": "TIMESTAMP",
       "id": "id-956",
       "kind": "naming_violation",
@@ -32142,6 +32249,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 108,
       "first_seen": "TIMESTAMP",
       "id": "id-957",
       "kind": "naming_violation",
@@ -32163,6 +32271,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 109,
       "first_seen": "TIMESTAMP",
       "id": "id-958",
       "kind": "naming_violation",
@@ -32184,6 +32293,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 110,
       "first_seen": "TIMESTAMP",
       "id": "id-959",
       "kind": "naming_violation",
@@ -32205,6 +32315,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 111,
       "first_seen": "TIMESTAMP",
       "id": "id-960",
       "kind": "naming_violation",
@@ -32226,6 +32337,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 112,
       "first_seen": "TIMESTAMP",
       "id": "id-961",
       "kind": "naming_violation",
@@ -32247,6 +32359,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 113,
       "first_seen": "TIMESTAMP",
       "id": "id-962",
       "kind": "naming_violation",
@@ -32268,6 +32381,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 114,
       "first_seen": "TIMESTAMP",
       "id": "id-963",
       "kind": "naming_violation",
@@ -32289,6 +32403,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 115,
       "first_seen": "TIMESTAMP",
       "id": "id-964",
       "kind": "naming_violation",
@@ -32310,6 +32425,7 @@ window.dataLayer.push({
       "expected": {
         "naming_convention": "snake_case",
       },
+      "finding_sequence": 116,
       "first_seen": "TIMESTAMP",
       "id": "id-965",
       "kind": "naming_violation",
@@ -32332,6 +32448,7 @@ window.dataLayer.push({
         "mapped_name": "brand_consent",
         "standard_key": "newsletter",
       },
+      "finding_sequence": 117,
       "first_seen": "TIMESTAMP",
       "id": "id-966",
       "kind": "rename_mismatch",

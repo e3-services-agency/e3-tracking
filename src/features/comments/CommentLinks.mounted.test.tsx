@@ -56,6 +56,7 @@ function mockShared(rows: CommentPanelRow[], status = 200) {
     const path = String(url);
     if (path.endsWith('/identity')) return json({ name: 'Purple Hedgehog', kind: 'guest', verified: false, avatar_url: null, name_chosen: false });
     if (path.endsWith('/comments')) return json(rows);
+    if (path.endsWith('/qa-reports')) return json([]);
     if (path.endsWith('/tracking-document.json')) return json(doc);
     return json({ project: { name: 'Fixture project', client_logo_path: null }, client: { name: 'Fixture client' }, access: 'read' }, status);
   });

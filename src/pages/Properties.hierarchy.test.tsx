@@ -30,7 +30,7 @@ beforeEach(() => {
   vi.stubGlobal('isSecureContext', true);
   clipboard = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: clipboard } });
-  vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request) => String(url).includes('/properties') ? json(rows) : String(url).endsWith('/bundles') ? json([]) : json({ standard_event_additions_json: [] })));
+  vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request) => String(url).includes('/properties') ? json(rows) : (String(url).endsWith('/bundles') || String(url).endsWith('/comments')) ? json([]) : json({ standard_event_additions_json: [] })));
   useStore.setState({ activeProjectId: 'project', selectedItemIdToEdit: null });
   container = document.createElement('div'); document.body.append(container); root = createRoot(container);
 });

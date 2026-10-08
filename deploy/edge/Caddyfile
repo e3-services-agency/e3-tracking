@@ -8,7 +8,11 @@
 	handle /oauth2/* {
 		reverse_proxy oauth2-proxy:4180 {
 			header_up -Authorization
+			header_up -X-Auth-Request-Access-Token
+			header_up -X-Forwarded-Access-Token
 			header_down -Authorization
+			header_down -X-Auth-Request-Access-Token
+			header_down -X-Forwarded-Access-Token
 		}
 	}
 

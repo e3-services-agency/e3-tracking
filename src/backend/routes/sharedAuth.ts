@@ -55,6 +55,35 @@ function reject(res: Response, status: number, code: string, error: string): voi
 function originAllowed(req: Request): boolean { return Boolean(publicOrigin() && req.headers.origin === publicOrigin()); }
 function csrfAllowed(req: Request): boolean { return originAllowed(req) && equal(cookieValue(req, CHALLENGE_COOKIE), req.body?.csrf_token); }
 
+const STAFF_PROFILE_URL = 'https://www.googleapis.com/oauth2/v2/userinfo?fields=id,email,verified_email,hd,picture';
+const MAX_PROFILE_BYTES = 8192;
+/** Profile tokens only travel server-to-server to this fixed Google endpoint. */
+async function staffProfilePhoto(accessToken: string | null, payload: TokenPayload, email: string, domain: string, fetcher: typeof fetch): Promise<string | null> {
+  if (!accessToken || !/^[A-Za-z0-9._~+/-]{1,8192}={0,2}$/.test(accessToken)) return null;
+  try {
+    const signal = AbortSignal.timeout(1500);
+    const response = await fetcher(STAFF_PROFILE_URL, { headers: { Authorization: `Bearer ${accessToken}` }, redirect: 'error', signal });
+    if (!response.ok || !response.body || !response.headers.get('content-type')?.toLowerCase().includes('application/json')) return null;
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = []; let size = 0;
+    try {
+      while (true) {
+        signal.throwIfAborted();
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        size += chunk.value.byteLength;
+        if (size > MAX_PROFILE_BYTES) { await reader.cancel(); return null; }
+        chunks.push(chunk.value);
+      }
+    } finally { reader.releaseLock(); }
+    const bytes = new Uint8Array(size); let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    const info = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)) as Record<string, unknown>;
+    if (info.id !== payload.sub || info.email !== email || info.verified_email !== true || info.hd !== domain) return null;
+    return safeProfilePhoto(info.picture);
+  } catch { return null; }
+}
+
 /** Fixed destination; request headers cannot change the URL or supply verified identity. */
 export async function resolveStaffIdentity(req: Request, fetcher: typeof fetch = fetch, verifyStaff: GoogleVerifier = defaultVerifier): Promise<TrustedCommentParticipant | undefined> {
   if ((process.env.AUTH_MODE ?? '').toLowerCase() !== 'proxy' || process.env.COMMENT_STAFF_SESSION !== '1') return undefined;
@@ -80,6 +109,7 @@ export async function resolveStaffIdentity(req: Request, fetcher: typeof fetch =
           && Number.isFinite(payload.exp) && payload.exp > Date.now() / 1000 && typeof payload.sub === 'string' && payload.sub
           && payload.email_verified === true && payload.email?.trim().toLowerCase() === email && payload.hd?.toLowerCase() === domain) {
           avatar = safeProfilePhoto(payload.picture);
+          if (!avatar) avatar = await staffProfilePhoto(response.headers.get('x-auth-request-access-token'), payload, email, domain, fetcher);
         }
       } catch { /* Profile enrichment cannot change staff identity or prevent commenting. */ }
     }

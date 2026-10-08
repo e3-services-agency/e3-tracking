@@ -45,6 +45,7 @@ describe('staff photo verification', () => {
     expect(caddy.match(/copy_headers[^\n]+/)?.[0]).not.toContain('Authorization');
     const compose = readFileSync('docker-compose.yml', 'utf8');
     expect(compose).toContain('GOOGLE_STAFF_CLIENT_ID: ${OAUTH2_CLIENT_ID:-}'); expect(compose).toContain('OAUTH2_PROXY_SET_AUTHORIZATION_HEADER: "true"');
-    expect(compose).not.toContain('OAUTH2_PROXY_PASS_ACCESS_TOKEN');
+    expect(compose).toContain('OAUTH2_PROXY_PASS_ACCESS_TOKEN: "true"');
+    for (const name of ['X-Auth-Request-Access-Token', 'X-Forwarded-Access-Token']) { expect(oauth).toContain(`header_up -${name}`); expect(oauth).toContain(`header_down -${name}`); expect(caddy.match(/copy_headers[^\n]+/)?.[0]).not.toContain(name); }
   });
 });

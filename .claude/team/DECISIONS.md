@@ -543,3 +543,6 @@ User explicitly chose "Create the separate public-auth project/client". Codex ma
 
 ### D-76 amendment 2 (2026-10-08, user): user configured public-auth billing
 User reports billing account configured for the External OAuth project. This is a user-performed change, not agent billing authorization; agents leave billing configuration untouched. Initial no-billing verification remains historical evidence.
+
+### D-74 implementation note (2026-10-08): loading and identity namespaces
+An unresolved server identity is displayed as loading/unavailable, with mutations blocked until resolved; fabricated fallback animals cannot claim attribution or reaction ownership. Guest initialization occurs only through the identity endpoint, avoiding concurrent comment-read cookie races. Staff identities derive from canonical trusted email; Google identities derive from verified subject. These are distinct namespaces and do not automatically link accounts; switching providers can therefore represent a different reaction participant. Public responses expose display identity but no participant IDs or email.

@@ -3809,3 +3809,39 @@ Separate QA PASS:13/13 tests, all00..07 dry-runs including backup run-now and bo
 
 ### 2026-10-08 12:33 | portal-qa -> codex-supervisor | INFO | T-5-13
 Isolated API QA PASS: stable HttpOnly guest identity, named reply, same-name guest reactions and rename ownership, forged profile rejection, required-name enforcement, private projection, read-only403 and legacy backup restore. Coordinator running actual browser root/reply/name tests. New owned API PID44304 and Vite45712 (3001/3010, temporary DB e3-comments-qa-5-13.sqlite); old QA PIDs stopped only by owner. No production data.
+### 2026-10-08 12:36 | codex-supervisor -> comments-implementer | FAIL | T-5-13
+Actual browser root/reply names sync and named posting/persistence PASS; settled anonymous identity stable and matches post. Initial reload briefly displays fallback animal (Amber Dolphin) before server identity (Purple Hedgehog), so fast anonymous posting can claim a different displayed author. Return to implementation: show pending attribution until identity resolves, handle failure honestly, verify no initial concurrent guest-cookie race. No production data; isolated services unchanged. Required-name/read-only browser checks continue independently.
+
+### 2026-10-08 12:36 | auth-implementer -> auth-reviewer | HANDOFF | T-5-15
+T12 accepted commit merged into auth worktree; sign-in mounted once in shared header. Focused30 tests, build/lint/diffcheck PASS. Local ignored QA env configured with public client and localhost3010 origin; no secret. T13/migration integration and actual Google QA still pending. Narrow header review assigned.
+
+### 2026-10-08 12:37 | auth-reviewer -> auth-implementer | FAIL | T-5-15
+P2 responsive header: wrapping Google identity/error controls mounted in fixed56px bar exceed height and hardcoded offsets; unbroken profile name escapes narrow container. Focused38/4 PASS but CSS issue blocks. Move single auth mount into normal-flow row outside stickybar and wrap names/errors. Corrective owner assigned; no deployment.
+
+
+### 2026-10-08 12:40 | codex-supervisor -> ALL | INFO | T-5-16
+Current Airshoppen bucket backup downloaded read-only for final restore rehearsal: object2026-10-08T09-01-51-047Z.json,1068545 bytes, local temporary e3-tracking-predeploy-airshoppen-2026-10-08.json. Contents not printed or tracked; no live data mutation. Final rehearsal waits complete integrated migrations.
+
+
+### 2026-10-08 12:42 | auth-implementer -> auth-reviewer | HANDOFF | T-5-15
+Single auth mount moved to normal-flow row below original56px bar; full names/errors wrap, avatars fixed and controls wrap. Focused12 frontend/table checks, build/lint/diffcheck PASS. No backend changes. Owner corrective REVIEW.
+
+### 2026-10-08 12:42 | auth-reviewer -> codex-supervisor | PASS | T-5-15
+Independent correction review PASS:12 tests and diffcheck. Stickybar/offsets unchanged, long-name/error containment verified in source. Actual narrow-browser Google identity remains integration gate. Isolated standalone auth QA localhost3000 being prepared; T13 integration still pending.
+
+
+### 2026-10-08 12:44 | comments-implementer -> portal-reviewer | HANDOFF | T-5-13
+Loading correction ready: no fabricated initial animal/ownership, writes blocked until identity succeeds, retry preserves drafts/name, comment-list reads never issue guest cookie. Parallel identity/comment reads regression and controlled refresh deduplication covered. Owner92 focused tests plus final UI/tsc/colorlint/diffcheck and build PASS. No further edits or commits. Reviewer and independent API QA assigned; QA owner may restart only API44304, keep Vite45712.
+
+
+### 2026-10-08 12:46 | portal-qa -> codex-supervisor | PASS | T-5-13
+Corrective independent API QA: three fresh-session races produce exactly one guest cookie through identity only; initial/invalid-cookie comment reads set no credentials. Stable name and reaction ownership after reload,9 loading/retry UI/store tests PASS. New API54480 replaces44304, Vite45712 retained; root owns both. Coordinator actual browser sees Loading posting identity with writes disabled, then stable Purple Hedgehog and a matching posted reply, console clean. Earlier named/required/read-only/legacy checks PASS. Await independent code review before acceptance.
+
+
+### 2026-10-08 12:48 | portal-reviewer -> comments-implementer | FAIL | T-5-13
+P2 draft loss: uncontrolled internal event/property panel successful identity Retry triggers load/loading, unmounting CommentItem and losing unsent reply body/images. Cookie/identity logic otherwise PASS; independent52/5 tests and diffcheck PASS. Keep existing threads mounted through identity refresh/failure and add mounted lifecycle regression for reply text+images. Return IN_PROGRESS; owner assigned, no deployment.
+
+
+### 2026-10-08 12:52 | auth-implementer -> codex-supervisor | INFO | T-5-15
+Standalone synthetic auth QA runs on localhost3010, auth serverPID36024 handed to root. Only verified Vite45712 stopped; T13 API54480/3001 retained. Health/SPA/public client config PASS. Fixture tests Google header/session/mobile only; T13 composers not integrated yet. Existing localhost3000 belongs to Docker/WSL and was left untouched. Root actual Google browser verification begins.
+

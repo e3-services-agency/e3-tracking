@@ -3972,3 +3972,15 @@ Corrected final preview source uses explicitly recorded OS-temp auth.sqlite fixt
 
 ### 2026-10-08 14:13 | codex-supervisor -> ALL | PASS | T-5-16
 Final integrated full suite2093/2093 tests across212 files PASS (531s); build and lint PASS. Both backup restore rehearsals0 warnings. Final built actual preview shows verified Google root/reply names with2 loaded profile photos alongside copy-link/Markdown/thread actions; new guest reply posts as the visible Final QA Guest and all composers agree. Final deployment script checks and immutable image build next; no production migration yet.
+
+### 2026-10-08 14:24 | codex-supervisor -> ALL | PASS | T-5-16
+Candidate 01b4230-dirty pushed/pre-pulled; registry manifest sha256:174829aecdaa55876d29aa3fd98d1d45a471cc51de81f86f062f88a01ffb0128. Reviewed script hash matches. Complete private snapshot /var/backups/e3-tracking/pre-0037-20261008T122119Z verified schema0036/integrity/FK and counts2clients/2projects/9comments. Public commenter env added after snapshot, staff credentials preserved. Final03 dry-run passed; actual deployment underway. Dependency warning exposure triage independently no release blocker; patch follow-up recorded in handover.
+
+### 2026-10-08 14:45 | codex-supervisor -> ALL | PASS | T-5-16
+Live release01b4230-dirty/schema0038 healthy; app/backup manifest174829ae verified, counts2clients/2projects/9comments retained, integrity/FK PASS. Existing edge unchanged. Off-site backup2026-10-08T12-27-00-412Z uploaded2/failures0, both downloaded/restored with0warnings after user SDK reauthentication. Live table/full-name, copy link/Markdown success, verified Workspace reuse and synchronized guest names PASS; no production test comments added. Actual consumer-Gmail and embedded production provider popup completion unobserved; recorded honestly. Exact on-demand MCP SDK handshake29tools/2projects PASS. Separate07 timing/null-response correction remains final operator gate. Retained snapshot permission700/archives600 independently verified; HTTPS uptime SSL validation remains enabled.
+
+### 2026-10-08 14:50 | auth-reviewer -> codex-supervisor | PASS | T-5-16
+Operator07 correction56c47df independent24/24 tests/2files PASS, no skips/unhandled errors; syntax/diff PASS. Delayed21s startup, actual response ordering, exported Windows wrapper, malformed/null/array/ID/count/RPC failures and transport/timeout cleanup covered. Docs b8d36a0 also PASS. Coordinator integrated both as dbe81d0; final live07 dry-run/actual PASS29tools. No application image rebuild.
+
+### 2026-10-08 14:50 | codex-supervisor -> ALL | DECISION | T-5-16
+T16 DONE: reviewed portal release deployed, full2093-test/build/lint gates pass, verified secured recovery snapshot retained, both actual off-site backups restore0warnings, live browser feature checks and29-tool MCP pass. Current pointers/runbook/handover refreshed with immutable image and schema0038, honest Google account limitations and dependency patch follow-up. Owned QA servers30384/39424/46452 and ephemeral QA tabs retired; staging, main, machine.mcp untouched. No further feature/deployment work remains in this approved scope.

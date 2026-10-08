@@ -1,6 +1,14 @@
 # Live GCP upgrade runbook: e3-tracking
 
-Production is already running at https://tracking.e3-services.com. The user authorized reviewed upgrades and task commits/integration (D-73). Local staging stays untouched. Current release baseline: image 18b7883, schema 0036; independently confirm both before an upgrade. The shared-portal release targets schema 0038. Credentials remain outside Git.
+Production is running at https://tracking.e3-services.com. The user authorized reviewed upgrades and task commits/integration (D-73). Local staging stays untouched. This runbook records the completed shared-portal upgrade from18b7883/schema0036 to01b4230-dirty/schema0038. Credentials remain outside Git.
+
+## Current operator checkpoint
+
+Live release manifest: `sha256:174829aecdaa55876d29aa3fd98d1d45a471cc51de81f86f062f88a01ffb0128`. Verified complete pre-upgrade snapshot: `/var/backups/e3-tracking/pre-0037-20261008T122119Z`, root-private directory700/archives600. Both post-upgrade off-site backups timestamp2026-10-08T12-27-00-412Z restore with0warnings;29-tool read-only MCP discovery and HTTPS monitoring check pass. Detailed evidence/remaining account-specific limits: DEPLOYMENT-HANDOVER-2026-10-08.md and PORTAL-QA-2026-10-08.md.
+
+Final07 operator probe uses the accepted response-driven handshake56c47df; independent24/24 and live dry-run/actual29tools PASS. It fixes slow Windows/IAP startup without changing the deployed image. T16 complete; application source is01b4230 and later operator/docs integration isdbe81d0.
+
+The snapshot verification script below specifically expects schema0036 and is retained for this completed upgrade/recovery. Do not rerun it against the current0038 database as a future upgrade recipe. Future schema changes need matching version checks and a fresh reviewed data/config snapshot.
 
 ## 1. Verify and build
 

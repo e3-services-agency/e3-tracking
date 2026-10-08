@@ -3784,3 +3784,28 @@ Independent auth review PASS:80 tests/3 files, diffcheck. Signature/audience/iss
 ### 2026-10-08 12:18 | portal-reviewer -> codex-supervisor | PASS | T-5-17
 Preserved baseline code review PASS: four shell syntax/dry-runs, generated MCP JSON, Windows /api/health argument, diffcheck. Acceptance pending: root focused tests2pass/11fail due Bash receiving Windows backslash paths (gcpScripts.test.ts:25,93). Existing baseline assertion change doesn't fix path portability; routine verification task T-5-17 assigned before final suite. No cloud mutations or machine-config reads.
 
+
+### 2026-10-08 12:21 | portal-reviewer -> portal-qa | PASS | T-5-13
+Corrective re-review PASS: server-derived staff actor only claims historical internal reactions; guest/Google cannot own by name. Regression removal/isolation/internalGETPOST tests independently29/4 PASS; diffcheck PASS; old sharing documentation reconciled. Advance QA; integration full-suite remains separate gate.
+
+### 2026-10-08 12:21 | auth-reviewer -> portal-qa | PASS | T-5-12
+Wrapping correction PASS: SharedProject.tsx:976 preserves line breaks and wraps long narrative words; matching prose fields updated without anchor/table regression. Independent20/4 focused and diffcheck PASS. QA repeats preserved 390px fixture; advance QA.
+
+### 2026-10-08 12:21 | codex-supervisor -> deployment-implementer | INFO | T-5-17
+Starting Windows deployment-test portability in root checkout on isolated task/T-5-17-deployment-portability (base a69a3d8). Owner only src/deploy/gcpScripts.test.ts; preserve existing four script changes and machine .mcp separately. Need Bash-compatible paths/quoting including Unicode/spaces, no skipping assertions. Four shell code changes already independently reviewed; all13 focused tests must pass before accepting separate baseline commit. No cloud operations.
+
+### 2026-10-08 12:29 | codex-supervisor -> ALL | PASS | T-5-12
+Combined independent QA accepted: original desktop, keyboard, anchors, exports, private projection and read-only checks plus coordinator actual-IAB corrective recheck at390x844. Document client375/scroll375, identification narrative client310/scroll310 with full long identifier preserved; no browser warnings/errors. Only original responsive defect resolved. Commit5bfc90d on task/T-5-12-shared-tables; coordinator closes DONE. Integration/full-suite/deployment gate remains T-5-16.
+
+### 2026-10-08 12:29 | deployment-implementer -> portal-reviewer | HANDOFF | T-5-17
+Test-only correction handles literal Unicode/space paths through WSL/MSYS/Cygwin; modern WSL preserves arguments, CONFIG exported inside Bash, isolated LF fixture cleaned after tests. Owner reports13/13 PASS, lint and diffcheck PASS, no skips or cloud actions. Independent reviewer reruns focused tests; coordinator records REVIEW. Existing four scripts and machine config preserved.
+### 2026-10-08 12:30 | portal-reviewer -> auth-reviewer | PASS | T-5-17
+Independent code review passes new test harness. Focused13/13 PASS under default Windows WSL and separately explicit Git Bash/MSYS; diffcheck PASS, no cloud changes. Separate QA now checks preserved scripts and safe dry-runs before baseline acceptance.
+
+### 2026-10-08 12:30 | codex-supervisor -> auth-implementer | INFO | T-5-15
+Public OAuth setup complete; user-configured billing verified enabled. T12 accepted5bfc90d; auth implementer may merge that task and mount sign-in header once. T13 source remains isolated until browser QA, then integrate migrations/identity. Real Google browser flow and deployment still pending; no staff OAuth changes.
+### 2026-10-08 12:33 | auth-reviewer -> codex-supervisor | PASS | T-5-17
+Separate QA PASS:13/13 tests, all00..07 dry-runs including backup run-now and both cutover modes, shell syntax and generated MCP JSON valid. Cloud/Docker/network blocked during extra QA; no live changes or skipped assertions. Coordinator accepts commit2b03efd, merges into agent-setup; T12 tables5bfc90d also merged. Machine .mcp.json remains unstaged. T17 DONE.
+
+### 2026-10-08 12:33 | portal-qa -> codex-supervisor | INFO | T-5-13
+Isolated API QA PASS: stable HttpOnly guest identity, named reply, same-name guest reactions and rename ownership, forged profile rejection, required-name enforcement, private projection, read-only403 and legacy backup restore. Coordinator running actual browser root/reply/name tests. New owned API PID44304 and Vite45712 (3001/3010, temporary DB e3-comments-qa-5-13.sqlite); old QA PIDs stopped only by owner. No production data.

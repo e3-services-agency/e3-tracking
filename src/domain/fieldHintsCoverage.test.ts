@@ -1,12 +1,14 @@
 /**
  * Coverage audit (T-4-29): every `<FieldLabel>`, `<HintTh>` and `<SortableTh>` under `src/pages` and
  * `src/features` must resolve to a hint through `hintFor`, and no raw `<label`/`<th` may bypass
- * those components. Labels whose text is wholly dynamic (`{h}`) are checked at runtime by `hintFor`
+ * those components. Explicit semantic row headers label an entity, not a field, and need no hint.
+ * Labels whose text is wholly dynamic (`{h}`) are checked at runtime by `hintFor`
  * in the component and skipped here unless they carry a literal `hint`.
  */
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import ts from 'typescript';
 import { FIELD_HINTS, hintFor } from './fieldHints';
 
 /** `file:text` entries allowed to have no hint, each with a reason. */
@@ -48,6 +50,32 @@ function staticText(inner: string): string {
   return out.replace(/\s+/g, ' ').trim();
 }
 
+/** Entity-name row headers do not describe a field. Parse JSX attributes so a quoted lookalike,
+ * dynamic scope or later spread cannot accidentally exempt an actual column header. Keep the
+ * existing exemption for self-closing, empty header cells. */
+function hasRawHintBypass(source: string): boolean {
+  const tree = ts.createSourceFile('audit.tsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let bypass = false;
+  const visit = (node: ts.Node) => {
+    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+      const tag = node.tagName.getText(tree);
+      if (tag === 'label') bypass = true;
+      if (tag === 'th' && !ts.isJsxSelfClosingElement(node)) {
+        const attrs = node.attributes.properties;
+        const scopes = attrs.filter((attr) => ts.isJsxAttribute(attr) && attr.name.getText(tree) === 'scope');
+        const scope = scopes.length === 1 ? scopes[0] : undefined;
+        const explicitRow = scope && ts.isJsxAttribute(scope) && scope.initializer &&
+          ts.isStringLiteral(scope.initializer) && scope.initializer.text === 'row';
+        const laterSpread = scope && attrs.slice(attrs.indexOf(scope) + 1).some(ts.isJsxSpreadAttribute);
+        if (!explicitRow || laterSpread) bypass = true;
+      }
+    }
+    if (!bypass) ts.forEachChild(node, visit);
+  };
+  visit(tree);
+  return bypass;
+}
+
 const OPEN = /<(FieldLabel|HintTh|SortableTh)(\s(?:[^<>]|=>|\{[^{}]*\})*?)>/g;
 
 describe('page-scoped hints (F2)', () => {
@@ -76,11 +104,29 @@ describe('field hint coverage', () => {
     expect(files.length).toBeGreaterThan(20);
   });
 
+  it('allows explicit entity row headers but still detects raw field labels and column headers', () => {
+    expect(hasRawHintBypass('<th scope="row">{entity.name}</th>')).toBe(false);
+    expect(hasRawHintBypass("<th className='name' scope='row'>{entity.name}</th>")).toBe(false);
+    expect(hasRawHintBypass('<th {...attrs} scope="row">{entity.name}</th>')).toBe(false);
+    expect(hasRawHintBypass('<th className="empty" />')).toBe(false);
+    for (const jsx of [
+      '<label>Name</label>',
+      '<th>Name</th>',
+      '<th scope="col">Name</th>',
+      '<th scope={scope}>Name</th>',
+      '<th title="scope=\'row\'">Name</th>',
+      '<th scope="row" {...attrs}>Name</th>',
+      '<th scope="row" scope="col">Name</th>',
+      '<><th scope="row">{entity.name}</th><th scope="col">Name</th></>',
+      '<><th scope="row">{entity.name}</th><label>Name</label></>',
+    ]) expect(hasRawHintBypass(jsx), jsx).toBe(true);
+  });
+
   it('has no raw <label or <th bypassing the hint components', () => {
     const bad: string[] = [];
     for (const f of files) {
       const s = fs.readFileSync(f, 'utf8');
-      if (/<label[\s>]|<th[\s>]/.test(s.replace(/<th[^<>]*\/>/g, '')) && !RAW_OK[norm(f)]) bad.push(f);
+      if (hasRawHintBypass(s) && !RAW_OK[norm(f)]) bad.push(f);
     }
     expect(bad).toEqual([]);
   });

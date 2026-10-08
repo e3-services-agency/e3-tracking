@@ -2,43 +2,120 @@
 
 ## Signing in
 
-Local mode is the only mode today: the app runs on your machine or server, and the actor name in History comes from the configured local user name. There is no per-project role model.
+Staff use the configured app sign-in: a local actor in local mode, or the Internal Workspace OAuth
+login on the hosted portal. A share-link visitor does not need staff access. Optional Google
+commenter sign-in supplies a verified identity without granting access to the internal app or
+changing the link’s permissions.
 
 ## Share link
 
 A project can have one **share link**, managed in **Settings**:
 
-- Generate or rotate the link; revoke it to disable it immediately.
-- Access is **read** (view only) or **comment** (view and post comments).
-- The link opens `/tracking-plan/shared/<token>` with no login and shows a public version of the documentation. Internal-only fields (agent instructions, owners, identity notes, the Bloomreach project URL and every internal note) are removed.
-- Sandbox projects refuse a share link unless forced.
+- Generate a link, or generate again to rotate it. Revoke disables it immediately.
+- **Read** access allows viewing and copying permitted content. **Comment** also allows posting,
+  replying, reacting and the permitted thread status changes.
+- The link opens public documentation without a required login. Agent instructions, owners,
+  identity notes, the Bloomreach project URL and internal notes are removed.
+- Sandbox projects require confirmation before a link can be generated.
 
-See the Sharing reference for the exact routes and guarantees.
+Anyone holding the link has its access, so share it with the intended audience. Signing in cannot
+upgrade a read link. See the [Sharing reference](../SHARING.md) for the exact routes and guarantees.
 
-## Comments
+## Browsing the shared portal
 
-You can comment on an event, property, use case or requirement, from the panels on those pages or the project-wide **Comments** page. A comment thread is shared: what a client posts through a comment share link and what you post internally appear on the same anchor. Tick **Internal only** on a comment to keep it off the share link, whatever the link settings are. Otherwise internal replies are visible to the link holder only while **Settings, Share link, Show internal comments on the shared view** is set to **All comments**; with **Only comments posted through the link**, the shared view shows just the comments posted through the link itself. Comments can be resolved (internally) and deleted. Comments never appear in the tracking document, the HTML export or MCP output.
+Events, properties, use cases, catalogs, mappings and finding lists use aligned tables. Full names
+and descriptions wrap, with entity icons, relevant badges and action columns. Expand a row to read
+its details; use **Expand all / Collapse all** globally or within a group. On narrow screens, table
+regions can scroll horizontally. The navigation groups and filters the available sections, and
+entity links open the relevant row.
 
-## Reactions and names
+Comment-count buttons open discussions inline on events, properties, use cases and requirements.
+Read links show permitted discussions and copy controls, with no posting or reply editor.
 
-Under every comment are three buttons: **Seen**, **Like** and **On it**. Press one to react, press it again to take it back; hover a button to see who reacted. **On it** also marks an open thread as On it. On a share link the visitor's name is remembered in their browser for that link; a visitor who has not entered one reacts as an automatic "Visitor 4f2a" id. If you tick **Settings, Share link, Require a name on the share link**, visitors must enter a name before they can comment, reply, react or change a status.
+## Posting identity
+
+Every new-comment and reply editor shows **Posting as**. Wait for identity to load before posting;
+if it fails, **Retry** keeps the draft, selected images and chosen name.
+
+Guests can enter or change a name in either editor, and all editors on that share page update
+together. Without a chosen name, optional-name links assign a stable animal/color identity such
+as Blue Otter. The chosen name is remembered per link in that browser; a separate guest cookie
+tracks reaction ownership. Changing a name does not lose reactions, and two guests with the same
+name remain separate participants. With cookies disabled, identity starts anew on each request.
+A **Guest** badge means the name is self-declared, not verified.
+
+When enabled, **Continue with Google** uses Google Identity Services to verify the account name
+and supported profile photo. Eligible Google sessions may receive One Tap or automatic selection;
+this does not inspect the Chrome profile, and automatic sign-in is not guaranteed. An existing
+trusted staff session may also supply identity. Badges distinguish **Google account** from
+**Signed-in account**; identities without a supported photo use initials or an animal icon.
+
+Choose **Use guest identity** to opt out of the shared verified identity and automatic Google
+selection/staff-session reuse. This leaves Google and staff portal login intact. If Google sign-in
+is unavailable, guest commenting remains available. **Require a name on the share link** requires
+an explicitly entered guest name or a verified account before posting, replying, reacting or
+changing status; an automatic animal name does not meet that requirement.
+
+Public commenter sign-in uses a separate **External** Google Web client and its public client ID,
+with no client secret. The existing **Internal** staff OAuth client and callback remain unchanged.
+See [Google identity setup](../SHARED-GOOGLE-AUTH.md) for configuration and sign-in verification.
+
+## Comments and privacy
+
+Post new comments from entity panels. The project-wide **Comments** page lists discussions and
+provides internal filtering and moderation. Internal and shared participants answer the same
+thread, subject to the link’s visibility settings:
+
+- **All comments** shows non-private roots and their non-private replies.
+- **Only comments posted through the link** shows roots posted through the link and their
+  non-private replies, including replies from the team. Internally created roots are hidden.
+- **Internal only** on a root hides the whole thread. A private reply stays hidden even when its
+  root is public. Private images and reactions also remain unavailable through the share link.
+
+Comments do not appear in tracking-document JSON, documentation HTML or ordinary entity exports.
+Shared identity never reveals private fields or provides staff permissions. Typed guest names are
+unverified; public comment responses do not expose participant IDs or session credentials.
+
+## Replies, status and reactions
+
+Replies appear beneath the root, initially the first two with **Show n more** for the rest. The
+root has a status: **Open**, **On it**, **Done** or **Won’t do**. Internal staff can set any status.
+A comment-link visitor can set On it or Done, but cannot reopen a closed thread or set Won’t do.
+
+**Seen** and **Like** are available on roots and replies; **On it** is a root-only reaction and also
+marks an open thread On it when permitted. Press a reaction again to remove it; hover to see who
+reacted. Removing On it does not reset the status. Read links cannot react or change status.
+
+## Copying and linking comments
+
+Roots and replies offer **Copy comment link** and **Copy comment Markdown**. A root also offers
+**Copy thread Markdown** for the root and all replies visible in the current view. Copy feedback
+reports success or failure; retry a failed clipboard write.
+
+Markdown keeps the body, author, timestamp and permitted attachment references. Shared copying
+includes only public content, and image URLs still require the same valid link. Internal copying
+uses the staff view’s file URLs. Copying does not change access or make private images public.
+
+Opening or reloading a comment link expands the containing row and thread, reveals the target
+reply even beyond the first two, and focuses/highlights it. Internal Comments-page links clear
+filters that would hide the target. Removed, private or invalid targets show a generic notice;
+revoked links show the invalid-link page. Existing entity links still work.
+
+## Images and Markdown
+
+Drop, paste or select PNG, JPEG or WebP screenshots in a comment or reply editor: up to 10 images,
+5 MB each. Images upload after posting and appear as thumbnails; open one to view it full size and
+use arrow keys to browse. Upload processing removes hidden image metadata. Share-link visitors
+can attach images to their own freshly posted comments within 15 minutes; internal staff can
+manage attachments. A private comment or private root keeps its images off the share link.
+
+The Markdown editor supports formatting, links, lists, quotes, tasks, code and images already
+attached to the visible thread. Use **Preview** to check the result. Raw HTML is not rendered.
+Comments can contain up to 10,000 characters. Ctrl/Cmd+Enter posts; Ctrl/Cmd+B, I, K and E insert
+bold, italic, links and code. Enter continues a list; Tab and Shift+Tab indent list items.
 
 ## Agents
 
-An MCP server exposes the definitions, findings and QA tools to AI agents on the same database. See the MCP server reference. Agent writes are attributed to the agent name in History.
-
-## Replies and status
-
-Every comment can be answered with a reply; replies show under the comment (the first two, then
-"Show n more"). The first comment of a thread has a status: Open, On it, Done or Won't do. On the
-internal pages you can set any of them (the Comments page has a status filter). A client with a
-comment link can mark a thread On it or Done, but cannot reopen it or set Won't do. Section headers
-of the shared page show how many threads are still open.
-
-## Images on comments
-
-In any comment form, drop, paste (Ctrl+V while the dashed zone is focused) or click to add screenshots: PNG, JPEG or WebP, 5 MB each, up to 10 per comment. The images upload right after the comment is posted and show as small thumbnails under it (three visible, then "+n"); click one to open it full size and step through the rest with the arrow keys. Images are re-encoded on upload, so location data and other hidden metadata are removed. An image on an "Internal only" comment is never visible through the share link. Clients with a comment link can attach images to the comment they just wrote (within 15 minutes); the team can add and delete images from the internal API.
-
-## Writing comments (Markdown)
-
-Comments, replies and share-link comments are written in Markdown. The editor above the Post button has buttons for bold, italic, strikethrough, code, link, lists, quote, task item and inserting an image already attached to the comment. Shortcuts: Ctrl/Cmd+B bold, I italic, K link, E code, Ctrl/Cmd+Shift+X strikethrough, Ctrl/Cmd+Enter posts. Enter continues a list (and ends it on an empty item); Tab and Shift+Tab indent list items. Use the Preview tab to see the result. Raw HTML is not rendered. A comment can be up to 10,000 characters. Images picked for a comment get an id once it is posted. In a reply you can insert any image already attached to the thread (the root comment or any reply) inline; the preview and the posted comment resolve them the same way.
+The MCP server exposes definitions, findings and QA tools to agents on the same database. Agent
+writes use the agent name in History; see the MCP server reference. Share commenter authentication
+does not grant MCP or staff access.

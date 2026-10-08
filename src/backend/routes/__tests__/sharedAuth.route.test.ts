@@ -37,7 +37,7 @@ beforeAll(async () => {
 beforeEach(() => { token = ProjectDAL.createOrRotateShare(projectId, 'comment').share_token!; verifier.mockClear(); process.env.AUTH_MODE = 'local'; });
 afterAll(async () => {
   await new Promise<void>((resolve) => server.close(() => resolve())); closeDb();
-  for (const key of ['E3_DB_PATH', 'AUTH_MODE', 'GOOGLE_COMMENT_CLIENT_ID', 'NODE_ENV', 'E3_PUBLIC_ORIGIN', 'COMMENT_STAFF_SESSION', 'WORKSPACE_DOMAIN', 'TRUSTED_PROXY_CIDR']) {
+  for (const key of ['E3_DB_PATH', 'AUTH_MODE', 'GOOGLE_COMMENT_CLIENT_ID', 'GOOGLE_STAFF_CLIENT_ID', 'NODE_ENV', 'E3_PUBLIC_ORIGIN', 'COMMENT_STAFF_SESSION', 'WORKSPACE_DOMAIN', 'TRUSTED_PROXY_CIDR']) {
     if (saved[key] === undefined) delete process.env[key]; else process.env[key] = saved[key];
   }
 });
@@ -163,7 +163,7 @@ describe('trusted Internal staff bridge', () => {
   it('uses fixed destinations and selected cookies, actual trusted profile where available', async () => {
     const fetcher = vi.fn().mockResolvedValueOnce(new Response('', { status: 202, headers: { 'x-auth-request-email': 'jan.pan@e3-services.com', 'x-auth-request-preferred-username': 'Jan' } })).mockResolvedValueOnce(Response.json({ name: 'Jan Pan', picture: 'https://lh3.googleusercontent.com/avatar' }));
     const req = { headers: { cookie: '_oauth2_proxy=trusted; tracking=secret; _oauth2_proxy_0=chunk', 'x-forwarded-email': 'attacker@example.com' } } as unknown as Request;
-    const participant = await resolveStaffIdentity(req, fetcher); expect(participant?.name).toBe('Jan Pan'); expect(participant?.avatar_url).toContain('googleusercontent.com'); expect(participant?.id).not.toContain('@');
+    const participant = await resolveStaffIdentity(req, fetcher); expect(participant?.name).toBe('Jan'); expect(participant?.avatar_url).toBeNull(); expect(fetcher).toHaveBeenCalledTimes(1); expect(participant?.id).not.toContain('@');
     expect(fetcher.mock.calls[0][0]).toBe('http://oauth2-proxy:4180/oauth2/auth'); expect(fetcher.mock.calls[0][1].headers).toEqual({ Cookie: '_oauth2_proxy=trusted; _oauth2_proxy_0=chunk' }); expect(fetcher.mock.calls[0][1].redirect).toBe('error');
   });
   it('falls back to initials without exposing staff email, rejects wrong domain and unavailable proxy', async () => {

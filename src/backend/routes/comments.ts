@@ -1,3 +1,4 @@
+import { resolveInternalStaffPhoto } from './sharedAuth';
 /**
  * Comment routes (D-49, T-4-02), mounted at `/api/projects/:projectId/comments` -- the internal
  * side only. `POST /api/shared/:token/comments` (T-4-04, D-49) is the public counterpart and never
@@ -30,8 +31,10 @@ function parseBoolParam(raw: unknown, name: string): boolean | undefined {
   throw new ValidationError(`${name} must be "true" or "false".`, name);
 }
 
-router.get('/identity', (req: Request, res: Response) => {
-  res.json({ name: staffDisplayName(req.userName ?? 'Local user'), kind: 'staff', avatar_url: null, verified: true, name_chosen: true });
+router.get('/identity', async (req: Request, res: Response) => {
+  const avatar = await resolveInternalStaffPhoto(req);
+  res.set('Cache-Control', 'no-store');
+  res.json({ name: staffDisplayName(req.userName ?? 'Local user'), kind: 'staff', avatar_url: avatar, verified: true, name_chosen: true });
 });
 
 router.get('/', (req: Request, res: Response) => {
@@ -82,7 +85,7 @@ function optionalBoolean(body: Record<string, unknown>, key: string): boolean | 
   return value;
 }
 
-router.post('/', (req: Request, res: Response) => {
+router.post('/', async (req: Request, res: Response) => {
   try {
     const body = req.body as Record<string, unknown>;
     const internalOnly = optionalBoolean(body, 'internal_only');
@@ -93,6 +96,7 @@ router.post('/', (req: Request, res: Response) => {
       author_name: authorName ?? staffDisplayName(req.userName ?? ''),
       participant_id: authorName === undefined && req.userId ? staffParticipantId(req.userId) : undefined,
       author_kind: authorName === undefined ? 'staff' : 'legacy',
+      avatar_url: authorName === undefined ? await resolveInternalStaffPhoto(req) : null,
       body: stringOrUndefined(body, 'body') ?? '',
       via_share: false,
       parent_id: stringOrUndefined(body, 'parent_id') ?? null,

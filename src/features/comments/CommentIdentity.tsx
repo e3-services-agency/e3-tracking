@@ -1,13 +1,15 @@
 import { FieldLabel } from '@/src/components/ui/FieldHint';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { safeCommentAvatar, type CommentParticipantView } from '@/src/domain/commentIdentity';
 
 const ANIMAL_ICONS: Record<string, string> = { Otter: '🦦', Fox: '🦊', Owl: '🦉', Panda: '🐼', Koala: '🐨', Dolphin: '🐬', Hedgehog: '🦔', Penguin: '🐧' };
 export function CommentAvatar({ name, avatarUrl, kind }: { name: string; avatarUrl?: string | null; kind?: string }) {
   const photo = safeCommentAvatar(avatarUrl);
+  const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
+  useEffect(() => setFailedPhoto(null), [photo]);
   const animal = kind === 'guest' ? ANIMAL_ICONS[name.split(' ').at(-1) ?? ''] : undefined;
   return <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200 text-xs text-gray-700" aria-hidden>
-    {photo ? <img src={photo} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" /> : animal ?? name.trim().slice(0, 2).toUpperCase()}
+    {photo && failedPhoto !== photo ? <img onError={() => setFailedPhoto(photo)} src={photo} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" /> : animal ?? name.trim().slice(0, 2).toUpperCase()}
   </span>;
 }
 export function CommentIdentity({ participant, guestName, onGuestNameChange, requireName, actions, onRetry }: {

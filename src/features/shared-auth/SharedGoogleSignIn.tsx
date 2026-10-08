@@ -1,3 +1,4 @@
+import { CommentAvatar } from '../comments/CommentIdentity';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { loadGoogleIdentity, notifySharedIdentity, postGoogleAuth, readGoogleConfig, type SharedGoogleConfig } from './googleIdentity';
 
@@ -59,7 +60,7 @@ export function SharedGoogleIdentityView({ identity, busy, error, buttonRef, onS
 }) {
   return <div className="flex w-full min-w-0 flex-wrap items-center gap-2 py-3 text-sm" aria-label="Comment identity">
     {identity ? <>
-      {identity.avatar_url ? <img src={identity.avatar_url} alt="" referrerPolicy="no-referrer" className="h-7 w-7 shrink-0 rounded-full" /> : <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted" aria-hidden="true">{identity.name.slice(0, 1).toUpperCase()}</span>}
+      <CommentAvatar name={identity.name} avatarUrl={identity.avatar_url} kind={identity.kind} />
       <span className="min-w-0 max-w-full break-words [overflow-wrap:anywhere]">Commenting as {identity.name}</span>
       <button type="button" className="max-w-full rounded border px-2 py-1" disabled={busy} onClick={onSignOut}>Use guest identity</button>
     </> : <div ref={buttonRef} className="min-w-0 max-w-full" aria-label="Continue with Google" aria-busy={busy} />}

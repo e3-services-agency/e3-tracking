@@ -6,7 +6,10 @@
 
 	# Sign-in, callback and sign-out endpoints of oauth2-proxy.
 	handle /oauth2/* {
-		reverse_proxy oauth2-proxy:4180
+		reverse_proxy oauth2-proxy:4180 {
+			header_up -Authorization
+			header_down -Authorization
+		}
 	}
 
 	# Public: the shared documentation page, its API, health, and the static assets it needs.

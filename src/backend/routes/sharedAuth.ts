@@ -8,7 +8,7 @@ import { authHash, createAuthChallenge, consumeAuthChallenge, createAuthSession,
 export interface TrustedCommentParticipant { id: string; name: string; avatar_url: string | null; verified: true; kind: 'google' | 'staff' }
 type ParticipantRequest = Request & { commentParticipant?: TrustedCommentParticipant };
 export type GoogleVerifier = (credential: string, audience: string) => Promise<TokenPayload>;
-export interface SharedAuthOptions { verifyGoogle?: GoogleVerifier; staffFetch?: typeof fetch }
+export interface SharedAuthOptions { verifyGoogle?: GoogleVerifier; staffFetch?: typeof fetch; verifyStaff?: GoogleVerifier }
 const SESSION_COOKIE = 'e3_comment_auth';
 const CHALLENGE_COOKIE = 'e3_comment_challenge';
 const SIGNED_OUT_COOKIE = 'e3_comment_signed_out';
@@ -56,7 +56,7 @@ function originAllowed(req: Request): boolean { return Boolean(publicOrigin() &&
 function csrfAllowed(req: Request): boolean { return originAllowed(req) && equal(cookieValue(req, CHALLENGE_COOKIE), req.body?.csrf_token); }
 
 /** Fixed destination; request headers cannot change the URL or supply verified identity. */
-export async function resolveStaffIdentity(req: Request, fetcher: typeof fetch = fetch): Promise<TrustedCommentParticipant | undefined> {
+export async function resolveStaffIdentity(req: Request, fetcher: typeof fetch = fetch, verifyStaff: GoogleVerifier = defaultVerifier): Promise<TrustedCommentParticipant | undefined> {
   if ((process.env.AUTH_MODE ?? '').toLowerCase() !== 'proxy' || process.env.COMMENT_STAFF_SESSION !== '1') return undefined;
   const staffCookies = (req.headers.cookie ?? '').split(';').map((c) => c.trim()).filter((c) => /^_oauth2_proxy(?:_\d+)?=/.test(c));
   if (!staffCookies.length || staffCookies.join('; ').length > 16000) return undefined;
@@ -69,18 +69,29 @@ export async function resolveStaffIdentity(req: Request, fetcher: typeof fetch =
     if (!email || !domain || email.split('@').length !== 2 || email.split('@')[1] !== domain) return undefined;
     let name = response.headers.get('x-auth-request-preferred-username')?.trim();
     let avatar: string | null = null;
-    // Some provider versions include additional verified profile fields. Do not assume they exist.
-    try {
-      const profile = await fetcher('http://oauth2-proxy:4180/oauth2/userinfo', { headers, redirect: 'error', signal: AbortSignal.timeout(1500) });
-      if (profile.ok) {
-        const info = await profile.json() as Record<string, unknown>;
-        if (typeof info.name === 'string' && info.name.trim()) name = info.name.trim();
-        avatar = safeProfilePhoto(info.picture);
-      }
-    } catch { /* Initials remain available when no profile endpoint is reachable. */ }
+    // Only the fixed authenticated proxy response can supply a token. Browser headers are ignored.
+    const audience = process.env.GOOGLE_STAFF_CLIENT_ID?.trim();
+    const bearer = response.headers.get('authorization');
+    const credential = bearer?.match(/^Bearer ([A-Za-z0-9._-]{1,10000})$/)?.[1];
+    if (audience && credential && (!req.userId || req.userId.toLowerCase() === email)) {
+      try {
+        const payload = await verifyStaff(credential, audience);
+        if (payload.aud === audience && ['accounts.google.com', 'https://accounts.google.com'].includes(payload.iss)
+          && Number.isFinite(payload.exp) && payload.exp > Date.now() / 1000 && typeof payload.sub === 'string' && payload.sub
+          && payload.email_verified === true && payload.email?.trim().toLowerCase() === email && payload.hd?.toLowerCase() === domain) {
+          avatar = safeProfilePhoto(payload.picture);
+        }
+      } catch { /* Profile enrichment cannot change staff identity or prevent commenting. */ }
+    }
     if (!name || name.includes('@')) name = email.split('@')[0];
     return { id: `staff:${authHash(email)}`, name: name.slice(0, 80), avatar_url: avatar, verified: true, kind: 'staff' };
   } catch { return undefined; }
+}
+
+/** Internal attribution remains the middleware identity; cookies only enrich its matching photo. */
+export async function resolveInternalStaffPhoto(req: Request, fetcher: typeof fetch = fetch, verifyStaff: GoogleVerifier = defaultVerifier): Promise<string | null> {
+  if (!req.userId) return null;
+  return (await resolveStaffIdentity(req, fetcher, verifyStaff))?.avatar_url ?? null;
 }
 
 export function createSharedAuthRouter(options: SharedAuthOptions = {}): express.Router {
@@ -93,7 +104,7 @@ export function createSharedAuthRouter(options: SharedAuthOptions = {}): express
       const sessionToken = cookieValue(req, SESSION_COOKIE);
       const session = sessionToken ? readAuthSession(sessionToken) : undefined;
       if (session) req.commentParticipant = { id: session.participant_id, name: session.name, avatar_url: session.avatar_url, verified: true, kind: 'google' };
-      else if (!req.commentParticipant && cookieValue(req, SIGNED_OUT_COOKIE) !== '1') req.commentParticipant = await resolveStaffIdentity(req, options.staffFetch);
+      else if (!req.commentParticipant && cookieValue(req, SIGNED_OUT_COOKIE) !== '1') req.commentParticipant = await resolveStaffIdentity(req, options.staffFetch, options.verifyStaff);
       // SameSite is supplementary: authenticated mutations additionally require exact application origin.
       if (req.commentParticipant && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !originAllowed(req)) {
         reject(res, 403, 'AUTH_ORIGIN', 'This action must come from the shared portal.'); return;

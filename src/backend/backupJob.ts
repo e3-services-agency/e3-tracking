@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { listProjects } from './dal/project.dal';
 import { buildBackup } from './services/backup.service';
-import { objectNameFor, writeBackupStatus, type BackupUploader } from './backupUpload';
+import { objectNameFor, readBackupStatus, writeBackupStatus, type BackupUploader } from './backupUpload';
 
 export const DEFAULT_KEEP = 14;
 const NAME_RE = /^backup-(.+)-(\d{4}-\d{2}-\d{2})\.json$/;
@@ -84,8 +84,8 @@ export async function runBackupOnce(dir: string, keep: number = DEFAULT_KEEP, no
   }
   try {
     writeBackupStatus(dir, {
-      last_backup_at: result.written.length ? now.toISOString() : null,
-      last_upload_ok: !uploader || uploadSkipped || !result.written.length ? null : result.uploadFailed.length === 0,
+      last_backup_at: result.written.length ? now.toISOString() : (readBackupStatus(dir)?.last_backup_at ?? null),
+      last_upload_ok: !uploader || uploadSkipped ? null : !result.written.length ? (readBackupStatus(dir)?.last_upload_ok ?? null) : result.uploadFailed.length === 0,
       last_upload_error: result.uploadFailed[0]?.error ?? null,
     });
   } catch {

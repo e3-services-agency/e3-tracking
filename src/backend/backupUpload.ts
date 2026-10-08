@@ -7,6 +7,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export const TOKEN_URL = 'http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token';
+/** Bodies above this use a resumable upload (initiate + single PUT), below a media upload. */
+export const RESUMABLE_THRESHOLD = 4 * 1024 * 1024;
 export const STATUS_FILE = 'last-backup.json';
 
 export interface UploadRequest {
@@ -47,45 +49,86 @@ export function createGcsUploader(opts: GcsUploaderOptions): BackupUploader {
   const log = opts.log ?? ((l: string) => console.log(l));
   let warnedNoMetadata = false;
 
-  async function token(): Promise<string | null> {
-    try {
-      const res = await f(TOKEN_URL, { headers: { 'Metadata-Flavor': 'Google' }, signal: AbortSignal.timeout(3000) });
-      if (!res.ok) return null;
-      const j = (await res.json()) as { access_token?: string };
-      return j.access_token ?? null;
-    } catch {
-      return null;
+  type Tok = { token: string } | { notGcp: true } | { error: string };
+
+  function isNotGcp(err: unknown): boolean {
+    const e = err as { code?: string; cause?: { code?: string } } | null;
+    const code = e?.cause?.code ?? e?.code;
+    return code === 'ENOTFOUND' || code === 'EAI_AGAIN';
+  }
+
+  async function token(): Promise<Tok> {
+    let last = 'metadata token unavailable';
+    for (let i = 1; i <= 3; i++) {
+      try {
+        const res = await f(TOKEN_URL, { headers: { 'Metadata-Flavor': 'Google' }, signal: AbortSignal.timeout(3000) });
+        if (res.ok) {
+          const j = (await res.json()) as { access_token?: string };
+          if (j.access_token) return { token: j.access_token };
+          last = 'metadata token response without access_token';
+        } else last = `metadata server HTTP ${res.status}`;
+      } catch (err) {
+        if (isNotGcp(err)) return { notGcp: true };
+        last = `metadata server: ${err instanceof Error ? err.message : String(err)}`;
+      }
+      if (i < 3) await sleep(base * 2 ** (i - 1));
     }
+    return { error: last };
+  }
+
+  const timeoutMs = (bytes: number): number => Math.min(10 * 60_000, 60_000 + Math.ceil(bytes / 1_048_576) * 10_000);
+
+  async function send(tok: string, objectName: string, body: Buffer): Promise<Response> {
+    const bucket = encodeURIComponent(opts.bucket);
+    const name = encodeURIComponent(objectName);
+    const signal = AbortSignal.timeout(timeoutMs(body.length));
+    if (body.length <= RESUMABLE_THRESHOLD) {
+      return f(`https://storage.googleapis.com/upload/storage/v1/b/${bucket}/o?uploadType=media&name=${name}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
+        body,
+        signal,
+      });
+    }
+    const init = await f(`https://storage.googleapis.com/upload/storage/v1/b/${bucket}/o?uploadType=resumable&name=${name}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': 'application/json' },
+      body: '{}',
+      signal,
+    });
+    if (!init.ok) return init;
+    const loc = init.headers.get('location');
+    if (!loc) return new Response('', { status: 502 });
+    return f(loc, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body, signal });
   }
 
   return {
     async upload({ objectName, body }) {
       let lastError = 'unknown error';
       for (let i = 1; i <= attempts; i++) {
-        const tok = await token();
-        if (!tok) {
+        const t = await token();
+        if ('notGcp' in t) {
           if (!warnedNoMetadata) {
             warnedNoMetadata = true;
-            log('[e3-backup] metadata server unreachable (not on GCP?); skipping upload to gs://' + opts.bucket);
+            log('[e3-backup] metadata server not resolvable (not on GCP?); skipping upload to gs://' + opts.bucket);
           }
-          return { ok: false, skipped: true, error: 'metadata server unreachable' };
+          return { ok: false, skipped: true, error: 'not on GCP' };
+        }
+        if ('error' in t) {
+          log(`[e3-backup] upload FAILED for gs://${opts.bucket}/${objectName}: ${t.error}`);
+          return { ok: false, error: t.error };
         }
         try {
-          const url = `https://storage.googleapis.com/upload/storage/v1/b/${encodeURIComponent(opts.bucket)}/o?uploadType=media&name=${encodeURIComponent(objectName)}`;
-          const res = await f(url, {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' },
-            body,
-          });
+          const res = await send(t.token, objectName, body);
           if (res.ok) {
             const uri = `gs://${opts.bucket}/${objectName}`;
             log(`[e3-backup] uploaded ${uri} (${body.length} bytes)`);
             return { ok: true, uri };
           }
           lastError = `HTTP ${res.status}`;
-          if (res.status < 500 && res.status !== 429 && res.status !== 401) break; // not retryable
+          if (res.status < 500 && ![408, 429, 401].includes(res.status)) break; // not retryable
         } catch (err) {
-          lastError = err instanceof Error ? err.message : String(err);
+          lastError = err instanceof Error ? err.message : String(err); // includes aborts: retryable
         }
         if (i < attempts) await sleep(base * 2 ** (i - 1));
       }

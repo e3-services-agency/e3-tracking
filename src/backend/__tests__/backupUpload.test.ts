@@ -8,7 +8,7 @@ import { closeDb } from '../db';
 import * as ClientDAL from '../dal/client.dal';
 import * as ProjectDAL from '../dal/project.dal';
 import { runBackupOnce } from '../backupJob';
-import { createGcsUploader, objectNameFor, readBackupStatus, TOKEN_URL, type BackupUploader } from '../backupUpload';
+import { createGcsUploader, objectNameFor, readBackupStatus, TOKEN_URL, RESUMABLE_THRESHOLD, type BackupUploader } from '../backupUpload';
 
 const tokenOk = () => new Response(JSON.stringify({ access_token: 'tok-1' }), { status: 200 });
 
@@ -63,15 +63,59 @@ describe('createGcsUploader', () => {
     expect(r).toMatchObject({ ok: false, error: 'HTTP 500' });
   });
 
-  it('skips and logs once when the metadata server is unreachable', async () => {
+  it('skips and logs once only on a clear not-on-GCP signal', async () => {
     const logs: string[] = [];
     const fetchImpl = (async () => {
-      throw new Error('ENOTFOUND');
+      throw Object.assign(new TypeError('fetch failed'), { cause: { code: 'ENOTFOUND' } });
     }) as unknown as typeof fetch;
     const up = createGcsUploader({ bucket: 'b', fetchImpl, log: (l) => logs.push(l) });
     expect(await up.upload({ objectName: 'a/1.json', body })).toMatchObject({ ok: false, skipped: true });
     await up.upload({ objectName: 'a/2.json', body });
     expect(logs).toHaveLength(1);
+  });
+
+  it('treats a persistent metadata token failure as an upload failure after 3 tries', async () => {
+    let tries = 0;
+    const fetchImpl = (async () => {
+      tries++;
+      throw new Error('timeout');
+    }) as unknown as typeof fetch;
+    const r = await createGcsUploader({ bucket: 'b', fetchImpl, sleep: async () => {}, log: () => {} }).upload({ objectName: 'a/1.json', body });
+    expect(r.ok).toBe(false);
+    expect(r.skipped).toBeUndefined();
+    expect(tries).toBe(3);
+  });
+
+  it('retries an aborted upload and 408, and passes an abort signal', async () => {
+    let puts = 0;
+    const signals: (AbortSignal | undefined)[] = [];
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      if (url === TOKEN_URL) return tokenOk();
+      signals.push(init?.signal ?? undefined);
+      puts++;
+      if (puts === 1) throw new DOMException('aborted', 'TimeoutError');
+      return new Response('', { status: puts === 2 ? 408 : 200 });
+    }) as unknown as typeof fetch;
+    const r = await createGcsUploader({ bucket: 'b', fetchImpl, sleep: async () => {}, log: () => {} }).upload({ objectName: 'k/x.json', body });
+    expect(r.ok).toBe(true);
+    expect(puts).toBe(3);
+    expect(signals.every((x) => !!x)).toBe(true);
+  });
+
+  it('uses a resumable upload (initiate + PUT) above the threshold', async () => {
+    const calls: { url: string; method?: string }[] = [];
+    const big = Buffer.alloc(RESUMABLE_THRESHOLD + 1, 97);
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      if (url === TOKEN_URL) return tokenOk();
+      calls.push({ url, method: init?.method });
+      if (url.includes('uploadType=resumable')) return new Response('', { status: 200, headers: { location: 'https://storage.googleapis.com/upload/session/abc' } });
+      return new Response('{}', { status: 200 });
+    }) as unknown as typeof fetch;
+    const r = await createGcsUploader({ bucket: 'b', fetchImpl, log: () => {} }).upload({ objectName: 'k/x.json', body: big });
+    expect(r.ok).toBe(true);
+    expect(calls.map((c) => c.method)).toEqual(['POST', 'PUT']);
+    expect(calls[0].url).toContain('uploadType=resumable&name=k%2Fx.json');
+    expect(calls[1].url).toBe('https://storage.googleapis.com/upload/session/abc');
   });
 
   it('builds colon-free object names', () => {
@@ -130,4 +174,18 @@ describe('restore rehearsal script', () => {
     const r = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/restore-rehearsal.mjs', 'does-not-exist.json'], { cwd: process.cwd(), encoding: 'utf8' });
     expect(r.status).toBe(1);
   }, 60000);
+});
+
+describe('runBackupOnce with no projects', () => {
+  it('keeps the previous last_backup_at when nothing is written', async () => {
+    process.env.E3_DB_PATH = ':memory:';
+    closeDb();
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), 'e3-bke-'));
+    fs.writeFileSync(path.join(d, 'last-backup.json'), JSON.stringify({ last_backup_at: '2026-01-01T00:00:00.000Z', last_upload_ok: true }));
+    await runBackupOnce(d, 14, new Date(), { upload: async () => ({ ok: true }) });
+    expect(readBackupStatus(d)?.last_backup_at).toBe('2026-01-01T00:00:00.000Z');
+    closeDb();
+    delete process.env.E3_DB_PATH;
+    fs.rmSync(d, { recursive: true, force: true });
+  });
 });

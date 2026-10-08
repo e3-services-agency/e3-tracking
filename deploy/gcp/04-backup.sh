@@ -13,7 +13,7 @@ RUN_NOW=0
 for a in "${ARGS[@]:-}"; do [ "$a" = "--run-now" ] && RUN_NOW=1; done
 if [ "$RUN_NOW" = 0 ]; then run gcloud compute ssh "$VM_NAME" "${IAP[@]}" --command "$CMD"; fi
 if [ "$RUN_NOW" = 1 ]; then
-  run gcloud compute ssh "$VM_NAME" "${IAP[@]}" --command "cd /opt/e3-tracking && $DC exec -T backup node api/_backend/backup-job.js --once 2>&1 | grep -E 'e3-backup'"
+  run gcloud compute ssh "$VM_NAME" "${IAP[@]}" --command "set -o pipefail; cd /opt/e3-tracking && $DC exec -T backup node api/_backend/backup-job.js --once 2>&1 | grep -E 'e3-backup'; rc=\${PIPESTATUS[0]}; echo \"[e3-backup] run-now exit status \$rc\"; exit \$rc"
   say "Look for 'uploaded gs://$BUCKET/...'. Then verify yourself: gcloud storage ls gs://$BUCKET/ --recursive"
 else
   say "The backup service runs nightly (BACKUP_HOUR_UTC) and writes /data/backups, then uploads to gs://$BUCKET/<project_key>/<timestamp>.json."

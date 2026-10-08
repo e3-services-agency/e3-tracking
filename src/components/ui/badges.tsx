@@ -124,11 +124,11 @@ const STATUS_TONE: Record<string, BadgeTone> = {
 };
 
 /** Event, entity, use case, finding and requirement statuses share one look per value. */
-export function StatusBadge({ status, className = '' }: { status: string | null | undefined; className?: string }) {
+export function StatusBadge({ status, className = '', label }: { status: string | null | undefined; className?: string; label?: string }) {
   if (!status) return <span className="text-gray-400">—</span>;
   return (
     <Badge tone={STATUS_TONE[status] ?? 'neutral'} icon={STATUS_ICONS[status]} className={className}>
-      {enumLabel('status', status)}
+      {label ?? enumLabel('status', status)}
     </Badge>
   );
 }

@@ -9,9 +9,9 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { Badge } from '@/src/components/ui/badges';
-import { StatusBadge } from '@/src/components/ui/badges';
+import { CommentStatusBadge } from '@/src/features/comments/CommentStatusBadge';
 import { COMMENT_STATUSES, SHARE_SETTABLE_COMMENT_STATUSES, type CommentStatus } from '@/src/domain/enums';
-import { enumLabel } from '@/src/domain/enumLabels';
+import { COMMENT_STATUS_LABELS } from '@/src/domain/enumLabels';
 import type { CommentPanelRow } from './CommentsPanel';
 import { CommentReactions } from './CommentReactions';
 import type { CommentReactionKind } from '@/src/domain/enums';
@@ -121,6 +121,7 @@ export function CommentItem({
         ownName={ownName}
         nameRequired={nameRequired}
         busy={busy}
+        readOnly={!canComment}
         onReact={(kind) => onReact(row, kind)}
       />
     ) : null;
@@ -145,7 +146,7 @@ export function CommentItem({
     <li ref={elementRef} id={commentDomId(thread.id)} tabIndex={-1} aria-label={`Comment by ${thread.author_name}`} className={`rounded-md border border-gray-200 bg-gray-50 px-3 py-2 ${targetCommentId === thread.id ? COMMENT_TARGET_CLASS : ''}`} data-testid="comment-thread">
       <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
         {meta(thread)}
-        <StatusBadge status={thread.status} />
+        <CommentStatusBadge status={thread.status} />
         {getCommentLink && <CommentCopyActions mode={mode} row={thread} thread={thread} getLink={getCommentLink} fileUrl={fileUrl} />}
         {canSetStatus && (
           <span className="ml-auto flex items-center gap-1">
@@ -165,7 +166,7 @@ export function CommentItem({
                 .filter((s) => mode === 'internal' || s !== thread.status)
                 .map((s) => (
                   <option key={s} value={s}>
-                    {enumLabel('status', s)}
+                    {COMMENT_STATUS_LABELS[s]}
                   </option>
                 ))}
             </select>

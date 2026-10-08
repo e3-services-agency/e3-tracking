@@ -27,7 +27,7 @@
  * scroll spy; empty sections are not rendered. Content width follows the internal T-4-12 constant after the sidebar. The pure
  * decisions live in `src/features/shared/viewHelpers.ts`.
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { enumLabelOr } from '@/src/domain/enumLabels';
 import { HintTh } from '@/src/components/ui/FieldHint';
 import { ClassBadge } from '@/src/components/ui/ClassBadge';
@@ -57,8 +57,9 @@ import { SHARED_SECTION_ICONS, ENTITY_ICONS, type EntityKind } from '@/src/compo
 import { requirementTargetView } from '@/src/features/shared/requirementTargets';
 import { findingEntity } from '@/src/features/shared/findingEntity';
 import { VARIANTS_ANCHOR_PREFIX } from '@/src/features/shared/references';
-import { propertiesToMarkdown, findingsSummaryToMarkdown } from '@/src/domain/document/markdown';
+import { eventCardToMarkdown, useCaseToMarkdown, propertiesToMarkdown, findingsSummaryToMarkdown } from '@/src/domain/document/markdown';
 import { propertyGroupId, propertyKindGroupId, PROPERTY_CATEGORY_LABELS, formatDisplayName } from '@/src/domain/propertyCategory';
+import { SharedActiveEntitySummary } from '@/src/features/shared/SharedActiveEntitySummary';
 import { SharedEntityTable, SharedEntityRow } from '@/src/features/shared/SharedEntityTable';
 import { SharedGoogleSignIn } from '@/src/features/shared-auth/SharedGoogleSignIn';
 import { EntityIcon } from '@/src/components/ui/EntityIcon';
@@ -253,7 +254,7 @@ export function SharedPropertyRow({
     <SharedEntityRow anchor={anchor} name={property.name} kind="property" expanded={expanded} onToggle={onToggle}
       scrollMarginTop={stickyScrollMarginPx('event')} nameIndented nameSuffix={<DefinitionCountBadge count={property.definitions.length} />}
       cells={[property.description ?? '—', <CategoryBadge key="category" category={property.category} />, property.data_type,
-        <div key="actions" className="flex flex-wrap items-center gap-1">{commentButton}<CopyNameButton name={property.name} /><CopyLinkButton anchor={anchor} label={property.name} /></div>]}>
+        <div key="actions" className="flex flex-wrap items-center gap-1">{commentButton}<CopyMarkdownButton getMarkdown={() => propertiesToMarkdown([property])} label={`Copy property ${property.name} as Markdown`} /><CopyLinkButton anchor={anchor} label={property.name} /><CopyNameButton name={property.name} /></div>]}>
       {expanded && (
         <div className="space-y-2">
           {comments}
@@ -396,6 +397,7 @@ function renderRequirementTarget(
 }
 
 export function SharedProject({ token }: { token: string }) {
+  const mainRef = useRef<HTMLElement>(null);
   const [header, setHeader] = useState<ShareHeader | null>(null);
   const [doc, setDoc] = useState<TrackingDocument | null>(null);
   const [comments, setComments] = useState<CommentPanelRow[]>([]);
@@ -680,7 +682,8 @@ export function SharedProject({ token }: { token: string }) {
           onNavigate={navigateTo}
         />
 
-        <main className={`flex-1 min-w-0 space-y-6 ${PAGE_MAX_WIDTH_CLASS}`}>
+        <main ref={mainRef} className={`flex-1 min-w-0 space-y-6 ${PAGE_MAX_WIDTH_CLASS}`}>
+          <SharedActiveEntitySummary container={mainRef} revision={JSON.stringify([[...openEvents], [...openProperties], [...openUseCases], [...openCatalogs], [...openMappings], [...openProjectFindings]])} />
           <div className="space-y-4 border-b border-[var(--border-default)] pb-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex min-w-0 flex-1 basis-64 items-start gap-3">
@@ -738,7 +741,7 @@ export function SharedProject({ token }: { token: string }) {
                     </div>
                     <SharedEntityTable label={label} columns={[
                       { label: 'Name', width: '24%' }, { label: 'Description', width: '28%' }, { label: 'Sources', width: '19%' },
-                      { label: 'Certification', width: '13%' }, { label: 'Comments', width: '8%' }, { label: 'Actions', width: '8%' },
+                      { label: 'Certification', width: '13%' }, { label: 'Actions', width: '16%' },
                     ]}>
                     {inGroup.map((event) => {
                       const expanded = openEvents.has(event.id);
@@ -752,7 +755,8 @@ export function SharedProject({ token }: { token: string }) {
                               <SourceBadge key={s.id} system={s.system} method={s.method} color={s.color} className="max-w-full !whitespace-normal [overflow-wrap:anywhere]" />
                             )) : '—'}</div>,
                             <CertificationBadge key="certification" certification={event.certification} compact />,
-                            <CommentCountButton key="comments"
+
+                            <div key="actions" className="flex flex-wrap items-center gap-1"><CommentCountButton key="comments"
                               count={commentsFor('event', event.id).length}
                               open={openThreads.has(`event:${event.id}`)}
                               label={`event ${event.name}`}
@@ -762,8 +766,7 @@ export function SharedProject({ token }: { token: string }) {
                                   setOpenThreads((prev) => new Set(prev).add(`event:${event.id}`));
                                 } else toggleThread(`event:${event.id}`);
                               }}
-                            />,
-                            <div key="actions" className="flex flex-wrap items-center gap-1"><CopyNameButton name={event.name} /><CopyLinkButton anchor={anchor} label={event.name} /></div>,
+                            /><CopyMarkdownButton getMarkdown={() => eventCardToMarkdown(event)} label={`Copy event ${event.name} as Markdown`} /><CopyLinkButton anchor={anchor} label={event.name} /><CopyNameButton name={event.name} /></div>,
                           ]}>
                           {expanded && (
                             <div>
@@ -804,7 +807,7 @@ export function SharedProject({ token }: { token: string }) {
             const setProperties = (ids: string[], expanded: boolean) => setOpenProperties((prev) => setExpanded(prev, ids, expanded));
             const renderRows = (items: PropertyItem[]) => (
               <SharedEntityTable label="Properties" columns={[
-                { label: 'Name', width: '28%' }, { label: 'Description', width: '40%' }, { label: 'Category', width: '15%' }, { label: 'Type', width: '9%' }, { label: 'Actions', width: '8%' },
+                { label: 'Name', width: '28%' }, { label: 'Description', width: '32%' }, { label: 'Category', width: '15%' }, { label: 'Type', width: '9%' }, { label: 'Actions', width: '16%' },
               ]}>
               {items.map((p) => (
                 <SharedPropertyRow
@@ -887,7 +890,7 @@ export function SharedProject({ token }: { token: string }) {
                       }
                     />
                 <SharedEntityTable label={g.label} columns={[
-                  { label: 'Name', width: '30%' }, { label: 'Description', width: '36%' }, { label: 'Status', width: '12%' }, { label: 'Comments', width: '10%' }, { label: 'Actions', width: '12%' },
+                  { label: 'Name', width: '30%' }, { label: 'Description', width: '36%' }, { label: 'Status', width: '12%' }, { label: 'Actions', width: '22%' },
                 ]}>
                 {g.items.map(({ index, id: ucAnchor }) => {
                   const uc = doc.use_cases[index];
@@ -898,7 +901,8 @@ export function SharedProject({ token }: { token: string }) {
                       cells={[
                         uc.narrative ? <MarkdownView key="description" source={uc.narrative} /> : '—',
                         enumLabelOr('status', uc.status) || '—',
-                        <CommentCountButton key="comments"
+
+                        <div key="actions" className="flex flex-wrap items-center gap-2"><CommentCountButton key="comments"
                           count={commentsFor('use_case', uc.id).length}
                           open={openThreads.has(`use_case:${uc.id}`)}
                           label={`use case ${uc.name}`}
@@ -908,8 +912,7 @@ export function SharedProject({ token }: { token: string }) {
                               setOpenThreads((prev) => new Set(prev).add(`use_case:${uc.id}`));
                             } else toggleThread(`use_case:${uc.id}`);
                           }}
-                        />,
-                        <div key="actions" className="flex flex-wrap items-center gap-2"><CopyNameButton name={uc.name} /><CopyLinkButton anchor={ucAnchor} label={uc.name} />
+                        /><CopyMarkdownButton getMarkdown={() => useCaseToMarkdown(uc)} label={`Copy use case ${uc.name} as Markdown`} /><CopyLinkButton anchor={ucAnchor} label={uc.name} /><CopyNameButton name={uc.name} />
                         {uc.documentation_url && (
                           <a href={uc.documentation_url} target="_blank" rel="noreferrer" className={`text-xs ${linkClass}`}>
                             Documentation
@@ -927,7 +930,7 @@ export function SharedProject({ token }: { token: string }) {
                                     <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Shared">Target</HintTh>
                                     <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Shared">Level</HintTh>
                                     <HintTh className="px-3 py-2 font-medium text-gray-500" hintScope="Shared">Status</HintTh>
-                                    <HintTh className="px-3 py-2 font-medium text-gray-500 text-right" hintScope="Shared">Comments</HintTh>
+                                    <HintTh className="px-3 py-2 font-medium text-gray-500 text-right" hintScope="Shared">Actions</HintTh>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y">

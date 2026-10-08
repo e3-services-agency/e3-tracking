@@ -8,19 +8,21 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { staffParticipantId } from '../../services/commentParticipant';
 import { LOCAL_USER_NAME } from '../../middleware/auth';
-import { closeDb } from '../../db';
+import { closeDb, getDb } from '../../db';
 import { createApp } from '../../app';
 import * as ClientDAL from '../../dal/client.dal';
 import * as ProjectDAL from '../../dal/project.dal';
 import * as EventDAL from '../../dal/event.dal';
 import * as CommentDAL from '../../dal/comment.dal';
 import { toggleReaction, listReactionSummaries } from '../../dal/comment-reaction.dal';
+import { previewRestore, applyRestore } from '../../services/backupRestore.service';
 import { buildBackup } from '../../services/backup.service';
 import { buildCsvRows } from '../../services/csvExport.service';
 
 let server: http.Server;
 let baseUrl: string;
 let projectId: string;
+let clientId: string;
 let eventId: string;
 let token: string;
 
@@ -35,6 +37,7 @@ beforeAll(async () => {
   process.env.E3_DB_PATH = ':memory:';
   closeDb();
   const client = ClientDAL.createClient({ key: 'acme', name: 'Acme' });
+  clientId = client.id;
   projectId = ProjectDAL.createProject({ client_id: client.id, key: 'acme-eu', name: 'Acme EU' }).id;
   eventId = EventDAL.createEvent(projectId, { name: 'purchase', class: 'custom' }).id;
   token = ProjectDAL.createOrRotateShare(projectId, 'comment').share_token!;
@@ -84,7 +87,7 @@ describe('DAL toggle', () => {
     expect(listReactionSummaries(projectId, [c.id], undefined, guestId).get(c.id)?.[0]).toMatchObject({ count: 1, authors: ['Jane'], mine: false });
   });
 
-  it('rejects an unknown kind and a missing author; on_it only on a root', () => {
+  it('rejects an unknown kind and missing author; legacy on_it is never writable', () => {
     const c = mk();
     const reply = mk({ parent_id: c.id });
     expect(() => toggleReaction(projectId, c.id, 'heart', 'A')).toThrow();
@@ -93,16 +96,14 @@ describe('DAL toggle', () => {
     expect(toggleReaction(projectId, reply.id, 'seen', 'A').added).toBe(true);
   });
 
-  it('on_it sets an open root to on_it; removing it leaves the status; closed comments stay closed', () => {
+  it('rejects new on_it on roots without removing legacy evidence or changing status', () => {
     const c = mk();
-    expect(toggleReaction(projectId, c.id, 'on_it', 'Anna').comment.status).toBe('on_it');
-    toggleReaction(projectId, c.id, 'on_it', 'Anna');
-    expect(CommentDAL.getCommentOrThrow(projectId, c.id).status).toBe('on_it');
-    const done = mk();
-    CommentDAL.setCommentStatus(projectId, done.id, 'done', 'Jan');
-    const r = toggleReaction(projectId, done.id, 'on_it', 'Bob', { viaShare: true });
-    expect(r.added).toBe(true);
-    expect(r.comment.status).toBe('done');
+    getDb().prepare('INSERT INTO comment_reactions (id, project_id, comment_id, author_name, kind, via_share, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)')
+      .run(`legacy-${c.id}`, projectId, c.id, 'Legacy Anna', 'on_it', new Date().toISOString());
+    expect(() => toggleReaction(projectId, c.id, 'on_it', 'Anna')).toThrow(/seen, like/);
+    expect(listReactionSummaries(projectId, [c.id]).get(c.id)).toEqual([{ kind: 'on_it', count: 1, authors: ['Legacy Anna'] }]);
+    expect(toggleReaction(projectId, c.id, 'seen', 'Anna').comment.status).toBe('open');
+    expect(toggleReaction(projectId, c.id, 'like', 'Anna').comment.status).toBe('open');
   });
 
   it('deleting the comment cascades its reactions', () => {
@@ -136,19 +137,22 @@ describe('internal routes', () => {
     expect(list.find((x: any) => x.id === c.id).reactions).toHaveLength(1);
     expect((await (await json('POST', `${url}/${c.id}/reactions`, { kind: 'like', author_name: 'Jan' })).json()).added).toBe(false);
     expect((await json('POST', `${url}/${c.id}/reactions`, { kind: 'nope' })).status).toBe(400);
+    expect((await json('POST', `${url}/${c.id}/reactions`, { kind: 'on_it' })).status).toBe(400);
   });
 });
 
 describe('shared routes', () => {
-  it('toggles, sets status on_it, and the public list carries names', async () => {
+  it('rejects on_it, toggles Like and leaves thread status unchanged', async () => {
     const c = mk();
-    const res = await json('POST', shared(`/comments/${c.id}/reactions`), { kind: 'on_it', author_name: 'Client Carl' });
+    const refused = await json('POST', shared(`/comments/${c.id}/reactions`), { kind: 'on_it', author_name: 'Client Carl' });
+    expect(refused.status).toBe(400);
+    const res = await json('POST', shared(`/comments/${c.id}/reactions`), { kind: 'like', author_name: 'Client Carl' });
     expect(res.status).toBe(200);
-    expect((await res.json()).comment.status).toBe('on_it');
+    expect((await res.json()).comment.status).toBe('open');
     const list = await (await fetch(shared(`/comments?entity_id=${eventId}`))).json();
     const row = list.find((x: any) => x.id === c.id);
-    expect(row.status).toBe('on_it');
-    expect(row.reactions).toEqual([{ kind: 'on_it', count: 1, authors: ['Client Carl'], mine: false }]);
+    expect(row.status).toBe('open');
+    expect(row.reactions).toEqual([{ kind: 'like', count: 1, authors: ['Client Carl'], mine: false }]);
   });
 
   it('refuses unknown body keys with FIELD_NOT_ALLOWED', async () => {
@@ -238,6 +242,20 @@ describe('shared routes', () => {
 });
 
 describe('backup and CSV', () => {
+  it('restores legacy on_it records faithfully despite new submission refusal', async () => {
+    const c = mk();
+    getDb().prepare('INSERT INTO comment_reactions (id, project_id, comment_id, author_name, kind, via_share, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)')
+      .run(`restore-legacy-${c.id}`, projectId, c.id, 'Legacy restore participant', 'on_it', new Date().toISOString());
+    const backup = await buildBackup(projectId);
+    const preview = previewRestore(backup);
+    const restored = await applyRestore(backup, preview.payload_hash, { client_id: clientId, key: 'legacy-reaction-restored', name: 'Legacy restore' });
+    const legacy = getDb().prepare('SELECT comment_id, author_name, kind FROM comment_reactions WHERE project_id = ? AND author_name = ?')
+      .get(restored.project.id, 'Legacy restore participant') as { comment_id: string; author_name: string; kind: string };
+    expect(legacy.kind).toBe('on_it');
+    expect(legacy.comment_id).not.toBe(c.id);
+    expect(CommentDAL.getCommentOrThrow(restored.project.id, legacy.comment_id).status).toBe('open');
+    expect(() => toggleReaction(restored.project.id, legacy.comment_id, 'on_it', 'Legacy restore participant')).toThrow();
+  });
   it('backup carries comment_reactions and CSV exports them', async () => {
     const c = mk();
     toggleReaction(projectId, c.id, 'like', 'Backup Bea');

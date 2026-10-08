@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { EntityIcon } from '@/src/components/ui/EntityIcon';
 import { HintTh } from '@/src/components/ui/FieldHint';
@@ -27,17 +27,33 @@ export function SharedEntityRow({ anchor, name, kind, expanded, onToggle, cells,
   anchor?: string; name: string; kind?: EntityKind; expanded?: boolean; onToggle?: () => void;
   cells: React.ReactNode[]; children?: React.ReactNode; badges?: React.ReactNode; nameSuffix?: React.ReactNode; nameIndented?: boolean; scrollMarginTop?: number;
 }) {
+  const disclosureId = useId();
   const contentId = anchor ? `${anchor}-details` : undefined;
+  const hasTextSelection = () => !!window.getSelection()?.toString().trim();
   const title = <>{kind && <EntityIcon kind={kind} />}<span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
     <span className={`min-w-0 [overflow-wrap:anywhere] whitespace-pre-wrap ${nameSuffix ? 'flex-1 basis-32' : ''}`}>{name}</span>
     {nameSuffix}
   </span></>;
   return (
     <>
-      <tr id={anchor} style={{ scrollMarginTop }} className="hover:bg-gray-50">
+      <tr id={anchor} style={{ scrollMarginTop }} className={`hover:bg-gray-50 ${onToggle ? 'cursor-pointer' : ''}`}
+        data-shared-expanded={expanded && onToggle ? 'true' : undefined}
+        data-shared-name={name} data-shared-kind={kind} data-shared-disclosure={disclosureId}
+        onClick={onToggle ? (event) => {
+          if (event.defaultPrevented || event.button !== 0) return;
+          const target = event.target as HTMLElement;
+          const control = target.closest('button, a, input, select, textarea, label, summary, details, [role="button"], [role="link"], [contenteditable="true"], [tabindex]');
+          if (control && event.currentTarget.contains(control)) return;
+          if (hasTextSelection()) return;
+          onToggle();
+        } : undefined}>
         <th scope="row" className={`${nameIndented ? 'pl-8 pr-4' : 'px-4'} py-3 align-top font-medium text-gray-900`}>
           {onToggle ? (
-            <button type="button" onClick={onToggle} aria-expanded={!!expanded} aria-controls={expanded ? contentId : undefined} className="flex w-full items-start gap-2 text-left rounded focus-visible:outline-2 focus-visible:outline-[var(--color-info)]">
+            <button id={disclosureId} type="button" onClick={(event) => {
+              // Native keyboard activation has detail 0; selecting a name with the pointer must not toggle it.
+              if (event.defaultPrevented || (event.detail > 0 && hasTextSelection())) return;
+              onToggle();
+            }} aria-expanded={!!expanded} aria-controls={expanded ? contentId : undefined} className="flex w-full items-start gap-2 text-left rounded focus-visible:outline-2 focus-visible:outline-[var(--color-info)]">
               {expanded ? <ChevronDown size={16} className="mt-0.5 shrink-0" aria-hidden="true" /> : <ChevronRight size={16} className="mt-0.5 shrink-0" aria-hidden="true" />}
               {title}
             </button>

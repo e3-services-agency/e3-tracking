@@ -11,7 +11,7 @@ KEY="${E3_PROJECT_KEY:-}"
 REMOTE_CMD="cd $REMOTE && sudo docker compose --env-file .env -f docker-compose.yml -f docker-compose.gcp.yml run --rm -T -e E3_PROJECT_KEY=$KEY mcp"
 GC=(gcloud compute ssh "$VM_NAME" --tunnel-through-iap --zone "$ZONE" --project "$PROJECT_ID" --quiet --command "$REMOTE_CMD" -- -T)
 
-json_str() { local s="${1//\/\\}"; printf '"%s"' "${s//\"/\\\"}"; }
+json_str() { printf '"%s"' "$(printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')"; }
 say "# Merge this into your .mcp.json (Windows form; on macOS/Linux drop \"cmd\" and \"/c\" and use \"command\": \"gcloud\"):"
 say "{"
 say "  \"mcpServers\": {"

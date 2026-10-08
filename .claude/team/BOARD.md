@@ -3984,3 +3984,6 @@ Operator07 correction56c47df independent24/24 tests/2files PASS, no skips/unhand
 
 ### 2026-10-08 14:50 | codex-supervisor -> ALL | DECISION | T-5-16
 T16 DONE: reviewed portal release deployed, full2093-test/build/lint gates pass, verified secured recovery snapshot retained, both actual off-site backups restore0warnings, live browser feature checks and29-tool MCP pass. Current pointers/runbook/handover refreshed with immutable image and schema0038, honest Google account limitations and dependency patch follow-up. Owned QA servers30384/39424/46452 and ephemeral QA tabs retired; staging, main, machine.mcp untouched. No further feature/deployment work remains in this approved scope.
+
+### 2026-10-08 15:07 | codex-supervisor -> ALL | DECISION | T-5-18
+User approved the three UI refinements. D-77 and PLAN-UI-CONSISTENCY record exact scope, boundaries, owners and gates; D-73 cooperation persists. T18 property/count component and T19 shared presentation use separate existing worktrees; T20 integrates after separate review/QA, then local/browser/live verification. Root owns team records; main, staging and machine.mcp preserved. Existing live01b4230-dirty/schema0038 remains healthy baseline.

@@ -549,3 +549,7 @@ An unresolved server identity is displayed as loading/unavailable, with mutation
 
 ### D-74 deployment note (2026-10-08): database-aware rollback
 Independent fixture confirms the old18b7883 public projection exposes newly added participant metadata if only the image is rolled back after0037. This release must retain a verified complete pre-migration data/config snapshot with every writer stopped. A rollback first preserves upgraded data for newer-comment recovery, then restores the consistent pre-migration SQLite/WAL/uploads and config before starting the pinned old image. Never overlay an old SQLite file onto newer WAL/SHM. This is a routine safety requirement within the approved deployment scope; operational auth credentials were not exposed in the fixture.
+
+## D-77 Unified property hierarchy and portal presentation
+Date: 2026-10-08 Status: accepted (user approved the three-part proposal with Proceed)
+Show definition counts beside property names, including1definition; count toggles inline definitions while the editing shortcut remains. Category/property/definition indentation becomes clear and consistent in internal/shared views. Shared UI reuses internal presentation/branding and available width, preserving full wrapping text, current shared-document navigation, comments, exports and deep links. Public permissions/projection remain unchanged. No backend/schema/auth/dependency expansion. Existing D-73 coordination and accepted task-commit/integration authorization apply. Tasks T-5-18..20; acceptance in reports/PLAN-UI-CONSISTENCY-2026-10-08.md.

@@ -24,7 +24,7 @@
  * T-4-14 (client view UX): every event and use case is a collapsed row that mounts its body (and
  * its comment panels) only when expanded; `#event-<name>` anchors expand and scroll to an event;
  * each list uses an aligned semantic table with inline details; a sticky left navigation (a dropdown below 1024px) with a filter and a
- * scroll spy; empty sections are not rendered. Width follows the T-4-12 constant. The pure
+ * scroll spy; empty sections are not rendered. Content width follows the internal T-4-12 constant after the sidebar. The pure
  * decisions live in `src/features/shared/viewHelpers.ts`.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -42,6 +42,9 @@ import { IdentityCodegenTabs } from '@/src/features/shared/IdentityCodegenTabs';
 import { SetByCell } from '@/src/features/identity/SetByCell';
 import { catalogMarketLabel } from '@/src/domain/catalogs';
 import { API_BASE } from '@/src/config/env';
+import { AgencyBrand } from '@/src/components/layout/AgencyBrand';
+import { Button } from '@/src/components/ui/Button';
+import { DefinitionCountBadge } from '@/src/components/ui/DefinitionCountBadge';
 import { PAGE_MAX_WIDTH_CLASS } from '@/src/components/layout/PageShell';
 import { EventCardView, CertificationBadge, type EventCardData } from '@/src/features/events/components/EventCardView';
 import { CommentsPanel, type CommentPanelRow } from '@/src/features/comments/CommentsPanel';
@@ -132,15 +135,14 @@ function leafIds(items: NavItem[]): string[] {
 }
 
 function ExpandToggles({ onExpand, onCollapse, label }: { onExpand: () => void; onCollapse: () => void; label: string }) {
-  const btn = 'rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50';
   return (
     <span className="inline-flex items-center gap-1">
-      <button type="button" className={btn} onClick={onExpand} aria-label={`Expand all ${label}`}>
+      <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={onExpand} aria-label={`Expand all ${label}`}>
         Expand all
-      </button>
-      <button type="button" className={btn} onClick={onCollapse} aria-label={`Collapse all ${label}`}>
+      </Button>
+      <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={onCollapse} aria-label={`Collapse all ${label}`}>
         Collapse all
-      </button>
+      </Button>
     </span>
   );
 }
@@ -173,7 +175,7 @@ function SectionCard({ id, title, actions, children }: { id: string; title: Reac
         style={{ height: STICKY_PX.sectionHeader }}
         className={`sticky ${HEADER_TOP_CLASS} z-10 flex items-center justify-between gap-2 border-b bg-white px-4`}
       >
-        <h2 className="text-sm font-semibold text-gray-900">
+        <h2 className="text-base font-semibold text-gray-900">
           <SectionTitle id={id}>{title}</SectionTitle>
         </h2>
         {actions}
@@ -196,7 +198,7 @@ function GroupHeader({ label, actions }: { label: React.ReactNode; actions?: Rea
   );
 }
 
-function SimpleTable({ head, rows }: { head: string[]; rows: React.ReactNode[][] }) {
+function SimpleTable({ head, rows, definitions = false }: { head: string[]; rows: React.ReactNode[][]; definitions?: boolean }) {
   return (
     <div role="region" aria-label="Details table" tabIndex={0} className="overflow-x-auto">
       <table className="w-full table-fixed text-left text-xs">
@@ -213,7 +215,7 @@ function SimpleTable({ head, rows }: { head: string[]; rows: React.ReactNode[][]
           {rows.map((row, i) => (
             <tr key={i}>
               {row.map((cell, j) => (
-                <td key={j} className="px-3 py-2 align-top whitespace-pre-wrap [overflow-wrap:anywhere] text-gray-700">
+                <td key={j} className={`${definitions && j === 0 ? 'pl-20 pr-3' : 'px-3'} py-2 align-top whitespace-pre-wrap [overflow-wrap:anywhere] text-gray-700`}>
                   {cell}
                 </td>
               ))}
@@ -229,7 +231,7 @@ type PropertyItem = TrackingDocumentCustomerProperty | TrackingDocumentEventProp
 
 /** One property as an aligned row (full name, type and description); expanded it shows its
  * named definitions (D-58) nested under it and, for an event property, the events that use it. */
-function PropertyRow({
+export function SharedPropertyRow({
   property,
   anchor,
   expanded,
@@ -249,7 +251,7 @@ function PropertyRow({
   const usedIn = 'used_in_events' in property ? property.used_in_events : [];
   return (
     <SharedEntityRow anchor={anchor} name={property.name} kind="property" expanded={expanded} onToggle={onToggle}
-      scrollMarginTop={stickyScrollMarginPx('event')}
+      scrollMarginTop={stickyScrollMarginPx('event')} nameIndented nameSuffix={<DefinitionCountBadge count={property.definitions.length} />}
       cells={[property.description ?? '—', <CategoryBadge key="category" category={property.category} />, property.data_type,
         <div key="actions" className="flex flex-wrap items-center gap-1">{commentButton}<CopyNameButton name={property.name} /><CopyLinkButton anchor={anchor} label={property.name} /></div>]}>
       {expanded && (
@@ -268,10 +270,10 @@ function PropertyRow({
               ))}
             </p>
           )}
-          <SimpleTable
+          <SimpleTable definitions
             head={['Definition', 'Description', 'Allowed values', 'Formats', 'Example']}
             rows={property.definitions.map((d) => [
-              <span key="n" className="inline-flex flex-wrap items-center gap-1.5">
+              <span key="n" className="inline-flex max-w-full flex-wrap items-center gap-1.5 [overflow-wrap:anywhere]">
                 {d.name}
                 <CopyNameButton name={d.name} />
               </span>,
@@ -663,31 +665,12 @@ export function SharedProject({ token }: { token: string }) {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className={`sticky top-0 z-30 h-14 border-b bg-white`}>
-        <div className={`${PAGE_MAX_WIDTH_CLASS} h-full px-8 flex items-center gap-4`}>
-          {header.project.client_logo_path && <img src={fileUrl(header.project.client_logo_path)} alt="" className="h-8 w-auto" />}
-          <div className="min-w-0">
-            <h1 className="text-base font-bold text-gray-900 truncate leading-tight">{header.project.name}</h1>
-            {header.client.name && <p className="text-xs text-gray-500 truncate leading-tight">{header.client.name}</p>}
-          </div>
-          <div className="ml-auto hidden md:flex items-center gap-4 text-xs">
-            {(present.events || present.properties || present.useCases || present.catalogs || present.mapping) && <ExpandToggles label="rows" onExpand={expandAll} onCollapse={collapseAll} />}
-            <a className={linkClass} href={downloadUrl(token, 'tracking-document.json')}>
-              JSON
-            </a>
-            <a className={linkClass} href={downloadUrl(token, 'documentation.html')}>
-              HTML
-            </a>
-          </div>
-        </div>
+    <div className="min-h-screen bg-[var(--surface-default)] font-sans text-gray-900">
+      <header className="sticky top-0 z-30 flex h-14 items-center border-b border-white/10 bg-[var(--e3-space-blue)] px-4 sm:px-6">
+        <AgencyBrand />
       </header>
 
-      <div className={`${PAGE_MAX_WIDTH_CLASS} px-4 sm:px-8`}>
-        <SharedGoogleSignIn token={token} />
-      </div>
-
-      <div className={`${PAGE_MAX_WIDTH_CLASS} px-4 sm:px-8 py-6 lg:flex lg:gap-8 lg:items-start`}>
+      <div className="w-full px-4 py-6 sm:px-8 lg:flex lg:items-start lg:gap-6">
         <SharedNav
           items={filteredNav}
           allItems={nav}
@@ -697,19 +680,26 @@ export function SharedProject({ token }: { token: string }) {
           onNavigate={navigateTo}
         />
 
-        <main className="flex-1 min-w-0 space-y-6">
+        <main className={`flex-1 min-w-0 space-y-6 ${PAGE_MAX_WIDTH_CLASS}`}>
+          <div className="space-y-4 border-b border-[var(--border-default)] pb-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex min-w-0 flex-1 basis-64 items-start gap-3">
+                {header.project.client_logo_path && <img src={fileUrl(header.project.client_logo_path)} alt="" className="h-10 w-10 shrink-0 object-contain" />}
+                <div className="min-w-0">
+                  <h1 className="text-2xl font-bold leading-tight [overflow-wrap:anywhere]">{header.project.name}</h1>
+                  {header.client.name && <p className="mt-1 text-sm text-gray-500 [overflow-wrap:anywhere]">{header.client.name}</p>}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {(present.events || present.properties || present.useCases || present.catalogs || present.mapping) && <ExpandToggles label="rows" onExpand={expandAll} onCollapse={collapseAll} />}
+                <Button variant="outline" size="sm" asChild><a href={downloadUrl(token, 'tracking-document.json')}>JSON</a></Button>
+                <Button variant="outline" size="sm" asChild><a href={downloadUrl(token, 'documentation.html')}>HTML</a></Button>
+              </div>
+            </div>
+            <SharedGoogleSignIn token={token} />
+          </div>
           {commentLink.kind === 'invalid' && <p role="status" className="rounded border border-amber-200 bg-amber-50 p-3 text-sm">This comment link is not valid.</p>}
           {commentLink.kind === 'target' && !linkedComment && !loading && <p role="status" className="rounded border border-amber-200 bg-amber-50 p-3 text-sm">This comment is unavailable in this view.</p>}
-          <div className="md:hidden flex flex-wrap gap-3 text-xs">
-            {(present.events || present.properties || present.useCases || present.catalogs || present.mapping) && <ExpandToggles label="rows" onExpand={expandAll} onCollapse={collapseAll} />}
-            <a className={linkClass} href={downloadUrl(token, 'tracking-document.json')}>
-              Download JSON
-            </a>
-            <a className={linkClass} href={downloadUrl(token, 'documentation.html')}>
-              Download HTML
-            </a>
-          </div>
-
           {present.events && (
             <section id={SECTION_IDS.events} style={marginTop('section')} className="space-y-3">
               <h2
@@ -817,7 +807,7 @@ export function SharedProject({ token }: { token: string }) {
                 { label: 'Name', width: '28%' }, { label: 'Description', width: '40%' }, { label: 'Category', width: '15%' }, { label: 'Type', width: '9%' }, { label: 'Actions', width: '8%' },
               ]}>
               {items.map((p) => (
-                <PropertyRow
+                <SharedPropertyRow
                   key={p.property_id}
                   property={p}
                   anchor={refIndex.propertyAnchorById.get(p.property_id) ?? p.property_id}
@@ -850,7 +840,7 @@ export function SharedProject({ token }: { token: string }) {
                   <div key={group.category} id={propertyGroupId(group.category)} style={marginTop('group')} className="space-y-3">
                     <div
                       style={{ height: STICKY_PX.groupHeader }}
-                      className={`sticky ${HEADER_TOP_CLASS} z-[15] flex items-center justify-between gap-2 bg-gray-50`}
+                      className={`sticky ${HEADER_TOP_CLASS} z-[15] flex items-center justify-between gap-2 border-y border-[var(--border-default)] bg-gray-100 px-3`}
                     >
                       <h3 className="text-sm font-semibold text-gray-700">
                         {PROPERTY_CATEGORY_LABELS[group.category]} ({group.items.length})
@@ -864,7 +854,7 @@ export function SharedProject({ token }: { token: string }) {
                     {group.subgroups.length > 0
                       ? group.subgroups.map((sub) => (
                           <div key={sub.kind} id={propertyKindGroupId(sub.kind)} style={marginTop('event')} className="space-y-2">
-                            <h4 className="text-xs font-semibold uppercase text-gray-500">
+                            <h4 className="pl-4 text-xs font-semibold uppercase text-gray-500">
                               {sub.label} ({sub.items.length})
                             </h4>
                             {renderRows(sub.items)}

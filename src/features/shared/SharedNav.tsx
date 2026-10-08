@@ -3,6 +3,7 @@
  * a dropdown below 1024px. The item whose target is on screen is highlighted (`activeId`).
  */
 import React, { useEffect, useRef, useState } from 'react';
+import { Input } from '@/src/components/ui/Input';
 import { FieldLabel } from '@/src/components/ui/FieldHint';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { EntityIcon } from '@/src/components/ui/EntityIcon';
@@ -43,7 +44,7 @@ export function SharedNav({
     // D-64: the sidebar's icon on each top-level section entry.
     const Icon = depth === 0 ? SHARED_SECTION_ICONS[item.id] : undefined;
     const icon = Icon ? (
-      <Icon size={14} className="mr-1.5 shrink-0 text-gray-500" aria-hidden="true" />
+      <Icon size={16} className="mr-1.5 shrink-0 text-gray-500" aria-hidden="true" />
     ) : depth > 0 && !hasChildren && item.id.startsWith('event-') ? (
       <EntityIcon kind="event" className="mr-1.5" />
     ) : null;
@@ -72,7 +73,7 @@ export function SharedNav({
               type="button"
               onClick={() => setCollapsed((prev) => toggleInSet(prev, item.id))}
               aria-expanded={isOpen}
-              className="flex min-w-0 flex-1 items-center rounded py-1 pl-1 pr-2 text-left text-sm font-medium text-gray-800 hover:bg-gray-50"
+              className="flex min-w-0 flex-1 items-center rounded-md py-2 pl-1 pr-2 text-left text-sm transition-colors font-medium text-gray-800 hover:bg-gray-50"
               title={item.label}
             >
               {icon}
@@ -87,9 +88,9 @@ export function SharedNav({
                 onNavigate(item.id);
               }}
               aria-current={item.id === activeId ? 'location' : undefined}
-              className={`flex min-w-0 flex-1 items-center rounded py-1 pl-1 pr-2 text-sm ${
+              className={`flex min-w-0 flex-1 items-center rounded-md py-2 pl-1 pr-2 text-sm transition-colors ${
                 item.id === activeId
-                  ? 'bg-gray-100 font-semibold text-gray-900 border-l-2 border-[var(--color-info)]'
+                  ? 'bg-[var(--color-info)]/10 font-medium text-[var(--color-info)]'
                   : depth === 0
                     ? 'font-medium text-gray-800 hover:bg-gray-50'
                     : 'text-gray-600 hover:bg-gray-50'
@@ -128,16 +129,16 @@ export function SharedNav({
         </select>
       </div>
       <aside className="hidden lg:block w-64 shrink-0 self-stretch">
-        <nav ref={navRef} aria-label="Contents" className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto pr-1">
-          <input
+        <nav ref={navRef} aria-label="Contents" className="sticky top-20 max-h-[calc(100vh-6rem)] overflow-y-auto rounded-lg border border-[var(--border-default)] bg-[var(--surface-panel)] p-4">
+          <Input
             type="search"
             value={query}
             onChange={(e) => onQuery(e.target.value)}
             placeholder="Filter events and sections"
             aria-label="Filter navigation"
-            className="w-full mb-2 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
+            className="mb-3 h-9 w-full"
           />
-          <ul>{items.map((i) => renderItem(i, 0))}</ul>
+          <ul className="space-y-1">{items.map((i) => renderItem(i, 0))}</ul>
           {items.length === 0 && <p className="text-xs text-gray-400 px-2">No match.</p>}
         </nav>
       </aside>

@@ -3702,3 +3702,19 @@ Upload AbortSignal.timeout scaled by size (max 10 min), 408 retryable; token ret
 
 ### 2026-10-08 | supervisor | MERGE + RUNBOOK | T-5-08 merged — DONE; phase 5 step 2 code complete
 Merge a7ed51d. Merged tree: tsc, lint, build clean, 2008 tests / 200 files. Runbook: .claude/team/reports/GO-LIVE-RUNBOOK.md (steps 0-9, user executes). Nothing running. Remaining with the user: run the runbook; rebuild the local container; T-4-06 samples.
+
+### 2026-10-08 11:37 | codex-supervisor -> ALL | DECISION | -
+User approved D-73..76 and cooperation model. Sole team writer Codex; separate implementation/review/QA; accepted task commits/integration into agent-setup authorized; main untouched. Plan: .claude/team/reports/PLAN-SHARED-PORTAL-2026-10-08.md:1. Existing six local deployment changes remain separate.
+
+### 2026-10-08 11:37 | codex-supervisor -> ALL | INFO | T-5-10
+Starting deployment reconciliation from agent-setup 18b7883. Verify live state read-only; record unverified facts, preserve deployment patch without machine config or credentials. Next: isolated portal/comment tasks.
+
+
+### 2026-10-08 11:39 | codex-supervisor -> ALL | PASS | T-5-10
+Deployment handover reconciled, with evidence and unverified items in .claude/team/reports/DEPLOYMENT-HANDOVER-2026-10-08.md:1. SDK VM running e2-micro; live HTTPS health ok, migration0036, upload health true. Production image/bucket restore/monitoring/MCP pending T-5-16; SSH blocked by local non-ASCII SDK path, to repair locally. Existing code diff preserved; machine config excluded. No production changes.
+
+### 2026-10-08 11:39 | codex-supervisor -> portal-implementer | INFO | T-5-12
+Starting shared table task in C:/Users/Ján Pan/.codex/worktrees/shared-portal/e3-tracking on task/T-5-12-shared-tables (base18b7883). Owner shared page/navigation/table styles only. Acceptance in approved plan; no team-record writes.
+
+### 2026-10-08 11:39 | codex-supervisor -> comments-implementer | INFO | T-5-13
+Starting identity task in C:/Users/Ján Pan/.codex/worktrees/shared-comments/e3-tracking on task/T-5-13-comment-identity (base18b7883). Owner comment frontend/backend/domain and migration0037. T-5-14 follows after identity handover/review. No shared-page/table or team-record edits.

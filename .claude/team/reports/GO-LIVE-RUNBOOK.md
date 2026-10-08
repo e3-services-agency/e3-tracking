@@ -1,3 +1,4 @@
+> Current handover (2026-10-08): the VM is running and the HTTPS health endpoint passes. It reports writable data, schema migration0036, and successful last backup upload. See DEPLOYMENT-HANDOVER-2026-10-08.md for exact evidence and remaining independent checks. The original numbered steps below are retained as the operating runbook; their historical "user executes" wording is superseded by the user's authorization for Codex to deploy reviewed changes and the coordination rules in D-73. Credentials remain outside Git.
 # Go-live runbook: e3-tracking on GCP (D-72)
 
 Branch `agent-setup` a7ed51d. You run every step from Git Bash in the repo root. Every script accepts `--dry-run` (prints the exact gcloud commands, executes nothing) and asks y/N once before its first change. Run each step with `--dry-run` first. Full reference: `docs/DEPLOY.md`, chapter "GCP deployment".

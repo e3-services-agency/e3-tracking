@@ -96,6 +96,12 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-5-09 | 5 | MCP over IAP SSH (D-72 item 7): `.mcp.json.gcp.example` using `gcloud compute ssh --tunnel-through-iap` into `docker compose exec -T app node api/_backend/mcp.js`; entrypoint `mcp` mode verified; docs/MCP.md remote section; smoke test instructions | implementer | T-5-07 | DONE | after T-5-07 |
 | T-4-EXIT | 4 | Phase 4 exit: qa-roundtrip 1 to 13 plus MCP smoke on merged agent-setup, report to user | supervisor | T-4-05 | DONE | see below |
 
+| T-5-10 | 5 | Reconcile actual deployment and preserve local deployment diff | codex-supervisor | T-5-09 | DONE | reports/PLAN-SHARED-PORTAL-2026-10-08.md |
+| T-5-12 | 5 | Shared entity tables and wrapping sidebar | portal-implementer | T-5-10 | IN_PROGRESS | reports/PLAN-SHARED-PORTAL-2026-10-08.md |
+| T-5-13 | 5 | Stable commenter identity and every composer attribution | comments-implementer | T-5-10 | IN_PROGRESS | reports/PLAN-SHARED-PORTAL-2026-10-08.md |
+| T-5-14 | 5 | Comment links and Markdown copy | comments-implementer | T-5-13 | TODO | reports/PLAN-SHARED-PORTAL-2026-10-08.md |
+| T-5-15 | 5 | Verified Google shared commenter identity | auth-implementer | T-5-13 | TODO | reports/PLAN-SHARED-PORTAL-2026-10-08.md |
+| T-5-16 | 5 | Integration review, browser QA, docs and deployment | codex-supervisor | T-5-12, T-5-14, T-5-15 | TODO | reports/PLAN-SHARED-PORTAL-2026-10-08.md |
 Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktrees after T-1-02 merges. Everything else is sequential per the dependency column.
 
 ## Acceptance criteria

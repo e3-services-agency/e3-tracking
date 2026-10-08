@@ -85,3 +85,8 @@ Out of scope by decision: the journey canvas, journey-scoped QA runs, the manual
 - Exact discriminators per event are a discovery decision per client; the tool must make the choice explicit and visible.
 - Client editing workflow (beyond read/comment) is a later phase.
 - The 90 standard use cases will be provided by the user when the library import is scheduled.
+
+## 7. Approved shared portal work and coordination (2026-10-08)
+User approved shared tables/full wrapping names/descriptions/icons; root/reply identities, comment deep links/Markdown copy; verified Google name/avatar and stable editable anonymous animal/color identities. D-73..76 and reports/PLAN-SHARED-PORTAL-2026-10-08.md are authoritative. Targeted UI redesign is now in scope; journey features remain out of scope.
+Codex is coordinator and sole team-record writer for these tasks, with separate implementer/reviewer/QA roles. Accepted task commits and integration into agent-setup are authorized; main untouched. Preserve existing deployment changes separately.
+Live hosting status is reconciled in T-5-10; historical "user executes" board entry is not current evidence. New tasks T-5-12..16. Google authentication locally verified with injected verifier and then checked with real host consent separately; shared-token permission boundary remains. Internal staff OAuth must not be widened to support personal Gmail. Project creation/billing remains governed by D-72.

@@ -521,3 +521,19 @@ Tasks after approval: T-5-06 `AUTH_MODE=proxy` + header trust + Caddy/oauth2-pro
 
 ### D-72 amendment 1 (2026-10-07, user): cheapest EU VM, hostname confirmed
 Machine type default `e2-micro` (shared core, 1 GB) in europe-west1 (lowest-priced EU tier), with a 2 GB swap file created by the startup script; upgrade path `e2-small` by changing `MACHINE_TYPE` in `deploy/gcp/config.env` and recreating the instance (data disk untouched). Hostname `tracking.e3-services.com` confirmed. Approximate cost 6 to 7 EUR per month plus disk (about 2 EUR) and the static IP.
+
+## D-73 Shared portal cooperation and scoped redesign
+Date: 2026-10-08 Status: accepted (user "Full approval", then "Proceed as proposed")
+Codex coordinates this work; one writer of team records; separate implementation/review/QA agents. Accepted tasks are committed and integrated into agent-setup after review and QA; main untouched. Existing deployment changes remain separate. Targeted shared tables/readability amend D-07 and D-50; no journey functionality. Approved plan/acceptance: reports/PLAN-SHARED-PORTAL-2026-10-08.md.
+
+## D-74 Comment participant identity and composer attribution
+Date: 2026-10-08 Status: accepted
+Amends D-70: every root/reply editor shows posting identity. Guests have per-share stable animal/color identity and editable name; required-name requires explicitly supplied name or verified Google identity. Ownership uses stable identity distinct from display name. Verified name/photo comes from server verification, never browser-supplied attribution. Preserve existing comments/reactions and backup restore. Reserve migration 0037 for T-5-13; no reuse of existing numbers.
+
+## D-75 Comment deep links and Markdown copy
+Date: 2026-10-08 Status: accepted
+Amends D-71: copy-link and copy-Markdown actions on roots/replies and whole-thread Markdown copy. Links expand entity/thread/replies and focus/highlight the target. Export only comments/attachments visible to the current viewer; entity/document exports still do not include comments by default.
+
+## D-76 Google identity for shared commenters
+Date: 2026-10-08 Status: accepted
+Google Identity Services, server-verified token/session, minimal profile scopes; explicit sign-in and eligible Google auto sign-in, no Chrome profile inspection. Shared Google identity never increases share permissions. Existing Internal staff OAuth remains restricted. Personal Gmail requires separate External configuration/project; existing D-72 restriction on agent project/billing creation remains until explicitly changed. Local verifier fixtures plus actual host sign-in smoke are distinct evidence. Reserve migration 0038 for T-5-15 if necessary.

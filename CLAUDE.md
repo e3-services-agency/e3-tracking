@@ -125,7 +125,7 @@ The repo root `.mcp.json` registers the server for Claude Code. Native Windows h
 }
 ```
 
-On macOS/Linux/WSL/Git Bash (already a shell) the plain POSIX form (`"command": "npx", "args": ["tsx", "src/mcp/server.ts"]`) works too. See `docs/MCP.md` for the full smoke test and the tool list with expected shapes.
+On macOS/Linux/WSL/Git Bash (already a shell) the plain POSIX form (`"command": "npx", "args": ["tsx", "src/mcp/server.ts"]`) works too. See `docs/MCP.md` for the full smoke test and the tool list with expected shapes. `.mcp.json.gcp.example` is the same server reached on the GCP VM over an IAP SSH tunnel (`gcloud compute ssh --tunnel-through-iap ... docker compose run --rm -T mcp`, T-5-09, `deploy/gcp/07-mcp.sh`).
 
 ### Migrations (`src/backend/db/migrations/`)
 - `0001_core.sql` — schema v1: the full target data model (clients, projects, events, properties, variants, use cases, requirements, QA runs, observations, findings, and the rest).

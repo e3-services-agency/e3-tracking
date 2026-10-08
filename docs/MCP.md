@@ -245,3 +245,31 @@ platform-sensitive to run on every CI pass).
 2. Register it in `src/mcp/registerTools.ts` with a zod input shape and a one-line description.
 3. Add a handler test next to the others in `src/mcp/tools/tools.test.ts` (or a new `*.test.ts` file),
    calling the handler directly against `:memory:`.
+
+## Remote (GCP) access (T-5-09, D-72 item 7)
+
+On the GCP VM the MCP server is not exposed on any port. Claude Code starts it on demand over an IAP SSH
+tunnel: `gcloud compute ssh --tunnel-through-iap` runs `docker compose run --rm -T mcp` on the VM, and the
+SSH session's stdin/stdout carry the stdio JSON-RPC stream. The container reads and writes the same SQLite
+file as the app (`/data` on the VM data disk, via `docker-compose.gcp.yml`). Access is governed by IAP/OS
+Login IAM, nothing else.
+
+Copy the `e3-tracking-gcp` block of `.mcp.json.gcp.example` into your `.mcp.json` (or run
+`deploy/gcp/07-mcp.sh`, which prints the block with the values from your `config.env` and smoke-tests it;
+`--dry-run` prints the commands only). A POSIX variant (`"command": "gcloud"`, no `cmd /c`) is in the example too.
+
+Stdout must carry JSON-RPC only, so:
+- `--quiet` stops gcloud from prompting or printing progress/key-generation notices on stdout.
+- `compose run -T` disables the pseudo-TTY (a TTY would merge stderr into stdout, add CRs and echo input).
+  `--command` runs without a TTY by default; `-- -T` after it passes `-T` to ssh so it never allocates one
+  (and `gcloud compute ssh --command ... -- -t` is the opposite flag, do not add it).
+- The entrypoint and all MCP logs write to stderr only (`src/mcp/log.ts`); compose's "Creating/Running"
+  lines also go to stderr. `src/deploy/mcpContainer.test.ts` runs the real image through
+  `docker compose run --rm -T mcp` (base compose file, not the VM command or the ssh hop) and asserts every stdout line is JSON-RPC and `tools/list` has 29 tools.
+- `E3_PROJECT_KEY` is set with `-e E3_PROJECT_KEY=<key>` inside the remote command (the environment of
+  your laptop does not reach the container through ssh).
+
+Expect a few seconds of startup per session (SSH handshake through IAP plus a container start, longer on
+the e2-micro); Claude Code keeps the process for the whole session, so the cost is paid once. Every tool call
+afterwards is a normal local-to-VM round trip. If a session hangs, run the printed command by hand and read
+stderr (IAP permission `roles/iap.tunnelResourceAccessor`, OS Login, passwordless `sudo` for the user (`roles/compute.osAdminLogin`, or docker group membership), `.env` on the VM).

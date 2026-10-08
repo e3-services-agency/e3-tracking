@@ -3,7 +3,8 @@
  * the config values, and never contains a destructive verb. Skipped when bash is not available.
  */
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -93,5 +94,16 @@ describe.skipIf(!hasBash)('deploy/gcp --dry-run', () => {
       env: { ...process.env, CONFIG: path.join(dir, 'config.env.example') },
     });
     expect(r.status).toBe(2);
+  });
+});
+
+describe.skipIf(!hasBash)('07-mcp.sh json_str', () => {
+  it('escapes backslashes and quotes', () => {
+    const fn = readFileSync(path.join(dir, '07-mcp.sh'), 'utf8').split(/\r?\n/).find((l) => l.startsWith('json_str()'))!;
+    const input = String.fromCharCode(97, 92, 98, 34, 99); // a"c
+    const script = path.join(os.tmpdir(), `jsonstr-${process.pid}.sh`);
+    writeFileSync(script, `${fn}\nIFS= read -r x\njson_str "$x"\n`);
+    const r = spawnSync('bash', [script.split(path.sep).join('/')], { encoding: 'utf8', input: input + '\n' });
+    expect(r.stdout).toBe(String.fromCharCode(34, 97, 92, 92, 98, 92, 34, 99, 34));
   });
 });

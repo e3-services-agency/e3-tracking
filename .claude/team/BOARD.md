@@ -3987,3 +3987,53 @@ T16 DONE: reviewed portal release deployed, full2093-test/build/lint gates pass,
 
 ### 2026-10-08 15:07 | codex-supervisor -> ALL | DECISION | T-5-18
 User approved the three UI refinements. D-77 and PLAN-UI-CONSISTENCY record exact scope, boundaries, owners and gates; D-73 cooperation persists. T18 property/count component and T19 shared presentation use separate existing worktrees; T20 integrates after separate review/QA, then local/browser/live verification. Root owns team records; main, staging and machine.mcp preserved. Existing live01b4230-dirty/schema0038 remains healthy baseline.
+
+### 2026-10-08 15:23 | codex-supervisor -> ALL | INFO | T-5-18
+T18 owner reports focused10/2, build/lint/diff PASS; five UI/component/test files stable for independent review. T19 owner reports focused45/5, tsc/colorlint/diff PASS; shared layout/AgencyBrand files stable for review, copied T18 badge excluded from its commit. Separate QA assigned; disposable schema0038 fixture restored50properties53definitions8comments with0warnings on owned API41608, staging untouched. Acceptance remains pending reviewer and browser QA; no source commit/integration yet.
+
+
+### 2026-10-08 15:27 | properties-implementer -> codex-supervisor | HANDOFF | T-5-18
+Stable task/T-5-18-property-hierarchy at bd2d17d base;5scoped UI/component/test files uncommitted. Name count includes general/1definition, accessible expansion isolated from drawer/copy, category/property/definition hierarchy and full wrapped names. Owner focused10/2, build/lint/diff PASS; separate reviewer and QA pending. Normal-directory dependencies safely refreshed with package/lock unchanged; full suite deferred to one integrated coordinator run.
+
+### 2026-10-08 15:27 | portal-implementer -> codex-supervisor | HANDOFF | T-5-19
+Stable task/T-5-19-shared-presentation at bd2d17d base; shared UI/layout-only AgencyBrand+Header/test changes uncommitted. Internal styling/control primitives,1400content after256sidebar, wrapped titles/leaves and public definition counts. Owner45tests/5files, tsc/colorlint/diff PASS; separate review/QA pending. Copied T18 badge SHA2562B7EDB9E3322F9DD542D2700747CB69F2EC0E708C11BE5C1855B329BF4D8C3F1 excluded from T19 commit; no backend/auth/package/cloud/process edits.
+
+
+### 2026-10-08 15:31 | auth-reviewer -> codex-supervisor | PASS | T-5-18
+Independent whole-file review and focused10tests/2files PASS, diffclean. Noninteractive badge and propagation-safe expansion preserve drawer/copy/filter/sort, aligned name-column hierarchy. Separate QA begins; no acceptance/commit yet.
+
+### 2026-10-08 15:31 | auth-reviewer -> portal-implementer | FAIL | T-5-19
+TwoP2 presentation blockers: actual shared definition start computes14px left of parent rather than deeper; AgencyBrand current/branding URL is outside existing publicedgeassets allowlist, causing anonymoussharedlogo fallback. Frontend-only indentation and bundled-asset correction assigned; noedge/auth boundary expansion. Focused45/5 PASSdoesnotcoverthesevisual/production-routecases.
+
+
+### 2026-10-08 15:34 | auth-reviewer -> codex-supervisor | PASS | T-5-20
+Independent operational helper review confirms exact prioracceptedlogic with only4declared schema0038/snapshotprefix/message substitutions, BashsyntaxPASS. Runtimeexisting registrydigest captured, schema0038 verification, checkedquiescence/Docker/find, privatearchives/checksums, preservation/uid1000/digest recovery protections retained. Saved durable helper reports/ops/e3-maintenance-ui-schema0038.sh; no maintenanceexecutionyet.
+
+
+### 2026-10-08 15:37 | ui-consistency-qa -> codex-supervisor | PASS | T-5-18
+Actualdesktop/narrow390 browserPASS:51visiblepropertynamecounts including1/general/action4; countclick/Enter/Spaceexpandinlinewith0dialogs; separateDefinitions(4)openseditor, copy/sort/filter/expandall/collapseall preserved. Measuredcategory328.8/property360.8/definition384.8 xcoordinates show32pxthen24px hierarchy; othercolumns aligned. Longnameand2countfullyreadable,1100px table scrollcontained. Screenshots OS-temp e3-ui-property-desktop.png/e3-ui-property-narrow.png; ownedVite45112/API41608fixture preserved.
+
+### 2026-10-08 15:37 | auth-reviewer -> codex-supervisor | PASS | T-5-19
+Correctedsource reviewPASS: definitionpl20 putslabel18pxdeeper thanparent; exactbytecopiedlogoimportedintoexistingpublicassets route, noedge/authchanges. Independentcorrectedpresentation5/1PASSplusprior45/5 baseline, diffclean. Finalemittedasset buildproofandbrowserQA pending beforeacceptance.
+
+### 2026-10-08 15:37 | codex-supervisor -> ALL | INFO | T-5-20
+Fresh04backupdryrunreviewed; actualremotejobreports2written/2uploaded/0failureswithremoteexit0 at2026-10-08T13-35-19-658Z (airshoppen1068608bytes,sandbox698425bytes). WindowsSDKouterprocessreturned1despiteremote0, sooffsiteobjectread/download+restoreareindependentacceptancegates. No schema/statechange; existingcurrentimage01b4230-dirty/schema0038healthPASS.
+
+
+### 2026-10-08 15:42 | codex-supervisor -> ALL | PASS | T-5-18
+AcceptedT18afterseparatereviewandactualbrowserQA; scopedcommit4b18de7 integratedintoagent-setupas a147a5f. Exactly5approvedUI/testfiles; sourceworktreeclean. Coordinatorpreservesmachine.mcp. T19correctedproductionbuildemitsassets/agency-logo-DOBV0Mr7.pngwithoriginalbytes; independentreviewfinalPASS, separatebrowsercomments/export/narrowchecksongoing.
+
+
+### 2026-10-08 15:44 | codex-supervisor -> ALL | PASS | T-5-20
+Fresh off-site objects independently downloaded at expected sizes; both restored through real services with 0 warnings. Airshoppen: 23 events, 194 properties, 250 definitions, 1 comment. Sandbox: 15 events, 50 properties, 53 definitions, 10 comments, 2 attachments. Current production user activity is retained; the new maintenance snapshot will record current counts rather than assuming the previous release's 9 total comments. VM free space is 20GB on data and 13GB on root; privileged size/tool check follows.
+
+
+### 2026-10-08 15:54 | ui-consistency-qa -> codex-supervisor | PASS | T-5-19
+Corrected desktop and390px browser QA PASS: property/definition start390.8/408.8px desktop and94.8/112.8px narrow, child18pxdeeper; mobile document375px within390 viewport, JumpTo/fulllongnames/counts readable, logo loaded2000 naturalwidth. Disposable namedguestroot/reply andcopyMarkdown/link feedback PASS. Readaccess preservescommentswith0composers/Post/Reply/edit/delete; JSON/HTML200, privatemarker absent DOM/both exports, consoleerrors0. Screenshots OS-temp e3-ui-shared-desktop.png/e3-ui-shared-narrow.png. Fixture restore retry hitWindowsuser-inforesourceerror; autoreviewrejected combined retry including permissionchange, sofixture remainsread-only androot'scompletedindependentbackuprestorescovergate. No productionchanges/QAserverskilled.
+
+### 2026-10-08 15:57 | codex-supervisor -> ALL | INFO | T-5-20
+Accepted T19 commit2f3283a integrated as80ec422 after final separate reviewer and actual desktop/narrow/comment/read/export QA PASS. One final controlled full suite and lint/build now run against combined accepted source. Schema remains0038; no source/auth/edge/dependency change outside the12 approved UI/component/test/asset files. Staging/main/machine.mcp preserved.
+
+
+### 2026-10-08 15:58 | auth-reviewer -> codex-supervisor | PASS | T-5-20
+Final combined spot review at80ec422 confirms all5T18 and7T19 files exactly match accepted owner commits; sharedbadge and logo hashes intact, identity mountedonce, correctedpl20 preserved. Only12 assignedfrontendfiles in source delta, with no backend/projection/auth/migration/deploy/package expansion. Final integrated fullsuite/build gates ongoing.

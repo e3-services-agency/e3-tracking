@@ -110,6 +110,8 @@ Status flow and rules in the `board-protocol` skill. Task IDs `T-<phase>-<nn>`. 
 | T-5-22 | 5 | Identity rule, catalog and definition comments and filtered history | collaboration-implementer | T-5-21 | DONE | reports/PLAN-COLLABORATION-2026-10-08.md |
 | T-5-23 | 5 | Immutable numbered QA reports and persistent finding discussions | qa-reports-implementer | T-5-22 | DONE | reports/PLAN-COLLABORATION-2026-10-08.md |
 | T-5-24 | 5 | Collaboration integration, independent review, QA and release | codex-supervisor | T-5-21, T-5-22, T-5-23 | DONE | reports/PLAN-COLLABORATION-2026-10-08.md |
+| T-5-25 | 5 | Compact shared Markdown controls and finding typography correction | portal-implementer | T-5-24 | DONE | D-81; reports/PLAN-COMPACT-SHARED-UI-2026-10-08.md |
+| T-5-26 | 5 | Available verified Google profile photo propagation and rendering | auth-implementer | T-5-24 | DONE | D-82 |
 
 Parallelism: T-1-03, T-1-04 and T-1-06 may run concurrently in separate worktrees after T-1-02 merges. Everything else is sequential per the dependency column.
 

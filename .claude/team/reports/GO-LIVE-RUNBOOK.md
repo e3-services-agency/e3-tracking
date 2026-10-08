@@ -1,6 +1,12 @@
 # Live GCP upgrade runbook: e3-tracking
 
-## Current release — collaboration, 2026-10-08
+## Current release — compact UI and Google photos, 2026-10-08
+
+Live `b2b31be-dirty`, exact schema `0040_qa_reports.sql`, immutable manifest `sha256:d7f42dc234e78c1acc551de5a1832c6599df37ab7d4b76a06843a1ad86203dcf`. T25/T26 complete: compact Markdown row icons,14px finding text, available Google photos. Full2196tests/228files, lint/build and separate source/browser/real-photo QA passed. Live integrity/FK/sequences and latest genuine user data retained:13comments/77findings/1QA-report59items/4attachments9reactions plus all existing projects/entities.
+
+Complete recovery snapshot `/var/backups/e3-tracking/pre-collaboration-0040-20261008T210221Z` pins prior6548b941... manifest; use the reviewed0040 helper, never the historical0038 helper or image-only downgrade. It preserves failed-release data/config before full restore. Restore proxy config disabling access-token forwarding before accepting old edge config. Active edge strips allthree public OAuth tokenheaders bothways, verified/reloaded BEFORE the proxy access-token flag. Private settings exceptIMAGE are unchanged; no new scopes or identity changes. Final04offsite2026-10-08T21-09-56-204Z both downloaded/restored0warnings; MCP29tools PASS. Authoritative [final release evidence](COMPACT-UI-PHOTO-RELEASE-2026-10-08.md).
+
+## Previous release — collaboration, 2026-10-08
 
 Live `52f986a-dirty`, schema `0040_qa_reports.sql`; manifest `sha256:0152966e6db99a8b99f2fe3f2b7c11f7e77f116e513768557411c51500fb9f39`. Full2166tests/223files, lint/build and independent review/QA passed. Live integrity/FK/sequences passed;2clients/2projects/12comments retained with244properties/303definitions/38events. Reports begin with the next real comparison. OAuth/configuration and edge services verified unchanged.
 

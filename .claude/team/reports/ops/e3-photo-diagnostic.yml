@@ -1,0 +1,6 @@
+services:
+  app:
+    environment:
+      NODE_OPTIONS: --require=/app/e3-photo-preload.cjs
+    volumes:
+      - /home/jan_pan/e3-upgrade/e3-photo-preload.cjs:/app/e3-photo-preload.cjs:ro

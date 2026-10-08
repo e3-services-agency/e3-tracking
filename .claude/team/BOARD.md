@@ -4175,3 +4175,128 @@ Live52f986a-dirty/schema0040 PASS: candidate app/backup manifest0152966e, health
 
 ### 2026-10-08 21:11 | collaboration-architect -> codex-supervisor | PASS | T-5-24
 Independent final release/runbook review PASS after correcting one stale current0038 phrase to pre-upgrade0038 baseline. Recovery distinction and measured validation claims match evidence. Root retired identity-verified QA PID48868/port3011 and temporary tabs11..14; production/user tabs retained and staging untouched. T24DONE; final source and handover record complete.
+
+### 2026-10-08 21:22 | codex-supervisor -> ALL | INFO | T-5-25
+Starting user-requested shared UI correction: long visible Markdown button labels stretch event/property Actions rows, and individual finding paragraphs inherit oversized page text. Scope: icon-only compact copy controls with accessible labels/tooltip and feedback, matching finding typography; no schema/API/auth/dependency changes. Existing scoped integration/release authorization applies; separate implementation/review/browser QA precede release. Preserve main/staging/machine.mcp.
+
+### 2026-10-08 21:27 | codex-supervisor -> ALL | INFO | T-5-26
+User added Google profile photo loading when available. Investigate verified Google photo propagation/rendering and Workspace-session reuse; preserve attribution namespaces and authentication/share boundaries. T25 compact UI candidate owner24tests/lint/build PASS, independent source review PASS; local browser acceptance continues. No release yet; photo diagnosis is separate, no new scopes or credentials assumed.
+
+### 2026-10-08 21:33 | collaboration-reviewer -> codex-supervisor | PASS | T-5-25
+Independent final source review PASS,30 focused tests across4files, no skips and diff-check clean. Browser typography/compact Actions acceptance remains before integration.
+
+
+### 2026-10-08 21:33 | collaboration-reviewer -> codex-supervisor | PASS | T-5-26
+Diagnosis confirmed deployed OAuth2 Proxy7.6 userinfo omits picture. Approved implementation approach uses only fixed internal cookie-authenticated ID token with full verification/email-domain binding to existing staff identity; safe photo only, no browser token/header leakage or new scopes. Missing/invalid images retain initials. Covers internal and shared identity with common avatar renderer.
+
+
+### 2026-10-08 21:44 | codex-supervisor -> ALL | INFO | T-5-25
+Actual local browser compact buttons29.6px and Copiedfeedback PASS; finding14px matches table14px, fullbreak-word wrap independently reviewed PASS. Desktop Actions exposed copy-name wrapping, ownercorrected scoped180pxcolumn/min148nowrap pending rebuild. Current VM0040 readonly integrity/FK/sequence checks PASS; current live user data has13comments/4attachments/9reactions, so preserve this newer baseline rather than prior release12/2/7. Pre-release19:23 offsite both restored0warnings; exact quiescent snapshot will capture latest data.
+
+
+### 2026-10-08 21:48 | collaboration-architect -> codex-supervisor | PASS | T-5-26
+Edge activation order reviewed: snapshot0040 first, inode-preserving Caddy overwrite, verifycontainer-visiblehash/validate/reload/activeadminconfig stripping BEFORE03proxyflag activation. Abortifgatefails. Rollbackforce-recreates restoredoldproxy/config; verifyproxyflagdisabledbeforeacceptingoldedge. Helperremains unchanged; separate active-config auditor pendingreadonlyreview.
+
+
+### 2026-10-08 21:49 | profile-photo-implementer -> codex-supervisor | HANDOFF | T-5-26
+Task:T-5-26 availableverifiedGooglephotos; branch task/T-5-26-profile-photo in shared-auth.11scopedfiles cover verifiedstaff IDtokenphoto/internalrootreply snapshots, commonavatarfailurefallback/sharedbar, compose/Caddyresponseisolation andauthdocs.54tests/7files lint/build/diffPASS. No tokenpersist/newscope/namespacechanges. Existingnullhistoricalcomments remaininitials; expired/missingcredentialsinitialsuntilnormalrefresh. ReviewerfinalsourcePASS; independenttests/localQAthencommit stillpending.
+
+
+### 2026-10-08 21:49 | collaboration-reviewer -> codex-supervisor | PASS | T-5-26
+Final independent39tests/4files PASS withoutskips, source/diffPASS. Includes identitybinding, missing/wrong/expired/signatureclaims, browserheaderignored, internalroots/repliesverifiedphoto, legacyname/historicaldata preserved andavatarerror/newURLfallback. Separateowned54tests/7files lint/buildPASS. Deploymentedgeactivation/runtimephoto gates remain.
+
+
+### 2026-10-08 21:50 | codex-qa -> codex-supervisor | PASS | T-5-26
+Local acceptance from independently rerun39tests and inspected54ownerchecks: actualHTTPparticipant/root/replyroute fixture, verifiedemailbinding andinvalidtokenfallback, mountedidentitybar/photoerror/newURL rendering, no-store andbrowseravatar/headerinjection rejection. Source/configreviewPASS. LiveGoogle photo rendering is explicitly not yetclaimed and remains deploymentgate. ScopeacceptedforD73commit/integratedfullsuite.
+
+
+### 2026-10-08 21:50 | collaboration-architect -> codex-supervisor | PASS | T-5-26
+Activeedgeauditor corrected to binddirect/oauth2/* route;4lightfixtures PASS valid/missing/duplicate/protectedunrelatedfalsepositive cases. SHA256B62959F4BC016F366028781DD0B8E7D6D7492B0E662601A7CE31E0A892B79D2E. Usepipefail; verifycontainerfileinode/hashplusactualactiveconfigbeforeresponseflag.
+
+
+### 2026-10-08 21:55 | portal-implementer -> codex-supervisor | HANDOFF | T-5-25
+Final4filecandidate fixescompactevent/property/usecaseMarkdownicons,180pxnowrapActions, relativebuttoncontainmentofsr-onlylabels and14pxwrappingfindingtext.24focusedtests4files lint/build/diffPASS. Rootactualbrowser1280/390containedpage,4actioncentersalign; copyfeedbackPASS andcollapsedrow stayscollapsed. Independentfinalsource/imageQA pendingbeforeacceptedcommit.
+
+
+### 2026-10-08 21:56 | codex-supervisor -> ALL | INFO | T-5-26
+Acceptedphoto source9b68b27 integratedagent-setup as6c10b2d. StagedCaddyhash205C68FC858AA233C003DEA06C5F305A501A15FDBF32EE7189C7D230BFEAB87F andauditorhashB62959F4... verifiedVM; cachednetworkisolatedCaddyvalidatePASS. No liveconfigurationchanged.02dryrunPASS; fullintegratedvalidationawaitsfinalT25mobilelabelseparationcorrection.
+
+
+### 2026-10-08 21:58 | collaboration-reviewer -> codex-supervisor | PASS | T-5-25
+FinalcompactActionsandhiddenlabelcontainment sourcePASS; Certification140px/Actions180px preservefullreadablelabelsandnowrapcontrols.24finalfocusedtests/buildPASS, priorlintPASS, diffPASS. Nofunctional/privacychanges.
+
+
+### 2026-10-08 21:58 | collaboration-architect -> codex-supervisor | PASS | T-5-25
+IndependentactualscreenshotsQA PASS desktop1280/finalmobile390: all4Actionsalign, readableCertificationheadingandlabels, containeddocument1265/375px, full14pxfindingwrap. Rootcopybefore/afterrowcollapsedfalse/false andCopiedfeedbackPASS; browsererrorlogempty. ReadyD73scopedcommit/integratedfullsuite.
+
+
+### 2026-10-08 22:00 | codex-supervisor -> ALL | INFO | T-5-25
+AcceptedUIbfafd41 integratedasb9d5668 afterreview/browserQA; photo9b68b27 integratedas6c10b2d. Combinedfullsuite nowrunningserialworker, nootherheavywork. Existingmachine.mcp remainsuntouched/unread/unstaged; main/stagingpreserved. Releaseawaitsfulltests/rootlintbuild, pre-cacheimageandfresh0040snapshot, orderededgeactivation/photo/headerverification.
+
+
+### 2026-10-08 22:03 | collaboration-architect -> codex-supervisor | PASS | T-5-26
+RealCaddyadapt revealedroute-matchlist vsforwardauthresponse-matchdict parser shape; correctedtypedguard and4fixturesincludingdictshape independentlyPASS. Finalauditor07EC623F139D6C110842693FDBB02AD3AAF1FBD7EC6BBF96025C3F296E48F4D8 reuploaded/hashverified; actualcandidateadaptpipelinenowPASS. This is stagedcandidatevalidation only; liveedgeactivation remainsafterfulltests/snapshot.
+
+
+### 2026-10-08 22:10 | codex-qa -> codex-supervisor | PASS | T-5-25
+Combinedacceptedb9d5668/6c10b2d fullsuite2183tests/227files PASS,602.87s nofailures. Finaltype/lint/buildrunning;02and03b9d5668-dirtydryrunsPASS. Main/staging/machine.mcp preserved; noproductionposts/comparisons. Deployonlyafterbuildandfresh0040snapshot/edgegate.
+
+### 2026-10-08 22:14 | codex-supervisor -> ALL | PASS | T-5-25
+Finalrootlint/type/colors andcombinedbuildPASS; full2183/227PASS.02actualpublishedb9d5668-dirty atimmutablemanifestsha256:6548b941ec313feadc833b4fe1c9cb63490672e2dc7e1d899d28a5fff7eb1308. Dockerfrontendindex-Bkx_8odH.js/index-CoxlLEa9.css (WindowsQAassetdiffersnormally); livecomputed/UI checks remain. Pre-cachingcandidateandretaining0152966oldpin beforedowntime.
+
+
+### 2026-10-08 22:17 | codex-supervisor -> ALL | PASS | T-5-26
+Freshcomplete0040snapshotverified /var/backups/e3-tracking/pre-collaboration-0040-20261008T201530Z pins0152966oldimage; currentwritersstopped. Exactfrozenbaselineintegrity/FK/sequencesPASS:2clients/2projects/13comments/244properties/303definitions/38events/77findings/1realQA-report/59reportitems/2counters/4attachments/9reactions. Usercreatedrealcomparisonwhilerootlocaltestsran; preserve thisgenuine newerbaseline, no rootproductionposts/comparisons. Caddyactivationgate nowrunningbefore03proxyflag.
+
+
+### 2026-10-08 22:18 | codex-supervisor -> ALL | PASS | T-5-26
+Orderedliveedgegate PASS beforeproxyenable: stagedCaddy205c68hash matchedinsideexistingcontainer via inode-preservingoverwrite; Caddyvalidate/reloadPASS; actualactiveadminJSONdirectOAuthAuthorizationrequest/responsedeletionPASS.03b9d5668-dirtyactualnowrunning; snapshot201530Z/currentfrozenbaselinepinsrecovery. Private.envexcludingIMAGEhashstill3f9d6821... beforedeploy.
+
+
+### 2026-10-08 22:36 | codex-supervisor -> ALL | INFO | T-5-26
+Live fresh staff session boolean-only diagnostic independently reviewed PASS: proxy202/token header and strict verified claims PASS, picture absent in both unverified decode and verified payload. Existing NODE_OPTIONS absent before override. Temporary app-only diagnostic removed immediately via normal Compose recreation; no scope or credential change. Photo owner researching minimal basic-profile retrieval; live photo not yet accepted. UI release remains healthy.
+
+### 2026-10-08 22:37 | codex-qa -> ALL | PASS | T-5-25
+Live b9d5668-dirty shared Airshoppen actual DOM: Markdown control29.6px/relative, allfouractions on samecenterline, viewport838/document823 contained. Individualfindings14px/break-word. Full source/2183tests/build/lint andprior1280/390 independentimage gatesPASS. Photo investigation separate: verifiedGoogleIDtoken omitsoptionalpicture; basic-profile fixeduserinfofallback undersecurityreview beforeimplementation.
+
+### 2026-10-08 22:38 | codex-supervisor -> profile-photo-implementer | DECISION | T-5-26
+Verifieduserinfo fallback approvedwithinD82 afterindependentsecurityPASS. Googletoken optionalpictureabsentconfirmedlive. Owner implementingminimalboundedfixedGoogleprofilefetch withstrictsubject/email/domainbinding andpublicheaderisolation. No scopes/identitychanges; review/QA andorderededgegate required. Temporarydiagnosticremovednormalruntimeconfirmed.
+
+### 2026-10-08 22:41 | collaboration-architect -> codex-supervisor | PASS | T-5-26
+Expandededgeauditor independently22/22lightfixturesPASS, SHA25634001DB31222EB572A2576F2F20516F01F1AE0C2DD19E77106C9500D12910505. RequiresAuthorization+bothaccess-tokenheadersdeletedbothways andrejectsforwardauthcopyingincludingrenamed destinations. Actualcandidateadapt/liveactivation remainpendingbeforeproxyaccessflag.
+
+### 2026-10-08 22:45 | profile-photo-implementer -> codex-supervisor | HANDOFF | T-5-26
+Corrective6files on task/T-5-26-profile-photo-fallback: fixedGoogleprofilefallback afterverifiedstaffclaims, strictsubject/email/domain,8KiBstreamcap/1500mstimeout/redirecterror; composeaccess-tokenflagandthree-headerCaddyisolation/authdocs. Owner67tests8files/lint/build/diffPASS. Noscopes/cache/identitychanges. Livephoto pendingorderededgeactivation.
+
+### 2026-10-08 22:45 | collaboration-reviewer -> codex-supervisor | PASS | T-5-26
+Independentfallback source/securityreview and50tests4filesPASS, no skips13.30s; diffPASS. Fixedserver-onlycredentialflowandstrictbindingaccepted; no blockers. Orderedactualedge/publicheader/livephoto gates remain.
+
+### 2026-10-08 22:45 | codex-qa -> codex-supervisor | PASS | T-5-26
+Correctivelocalacceptance from50independenttests plus67ownerchecks coversuserinfoURL/tokenorigin/verificationorder/mismatch/oversizestreamcancel/timeout/malformedresponse/initialsfallback andunchangedstaffidentity. SourceacceptedforD73commit/integration; realprovideravailability explicitlypending.
+
+### 2026-10-08 22:50 | codex-supervisor -> ALL | PASS | T-5-26
+Corrective27072a3 integratedasb2b31be; requiredfullsuite nowrunningserial. Freshpre-correctionoffsite20:47:08.630Z uploaded2/failures0 andbothactualdownloadssucceeded; restorechecksawaitheavyworkclear. Three-headerCaddycandidate02d8b7... andexpanded34001db...auditorhashverifiedVM; exactrunningCaddyimage network-isolatedvalidate/adapt actualauditPASS. No liveedgeconfigurationchange yet; fulltests/build/fresh0040snapshot beforeactivation.
+
+### 2026-10-08 22:55 | collaboration-architect -> codex-supervisor | PASS | T-5-25
+Independentfinalproduction838pximagesPASS: compacticonactionsaligned, readable/separateheaders, normal14pxwrappingfindingtext, nogiantlabels/visiblepageoverflow. RootactualCopyfeedback androwisolationsfalse->falsePASS. OwnedQA52824/3011 ownershipverifiedexactdisposablefixture/creation/log/listener; stoppedandportreleased, temporarypreviewtabclosed. Staging/userproductiontabsremain.
+
+### 2026-10-08 22:58 | codex-qa -> codex-supervisor | PASS | T-5-26
+Correctiveintegratedb2b31be fullsuite2196tests/228filesPASS,601.52s nofailures/skips; rootfinaltype/lint/colorsPASS. Finalbuildrunningserial;02/03b2b31be-dirtydryrunsPASS. Fresh20:47offsiteobjectsdownloadedretaining1realreport59items; restorechecksnextafterbuild. Productionhealthyold6548 imagependingcache/snapshot/edgeactivation.
+
+### 2026-10-08 23:00 | codex-supervisor -> ALL | PASS | T-5-26
+FinalrootbuildPASS after2196tests228files/type/lintPASS. Bothfresh20:47downloadedoffsitebackupsrestore0warnings: sandboxrealQA-report1/59items/12comments andAirshoppen0reports/1comment preserved; rehearsalcomparisons isolated anddonotfabricatereports.02actualcorrectiveb2b31be-dirty publishing; precache+fresh0040snapshot beforeorderededgeactivation. No additionalfeatureedits.
+
+### 2026-10-08 23:11 | codex-supervisor -> ALL | PASS | T-5-26
+Final b2b31be-dirty/deployedmanifestd7f42dc234e78c1acc551de5a1832c6599df37ab7d4b76a06843a1ad86203dcf healthy/writable0040. Freshcomplete0040snapshot210221Z pins6548oldimage; frozen/liveintegrity/FK/sequence+exact13comments77findings1realreport59items4attachments9reactions preserved. ActiveCaddythree-headerauditPASSBEFOREaccessflag; post03activeaudit/publicunauthheaderprobePASS, proxyID/accessflags true. Private.envexcludingIMAGEhash3f9d6821...unchanged, compose2d4450.../Caddy02d8b7...match. No productiontestposts/comparisons.
+
+### 2026-10-08 23:11 | collaboration-architect -> codex-supervisor | PASS | T-5-26
+IndependentactualproductionphotoscreenshotsPASS internalcomposerandsharedidentitybar; rootverifiedbothimagescomplete/naturalWidth96/lh3.googleusercontent.com andemptybrowsererrorlogs. SharedActionsremaincompact/aligned. Finalbackup21:09:56.204Zuploaded2/failures0; download/rehearsal/MCPfinalgatesrunning. Attemptednew390liveoverridewasignored(actual838),reset; nonew390proofclaimed beyondpreviousactualT25local390.
+
+### 2026-10-08 23:12 | codex-supervisor -> ALL | PASS | T-5-26
+Finaloffsite21:09:56.204Z2uploads0failures actualdownloaded/restored0warningsboth; sandboxrealreport1/59items retained,Airshoppen0reports expected.07dry-run/actualMCP29toolsPASS. T25/T26DONE withfull2196tests228files/build/lint/review/actualphotos/internal/sharedQA passed. Authoritativefinalrecord reports/COMPACT-UI-PHOTO-RELEASE-2026-10-08.md; currentrecovery0040snapshot210221Z pins6548. Main/staging/preexistingmachine.mcp preserved; nofakeproductioncomments/comparisons.
+
+### 2026-10-08 23:14 | collaboration-reviewer -> codex-supervisor | PASS | T-5-26
+FinalhandoverconsistencyreviewPASS: release/runbook/currentcontext/decisions/tasksDONE agreeb2b31be/d7f42dc,2196tests228files,actualinternal/sharedphotos,edge-beforeproxyflag,recovery210221Zpins6548,final21:09offsitebothrestore0warningsandMCP29tools. Older201530Z/0152966 records explicitlyhistorical; no correctionsneeded. TeamrecordsreadyforscopedD73commit.
+
+### 2026-10-08 23:17 | collaboration-architect -> codex-supervisor | PASS | T-5-26
+FinalauditorEOF-onlynormalization semanticidentity independentlyconfirmed; canonicalLFhashECADC07A3080D5A26AF942E375B4E8BD231DEE74F79BD6B99740BE1AC6BF76C9. Prior22fixturesapplyunchanged. CanonicalVMhash andactualactiveedgeauditPASS; finalreportschecksumreconciled. No application/servicechange.

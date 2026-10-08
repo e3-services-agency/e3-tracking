@@ -3677,3 +3677,16 @@ Supervisor ruling: fix all four, then merge without a further round (reviewer ve
 Merged tree: tsc, lint clean, 1991/1992 tests; the one failure is gcpScripts.test.ts's scp needle, which assumes an unquoted local path (fails on the main checkout path with a space and accent, passes in C:/t) → T-5-07b. T-5-08 (backup upload + rehearsal, C:/t/t508) and T-5-09 (MCP over IAP SSH, C:/t/t509) launched.
 
 ### 2026-10-07 | supervisor | MERGE | T-5-07b merged: deploy test assertions path-agnostic (pass on the main checkout path with a space and accent).
+
+### 2026-10-08 | implementer | HANDOFF | T-5-09 MCP over IAP SSH — task/T-5-09-mcp-iap, commit c5bdb37 (worktree C:/t/t509)
+1993 tests / 199 files, tsc, build, lint green; shellcheck not run (missing in that worktree); no gcloud run. Entrypoint mcp mode and compose mcp service unchanged (stdout JSON-RPC only verified). .mcp.json.gcp.example (cmd /c and POSIX forms: gcloud compute ssh --tunnel-through-iap --quiet --command "cd /opt/e3-tracking && sudo docker compose … run --rm -T -e E3_PROJECT_KEY=<key> mcp" -- -T); deploy/gcp/07-mcp.sh (prints the block from config.env, tunnel smoke test initialize + tools/list = 29, dry-run); src/deploy/mcpContainer.test.ts (Docker-based, random project name, two JSON-RPC stdout lines, "MCP server ready" on stderr, skipped without Docker/image; strict 29 only when IMAGE is set); docs MCP.md remote section, DEPLOY.md paragraph, CLAUDE.md sentence. Deviations: stale local image (19 tools) worked around with a throwaway build; test starts on an empty DB; tunnel smoke test untested against a VM.
+
+### 2026-10-08 | implementer | HANDOFF | T-5-08 backup upload + rehearsal — task/T-5-08-backup-upload, commit fbadff5 (worktree C:/t/t508)
+2002 tests / 199 files (static.test.ts health key list updated after the run), tsc, build, lint green; shellcheck not run. backupUpload.ts (BackupUploader, createGcsUploader: metadata token, JSON API simple upload, 4 attempts with backoff on 5xx/429/401/network, skip once off GCP, one log line per upload, --once exits 1 on failure); last-backup.json → /api/health last_backup_at / last_upload_ok; 04-backup.sh --run-now; scripts/restore-rehearsal.mjs (+ npm run restore:rehearsal; exits 1 on warnings unless --allow-warnings; sandbox: 15 open findings, exit 0); DEPLOY.md off-site backup section, CLAUDE.md sentence; backupUpload.test.ts (10).
+
+### 2026-10-08 | reviewer | REVIEW | T-5-09 PASS (1 medium docs, 3 low)
+Gates green; shellcheck info only; dry run clean; Docker test 65/65 with a throwaway image. --quiet suppresses prompts, --command + -- -T valid; stdout contract proven by the test. Findings: docs overstate what the container test covers (base compose, not the VM command); passwordless sudo needs roles/compute.osAdminLogin (document); json_str backslash escape wrong (harmless today); empty E3_PROJECT_KEY shipped when unset (matches local convention).
+Supervisor ruling: polish commit for the three doc/escape items, then merge T-5-09; T-5-08 to review.
+
+### 2026-10-08 | implementer | HANDOFF | T-5-09 polish 71ab9b2
+Docs scope of the container test, osAdminLogin named, json_str via sed with a test. src/deploy 16/16. Supervisor: merging.

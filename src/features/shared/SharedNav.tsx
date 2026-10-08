@@ -76,7 +76,7 @@ export function SharedNav({
               title={item.label}
             >
               {icon}
-              <span className="truncate">{item.label}</span>
+              <span className="min-w-0 whitespace-normal [overflow-wrap:anywhere]">{item.label}</span>
             </button>
           ) : (
             <a
@@ -97,7 +97,7 @@ export function SharedNav({
               title={item.label}
             >
               {icon}
-              <span className="truncate">{item.label}</span>
+              <span className="min-w-0 whitespace-normal [overflow-wrap:anywhere]">{item.label}</span>
             </a>
           )}
         </div>

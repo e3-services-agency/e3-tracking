@@ -3718,3 +3718,69 @@ Starting shared table task in C:/Users/Ján Pan/.codex/worktrees/shared-portal/e
 
 ### 2026-10-08 11:39 | codex-supervisor -> comments-implementer | INFO | T-5-13
 Starting identity task in C:/Users/Ján Pan/.codex/worktrees/shared-comments/e3-tracking on task/T-5-13-comment-identity (base18b7883). Owner comment frontend/backend/domain and migration0037. T-5-14 follows after identity handover/review. No shared-page/table or team-record edits.
+
+### 2026-10-08 11:44 | auth-planner -> codex-supervisor | HANDOFF | T-5-15
+Read-only preparation: GIS client-ID-only flow with server token verification, hashed opaque session cookie, CSRF/origin checks, req.commentParticipant trusted identity. Existing Internal client cannot cover personal Gmail; requested External client/setup authorization under D-72. Working short-path Python SDK recovers IAP SSH; current tag18b7883, bucket objects and monitor verified. Details .claude/team/reports/DEPLOYMENT-HANDOVER-2026-10-08.md:13.
+
+
+### 2026-10-08 11:46 | codex-supervisor -> ALL | DECISION | T-5-15
+User explicitly authorized separate public-auth project/client creation; D-76 amendment1 records scoped D-72 exception. Billing/staff OAuth unchanged. GIS client-ID-only basic profile; no new secret needed by app.
+
+### 2026-10-08 11:46 | codex-supervisor -> auth-implementer | INFO | T-5-15
+Starting auth modules in C:/Users/Ján Pan/.codex/worktrees/shared-auth/e3-tracking, task/T-5-15-google-commenters, base18b7883. Trusted participant interface agreed with comments owner; modules can develop concurrently, final integration waits T-5-13. Coordinator handles cloud console setup. Migration0038 reserved. No team writes.
+
+
+### 2026-10-08 11:55 | portal-implementer -> portal-reviewer | HANDOFF | T-5-12
+Task: Shared entity tables. Branch task/T-5-12-shared-tables; worktree C:/Users/Ján Pan/.codex/worktrees/shared-portal/e3-tracking. Changed SharedProject.tsx, SharedNav.tsx, new SharedEntityTable.tsx/test: all shared lists aligned tables, full names/descriptions, preserved anchors/details/comments. Verify desktop/narrow overflow, keyboard disclosure, global/group expansion, direct anchors and variant/cross references. Focused39 tests/4files, build/lint passed; last small variant fallback needs final rerun. Full suite NOT passed: native Windows0xC0000005 worker crash without final summary/assertion failure; comments worker attempting fork pool. No commits/processes. Gap: browser QA/full suite gate pending. Dependency junction read-only; no cleanup/archive/install through it. Coordinator records owner-requested REVIEW.
+
+### 2026-10-08 11:55 | comments-implementer -> codex-supervisor | HANDOFF | T-5-13
+Task: stable commenter identity/composer attribution. Branch task/T-5-13-comment-identity; worktree C:/Users/Ján Pan/.codex/worktrees/shared-comments/e3-tracking. Migration0037, domain/session DAL/service, comment/shared APIs and panels/avatar/store/tests/docsSHARING. Server-issued per-share guest cookie identities; names independently editable, required-name rejects generated labels, API hides participant IDs, attachment uploads bound to author participant. New13 identity +legacy43 +sharing54 +backup4 focused tests passed, build passed; lint/full fork suite running, evidence to follow. No commits/production operations. Review-ready owner report; integration waits auth modules. Own node_modules installation, root dependency junction safely unlinked nonrecursively. Verify same-name guests/name changes/require-name/storage failure/old backup. Coordinator records owner-requested REVIEW.
+
+### 2026-10-08 11:55 | codex-supervisor -> ALL | DECISION | T-5-15
+User explicitly authorized accepting Google API Services User Data Policy and finishing setup. New e3-tracking-public-auth project created in existing E3 organization; SDK billingEnabled false. External OAuth branding configured; client creation in progress. Staff project/client unchanged.
+
+
+### 2026-10-08 12:00 | portal-reviewer -> portal-implementer | FAIL | T-5-12
+P2 UTF-8 encoding regression in SharedProject.tsx:246 (also584,863,1048,28sequences): missing descriptions show corrupt em dash; loading ellipsis and catalog separator corrupted. Restore Unicode punctuation from HEAD, no scope change. All4changedfiles read; nootherblockingfinding. Independent focused39/4tests (forkpool1worker), tsc and diffcheck PASS. Fullsuite/browserQA remaingates. Coordinator reassignsencodingfix; no commit/merge.
+
+### 2026-10-08 12:00 | codex-supervisor -> ALL | INFO | T-5-15
+Separate e3-tracking-public-auth created; billingEnabled false. Console confirms OAuth client E3 Tracking Shared Comments created, External audience. Public ID recorded in .claude/team/reports/GOOGLE-SHARED-AUTH-2026-10-08.md:1; no new secret saved/printed. Authorized origins production +localhost/dev3010. User accepted Google API Services User Data Policy. Testing/Publishing basic-profile exemption being verified before setup closure; staff InternalOAuth unchanged.
+
+
+### 2026-10-08 12:01 | codex-supervisor -> ALL | DECISION | T-5-15
+D-76 amendment2 records user-configured billing for public-auth project; agent makes no billing changes. Google primary docs confirm basic Sign in with Google Testing exemption: no test-user list/unverified warning/seven-day expiry. New public client available; actual browser verification pending implementation/integration.
+
+
+### 2026-10-08 12:02 | portal-implementer -> portal-reviewer | HANDOFF | T-5-12
+Encoding correction: only SharedProject.tsx changed in fix;27em dashes,1ellipsis,1middle dot restored to correct HEAD punctuation via explicitUTF-8. All4taskfiles scan clean. Focused39/4, build, type/colorlint, diffcheck PASS. No fullsuite rerun, commits, servers or production changes; dependencyjunction untouched. Ready independent re-review; owner requests REVIEW.
+
+
+### 2026-10-08 12:05 | portal-reviewer -> portal-qa | PASS | T-5-12
+Independent re-review verifiesUTF8 fixall4files andvariantfallback nowtargets adjacentexpanded detailcell. Focused39/4 independentlyPASS, diffcheckPASS; no remainingblockingcodefinding. Reviewer advancesQA; fullsuite/in-browsergates pending. PortalQA nowassigned isolatedworktree, localfixture/ownPIDs; no production edits.
+
+
+### 2026-10-08 12:08 | comments-implementer -> portal-reviewer | INFO | T-5-13
+Final handoff checks stopped: build, tsc, color lint, whitespace pass; focused26 migration/hints/UI and20staff/guestidentity/reactions pass. Full2007passed/14failed (11inheritedWindowsGCP harness,2migrationlist+1fieldhint fixed by focusedreruns),1RPCtimeout. All finalfiles ready independent review; no activeprocesses or commits. Migration0038 expected-list update reserved integration. Own dependencies installed, no junction.
+
+### 2026-10-08 12:08 | auth-implementer -> auth-reviewer | HANDOFF | T-5-15
+Task: verifiedGoogle sharedcommenters. Branch task/T-5-15-google-commenters; worktree C:/Users/Ján Pan/.codex/worktrees/shared-auth/e3-tracking. Changed backendsharedAuth/router+authDAL+migration0038/appmount, officialgoogle-auth-library/packagefiles, SharedGoogleSignIn/browserhelper/tests, compose/envexamples/docs. Trusts verifiedtokens/session/fixedstaffbridge; CSRF/origin/shareboundnonce; sessionshashopaqueHttpOnly, operationalcredentials excludedbackup; guestoptout/signout/eventrefresh. Focused90/4complete shared/static/auth/browser and finalauth21 pass, build/lint/diffcheck pass. Earlier full2016pass/18fail:11baselineGCP harness,2migrationexpected-listpendingintegration,5publicboundarycases subsequentlyfixed+focusedpassed;1workerRPCtimeout. Verify tokenreplay/origin/staffheaders/sessionexpiry/guestoptout/privacy/shareaccess and actualGoogleflow. Required integration: headercomponent once, expectedlist0038, VM publicclientID/origin/staffconfig;03-deploy untouched. No commits/processes/production edits. Owner requests REVIEW, auth-reviewerassigned.
+
+
+### 2026-10-08 12:18 | portal-qa -> codex-supervisor | FAIL | T-5-12
+Responsive long-word overflow: 390px viewport, client width375/document578, long event identifier in identification-flow paragraph SharedProject.tsx:974. Desktop tables/icons/wrapping, keyboard/global/group expansion, distinct propertyanchors, entitycrosslinks/comments/read-only403/privateprojection/console all PASS. Copy-link clipboard inconclusive. QA transfers owned API PID48664 and Vite PID28344 (3001/3010, isolated temp DB) for correction/re-QA; screenshots temp/e3-portal-qa-desktop.jpg and mobile.jpg. Reviewer authorized return to implementation.
+
+### 2026-10-08 12:18 | portal-implementer -> auth-reviewer | HANDOFF | T-5-12
+Wrapping correction adds overflow-wrap:anywhere to flow and other plain shared descriptions/references/catalogmetadata; only SharedProject changed. Focused39/4 and diffcheck PASS; no full rerun. Owner requests REVIEW; auth-reviewer independently reviewing correction, then portal-QA rechecks same fixture.
+
+### 2026-10-08 12:18 | portal-reviewer -> comments-implementer | FAIL | T-5-13
+P2 comment-reaction.dal.ts:95 toggle looks only for participant rows while list:38 marks matching legacy internal staff reaction mine. Migrated Jane pressed Like count1 then click adds duplicate count2. Safely align trusted internal legacy ownership and toggle, never grant guest ownership by display name. Independent63/6 focused PASS; old SHARING:147 contradicts animal guest behavior.
+
+### 2026-10-08 12:18 | comments-implementer -> portal-reviewer | HANDOFF | T-5-13
+Corrected trusted-staff legacy toggle and guarded legacy mine attribution against guest/Google IDs. Three regressions cover migrated removal, same-name guest isolation and actual internalGET/POST. Old sharing documentation reconciled. Focused23/build/lint/diffcheck PASS; no fullsuite or active processes. Corrective re-review assigned; owner requests REVIEW.
+
+### 2026-10-08 12:18 | auth-reviewer -> codex-supervisor | PASS | T-5-15
+Independent auth review PASS:80 tests/3 files, diffcheck. Signature/audience/issuer/expiry/nonce, origin/CSRF/sharebinding/hashsessions/logoutoptout/revoked/read-only/forgedheaders/fixedstaffproxy/photo restrictions verified. T13 identity refresh doesn't replace Google challenge; staff hashes agree. Header/migration wiring, actual Google/staff flows, expired challenge and share navigation remain QA gates. Different Google-subject vs staff-email namespaces recorded; no automatic account linking.
+
+### 2026-10-08 12:18 | portal-reviewer -> codex-supervisor | PASS | T-5-17
+Preserved baseline code review PASS: four shell syntax/dry-runs, generated MCP JSON, Windows /api/health argument, diffcheck. Acceptance pending: root focused tests2pass/11fail due Bash receiving Windows backslash paths (gcpScripts.test.ts:25,93). Existing baseline assertion change doesn't fix path portability; routine verification task T-5-17 assigned before final suite. No cloud mutations or machine-config reads.
+

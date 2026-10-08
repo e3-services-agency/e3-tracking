@@ -537,3 +537,9 @@ Amends D-71: copy-link and copy-Markdown actions on roots/replies and whole-thre
 ## D-76 Google identity for shared commenters
 Date: 2026-10-08 Status: accepted
 Google Identity Services, server-verified token/session, minimal profile scopes; explicit sign-in and eligible Google auto sign-in, no Chrome profile inspection. Shared Google identity never increases share permissions. Existing Internal staff OAuth remains restricted. Personal Gmail requires separate External configuration/project; existing D-72 restriction on agent project/billing creation remains until explicitly changed. Local verifier fixtures plus actual host sign-in smoke are distinct evidence. Reserve migration 0038 for T-5-15 if necessary.
+
+### D-76 amendment 1 (2026-10-08, user): separate public-auth project/client creation authorized
+User explicitly chose "Create the separate public-auth project/client". Codex may create the separate External-audience basic-profile OAuth project/client for shared commenters; this is a scoped exception to D-72 project-creation restriction. Billing and Internal staff OAuth remain unchanged. GIS requires public client ID and authorized JavaScript origins only; no new client secret is needed by this integration.
+
+### D-76 amendment 2 (2026-10-08, user): user configured public-auth billing
+User reports billing account configured for the External OAuth project. This is a user-performed change, not agent billing authorization; agents leave billing configuration untouched. Initial no-billing verification remains historical evidence.

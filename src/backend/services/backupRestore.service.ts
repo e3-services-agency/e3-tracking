@@ -1,3 +1,4 @@
+import { initializeQaCounters } from '../dal/qa-report.dal';
 /**
  * Restore a full JSON backup (`backup.service.ts#buildBackup`) as a brand-new project (T-3-05,
  * D-45). `previewRestore`/`applyRestore` follow the same stateless preview-then-apply, payload-hash
@@ -271,6 +272,24 @@ function deepRemapValue(value: unknown, idMap: Map<string, string>, pathMap: Map
   return value;
 }
 
+/** Immutable report evidence is not a bag of foreign keys. Only declared reference fields remap. */
+function remapHistoricalRow(table:string,row:BackupRow,idMap:Map<string,string>):BackupRow {
+ const ref=(value:unknown):unknown=>{if(typeof value!=='string'||!value)return value;if(!idMap.has(value))idMap.set(value,newId());return idMap.get(value);};
+ const out={...row};
+ for(const key of ['id','project_id','report_id','finding_id'])if(key in out)out[key]=ref(out[key]);
+ if(table==='qa_reports' && out.scope_json && typeof out.scope_json==='object'){
+  const scope=structuredClone(out.scope_json) as Record<string,any>;for(const key of ['requested_event_id','requested_qa_run_id'])if(key in scope)scope[key]=ref(scope[key]);
+  if(Array.isArray(scope.participating_runs))scope.participating_runs=scope.participating_runs.map((run:Record<string,unknown>)=>({...run,id:ref(run.id)}));
+  out.scope_json=scope;
+ }
+ if(table==='qa_report_findings' && out.snapshot_json && typeof out.snapshot_json==='object'){
+  const snapshot=structuredClone(out.snapshot_json) as Record<string,any>;
+  if(snapshot.references && typeof snapshot.references==='object')for(const key of ['event_id','variant_id','property_id','observation_id','qa_run_id'])if(key in snapshot.references)snapshot.references[key]=ref(snapshot.references[key]);
+  out.snapshot_json=snapshot;
+ }
+ return out;
+}
+
 function deepRemapRow(row: BackupRow, idMap: Map<string, string>, pathMap: Map<string, string>): BackupRow {
   const out: BackupRow = {};
   for (const [key, value] of Object.entries(row)) {
@@ -460,7 +479,8 @@ export async function applyRestore(
             // every other foreign key; it is never set here directly, so a table with no
             // `project_id` column never gets one injected (which `insertGenericRow`'s unknown-column
             // tracking would otherwise misreport as a dropped column on every such row).
-            const remapped = deepRemapRow(raw, idMap, pathMap);
+            const remapped = table === 'qa_reports' || table === 'qa_report_findings' ? remapHistoricalRow(table,raw,idMap) : deepRemapRow(raw, idMap, pathMap);
+            if(table==='findings' && typeof remapped.finding_sequence!=='number'){const oldRows=parsed.tables.findings??[];const rank=[...oldRows].sort((a,b)=>String(a.first_seen_at).localeCompare(String(b.first_seen_at))||String(a.id).localeCompare(String(b.id)));remapped.finding_sequence=rank.indexOf(raw)+1;}
             insertGenericRow(table, withInferredContract(table, remapped), unknownColsSeen);
           }
           counts[table] = rows.length;
@@ -514,7 +534,8 @@ export async function applyRestore(
   // instead of surfacing as a 500 that would make the caller think the whole restore failed and
   // retry into a colliding key, when in fact only the post-restore recompute did not run.
   try {
-    runComparison(newProjectId);
+    initializeQaCounters(newProjectId);
+    runComparison(newProjectId,{captureReport:false});
   } catch (err) {
     warnings.push(
       `The post-restore comparison recompute failed: ${err instanceof Error ? err.message : String(err)}. Run it again from the project's Findings page.`

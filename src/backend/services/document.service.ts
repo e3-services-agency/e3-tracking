@@ -486,6 +486,7 @@ function toEventCardFinding(
 ): EventCardFinding {
   return {
     id: finding.id,
+    finding_sequence:finding.finding_sequence,
     comparison: finding.comparison,
     kind: finding.kind,
     severity: finding.severity,

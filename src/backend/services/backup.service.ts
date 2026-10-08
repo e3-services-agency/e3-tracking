@@ -166,6 +166,9 @@ export interface BackupPayload {
   qa_runs: Row[];
   observations: Row[];
   findings: Row[];
+  qa_sequence_counters: Row[];
+  qa_reports: Row[];
+  qa_report_findings: Row[];
   change_log: Row[];
   comments: Row[];
   comment_reactions: Row[];
@@ -316,6 +319,9 @@ export async function buildBackup(projectId: string): Promise<BackupPayload> {
     // project could differ in row order).
     observations: directRows('observations', projectId, warnings, 'timestamp, id'),
     findings: directRows('findings', projectId, warnings, 'first_seen_at'),
+    qa_sequence_counters: directRows('qa_sequence_counters', projectId, warnings),
+    qa_reports: directRows('qa_reports', projectId, warnings, 'report_sequence'),
+    qa_report_findings: directRows('qa_report_findings', projectId, warnings),
     change_log: directRows('change_log', projectId, warnings, 'changed_at'),
     // T-4-02 (D-49), fix round LOW 2: ordered like every other array (created_at, id tiebreak) so
     // two backups of the same project never differ in comment order.

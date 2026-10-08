@@ -1,3 +1,4 @@
+import { publicReportList,publicReport,publicFindingHistory } from '../services/qaReports.service';
 /**
  * Public share-link routes (D-48, T-4-01), mounted at `/api/shared` in `app.ts`, ahead of
  * `optionalAuth`/`express.json` so a share visitor needs no auth header and no request body. Every
@@ -482,6 +483,10 @@ router.get('/:token/history', requireShare, (req: Request, res: Response) => {
     res.json(sharedHistory(req.projectId!, type, id, limit, typeof req.query.before === 'string' ? req.query.before : undefined));
   } catch (err) { if (err instanceof ValidationError) handleRouteError(err, res); else shareNotFound(res); }
 });
+
+router.get('/:token/qa-reports',requireShare,(req,res)=>{res.json(publicReportList(req.projectId!));});
+router.get('/:token/qa-reports/:id',requireShare,(req,res)=>{try{res.json(publicReport(req.projectId!,req.params.id));}catch{shareNotFound(res);}});
+router.get('/:token/findings/:id/history',requireShare,(req,res)=>{try{const projectId=req.projectId!;if(!CommentDAL.isCommentTargetVisible(projectId,'finding',req.params.id)){shareNotFound(res);return;}res.json(publicFindingHistory(projectId,req.params.id));}catch{shareNotFound(res);}});
 
 router.all('*', (_req: Request, res: Response) => {
   shareNotFound(res);

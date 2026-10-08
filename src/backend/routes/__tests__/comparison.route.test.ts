@@ -11,6 +11,7 @@ import path from 'node:path';
 import { closeDb } from '../../db';
 import { createApp } from '../../app';
 import * as ClientDAL from '../../dal/client.dal';
+import {createEvent} from '../../dal/event.dal';
 import * as ProjectDAL from '../../dal/project.dal';
 
 const dataMappingFixture = JSON.parse(
@@ -81,3 +82,5 @@ describe('POST /comparison/run', () => {
     );
   });
 });
+
+it('validates canonical nested comparison scope and rejects foreign or malformed requested context',async()=>{const c=ClientDAL.createClient({key:'foreign-client',name:'Foreign'});const p=ProjectDAL.createProject({client_id:c.id,key:'foreign-project',name:'Foreign'});const e=createEvent(p.id,{name:'foreign'});const route=`${baseUrl}/api/projects/${projectId}/comparison/run`;expect((await postJson(route,{scope:{event:e.id}})).res.status).toBe(404);for(const scope of [[],null,'bad',{event:23},{qa_run_id:''}])expect((await postJson(route,{scope})).res.status).toBe(400);});

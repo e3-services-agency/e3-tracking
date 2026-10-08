@@ -15,5 +15,5 @@ export interface RunComparisonInput {
 
 export async function runComparison(input: RunComparisonInput): Promise<ComparisonSummary> {
   const project = resolveProject(input.project_key);
-  return runComparisonService(project.id);
+  return runComparisonService(project.id,{event:input.scope?.event,qa_run_id:input.scope?.qa_run_id});
 }

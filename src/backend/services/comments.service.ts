@@ -91,6 +91,13 @@ export function resolveCommentEntity(
         use_case_id: null,
       };
     }
+    case 'finding':
+    case 'qa_report': {
+      const table=comment.entity_type==='finding'?'findings':'qa_reports';const column=comment.entity_type==='finding'?'finding_sequence':'report_sequence';
+      const row=getDb().prepare(`SELECT ${column} AS sequence FROM ${table} WHERE project_id=? AND id=?`).get(projectId,comment.entity_id) as {sequence:number}|undefined;
+      const historical=comment.entity_type==='finding'&&!row?getDb().prepare('SELECT finding_sequence AS sequence FROM qa_report_findings WHERE project_id=? AND finding_id=? LIMIT 1').get(projectId,comment.entity_id) as {sequence:number}|undefined:undefined;
+      return {label:row||historical?`${comment.entity_type==='finding'?'Finding':'Report'} #${String((row??historical)!.sequence).padStart(3,'0')}`:`(removed ${comment.entity_type.replace('_',' ')})`,use_case_id:null};
+    }
     case 'identity_rule':
     case 'catalog': {
       const table = comment.entity_type === 'catalog' ? 'catalogs' : 'identity_rules';

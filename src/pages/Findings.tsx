@@ -1,3 +1,6 @@
+import {useCommentLink} from '@/src/features/comments/useCommentLink';
+import {QaReports} from '@/src/features/findings/QaReports';
+import {TargetCollaboration,useProjectComments} from '@/src/features/comments/TargetCollaboration';
 import { SortableTh, useSortableTable } from '@/src/hooks/useSortableTable';
 import { EnumSelect } from '@/src/components/ui/EnumSelect';
 import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
@@ -25,6 +28,7 @@ import { EmptyState } from '@/src/components/ui/EmptyState';
 
 interface FindingRow {
   id: string;
+  finding_sequence:number;
   comparison: string;
   kind: string;
   severity: string;
@@ -60,6 +64,9 @@ async function parseJson(res: Response): Promise<any> {
 
 export function Findings() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
+  const findingCommentLink=useCommentLink();
+  const discussions=useProjectComments(activeProjectId??'');
+  const [reportRevision,setReportRevision]=useState(0);
   const [findings, setFindings] = useState<FindingRow[]>([]);
   const [events, setEvents] = useState<EventOption[]>([]);
   const [comparison, setComparison] = useState('');
@@ -181,6 +188,7 @@ export function Findings() {
         return;
       }
       await load();
+      setReportRevision(v=>v+1);
     } catch {
       setError('Comparison run failed.');
     } finally {
@@ -207,6 +215,7 @@ export function Findings() {
         return;
       }
       await load();
+      setReportRevision(v=>v+1);
     } catch {
       setError('Failed to update this finding.');
     } finally {
@@ -293,7 +302,7 @@ export function Findings() {
                   <td className="px-6 py-4">
                     <SeverityBadge severity={f.severity} />
                   </td>
-                  <td className="px-6 py-4 text-xs text-gray-700"><FindingTerm kind={f.kind} /></td>
+                  <td className="px-6 py-4 text-xs text-gray-700"><span>Finding #{String(f.finding_sequence).padStart(3,'0')}</span> <FindingTerm kind={f.kind} /></td>
                   <td className="px-6 py-4 text-gray-700 text-xs">{ruleNameOf(f) ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500 text-xs"><FindingTerm comparison={f.comparison} /></td>
                   <td className="px-6 py-4 text-gray-900">
@@ -313,6 +322,7 @@ export function Findings() {
                   <td className="px-6 py-4 text-gray-500"><StatusBadge status={f.status} /></td>
                   <td className="px-6 py-4 text-gray-500">{new Date(f.last_seen_at).toLocaleString()}</td>
                   <td className="px-6 py-4">
+                    <TargetCollaboration api={{mode:'internal',projectId:activeProjectId!}} entityType="finding" entityId={f.id} label={`Finding #${String(f.finding_sequence).padStart(3,'0')}`} rows={discussions.rows} onChanged={discussions.reload} forceOpen={findingCommentLink.kind==='target'&&findingCommentLink.target.entityId===f.id}/>
                     <Button
                       type="button"
                       variant="outline"
@@ -343,6 +353,7 @@ export function Findings() {
             </tbody>
           </table>
         </div>
+        {activeProjectId&&<QaReports api={{mode:'internal',projectId:activeProjectId}} rows={discussions.rows} onChanged={discussions.reload} revision={reportRevision} currentFindingIds={findings.map(f=>f.id)}/>}
       </PageBody>
     </div>
   );

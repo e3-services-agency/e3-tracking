@@ -1,3 +1,4 @@
+import qaReportsRouter from './routes/qa-reports';
 /**
  * Express app: single entry point for all API routes (D-15: Project replaces the pre-D-15 scope entity).
  *
@@ -140,6 +141,7 @@ export function createApp(options: CreateAppOptions = {}): express.Express {
   app.use('/api/projects/:projectId/qa-runs', requireProject, qaRunsRouter);
   app.use('/api/projects/:projectId/observations', requireProject, observationsRouter);
   app.use('/api/projects/:projectId/comparison', requireProject, comparisonRouter);
+  app.use('/api/projects/:projectId/qa-reports', requireProject, qaReportsRouter);
   app.use('/api/projects/:projectId/findings', requireProject, findingsRouter);
   // D-30, D-31, T-2-06: rule CRUD (create/list-by-event nested under eventsRouter above).
   app.use('/api/projects/:projectId/rules', requireProject, rulesRouter);

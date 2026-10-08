@@ -1,3 +1,4 @@
+import { publicFindingHistory } from '../services/qaReports.service';
 /**
  * Finding routes (T-1-09, plan "API shape"), mounted at `/api/projects/:projectId/findings`: list
  * with filters (`comparison`, `kind`, `severity`, `event_id`, `status`); `PATCH /:id` (T-2-09) lets
@@ -30,6 +31,8 @@ router.get('/', (req: Request, res: Response) => {
     handleRouteError(err, res);
   }
 });
+
+router.get('/:id/history',(req,res)=>{try{res.json(publicFindingHistory(req.projectId!,req.params.id,false));}catch(err){handleRouteError(err,res);}});
 
 router.get('/:id', (req: Request, res: Response) => {
   try {

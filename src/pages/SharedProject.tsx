@@ -1,3 +1,4 @@
+import {QaReports} from '@/src/features/findings/QaReports';
 /**
  * Public shared documentation view (D-48, D-50, T-4-03): `src/App.tsx` mounts this for
  * `/tracking-plan/shared/:token`, ahead of `ProtectedRoute` -- no auth header, no `AuthProvider`
@@ -525,6 +526,7 @@ export function SharedProject({ token }: { token: string }) {
     const target = commentLink.target;
     const resolved = resolveCommentTarget(comments.filter((comment) => !comment.internal_only), target);
     if (!resolved) return null;
+    if (target.entityType==='finding'||target.entityType==='qa_report')return {...resolved,target,useCaseId:null};
     if (target.entityType === 'event') return doc.events.some((event) => event.id === target.entityId) ? { ...resolved, target, useCaseId: null } : null;
     if (target.entityType === 'property') return [...doc.properties, ...(doc.event_properties ?? [])].some((property) => property.property_id === target.entityId) ? { ...resolved, target, useCaseId: null } : null;
     if (target.entityType === 'identity_rule') return doc.identity_rules.some((r) => r.id === target.entityId) ? {...resolved,target,useCaseId:null} : null;
@@ -703,6 +705,7 @@ export function SharedProject({ token }: { token: string }) {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {(present.events || present.properties || present.useCases || present.catalogs || present.mapping) && <ExpandToggles label="rows" onExpand={expandAll} onCollapse={collapseAll} />}
+                <Button variant="outline" size="sm" asChild><a href="#qa-reports">QA reports</a></Button>
                 <Button variant="outline" size="sm" asChild><a href={downloadUrl(token, 'tracking-document.json')}>JSON</a></Button>
                 <Button variant="outline" size="sm" asChild><a href={downloadUrl(token, 'documentation.html')}>HTML</a></Button>
               </div>
@@ -1152,6 +1155,7 @@ export function SharedProject({ token }: { token: string }) {
             </SectionCard>
           )}
 
+          <QaReports api={api} rows={comments} onChanged={reloadComments} currentFindingIds={[...doc.events.flatMap(e=>e.findings),...(doc.unattached_findings??[])].map(f=>f.id)}/>
           {present.findings && (
             <SectionCard
               id={SECTION_IDS.findings}
@@ -1159,6 +1163,7 @@ export function SharedProject({ token }: { token: string }) {
               actions={<CopyMarkdownButton getMarkdown={() => findingsSummaryToMarkdown(groups.summary)} label="Copy findings as Markdown" />}
             >
               <FindingsSummaryBlock summary={groups.summary} anchorFor={(eventId) => anchorById.get(eventId)} />
+              <div className="space-y-2" aria-label="Individual finding discussions">{[...doc.events.flatMap(e=>e.findings),...(doc.unattached_findings??[])].map(f=><div key={f.id} className="border-t py-2"><p>Finding #{String(f.finding_sequence??'').padStart(3,'0')} / {f.message}</p><TargetCollaboration api={api} entityType="finding" entityId={f.id} label={`Finding #${String(f.finding_sequence??'').padStart(3,'0')}`} rows={comments} onChanged={reloadComments} forceOpen={linkedComment?.target.entityId===f.id}/></div>)}</div>
               <div className="mt-4 space-y-4">
                 {groups.findingGroups.map((g) => (
                   <div key={g.id} id={g.id} style={marginTop('group')} className="space-y-2">

@@ -100,6 +100,9 @@ export function visibleCommentTargetKeys(projectId: string): Set<string> {
  UNION ALL SELECT 'property',id FROM properties WHERE project_id = @project AND deleted_at IS NULL
  UNION ALL SELECT 'use_case',id FROM use_cases WHERE project_id = @project AND deleted_at IS NULL
  UNION ALL SELECT 'requirement',r.id FROM requirements r JOIN use_cases u ON u.id = r.use_case_id WHERE u.project_id = @project AND u.deleted_at IS NULL
+ UNION ALL SELECT 'qa_report',id FROM qa_reports WHERE project_id = @project
+ UNION ALL SELECT 'finding',f.id FROM findings f WHERE f.project_id = @project AND (f.status='open' OR f.resolved_by='user') AND (f.event_id IS NULL OR EXISTS(SELECT 1 FROM events e WHERE e.id=f.event_id AND e.project_id=f.project_id AND e.deleted_at IS NULL))
+ UNION ALL SELECT 'finding',finding_id FROM qa_report_findings WHERE project_id = @project AND public_visible=1
  UNION ALL SELECT 'identity_rule',id FROM identity_rules WHERE project_id = @project
  UNION ALL SELECT 'catalog',id FROM catalogs WHERE project_id = @project AND deleted_at IS NULL
  UNION ALL SELECT 'property_definition',d.id FROM property_definitions d JOIN properties p ON p.id = d.property_id WHERE p.project_id = @project AND d.project_id = p.project_id AND p.deleted_at IS NULL AND d.deleted_at IS NULL
@@ -108,6 +111,7 @@ export function visibleCommentTargetKeys(projectId: string): Set<string> {
 }
 export function isCommentTargetVisible(projectId: string, entityType: string, entityId: string): boolean {
   if (!(COMMENT_ENTITY_TYPES as readonly string[]).includes(entityType)) return false;
+  if(entityType==='finding')return visibleCommentTargetKeys(projectId).has(`finding:${entityId}`);
   try { assertEntityExists(projectId, entityType as CommentEntityType, entityId); return true; } catch { return false; }
 }
 
@@ -122,6 +126,12 @@ function assertEntityExists(projectId: string, entityType: CommentEntityType, en
       break;
     case 'use_case':
       found = !!getUseCaseById(projectId, entityId);
+      break;
+    case 'finding':
+      found = !!getDb().prepare('SELECT id FROM findings WHERE project_id=? AND id=? UNION ALL SELECT finding_id FROM qa_report_findings WHERE project_id=? AND finding_id=?').get(projectId,entityId,projectId,entityId);
+      break;
+    case 'qa_report':
+      found = !!getDb().prepare('SELECT id FROM qa_reports WHERE project_id=? AND id=?').get(projectId,entityId);
       break;
     case 'identity_rule':
       found = !!getDb().prepare('SELECT id FROM identity_rules WHERE project_id = ? AND id = ?').get(projectId, entityId);

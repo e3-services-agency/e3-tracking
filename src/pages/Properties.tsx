@@ -1,3 +1,4 @@
+import { TargetCollaboration, useProjectComments } from '@/src/features/comments/TargetCollaboration';
 import { exampleValuesFor, exampleWarnings } from '@/src/domain/examples';
 import { ExpandChevron } from '@/src/components/ui/ExpandChevron';
 import { DefinitionCountBadge } from '@/src/components/ui/DefinitionCountBadge';
@@ -120,6 +121,7 @@ async function parseJson(res: Response): Promise<any> {
 
 export function Properties() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
+  const collaboration = useProjectComments(activeProjectId);
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [bundles, setBundles] = useState<BundleRow[]>([]);
   const [standardEventAdditions, setStandardEventAdditions] = useState<StandardEventSeed[] | null>(null);
@@ -391,7 +393,7 @@ export function Properties() {
                               </span>
                             </td>
                           </tr>
-                          {expandedIds.has(p.id) && <DefinitionSubRows definitions={p.definitions ?? []} colSpan={9} onOpenEvent={openEvent} />}
+                          {expandedIds.has(p.id) && <DefinitionSubRows definitions={p.definitions ?? []} colSpan={9} onOpenEvent={openEvent} actionsFor={(d) => <TargetCollaboration api={{mode:'internal',projectId:activeProjectId}} entityType="property_definition" entityId={d.id} label={`${p.name}: ${d.name}`} rows={collaboration.rows} onChanged={collaboration.reload} />} />}
                         </React.Fragment>
                       );
                     })}
@@ -800,6 +802,7 @@ interface DefinitionRow {
  * Simplified UI (D-07): plain add/edit/remove, no drag reorder.
  */
 function DefinitionsSection({ projectId, propertyId, focus }: { projectId: string; propertyId: string; focus?: boolean }) {
+  const collaboration = useProjectComments(projectId);
   const sectionRef = useRef<HTMLDivElement>(null);
   const [definitions, setDefinitions] = useState<DefinitionRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -870,6 +873,7 @@ function DefinitionsSection({ projectId, propertyId, focus }: { projectId: strin
                 )}
               </div>
               <div className="flex gap-1 shrink-0">
+                <TargetCollaboration api={{mode:'internal',projectId}} entityType="property_definition" entityId={d.id} label={d.name} rows={collaboration.rows} onChanged={collaboration.reload} />
                 <Button variant="outline" size="sm" onClick={() => { setIsAdding(false); setEditingId(d.id); }}>Edit</Button>
                 {definitions.length > 1 && d.name !== PROPERTY_DEFINITION_DEFAULT_NAME && (
                   <Button variant="outline" size="sm" onClick={() => void handleDelete(d.id)}>Remove</Button>

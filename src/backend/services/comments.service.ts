@@ -15,6 +15,7 @@
  * other entity_type, and for a requirement whose owning use case cannot be recovered at all) so the
  * frontend never has to re-derive it.
  */
+import { getDb } from '../db';
 import { listAttachmentsByComment, type CommentAttachmentRow } from '../dal/comment-attachment.dal';
 import { getEventById } from '../dal/event.dal';
 import { getPropertyById } from '../dal/property.dal';
@@ -29,12 +30,14 @@ export interface CommentEntityInfo {
   /** The requirement's owning use case id (null for every other entity_type, or when a genuinely
    *  removed requirement's use case cannot be recovered either). */
   use_case_id: string | null;
+  property_id?: string | null;
 }
 
 export interface CommentWithLabel extends CommentRow {
   entity_label: string;
   /** See `CommentEntityInfo.use_case_id`. */
   use_case_id: string | null;
+  property_id?: string | null;
   /** T-5-04: comment images, in order (absent on a freshly created comment). */
   attachments?: CommentAttachmentRow[];
 }
@@ -88,6 +91,16 @@ export function resolveCommentEntity(
         use_case_id: null,
       };
     }
+    case 'identity_rule':
+    case 'catalog': {
+      const table = comment.entity_type === 'catalog' ? 'catalogs' : 'identity_rules';
+      const row = getDb().prepare(`SELECT name FROM ${table} WHERE project_id = ? AND id = ? ${table === 'catalogs' ? 'AND deleted_at IS NULL' : ''}`).get(projectId, comment.entity_id) as {name:string} | undefined;
+      return {label: row?.name ?? `(removed ${comment.entity_type.replace('_', ' ')})`, use_case_id:null};
+    }
+    case 'property_definition': {
+      const row = getDb().prepare('SELECT d.name,p.name AS property_name,p.id AS property_id FROM property_definitions d JOIN properties p ON p.id = d.property_id WHERE p.project_id = ? AND d.project_id = p.project_id AND d.id = ? AND d.deleted_at IS NULL AND p.deleted_at IS NULL').get(projectId,comment.entity_id) as {name:string;property_name:string;property_id:string} | undefined;
+      return {label:row ? `${row.property_name}: ${row.name}` : '(removed property definition)',property_id:row?.property_id ?? null,use_case_id:null};
+    }
     case 'requirement':
       return resolveRequirementEntity(projectId, comment.entity_id, labelFor);
     default:
@@ -109,7 +122,7 @@ export function withEntityLabels(projectId: string, comments: CommentRow[]): Com
   const labelFor = buildTargetLabelResolver(projectId);
   const attachments = listAttachmentsByComment(projectId, comments.map((c) => c.id));
   return comments.map((comment) => {
-    const { label, use_case_id } = resolveCommentEntity(projectId, comment, labelFor);
-    return { ...comment, entity_label: label, use_case_id, attachments: attachments.get(comment.id) ?? [] };
+    const { label, use_case_id, property_id } = resolveCommentEntity(projectId, comment, labelFor);
+    return { ...comment, entity_label: label, use_case_id, property_id: property_id ?? null, attachments: attachments.get(comment.id) ?? [] };
   });
 }

@@ -45,6 +45,8 @@
  * `POST`/`PATCH`/`DELETE /api/projects/:id/share` (create/rotate, change access, revoke) are
  * internal, authenticated routes in `routes/projects.ts`, not here.
  */
+import { getDb } from '../db';
+import { sharedHistory } from '../services/sharedHistory.service';
 import { resolveCommentParticipant, publicParticipant, existingCommentParticipantId } from '../services/commentParticipant';
 import express, { Router, type Request, type Response, type NextFunction } from 'express';
 import { requireShare } from '../middleware/share';
@@ -143,12 +145,12 @@ router.get('/:token/files/*', requireShare, async (req: Request, res: Response) 
   // An empty segment (`<project>//comments/...`) is refused outright, and the comments prefix is
   // matched case-insensitively (a case-insensitive filesystem would otherwise still open the file).
   if (rawSegments.some((s) => s === '')) {
-    res.status(404).json({ error: 'File not found.', code: 'NOT_FOUND' });
+    shareNotFound(res);
     return;
   }
   const normalised = rawSegments.join('/');
   if (rawSegments[0] !== req.projectId) {
-    res.status(404).json({ error: 'File not found.', code: 'NOT_FOUND' });
+    shareNotFound(res);
     return;
   }
   // T-5-04 (D-70): a comment image is served only when its comment is visible to this link (not
@@ -158,7 +160,7 @@ router.get('/:token/files/*', requireShare, async (req: Request, res: Response) 
     const attachment = AttachmentDAL.getAttachmentByPath(req.projectId!, normalised);
     const visible = attachment ? isCommentVisibleToLink(req.projectId!, attachment.comment_id) : false;
     if (!visible) {
-      res.status(404).json({ error: 'File not found.', code: 'NOT_FOUND' });
+      shareNotFound(res);
       return;
     }
   }
@@ -167,7 +169,7 @@ router.get('/:token/files/*', requireShare, async (req: Request, res: Response) 
     res.setHeader('Content-Type', opened.mime);
     res.status(200).send(opened.buffer);
   } catch {
-    res.status(404).json({ error: 'File not found.', code: 'NOT_FOUND' });
+    shareNotFound(res);
   }
 });
 
@@ -193,11 +195,12 @@ function isCommentVisibleToLink(projectId: string, commentId: string): boolean {
  * want to tell a share-posted comment apart from one posted internally.
  */
 function toPublicComment(
-  comment: CommentRow
+  comment: CommentRow,
+  definitionParents?: Map<string, string>
 ): Omit<
   CommentRow,
   'project_id' | 'resolved_by' | 'resolved_at' | 'internal_only' | 'status_changed_by' | 'status_changed_at' | 'participant_id'
-> {
+> & {property_id?: string | null} {
   const {
     participant_id: _participantId,
     project_id: _projectId,
@@ -208,7 +211,9 @@ function toPublicComment(
     status_changed_at: _statusChangedAt,
     ...rest
   } = comment;
-  return rest;
+  if (comment.entity_type !== 'property_definition') return rest;
+  const parent = definitionParents ? definitionParents.get(comment.entity_id) : (getDb().prepare('SELECT property_id FROM property_definitions WHERE id = ? AND project_id = ? AND deleted_at IS NULL').get(comment.entity_id,comment.project_id) as {property_id:string} | undefined)?.property_id;
+  return {...rest,property_id:parent ?? null};
 }
 
 // D-49, T-4-04: a cheap in-memory sliding-window guard, 60 posts per 10 minutes per token. Reset on
@@ -273,6 +278,7 @@ router.get('/:token/comments', requireShare, (req: Request, res: Response) => {
     // D-49 amendment 2 (T-4-10): enforced here, server-side. Internal-only rows never leave; a
     // `via_share_only` link additionally hides comments posted internally.
     const project = ProjectDAL.getProjectOrThrow(req.projectId!);
+    if (entity_type && entity_id && !CommentDAL.isCommentTargetVisible(req.projectId!, entity_type as string, entity_id as string)) { shareNotFound(res); return; }
     // Replies inherit the root's internal_only, so dropping internal rows drops their replies too.
     // The share_comments rule applies to roots: a kept root keeps all of its (non-internal) replies.
     let comments = CommentDAL.listComments(req.projectId!, {
@@ -280,16 +286,18 @@ router.get('/:token/comments', requireShare, (req: Request, res: Response) => {
       entity_id: entity_id as string | undefined,
       excludeInternalOnly: true,
     });
+    const visibleTargets = CommentDAL.visibleCommentTargetKeys(req.projectId!);
     const keptRoots = new Set(
-      comments.filter((c) => !c.parent_id && CommentDAL.isRootShareVisible(c, project.share_comments)).map((c) => c.id)
+      comments.filter((c) => !c.parent_id && CommentDAL.isRootShareVisible(c, project.share_comments) && visibleTargets.has(`${c.entity_type}:${c.entity_id}`)).map((c) => c.id)
     );
     comments = comments.filter((c) => keptRoots.has(c.parent_id ?? c.id));
+    const definitionParents = new Map((getDb().prepare('SELECT id,property_id FROM property_definitions WHERE project_id = ? AND deleted_at IS NULL').all(req.projectId!) as {id:string;property_id:string}[]).map((d) => [d.id,d.property_id]));
     const viewerId = existingCommentParticipantId(req) ?? 'unidentified-viewer';
     const attachments = AttachmentDAL.listAttachmentsByComment(req.projectId!, comments.map((c) => c.id));
     res.status(200).json(
       attachReactions(
         req.projectId!,
-        comments.map((c) => ({ ...toPublicComment(c), attachments: (attachments.get(c.id) ?? []).map(AttachmentDAL.toPublicAttachment) })),
+        comments.map((c) => ({ ...toPublicComment(c,definitionParents), attachments: (attachments.get(c.id) ?? []).map(AttachmentDAL.toPublicAttachment) })),
         undefined, viewerId
       )
     );
@@ -320,6 +328,7 @@ router.post('/:token/comments', express.json({ limit: '20kb' }), requireShare, (
       return;
     }
 
+    if (!parentId && entityType && entityId && !CommentDAL.isCommentTargetVisible(req.projectId!, entityType, entityId)) { shareNotFound(res); return; }
     const comment = CommentDAL.createComment(req.projectId!, {
       entity_type: entityType ?? '',
       entity_id: entityId ?? '',
@@ -394,7 +403,7 @@ router.post(
         !isCommentVisibleToLink(req.projectId!, comment.id) ||
         Date.now() - Date.parse(comment.created_at) > ATTACH_WINDOW_MS
       ) {
-        res.status(404).json({ error: 'Comment not found.', code: 'NOT_FOUND' });
+        shareNotFound(res);
         return;
       }
       checkUploadLimits(req.params.token, buffer.length);
@@ -462,6 +471,16 @@ router.post('/:token/comments/:id/reactions', express.json({ limit: '2kb' }), re
   } catch (err) {
     handleRouteError(err, res);
   }
+});
+
+router.get('/:token/history', requireShare, (req: Request, res: Response) => {
+  try {
+    const type = typeof req.query.entity_type === 'string' ? req.query.entity_type : '';
+    const id = typeof req.query.entity_id === 'string' ? req.query.entity_id : '';
+    const limit = req.query.limit === undefined ? 50 : Number(req.query.limit);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) throw new ValidationError('limit must be between 1 and 100.', 'limit');
+    res.json(sharedHistory(req.projectId!, type, id, limit, typeof req.query.before === 'string' ? req.query.before : undefined));
+  } catch (err) { if (err instanceof ValidationError) handleRouteError(err, res); else shareNotFound(res); }
 });
 
 router.all('*', (_req: Request, res: Response) => {

@@ -344,3 +344,12 @@ and focuses/highlights the target. Existing entity anchors still work. Internal 
 links clear filters that would otherwise hide the target. Invalid, removed or private targets
 show a generic unavailable/invalid notice; revoked shares show the invalid-link page. No internal
 fallback is used to resolve a target from a shared page.
+
+
+### Identity, catalog and definition discussions (T-5-22)
+
+Identity rules, catalogs and each named property definition have comment and history controls in Actions, in both internal and shared views. Counts and discussions refer to that exact target; a definition discussion is separate from its parent property's discussion. The shared page loads comments once and distributes permitted rows to the panels. Copy comment links open the same target and thread, including a definition nested under its property.
+
+Internal staff retain discussions after the target is removed. Shared links can read, reply, react, change status or access comment images only while the target and its owning parent remain live in the linked project. Missing, foreign and removed targets return the same public 404. Private threads and the project share-comments setting still apply.
+
+Shared history is available through `GET /api/shared/:token/history?entity_type=<type>&entity_id=<id>`, for the three targets above. It includes only the target's documented public fields and live catalog field changes. Private-only changes are excluded before paging; actors display as Staff or System. Internal history retains its existing staff detail. Done closes the discussion and does not change findings or certification.

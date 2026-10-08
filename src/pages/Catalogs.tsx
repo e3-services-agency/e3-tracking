@@ -1,3 +1,6 @@
+import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
+import { useStore } from '@/src/store';
+import { TargetCollaboration, useProjectComments } from '@/src/features/comments/TargetCollaboration';
 import { StatusBadge } from '@/src/components/ui/badges';
 import { EnumSelect } from '@/src/components/ui/EnumSelect';
 import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
@@ -98,8 +101,12 @@ async function parseJson(res: Response): Promise<any> {
 
 export function Catalogs() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
+  const collaboration = useProjectComments(activeProjectId);
   const [catalogs, setCatalogs] = useState<CatalogRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const requestedEntity = useStore((s) => s.selectedItemIdToEdit);
+  const clearRequestedEntity = useStore((s) => s.setSelectedItemIdToEdit);
+  useEffect(() => { if (requestedEntity && catalogs.some((r) => r.id === requestedEntity)) { setSelectedId(requestedEntity); setIsCreating(false); setIsSheetOpen(true); clearRequestedEntity(null); } },[requestedEntity,catalogs,clearRequestedEntity]);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const dirtyRef = useRef(false);
@@ -143,6 +150,7 @@ export function Catalogs() {
                 <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Version" hintScope="Catalogs">Version</HintTh>
                 <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Mapping role" hintScope="Catalogs">Mapping role</HintTh>
                 <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Status" hintScope="Catalogs">Status</HintTh>
+                <HintTh className="px-4 py-3 font-medium text-gray-500" hintScope="Catalogs">Actions</HintTh>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -154,11 +162,12 @@ export function Catalogs() {
                   <td className="px-6 py-4 text-gray-500">{c.version}{c.live_at ? ' · live' : ''}</td>
                   <td className="px-6 py-4 text-gray-500">{c.mapping_role ?? '—'}</td>
                   <td className="px-6 py-4 text-gray-500"><StatusBadge status={c.status} /></td>
+                  <td className="px-4 py-4"><TargetCollaboration api={{mode:'internal',projectId:activeProjectId}} entityType="catalog" entityId={c.id} label={c.name} rows={collaboration.rows} onChanged={collaboration.reload} /></td>
                 </tr>
               ))}
               {catalogs.length === 0 && (
                 <EmptyState
-                  colSpan={6}
+                  colSpan={7}
                   message="No catalogs yet. Add one to describe a Bloomreach catalog (products, articles, and so on)."
                   actionLabel="Add Catalog"
                   onAction={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }}
@@ -482,7 +491,10 @@ function CatalogEditor({
       {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{saveError}</div>}
 
       {!isCreating && catalog && (
+        <>
+        <CommentsPanel entityType="catalog" entityId={catalog.id} api={{mode:'internal',projectId}} />
         <HistorySection projectId={projectId} entityType="catalog" entityId={catalog.id} parentEntityId={catalog.id} />
+        </>
       )}
 
       {blockReasons.length > 0 && (

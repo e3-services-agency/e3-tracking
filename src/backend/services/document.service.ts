@@ -944,6 +944,7 @@ export function buildTrackingDocument(projectId: string): TrackingDocument {
   const identityRules = ctx.identityRules.map((r) => {
     const flowRule = flowByRuleId.get(r.id);
     return {
+      id: r.id,
       identifier_name: r.identifier_name,
       identity_type: r.identity_type,
       name: r.name,

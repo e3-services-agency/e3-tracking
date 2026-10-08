@@ -1,3 +1,4 @@
+import { CommentsPanel } from '@/src/features/comments/CommentsPanel';
 /**
  * Identity rule editor (T-4-32, D-67 and amendment 1): one sheet in four sections that mirror the
  * Identity rules table. Identifier (what it is), Set by (a trigger event, a standalone identify call,
@@ -616,6 +617,7 @@ export function IdentityRuleEditor({
 
       {saveError && <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert">{saveError}</div>}
 
+      {!isCreating && rule && <CommentsPanel entityType="identity_rule" entityId={rule.id} api={{mode:'internal',projectId}} />}
       {!isCreating && rule && <HistorySection projectId={projectId} entityType="identity_rule" entityId={rule.id} />}
 
       <div className="pt-6 border-t flex justify-between">

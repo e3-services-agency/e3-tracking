@@ -93,6 +93,24 @@ function validateEntityType(entityType: string): asserts entityType is CommentEn
 }
 
 /** Confirms `entity_id` names a real, in-project row of the given type (T-4-02 acceptance: 404 on an unknown id). */
+/** One inventory query for a project-wide shared discussion list (no per-comment lookup). */
+export function visibleCommentTargetKeys(projectId: string): Set<string> {
+ const rows = getDb().prepare(`
+ SELECT 'event' AS type,id FROM events WHERE project_id = @project AND deleted_at IS NULL
+ UNION ALL SELECT 'property',id FROM properties WHERE project_id = @project AND deleted_at IS NULL
+ UNION ALL SELECT 'use_case',id FROM use_cases WHERE project_id = @project AND deleted_at IS NULL
+ UNION ALL SELECT 'requirement',r.id FROM requirements r JOIN use_cases u ON u.id = r.use_case_id WHERE u.project_id = @project AND u.deleted_at IS NULL
+ UNION ALL SELECT 'identity_rule',id FROM identity_rules WHERE project_id = @project
+ UNION ALL SELECT 'catalog',id FROM catalogs WHERE project_id = @project AND deleted_at IS NULL
+ UNION ALL SELECT 'property_definition',d.id FROM property_definitions d JOIN properties p ON p.id = d.property_id WHERE p.project_id = @project AND d.project_id = p.project_id AND p.deleted_at IS NULL AND d.deleted_at IS NULL
+ `).all({project:projectId}) as {type:string;id:string}[];
+ return new Set(rows.map((r) => `${r.type}:${r.id}`));
+}
+export function isCommentTargetVisible(projectId: string, entityType: string, entityId: string): boolean {
+  if (!(COMMENT_ENTITY_TYPES as readonly string[]).includes(entityType)) return false;
+  try { assertEntityExists(projectId, entityType as CommentEntityType, entityId); return true; } catch { return false; }
+}
+
 function assertEntityExists(projectId: string, entityType: CommentEntityType, entityId: string): void {
   let found = false;
   switch (entityType) {
@@ -105,8 +123,18 @@ function assertEntityExists(projectId: string, entityType: CommentEntityType, en
     case 'use_case':
       found = !!getUseCaseById(projectId, entityId);
       break;
+    case 'identity_rule':
+      found = !!getDb().prepare('SELECT id FROM identity_rules WHERE project_id = ? AND id = ?').get(projectId, entityId);
+      break;
+    case 'catalog':
+      found = !!getDb().prepare('SELECT id FROM catalogs WHERE project_id = ? AND id = ? AND deleted_at IS NULL').get(projectId, entityId);
+      break;
+    case 'property_definition':
+      found = !!getDb().prepare('SELECT d.id FROM property_definitions d JOIN properties p ON p.id = d.property_id WHERE p.project_id = ? AND d.project_id = p.project_id AND d.id = ? AND d.deleted_at IS NULL AND p.deleted_at IS NULL').get(projectId, entityId);
+      break;
     case 'requirement':
-      found = !!getRequirementInProject(projectId, entityId);
+      const requirement = getRequirementInProject(projectId, entityId);
+      found = !!requirement && !!getUseCaseById(projectId, requirement.use_case_id);
       break;
   }
   if (!found) {
@@ -275,5 +303,5 @@ export function getShareVisibleRoot(projectId: string, id: string, shareComments
   } catch {
     return null;
   }
-  return isRootShareVisible(row, shareComments) ? row : null;
+  return isRootShareVisible(row, shareComments) && isCommentTargetVisible(projectId, row.entity_type, row.entity_id) ? row : null;
 }

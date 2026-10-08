@@ -47,6 +47,7 @@ import { Button } from '@/src/components/ui/Button';
 import { DefinitionCountBadge } from '@/src/components/ui/DefinitionCountBadge';
 import { PAGE_MAX_WIDTH_CLASS } from '@/src/components/layout/PageShell';
 import { EventCardView, CertificationBadge, type EventCardData } from '@/src/features/events/components/EventCardView';
+import { TargetCollaboration } from '@/src/features/comments/TargetCollaboration';
 import { CommentsPanel, type CommentPanelRow } from '@/src/features/comments/CommentsPanel';
 import { useCommentLink } from '@/src/features/comments/useCommentLink';
 import { parseCommentLink, resolveCommentTarget } from '@/src/features/comments/commentLinks';
@@ -240,7 +241,9 @@ export function SharedPropertyRow({
   renderRef,
   commentButton,
   comments,
+  definitionActions,
 }: {
+  definitionActions?: (id: string, name: string) => React.ReactNode;
   property: PropertyItem;
   commentButton?: React.ReactNode;
   comments?: React.ReactNode;
@@ -272,7 +275,7 @@ export function SharedPropertyRow({
             </p>
           )}
           <SimpleTable definitions
-            head={['Definition', 'Description', 'Allowed values', 'Formats', 'Example']}
+            head={['Definition', 'Description', 'Allowed values', 'Formats', 'Example', 'Actions']}
             rows={property.definitions.map((d) => [
               <span key="n" className="inline-flex max-w-full flex-wrap items-center gap-1.5 [overflow-wrap:anywhere]">
                 {d.name}
@@ -282,6 +285,7 @@ export function SharedPropertyRow({
               d.allowed_values ? d.allowed_values.map((v) => v.value).join(', ') : '—',
               d.formats.map(formatDisplayName).join(', ') || '—',
               <ExampleCell key="ex" value={formatExampleValues(d.example_values)} />,
+              d.id && definitionActions ? definitionActions(d.id, d.name) : null,
             ])}
           />
         </div>
@@ -523,6 +527,9 @@ export function SharedProject({ token }: { token: string }) {
     if (!resolved) return null;
     if (target.entityType === 'event') return doc.events.some((event) => event.id === target.entityId) ? { ...resolved, target, useCaseId: null } : null;
     if (target.entityType === 'property') return [...doc.properties, ...(doc.event_properties ?? [])].some((property) => property.property_id === target.entityId) ? { ...resolved, target, useCaseId: null } : null;
+    if (target.entityType === 'identity_rule') return doc.identity_rules.some((r) => r.id === target.entityId) ? {...resolved,target,useCaseId:null} : null;
+    if (target.entityType === 'catalog') return doc.catalogs.some((r) => r.id === target.entityId) ? {...resolved,target,useCaseId:null} : null;
+    if (target.entityType === 'property_definition') return [...doc.properties,...(doc.event_properties ?? [])].some((p) => p.definitions.some((d) => d.id === target.entityId)) ? {...resolved,target,useCaseId:null} : null;
     const owner = doc.use_cases.find((useCase) => target.entityType === 'use_case' ? useCase.id === target.entityId : useCase.requirements.some((requirement) => requirement.id === target.entityId));
     return owner ? { ...resolved, target, useCaseId: owner.id } : null;
   }, [doc, comments, commentLink]);
@@ -532,9 +539,10 @@ export function SharedProject({ token }: { token: string }) {
     const expand = (previous: Set<string>, id: string) => previous.has(id) ? previous : new Set(previous).add(id);
     if (target.entityType === 'event') setOpenEvents((previous) => expand(previous, target.entityId));
     if (target.entityType === 'property') setOpenProperties((previous) => expand(previous, target.entityId));
+    if (target.entityType === 'property_definition' && doc) { const p = [...doc.properties,...(doc.event_properties ?? [])].find((p) => p.definitions.some((d) => d.id === target.entityId)); if (p) setOpenProperties((previous) => expand(previous,p.property_id)); }
     if (useCaseId) setOpenUseCases((previous) => expand(previous, useCaseId));
     setOpenThreads((previous) => expand(previous, `${target.entityType}:${target.entityId}`));
-  }, [linkedComment]);
+  }, [linkedComment, doc]);
 
   /** Expands the event a hash points at (if any) and scrolls to the hash target once rendered. */
   const goToHash = useCallback(
@@ -817,6 +825,7 @@ export function SharedProject({ token }: { token: string }) {
                   renderRef={renderRef}
                   expanded={openProperties.has(p.property_id)}
                   onToggle={() => toggle(setOpenProperties, p.property_id)}
+                  definitionActions={(id, name) => <TargetCollaboration api={api} entityType="property_definition" entityId={id} label={`${p.name}: ${name}`} rows={comments} onChanged={reloadComments} forceOpen={linkedComment?.target.entityId === id} />}
                   commentButton={<CommentCountButton count={commentsFor('property', p.property_id).length} open={openThreads.has(`property:${p.property_id}`)} label={p.name} onClick={() => {
                     setOpenProperties((previous) => new Set(previous).add(p.property_id));
                     toggleThread(`property:${p.property_id}`);
@@ -1023,7 +1032,7 @@ export function SharedProject({ token }: { token: string }) {
                 </div>
               )}
               <SimpleTable
-                head={['Name', 'Identifier', 'Type', 'SDK call', 'Transformations', 'Trigger', 'Set by', 'Carried by']}
+                head={['Name', 'Identifier', 'Type', 'SDK call', 'Transformations', 'Trigger', 'Set by', 'Carried by', 'Actions']}
                 rows={doc.identity_rules.map((r) => [
                   <span key="name" className="inline-flex items-start gap-1.5"><SHARED_SECTION_ICONS.identity size={14} className="shrink-0" aria-hidden="true" />{r.name}<CopyNameButton name={r.name} /></span>,
                   r.identifier_name,
@@ -1033,6 +1042,7 @@ export function SharedProject({ token }: { token: string }) {
                   r.trigger_text ?? '—',
                   <SetByCell key="sb" setBy={r.set_by} binds={r.binds} />,
                   (r.carried_by ?? []).join(', ') || '—',
+                  <TargetCollaboration key="collaboration" api={api} entityType="identity_rule" entityId={r.id} label={r.name} rows={comments} onChanged={reloadComments} forceOpen={linkedComment?.target.entityId === r.id} />,
                 ])}
               />
             </SectionCard>
@@ -1090,7 +1100,7 @@ export function SharedProject({ token }: { token: string }) {
                     <SharedEntityRow key={c.id ?? c.name} anchor={anchor} name={c.name} kind="catalog" expanded={expanded}
                       onToggle={() => toggle(setOpenCatalogs, anchor)} scrollMarginTop={stickyScrollMarginPx('event')}
                       cells={[c.description ?? '—', catalogMarketLabel(c.market, c.language) || '—', enumLabelOr('status', c.status) || '—', fields.length,
-                        <div key="actions" className="flex flex-wrap gap-1"><CopyNameButton name={c.name} /><CopyLinkButton anchor={anchor} label={c.name} /></div>]}>
+                        <div key="actions" className="flex flex-wrap gap-1">{c.id && <TargetCollaboration api={api} entityType="catalog" entityId={c.id} label={c.name} rows={comments} onChanged={reloadComments} forceOpen={linkedComment?.target.entityId === c.id} />}<CopyNameButton name={c.name} /><CopyLinkButton anchor={anchor} label={c.name} /></div>]}>
                       {meta && <p className="text-xs text-gray-500 [overflow-wrap:anywhere]">{meta}</p>}
                       {fields.length === 0 ? (
                         <p className="mt-2 text-xs text-gray-500">No fields defined.</p>

@@ -1,0 +1,16 @@
+import {describe,expect,it} from 'vitest';
+import Database from 'better-sqlite3';
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+const dir=path.dirname(fileURLToPath(import.meta.url));
+describe('0039 populated schema0038 upgrade',()=>{
+ it('preserves attribution, private threads, statuses, legacy reactions, attachments and final child foreign keys',()=>{const db=new Database(':memory:');try{db.pragma('foreign_keys=OFF');for(const file of fs.readdirSync(dir).filter(f=>f.endsWith('.sql')&&f<'0039').sort())db.exec(fs.readFileSync(path.join(dir,file),'utf8'));
+ db.prepare("INSERT INTO clients(id,key,name,created_at,updated_at) VALUES('client','client','Client','now','now')").run();db.prepare("INSERT INTO projects(id,client_id,key,name,created_at,updated_at) VALUES('project','client','project','Project','now','now')").run();
+ db.prepare("INSERT INTO comments(id,project_id,entity_type,entity_id,author_name,via_share,body,created_at,internal_only,parent_id,status,status_changed_by,status_changed_at,participant_id,author_kind,avatar_url,resolved_at,resolved_by) VALUES(?, 'project','event','removed-event','Author',1,'Evidence','then',1,?,'done','Actor','changed','participant','google','https://example.com/avatar','resolved','Resolver')").run('root',null);db.prepare("INSERT INTO comments(id,project_id,entity_type,entity_id,author_name,body,created_at,parent_id,participant_id,author_kind) VALUES('reply','project','event','removed-event','Guest','Reply','later','root','visitor','guest')").run();
+ db.prepare("INSERT INTO comment_reactions(id,project_id,comment_id,author_name,kind,created_at) VALUES('reaction','project','root','Legacy','on_it','then')").run();db.prepare("INSERT INTO comment_attachments(id,project_id,comment_id,file_path,mime,width,height,size_bytes,sort_order,created_at) VALUES('attachment','project','reply','project/comments/reply/file.png','image/png',2,3,10,0,'then')").run();
+ const before={comments:db.prepare('SELECT * FROM comments ORDER BY id').all(),reactions:db.prepare('SELECT * FROM comment_reactions').all(),attachments:db.prepare('SELECT * FROM comment_attachments').all()};
+ db.transaction(()=>db.exec(fs.readFileSync(path.join(dir,'0039_comment_targets.sql'),'utf8'))).immediate();expect(db.pragma('foreign_key_check')).toEqual([]);db.pragma('foreign_keys=ON');expect(db.prepare('SELECT * FROM comments ORDER BY id').all()).toEqual(before.comments);expect(db.prepare('SELECT * FROM comment_reactions').all()).toEqual(before.reactions);expect(db.prepare('SELECT * FROM comment_attachments').all()).toEqual(before.attachments);
+ for(const table of ['comments','comment_reactions','comment_attachments'])expect((db.pragma(`foreign_key_list(${table})`) as {table:string}[]).filter(r=>r.table.startsWith('comments')).map(r=>r.table)).toEqual(['comments']);expect((db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='comments'").all() as {name:string}[]).map(r=>r.name)).toContain('idx_comments_parent');db.prepare("DELETE FROM comments WHERE id='root'").run();expect(db.prepare('SELECT * FROM comments').all()).toEqual([]);expect(db.prepare('SELECT * FROM comment_attachments').all()).toEqual([]);expect(db.prepare('SELECT * FROM comment_reactions').all()).toEqual([]);
+ }finally{db.close();}});
+});

@@ -22,7 +22,9 @@ export function DefinitionSubRows({
   definitions,
   colSpan,
   onOpenEvent,
+  actionsFor,
 }: {
+  actionsFor?: (definition: PropertyDefinitionSummary) => React.ReactNode;
   definitions: PropertyDefinitionSummary[];
   colSpan: number;
   onOpenEvent: (eventId: string) => void;
@@ -31,7 +33,7 @@ export function DefinitionSubRows({
     <>
       {definitions.map((d) => (
         <tr key={d.id} className="bg-gray-50 text-xs text-gray-600">
-          <td className="pl-24 pr-6 py-2 [overflow-wrap:anywhere]" colSpan={colSpan}>
+          <td className="pl-24 pr-6 py-2 [overflow-wrap:anywhere]" colSpan={actionsFor ? colSpan - 1 : colSpan}>
             <span className="font-medium text-gray-800">{d.name}</span>
             {d.description && <span className="ml-2 text-gray-500">{d.description}</span>}
             <span className="ml-2 text-gray-500">
@@ -50,6 +52,7 @@ export function DefinitionSubRows({
               ))}
             </span>
           </td>
+          {actionsFor && <td className="px-4 py-2">{actionsFor(d)}</td>}
         </tr>
       ))}
     </>

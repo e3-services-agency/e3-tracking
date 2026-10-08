@@ -220,7 +220,7 @@ describe('share routes', () => {
     const att = await (await upload(`${baseUrl}/api/projects/${projectId}/comments/${c.id}/attachments`, await png())).json();
     const viaShare = await fetch(`${baseUrl}/api/shared/${token}/files/${att.file_path}`);
     expect(viaShare.status).toBe(404);
-    expect((await viaShare.json()).code).toBe('NOT_FOUND');
+    expect(await viaShare.json()).toEqual({error:'This share link is not valid.',code:'SHARE_NOT_FOUND'});
     // the link cannot attach to it either
     expect((await upload(`${baseUrl}/api/shared/${token}/comments/${c.id}/attachments`, await png())).status).toBe(404);
     // internal still serves it

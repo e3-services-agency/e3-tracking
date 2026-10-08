@@ -1,3 +1,5 @@
+import { useStore } from '@/src/store';
+import { TargetCollaboration, useProjectComments } from '@/src/features/comments/TargetCollaboration';
 import { StatusBadge } from '@/src/components/ui/badges';
 import { EnumSelect } from '@/src/components/ui/EnumSelect';
 import { FieldLabel, HintTh } from '@/src/components/ui/FieldHint';
@@ -61,12 +63,16 @@ async function parseJson(res: Response): Promise<any> {
 
 export function IdentityRules() {
   const { activeProjectId, hasValidProjectContext } = useProjectShell();
+  const collaboration = useProjectComments(activeProjectId);
   const [rules, setRules] = useState<IdentityRuleRow[]>([]);
   const [events, setEvents] = useState<EventOption[]>([]);
   const [sources, setSources] = useState<SourceOption[]>([]);
   const [codegen, setCodegen] = useState<IdentityCodegenSnippets | null>(null);
   const [flowParagraph, setFlowParagraph] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const requestedEntity = useStore((s) => s.selectedItemIdToEdit);
+  const clearRequestedEntity = useStore((s) => s.setSelectedItemIdToEdit);
+  useEffect(() => { if (requestedEntity && rules.some((r) => r.id === requestedEntity)) { setSelectedId(requestedEntity); setIsCreating(false); setIsSheetOpen(true); clearRequestedEntity(null); } },[requestedEntity,rules,clearRequestedEntity]);
   const [focusSection, setFocusSection] = useState<IdentityEditorSection | null>(null);
   // Bumped only when the sheet is opened, so saving a new rule (which sets selectedId) does not remount the editor.
   const [editorKey, setEditorKey] = useState(0);
@@ -183,6 +189,7 @@ ${flowParagraph}
                 <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Set by" hintScope="Identity">Set by</HintTh>
                 <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Carried by" hintScope="Identity">Carried by</HintTh>
                 <HintTh className="px-6 py-3 font-medium text-gray-500" hint="Status" hintScope="Identity">Status</HintTh>
+                <HintTh className="px-4 py-3 font-medium text-gray-500" hintScope="Identity">Actions</HintTh>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -206,11 +213,12 @@ ${flowParagraph}
                   <td className="px-6 py-4 text-gray-500 cursor-pointer" title="Edit how this identifier is set" onClick={() => openRule(rule.id, 'set_by')}><SetByCell setBy={rule.set_by} binds={rule.binds} /></td>
                   <td className="px-6 py-4 text-gray-500 cursor-pointer" title="Edit which events carry this identifier" onClick={() => openRule(rule.id, 'carried_by')}><CarriedByCell events={rule.carried_by} /></td>
                   <td className="px-6 py-4 text-gray-500"><StatusBadge status={rule.status} /></td>
+                  <td className="px-4 py-4"><TargetCollaboration api={{mode:'internal',projectId:activeProjectId}} entityType="identity_rule" entityId={rule.id} label={rule.name} rows={collaboration.rows} onChanged={collaboration.reload} /></td>
                 </tr>
               ))}
               {rules.length === 0 && (
                 <EmptyState
-                  colSpan={9}
+                  colSpan={10}
                   message="No identity rules yet. Add one to describe how a customer identifier is captured and sent to Bloomreach."
                   actionLabel="Add Identity Rule"
                   onAction={() => { setSelectedId(null); setIsCreating(true); setIsSheetOpen(true); }}

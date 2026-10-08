@@ -504,7 +504,7 @@ export const BACKUP_VERSION = 1;
 /** `Comment.entity_type`: the four panels a client (via a share link) or a team member can attach
  * a comment to. Not a FK — a comment survives its target's soft delete so the panel can still list
  * it (`entity_label` on read falls back to "removed <kind>" per the target's own resolver). */
-export const COMMENT_ENTITY_TYPES = ['event', 'property', 'use_case', 'requirement'] as const;
+export const COMMENT_ENTITY_TYPES = ['event', 'property', 'use_case', 'requirement', 'identity_rule', 'catalog', 'property_definition', 'finding', 'qa_report'] as const;
 export type CommentEntityType = (typeof COMMENT_ENTITY_TYPES)[number];
 
 /** D-70, T-5-02: comment status on a root comment (replaces the resolved flag; resolved = done). */

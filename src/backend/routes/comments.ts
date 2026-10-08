@@ -99,7 +99,7 @@ router.post('/', (req: Request, res: Response) => {
       internal_only: internalOnly ?? false,
     });
     const entity = resolveCommentEntity(req.projectId!, comment);
-    res.status(201).json({ ...comment, use_case_id: entity.use_case_id, entity_label: entity.label });
+    res.status(201).json({ ...comment, use_case_id: entity.use_case_id, property_id: entity.property_id ?? null, entity_label: entity.label });
   } catch (err) {
     handleRouteError(err, res);
   }
@@ -127,7 +127,7 @@ router.patch('/:id', (req: Request, res: Response) => {
       comment = CommentDAL.setCommentResolved(req.projectId!, req.params.id, body.resolved, by);
     }
     const entity = resolveCommentEntity(req.projectId!, comment);
-    res.status(200).json({ ...comment, use_case_id: entity.use_case_id, entity_label: entity.label });
+    res.status(200).json({ ...comment, use_case_id: entity.use_case_id, property_id: entity.property_id ?? null, entity_label: entity.label });
   } catch (err) {
     handleRouteError(err, res);
   }
@@ -147,7 +147,7 @@ router.post('/:id/reactions', (req: Request, res: Response) => {
     const entity = resolveCommentEntity(req.projectId!, result.comment);
     res.status(200).json({
       added: result.added,
-      comment: { ...result.comment, use_case_id: entity.use_case_id, entity_label: entity.label },
+      comment: { ...result.comment, use_case_id: entity.use_case_id, property_id: entity.property_id ?? null, entity_label: entity.label },
       reactions: listReactionSummaries(req.projectId!, [req.params.id], req.userName, req.userId ? staffParticipantId(req.userId) : undefined).get(req.params.id) ?? [],
     });
   } catch (err) {

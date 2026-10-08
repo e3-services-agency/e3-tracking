@@ -72,6 +72,11 @@ describe('Shared property count and hierarchy', () => {
     await act(async () => { comment.click(); });
     expect(container!.querySelector('th button')!.getAttribute('aria-expanded')).toBe('false');
     expect(comment.closest('td')).not.toBeNull();
+    const markdown = container!.querySelector<HTMLButtonElement>(`button[aria-label="Copy property ${longName} as Markdown"]`)!;
+    expect(markdown.title).toBe(`Copy property ${longName} as Markdown`);
+    expect(markdown.querySelector('span')!.className).toBe('sr-only');
+    expect(markdown.parentElement!.className).toContain('flex-nowrap');
+    expect(markdown.parentElement!.className).toContain('min-w-[148px]');
     expect(container!.querySelector('button button')).toBeNull();
   });
 });

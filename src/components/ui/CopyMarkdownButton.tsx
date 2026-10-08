@@ -4,7 +4,7 @@
  * plus `document.execCommand('copy')` where the async clipboard API is unavailable (plain http).
  */
 import React, { useState } from 'react';
-import { Check, ClipboardCopy } from 'lucide-react';
+import { Check, ClipboardCopy, CircleAlert } from 'lucide-react';
 
 export async function copyTextToClipboard(text: string): Promise<boolean> {
   try {
@@ -35,10 +35,12 @@ export function CopyMarkdownButton({
   getMarkdown,
   label = 'Copy as Markdown',
   className = '',
+  iconOnly = false,
 }: {
   getMarkdown: () => string | Promise<string>;
   label?: string;
   className?: string;
+  iconOnly?: boolean;
 }) {
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle');
 
@@ -56,11 +58,13 @@ export function CopyMarkdownButton({
   return (
     <button
       type="button"
-      onClick={() => void onClick()}
-      className={`inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 ${className}`}
+      onClick={(event) => { event.stopPropagation(); void onClick(); }}
+      aria-label={label}
+      title={state === 'copied' ? 'Copied' : state === 'failed' ? 'Copy failed' : label}
+      className={`relative inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white ${iconOnly ? 'p-1.5 shrink-0' : 'px-3 py-1.5'} text-sm font-medium text-gray-700 hover:bg-gray-50 ${className}`}
     >
-      {state === 'copied' ? <Check className="w-4 h-4" /> : <ClipboardCopy className="w-4 h-4" />}
-      {state === 'copied' ? 'Copied' : state === 'failed' ? 'Copy failed' : label}
+      {state === 'copied' ? <Check aria-hidden="true" className="w-4 h-4" /> : state === 'failed' ? <CircleAlert aria-hidden="true" className="w-4 h-4" /> : <ClipboardCopy aria-hidden="true" className="w-4 h-4" />}
+      <span className={iconOnly ? 'sr-only' : undefined} aria-live="polite">{state === 'copied' ? 'Copied' : state === 'failed' ? 'Copy failed' : label}</span>
     </button>
   );
 }

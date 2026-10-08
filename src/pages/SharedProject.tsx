@@ -258,7 +258,7 @@ export function SharedPropertyRow({
     <SharedEntityRow anchor={anchor} name={property.name} kind="property" expanded={expanded} onToggle={onToggle}
       scrollMarginTop={stickyScrollMarginPx('event')} nameIndented nameSuffix={<DefinitionCountBadge count={property.definitions.length} />}
       cells={[property.description ?? '—', <CategoryBadge key="category" category={property.category} />, property.data_type,
-        <div key="actions" className="flex flex-wrap items-center gap-1">{commentButton}<CopyMarkdownButton getMarkdown={() => propertiesToMarkdown([property])} label={`Copy property ${property.name} as Markdown`} /><CopyLinkButton anchor={anchor} label={property.name} /><CopyNameButton name={property.name} /></div>]}>
+        <div key="actions" className="flex min-w-[148px] flex-nowrap items-center gap-1">{commentButton}<CopyMarkdownButton iconOnly getMarkdown={() => propertiesToMarkdown([property])} label={`Copy property ${property.name} as Markdown`} /><CopyLinkButton anchor={anchor} label={property.name} /><CopyNameButton name={property.name} /></div>]}>
       {expanded && (
         <div className="space-y-2">
           {comments}
@@ -752,7 +752,7 @@ export function SharedProject({ token }: { token: string }) {
                     </div>
                     <SharedEntityTable label={label} columns={[
                       { label: 'Name', width: '24%' }, { label: 'Description', width: '28%' }, { label: 'Sources', width: '19%' },
-                      { label: 'Certification', width: '13%' }, { label: 'Actions', width: '16%' },
+                      { label: 'Certification', width: '140px' }, { label: 'Actions', width: '180px' },
                     ]}>
                     {inGroup.map((event) => {
                       const expanded = openEvents.has(event.id);
@@ -767,7 +767,7 @@ export function SharedProject({ token }: { token: string }) {
                             )) : '—'}</div>,
                             <CertificationBadge key="certification" certification={event.certification} compact />,
 
-                            <div key="actions" className="flex flex-wrap items-center gap-1"><CommentCountButton key="comments"
+                            <div key="actions" className="flex min-w-[148px] flex-nowrap items-center gap-1"><CommentCountButton key="comments"
                               count={commentsFor('event', event.id).length}
                               open={openThreads.has(`event:${event.id}`)}
                               label={`event ${event.name}`}
@@ -777,7 +777,7 @@ export function SharedProject({ token }: { token: string }) {
                                   setOpenThreads((prev) => new Set(prev).add(`event:${event.id}`));
                                 } else toggleThread(`event:${event.id}`);
                               }}
-                            /><CopyMarkdownButton getMarkdown={() => eventCardToMarkdown(event)} label={`Copy event ${event.name} as Markdown`} /><CopyLinkButton anchor={anchor} label={event.name} /><CopyNameButton name={event.name} /></div>,
+                            /><CopyMarkdownButton iconOnly getMarkdown={() => eventCardToMarkdown(event)} label={`Copy event ${event.name} as Markdown`} /><CopyLinkButton anchor={anchor} label={event.name} /><CopyNameButton name={event.name} /></div>,
                           ]}>
                           {expanded && (
                             <div>
@@ -818,7 +818,7 @@ export function SharedProject({ token }: { token: string }) {
             const setProperties = (ids: string[], expanded: boolean) => setOpenProperties((prev) => setExpanded(prev, ids, expanded));
             const renderRows = (items: PropertyItem[]) => (
               <SharedEntityTable label="Properties" columns={[
-                { label: 'Name', width: '28%' }, { label: 'Description', width: '32%' }, { label: 'Category', width: '15%' }, { label: 'Type', width: '9%' }, { label: 'Actions', width: '16%' },
+                { label: 'Name', width: '28%' }, { label: 'Description', width: '32%' }, { label: 'Category', width: '15%' }, { label: 'Type', width: '9%' }, { label: 'Actions', width: '180px' },
               ]}>
               {items.map((p) => (
                 <SharedPropertyRow
@@ -924,7 +924,7 @@ export function SharedProject({ token }: { token: string }) {
                               setOpenThreads((prev) => new Set(prev).add(`use_case:${uc.id}`));
                             } else toggleThread(`use_case:${uc.id}`);
                           }}
-                        /><CopyMarkdownButton getMarkdown={() => useCaseToMarkdown(uc)} label={`Copy use case ${uc.name} as Markdown`} /><CopyLinkButton anchor={ucAnchor} label={uc.name} /><CopyNameButton name={uc.name} />
+                        /><CopyMarkdownButton iconOnly getMarkdown={() => useCaseToMarkdown(uc)} label={`Copy use case ${uc.name} as Markdown`} /><CopyLinkButton anchor={ucAnchor} label={uc.name} /><CopyNameButton name={uc.name} />
                         {uc.documentation_url && (
                           <a href={uc.documentation_url} target="_blank" rel="noreferrer" className={`text-xs ${linkClass}`}>
                             Documentation
@@ -1163,7 +1163,7 @@ export function SharedProject({ token }: { token: string }) {
               actions={<CopyMarkdownButton getMarkdown={() => findingsSummaryToMarkdown(groups.summary)} label="Copy findings as Markdown" />}
             >
               <FindingsSummaryBlock summary={groups.summary} anchorFor={(eventId) => anchorById.get(eventId)} />
-              <div className="space-y-2" aria-label="Individual finding discussions">{[...doc.events.flatMap(e=>e.findings),...(doc.unattached_findings??[])].map(f=><div key={f.id} className="border-t py-2"><p>Finding #{String(f.finding_sequence??'').padStart(3,'0')} / {f.message}</p><TargetCollaboration api={api} entityType="finding" entityId={f.id} label={`Finding #${String(f.finding_sequence??'').padStart(3,'0')}`} rows={comments} onChanged={reloadComments} forceOpen={linkedComment?.target.entityId===f.id}/></div>)}</div>
+              <div className="space-y-2" aria-label="Individual finding discussions">{[...doc.events.flatMap(e=>e.findings),...(doc.unattached_findings??[])].map(f=><div key={f.id} className="border-t py-2"><p className="text-sm leading-relaxed break-words">Finding #{String(f.finding_sequence??'').padStart(3,'0')} / {f.message}</p><TargetCollaboration api={api} entityType="finding" entityId={f.id} label={`Finding #${String(f.finding_sequence??'').padStart(3,'0')}`} rows={comments} onChanged={reloadComments} forceOpen={linkedComment?.target.entityId===f.id}/></div>)}</div>
               <div className="mt-4 space-y-4">
                 {groups.findingGroups.map((g) => (
                   <div key={g.id} id={g.id} style={marginTop('group')} className="space-y-2">

@@ -376,7 +376,7 @@ Invoke-E3Sdk compute ssh e3-tracking --project=e3-tracking --zone=europe-west1-b
     --command='sudo bash ~/e3-upgrade/e3-maintenance.sh rollback /var/backups/e3-tracking/pre-0037-TIMESTAMP' -- -T
 ```
 
-For the existing Bash deploy scripts, start Git Bash in the repository and use this SDK wrapper. It translates existing local file paths for SDK scp, then disables MSYS argument rewriting only for that SDK call. Docker retains its normal local-path conversion. Confirm the wrapper with `gcloud config get-value project` before mutations.
+For the existing Bash deploy scripts, start Git Bash in the repository and use this SDK wrapper. It translates existing absolute local paths, including Git Bash drive paths (`/c/...`) and `/tmp/...` staging files, for SDK scp, then disables MSYS argument rewriting only for that SDK call. Remote scp targets such as `e3-tracking:e3-deploy/` and full remote command strings pass through unchanged. Docker retains its normal local-path conversion. Confirm the wrapper with `gcloud config get-value project` before mutations.
 
 ```bash
 export CLOUDSDK_PYTHON='C:/Users/JNPAN~1/AppData/Local/Programs/Python/PYTHON~1/python.exe'
@@ -403,6 +403,8 @@ bash deploy/gcp/03-deploy.sh REVIEWED_TAG --dry-run
 # Snapshot and public env update must finish before the actual03 invocation.
 bash deploy/gcp/03-deploy.sh REVIEWED_TAG --yes
 ```
+
+If Windows pscp rejects `/tmp/.../env.template`, the active SDK wrapper is missing local staging-path conversion. Ensure the exported `gcloud` function above is active in the shell running `03-deploy.sh`; do not restrict conversion to drive prefixes alone. Its existing-absolute-path check converts both repository files and mktemp staging files while preserving remote command strings and scp targets.
 
 `02-build-push.sh` derives its tag from `git describe --always --dirty`; record the exact full commit, approved source diff and registry digest even when an unchanged machine `.mcp.json` adds the dirty suffix. `03-deploy.sh` pulls only app/backup images (MCP uses the same cached application image), preserving cached Caddy/oauth2-proxy images. Caddy/oauth2-proxy stay running during the data snapshot. If the reviewed edge configuration changed, explicitly recreate them after config installation with `docker compose --env-file .env -f docker-compose.yml -f docker-compose.gcp.yml --profile edge up -d --force-recreate --pull never caddy oauth2-proxy`; retain recorded edge image digests, and do not run a broad pull.
 
